@@ -1,0 +1,365 @@
+let TX_CO_INIT = 0
+let TX_CO_PREPARING = 1
+let TX_CO_PREPARED = 2
+let TX_CO_COMMITTING = 3
+let TX_CO_COMMITTED = 4
+let TX_CO_ABORTING = 5
+let TX_CO_ABORTED = 6
+
+let TX_PAR_IDLE = 0
+let TX_PAR_PREPARING = 1
+let TX_PAR_PREPARED = 2
+let TX_PAR_COMMITTED = 3
+let TX_PAR_ABORTED = 4
+
+let participant_new(id) =
+    [id, "", TX_PAR_IDLE, 0, 0]
+
+let par_id(p) = p[0]
+let par_url(p) = p[1]
+let par_state(p) = p[2]
+let par_last_resp(p) = p[3]
+let par_can_commit(p) = p[4]
+
+let par_set_state(p, state) =
+    p[2] = state
+    p
+
+let par_set_can_commit(p, can) =
+    p[4] = can
+    p
+
+let par_set_last_resp(p, time) =
+    p[3] = time
+    p
+
+let coordinator_new(tx_id, timeout) =
+    [tx_id, [], TX_CO_INIT, [], 0, timeout]
+
+let co_tx_id(c) = c[0]
+let co_participants(c) = c[1]
+let co_state(c) = c[2]
+let co_log(c) = c[3]
+let co_start(c) = c[4]
+let co_timeout(c) = c[5]
+
+let co_set_state(c, state) =
+    c[2] = state
+    c
+
+let co_add_participant(c, p) =
+    let parts = co_participants(c)
+    parts.push(p)
+    c[1] = parts
+    c
+
+let co_log_append(c, entry) =
+    let log = co_log(c)
+    log.push(entry)
+    c[3] = log
+    c
+
+let phase1_prepare(c, current_time) =
+    co_set_state(c, TX_CO_PREPARING)
+    co_log_append(c, ["prepare_start", current_time])
+    let parts = co_participants(c)
+    let all_yes = 1
+    let i = 0
+    let n = len(parts)
+    for i < n
+        let p = parts[i]
+        par_set_state(p, TX_PAR_PREPARING)
+        par_set_can_commit(p, 1)
+        par_set_last_resp(p, current_time)
+        if par_can_commit(p) == 0
+            all_yes = 0
+            i = n
+        par_set_state(p, TX_PAR_PREPARED)
+        i = i + 1
+    if all_yes == 1
+        co_set_state(c, TX_CO_PREPARED)
+        co_log_append(c, ["prepare_done", current_time, "all_yes"])
+        1
+    else
+        co_set_state(c, TX_CO_ABORTING)
+        co_log_append(c, ["prepare_done", current_time, "some_no"])
+        0
+
+let phase2_commit(c, current_time) =
+    co_set_state(c, TX_CO_COMMITTING)
+    co_log_append(c, ["commit_start", current_time])
+    let parts = co_participants(c)
+    let i = 0
+    let n = len(parts)
+    for i < n
+        par_set_state(parts[i], TX_PAR_COMMITTED)
+        i = i + 1
+    co_set_state(c, TX_CO_COMMITTED)
+    co_log_append(c, ["commit_done", current_time])
+    1
+
+let phase2_abort(c, current_time) =
+    co_set_state(c, TX_CO_ABORTING)
+    co_log_append(c, ["abort_start", current_time])
+    let parts = co_participants(c)
+    let i = 0
+    let n = len(parts)
+    for i < n
+        par_set_state(parts[i], TX_PAR_ABORTED)
+        i = i + 1
+    co_set_state(c, TX_CO_ABORTED)
+    co_log_append(c, ["abort_done", current_time])
+    0
+
+let two_phase_commit(c, current_time) =
+    let prepare_ok = phase1_prepare(c, current_time)
+    if prepare_ok == 1
+        phase2_commit(c, current_time)
+    else
+        phase2_abort(c, current_time)
+
+let check_timeout(c, current_time) =
+    let elapsed = current_time - co_start(c)
+    if elapsed > co_timeout(c)
+        if co_state(c) == TX_CO_PREPARING
+            phase2_abort(c, current_time)
+            1
+        else
+            0
+    else
+        0
+
+let tcc_participant_new(id, try_fn, confirm_fn, cancel_fn) =
+    [id, try_fn, confirm_fn, cancel_fn, 0, 0]
+
+let tcc_par_id(p) = p[0]
+let tcc_par_try(p) = p[1]
+let tcc_par_confirm(p) = p[2]
+let tcc_par_cancel(p) = p[3]
+let tcc_par_state(p) = p[4]
+let tcc_par_result(p) = p[5]
+
+let tcc_try(participants) =
+    let all_ok = 1
+    let tried = []
+    let i = 0
+    let n = len(participants)
+    for i < n
+        let p = participants[i]
+        p[4] = 1
+        p[5] = 1
+        tried.push(p)
+        if p[5] == 0
+            all_ok = 0
+            i = n
+        i = i + 1
+    [all_ok, tried]
+
+let tcc_confirm(participants) =
+    let all_ok = 1
+    let i = 0
+    let n = len(participants)
+    for i < n
+        let p = participants[i]
+        if p[4] == 1
+            p[4] = 2
+        i = i + 1
+    all_ok
+
+let tcc_cancel(participants) =
+    let i = 0
+    let n = len(participants)
+    for i < n
+        let p = participants[i]
+        if p[4] == 1
+            p[4] = 3
+        i = i + 1
+    1
+
+let tcc_execute(participants) =
+    let try_result = tcc_try(participants)
+    if try_result[0] == 1
+        tcc_confirm(participants)
+        1
+    else
+        tcc_cancel(try_result[1])
+        0
+
+let idempotency_new() =
+    {}
+
+let idem_check(store, tx_id, op) =
+    let key = tx_id * 65537 + op
+    let result = store[key]
+    if result == 0
+        0
+    else
+        result
+
+let idem_record(store, tx_id, op, result) =
+    let key = tx_id * 65537 + op
+    store[key] = result
+    store
+
+let recover_from_log(c) =
+    let log = co_log(c)
+    let last_state = TX_CO_INIT
+    let i = 0
+    let n = len(log)
+    for i < n
+        let entry = log[i]
+        let event = entry[0]
+        if event == "prepare_start"
+            last_state = TX_CO_PREPARING
+        else
+            0
+        if event == "prepare_done"
+            if entry[2] == "all_yes"
+                last_state = TX_CO_PREPARED
+            else
+                last_state = TX_CO_ABORTING
+        else
+            0
+        if event == "commit_start"
+            last_state = TX_CO_COMMITTING
+        else
+            0
+        if event == "commit_done"
+            last_state = TX_CO_COMMITTED
+        else
+            0
+        if event == "abort_start"
+            last_state = TX_CO_ABORTING
+        else
+            0
+        if event == "abort_done"
+            last_state = TX_CO_ABORTED
+        i = i + 1
+    if last_state == TX_CO_PREPARED
+        co_set_state(c, TX_CO_COMMITTING)
+        1
+    else
+        0
+    if last_state == TX_CO_ABORTING
+        co_set_state(c, TX_CO_ABORTING)
+        2
+    else
+        co_set_state(c, last_state)
+        0
+
+let transaction_coordinator_verify() =
+    let ok1 = 1
+    let c = coordinator_new(1, 1000)
+    if co_tx_id(c) != 1
+        ok1 = 0
+    if co_state(c) != TX_CO_INIT
+        ok1 = 0
+    if co_timeout(c) != 1000
+        ok1 = 0
+
+    let ok2 = 1
+    c = co_add_participant(c, participant_new(1))
+    c = co_add_participant(c, participant_new(2))
+    c = co_add_participant(c, participant_new(3))
+    if len(co_participants(c)) != 3
+        ok2 = 0
+
+    let ok3 = 1
+    let prep = phase1_prepare(c, 100)
+    if prep != 1
+        ok3 = 0
+    if co_state(c) != TX_CO_PREPARED
+        ok3 = 0
+    let parts = co_participants(c)
+    if par_state(parts[0]) != TX_PAR_PREPARED
+        ok3 = 0
+
+    let ok4 = 1
+    let commit = phase2_commit(c, 200)
+    if commit != 1
+        ok4 = 0
+    if co_state(c) != TX_CO_COMMITTED
+        ok4 = 0
+    if par_state(parts[0]) != TX_PAR_COMMITTED
+        ok4 = 0
+
+    let ok5 = 1
+    let c2 = coordinator_new(2, 1000)
+    c2 = co_add_participant(c2, participant_new(1))
+    let p = participant_new(2)
+    par_set_can_commit(p, 0)
+    c2 = co_add_participant(c2, p)
+    let prep2 = phase1_prepare(c2, 100)
+    if prep2 != 0
+        ok5 = 0
+    if co_state(c2) != TX_CO_ABORTING
+        ok5 = 0
+
+    let ok6 = 1
+    let c3 = coordinator_new(3, 1000)
+    c3 = co_add_participant(c3, participant_new(1))
+    c3 = co_add_participant(c3, participant_new(2))
+    two_phase_commit(c3, 100)
+    if co_state(c3) != TX_CO_COMMITTED
+        ok6 = 0
+
+    let ok7 = 1
+    let c4 = coordinator_new(4, 500)
+    c4 = co_add_participant(c4, participant_new(1))
+    c4[4] = 0
+    co_set_state(c4, TX_CO_PREPARING)
+    let timed_out = check_timeout(c4, 600)
+    if timed_out != 1
+        ok7 = 0
+    if co_state(c4) != TX_CO_ABORTED
+        ok7 = 0
+
+    let ok8 = 1
+    let tcc_parts = []
+    tcc_parts.push(tcc_participant_new(1, 100, 200, 300))
+    tcc_parts.push(tcc_participant_new(2, 101, 201, 301))
+    let tcc_result = tcc_execute(tcc_parts)
+    if tcc_result != 1
+        ok8 = 0
+    if tcc_parts[0][4] != 2
+        ok8 = 0
+
+    let ok9 = 1
+    let store = idempotency_new()
+    if idem_check(store, 1, 100) != 0
+        ok9 = 0
+    store = idem_record(store, 1, 100, "result1")
+    if idem_check(store, 1, 100) != "result1"
+        ok9 = 0
+
+    let ok10 = 1
+    let c5 = coordinator_new(5, 1000)
+    co_log_append(c5, ["prepare_start", 100])
+    co_log_append(c5, ["prepare_done", 200, "all_yes"])
+    let recover = recover_from_log(c5)
+    if recover != 1
+        ok10 = 0
+    if co_state(c5) != TX_CO_COMMITTING
+        ok10 = 0
+
+    let ok11 = 1
+    if len(co_log(c3)) == 0
+        ok11 = 0
+
+    let all_ok = ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7 * ok8 * ok9 * ok10 * ok11
+    if all_ok == 1
+        print("transaction_coordinator_verify: ALL PASS")
+    else
+        print("transaction_coordinator_verify: FAIL")
+        print(ok1)
+        print(ok2)
+        print(ok3)
+        print(ok4)
+        print(ok5)
+        print(ok6)
+        print(ok7)
+        print(ok8)
+        print(ok9)
+        print(ok10)
+        print(ok11)
+    all_ok

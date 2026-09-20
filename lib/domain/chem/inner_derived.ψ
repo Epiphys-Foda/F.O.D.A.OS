@@ -1,0 +1,187 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let vKaCr = 0
+let eKaCr = 3 * 13606 * 529 - 5398 * 4000
+if eKaCr < 0
+    vKaCr = vKaCr + 1
+let fKaCr = (5398 + 1) * 4000 - 3 * 13606 * 529
+if fKaCr < 1
+    vKaCr = vKaCr + 1
+bad[0] = bad[0] + vKaCr * vKaCr
+let eKaCrLit = 5398 * 4000 - 5415 * 4000
+let aKaCrLit =
+    if eKaCrLit < 0
+        0 - eKaCrLit
+    else
+        eKaCrLit
+let tKaCrLit = aKaCrLit - 400000
+let wKaCrLit =
+    if tKaCrLit < 0
+        0 - tKaCrLit
+    else
+        tKaCrLit
+bad[0] = bad[0] + ck_hi(aKaCrLit, 400000)
+let vKaFe = 0
+let eKaFe = 3 * 13606 * 625 - 6377 * 4000
+if eKaFe < 0
+    vKaFe = vKaFe + 1
+let fKaFe = (6377 + 1) * 4000 - 3 * 13606 * 625
+if fKaFe < 1
+    vKaFe = vKaFe + 1
+bad[0] = bad[0] + vKaFe * vKaFe
+let eKaFeLit = 6377 * 4000 - 6404 * 4000
+let aKaFeLit =
+    if eKaFeLit < 0
+        0 - eKaFeLit
+    else
+        eKaFeLit
+let tKaFeLit = aKaFeLit - 400000
+let wKaFeLit =
+    if tKaFeLit < 0
+        0 - tKaFeLit
+    else
+        tKaFeLit
+bad[0] = bad[0] + ck_hi(aKaFeLit, 400000)
+let vKaCu = 0
+let eKaCu = 3 * 13606 * 784 - 8000 * 4000
+if eKaCu < 0
+    vKaCu = vKaCu + 1
+let fKaCu = (8000 + 1) * 4000 - 3 * 13606 * 784
+if fKaCu < 1
+    vKaCu = vKaCu + 1
+bad[0] = bad[0] + vKaCu * vKaCu
+let eKaCuLit = 8000 * 4000 - 8048 * 4000
+let aKaCuLit =
+    if eKaCuLit < 0
+        0 - eKaCuLit
+    else
+        eKaCuLit
+let tKaCuLit = aKaCuLit - 400000
+let wKaCuLit =
+    if tKaCuLit < 0
+        0 - tKaCuLit
+    else
+        tKaCuLit
+bad[0] = bad[0] + ck_hi(aKaCuLit, 400000)
+let vR13 = 0
+let eR13 = icbrt(120000000) - 493 * 1
+if eR13 < 0
+    vR13 = vR13 + 1
+let fR13 = (493 + 1) * 1 - icbrt(120000000)
+if fR13 < 1
+    vR13 = vR13 + 1
+bad[0] = bad[0] + vR13 * vR13
+let vT23 = 0
+let eT23 = 493 * 493 - 2430 * 100
+if eT23 < 0
+    vT23 = vT23 + 1
+let fT23 = (2430 + 1) * 100 - 493 * 493
+if fT23 < 1
+    vT23 = vT23 + 1
+bad[0] = bad[0] + vT23 * vT23
+let vCoul = 0
+let eCoul = 714000 * 2500 * 100 - 362068965 * 493
+if eCoul < 0
+    vCoul = vCoul + 1
+let fCoul = (362068965 + 1) * 493 - 714000 * 2500 * 100
+if fCoul < 1
+    vCoul = vCoul + 1
+bad[0] = bad[0] + vCoul * vCoul
+let vSurf = 0
+let eSurf = 17500000 * 2430 - 42525000000
+if eSurf < 0
+    vSurf = vSurf + 1
+let fSurf = 42525000100 - 17500000 * 2430
+if fSurf < 1
+    vSurf = vSurf + 1
+bad[0] = bad[0] + vSurf * vSurf
+let vAsym = 0
+let eAsym = 23200000 * 400 - 77333333 * 120
+if eAsym < 0
+    vAsym = vAsym + 1
+let fAsym = (77333333 + 1) * 120 - 23200000 * 400
+if fAsym < 1
+    vAsym = vAsym + 1
+bad[0] = bad[0] + vAsym * vAsym
+let vAv = 0
+let eAv = 1020280000 + 362068965 + 425250000 + 77333333 - 15707769 * 120
+if eAv < 0
+    vAv = vAv + 1
+let fAv = (15707769 + 1) * 120 - 1020280000 + 362068965 + 425250000 + 77333333
+if fAv < 1
+    vAv = vAv + 1
+bad[0] = bad[0] + vAv * vAv
+let eAvLit = 15707769 * 120 - 15800000 * 120
+let aAvLit =
+    if eAvLit < 0
+        0 - eAvLit
+    else
+        eAvLit
+let tAvLit = aAvLit - 120000000
+let wAvLit =
+    if tAvLit < 0
+        0 - tAvLit
+    else
+        tAvLit
+bad[0] = bad[0] + ck_hi(aAvLit, 120000000)
+let r0 = 2 - 2
+bad[0] = bad[0] + r0 * r0
+let r1 = 8 - 24 + 16
+bad[0] = bad[0] + r1 * r1
+let r2 = 20 - 46 + 26
+bad[0] = bad[0] + r2 * r2
+let r3 = 40 - 68 + 28
+bad[0] = bad[0] + r3 * r3
+let r4 = 70 - 90 + 20
+bad[0] = bad[0] + r4 * r4
+let r5 = 112 - 112
+bad[0] = bad[0] + r5 * r5
+
+let vKaTi = 0
+let eKaTi = 3 * 13606 * 441 - 4500 * 4000
+if eKaTi < 0
+    vKaTi = vKaTi + 1
+let fKaTi = 4501 * 4000 - 3 * 13606 * 441
+if fKaTi < 1
+    vKaTi = vKaTi + 1
+bad[0] = bad[0] + vKaTi * vKaTi
+let dKaTi = 4500 * 4000 - 4510 * 4000
+let aKaTi =
+    if dKaTi < 0
+        0 - dKaTi
+    else
+        dKaTi
+let tKaTi = aKaTi - 400000
+let wKaTi =
+    if tKaTi < 0
+        0 - tKaTi
+    else
+        tKaTi
+bad[0] = bad[0] + ck_hi(aKaTi, 400000)
+let vKaNi = 0
+let eKaNi = 3 * 13606 * 729 - 7439 * 4000
+if eKaNi < 0
+    vKaNi = vKaNi + 1
+let fKaNi = 7440 * 4000 - 3 * 13606 * 729
+if fKaNi < 1
+    vKaNi = vKaNi + 1
+bad[0] = bad[0] + vKaNi * vKaNi
+let dKaNi = 7439 * 4000 - 7478 * 4000
+let aKaNi =
+    if dKaNi < 0
+        0 - dKaNi
+    else
+        dKaNi
+let tKaNi = aKaNi - 400000
+let wKaNi =
+    if tKaNi < 0
+        0 - tKaNi
+    else
+        tKaNi
+bad[0] = bad[0] + ck_hi(aKaNi, 400000)
+
+arr_get(arr_new_n(1), bad[0])
+

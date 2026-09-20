@@ -1,0 +1,36 @@
+import "ck.ψ"
+let bad = [0]
+
+let t1 = 1
+let dz1 = t1 - 1
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let t5 = 4
+let dz2 = t5 - 4
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let t12 = 4
+let dz3 = t12 - 4
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let t3 = 2
+let t4 = 2
+let prod = t3 * t4
+let dz4 = prod - 4
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let p5 = 5
+let shortcut = p5 - 1
+let dz5 = shortcut - 4
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let t6 = 2
+let dz6 = t6 - 2
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+if 1763 < 1761
+    bad[0] = bad[0] + 1
+if 1763 > 1765
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

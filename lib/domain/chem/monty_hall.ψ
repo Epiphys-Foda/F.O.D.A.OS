@@ -1,0 +1,41 @@
+import "ck.ψ"
+let bad = [0]
+
+let worlds = 1 + 1 + 1
+let dz1 = worlds - 3
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let w_stay = 1
+let dz2 = w_stay - 1
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let w_switch = 2
+let dz3 = w_switch - 2
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let dz4 = w_stay + w_switch - 3
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let dz5 = w_switch - 2 * w_stay
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let big_switch = 99
+let dz6 = big_switch - 99
+bad[0] = bad[0] + ck(dz6, 0, 0)
+let dz7 = big_switch + 1 - 100
+bad[0] = bad[0] + ck(dz7, 0, 0)
+
+let host_opens = 100 - 2
+let dz8 = host_opens - 98
+bad[0] = bad[0] + ck(dz8, 0, 0)
+
+if 1975 < 1973
+    bad[0] = bad[0] + 1
+if 1975 > 1977
+    bad[0] = bad[0] + 1
+if 1990 < 1988
+    bad[0] = bad[0] + 1
+if 1990 > 1992
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,189 @@
+let qof_node_gfmul(b) =
+    { op: 1, args: [b], name: "⊙" }
+let qof_node_clifford(b) =
+    { op: 2, args: [b], name: "◦" }
+let qof_node_ntt(b) =
+    { op: 3, args: [b], name: "≋" }
+let qof_node_born(then_v) =
+    { op: 4, args: [then_v], name: "↡" }
+let qof_node_hebbian(delta) =
+    { op: 5, args: [delta], name: "∆" }
+
+let qof_eval_node(node, input) =
+    let op = node.op
+    let args = node.args
+    if op == 1
+      let b = args[0]
+      let prod = input * b
+      let abs_prod = (prod < 0 ? 0 - prod : prod)
+      abs_prod - (abs_prod / 65537) * 65537
+    else
+      if op == 2
+        let b = args[0]
+        bit_and(bit_xor(input, b), bit_or(input, b))
+      else
+        if op == 3
+          let b = args[0]
+          bit_or(input + b, input - b)
+        else
+          if op == 4
+            let then_v = args[0]
+            (input != 0 ? then_v : 0)
+          else
+              if op == 5
+                let delta = args[0]
+                input + delta
+              else
+                if op == 0
+                  args[0]
+                else
+                  0
+
+let qof_chain_impl(seed, nodes, idx) =
+    if idx < len(nodes)
+      let node = nodes[idx]
+      let next_val = qof_eval_node(node, seed)
+      qof_chain_impl(next_val, nodes, idx + 1)
+    else
+      seed
+
+let qof_chain(seed, nodes) = qof_chain_impl(seed, nodes, 0)
+
+let qof_par_impl(seed, nodes, idx, acc) =
+    if idx < len(nodes)
+      let node = nodes[idx]
+      let out = qof_eval_node(node, seed)
+      qof_par_impl(seed, nodes, idx + 1, acc.push(out))
+    else
+      acc
+
+let qof_par(seed, nodes) = qof_par_impl(seed, nodes, 0, [])
+
+let qof_run(seed, nodes) = qof_chain(seed, nodes)
+
+let qof_to_qqbc_impl_after(nodes, idx, acc) =
+    if idx < len(nodes)
+      let node = nodes[idx]
+      let op = node.op
+      let args = node.args
+      let s1 = acc.push(16)
+      let new_acc = s1.push(args[0])
+      let new_acc2 = new_acc.push(op)
+      qof_to_qqbc_impl_after(nodes, idx + 1, new_acc2)
+    else
+      let e1 = acc.push(17)
+      e1.push(255)
+
+let qof_to_qqbc_impl(seed, nodes, idx, acc) =
+    if idx < len(nodes)
+      let node = nodes[idx]
+      let op = node.op
+      let args = node.args
+      let s1 = acc.push(16)
+      let new_acc = s1.push(seed)
+      let s2 = new_acc.push(16)
+      let new_acc2 = s2.push(args[0])
+      let new_acc3 = new_acc2.push(op)
+      qof_to_qqbc_impl_after(nodes, idx + 1, new_acc3)
+    else
+      let e1 = acc.push(17)
+      e1.push(255)
+
+let qof_to_qqbc(seed, nodes) = qof_to_qqbc_impl(seed, nodes, 0, [])
+
+let qof_op_to_micro(op) =
+    if op == 1
+        10
+    else
+      if op == 2
+          22
+      else
+        if op == 3
+            30
+        else
+          if op == 4
+              40
+          else
+            if op == 5
+                50
+            else
+                0
+
+let qof_to_micro_impl(nodes, idx, acc) =
+    if idx < len(nodes)
+      let node = nodes[idx]
+      let micro_op = qof_op_to_micro(node.op)
+      let new_acc = acc.push(micro_op)
+      qof_to_micro_impl(nodes, idx + 1, new_acc)
+    else
+      acc
+
+let qof_to_micro(nodes) = qof_to_micro_impl(nodes, 0, [])
+
+let qof_op_to_pe(op) =
+    if op == 1
+        1
+    else
+      if op == 2
+          1
+      else
+        if op == 3
+            3
+        else
+          if op == 4
+              6
+          else
+            if op == 5
+                6
+            else
+                0
+
+let qof_to_pe_impl(nodes, idx, acc) =
+    if idx < len(nodes)
+      let node = nodes[idx]
+      let pe_type = qof_op_to_pe(node.op)
+      let new_acc = acc.push(pe_type)
+      qof_to_pe_impl(nodes, idx + 1, new_acc)
+    else
+      acc
+
+let qof_to_pe(nodes) = qof_to_pe_impl(nodes, 0, [])
+
+let qof_dump_node(node) =
+    let op_name = (node.op == 1 ? "GFMUL" : (node.op == 2 ? "CLIFFORD" : (node.op == 3 ? "NTT" : (node.op == 4 ? "BORN" : (node.op == 5 ? "HEBBIAN" : "UNKNOWN")))))
+    { op: node.op, name: op_name, symbol: node.name, args: node.args }
+
+let qof_dump(nodes) =
+    let out = []
+    let i = 0
+    let n = len(nodes)
+    let done = false
+    for !done
+      if i < n
+        out = out.push(qof_dump_node(nodes[i]))
+        i = i + 1
+      else
+        done = true
+    out
+
+let qof_summary(seed, nodes) =
+    let result = qof_run(seed, nodes)
+    let qqbc = qof_to_qqbc(seed, nodes)
+    let micro = qof_to_micro(nodes)
+    let pe = qof_to_pe(nodes)
+      { seed: seed, node_count: len(nodes), result: result, qqbc_bytes: len(qqbc), micro_ops: len(micro), pe_types: len(pe), qqbc: qqbc, micro: micro, pe: pe }
+
+let qof_demo() =
+    let seed = 10
+    let nodes = [
+      qof_node_gfmul(3),
+      qof_node_clifford(5),
+      qof_node_ntt(2),
+      qof_node_born(100),
+      qof_node_hebbian(7)
+    ]
+    let result = qof_run(seed, nodes)
+    let qqbc = qof_to_qqbc(seed, nodes)
+    let micro = qof_to_micro(nodes)
+    let pe = qof_to_pe(nodes)
+      { seed: seed, nodes: qof_dump(nodes), result: result, qqbc: qqbc, micro: micro, pe: pe, qqbc_len: len(qqbc), micro_len: len(micro), pe_len: len(pe) }

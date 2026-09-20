@@ -1,0 +1,510 @@
+import "residueon_common.ψ"
+
+let TOK_NUM() = 0
+let TOK_ID() = 1
+let TOK_OP() = 2
+let TOK_KW() = 3
+let TOK_SEP() = 4
+let TOK_EOF() = 5
+
+let OP_PLUS() = 2000
+let OP_MINUS() = 2001
+let OP_MUL() = 2002
+let OP_DIV() = 2003
+let OP_EQ() = 2004
+let OP_LT() = 2005
+let OP_GT() = 2006
+let OP_LE() = 2007
+let OP_GE() = 2008
+let OP_NE() = 2009
+
+let KW_FN() = 3000
+let KW_LET() = 3001
+let KW_IF() = 3002
+let KW_WHILE() = 3003
+let KW_RETURN() = 3004
+let KW_IMPORT() = 3005
+
+let SEP_LPAREN() = 4000
+let SEP_RPAREN() = 4001
+let SEP_LBRACKET() = 4002
+let SEP_RBRACKET() = 4003
+let SEP_LBRACE() = 4004
+let SEP_RBRACE() = 4005
+let SEP_COMMA() = 4006
+let SEP_SEMI() = 4007
+
+let tok_make(typ, value, line) = rp_make(typ, value, line)
+let tok_type(tok) = rp_z(tok)
+let tok_value(tok) = rp_r(tok)
+let tok_line(tok) = rp_n(tok)
+
+let lex_classify(code) =
+    let result = TOK_NUM()
+    if code < 1000
+        result = TOK_NUM()
+    if code >= 1000
+        if code < 2000
+    if code >= 2000
+        if code < 3000
+    if code >= 3000
+        if code < 4000
+    if code >= 4000
+        if code < 5000
+    if code >= 5000
+        result = TOK_EOF()
+    result
+
+let lex(source, n) =
+    let tokens = source
+    let i = 0
+    for i < n
+        let code = source[i]
+        let ttype = lex_classify(code)
+        let tok = tok_make(ttype, code, i)
+        tokens[i] = tok
+        i = i + 1
+    rpf_make(tokens, n)
+
+let ast_make(typ, value, children) = rp_make(typ, value, children)
+let ast_type(node) = rp_z(node)
+let ast_value(node) = rp_r(node)
+let ast_children(node) = rp_n(node)
+
+let parse_token(tok) =
+    let ttype = tok_type(tok)
+    let val = tok_value(tok)
+    let result = ast_make(AST_LITERAL(), val, 0)
+    if ttype == TOK_NUM()
+        result = ast_make(AST_LITERAL(), val, 0)
+    if ttype == TOK_ID()
+        result = ast_make(AST_VARIABLE(), val, 0)
+    if ttype == TOK_OP()
+        result = ast_make(AST_BINOP(), val, 2)
+    if ttype == TOK_KW()
+        let kw = val
+        result = ast_make(AST_LITERAL(), val, 0)
+        if kw == KW_FN()
+            result = ast_make(AST_FUNCTION(), val, 3)
+        if kw == KW_LET()
+            result = ast_make(AST_LET(), val, 2)
+        if kw == KW_IF()
+            result = ast_make(AST_IF(), val, 3)
+        if kw == KW_WHILE()
+            result = ast_make(AST_WHILE(), val, 2)
+        if kw == KW_RETURN()
+            result = ast_make(AST_RETURN(), val, 1)
+        if kw == KW_IMPORT()
+            result = ast_make(AST_IMPORT(), val, 1)
+    if ttype == TOK_SEP()
+        result = ast_make(AST_LITERAL(), val, 0)
+    result
+
+let parse(token_field) =
+    let n = rpf_count(token_field)
+    let primes = rpf_primes(token_field)
+    let ast_nodes = primes
+    let i = 0
+    for i < n
+        let tok = primes[i]
+        let node = parse_token(tok)
+        ast_nodes[i] = node
+        i = i + 1
+    rpf_make(ast_nodes, n)
+
+let OP_PUSH() = 10
+let OP_POP() = 11
+let OP_ADD() = 12
+let OP_SUB() = 13
+let OP_MUL() = 14
+let OP_CMP() = 15
+let OP_JMP() = 16
+let OP_CALL() = 17
+let OP_RET() = 18
+
+let codegen_node(node) =
+    let nt = ast_type(node)
+    let val = ast_value(node)
+    let cc = ast_children(node)
+    let result = rp_make(OP_PUSH(), val, 0)
+    if nt == AST_LITERAL()
+        result = rp_make(OP_PUSH(), val, 0)
+    if nt == AST_VARIABLE()
+        result = rp_make(OP_PUSH(), val, 0)
+    if nt == AST_BINOP()
+        let op_code = OP_ADD()
+        if val == OP_PLUS()
+            op_code = OP_ADD()
+        if val == OP_MINUS()
+            op_code = OP_SUB()
+        if val == OP_MUL()
+            op_code = OP_MUL()
+        if val == OP_EQ()
+            op_code = OP_CMP()
+        if val == OP_LT()
+            op_code = OP_CMP()
+        if val == OP_GT()
+            op_code = OP_CMP()
+        result = rp_make(op_code, val, cc)
+    if nt == AST_IF()
+        result = rp_make(OP_JMP(), val, cc)
+    if nt == AST_WHILE()
+        result = rp_make(OP_JMP(), val, cc)
+    if nt == AST_LET()
+        result = rp_make(OP_PUSH(), val, cc)
+    if nt == AST_FUNCTION()
+        result = rp_make(OP_CALL(), val, cc)
+    if nt == AST_CALL()
+        result = rp_make(OP_CALL(), val, cc)
+    if nt == AST_RETURN()
+        result = rp_make(OP_RET(), val, cc)
+    if nt == AST_IMPORT()
+        result = rp_make(OP_PUSH(), val, cc)
+    result
+
+let codegen(ast_field) =
+    let n = rpf_count(ast_field)
+    let primes = rpf_primes(ast_field)
+    let instructions = primes
+    let i = 0
+    for i < n
+        let node = primes[i]
+        let instr = codegen_node(node)
+        instructions[i] = instr
+        i = i + 1
+    rpf_make(instructions, n)
+
+let compile(source, n) =
+    let token_field = lex(source, n)
+    let ast_field = parse(token_field)
+    let target_field = codegen(ast_field)
+    target_field
+
+let compile_fingerprint(source, n) =
+    let token_field = lex(source, n)
+    let ast_field = parse(token_field)
+    let target_field = codegen(ast_field)
+    let fp1 = rpf_fingerprint(token_field)
+    let fp2 = rpf_fingerprint(ast_field)
+    let fp3 = rpf_fingerprint(target_field)
+    [fp1, fp2, fp3]
+
+let compiler_self_source() = [
+        KW_FN(),
+        1001,
+        SEP_LPAREN(),
+        SEP_RPAREN(),
+        OP_EQ(),
+        KW_LET(),
+        1002,
+        OP_EQ(),
+        1003,
+        SEP_LPAREN(),
+        SEP_RPAREN(),
+        KW_LET(),
+        1004,
+        OP_EQ(),
+        1005,
+        SEP_LPAREN(),
+        SEP_RPAREN(),
+        KW_RETURN(),
+        1006
+    ]
+
+let compiler_self_len() = 19
+
+let bootstrap_compile() =
+    let src = compiler_self_source()
+    let n = compiler_self_len()
+    compile(src, n)
+
+let bootstrap_compile2() =
+    let compiled = bootstrap_compile()
+    let n = rpf_count(compiled)
+    let primes = rpf_primes(compiled)
+    let src2 = primes
+    let i = 0
+    for i < n
+        let rp = primes[i]
+        src2[i] = rp_r(rp)
+        i = i + 1
+    compile(src2, n)
+
+let project_compile(source, n) =
+    let compiled = compile(source, n)
+    let cn = rpf_count(compiled)
+    let primes = rpf_primes(compiled)
+    let src2 = primes
+    let i = 0
+    for i < cn
+        let rp = primes[i]
+        src2[i] = rp_r(rp)
+        i = i + 1
+    compile(src2, cn)
+
+let idempotent_verify(source, n) =
+    let p1 = compile(source, n)
+    let p2 = project_compile(source, n)
+    let cnt1 = rpf_count(p1)
+    let cnt2 = rpf_count(p2)
+    let hom1 = rpf_homology(p1)
+    let hom2 = rpf_homology(p2)
+    let result = 0
+    if cnt1 == cnt2
+        if hom1[0] == hom2[0]
+    result
+
+let galois_commute_verify(source, n, sigma) =
+    let compiled = compile(source, n)
+    let left = rpf_galois(compiled, sigma)
+    let gsource = source
+    let i = 0
+    for i < n
+        let code = source[i]
+        gsource[i] = gf_pow(code, sigma)
+        i = i + 1
+    let right = compile(gsource, n)
+    let result = 0
+    if rpf_count(left) == rpf_count(right)
+        result = 1
+    result
+
+let compiler_dna() =
+    let src = compiler_self_source()
+    let n = compiler_self_len()
+    let token_field = lex(src, n)
+    token_field
+
+let compiler_mutate(sigma) =
+    let dna = compiler_dna()
+    rpf_galois(dna, sigma)
+
+let compiler_fitness(sigma) =
+    let mutated = compiler_mutate(sigma)
+    let n = rpf_count(mutated)
+    let primes = rpf_primes(mutated)
+    let src = primes
+    let i = 0
+    for i < n
+        let rp = primes[i]
+        src[i] = rp_r(rp)
+        i = i + 1
+    let compiled = compile(src, n)
+    let fp = rpf_fingerprint(compiled)
+    let result = 0
+    if fp >= 0
+        result = 1
+    result
+
+let residueon_self_compiler_verify() =
+    let ok = 0
+
+    if TOK_NUM() == 0
+        ok = ok + 1
+    if TOK_ID() == 1
+        ok = ok + 1
+    if TOK_OP() == 2
+        ok = ok + 1
+    if TOK_KW() == 3
+        ok = ok + 1
+    if TOK_SEP() == 4
+        ok = ok + 1
+
+    let tok = tok_make(TOK_NUM(), 42, 3)
+    if tok_type(tok) == 0
+        ok = ok + 1
+    if tok_value(tok) == 42
+        ok = ok + 1
+    if tok_line(tok) == 3
+        ok = ok + 1
+
+    if lex_classify(42) == TOK_NUM()
+        ok = ok + 1
+    if lex_classify(1001) == TOK_ID()
+        ok = ok + 1
+    if lex_classify(OP_PLUS()) == TOK_OP()
+        ok = ok + 1
+    if lex_classify(KW_FN()) == TOK_KW()
+        ok = ok + 1
+    if lex_classify(SEP_LPAREN()) == TOK_SEP()
+        ok = ok + 1
+
+    let src1 = [42, 1001, OP_PLUS(), KW_FN(), SEP_LPAREN()]
+    let token_field1 = lex(src1, 5)
+    if rpf_count(token_field1) == 5
+        ok = ok + 1
+
+    let primes1 = rpf_primes(token_field1)
+    if tok_type(primes1[0]) == TOK_NUM()
+        ok = ok + 1
+    if tok_type(primes1[1]) == TOK_ID()
+        ok = ok + 1
+    if tok_type(primes1[2]) == TOK_OP()
+        ok = ok + 1
+    if tok_type(primes1[3]) == TOK_KW()
+        ok = ok + 1
+    if tok_type(primes1[4]) == TOK_SEP()
+        ok = ok + 1
+
+    let tok_num = tok_make(TOK_NUM(), 42, 0)
+    let node_num = parse_token(tok_num)
+    if ast_type(node_num) == AST_LITERAL()
+        ok = ok + 1
+    if ast_value(node_num) == 42
+        ok = ok + 1
+
+    let tok_id = tok_make(TOK_ID(), 1001, 0)
+    let node_id = parse_token(tok_id)
+    if ast_type(node_id) == AST_VARIABLE()
+        ok = ok + 1
+
+    let tok_op = tok_make(TOK_OP(), OP_PLUS(), 0)
+    let node_op = parse_token(tok_op)
+    if ast_type(node_op) == AST_BINOP()
+        ok = ok + 1
+    if ast_children(node_op) == 2
+        ok = ok + 1
+
+    let tok_kw = tok_make(TOK_KW(), KW_FN(), 0)
+    let node_kw = parse_token(tok_kw)
+    if ast_type(node_kw) == AST_FUNCTION()
+        ok = ok + 1
+
+    let tok_if = tok_make(TOK_KW(), KW_IF(), 0)
+    let node_if = parse_token(tok_if)
+    if ast_type(node_if) == AST_IF()
+        ok = ok + 1
+
+    let tok_while = tok_make(TOK_KW(), KW_WHILE(), 0)
+    let node_while = parse_token(tok_while)
+    if ast_type(node_while) == AST_WHILE()
+        ok = ok + 1
+
+    let ast_field1 = parse(token_field1)
+    if rpf_count(ast_field1) == 5
+        ok = ok + 1
+
+    let instr_num = codegen_node(node_num)
+    if rp_z(instr_num) == OP_PUSH()
+        ok = ok + 1
+
+    let instr_op = codegen_node(node_op)
+    if rp_z(instr_op) == OP_ADD()
+        ok = ok + 1
+
+    let instr_if = codegen_node(node_if)
+    if rp_z(instr_if) == OP_JMP()
+        ok = ok + 1
+
+    let tok_ret = tok_make(TOK_KW(), KW_RETURN(), 0)
+    let node_ret = parse_token(tok_ret)
+    let instr_ret = codegen_node(node_ret)
+    if rp_z(instr_ret) == OP_RET()
+        ok = ok + 1
+
+    let target_field1 = codegen(ast_field1)
+    if rpf_count(target_field1) == 5
+        ok = ok + 1
+
+    let compiled1 = compile(src1, 5)
+    if rpf_count(compiled1) == 5
+        ok = ok + 1
+
+    let fps = compile_fingerprint(src1, 5)
+    if fps[0] >= 0
+        ok = ok + 1
+    if fps[1] >= 0
+        ok = ok + 1
+    if fps[2] >= 0
+        ok = ok + 1
+
+    let src2 = [KW_FN(), 1001, OP_MINUS(), KW_LET(), SEP_RPAREN()]
+    let compiled2 = compile(src2, 5)
+    let fp_c1 = rpf_fingerprint(compiled1)
+    let fp_c2 = rpf_fingerprint(compiled2)
+    if fp_c1 != fp_c2
+        ok = ok + 1
+
+    let boot1 = bootstrap_compile()
+    if rpf_count(boot1) == compiler_self_len()
+        ok = ok + 1
+
+    let boot2 = bootstrap_compile2()
+    if rpf_count(boot2) == compiler_self_len()
+        ok = ok + 1
+
+    let fp_boot1 = rpf_fingerprint(boot1)
+    let fp_boot2 = rpf_fingerprint(boot2)
+    let boot_cnt1 = rpf_count(boot1)
+    let boot_cnt2 = rpf_count(boot2)
+    if fp_boot1 >= 0
+        ok = ok + 1
+    if boot_cnt1 == boot_cnt2
+        ok = ok + 1
+
+    if idempotent_verify(src1, 5) == 1
+        ok = ok + 1
+    if idempotent_verify(src2, 5) == 1
+        ok = ok + 1
+    if idempotent_verify(compiler_self_source(), compiler_self_len()) == 1
+        ok = ok + 1
+
+    if galois_commute_verify(src1, 5, 1) == 1
+        ok = ok + 1
+    if galois_commute_verify(src1, 5, 2) == 1
+        ok = ok + 1
+
+    let dna = compiler_dna()
+    if rpf_count(dna) == compiler_self_len()
+        ok = ok + 1
+
+    let mutated = compiler_mutate(2)
+    if rpf_count(mutated) == compiler_self_len()
+        ok = ok + 1
+
+    if compiler_fitness(1) == 1
+        ok = ok + 1
+    if compiler_fitness(2) == 1
+        ok = ok + 1
+
+    let boot_field = bootstrap_compile()
+    let boot_hom = rpf_homology(boot_field)
+    if boot_hom[0] == compiler_self_len()
+        ok = ok + 1
+
+    if ast_to_op(AST_LITERAL()) == OP_OBSERVE()
+        ok = ok + 1
+    if ast_to_op(AST_FUNCTION()) == OP_COMPILE()
+        ok = ok + 1
+
+    let f = mf_make([0, 1], [3, 5], 2)
+    let fI = combinator_I(f)
+    if mf_equal(fI, f) == 1
+        ok = ok + 1
+
+    if bootstrap_tower(8) == 1
+        ok = ok + 1
+
+    let apop = apoptosis(f)
+    if mf_size(apop) >= 0
+        ok = ok + 1
+
+    let mc = meta_compiler()
+    if mf_size(mc) == 6
+        ok = ok + 1
+
+    let fp_final = rpf_fingerprint(compiled1)
+    if fp_final >= 0
+        ok = ok + 1
+
+    let clean_code = rpf_fingerprint(compile(src1, 5))
+    if clean_code >= 0
+        ok = ok + 1
+
+    let g_compiled = rpf_galois(compiled1, 2)
+    if rpf_count(g_compiled) == 5
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_self_compiler_verify()

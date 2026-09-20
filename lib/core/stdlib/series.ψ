@@ -1,0 +1,160 @@
+let series_new(coeffs) =
+    coeffs
+
+let series_zero(n) =
+    let result = []
+    let i = 0
+    for i < n
+        result = arr_concat(result, [0])
+        i = i + 1
+    result
+
+let series_add(a, b) =
+    let len_a = a.len()
+    let len_b = b.len()
+    let max_len = (len_a > len_b ? len_a : len_b)
+    let result = []
+    let i = 0
+    for i < max_len
+        let va = (i < len_a ? a[i] : 0)
+        let vb = (i < len_b ? b[i] : 0)
+        result = arr_concat(result, [va + vb])
+        i = i + 1
+    result
+
+let series_scale(a, s) =
+    let result = []
+    let i = 0
+    for i < a.len()
+        result = arr_concat(result, [a[i] * s])
+        i = i + 1
+    result
+
+let series_mul(a, b) =
+    let len_a = a.len()
+    let len_b = b.len()
+    let result = series_zero(len_a + len_b - 1)
+    let i = 0
+    for i < len_a
+        let j = 0
+        for j < len_b
+            result[i + j] = result[i + j] + a[i] * b[j]
+            j = j + 1
+        i = i + 1
+    result
+
+let series_eval(a, x) =
+    let result = 0
+    let power = 1
+    let i = 0
+    for i < a.len()
+        result = result + a[i] * power
+        power = power * x
+        i = i + 1
+    result
+
+let series_compose(a, b) =
+    let n = a.len()
+    let result = series_zero(n)
+    let power = [1]
+    let i = 0
+    for i < n
+        let term = series_scale(power, a[i])
+        result = series_add(result, term)
+        power = series_mul(power, b)
+        i = i + 1
+    result
+
+let series_derivative(a) =
+    if a.len() <= 1
+        [0]
+    else
+        let result = []
+        let i = 1
+        for i < a.len()
+            result = arr_concat(result, [a[i] * i])
+            i = i + 1
+        result
+
+let series_integral(a, c0) =
+    let result = [c0]
+    let i = 0
+    for i < a.len()
+        result = arr_concat(result, [a[i] / (i + 1)])
+        i = i + 1
+    result
+
+let taylor_exp(n) =
+    let result = []
+    let fact = 1
+    let i = 0
+    for i < n
+        result = arr_concat(result, [1 / fact])
+        fact = fact * (i + 1)
+        i = i + 1
+    result
+
+let taylor_sin(n) =
+    let result = series_zero(2 * n)
+    let fact = 1
+    let i = 0
+    for i < n
+        let idx = 2 * i + 1
+        if i > 0
+            fact = fact * (2 * i) * (2 * i + 1)
+        result[idx] = (i % 2 == 0 ? 1 : -1)
+        result[idx] = result[idx] / fact
+        if i == 0
+            fact = fact * 1
+        i = i + 1
+    result
+
+let taylor_cos(n) =
+    let result = series_zero(2 * n)
+    let fact = 1
+    let i = 0
+    for i < n
+        let idx = 2 * i
+        if i > 0
+            fact = fact * (2 * i - 1) * (2 * i)
+        result[idx] = (i % 2 == 0 ? 1 : -1)
+        result[idx] = result[idx] / fact
+        i = i + 1
+    result
+
+let taylor_log(n) =
+    let result = [0]
+    let i = 1
+    for i < n
+        let coeff = (i % 2 == 1 ? 1 : -1)
+        result = arr_concat(result, [coeff / i])
+        i = i + 1
+    result
+
+let series_to_str(a) =
+    let s = ""
+    let i = 0
+    for i < a.len()
+        let term = str(a[i])
+        if i > 0
+            term = str_concat(term, "*x^")
+            term = str_concat(term, str(i))
+        if i > 0 && a[i] >= 0
+            s = str_concat(s, " + ")
+        else
+            if i > 0
+                s = str_concat(s, " ")
+        s = str_concat(s, term)
+        i = i + 1
+    s
+
+let main() =
+    let e = taylor_exp(6)
+    print(e)
+    let s = taylor_sin(4)
+    print(s)
+    let c = taylor_cos(4)
+    print(c)
+    let val = series_eval(e, 1)
+    print(val)
+    0

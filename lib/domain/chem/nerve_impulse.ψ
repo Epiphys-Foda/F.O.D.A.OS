@@ -1,0 +1,35 @@
+import "ck.ψ"
+let bad = [0]
+
+let rest = -70
+bad[0] = bad[0] + ck(rest, -75, -65)
+
+let e_k = -87
+bad[0] = bad[0] + ck(e_k, -95, -80)
+
+let e_na = 59
+bad[0] = bad[0] + ck(e_na, 50, 70)
+
+let spike = 40
+bad[0] = bad[0] + ck(spike, 35, 45)
+
+let speed = 120
+bad[0] = bad[0] + ck(speed, 80, 150)
+
+let allornone = 1
+bad[0] = bad[0] + ck_lo(allornone, 1)
+
+if 1952 < 1950
+    bad[0] = bad[0] + 1
+if 1952 > 1954
+    bad[0] = bad[0] + 1
+if 1963 < 1961
+    bad[0] = bad[0] + 1
+if 1963 > 1965
+    bad[0] = bad[0] + 1
+if 1976 < 1974
+    bad[0] = bad[0] + 1
+if 1976 > 1978
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,415 @@
+import "quantum_circuit.ψ"
+import "quantum_sim.ψ"
+
+let qs_sqrt2() =
+    let r = 0
+    let i = 1
+    let done = false
+    for !done
+      if i < 65537
+        let sq = qc_mul(i, i)
+        if sq == 2
+          r = i
+          done = true
+        else
+          0
+        if done == false
+          i = i + 1
+        else
+            0
+      else
+        done = true
+    r
+
+let qs_h_gf() =
+    let r = qs_sqrt2()
+    let inv_r = qc_inv(r)
+    [[inv_r, inv_r], [inv_r, 65537 - inv_r]]
+
+let qs_state_n(n) =
+    let state = [1]
+    let i = 0
+    let done = false
+    for !done
+      if i < n
+        let doubled = state
+        let j = 0
+        let jd = false
+        for !jd
+          if j < len(doubled)
+            doubled = [doubled.slice(0, j), 0, doubled.slice(j + 1, len(doubled))].flat()
+            j = j + 1
+          else
+            jd = true
+        state = [state, doubled].flat()
+        i = i + 1
+      else
+        done = true
+    state
+
+let qs_measure_det(state) =
+    let best = 0
+    let best_val = -1
+    let i = 0
+    let n = len(state)
+    let done = false
+    for !done
+      if i < n
+        let a = state[i]
+        let amp = qc_mul(a, a)
+        if amp > best_val
+          best_val = amp
+          best = i
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    best
+
+let qs_grover_iter(state, target) =
+    let s = state
+    let oi = 0
+    let od = false
+    for !od
+      if oi < 2
+        if oi == target
+          s = [s.slice(0, oi), 65537 - s[oi], s.slice(oi + 1, 2)].flat()
+        else
+          0
+        oi = oi + 1
+      else
+        od = true
+        0
+      0
+    let mean = qc_mul(s[0] + s[1], qc_inv(2))
+    let d0 = (qc_mul(2, mean) - s[0] + 65537) % 65537
+    let d1 = (qc_mul(2, mean) - s[1] + 65537) % 65537
+    [d0, d1]
+
+let qs_grover1(target) =
+    let state = qs_h_gf_apply([1, 0])
+    let k = 0
+    let done = false
+    for !done
+      if k < 1
+        state = qs_grover_iter(state, target)
+        k = k + 1
+      else
+        done = true
+    qs_measure_det(state)
+
+let qs_h_gf_apply(state) =
+    let h = qs_h_gf()
+    qs_apply1(h, state)
+
+let qs_hh4() = [[1, 1, 1, 1], [1, 65536, 1, 65536], [1, 1, 65536, 65536], [1, 65536, 65536, 1]]
+
+let qs_matvec4(m, v) =
+    let out = []
+    let i = 0
+    let idone = false
+    for !idone
+      if i < 4
+        let acc = 0
+        let j = 0
+        let jdone = false
+        for !jdone
+          if j < 4
+            let a = m[i][j]
+            let b = v[j]
+            acc = acc + qc_mul(a, b)
+            j = j + 1
+          else
+            jdone = true
+        out = out.push(acc % 65537)
+        i = i + 1
+      else
+        idone = true
+    out
+
+let qs_grover2_iter(state, target) =
+    let s = state
+    let oi = 0
+    let od = false
+    for !od
+      if oi < 4
+        if oi == target
+          s = [s.slice(0, oi), (65537 - s[oi]) % 65537, s.slice(oi + 1, 4)].flat()
+        else
+          0
+        oi = oi + 1
+      else
+        od = true
+    let h4 = qs_hh4()
+    let w = qs_matvec4(h4, s)
+    let z = [w[0], (65537 - w[1]) % 65537, (65537 - w[2]) % 65537, (65537 - w[3]) % 65537]
+    qs_matvec4(h4, z)
+
+let qs_grover2(target) =
+    let out = qs_grover2_iter([1, 1, 1, 1], target)
+    qs_measure_det(out)
+
+let qs_verify_gf() =
+    let results = []
+    let r = qs_sqrt2()
+    results = results.push(qc_mul(r, r) == 2)
+    results = results.push(r > 0 && r < 65537)
+    let h = qs_h_gf()
+    let h0 = qs_h_gf_apply([1, 0])
+    results = results.push(h0[0] == h0[1])
+    results = results.push(h0[0] == qc_inv(r))
+    let hh = qs_h_gf_apply(qs_h_gf_apply([1, 0]))
+    let expect = (qc_mul(2, qc_mul(qc_inv(r), qc_inv(r)))) % 65537
+    results = results.push(hh[0] == expect)
+    results = results.push(qs_grover1(0) == 0)
+    results = results.push(qs_grover1(1) == 1)
+    let st3 = qs_state_n(3)
+    results = results.push(len(st3) == 8)
+    results
+
+let qs_grover2_k(target, k) =
+    let state = [1, 1, 1, 1]
+    let i = 0
+    let done = false
+    for !done
+      if i < k
+        state = qs_grover2_iter(state, target)
+        i = i + 1
+      else
+        done = true
+    state
+
+let qs_hh8() =
+    [
+      [1, 1, 1, 1, 1, 1, 1, 1],
+      [1, 65536, 1, 65536, 1, 65536, 1, 65536],
+      [1, 1, 65536, 65536, 1, 1, 65536, 65536],
+      [1, 65536, 65536, 1, 1, 65536, 65536, 1],
+      [1, 1, 1, 1, 65536, 65536, 65536, 65536],
+      [1, 65536, 1, 65536, 65536, 1, 65536, 1],
+      [1, 1, 65536, 65536, 65536, 65536, 1, 1],
+      [1, 65536, 65536, 1, 65536, 1, 1, 65536]
+    ]
+
+let qs_matvec8(m, v) =
+    let out = []
+    let i = 0
+    let idone = false
+    for !idone
+      if i < 8
+        let acc = 0
+        let j = 0
+        let jdone = false
+        for !jdone
+          if j < 8
+            let a = m[i][j]
+            let b = v[j]
+            acc = acc + qc_mul(a, b)
+            j = j + 1
+          else
+            jdone = true
+        out = out.push(acc % 65537)
+        i = i + 1
+      else
+        idone = true
+    out
+
+let qs_grover3_iter(state, target) =
+    let s = state
+    let oi = 0
+    let od = false
+    for !od
+      if oi < 8
+        if oi == target
+          s = [s.slice(0, oi), (65537 - s[oi]) % 65537, s.slice(oi + 1, 8)].flat()
+        else
+          0
+        oi = oi + 1
+      else
+        od = true
+    let h8 = qs_hh8()
+    let w = qs_matvec8(h8, s)
+    let z = w
+    z = [w[0], (65537 - w[1]) % 65537, (65537 - w[2]) % 65537, (65537 - w[3]) % 65537, (65537 - w[4]) % 65537, (65537 - w[5]) % 65537, (65537 - w[6]) % 65537, (65537 - w[7]) % 65537]
+    qs_matvec8(h8, z)
+
+let qs_grover3(target, iters) =
+    let state = [1, 1, 1, 1, 1, 1, 1, 1]
+    let i = 0
+    let done = false
+    for !done
+      if i < iters
+        state = qs_grover3_iter(state, target)
+        i = i + 1
+      else
+        done = true
+    state
+
+let qs_grover3_hit(target, iters) =
+    let st = qs_grover3(target, iters)
+    let best = qs_measure_det(st)
+    let a2 = qc_mul(st[target], st[target])
+    let b2 = qc_mul(st[0], st[0])
+    best == target && a2 >= b2
+
+let qs_verify_g3() =
+    let results = []
+    let h8 = qs_hh8()
+    let hh = qs_matvec8(h8, qs_matvec8(h8, [1, 0, 0, 0, 0, 0, 0, 0]))
+    results = results.push(hh[0] == 8 && hh[1] == 0 && hh[7] == 0)
+    let st1 = qs_grover3(0, 1)
+    results = results.push(st1[0] == 20 && st1[1] == 4 && st1[7] == 4)
+    let st2 = qs_grover3(0, 2)
+    results = results.push(st2[0] == 176 && st2[1] == 65521)
+    let st3 = qs_grover3(0, 3)
+    results = results.push(st3[0] == 832 && st3[1] == 65089)
+    let st4 = qs_grover3(0, 4)
+    results = results.push(st4[0] == 64257 && st4[1] == 61185)
+    results = results.push(qs_grover3_hit(0, 1))
+    results = results.push(qs_grover3_hit(0, 3))
+    results = results.push(qs_grover3_hit(0, 5))
+    results = results.push(qs_grover3_hit(0, 6) == false)
+    results = results.push(qs_grover3_hit(0, 8))
+    results = results.push(qs_grover3_hit(3, 2))
+    results = results.push(6 * 20 + 14 * 4 == 176)
+    results = results.push((0 - 2) * 20 + 6 * 4 == 0 - 16)
+    let total = true
+    let i = 0
+    let done = false
+    for !done
+      if i < len(results)
+        let v = results[i]
+        if v == false
+          total = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(total)
+    results
+
+let qs_grover_n_step(a, b, n) =
+    let p2 = if n == 0
+      1
+    else
+      if n == 1
+        2
+      else
+        if n == 2
+          4
+        else
+          if n == 3
+            8
+          else
+            if n == 4
+              16
+            else
+              if n == 5
+                32
+              else
+                if n == 6
+                  64
+                else
+                  if n == 7
+                    128
+                  else
+                    if n == 8
+                      256
+                    else
+                      if n == 9
+                        512
+                      else
+                        if n == 10
+                          1024
+                        else
+                          if n == 11
+                            2048
+                          else
+                            if n == 12
+                              4096
+                            else
+                              if n == 13
+                                8192
+                              else
+                                if n == 14
+                                  16384
+                                else
+                                  if n == 15
+                                    32768
+                                  else
+                                    65536
+    let p2n1 = (p2 * 2) % 65537
+    let alpha = (p2 - 2) % 65537
+    let beta = (p2n1 - 2) % 65537
+    let a2 = (alpha * a + beta * b) % 65537
+    let b2 = ((0 - 2) * a + alpha * b) % 65537
+    [a2, b2]
+
+let qs_grover_n_orbit(n, iters) =
+    let a = 1
+    let b = 1
+    let i = 0
+    let done = false
+    for !done
+      if i < iters
+        let st = qs_grover_n_step(a, b, n)
+        a = st[0]
+        b = st[1]
+        i = i + 1
+      else
+        done = true
+    [a, b]
+
+let qs_grover_n_hit(n, iters) =
+    let st = qs_grover_n_orbit(n, iters)
+    let a2 = qc_mul(st[0], st[0])
+    let b2 = qc_mul(st[1], st[1])
+    a2 > b2
+
+let qs_verify_gn() =
+    let results = []
+    let o2_1 = qs_grover_n_orbit(2, 1)
+    results = results.push(o2_1[0] == 8 && o2_1[1] == 0)
+    let o2_3 = qs_grover_n_orbit(2, 3)
+    results = results.push(o2_3[0] == 0 - 64 && o2_3[1] == 0 - 64)
+    let o2_4 = qs_grover_n_orbit(2, 4)
+    results = results.push(o2_4[0] == 0 - 512 && o2_4[1] == 0)
+    let o2_7 = qs_grover_n_orbit(2, 7)
+    results = results.push(o2_7[0] == 32768 && o2_7[1] == 0)
+    let o3_1 = qs_grover_n_orbit(3, 1)
+    results = results.push(o3_1[0] == 20 && o3_1[1] == 4)
+    let o3_3 = qs_grover_n_orbit(3, 3)
+    results = results.push(o3_3[0] == 832 && o3_3[1] == 0 - 448)
+    let o3_4 = qs_grover_n_orbit(3, 4)
+    results = results.push(o3_4[0] == 0 - 1280 && o3_4[1] == 0 - 4352)
+    let o4_1 = qs_grover_n_orbit(4, 1)
+    results = results.push(o4_1[0] == 44 && o4_1[1] == 12)
+    let o4_2 = qs_grover_n_orbit(4, 2)
+    results = results.push(o4_2[0] == 976 && o4_2[1] == 80)
+    let o4_3 = qs_grover_n_orbit(4, 3)
+    results = results.push(o4_3[0] == 16064 && o4_3[1] == 0 - 832)
+    let o4_4 = qs_grover_n_orbit(4, 4)
+    results = results.push(o4_4[0] == 3325 && o4_4[1] == 0 - 43776)
+    let m3 = qs_grover3(0, 3)
+    results = results.push(m3[0] == o3_3[0] && m3[1] == (o3_3[1] % 65537 + 65537) % 65537)
+    results = results.push(qs_grover_n_hit(3, 5))
+    results = results.push(qs_grover_n_hit(3, 6) == false)
+    results = results.push(qs_grover_n_hit(2, 1))
+    results = results.push(o2_7[0] == 32768)
+    let total = true
+    let i = 0
+    let done = false
+    for !done
+      if i < len(results)
+        let v = results[i]
+        if v == false
+          total = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(total)
+    results

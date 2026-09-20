@@ -1,0 +1,234 @@
+let pow128(n) =
+    let r = 1
+    let i = 0
+    for i < n
+      r = r * 128
+      i = i + 1
+    r
+
+let uleb128_decode(bytes, offset) =
+    let result = 0
+    let shift = 0
+    let pos = offset
+    let done = 0
+    for done == 0
+      let byte = bytes[pos]
+      let low7 = byte - (byte / 128) * 128
+      if byte < 128
+        result = result + low7 * pow128(shift)
+        done = 1
+      else
+        result = result + low7 * pow128(shift)
+        shift = shift + 1
+        0
+      pos = pos + 1
+    [result, pos]
+
+let skip_limits(bytes, offset) =
+    let pos = offset
+    let flags = bytes[pos]
+    pos = pos + 1
+    let min_pair = uleb128_decode(bytes, pos)
+    pos = min_pair[1]
+    if (flags - (flags / 2) * 2) == 1
+      let max_pair = uleb128_decode(bytes, pos)
+      pos = max_pair[1]
+    else
+      0
+    pos
+
+let parse_type_section(bytes, offset) =
+    let pos = offset
+    let count_pair = uleb128_decode(bytes, pos)
+    let count = count_pair[0]
+    pos = count_pair[1]
+    let types = []
+    let i = 0
+    for i < count
+      pos = pos + 1
+      let np_pair = uleb128_decode(bytes, pos)
+      let np = np_pair[0]
+      pos = np_pair[1]
+      pos = pos + np
+      let nr_pair = uleb128_decode(bytes, pos)
+      let nr = nr_pair[0]
+      pos = nr_pair[1]
+      pos = pos + nr
+      types = types.push([np, nr])
+      i = i + 1
+    [types, pos]
+
+let parse_import_section(bytes, offset) =
+    let pos = offset
+    let count_pair = uleb128_decode(bytes, pos)
+    let count = count_pair[0]
+    pos = count_pair[1]
+    let import_func_types = []
+    let i = 0
+    for i < count
+      let mlen_pair = uleb128_decode(bytes, pos)
+      let mlen = mlen_pair[0]
+      pos = mlen_pair[1]
+      pos = pos + mlen
+      let flen_pair = uleb128_decode(bytes, pos)
+      let flen = flen_pair[0]
+      pos = flen_pair[1]
+      pos = pos + flen
+      let kind = bytes[pos]
+      pos = pos + 1
+      if kind == 0
+        let tidx_pair = uleb128_decode(bytes, pos)
+        let tidx = tidx_pair[0]
+        pos = tidx_pair[1]
+        import_func_types = import_func_types.push(tidx)
+      else
+        0
+      if kind == 1
+        pos = pos + 1
+        pos = skip_limits(bytes, pos)
+      else
+        0
+      if kind == 2
+        pos = skip_limits(bytes, pos)
+      else
+        0
+      if kind == 3
+        pos = pos + 2
+      else
+        0
+      i = i + 1
+    [import_func_types, pos]
+
+let parse_func_section(bytes, offset) =
+    let pos = offset
+    let count_pair = uleb128_decode(bytes, pos)
+    let count = count_pair[0]
+    pos = count_pair[1]
+    let func_type_idx = []
+    let i = 0
+    for i < count
+      let tidx_pair = uleb128_decode(bytes, pos)
+      let tidx = tidx_pair[0]
+      pos = tidx_pair[1]
+      func_type_idx = func_type_idx.push(tidx)
+      i = i + 1
+    [func_type_idx, pos]
+
+let parse_export_section(bytes, offset) =
+    let pos = offset
+    let count_pair = uleb128_decode(bytes, pos)
+    let count = count_pair[0]
+    pos = count_pair[1]
+    let export_names = []
+    let export_idxs = []
+    let i = 0
+    for i < count
+      let nlen_pair = uleb128_decode(bytes, pos)
+      let nlen = nlen_pair[0]
+      pos = nlen_pair[1]
+      let name_bytes = []
+      let j = 0
+      for j < nlen
+        name_bytes = name_bytes.push(bytes[pos + j])
+        j = j + 1
+      pos = pos + nlen
+      let kind = bytes[pos]
+      pos = pos + 1
+      let idx_pair = uleb128_decode(bytes, pos)
+      let idx = idx_pair[0]
+      pos = idx_pair[1]
+      if kind == 0
+        export_names = export_names.push(name_bytes)
+        export_idxs = export_idxs.push(idx)
+      else
+        0
+      i = i + 1
+    [export_names, export_idxs, pos]
+
+let parse_code_section_full(bytes, offset) =
+    let pos = offset
+    let count_pair = uleb128_decode(bytes, pos)
+    let count = count_pair[0]
+    pos = count_pair[1]
+    let code_locals = []
+    let code_bodies = []
+    let i = 0
+    for i < count
+      let bsize_pair = uleb128_decode(bytes, pos)
+      let bsize = bsize_pair[0]
+      pos = bsize_pair[1]
+      let body_end = pos + bsize
+      let ndecls_pair = uleb128_decode(bytes, pos)
+      let ndecls = ndecls_pair[0]
+      pos = ndecls_pair[1]
+      let n_locals = 0
+      let k = 0
+      for k < ndecls
+        let n_pair = uleb128_decode(bytes, pos)
+        let n = n_pair[0]
+        pos = n_pair[1]
+        pos = pos + 1
+        n_locals = n_locals + n
+        k = k + 1
+      let body = bytes.slice(pos, body_end)
+      code_locals = code_locals.push(n_locals)
+      code_bodies = code_bodies.push(body)
+      pos = body_end
+      i = i + 1
+    [code_locals, code_bodies, pos]
+
+let parse_module(wasm_bytes) =
+    let offset = 8
+    let types = []
+    let import_func_types = []
+    let func_type_idx = []
+    let export_names = []
+    let export_idxs = []
+    let code_locals = []
+    let code_bodies = []
+    let done = 0
+    for done == 0
+      if offset < len(wasm_bytes)
+        let sec_id = wasm_bytes[offset]
+        offset = offset + 1
+        let len_pair = uleb128_decode(wasm_bytes, offset)
+        let payload_len = len_pair[0]
+        offset = len_pair[1]
+        let section_end = offset + payload_len
+        if sec_id == WSEC_TYPE
+          let r = parse_type_section(wasm_bytes, offset)
+          types = r[0]
+          offset = r[1]
+        else
+          0
+        if sec_id == WSEC_IMPORT
+          let r = parse_import_section(wasm_bytes, offset)
+          import_func_types = r[0]
+          offset = r[1]
+        else
+          0
+        if sec_id == WSEC_FUNC
+          let r = parse_func_section(wasm_bytes, offset)
+          func_type_idx = r[0]
+          offset = r[1]
+        else
+          0
+        if sec_id == WSEC_EXPORT
+          let r = parse_export_section(wasm_bytes, offset)
+          export_names = r[0]
+          export_idxs = r[1]
+          offset = r[2]
+        else
+          0
+        if sec_id == WSEC_CODE
+          let r = parse_code_section_full(wasm_bytes, offset)
+          code_locals = r[0]
+          code_bodies = r[1]
+          offset = r[2]
+        else
+          0
+        offset = section_end
+      else
+        done = 1
+    [types, import_func_types, func_type_idx, export_names, export_idxs, code_locals, code_bodies]
+

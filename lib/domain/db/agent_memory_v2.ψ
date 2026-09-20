@@ -1,0 +1,45 @@
+let true AM_DECAY_THRESHOLD = 10
+
+let am_remember(mem, st, id, imp) =
+    mem = rk_put(mem, id, imp)
+    st = rk_audit_append(st, 1, id, imp)
+    [mem, st]
+
+let am_forget(mem, st, id) =
+    let row = rk_get(mem, id)
+    let v = 0
+    if row[0] == 1
+        v = row[1]
+    mem = rk_del(mem, id)
+    st = rk_audit_append(st, 2, id, v)
+    [mem, st]
+
+let am_recall(mem, ctx, rad) =
+    rk_resonance(mem, ctx, rad, 0)
+
+let am_decay_once(mem) =
+    let rows = rk_range(mem, 0, 1000000)
+    let i = 0
+    for i < len(rows)
+        mem = rk_put(mem, rows[i], rows[i + 1] / 2)
+        i = i + 2
+    mem
+
+let am_decay(mem, cycles) =
+    let c = 0
+    for c < cycles
+        mem = am_decay_once(mem)
+        c = c + 1
+    mem
+
+let am_forget_below(mem, thr) =
+    let rows = rk_range(mem, 0, 1000000)
+    let i = 0
+    for i < len(rows)
+        if rows[i + 1] < thr
+            mem = rk_del(mem, rows[i])
+        i = i + 2
+    mem
+
+let am_seal(mem, st) =
+    rk_audit_seal(mem, st)

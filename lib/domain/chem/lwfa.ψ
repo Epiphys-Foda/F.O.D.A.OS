@@ -1,0 +1,30 @@
+import "ck.ψ"
+let bad = [0]
+
+let e0 = 96
+bad[0] = bad[0] + ck(e0, 90, 100)
+
+let gl = 30
+let gs = 17
+let ratio = gl * 1000 / gs
+bad[0] = bad[0] + ck(ratio, 1700, 1900)
+
+let conv_m = 60
+let lwfa_cm = 3
+let compact = conv_m * 100 / lwfa_cm
+let dcompact = compact - 2000
+bad[0] = bad[0] + ck(dcompact, 0, 0)
+
+let wall = 0
+bad[0] = bad[0] + ck_hi(wall, 0)
+
+if 1979 < 1977
+    bad[0] = bad[0] + 1
+if 1979 > 1981
+    bad[0] = bad[0] + 1
+if 2004 < 2002
+    bad[0] = bad[0] + 1
+if 2004 > 2006
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

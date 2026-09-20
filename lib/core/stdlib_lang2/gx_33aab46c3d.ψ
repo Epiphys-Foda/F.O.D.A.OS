@@ -1,0 +1,12 @@
+let g0_fingerprint() =
+    let poles = G0_POLES()
+    let res = G0_RESIDUES()
+    let n = G0_N()
+    let fp = 0
+    let i = 0
+    for i < n
+        fp = gf_add(gf_mul(fp, 31), poles[i])
+        fp = gf_add(gf_mul(fp, 37), res[i])
+        i = i + 1
+    fp
+

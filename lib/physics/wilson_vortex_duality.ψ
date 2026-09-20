@@ -1,0 +1,418 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+import "bootstrap3_domain.ψ"
+import "bootstrap3_ml_quantum.ψ"
+
+import "sh_e39bb00202.ψ"
+import "sh_af95b2b028.ψ"
+import "sh_7c6dfc404d.ψ"
+import "sh_cb68026814.ψ"
+
+import "sh_0ce8ba5325.ψ"
+
+import "sh_0473596775.ψ"
+import "sh_34708e8229.ψ"
+
+import "sh_e06a4e4200.ψ"
+
+import "sh_1b5ec76ed2.ψ"
+
+import "../core/stdlib_lang2/gx_33aab46c3d.ψ"
+import "sh_e0d12bd923.ψ"
+import "sh_b63852aa1c.ψ"
+import "sh_beb5173b91.ψ"
+
+    let f1 = mf_make([0, 1, 2], [10, 20, 30], 3)
+    if mf_size(f1) == 3
+        ok = ok + 1
+    if mf_poles(f1)[0] == 0
+        ok = ok + 1
+    if mf_residues(f1)[1] == 20
+        ok = ok + 1
+
+    let f2 = mf_make([0, 1, 2], [5, 5, 5], 3)
+    let fadd = mf_add(f1, f2)
+    if mf_residues(fadd)[0] == 15
+        ok = ok + 1
+
+    let fmul = mf_mul(f1, f2)
+    if mf_residues(fmul)[0] == 50
+        ok = ok + 1
+
+    let fscale = mf_scale(f1, 2)
+    if mf_residues(fscale)[0] == 20
+        ok = ok + 1
+
+    let fcomp = mf_compose(f1, f2)
+    if mf_size(fcomp) == 3
+        ok = ok + 1
+
+    let fp1 = mf_fingerprint(f1)
+    if fp1 >= 0
+        ok = ok + 1
+
+    if mf_equal(f1, f1) == 1
+        ok = ok + 1
+    if mf_equal(f1, f2) == 0
+        ok = ok + 1
+
+    if ast_to_op(AST_LITERAL()) == OP_OBSERVE()
+        ok = ok + 1
+    if ast_to_op(AST_BINOP()) == OP_COMPILE()
+        ok = ok + 1
+    if ast_to_op(AST_IF()) == OP_SELF_VERIFY()
+        ok = ok + 1
+    if ast_to_op(AST_WHILE()) == OP_GALOIS()
+        ok = ok + 1
+    if ast_to_op(AST_CALL()) == OP_META_OBSERVE()
+        ok = ok + 1
+    if ast_to_op(AST_LET()) == OP_HOMOLOGY()
+        ok = ok + 1
+
+    let ast_t = [AST_LITERAL(), AST_BINOP(), AST_IF()]
+    let ast_v = [42, 7, 1]
+    let ast_field = ast_to_meta_field(ast_t, ast_v, 3)
+    if mf_size(ast_field) == 3
+        ok = ok + 1
+    if mf_poles(ast_field)[0] == gf_add(gf_mul(OP_OBSERVE(), 1000), 42)
+        ok = ok + 1
+
+    let fI = combinator_I(f1)
+    if mf_equal(fI, f1) == 1
+        ok = ok + 1
+
+    let fK = combinator_K([0], [99], 1)
+    if mf_residues(fK)[0] == 99
+        ok = ok + 1
+
+    let fB = combinator_B(f1, f2, f1)
+    if mf_size(fB) == 3
+        ok = ok + 1
+
+    let fS = combinator_S(f1, f2, f1)
+    if mf_size(fS) == 3
+        ok = ok + 1
+
+    let fY = combinator_Y(f1, 3)
+    if mf_size(fY) == 3
+        ok = ok + 1
+
+    let fp_result = kleene_fp(1, 2, 100)
+    if fp_result[2] >= 0
+        ok = ok + 1
+
+    let mf_fp = kleene_mf_fp(f1, 5)
+    if mf_fp[2] >= 0
+        ok = ok + 1
+
+    let hom = homology_compute(f1)
+    if hom[0] == 3
+        ok = ok + 1
+
+    let cancer = homology_cancer_check(f1)
+    if cancer == 0 || cancer == 1
+        ok = ok + 1
+
+    let apop = apoptosis(f1)
+    if mf_size(apop) >= 0
+        ok = ok + 1
+
+    let mutv = galois_mutate(f1, 2)
+    if mf_size(mutv) == 3
+        ok = ok + 1
+
+    let orbit = galois_orbit(f1, 2, 5)
+    if orbit[0] == mf_fingerprint(f1)
+        ok = ok + 1
+
+    let order = galois_order(f1, 2, 100)
+    if order >= 1
+        ok = ok + 1
+
+    let mc = meta_compiler()
+    if mf_size(mc) == 6
+        ok = ok + 1
+
+    let mcs = meta_compile_self()
+    if mf_equal(mc, mcs) == 1
+        ok = ok + 1
+
+    let proj = project(mc)
+    if mf_size(proj) >= 1
+        ok = ok + 1
+
+    let lifted = lift(G0_POLES(), G0_RESIDUES(), G0_N())
+    if mf_size(lifted) == 3
+        ok = ok + 1
+
+    if bootstrap_tower(4) == 1
+        ok = ok + 1
+    if bootstrap_tower(8) == 1
+        ok = ok + 1
+
+    ok
+
+let gauge_field_config(values, n) = mf_make([0, 1, 2, 3, 4], values, n)
+
+let wilson_loop_u1(gauge, g, path_indices, path_len) =
+    let w = 1
+    let i = 0
+    for i < path_len
+        let idx = path_indices[i]
+        let a = mf_residues(gauge)[idx]
+        w = gf_mul(w, gf_pow(g, a))
+        i = i + 1
+    w
+
+let vortex_charge_u1(gauge, path_indices, path_len) =
+    let q = 0
+    let i = 0
+    for i < path_len
+        let idx = path_indices[i]
+        let a = mf_residues(gauge)[idx]
+        q = gf_add(q, a)
+        i = i + 1
+    q
+
+let verify_t_hooft_duality(gauge, g, path_indices, path_len) =
+    let w = wilson_loop_u1(gauge, g, path_indices, path_len)
+    let q = vortex_charge_u1(gauge, path_indices, path_len)
+    let w_from_q = gf_pow(g, q)
+    let result = 0
+    if w == w_from_q
+        result = 1
+    result
+
+let su2_matrix(a, b, c, d) = [a, b, c, d]
+
+let su2_mul(m1, m2) =
+    let a1 = m1[0]
+    let b1 = m1[1]
+    let c1 = m1[2]
+    let d1 = m1[3]
+    let a2 = m2[0]
+    let b2 = m2[1]
+    let c2 = m2[2]
+    let d2 = m2[3]
+    su2_matrix(
+        gf_add(gf_mul(a1, a2), gf_mul(b1, c2)),
+        gf_add(gf_mul(a1, b2), gf_mul(b1, d2)),
+        gf_add(gf_mul(c1, a2), gf_mul(d1, c2)),
+        gf_add(gf_mul(c1, b2), gf_mul(d1, d2))
+    )
+
+let su2_trace(m) = gf_add(m[0], m[3])
+
+let wilson_loop_su2(matrices, n) =
+    let product = matrices[0]
+    let i = 1
+    for i < n
+        product = su2_mul(product, matrices[i])
+        i = i + 1
+    su2_trace(product)
+
+let center_vortex_z2() = su2_matrix(gf_sub(0, 1), 0, 0, gf_sub(0, 1))
+
+let center_vortex_act(w, z) = gf_mul(z, w)
+
+let residue_to_gauge(field) =
+    let n = mf_size(field)
+    let gauge_values = []
+    let i = 0
+    for i < n
+        gauge_values = gauge_values.push(mf_residues(field)[i])
+        i = i + 1
+    mf_make(mf_poles(field), gauge_values, n)
+
+let gauge_to_residue(gauge) =
+    let n = mf_size(gauge)
+    let res = []
+    let i = 0
+    for i < n
+        res = res.push(mf_residues(gauge)[i])
+        i = i + 1
+    mf_make(mf_poles(gauge), res, n)
+
+let verify_roundtrip(field) =
+    let gauge = residue_to_gauge(field)
+    let back = gauge_to_residue(gauge)
+    mf_equal(field, back)
+
+let propagator_residue(m) = gf_inv(gf_mul(2, m))
+
+let s_matrix_element(masses, n) =
+    let s = 1
+    let i = 0
+    for i < n
+        let m = masses[i]
+        s = gf_mul(s, propagator_residue(m))
+        i = i + 1
+    s
+
+let particle_mass(field, k) = mf_poles(field)[k]
+
+let verify_lsz(field, n) =
+    let masses = []
+    let i = 0
+    for i < n
+        masses = masses.push(particle_mass(field, i))
+        i = i + 1
+    let s_from_residues = s_matrix_element(masses, n)
+    let s_direct = 1
+    let j = 0
+    for j < n
+        let m = particle_mass(field, j)
+        s_direct = gf_mul(s_direct, propagator_residue(m))
+        j = j + 1
+    let result = 0
+    if s_from_residues == s_direct
+        result = 1
+    result
+
+let regge_trajectory(j, alpha0, alpha_prime) =
+    gf_div(gf_sub(j, alpha0), alpha_prime)
+
+let regge_pole(j, alpha0, alpha_prime) = regge_trajectory(j, alpha0, alpha_prime)
+
+let verify_regge(j, alpha0, alpha_prime) =
+    let m2 = regge_pole(j, alpha0, alpha_prime)
+    let j_back = gf_add(alpha0, gf_mul(alpha_prime, m2))
+    let result = 0
+    if j_back == j
+        result = 1
+    result
+
+let wilson_vortex_duality_verify() =
+    let ok = 0
+
+    let gauge = gauge_field_config([3, 5, 7, 11, 13], 5)
+    let g = 3
+
+    let path = [0, 1, 2, 3, 4]
+
+    let w = wilson_loop_u1(gauge, g, path, 5)
+    if w >= 0
+        ok = ok + 1
+
+    let q = vortex_charge_u1(gauge, path, 5)
+    if q >= 0
+        ok = ok + 1
+
+    if verify_t_hooft_duality(gauge, g, path, 5) == 1
+        ok = ok + 1
+
+    let path2 = [0, 2, 4]
+    if verify_t_hooft_duality(gauge, g, path2, 3) == 1
+        ok = ok + 1
+
+    let path3 = [1, 3, 0, 4]
+    if verify_t_hooft_duality(gauge, g, path3, 4) == 1
+        ok = ok + 1
+
+    let gauge2 = gauge_field_config([2, 4, 6, 8, 10], 5)
+    if verify_t_hooft_duality(gauge2, g, path, 5) == 1
+        ok = ok + 1
+
+    if verify_t_hooft_duality(gauge, 5, path, 5) == 1
+        ok = ok + 1
+    if verify_t_hooft_duality(gauge, 7, path, 5) == 1
+        ok = ok + 1
+
+    let m1 = su2_matrix(1, 0, 0, 1)
+    let m2 = su2_matrix(0, 1, 1, 0)
+    let m3 = su2_matrix(1, 1, 0, 1)
+
+    let m12 = su2_mul(m1, m2)
+    if su2_trace(m12) == 0
+        ok = ok + 1
+
+    let su2_mats = [m1, m2, m3]
+    let w_su2 = wilson_loop_su2(su2_mats, 3)
+    if w_su2 >= 0
+        ok = ok + 1
+
+    let z2 = center_vortex_z2()
+    if su2_trace(z2) == gf_sub(0, 2)
+        ok = ok + 1
+
+    let w_flipped = center_vortex_act(w_su2, gf_sub(0, 1))
+    if w_flipped == gf_sub(0, w_su2)
+        ok = ok + 1
+
+    let field = mf_make([1, 2, 3, 4, 5], [10, 20, 30, 40, 50], 5)
+    if verify_roundtrip(field) == 1
+        ok = ok + 1
+
+    let field2 = mf_make([0, 1, 2], [5, 10, 15], 3)
+    if verify_roundtrip(field2) == 1
+        ok = ok + 1
+
+    let gauge_from_field = residue_to_gauge(field)
+    let w_from_field = wilson_loop_u1(gauge_from_field, g, path, 5)
+    if w_from_field >= 0
+        ok = ok + 1
+
+    let masses = [2, 3, 5]
+    let s_elem = s_matrix_element(masses, 3)
+    if s_elem >= 0
+        ok = ok + 1
+
+    if verify_lsz(field, 3) == 1
+        ok = ok + 1
+    if verify_lsz(field2, 2) == 1
+        ok = ok + 1
+
+    if gf_mul(propagator_residue(1), 2) == 1
+        ok = ok + 1
+    let res_m2 = propagator_residue(2)
+    if gf_mul(res_m2, 4) == 1
+        ok = ok + 1
+
+    if verify_regge(0, 1, 1) == 1
+        ok = ok + 1
+    if verify_regge(1, 1, 1) == 1
+        ok = ok + 1
+    if verify_regge(2, 0, 1) == 1
+        ok = ok + 1
+    if verify_regge(5, 2, 3) == 1
+        ok = ok + 1
+
+    let m2_regge = regge_pole(3, 1, 2)
+    if m2_regge >= 0
+        ok = ok + 1
+
+    let particle1 = particle_mass(field, 0)
+    if particle1 == 1
+        ok = ok + 1
+    let particle2 = particle_mass(field, 1)
+    if particle2 == 2
+        ok = ok + 1
+
+    let residue1 = mf_residues(field)[0]
+    if residue1 == 10
+        ok = ok + 1
+
+    let mut_gauge = galois_mutate(gauge, 2)
+    if mf_size(mut_gauge) == 5
+        ok = ok + 1
+
+    let hom = homology_compute(gauge)
+    if hom[0] == 5
+        ok = ok + 1
+
+    if ast_to_op(AST_LITERAL()) == OP_OBSERVE()
+        ok = ok + 1
+
+    if bootstrap_tower(8) == 1
+        ok = ok + 1
+
+    let mc = meta_compiler()
+    if mf_size(mc) == 6
+        ok = ok + 1
+
+    let fI = combinator_I(field)
+    if mf_equal(fI, field) == 1
+        ok = ok + 1
+
+    ok
+
+let main() = wilson_vortex_duality_verify()

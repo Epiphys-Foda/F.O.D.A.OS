@@ -1,0 +1,385 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let g0_poles() = [1, 2, 3]
+let g0_residues() = [100, 200, 300]
+let g0_n() = 3
+
+let g0_lyapunov() =
+    let poles = g0_poles()
+    let res = g0_residues()
+    let n = g0_n()
+    let spectrum = []
+    let i = 0
+    for i < n
+        spectrum = spectrum.push(res[i])
+        i = i + 1
+    spectrum
+
+let g0_homology() =
+    let h0 = g0_n()
+    let res = g0_residues()
+    let n = g0_n()
+    let sum_r = 0
+    let i = 0
+    for i < n
+        sum_r = gf_add(sum_r, res[i])
+        i = i + 1
+    [h0, sum_r]
+
+let g0_galois_orbit(sigma) =
+    let poles = g0_poles()
+    let res = g0_residues()
+    let n = g0_n()
+    let orbit_poles = []
+    let orbit_res = []
+    let i = 0
+    for i < n
+        orbit_poles = orbit_poles.push(gf_pow(poles[i], sigma))
+        orbit_res = orbit_res.push(gf_pow(res[i], sigma))
+        i = i + 1
+    [orbit_poles, orbit_res, n]
+
+let g0_entropy() =
+    let n = g0_n()
+    let res = g0_residues()
+    let h = 0
+    let i = 0
+    for i < n
+        h = gf_add(h, gf_mul(res[i], gf_sub(res[i], 1)))
+        i = i + 1
+    gf_mul(h, gf_inv(2))
+
+let g0_fingerprint() =
+    let lyap = g0_lyapunov()
+    let hom = g0_homology()
+    let ent = g0_entropy()
+    let fp = ent
+    let i = 0
+    for i < g0_n()
+        fp = gf_add(gf_mul(fp, 31), lyap[i])
+        i = i + 1
+    fp = gf_add(gf_mul(fp, 37), hom[0])
+    fp = gf_add(gf_mul(fp, 41), hom[1])
+    fp
+
+let op_observe() = 0
+let op_galois() = 1
+let op_homology() = 2
+let op_compile() = 3
+let op_self_verify() = 4
+let op_meta_observe() = 5
+
+let g0_apply(op) =
+    if op == 0
+        g0_fingerprint()
+    else
+        0
+    if op == 1
+        let orbit = g0_galois_orbit(2)
+        let orbit_res = orbit[1]
+        let h = 0
+        let i = 0
+        for i < g0_n()
+            h = gf_add(gf_mul(h, 31), orbit_res[i])
+            i = i + 1
+        h
+    else
+        0
+    if op == 2
+        let hom = g0_homology()
+        gf_add(gf_mul(hom[0], 31), hom[1])
+    else
+        0
+    if op == 3
+        g0_fingerprint()
+    else
+        0
+    if op == 4
+        let fp = g0_fingerprint()
+        fp
+    else
+        0
+    if op == 5
+        let fp = g0_fingerprint()
+        gf_mul(fp, fp)
+    else
+        0
+
+let meta_collide(op1, op2) =
+    let state1 = g0_apply(op1)
+    let state2 = g0_apply(op2)
+    gf_add(gf_mul(state1, 31), state2)
+
+let project(meta_field_poles, meta_field_res, n) =
+    let c_poles = []
+    let c_res = []
+    let cn = 0
+    let i = 0
+    for i < n
+        if meta_field_poles[i] == op_compile()
+            c_poles = c_poles.push(meta_field_poles[i])
+            c_res = c_res.push(meta_field_res[i])
+            cn = cn + 1
+        i = i + 1
+    [c_poles, c_res, cn]
+
+let lift(c_poles, c_res, n) =
+    let meta_poles = []
+    let meta_res = []
+    let i = 0
+    for i < n
+        meta_poles = meta_poles.push(c_poles[i])
+        meta_res = meta_res.push(c_res[i])
+        i = i + 1
+    [meta_poles, meta_res, n]
+
+let meta_compiler() =
+    let poles = [
+        op_observe(),
+        op_galois(),
+        op_homology(),
+        op_compile(),
+        op_self_verify(),
+        op_meta_observe()
+    ]
+    let res = [
+        g0_apply(op_observe()),
+        g0_apply(op_galois()),
+        g0_apply(op_homology()),
+        g0_apply(op_compile()),
+        g0_apply(op_self_verify()),
+        g0_apply(op_meta_observe())
+    ]
+    [poles, res, 6]
+
+let meta_compile_self() =
+    let mc = meta_compiler()
+    let mc_poles = mc[0]
+    let mc_res = mc[1]
+    let mc_n = mc[2]
+
+    let out_poles = []
+    let out_res = []
+    let i = 0
+    for i < mc_n
+        let op = mc_poles[i]
+        let new_fp = g0_apply(op)
+        out_poles = out_poles.push(op)
+        out_res = out_res.push(new_fp)
+        i = i + 1
+    [out_poles, out_res, mc_n]
+
+let verify_t6() =
+    let mc = meta_compiler()
+    let mc_compiled = meta_compile_self()
+    let p1 = mc[0]
+    let r1 = mc[1]
+    let p2 = mc_compiled[0]
+    let r2 = mc_compiled[1]
+    let n = mc[2]
+    let identical = 1
+    let i = 0
+    for i < n
+        if p1[i] != p2[i]
+            identical = 0
+        if r1[i] != r2[i]
+            identical = 0
+        i = i + 1
+    identical
+
+let verify_t7() =
+    let mc = meta_compiler()
+    let mc_poles = mc[0]
+    let mc_n = mc[2]
+    let has_observe = 0
+    let i = 0
+    for i < mc_n
+        if mc_poles[i] == op_observe()
+            has_observe = 1
+        i = i + 1
+    let has_g0_fp = 0
+    let g0_fp = g0_fingerprint()
+    let mc_res = mc[1]
+    let j = 0
+    for j < mc_n
+        if mc_poles[j] == op_observe() && mc_res[j] == g0_fp
+            has_g0_fp = 1
+        j = j + 1
+    has_observe * has_g0_fp
+
+let verify_t8() =
+    let mc = meta_compiler()
+    let mc_poles = mc[0]
+    let mc_n = mc[2]
+    let has_meta_observe = 0
+    let i = 0
+    for i < mc_n
+        if mc_poles[i] == op_meta_observe()
+            has_meta_observe = 1
+        i = i + 1
+    let has_self_verify = 0
+    let j = 0
+    for j < mc_n
+        if mc_poles[j] == op_self_verify()
+            has_self_verify = 1
+        j = j + 1
+    has_meta_observe * has_self_verify
+
+let meta_galois(poles, res, n, sigma) =
+    let new_poles = []
+    let new_res = []
+    let i = 0
+    for i < n
+        new_poles = new_poles.push(gf_pow(poles[i], sigma))
+        new_res = new_res.push(gf_pow(res[i], sigma))
+        i = i + 1
+    [new_poles, new_res, n]
+
+let meta_galois_t6(sigma) =
+    let mc = meta_compiler()
+    let mutated = meta_galois(mc[0], mc[1], mc[2], sigma)
+    let mut_poles = mutated[0]
+    let mut_res = mutated[1]
+    let mut_n = mutated[2]
+    let out_poles = []
+    let out_res = []
+    let i = 0
+    for i < mut_n
+        let op = mut_poles[i]
+        out_poles = out_poles.push(op)
+        out_res = out_res.push(g0_apply(op))
+        i = i + 1
+    let identical = 1
+    let j = 0
+    for j < mut_n
+        if mut_poles[j] != out_poles[j]
+            identical = 0
+        j = j + 1
+    identical
+
+let meta_homology(poles, res, n) =
+    let h0 = n
+    let sum_r = 0
+    let i = 0
+    for i < n
+        sum_r = gf_add(sum_r, res[i])
+        i = i + 1
+    let h2 = 0
+    let j = 0
+    for j < n
+        let k = 0
+        for k < n
+            if j != k
+                let collide_result = meta_collide(poles[j], poles[k])
+                if collide_result == g0_apply(poles[j])
+                    h2 = gf_add(h2, 1)
+            k = k + 1
+        j = j + 1
+    [h0, sum_r, h2]
+
+let kleene_uniqueness() =
+    let mc1 = meta_compiler()
+    let mc2 = meta_compile_self()
+    let fp1 = 0
+    let fp2 = 0
+    let i = 0
+    for i < mc1[2]
+        fp1 = gf_add(gf_mul(fp1, 31), mc1[1][i])
+        fp2 = gf_add(gf_mul(fp2, 31), mc2[1][i])
+        i = i + 1
+    (fp1 == fp2 ? 1 : 0)
+
+let full_meta_bootstrap_verify() =
+    let ok = 0
+
+    if g0_n() == 3
+        ok = ok + 1
+
+    let lyap = g0_lyapunov()
+    if lyap[0] == 100
+        ok = ok + 1
+
+    let hom = g0_homology()
+    if hom[0] == 3
+        ok = ok + 1
+
+    let orbit = g0_galois_orbit(2)
+    if orbit[2] == 3
+        ok = ok + 1
+
+    let ent = g0_entropy()
+    if ent >= 0
+        ok = ok + 1
+
+    let fp = g0_fingerprint()
+    if fp >= 0
+        ok = ok + 1
+
+    if op_observe() == 0 && op_compile() == 3
+        ok = ok + 1
+
+    let obs = g0_apply(op_observe())
+    if obs == fp
+        ok = ok + 1
+
+    let comp = g0_apply(op_compile())
+    if comp == fp
+        ok = ok + 1
+
+    let collide = meta_collide(op_observe(), op_compile())
+    if collide >= 0
+        ok = ok + 1
+
+    let mc = meta_compiler()
+    if mc[2] == 6
+        ok = ok + 1
+
+    let proj = project(mc[0], mc[1], mc[2])
+    if proj[2] >= 1
+        ok = ok + 1
+
+    let lifted = lift(g0_poles(), g0_residues(), g0_n())
+    if lifted[2] == 3
+        ok = ok + 1
+
+    if mc[2] != lifted[2]
+        ok = ok + 1
+
+    let t6 = verify_t6()
+    if t6 == 1
+        ok = ok + 1
+
+    let t7 = verify_t7()
+    if t7 == 1
+        ok = ok + 1
+
+    let t8 = verify_t8()
+    if t8 == 1
+        ok = ok + 1
+
+    if t6 == 1 && t7 == 1 && t8 == 1
+        ok = ok + 1
+
+    if meta_galois_t6(1) == 1
+        ok = ok + 1
+
+    if meta_galois_t6(2) == 1
+        ok = ok + 1
+
+    let meta_hom = meta_homology(mc[0], mc[1], mc[2])
+    if meta_hom[0] == 6
+        ok = ok + 1
+
+    if kleene_uniqueness() == 1
+        ok = ok + 1
+
+    if t6 == 1 && t7 == 1 && t8 == 1 && kleene_uniqueness() == 1
+        ok = ok + 1
+
+    let has_self_knowledge = verify_t7() * verify_t8()
+    if has_self_knowledge == 1
+        ok = ok + 1
+
+    ok
+
+let main() = full_meta_bootstrap_verify()

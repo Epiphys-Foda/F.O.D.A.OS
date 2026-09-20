@@ -1,0 +1,187 @@
+let factorial(n) =
+    let result = 1
+    let i = 2
+    for i <= n
+        result = result * i
+        i = i + 1
+    result
+
+let factorial_mod(n, p) =
+    let result = 1
+    let i = 2
+    for i <= n
+        result = result * i % p
+        i = i + 1
+    result
+
+let binomial(n, k) =
+    if k < 0 || k > n
+        0
+    else
+        0
+    if k == 0 || k == n
+        1
+    else
+        if k > n - k
+            k = n - k
+        let result = 1
+        let i = 0
+        for i < k
+            result = result * (n - i) / (i + 1)
+            i = i + 1
+        result
+
+let binomial_mod(n, k, p) =
+    if k < 0 || k > n
+        0
+    else
+        let result = 1
+        for n > 0 || k > 0
+            let ni = n % p
+            let ki = k % p
+            if ki > ni
+                return 0
+            let c = factorial_mod(ni, p) * mod_inverse(factorial_mod(ki, p), p) % p
+            c = c * mod_inverse(factorial_mod(ni - ki, p), p) % p
+            result = result * c % p
+            n = n / p
+            k = k / p
+        result
+
+let mod_inverse(a, p) =
+    let result = 1
+    let base = a % p
+    let exp = p - 2
+    for exp > 0
+        if exp % 2 == 1
+            result = result * base % p
+        base = base * base % p
+        exp = exp / 2
+    result
+
+let permutation(n, k) =
+    if k < 0 || k > n
+        0
+    else
+        let result = 1
+        let i = 0
+        for i < k
+            result = result * (n - i)
+            i = i + 1
+        result
+
+let stirling_second(n, k) =
+    if k == 0
+        (n == 0 ? 1 : 0)
+    else
+            0
+    if k > n
+        0
+    else
+        0
+    if k == n
+        1
+    else
+        0
+    if k == 1
+        1
+    else
+        let sum = 0
+        let j = 0
+        for j <= k
+            let sign = ((k - j) % 2 == 0 ? 1 : -1)
+            let term = sign * binomial(k, j)
+            let pw = 1
+            let p = 0
+            for p < n
+                pw = pw * j
+                p = p + 1
+            sum = sum + term * pw
+            j = j + 1
+        sum / factorial(k)
+
+let bell_number(n) =
+    let sum = 0
+    let k = 0
+    for k <= n
+        sum = sum + stirling_second(n, k)
+        k = k + 1
+    sum
+
+let catalan(n) =
+    binomial(2 * n, n) / (n + 1)
+
+let derangement(n) =
+    if n == 0
+        1
+    else
+        0
+    if n == 1
+        0
+    else
+        let d0 = 1
+        let d1 = 0
+        let i = 2
+        for i <= n
+            let d = i * d1 + ((i % 2 == 0 ? 1 : -1))
+            d0 = d1
+            d1 = d
+            i = i + 1
+        d1
+
+let falling_factorial(x, n) =
+    let result = 1
+    let i = 0
+    for i < n
+        result = result * (x - i)
+        i = i + 1
+    result
+
+let rising_factorial(x, n) =
+    let result = 1
+    let i = 0
+    for i < n
+        result = result * (x + i)
+        i = i + 1
+    result
+
+let multinomial(n, ks) =
+    let result = factorial(n)
+    let i = 0
+    for i < ks.len()
+        result = result / factorial(ks[i])
+        i = i + 1
+    result
+
+let combinations(n, k) =
+    let result = []
+    let combo = []
+    let i = 0
+    for i < k
+        combo = arr_concat(combo, [i])
+        i = i + 1
+    let done = 0
+    for done == 0
+        result = arr_concat(result, [combo])
+        let i = k - 1
+        for i >= 0 && combo[i] == n - k + i
+            i = i - 1
+        if i < 0
+            done = 1
+        else
+            combo[i] = combo[i] + 1
+            let j = i + 1
+            for j < k
+                combo[j] = combo[j - 1] + 1
+                j = j + 1
+    result
+
+let main() =
+    print(factorial(5))
+    print(binomial(10, 3))
+    print(permutation(5, 3))
+    print(catalan(5))
+    print(stirling_second(4, 2))
+    print(bell_number(4))
+    print(derangement(4))
+    0

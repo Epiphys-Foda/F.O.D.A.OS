@@ -1,0 +1,318 @@
+import "../domain_field.ψ"
+
+let QS_P = 65537
+let QS_HASH_BASE = 31
+let QS_HASH_SALT = 17
+let QS_GENERATOR = 3
+let QS_MAX_PARTIES = 128
+
+let qs_share_new(share_id, holder_id, x_value, y_value, threshold, group_id) =
+    [share_id, holder_id, x_value, y_value, threshold, group_id]
+
+let qs_s_id(s) = s[0]
+let qs_s_holder(s) = s[1]
+let qs_s_x(s) = s[2]
+let qs_s_y(s) = s[3]
+let qs_s_threshold(s) = s[4]
+let qs_s_group(s) = s[5]
+
+let qs_sigshare_new(share_id, holder_id, signature, ts) =
+    [share_id, holder_id, signature, ts]
+
+let qs_ss_id(s) = s[0]
+let qs_ss_holder(s) = s[1]
+let qs_ss_sig(s) = s[2]
+let qs_ss_ts(s) = s[3]
+
+let qs_group_new(group_id, n_parties, threshold, public_key) =
+    [group_id, n_parties, threshold, public_key, {}, 0, []]
+
+let qs_g_id(g) = g[0]
+let qs_g_n(g) = g[1]
+let qs_g_t(g) = g[2]
+let qs_g_pub(g) = g[3]
+let qs_g_shares(g) = g[4]
+let qs_g_used(g) = g[5]
+let qs_g_log(g) = g[6]
+
+let qs_g_set_shares(g, s) =
+    g[4] = s
+    g
+
+let qs_g_set_used(g, u) =
+    g[5] = u
+    g
+
+let qs_g_append_log(g, entry) =
+    let lg = qs_g_log(g)
+    lg.push(entry)
+    g[6] = lg
+    g
+
+let qs_default_manager() =
+    [{}, {}, {}, []]
+
+let qs_m_groups(m) = m[0]
+let qs_m_pending(m) = m[1]
+let qs_m_finalized(m) = m[2]
+let qs_m_log(m) = m[3]
+
+let qs_m_set_groups(m, g) =
+    m[0] = g
+    m
+
+let qs_m_set_pending(m, p) =
+    m[1] = p
+    m
+
+let qs_m_set_finalized(m, f) =
+    m[2] = f
+    m
+
+let qs_m_append_log(m, entry) =
+    let lg = qs_m_log(m)
+    lg.push(entry)
+    m[3] = lg
+    m
+
+let qs_gf_mul(a, b) = domain_gf_mul(a, b)
+
+let qs_pow_mod(base, exp) =
+    let result = 1
+    let b = base % QS_P
+    let e = exp
+    if b < 0
+        b = b + QS_P
+    for e > 0
+        if e % 2 == 1
+            result = qs_gf_mul(result, b)
+        b = qs_gf_mul(b, b)
+        e = e / 2
+    result
+
+let qs_mod_inv(a) =
+    if a == 0
+        0
+    else
+        qs_pow_mod(a, QS_P - 2)
+
+let qs_hash(message) =
+    let h = QS_HASH_SALT
+    let i = 0
+    let n = len(message)
+    for i < n
+        h = (h * QS_HASH_BASE + message[i]) % QS_P
+        i = i + 1
+    h
+
+let qs_evaluate_share(share, x) =
+    let xi = share[0]
+    let yi = share[1]
+    qs_gf_mul(yi, qs_gf_mod(x - xi))
+
+let qs_lagrange_interp(shares_buf, x, threshold) =
+    let n = len(shares_buf)
+    if n < threshold
+        0
+    else
+        let t = threshold
+        if n > t
+            n = t
+        let result = 0
+        let i = 0
+        for i < n
+            let xi = shares_buf[i][0]
+            let yi = shares_buf[i][1]
+            let num = 1
+            let den = 1
+            let j = 0
+            for j < n
+                if j != i
+                    let xj = shares_buf[j][0]
+                    num = qs_gf_mul(num, qs_gf_mod(x - xj))
+                    den = qs_gf_mul(den, qs_gf_mod(xi - xj))
+                j = j + 1
+            let term = qs_gf_mul(yi, num)
+            let inv = qs_mod_inv(den)
+            term = qs_gf_mul(term, inv)
+            result = (result + term) % QS_P
+            i = i + 1
+        if result < 0
+            result = result + QS_P
+        result
+
+let qs_create_group(mgr, group_id, n, t, master_secret, ts) =
+    let pubkey = qs_pow_mod(QS_GENERATOR, master_secret)
+    let group = qs_group_new(group_id, n, t, pubkey)
+    let coefficients = [master_secret]
+    let k = 1
+    for k < t
+        let seed = (master_secret * QS_HASH_BASE + k) % QS_P
+        if seed == 0
+            seed = 1
+        coefficients.push(seed)
+        k = k + 1
+    let shares = qs_g_shares(group)
+    let i = 1
+    for i <= n
+        let y = 0
+        let x_pow = 1
+        let c = 0
+        let cn = len(coefficients)
+        for c < cn
+            y = (y + qs_gf_mul(coefficients[c], x_pow)) % QS_P
+            x_pow = x_pow * i % QS_P
+            c = c + 1
+        let share_id = group_id * 1000 + i
+        let sh = qs_share_new(share_id, i, i, y, t, group_id)
+        shares[share_id] = sh
+        i = i + 1
+    group = qs_g_set_shares(group, shares)
+    group = qs_g_append_log(group, ["create", group_id, ts])
+    let groups = qs_m_groups(mgr)
+    groups[group_id] = group
+    mgr = qs_m_set_groups(mgr, groups)
+    mgr = qs_m_append_log(mgr, ["create_group", group_id, ts])
+    mgr
+
+let qs_sign_with_share(mgr, group_id, holder_id, message, ts) =
+    let groups = qs_m_groups(mgr)
+    let group = groups[group_id]
+    if group == 0
+        [0, 0, 0, 0]
+    else
+        let shares = qs_g_shares(group)
+        let share_id = group_id * 1000 + holder_id
+        let sh = shares[share_id]
+        if sh == 0
+            [0, 0, 0, 0]
+        else
+            let h = qs_hash(message)
+            let y_i = qs_s_y(sh)
+            let sig = qs_pow_mod(h, y_i)
+            let ss = qs_sigshare_new(share_id, holder_id, sig, ts)
+            let msg_id = h
+            let pending = qs_m_pending(mgr)
+            let msg_buf = pending[msg_id]
+            if msg_buf == 0
+                msg_buf = []
+            msg_buf.push(ss)
+            pending[msg_id] = msg_buf
+            mgr = qs_m_set_pending(mgr, pending)
+            let used = qs_g_used(group) + 1
+            group = qs_g_set_used(group, used)
+            group = qs_g_append_log(group, ["sign", share_id, ts])
+            groups[group_id] = group
+            mgr = qs_m_set_groups(mgr, groups)
+            mgr = qs_m_append_log(mgr, ["sign_with_share", group_id, holder_id])
+            ss
+
+let qs_aggregate_signatures(mgr, group_id, msg_id, shares_buf, ts) =
+    let groups = qs_m_groups(mgr)
+    let group = groups[group_id]
+    if group == 0
+        [0, 0]
+    else
+        let t = qs_g_t(group)
+        let n_shares = len(shares_buf)
+        if n_shares < t
+            [0, 0]
+        else
+            let interp_input = []
+            let i = 0
+            for i < t
+                let ss = shares_buf[i]
+                interp_input.push([qs_ss_holder(ss), qs_ss_sig(ss)])
+                i = i + 1
+            let final_sig = qs_lagrange_interp(interp_input, 0, t)
+            let finalized = qs_m_finalized(mgr)
+            finalized[msg_id] = [final_sig, group_id, ts]
+            mgr = qs_m_set_finalized(mgr, finalized)
+            mgr = qs_m_append_log(mgr, ["aggregate", group_id, msg_id])
+            [final_sig, 1]
+
+let qs_verify_threshold(mgr, group_id, msg_id, ts) =
+    let groups = qs_m_groups(mgr)
+    let group = groups[group_id]
+    if group == 0
+        [0, 0]
+    else
+        let t = qs_g_t(group)
+        let pending = qs_m_pending(mgr)
+        let msg_buf = pending[msg_id]
+        let cnt = 0
+        if msg_buf != 0
+            cnt = len(msg_buf)
+        let ok = 0
+        if cnt >= t
+            ok = 1
+        if ok == 1
+            let shares = qs_g_shares(group)
+            let i = 0
+            for i < cnt
+                if shares[qs_ss_id(msg_buf[i])] == 0
+                    ok = 0
+                    i = cnt
+                i = i + 1
+        mgr = qs_m_append_log(mgr, ["verify_threshold", group_id, msg_id])
+        [ok, cnt]
+
+let qs_replay_sigs(mgr, ops_seq) =
+    let seq = []
+    let i = 0
+    let n = len(ops_seq)
+    for i < n
+        let op = ops_seq[i]
+        let g_ids = keys_of(qs_m_groups(mgr))
+        if len(g_ids) > 0
+            seq.push(qs_aggregate_signatures(mgr, g_ids[0], op[0], op[1], 0)[0])
+        i = i + 1
+    seq
+
+let qs_bragg_verify(mgr, ops_seq) =
+    let d_seq = qs_replay_sigs(mgr, ops_seq)
+    let shadow = qs_default_manager()
+    let groups = qs_m_groups(mgr)
+    let g_ids2 = keys_of(groups)
+    let k = 0
+    let gn = len(g_ids2)
+    for k < gn
+        let gid = g_ids2[k]
+        let g = groups[gid]
+        let g_copy = qs_group_new(gid, qs_g_n(g), qs_g_t(g), qs_g_pub(g))
+        g_copy = qs_g_set_shares(g_copy, qs_g_shares(g))
+        let s_groups = qs_m_groups(shadow)
+        s_groups[gid] = g_copy
+        shadow = qs_m_set_groups(shadow, s_groups)
+        k = k + 1
+    let r_seq = qs_replay_sigs(shadow, ops_seq)
+    let ok = 1
+    let n = len(ops_seq)
+    if len(d_seq) != len(r_seq)
+        ok = 0
+    else
+        let c = 0
+        let cn = len(d_seq)
+        for c < cn
+            if d_seq[c] != r_seq[c]
+                ok = 0
+                c = cn
+            c = c + 1
+    [ok, n]
+
+let qs_gf_mod(x) = domain_gf_mod(x)
+
+let qs_gf_inv(a) = domain_gf_inv(a)
+
+let qs_field_encode(items, n) =
+    let records = []
+    let _i = 0
+    for _i < n
+        records.push([items[_i], items[_i]])
+        _i = _i + 1
+    domain_field_encode(records, n, 256, 1)
+
+let qs_field_eval(poles, residues, z) = domain_field_eval(poles, residues, z)
+
+let qs_field_bragg_verify(current, replay) = domain_bragg_verify(current[0], current[1], replay[0], replay[1])
+

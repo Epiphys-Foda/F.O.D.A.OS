@@ -1,0 +1,108 @@
+let NTT_P = 65537
+let NTT_N = 8
+let NTT_ROOT_E = 8192
+
+let ntt_pow(b, e) =
+    let r = 1
+    let base = b % NTT_P
+    let ex = e
+    for ex > 0
+        if ex % 2 == 1
+            r = r * base % NTT_P
+        base = base * base % NTT_P
+        ex = ex / 2
+    r
+
+let ntt_inv(a) =
+    ntt_pow(a, NTT_P - 2)
+
+let ntt_forward(x, n, w) =
+    let X = arr_new_n(n)
+    let k = 0
+    for k < n
+        let s = 0
+        let m = 0
+        for m < n
+            s = (s + x[m] * ntt_pow(w, m * k)) % NTT_P
+            m = m + 1
+        X[k] = s
+        k = k + 1
+    X
+
+let ntt_inverse(X, n, w) =
+    let x = arr_new_n(n)
+    let ninv = ntt_inv(n)
+    let i = 0
+    for i < n
+        let s = 0
+        let k = 0
+        for k < n
+            let e = (n - (i * k) % n) % n
+            s = (s + X[k] * ntt_pow(w, e)) % NTT_P
+            k = k + 1
+        x[i] = ninv * s % NTT_P
+        i = i + 1
+    x
+
+let ntt_conj_energy(X, n) =
+    let fe = 0
+    let k = 0
+    for k < n
+        let k2 = (n - k) % n
+        fe = (fe + X[k] * X[k2]) % NTT_P
+        k = k + 1
+    fe
+
+let ntt_naive_energy(X, n) =
+    let fe = 0
+    let k = 0
+    for k < n
+        fe = (fe + X[k] * X[k]) % NTT_P
+        k = k + 1
+    fe
+
+let ntt_time_energy(x, n) =
+    let te = 0
+    let j = 0
+    for j < n
+        te = (te + x[j] * x[j]) % NTT_P
+        j = j + 1
+    te
+
+let ntt_spectrum_of(x, n, w) =
+    ntt_forward(x, n, w)
+
+let ntt_case(x, n, w) =
+    let out = arr_new_n(4)
+    let wN = ntt_pow(w, n)
+    out[0] = wN == 1 ? 1 : 0
+    let X = ntt_forward(x, n, w)
+    let xr = ntt_inverse(X, n, w)
+    let rok = 1
+    let i = 0
+    for i < n
+        if xr[i] != x[i]
+            rok = 0
+        i = i + 1
+    out[1] = rok
+    let te = ntt_time_energy(x, n)
+    let rhs = n * te % NTT_P
+    out[2] = ntt_conj_energy(X, n) == rhs ? 1 : 0
+    out[3] = ntt_naive_energy(X, n) == rhs ? 0 : 1
+    out
+
+let ntt_vec_ok(vec) =
+    let w = ntt_pow(3, NTT_ROOT_E)
+    let c = ntt_case(vec, NTT_N, w)
+    let ok = 1
+    let t = 0
+    for t < 4
+        ok = ok * (c[t] == 1 ? 1 : 0)
+        t = t + 1
+    ok
+
+let ntt_v_all() =
+    let g1 = ntt_vec_ok([65, 42, 65, 58, 106, 65, 0, 70])
+    let g2 = ntt_vec_ok([1, 2, 3, 4, 5, 6, 7, 8])
+    let g3 = ntt_vec_ok([997, 1009, 1013, 1019, 5000, 3, 65536, 12345])
+    g1 * g2 * g3

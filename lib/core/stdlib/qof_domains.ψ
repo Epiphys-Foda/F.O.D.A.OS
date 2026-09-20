@@ -1,0 +1,222 @@
+import "psi_dataflow.ψ"
+import "qqbc_bin.ψ"
+
+let DOMAIN_RENDER = 1
+let DOMAIN_AUDIO = 2
+let DOMAIN_PHYSICS = 3
+let DOMAIN_AI = 4
+let DOMAIN_GAME = 5
+let DOMAIN_DB = 6
+let DOMAIN_STORE = 7
+let DOMAIN_COUNT = 7
+
+let DT_GF = TOKEN_TYPE_GF_ELEMENT
+let DT_FREQ = TOKEN_TYPE_FREQ_SPEC
+let DT_HOMO = TOKEN_TYPE_HOMO_COORD
+
+let domain_name(id) =
+    if id == DOMAIN_RENDER
+        "rendering"
+    else
+      if id == DOMAIN_AUDIO
+          "audio"
+      else
+        if id == DOMAIN_PHYSICS
+            "physics"
+        else
+          if id == DOMAIN_AI
+              "AI"
+          else
+            if id == DOMAIN_GAME
+                "game"
+            else
+              if id == DOMAIN_DB
+                  "database"
+              else
+                if id == DOMAIN_STORE
+                    "storage"
+                else
+                    "?"
+
+let domain_symbol(id) =
+    if id == DOMAIN_RENDER
+        "◦"
+    else
+      if id == DOMAIN_AUDIO
+          "≋"
+      else
+        if id == DOMAIN_PHYSICS
+            "∆"
+        else
+          if id == DOMAIN_AI
+              "⊙≋"
+          else
+            if id == DOMAIN_GAME
+                "↡"
+            else
+              if id == DOMAIN_DB
+                  "∆"
+              else
+                if id == DOMAIN_STORE
+                    "∆"
+                else
+                    "?"
+
+let domain_chain_desc(id) =
+    if id == DOMAIN_RENDER
+        "◦(poles) → Cauchy residues → pixels"
+    else
+      if id == DOMAIN_AUDIO
+          "≋(frequency, envelope) → waveform"
+      else
+        if id == DOMAIN_PHYSICS
+            "∆(field, dt) → evolution"
+        else
+          if id == DOMAIN_AI
+              "⊙(layers) + ≋(attention) → inference"
+          else
+            if id == DOMAIN_GAME
+                "↡(state, input) → next frame"
+            else
+              if id == DOMAIN_DB
+                  "WAL = measurement event stream"
+              else
+                if id == DOMAIN_STORE
+                    "Checkpoint = collapse to ground state"
+                else
+                    "?"
+
+let domain_opcodes(id) =
+    if id == DOMAIN_RENDER
+        [16, 2, 17]
+    else
+      if id == DOMAIN_AUDIO
+          [16, 3, 17]
+      else
+        if id == DOMAIN_PHYSICS
+            [16, 5, 17]
+        else
+          if id == DOMAIN_AI
+              [16, 1, 3, 17]
+          else
+            if id == DOMAIN_GAME
+                [16, 4, 17]
+            else
+              if id == DOMAIN_DB
+                  [16, 5, 17]
+              else
+                if id == DOMAIN_STORE
+                    [16, 5, 17]
+                else
+                    []
+
+let domain_token_types(id) =
+    if id == DOMAIN_RENDER
+        [DT_HOMO, DT_HOMO]
+    else
+      if id == DOMAIN_AUDIO
+          [DT_FREQ, DT_FREQ]
+      else
+        if id == DOMAIN_PHYSICS
+            [DT_GF, DT_GF]
+        else
+          if id == DOMAIN_AI
+              [DT_GF, DT_FREQ, DT_FREQ]
+          else
+            if id == DOMAIN_GAME
+                [DT_GF, DT_GF]
+            else
+              if id == DOMAIN_DB
+                  [DT_GF, DT_GF]
+              else
+                if id == DOMAIN_STORE
+                    [DT_GF, DT_GF]
+                else
+                    []
+
+let domain_fifos(id) =
+    if id == DOMAIN_RENDER
+        [4, 4]
+    else
+      if id == DOMAIN_AUDIO
+          [8, 8]
+      else
+        if id == DOMAIN_PHYSICS
+            [16, 16]
+        else
+          if id == DOMAIN_AI
+              [4, 8, 8]
+          else
+            if id == DOMAIN_GAME
+                [4, 4]
+            else
+              if id == DOMAIN_DB
+                  [16, 16]
+              else
+                if id == DOMAIN_STORE
+                    [8, 8]
+                else
+                    []
+
+let dm_chain_nodes(opcodes, idx, dag) =
+    let n = len(opcodes)
+    let r = if idx < n
+      let op = opcodes[idx]
+      dm_chain_nodes(opcodes, idx + 1, dag_add_node_v13_1(dag, op, op, -1, idx))
+    else
+      dag
+    r
+
+let dm_chain_edges(dag, token_types, fifos, idx) =
+    let n = len(token_types)
+    let r = if idx < n
+      dm_chain_edges(dag_add_edge_v13_1(dag, idx, 0, idx + 1, 0, token_types[idx], fifos[idx]), token_types, fifos, idx + 1)
+    else
+      dag
+    r
+
+let domain_make_chain(opcodes, token_types, fifos) =
+    let d1 = dm_chain_nodes(opcodes, 0, dag_create())
+    dm_chain_edges(d1, token_types, fifos, 0)
+
+let domain_template(id) = domain_make_chain(domain_opcodes(id), domain_token_types(id), domain_fifos(id))
+
+let domain_bytes(id) = qqbin_encode(domain_template(id)).len()
+
+let domain_total_bytes_impl(id, acc) =
+    let r = if id <= DOMAIN_COUNT
+      domain_total_bytes_impl(id + 1, acc + domain_bytes(id))
+    else
+      acc
+    r
+
+let domain_total_bytes() = domain_total_bytes_impl(1, 0)
+
+let domain_rt_ok(id) = qqbin_roundtrip(domain_template(id))
+
+let domain_all_rt_ok_impl(id, acc) =
+    let r = if id <= DOMAIN_COUNT
+      if domain_rt_ok(id)
+        domain_all_rt_ok_impl(id + 1, acc)
+      else
+        false
+    else
+      acc
+    r
+
+let domain_all_rt_ok() = domain_all_rt_ok_impl(1, true)
+
+let domain_all_under_4kb_impl(id, acc) =
+    let r = if id <= DOMAIN_COUNT
+      if domain_bytes(id) < 4096
+        domain_all_under_4kb_impl(id + 1, acc)
+      else
+        false
+    else
+      acc
+    r
+
+let domain_all_under_4kb() = domain_all_under_4kb_impl(1, true)
+
+let domain_summary() =
+    { domain_count: DOMAIN_COUNT, total_bytes: domain_total_bytes(), all_rt_ok: domain_all_rt_ok(), all_under_4kb: domain_all_under_4kb(), domains: "rendering/audio/physics/AI/game/database/storage", principle: "same five operators, seven measurement planes - everything is operator flow" }

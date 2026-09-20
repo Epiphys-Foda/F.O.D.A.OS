@@ -1,0 +1,33 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+let e6 = 1000000
+
+let cbEo = icbrt(1649 * e6)
+bad[0] = bad[0] + ck(cbEo, 1180, 1182)
+
+let dEoFluid = 244 * 6371 * cbEo / 100 / 1000
+bad[0] = bad[0] + ck(dEoFluid, 18000, 18700)
+
+let dEoRigid = 126 * 6371 * cbEo / 100 / 1000
+bad[0] = bad[0] + ck(dEoRigid, 9400, 9600)
+
+if 384400 < dEoFluid
+    bad[0] = bad[0] + 1
+
+let cbFp = icbrt(2112 * e6)
+let dFp = 244 * 3389 * cbFp / 100 / 1000
+bad[0] = bad[0] + ck(cbFp, 1281, 1283)
+if 9376 > dFp
+    bad[0] = bad[0] + 1
+
+let cbSr = icbrt(763 * e6)
+let dSr = 244 * 60268 * cbSr / 100 / 1000
+bad[0] = bad[0] + ck(cbSr, 912, 914)
+let ringGap = 136780 - dSr
+if ringGap < 0 - 5000
+    bad[0] = bad[0] + 1
+bad[0] = bad[0] + ck_hi(ringGap, 5000)
+
+arr_get(arr_new_n(1), bad[0])

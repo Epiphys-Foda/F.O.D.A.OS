@@ -1,0 +1,529 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let II_P_MOD  = 65537
+let II_FIXED_K = 1024
+let II_BM25_K1 = 1229
+let II_BM25_B  = 768
+let II_LOG_BASE = 2
+let II_IDF_BASE = 32768
+let II_MAX_DOCS = 65536
+let II_MAX_TERMS = 65536
+
+let II_POSTING_DOC_ID = 0
+let II_POSTING_TF     = 1
+let II_POSTING_POS    = 2
+
+let II_IDX_POSTINGS    = 0
+let II_IDX_DOC_LEN     = 1
+let II_IDX_TOTAL       = 2
+let II_IDX_AVG_LEN     = 3
+let II_IDX_TERM_FREQS  = 4
+let II_IDX_DOC_FREQS   = 5
+
+let posting_new(doc_id, term_freq, positions) =
+    [doc_id, term_freq, positions]
+
+let posting_doc_id(p) = p[II_POSTING_DOC_ID]
+let posting_term_freq(p) = p[II_POSTING_TF]
+let posting_positions(p) = p[II_POSTING_POS]
+
+let posting_set_tf(p, tf) =
+    p[II_POSTING_TF] = tf
+    p
+
+let posting_add_position(p, pos) =
+    let positions = posting_positions(p)
+    positions.push(pos)
+    p[II_POSTING_POS] = positions
+    p
+
+let index_new() =
+    [{}, {}, 0, 0, {}, {}]
+
+let index_postings(idx) = idx[II_IDX_POSTINGS]
+let index_doc_lengths(idx) = idx[II_IDX_DOC_LEN]
+let index_total_docs(idx) = idx[II_IDX_TOTAL]
+let index_avg_doc_len(idx) = idx[II_IDX_AVG_LEN]
+let index_term_freqs(idx) = idx[II_IDX_TERM_FREQS]
+let index_doc_freqs(idx) = idx[II_IDX_DOC_FREQS]
+
+let index_set_postings(idx, postings) =
+    idx[II_IDX_POSTINGS] = postings
+    idx
+
+let index_set_doc_lengths(idx, doc_lengths) =
+    idx[II_IDX_DOC_LEN] = doc_lengths
+    idx
+
+let index_set_total_docs(idx, total) =
+    idx[II_IDX_TOTAL] = total
+    idx
+
+let index_set_avg_doc_len(idx, avg) =
+    idx[II_IDX_AVG_LEN] = avg
+    idx
+
+let index_set_term_freqs(idx, term_freqs) =
+    idx[II_IDX_TERM_FREQS] = term_freqs
+    idx
+
+let index_set_doc_freqs(idx, doc_freqs) =
+    idx[II_IDX_DOC_FREQS] = doc_freqs
+    idx
+
+let ii_term_hash(token) =
+    let h = 5381
+    let i = 0
+    let n = len(token)
+    for i < n
+        h = (h * 33 + token[i]) % II_P_MOD
+        i = i + 1
+    h
+
+let index_add_doc(idx, doc_id, tokens) =
+    let postings = index_postings(idx)
+    let doc_lengths = index_doc_lengths(idx)
+    let total_docs = index_total_docs(idx)
+    let avg_doc_len = index_avg_doc_len(idx)
+    let term_freqs = index_term_freqs(idx)
+    let doc_freqs = index_doc_freqs(idx)
+
+    let doc_len = len(tokens)
+
+    doc_lengths[doc_id] = doc_len
+
+    let old_total = total_docs
+    let new_total = old_total + 1
+    let old_sum_fixed = avg_doc_len * old_total
+    let new_sum_fixed = old_sum_fixed + doc_len * II_FIXED_K
+    let new_avg = new_sum_fixed / new_total
+    avg_doc_len = new_avg
+    total_docs = new_total
+
+    let term_pos_map = {}
+    let i = 0
+    for i < doc_len
+        let tok = tokens[i]
+        let pos_list = term_pos_map[tok]
+        if pos_list == 0
+            pos_list = []
+        pos_list.push(i)
+        term_pos_map[tok] = pos_list
+        i = i + 1
+
+    let terms = term_pos_map.keys()
+    let ti = 0
+    let tn = len(terms)
+    for ti < tn
+        let term = terms[ti]
+        let pos_list = term_pos_map[term]
+        let tf = len(pos_list)
+        let posting = posting_new(doc_id, tf, pos_list)
+
+        let plist = postings[term]
+        if plist == 0
+            plist = []
+        plist.push(posting)
+        postings[term] = plist
+
+        let tf_total = term_freqs[term]
+        if tf_total == 0
+            tf_total = 0
+        tf_total = tf_total + tf
+        term_freqs[term] = tf_total
+
+        let df = doc_freqs[term]
+        if df == 0
+            df = 0
+        df = df + 1
+        doc_freqs[term] = df
+
+        ti = ti + 1
+
+    idx[II_IDX_POSTINGS] = postings
+    idx[II_IDX_DOC_LEN] = doc_lengths
+    idx[II_IDX_TOTAL] = total_docs
+    idx[II_IDX_AVG_LEN] = avg_doc_len
+    idx[II_IDX_TERM_FREQS] = term_freqs
+    idx[II_IDX_DOC_FREQS] = doc_freqs
+    idx
+
+let index_search_term(idx, term) =
+    let term_h = 0
+    if term < 0
+        term_h = term
+    else
+        term_h = term
+    let postings = index_postings(idx)
+    let plist = postings[term_h]
+    if plist == 0
+        []
+    else
+        plist
+
+let index_search_term_by_hash(idx, term_hash) =
+    let postings = index_postings(idx)
+    let plist = postings[term_hash]
+    if plist == 0
+        []
+    else
+        plist
+
+let index_term_freq(idx, term, doc_id) =
+    let plist = index_search_term(idx, term)
+    let i = 0
+    let n = len(plist)
+    for i < n
+        let p = plist[i]
+        if posting_doc_id(p) == doc_id
+            posting_term_freq(p)
+        i = i + 1
+    0
+
+let index_term_freq_total(idx, term) =
+    let term_freqs = index_term_freqs(idx)
+    let tf = term_freqs[term]
+    if tf == 0
+        0
+    else
+        tf
+
+let index_doc_freq(idx, term) =
+    let doc_freqs = index_doc_freqs(idx)
+    let df = doc_freqs[term]
+    if df == 0
+        0
+    else
+        df
+
+let ii_log2_fixed(x) =
+    if x <= 1
+        0
+    let v = x
+    let bits = 0
+    for v > 1
+        v = v / 2
+        bits = bits + 1
+    bits * II_FIXED_K
+
+let index_tfidf(idx, term, doc_id) =
+    let tf = index_term_freq(idx, term, doc_id)
+    if tf == 0
+        0
+    let df = index_doc_freq(idx, term)
+    if df == 0
+        0
+    let n = index_total_docs(idx)
+    if n == 0
+        0
+    let ratio = n / df
+    if ratio < 1
+        ratio = 1
+    let idf_fixed = ii_log2_fixed(ratio)
+    let tfidf = tf * idf_fixed / II_FIXED_K
+    tfidf
+
+let bm25_idf_fixed(idx, term) =
+    let df = index_doc_freq(idx, term)
+    if df == 0
+        0
+    let n = index_total_docs(idx)
+    if n == 0
+        0
+    let numerator = n - df
+    if numerator < 1
+        numerator = 1
+    let denom = df
+    if denom < 1
+        denom = 1
+    let ratio = numerator / denom
+    if ratio < 1
+        ratio = 1
+    let idf = ii_log2_fixed(ratio) + II_FIXED_K
+    idf
+
+let index_bm25_score(idx, term, doc_id) =
+    let tf = index_term_freq(idx, term, doc_id)
+    if tf == 0
+        0
+    let df = index_doc_freq(idx, term)
+    if df == 0
+        0
+    let idf = bm25_idf_fixed(idx, term)
+    let doc_lengths = index_doc_lengths(idx)
+    let dl = doc_lengths[doc_id]
+    if dl == 0
+        dl = 1
+    let avgdl_fixed = index_avg_doc_len(idx)
+    if avgdl_fixed == 0
+        avgdl_fixed = II_FIXED_K
+
+    let dl_avg_ratio = dl * II_FIXED_K / avgdl_fixed
+
+    let term_norm_num = II_FIXED_K - II_BM25_B + (II_BM25_B * dl_avg_ratio) / II_FIXED_K
+    if term_norm_num == 0
+        term_norm_num = 1
+
+    let k_term = II_BM25_K1 * term_norm_num / II_FIXED_K
+
+    let denom = tf + k_term
+    if denom == 0
+        denom = 1
+
+    let numer = tf * (II_BM25_K1 + II_FIXED_K)
+
+    let tf_norm = numer / denom
+
+    let score = idf * tf_norm / II_FIXED_K
+    score
+
+let index_bm25_score_multi(idx, terms, doc_id) =
+    let total = 0
+    let i = 0
+    let n = len(terms)
+    for i < n
+        total = total + index_bm25_score(idx, terms[i], doc_id)
+        i = i + 1
+    [doc_id, total]
+
+let ii_get_positions(idx, term, doc_id) =
+    let plist = index_search_term(idx, term)
+    let i = 0
+    let n = len(plist)
+    for i < n
+        let p = plist[i]
+        if posting_doc_id(p) == doc_id
+            posting_positions(p)
+        i = i + 1
+    []
+
+let index_proximity(idx, term_a, term_b, doc_id, slop) =
+    let pos_a = ii_get_positions(idx, term_a, doc_id)
+    let pos_b = ii_get_positions(idx, term_b, doc_id)
+    if len(pos_a) == 0
+        0
+    if len(pos_b) == 0
+        0
+
+    let i = 0
+    let j = 0
+    let na = len(pos_a)
+    let nb = len(pos_b)
+    let min_dist = II_P_MOD
+    for i < na && j < nb
+        let a = pos_a[i]
+        let b = pos_b[j]
+        let d = 0
+        if a > b
+            d = a - b
+        else
+            d = b - a
+        if d < min_dist
+            min_dist = d
+        if a < b
+            i = i + 1
+        else
+            j = j + 1
+    if min_dist <= slop
+        1
+    else
+        0
+
+let index_phrase_match(idx, terms, doc_id, slop) =
+    let n = len(terms)
+    if n == 0
+        0
+    if n == 1
+        let tf = index_term_freq(idx, terms[0], doc_id)
+        if tf > 0
+            1
+        else
+            0
+
+    let i = 1
+    for i < n
+        let ok = index_proximity(idx, terms[i - 1], terms[i], doc_id, slop + 1)
+        if ok == 0
+            0
+        i = i + 1
+    1
+
+let index_doc_length(idx, doc_id) =
+    let doc_lengths = index_doc_lengths(idx)
+    let dl = doc_lengths[doc_id]
+    if dl == 0
+        0
+    else
+        dl
+
+let index_term_count(idx) =
+    let doc_freqs = index_doc_freqs(idx)
+    let keys = doc_freqs.keys()
+    len(keys)
+
+let index_doc_count(idx) =
+    index_total_docs(idx)
+
+let index_avg_doc_len_fixed(idx) =
+    index_avg_doc_len(idx)
+
+let ii_plist_to_doc_ids(plist) =
+    let doc_ids = []
+    let i = 0
+    let n = len(plist)
+    for i < n
+        let p = plist[i]
+        doc_ids.push(posting_doc_id(p))
+        i = i + 1
+    doc_ids
+
+let ii_and_doc_ids(a, b) =
+    let result = []
+    let i = 0
+    let na = len(a)
+    for i < na
+        let d = a[i]
+        let j = 0
+        let nb = len(b)
+        let found = 0
+        for j < nb
+            if b[j] == d
+                found = 1
+                j = nb
+            j = j + 1
+        if found == 1
+            result.push(d)
+        i = i + 1
+    result
+
+let ii_or_doc_ids(a, b) =
+    let result = []
+    let seen = {}
+    let i = 0
+    let na = len(a)
+    for i < na
+        let d = a[i]
+        if seen[d] == 0
+            result.push(d)
+            seen[d] = 1
+        i = i + 1
+    i = 0
+    let nb = len(b)
+    for i < nb
+        let d = b[i]
+        if seen[d] == 0
+            result.push(d)
+            seen[d] = 1
+        i = i + 1
+    result
+
+let ii_not_doc_ids(a, b) =
+    let result = []
+    let bset = {}
+    let i = 0
+    let nb = len(b)
+    for i < nb
+        bset[b[i]] = 1
+        i = i + 1
+    i = 0
+    let na = len(a)
+    for i < na
+        let d = a[i]
+        if bset[d] == 0
+            result.push(d)
+        i = i + 1
+    result
+
+let index_all_doc_ids(idx) =
+    let doc_lengths = index_doc_lengths(idx)
+    doc_lengths.keys()
+
+let ii_verify_basic() =
+    let idx = index_new()
+    idx = index_add_doc(idx, 1, [10, 20, 10, 30])
+    idx = index_add_doc(idx, 2, [10, 30, 40])
+    idx = index_add_doc(idx, 3, [20, 50])
+
+    let total = index_total_docs(idx)
+    let ok_total = 0
+    if total == 3
+        ok_total = 1
+
+    let tf = index_term_freq(idx, 10, 1)
+    let ok_tf = 0
+    if tf == 2
+        ok_tf = 1
+
+    let df = index_doc_freq(idx, 10)
+    let ok_df = 0
+    if df == 2
+        ok_df = 1
+
+    let plist = index_search_term(idx, 10)
+    let ok_plist = 0
+    if len(plist) == 2
+        ok_plist = 1
+
+    ok_total + ok_tf + ok_df + ok_plist
+
+let ii_verify_bm25() =
+    let idx = index_new()
+    idx = index_add_doc(idx, 1, [10, 20, 10, 30])
+    idx = index_add_doc(idx, 2, [10, 30, 40])
+    idx = index_add_doc(idx, 3, [20, 50])
+
+    let score1 = index_bm25_score(idx, 10, 1)
+    let score2 = index_bm25_score(idx, 10, 2)
+    let score3 = index_bm25_score(idx, 10, 3)
+
+    let ok1 = 0
+    if score1 > 0
+        ok1 = 1
+    let ok2 = 0
+    if score2 > 0
+        ok2 = 1
+    let ok3 = 0
+    if score3 == 0
+        ok3 = 1
+    ok1 + ok2 + ok3
+
+let ii_verify_proximity() =
+    let idx = index_new()
+    idx = index_add_doc(idx, 1, [10, 20, 10, 30])
+    idx = index_add_doc(idx, 2, [10, 30, 40])
+
+    let ok_near = 0
+    let r1 = index_proximity(idx, 10, 20, 1, 1)
+    if r1 == 1
+        ok_near = 1
+
+    let ok_far = 0
+    let r2 = index_proximity(idx, 10, 30, 1, 0)
+    if r2 == 0
+        ok_far = 1
+    ok_near + ok_far
+
+let ii_verify_merge() =
+    let a = [1, 2, 3, 4]
+    let b = [3, 4, 5, 6]
+    let and_ab = ii_and_doc_ids(a, b)
+    let or_ab = ii_or_doc_ids(a, b)
+    let not_ab = ii_not_doc_ids(a, b)
+
+    let ok_and = 0
+    if len(and_ab) == 2
+        ok_and = 1
+    let ok_or = 0
+    if len(or_ab) == 6
+        ok_or = 1
+    let ok_not = 0
+    if len(not_ab) == 2
+        ok_not = 1
+    ok_and + ok_or + ok_not
+
+let ii_verify_all() =
+    let r1 = ii_verify_basic()
+    let r2 = ii_verify_bm25()
+    let r3 = ii_verify_proximity()
+    let r4 = ii_verify_merge()
+    r1 + r2 + r3 + r4

@@ -1,0 +1,17 @@
+let rpf_collide(field) =
+    let primes = rpf_primes(field)
+    let n = rpf_count(field)
+    let current = primes
+    let i = 0
+    for i < n
+        let j = gf_add(i, 1)
+        for j < n
+            let rp_i = current[i]
+            let rp_j = current[j]
+            let collided = rp_collide(rp_i, rp_j)
+            current[i] = collided[0]
+            current[j] = collided[1]
+            j = j + 1
+        i = i + 1
+    rpf_make(current, n)
+

@@ -1,0 +1,209 @@
+let DQ_P = 65537
+
+let DQ_MODE_ONCE    = 1
+let DQ_MODE_REPEAT  = 2
+let DQ_MODE_CRON    = 3
+
+let DQ_WHEEL_SLOTS  = 60
+let DQ_TICK_MS      = 1000
+let DQ_MAX_SCHEDULED = 4096
+
+let dq_msg_new(msg_id, visible_at, payload) =
+    [msg_id, visible_at, payload, 0, 3]
+
+let dq_msg_id(m)        = m[0]
+let dq_msg_visible(m)   = m[1]
+let dq_msg_payload(m)   = m[2]
+let dq_msg_attempts(m)  = m[3]
+let dq_msg_max(m)       = m[4]
+
+let dq_msg_set_attempts(m, n) =
+    m[3] = n
+    m
+
+let dq_msg_set_max(m, n) =
+    m[4] = n
+    m
+
+let dq_task_new(task_id, mode, interval_ms, first_run, payload) =
+    [task_id, mode, interval_ms, first_run, payload, 0]
+
+let dq_task_id(t)        = t[0]
+let dq_task_mode(t)      = t[1]
+let dq_task_interval(t)  = t[2]
+let dq_task_next(t)      = t[3]
+let dq_task_payload(t)   = t[4]
+let dq_task_count(t)     = t[5]
+
+let dq_task_advance(t, current_ts) =
+    let mode = dq_task_mode(t)
+    if mode == DQ_MODE_ONCE
+        [dq_task_id(t), mode, dq_task_interval(t), 0, dq_task_payload(t), dq_task_count(t) + 1]
+    else
+        if mode == DQ_MODE_REPEAT
+            let next = dq_task_next(t) + dq_task_interval(t)
+            [dq_task_id(t), mode, dq_task_interval(t), next, dq_task_payload(t), dq_task_count(t) + 1]
+        else
+            let next = current_ts + dq_task_interval(t)
+            [dq_task_id(t), mode, dq_task_interval(t), next, dq_task_payload(t), dq_task_count(t) + 1]
+
+let dq_queue_new(max_size) =
+    [[], 1, max_size]
+
+let dq_queue_msgs(q)   = q[0]
+let dq_queue_head(q)   = q[1]
+let dq_queue_max(q)     = q[2]
+
+let dq_queue_enqueue(q, visible_at, payload) =
+    let msgs = dq_queue_msgs(q)
+    let mid = dq_queue_head(q)
+    let m = dq_msg_new(mid, visible_at, payload)
+    msgs.push(m)
+    let n = len(msgs)
+    let i = n - 1
+    for i > 0
+        if dq_msg_visible(msgs[i]) < dq_msg_visible(msgs[i - 1])
+            let tmp = msgs[i]
+            msgs[i] = msgs[i - 1]
+            msgs[i - 1] = tmp
+        i = i - 1
+    let max_sz = dq_queue_max(q)
+    for len(msgs) > max_sz
+        msgs = arr_drop(msgs, 1)
+    [msgs, mid + 1, max_sz]
+
+let dq_queue_dequeue(q, current_ts) =
+    let msgs = dq_queue_msgs(q)
+    let ready = []
+    let rest = []
+    let i = 0
+    let n = len(msgs)
+    for i < n
+        if dq_msg_visible(msgs[i]) <= current_ts
+            ready.push(msgs[i])
+        else
+            rest.push(msgs[i])
+        i = i + 1
+    [ready, [rest, dq_queue_head(q), dq_queue_max(q)]]
+
+let dq_wheel_new(n_slots, tick_ms) =
+    let slots = []
+    let i = 0
+    for i < n_slots
+        slots.push([])
+        i = i + 1
+    [slots, 0, tick_ms, 0]
+
+let dq_wheel_slots(w)    = w[0]
+let dq_wheel_tick(w)      = w[1]
+let dq_wheel_ms(w)       = w[2]
+let dq_wheel_total(w)    = w[3]
+
+let dq_wheel_add(w, msg_id, visible_at, payload) =
+    let tick_ms = dq_wheel_ms(w)
+    let slots = dq_wheel_slots(w)
+    let n = len(slots)
+    let cur_tick = dq_wheel_tick(w)
+    let delta_ms = visible_at - (cur_tick * tick_ms)
+    if delta_ms < 0
+        delta_ms = 0
+    let delta_ticks = delta_ms / tick_ms
+    let slot_idx = (cur_tick + delta_ticks) % n
+    let m = dq_msg_new(msg_id, visible_at, payload)
+    slots[slot_idx].push(m)
+    [slots, cur_tick, tick_ms, dq_wheel_total(w)]
+
+let dq_wheel_advance(w) =
+    let slots = dq_wheel_slots(w)
+    let n = len(slots)
+    let cur_tick = dq_wheel_tick(w)
+    let slot_idx = cur_tick % n
+    let ready = slots[slot_idx]
+    slots[slot_idx] = []
+    let new_tick = cur_tick + 1
+    [ready, [slots, new_tick, dq_wheel_ms(w), dq_wheel_total(w) + 1]]
+
+let dq_wheel_advance_n(w, n_ticks) =
+    let all_ready = []
+    let i = 0
+    let ww = w
+    for i < n_ticks
+        let res = dq_wheel_advance(ww)
+        let ready = res[0]
+        ww = res[1]
+        let j = 0
+        let nr = len(ready)
+        for j < nr
+            all_ready.push(ready[j])
+            j = j + 1
+        i = i + 1
+    [all_ready, ww]
+
+let dq_self_test() =
+    let q = dq_queue_new(64)
+    q = dq_queue_enqueue(q, 3000, 100)
+    q = dq_queue_enqueue(q, 1000, 200)
+    q = dq_queue_enqueue(q, 2000, 300)
+    let msgs = dq_queue_msgs(q)
+    let t_order = 0
+    if dq_msg_visible(msgs[0]) == 1000
+        if dq_msg_visible(msgs[1]) == 2000
+            t_order = 1
+
+    let deq_res = dq_queue_dequeue(q, 1500)
+    let ready = deq_res[0]
+    let t_dequeue = 0
+    if len(ready) == 1
+        if dq_msg_visible(ready[0]) == 1000
+            t_dequeue = 1
+
+    let q2 = deq_res[1]
+    let deq2 = dq_queue_dequeue(q2, 5000)
+    let t_all = 0
+    if len(deq2[0]) == 2
+        t_all = 1
+
+    let t1 = dq_task_new(1, DQ_MODE_ONCE, 0, 1000, 100)
+    let t1_after = dq_task_advance(t1, 1000)
+    let t_once = 0
+    if dq_task_next(t1_after) == 0
+        if dq_task_count(t1_after) == 1
+            t_once = 1
+
+    let t2 = dq_task_new(2, DQ_MODE_REPEAT, 500, 1000, 200)
+    let t2_after = dq_task_advance(t2, 1000)
+    let t_repeat = 0
+    if dq_task_next(t2_after) == 1500
+        if dq_task_count(t2_after) == 1
+            t_repeat = 1
+
+    let w = dq_wheel_new(DQ_WHEEL_SLOTS, DQ_TICK_MS)
+    w = dq_wheel_add(w, 1, 1000 + DQ_TICK_MS, 100)
+    let adv_res = dq_wheel_advance(w)
+    let ready_msgs = adv_res[0]
+    let w_after = adv_res[1]
+    let t_wheel = 0
+    if len(ready_msgs) == 0
+        t_wheel = 1
+
+    let adv2 = dq_wheel_advance(w_after)
+    let t_wheel2 = 0
+    if len(adv2[0]) == 1
+        t_wheel2 = 1
+
+    let w2 = dq_wheel_new(8, 1000)
+    w2 = dq_wheel_add(w2, 1, 5000, 100)
+    w2 = dq_wheel_add(w2, 2, 7000, 200)
+    let adv_n = dq_wheel_advance_n(w2, 10)
+    let all_ready = adv_n[0]
+    let t_advance_n = 0
+    if len(all_ready) == 2
+        t_advance_n = 1
+
+    [t_order, t_dequeue, t_all, t_once, t_repeat, t_wheel, t_wheel2, t_advance_n]
+
+let dq_default_queue() =
+    dq_queue_new(DQ_MAX_SCHEDULED)
+
+let dq_default_wheel() =
+    dq_wheel_new(DQ_WHEEL_SLOTS, DQ_TICK_MS)

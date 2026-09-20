@@ -1,0 +1,724 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let P = 65537
+
+let fact(n) =
+    let r = 1
+    let i = 2
+    for i <= n
+        r = r * i % P
+        i = i + 1
+    r
+
+let fact_mod(n, p) =
+    let r = 1
+    let i = 2
+    for i <= n
+        r = r * i % p
+        i = i + 1
+    r
+
+let tower_zero(deg) =
+    let out = []
+    let i = 0
+    for i <= deg
+        out.push(0)
+        i = i + 1
+    out
+
+let tower_one(deg) =
+    let out = tower_zero(deg)
+    out[0] = 1
+    out
+
+let tower_const(c, deg) =
+    let out = tower_zero(deg)
+    out[0] = c % P
+    out
+
+let tower_x(deg) =
+    let out = tower_zero(deg)
+    if deg >= 1
+        out[1] = 1
+    out
+
+let tower_make(coeffs, deg) =
+    let out = tower_zero(deg)
+    let i = 0
+    for i <= deg
+        if i < len(coeffs)
+            out[i] = coeffs[i] % P
+        i = i + 1
+    out
+
+let tower_add(a, b, deg) =
+    let out = tower_zero(deg)
+    let i = 0
+    for i <= deg
+        let va = 0
+        let vb = 0
+        if i < len(a)
+            va = a[i]
+        if i < len(b)
+            vb = b[i]
+        out[i] = (va + vb) % P
+        i = i + 1
+    out
+
+let tower_sub(a, b, deg) =
+    let out = tower_zero(deg)
+    let i = 0
+    for i <= deg
+        let va = 0
+        let vb = 0
+        if i < len(a)
+            va = a[i]
+        if i < len(b)
+            vb = b[i]
+        out[i] = (va + P - vb) % P
+        i = i + 1
+    out
+
+let tower_mul(a, b, deg) =
+    let out = tower_zero(deg)
+    let i = 0
+    for i <= deg
+        let j = 0
+        for j <= deg
+            if i + j <= deg
+                let va = 0
+                let vb = 0
+                if i < len(a)
+                    va = a[i]
+                if j < len(b)
+                    vb = b[j]
+                let old = out[i + j]
+                out[i + j] = (old + va * vb) % P
+            j = j + 1
+        i = i + 1
+    out
+
+let tower_scalar_mul(c, a, deg) =
+    let out = tower_zero(deg)
+    let i = 0
+    for i <= deg
+        if i < len(a)
+            out[i] = c * a[i] % P
+        i = i + 1
+    out
+
+let tower_pow(a, n, deg) =
+    let result = tower_one(deg)
+    let i = 0
+    for i < n
+        result = tower_mul(result, a, deg)
+        i = i + 1
+    result
+
+let tower_eval(t, x) =
+    let deg = len(t) - 1
+    let result = 0
+    for deg >= 0
+        result = (t[deg] + x * result) % P
+        deg = deg - 1
+    result
+
+let tower_deriv(a, deg) =
+    let out = tower_zero(deg)
+    let i = 1
+    for i <= deg + 1
+        if i < len(a)
+            let coeff = i * a[i] % P
+            if i - 1 <= deg
+                out[i - 1] = coeff
+        i = i + 1
+    out
+
+let tower_compose(a, b, deg) =
+    let result = tower_zero(deg)
+    let bpow = tower_one(deg)
+    let i = 0
+    for i <= deg
+        if i < len(a)
+            let ai = a[i]
+            let term = tower_scalar_mul(ai, bpow, deg)
+            result = tower_add(result, term, deg)
+        bpow = tower_mul(bpow, b, deg)
+        i = i + 1
+    result
+
+let tower_exp(deg) =
+    tower_exp_ax(1, deg)
+
+let tower_exp_ax(a, deg) =
+    let out = tower_zero(deg)
+    let coeff = 1
+    let k = 0
+    for k <= deg
+        let fk = fact(k)
+        let val = gf_div(coeff, fk)
+        out[k] = val
+        coeff = coeff * a % P
+        k = k + 1
+    out
+
+let tower_sin(deg) =
+    let out = tower_zero(deg)
+    let sgn = 1
+    let n = 0
+    for 2 * n + 1 <= deg
+        let k = 2 * n + 1
+        let fk = fact(k)
+        let coeff = gf_div(sgn, fk)
+        out[k] = coeff
+        sgn = gf_neg(sgn)
+        n = n + 1
+    out
+
+let tower_cos(deg) =
+    let out = tower_zero(deg)
+    let sgn = 1
+    let n = 0
+    for 2 * n <= deg
+        let k = 2 * n
+        let fk = fact(k)
+        let coeff = gf_div(sgn, fk)
+        out[k] = coeff
+        sgn = gf_neg(sgn)
+        n = n + 1
+    out
+
+let tower_log(deg) =
+    let out = tower_zero(deg)
+    let n = 1
+    for n <= deg
+        let sgn = 1
+        if n % 2 == 0
+            sgn = gf_neg(1)
+        let val = gf_div(sgn, n)
+        out[n] = val
+        n = n + 1
+    out
+
+let frobenius_verify() =
+    let ok = 0
+    let x = 1
+    for x <= 20
+        if gf_pow(x, P - 1) == 1
+            ok = ok + 1
+        x = x + 1
+    ok
+
+let tower_stabilize_verify() =
+    let ok = 0
+    if fact_mod(6, 7) == 6
+        ok = ok + 1
+    if fact_mod(10, 11) == 10
+        ok = ok + 1
+    if fact_mod(12, 13) == 12
+        ok = ok + 1
+    if fact_mod(7, 7) == 0
+        ok = ok + 1
+    if fact_mod(8, 7) == 0
+        ok = ok + 1
+    if fact_mod(11, 11) == 0
+        ok = ok + 1
+    ok
+
+let honest_boundary_verify() =
+    let ok = 0
+    let deg = 12
+    let ex = tower_exp(deg)
+    if ex[0] == 1
+        ok = ok + 1
+    let dx = tower_deriv(ex, deg)
+    if dx[0] == ex[1]
+        ok = ok + 1
+    if dx[1] == 2 * ex[2] % P
+        ok = ok + 1
+    let half = gf_div(1, 2)
+    let inv6 = gf_div(1, 6)
+    if ex[0] == 1
+        ok = ok + 1
+    if ex[1] == 1
+        ok = ok + 1
+    if ex[2] == half
+        ok = ok + 1
+    if ex[3] == inv6
+        ok = ok + 1
+    ok
+
+let law_boltzmann() =
+    let ok = 0
+    let deg = 10
+    let exp_neg = tower_exp_ax(P - 1, deg)
+    let exp_pos = tower_exp_ax(1, deg)
+    let n0 = 100
+    let boltzmann = tower_scalar_mul(n0, exp_neg, deg)
+    let n_at_0 = tower_eval(boltzmann, 0)
+    if n_at_0 == n0
+        ok = ok + 1
+    let product = tower_mul(boltzmann, exp_pos, deg)
+    let n0_tower = tower_const(n0, deg)
+    let match_val = 1
+    let i = 0
+    for i <= deg
+        if product[i] != n0_tower[i]
+            match_val = 0
+        i = i + 1
+    if match_val == 1
+        ok = ok + 1
+    let dn = tower_deriv(boltzmann, deg)
+    let neg_boltzmann = tower_scalar_mul(P - 1, boltzmann, deg)
+    let match2 = 1
+    let j = 0
+    for j < deg
+        if dn[j] != neg_boltzmann[j]
+            match2 = 0
+        j = j + 1
+    if match2 == 1
+        ok = ok + 1
+    ok
+
+let law_blackbody() =
+    let ok = 0
+    let deg = 8
+    let exp_v = tower_exp(deg)
+    let one = tower_one(deg)
+    let denom = tower_sub(exp_v, one, deg)
+    if denom[0] == 0
+        ok = ok + 1
+    if denom[1] == 1
+        ok = ok + 1
+    let half = gf_div(1, 2)
+    let inv6 = gf_div(1, 6)
+    if denom[2] == half
+        ok = ok + 1
+    if denom[3] == inv6
+        ok = ok + 1
+    let recur = 1
+    let i = 2
+    for i <= deg
+        if denom[i] * i % P != denom[i - 1]
+            recur = 0
+        i = i + 1
+    if recur == 1
+        ok = ok + 1
+    ok
+
+let law_arrhenius() =
+    let ok = 0
+    let deg = 8
+    let exp_neg5 = tower_exp_ax(P - 5, deg)
+    let A = 1000
+    let k_tower = tower_scalar_mul(A, exp_neg5, deg)
+    let k_inf = tower_eval(k_tower, 0)
+    if k_inf == A
+        ok = ok + 1
+    let exp_neg5_sq = tower_mul(exp_neg5, exp_neg5, deg)
+    let exp_neg10 = tower_exp_ax(P - 10, deg)
+    let match_sg = 1
+    let mi = 0
+    for mi <= deg
+        if exp_neg5_sq[mi] != exp_neg10[mi]
+            match_sg = 0
+        mi = mi + 1
+    if match_sg == 1
+        ok = ok + 1
+    let dk = tower_deriv(k_tower, deg)
+    let neg5k = tower_scalar_mul(P - 5, k_tower, deg)
+    let match_val = 1
+    let i = 0
+    for i < deg
+        if dk[i] != neg5k[i]
+            match_val = 0
+        i = i + 1
+    if match_val == 1
+        ok = ok + 1
+    ok
+
+let law_decay() =
+    let ok = 0
+    let deg = 10
+    let lambda = 3
+    let N0 = 500
+    let exp_neg_l = tower_exp_ax(P - lambda, deg)
+    let N_tower = tower_scalar_mul(N0, exp_neg_l, deg)
+    if tower_eval(N_tower, 0) == N0
+        ok = ok + 1
+    let exp_pos_l = tower_exp_ax(lambda, deg)
+    let product = tower_mul(N_tower, exp_pos_l, deg)
+    let N0_tower = tower_const(N0, deg)
+    let match_val = 1
+    let i = 0
+    for i <= deg
+        if product[i] != N0_tower[i]
+            match_val = 0
+        i = i + 1
+    if match_val == 1
+        ok = ok + 1
+    let dN = tower_deriv(N_tower, deg)
+    let neg_l_N = tower_scalar_mul(P - lambda, N_tower, deg)
+    let match2 = 1
+    let j = 0
+    for j < deg
+        if dN[j] != neg_l_N[j]
+            match2 = 0
+        j = j + 1
+    if match2 == 1
+        ok = ok + 1
+    let exp_neg_l_sq = tower_mul(exp_neg_l, exp_neg_l, deg)
+    let exp_neg_2l = tower_exp_ax(P - 2 * lambda % P, deg)
+    let match3 = 1
+    let mi = 0
+    for mi <= deg
+        if exp_neg_l_sq[mi] != exp_neg_2l[mi]
+            match3 = 0
+        mi = mi + 1
+    if match3 == 1
+        ok = ok + 1
+    ok
+
+let identity_exp_inv() =
+    let deg = 12
+    let ex = tower_exp(deg)
+    let emx = tower_exp_ax(P - 1, deg)
+    let prod = tower_mul(ex, emx, deg)
+    let one = tower_one(deg)
+    let match_val = 1
+    let i = 0
+    for i <= deg
+        if prod[i] != one[i]
+            match_val = 0
+        i = i + 1
+    match_val
+
+let identity_exp_add() =
+    let deg = 10
+    let a = 3
+    let b = 5
+    let ea = tower_exp_ax(a, deg)
+    let eb = tower_exp_ax(b, deg)
+    let prod = tower_mul(ea, eb, deg)
+    let eab = tower_exp_ax((a + b) % P, deg)
+    let match_val = 1
+    let i = 0
+    for i <= deg
+        if prod[i] != eab[i]
+            match_val = 0
+        i = i + 1
+    match_val
+
+let identity_sin_cos() =
+    let deg = 10
+    let sx = tower_sin(deg)
+    let cx = tower_cos(deg)
+    let sx2 = tower_mul(sx, sx, deg)
+    let cx2 = tower_mul(cx, cx, deg)
+    let sum = tower_add(sx2, cx2, deg)
+    let one = tower_one(deg)
+    let match_val = 1
+    let i = 0
+    for i <= deg
+        if sum[i] != one[i]
+            match_val = 0
+        i = i + 1
+    match_val
+
+let identity_exp_deriv() =
+    let deg = 10
+    let ex = tower_exp(deg + 1)
+    let dx = tower_deriv(ex, deg)
+    let match_val = 1
+    let i = 0
+    for i <= deg
+        if dx[i] != ex[i]
+            match_val = 0
+        i = i + 1
+    match_val
+
+let identity_sin_deriv() =
+    let deg = 10
+    let sx = tower_sin(deg + 1)
+    let cx = tower_cos(deg)
+    let dsx = tower_deriv(sx, deg)
+    let match_val = 1
+    let i = 0
+    for i <= deg
+        if dsx[i] != cx[i]
+            match_val = 0
+        i = i + 1
+    match_val
+
+let identity_cos_deriv() =
+    let deg = 10
+    let sx = tower_sin(deg)
+    let cx = tower_cos(deg)
+    let dcx = tower_deriv(cx, deg)
+    let neg_sx = tower_scalar_mul(P - 1, sx, deg)
+    let match_val = 1
+    let i = 0
+    for i <= deg
+        if dcx[i] != neg_sx[i]
+            match_val = 0
+        i = i + 1
+    match_val
+
+let identity_euler() =
+    let deg = 8
+    let neg1 = P - 1
+    let i_val = 0
+    let x = 0
+    for x < P
+        if x * x % P == neg1
+            i_val = x
+        x = P
+        x = x + 1
+    let ok = 0
+    let sx = tower_sin(deg)
+    let cx = tower_cos(deg)
+    let ex = tower_exp(deg)
+    let match_even = 1
+    let n = 0
+    for 2 * n <= deg
+        let exp_coeff = ex[2 * n]
+        let cos_coeff = cx[2 * n]
+        if n % 2 == 0
+            if exp_coeff != cos_coeff
+                match_even = 0
+        if n % 2 == 1
+            if exp_coeff != gf_neg(cos_coeff)
+                match_even = 0
+        n = n + 1
+    if match_even == 1
+        ok = ok + 1
+    let match_odd = 1
+    let m = 0
+    for 2 * m + 1 <= deg
+        let exp_coeff = ex[2 * m + 1]
+        let sin_coeff = sx[2 * m + 1]
+        if m % 2 == 0
+            if exp_coeff != sin_coeff
+                match_odd = 0
+        if m % 2 == 1
+            if exp_coeff != gf_neg(sin_coeff)
+                match_odd = 0
+        m = m + 1
+    if match_odd == 1
+        ok = ok + 1
+    ok
+
+let kleene_precision_fp() =
+    let ok = 0
+    let deg = 8
+    let t_lo = tower_exp(4)
+    let t_hi = tower_exp(8)
+    let match_val = 1
+    let i = 0
+    for i <= 4
+        if t_lo[i] != t_hi[i]
+            match_val = 0
+        i = i + 1
+    if match_val == 1
+        ok = ok + 1
+    let t_vhi = tower_exp(12)
+    let match2 = 1
+    let j = 0
+    for j <= 8
+        if t_hi[j] != t_vhi[j]
+            match2 = 0
+        j = j + 1
+    if match2 == 1
+        ok = ok + 1
+    ok
+
+let bootstrap_vs_infinity() =
+    let ok = 0
+    let fp = 42 * 42 % P * 42 % P
+    let fp2 = fp * fp % P * fp % P
+    let deg = 6
+    let ex = tower_exp(deg)
+    let trunc_lo = tower_zero(3)
+    let i = 0
+    for i <= 3
+        trunc_lo[i] = ex[i]
+        i = i + 1
+    let trunc2 = tower_zero(2)
+    let j = 0
+    for j <= 2
+        trunc2[j] = trunc_lo[j]
+        j = j + 1
+    let trunc2_again = tower_zero(2)
+    let k = 0
+    for k <= 2
+        trunc2_again[k] = trunc2[k]
+        k = k + 1
+    let idempotent = 1
+    let m = 0
+    for m <= 2
+        if trunc2[m] != trunc2_again[m]
+            idempotent = 0
+        m = m + 1
+    if idempotent == 1
+        ok = ok + 1
+    let coeff_match = 1
+    let p = 0
+    for p <= 3
+        if trunc_lo[p] != ex[p]
+            coeff_match = 0
+        p = p + 1
+    if coeff_match == 1
+        ok = ok + 1
+    if ex[0] == 1
+        ok = ok + 1
+    ok
+
+let tower_functorial() =
+    let deg = 5
+    let one_t = tower_one(deg)
+    let x_t = tower_x(deg)
+    let a = tower_add(one_t, x_t, deg)
+    let two_t = tower_const(2, deg)
+    let b = tower_add(two_t, x_t, deg)
+    let three_t = tower_const(3, deg)
+    let c = tower_add(three_t, x_t, deg)
+    let bc = tower_compose(b, c, deg)
+    let a_bc = tower_compose(a, bc, deg)
+    let ab = tower_compose(a, b, deg)
+    let ab_c = tower_compose(ab, c, deg)
+    let match_val = 1
+    let i = 0
+    for i <= deg
+        if a_bc[i] != ab_c[i]
+            match_val = 0
+        i = i + 1
+    if match_val == 1
+        if a_bc[0] == 6
+    match_val
+
+let tower_infinity_verify() =
+        let ok = 0
+        let total = 0
+
+        total = total + 1
+        let one = tower_one(5)
+        if one[0] == 1
+            if one[1] == 0
+
+        total = total + 1
+        let xt = tower_x(5)
+        if xt[0] == 0
+            if xt[1] == 1
+
+        total = total + 1
+        let a = tower_make([1, 2, 3], 5)
+        let b = tower_make([4, 5, 6], 5)
+        let sum_ab = tower_add(a, b, 5)
+        if sum_ab[0] == 5
+            if sum_ab[1] == 7
+
+        total = total + 1
+        let prod_ab = tower_mul(a, b, 5)
+        if prod_ab[0] == 4
+            if prod_ab[1] == 13
+
+        total = total + 1
+        let eval_a = tower_eval(a, 2)
+        if eval_a == 17
+            ok = ok + 1
+
+        total = total + 1
+        let da = tower_deriv(a, 5)
+        if da[0] == 2
+            if da[1] == 6
+
+        total = total + 1
+        let ex = tower_exp(6)
+        let half = gf_div(1, 2)
+        if ex[0] == 1
+            if ex[1] == 1
+
+        total = total + 1
+        let sx = tower_sin(6)
+        let inv6 = gf_div(1, 6)
+        let neg_inv6 = gf_neg(inv6)
+        if sx[0] == 0
+            if sx[1] == 1
+
+        total = total + 1
+        let cx = tower_cos(6)
+        let neg_half = gf_neg(half)
+        if cx[0] == 1
+            if cx[1] == 0
+
+        total = total + 1
+        if frobenius_verify() == 20
+            ok = ok + 1
+
+        total = total + 1
+        if tower_stabilize_verify() == 6
+            ok = ok + 1
+
+        total = total + 1
+        if honest_boundary_verify() == 7
+            ok = ok + 1
+
+        total = total + 1
+        if law_boltzmann() == 3
+            ok = ok + 1
+
+        total = total + 1
+        if law_blackbody() == 5
+            ok = ok + 1
+
+        total = total + 1
+        if law_arrhenius() == 3
+            ok = ok + 1
+
+        total = total + 1
+        if law_decay() == 4
+            ok = ok + 1
+
+        total = total + 1
+        if identity_exp_inv() == 1
+            ok = ok + 1
+
+        total = total + 1
+        if identity_exp_add() == 1
+            ok = ok + 1
+
+        total = total + 1
+        if identity_sin_cos() == 1
+            ok = ok + 1
+
+        total = total + 1
+        if identity_exp_deriv() == 1
+            ok = ok + 1
+
+        total = total + 1
+        if identity_sin_deriv() == 1
+            ok = ok + 1
+
+        total = total + 1
+        if identity_cos_deriv() == 1
+            ok = ok + 1
+
+        total = total + 1
+        if identity_euler() == 2
+            ok = ok + 1
+
+        total = total + 1
+        if kleene_precision_fp() == 2
+            ok = ok + 1
+
+        total = total + 1
+        if bootstrap_vs_infinity() == 3
+            ok = ok + 1
+
+        total = total + 1
+        if tower_functorial() == 1
+            ok = ok + 1
+
+        ok * 10000 + total
+
+    tower_infinity_verify()

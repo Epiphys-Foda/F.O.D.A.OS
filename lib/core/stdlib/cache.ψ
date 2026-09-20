@@ -1,0 +1,263 @@
+let cache_create() =
+    let cache = arr_new()
+    cache = arr_push(cache, arr_new())
+    cache = arr_push(cache, arr_new())
+    cache
+
+let cache_put(cache, key, value) =
+    let keys = cache[0]
+    let values = cache[1]
+    let n = keys.len()
+    let found = 0 - 1
+    let i = 0
+    for i < n
+        if keys[i] == key
+            found = i
+        i = i + 1
+    if found >= 0
+        values[found] = value
+    else
+        keys = arr_push(keys, key)
+        values = arr_push(values, value)
+        cache[0] = keys
+        cache[1] = values
+    cache
+
+let cache_get(cache, key) =
+    let keys = cache[0]
+    let values = cache[1]
+    let n = keys.len()
+    let i = 0
+    for i < n
+        if keys[i] == key
+            return values[i]
+        i = i + 1
+    0 - 1
+
+let cache_has(cache, key) =
+    let keys = cache[0]
+    let n = keys.len()
+    let i = 0
+    for i < n
+        if keys[i] == key
+            return 1
+        i = i + 1
+    0
+
+let cache_remove(cache, key) =
+    let keys = cache[0]
+    let values = cache[1]
+    let new_keys = arr_new()
+    let new_values = arr_new()
+    let n = keys.len()
+    let i = 0
+    for i < n
+        if keys[i] != key
+            new_keys = arr_push(new_keys, keys[i])
+            new_values = arr_push(new_values, values[i])
+        i = i + 1
+    cache[0] = new_keys
+    cache[1] = new_values
+    cache
+
+let cache_size(cache) =
+    let keys = cache[0]
+    keys.len()
+
+let cache_clear(cache) =
+    cache[0] = arr_new()
+    cache[1] = arr_new()
+    cache
+
+let lru_create(capacity) =
+    let cache = arr_new()
+    cache = arr_push(cache, arr_new())
+    cache = arr_push(cache, arr_new())
+    cache = arr_push(cache, arr_new())
+    cache = arr_push(cache, capacity)
+    cache
+
+let lru_get(cache, key) =
+    let keys = cache[0]
+    let values = cache[1]
+    let n = keys.len()
+    let i = 0
+    for i < n
+        if keys[i] == key
+            let order = cache[2]
+            let new_order = arr_new()
+            new_order = arr_push(new_order, key)
+            let j = 0
+            let m = order.len()
+            for j < m
+                if order[j] != key
+                    new_order = arr_push(new_order, order[j])
+                j = j + 1
+            cache[2] = new_order
+            return values[i]
+        i = i + 1
+    0 - 1
+
+let lru_put(cache, key, value) =
+    let keys = cache[0]
+    let values = cache[1]
+    let order = cache[2]
+    let capacity = cache[3]
+    let n = keys.len()
+    let found = 0 - 1
+    let i = 0
+    for i < n
+        if keys[i] == key
+            found = i
+        i = i + 1
+    if found >= 0
+        values[found] = value
+        let new_order = arr_new()
+        new_order = arr_push(new_order, key)
+        i = 0
+        let m = order.len()
+        for i < m
+            if order[i] != key
+                new_order = arr_push(new_order, order[i])
+            i = i + 1
+        cache[2] = new_order
+    else
+    if n >= capacity
+        let lru_key = order[order.len() - 1]
+        cache = cache_remove(cache, lru_key)
+        keys = cache[0]
+        values = cache[1]
+    keys = arr_push(keys, key)
+    values = arr_push(values, value)
+    cache[0] = keys
+    cache[1] = values
+    let new_order = arr_new()
+    new_order = arr_push(new_order, key)
+    i = 0
+    let m = order.len()
+    for i < m
+        new_order = arr_push(new_order, order[i])
+        i = i + 1
+    cache[2] = new_order
+    cache
+let fifo_create(capacity) =
+    let cache = arr_new()
+    cache = arr_push(cache, arr_new())
+    cache = arr_push(cache, arr_new())
+    cache = arr_push(cache, capacity)
+    cache
+
+let fifo_put(cache, key, value) =
+    let keys = cache[0]
+    let values = cache[1]
+    let capacity = cache[2]
+    let n = keys.len()
+    let found = 0 - 1
+    let i = 0
+    for i < n
+        if keys[i] == key
+            found = i
+        i = i + 1
+    if found >= 0
+        values[found] = value
+    else
+        if n >= capacity
+            let new_keys = arr_new()
+            let new_values = arr_new()
+            i = 1
+            for i < n
+                new_keys = arr_push(new_keys, keys[i])
+                new_values = arr_push(new_values, values[i])
+                i = i + 1
+            keys = new_keys
+            values = new_values
+        keys = arr_push(keys, key)
+        values = arr_push(values, value)
+        cache[0] = keys
+        cache[1] = values
+    cache
+
+let ttl_create(ttl) =
+    let cache = arr_new()
+    cache = arr_push(cache, arr_new())
+    cache = arr_push(cache, arr_new())
+    cache = arr_push(cache, arr_new())
+    cache = arr_push(cache, ttl)
+    cache = arr_push(cache, 0)
+    cache
+
+let ttl_tick(cache, delta) =
+    cache[4] = cache[4] + delta
+    cache
+
+let ttl_put(cache, key, value) =
+    let keys = cache[0]
+    let values = cache[1]
+    let timestamps = cache[2]
+    let current_time = cache[4]
+    let n = keys.len()
+    let found = 0 - 1
+    let i = 0
+    for i < n
+        if keys[i] == key
+            found = i
+        i = i + 1
+    if found >= 0
+        values[found] = value
+        timestamps[found] = current_time
+    else
+        keys = arr_push(keys, key)
+        values = arr_push(values, value)
+        timestamps = arr_push(timestamps, current_time)
+        cache[0] = keys
+        cache[1] = values
+        cache[2] = timestamps
+    cache
+
+let ttl_get(cache, key) =
+    let keys = cache[0]
+    let values = cache[1]
+    let timestamps = cache[2]
+    let ttl = cache[3]
+    let current_time = cache[4]
+    let n = keys.len()
+    let i = 0
+    for i < n
+        if keys[i] == key
+            if current_time - timestamps[i] <= ttl
+                return values[i]
+            return 0 - 1
+        i = i + 1
+    0 - 1
+
+let ttl_cleanup(cache) =
+    let keys = cache[0]
+    let values = cache[1]
+    let timestamps = cache[2]
+    let ttl = cache[3]
+    let current_time = cache[4]
+    let new_keys = arr_new()
+    let new_values = arr_new()
+    let new_timestamps = arr_new()
+    let n = keys.len()
+    let i = 0
+    for i < n
+        if current_time - timestamps[i] <= ttl
+            new_keys = arr_push(new_keys, keys[i])
+            new_values = arr_push(new_values, values[i])
+            new_timestamps = arr_push(new_timestamps, timestamps[i])
+        i = i + 1
+    cache[0] = new_keys
+    cache[1] = new_values
+    cache[2] = new_timestamps
+    cache
+
+let main() =
+    let cache = cache_create()
+    cache = cache_put(cache, 1, 100)
+    cache = cache_put(cache, 2, 200)
+    print(cache_get(cache, 1))
+    print(cache_get(cache, 2))
+    print(cache_has(cache, 3))
+    print(cache_size(cache))
+    0

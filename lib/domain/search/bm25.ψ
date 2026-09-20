@@ -1,0 +1,238 @@
+import "../domain_field.ψ"
+
+let BM_P_MOD     = 65537
+let BM_SCALE     = 100
+let BM_K1_FIXED  = 120
+let BM_B_FIXED   = 75
+let BM_IDF_SCALE = 1000
+let BM_LOG2_TO_LN = 693
+let BM_MAX_DOCS  = 65536
+let BM_FIELD_SCALE  = 256
+let BM_FIELD_OFFSET = 1
+let BM_BRAGG_Z      = 256
+
+let BM_DOC_ID       = 0
+let BM_DOC_TERMS    = 1
+let BM_DOC_TF_MAP   = 2
+let BM_DOC_LENGTH   = 3
+
+let BM_IDX_POSTINGS    = 0
+let BM_IDX_DOC_COUNT   = 1
+let BM_IDX_DOC_LENGTHS = 2
+let BM_IDX_AVG_DL      = 3
+
+let BM_PARAM_K1 = 0
+let BM_PARAM_B  = 1
+
+let BM_ENGINE_INDEX   = 0
+let BM_ENGINE_PARAMS  = 1
+let BM_ENGINE_RESULTS = 2
+let BM_ENGINE_LOG     = 3
+
+let bm_default_document(doc_id) =
+    [doc_id, [], {}, 0]
+
+let bm_default_index() =
+    [{}, 0, {}, 0]
+
+let bm_default_params() =
+    [BM_K1_FIXED, BM_B_FIXED]
+
+let bm_default_engine() =
+    [bm_default_index(), bm_default_params(), [], []]
+
+let bm_ilog2(x) =
+    if x < 1
+        0
+    else
+        let r = 0
+        let v = x
+        for v > 1
+            v = v / 2
+            r = r + 1
+        r
+
+let bm_add_doc(engine, doc_id, terms_buf) =
+    let index = engine[BM_ENGINE_INDEX]
+    let postings = index[BM_IDX_POSTINGS]
+    let doc_lengths = index[BM_IDX_DOC_LENGTHS]
+    let tf_map = {}
+    let doc_len = len(terms_buf)
+
+    let i = 0
+    let n = len(terms_buf)
+    for i < n
+        let term = terms_buf[i]
+        tf_map[term] = tf_map.get(term, 0) + 1
+        i = i + 1
+
+    let terms = tf_map.keys()
+    let j = 0
+    let m = len(terms)
+    for j < m
+        let term = terms[j]
+        let plist = postings.get(term, [])
+        plist.push([doc_id, tf_map[term]])
+        postings[term] = plist
+        j = j + 1
+
+    doc_lengths[doc_id] = doc_len
+    let old_count = index[BM_IDX_DOC_COUNT]
+    let new_count = old_count + 1
+    let old_avg = index[BM_IDX_AVG_DL]
+    let new_avg = (old_avg * old_count + doc_len) / new_count
+    index[BM_IDX_DOC_COUNT] = new_count
+    index[BM_IDX_AVG_DL] = new_avg
+
+    engine[BM_ENGINE_INDEX] = index
+    engine[BM_ENGINE_LOG].push(["add_doc", doc_id, doc_len])
+    engine
+
+let bm_compute_idf(engine, term) =
+    let index = engine[BM_ENGINE_INDEX]
+    let N = index[BM_IDX_DOC_COUNT]
+    let postings = index[BM_IDX_POSTINGS].get(term, [])
+    let n = len(postings)
+    if n == 0
+        0
+    else
+        let num = 2 * (N - n) + 1
+        let den = 2 * n + 1
+        if num <= 0
+            0
+        else
+            let ratio = num * BM_IDF_SCALE / den
+            if ratio < 1
+                0
+            else
+                let log2_r = bm_ilog2(ratio)
+                log2_r * BM_LOG2_TO_LN
+
+let bm_score_doc(engine, doc_id, query_terms) =
+    let index = engine[BM_ENGINE_INDEX]
+    let params = engine[BM_ENGINE_PARAMS]
+    let k1 = params[BM_PARAM_K1]
+    let b = params[BM_PARAM_B]
+    let avgdl = index[BM_IDX_AVG_DL]
+    let doc_lengths = index[BM_IDX_DOC_LENGTHS]
+    let dl = doc_lengths.get(doc_id, 0)
+    let postings = index[BM_IDX_POSTINGS]
+
+    if avgdl == 0
+        0
+    else
+        let total = 0
+        let i = 0
+        let n = len(query_terms)
+        for i < n
+            let term = query_terms[i]
+            let idf = bm_compute_idf(engine, term)
+            if idf > 0
+                let plist = postings.get(term, [])
+                let tf = 0
+                let j = 0
+                let m = len(plist)
+                for j < m
+                    if plist[j][0] == doc_id
+                        tf = plist[j][1]
+                    j = j + 1
+                if tf > 0
+                    let dl_ratio = dl * BM_SCALE / avgdl
+                    let norm = (BM_SCALE - b) + b * dl_ratio / BM_SCALE
+                    let denom = tf * BM_SCALE + k1 * norm / BM_SCALE
+                    if denom > 0
+                        let numer = idf * tf * (k1 + BM_SCALE)
+                        total = total + numer / denom
+            i = i + 1
+        total
+
+let bm_search(engine, query_terms, top_k) =
+    let index = engine[BM_ENGINE_INDEX]
+    let doc_lengths = index[BM_IDX_DOC_LENGTHS]
+    let doc_ids = doc_lengths.keys()
+    let scored = []
+
+    let i = 0
+    let n = len(doc_ids)
+    for i < n
+        let did = doc_ids[i]
+        let score = bm_score_doc(engine, did, query_terms)
+        if score > 0
+            scored.push([did, score])
+        i = i + 1
+
+    let results = []
+    let remaining = scored
+    let k = 0
+    for k < top_k
+        if len(remaining) == 0
+            k = top_k
+        else
+            let best_idx = 0
+            let best_score = 0
+            let ri = 0
+            let rn = len(remaining)
+            for ri < rn
+                if remaining[ri][1] > best_score
+                    best_score = remaining[ri][1]
+                    best_idx = ri
+                ri = ri + 1
+            results.push(remaining[best_idx])
+            let new_remaining = []
+            let ri2 = 0
+            for ri2 < rn
+                if ri2 != best_idx
+                    new_remaining.push(remaining[ri2])
+                ri2 = ri2 + 1
+            remaining = new_remaining
+            k = k + 1
+
+    engine[BM_ENGINE_RESULTS] = results
+    engine[BM_ENGINE_LOG].push(["search", len(query_terms), top_k])
+    results
+
+let bm_bragg_verify(engine, ops_seq) =
+    let index = engine[BM_ENGINE_INDEX]
+    let doc_lengths = index[BM_IDX_DOC_LENGTHS]
+
+    let snap1 = {}
+    let keys1 = doc_lengths.keys()
+    let i = 0
+    let n = len(keys1)
+    for i < n
+        snap1[keys1[i]] = doc_lengths[keys1[i]]
+        i = i + 1
+
+    let snap2 = {}
+    let j = 0
+    let m = len(ops_seq)
+    for j < m
+        let did = ops_seq[j]
+        snap2[did] = doc_lengths.get(did, 0)
+        j = j + 1
+
+    let matched = 1
+    let k = 0
+    let nk = len(keys1)
+    for k < nk
+        let key = keys1[k]
+        if snap1[key] != snap2.get(key, -1)
+            matched = 0
+        k = k + 1
+    matched
+
+let bm_gf_mod(x) = domain_gf_mod(x)
+
+let bm_gf_inv(a) = domain_gf_inv(a)
+
+let bm_field_encode(items, n) =
+    let records = []
+    let _i = 0
+    for _i < n
+        records.push([items[_i], items[_i]])
+        _i = _i + 1
+    domain_field_encode(records, n, 1, 0)
+let bm_field_eval(poles, residues, z) = domain_field_eval(poles, residues, z)
+
+let bm_field_bragg_verify(current, replay) = domain_bragg_verify(current[0], current[1], replay[0], replay[1])
+

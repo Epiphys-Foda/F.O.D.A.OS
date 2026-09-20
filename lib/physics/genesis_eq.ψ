@@ -1,0 +1,525 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+import "../core/stdlib/arr.ψ"
+import "../core/stdlib/gf65537.ψ"
+import "bootstrap_residue.ψ"
+
+import "sh_a9f96f3ee7.ψ"
+
+let cplx_add(u1, u2) = [gf_add(u1[0], u2[0]), gf_add(u1[1], u2[1])]
+
+let cplx_sub(u1, u2) = [gf_sub(u1[0], u2[0]), gf_sub(u1[1], u2[1])]
+
+let cplx_mul(u1, u2) =
+    let re = gf_sub(gf_mul(u1[0], u2[0]), gf_mul(u1[1], u2[1]))
+    let im = gf_add(gf_mul(u1[0], u2[1]), gf_mul(u1[1], u2[0]))
+    [re, im]
+
+let cplx_norm_sq(u) = gf_add(gf_mul(u[0], u[0]), gf_mul(u[1], u[1]))
+
+let cplx_l1_norm(u) = gf_add(gf_abs(u[0]), gf_abs(u[1]))
+
+let cplx_from_polar(s, cos_phi, sin_phi) =
+    [gf_mul(s, cos_phi), gf_mul(s, sin_phi)]
+
+let pcd_compute(edges, n) =
+    if n == 0
+        0
+    else
+        let sum_re = 0
+        let sum_im = 0
+        let sum_abs = 0
+        let i = 0
+        for i < n
+            sum_re = gf_add(sum_re, edges[i][0])
+            sum_im = gf_add(sum_im, edges[i][1])
+            sum_abs = gf_add(sum_abs, cplx_l1_norm(edges[i]))
+            i = i + 1
+        let sum_u = [sum_re, sum_im]
+        let numer = cplx_l1_norm(sum_u)
+        if sum_abs == 0
+            0
+        else
+            gf_div(gf_sub(sum_abs, numer), sum_abs)
+
+let pcd_compute_norm(edges, n) =
+    if n == 0
+        0
+    else
+        let sum_re = 0
+        let sum_im = 0
+        let sum_abs = 0
+        let i = 0
+        for i < n
+            sum_re = gf_add(sum_re, edges[i][0])
+            sum_im = gf_add(sum_im, edges[i][1])
+            sum_abs = gf_add(sum_abs, cplx_l1_norm(edges[i]))
+            i = i + 1
+        let norm_sq = gf_add(gf_mul(sum_re, sum_re), gf_mul(sum_im, sum_im))
+        let denom = gf_mul(sum_abs, sum_abs)
+        if denom == 0
+            0
+        else
+            gf_div(gf_sub(denom, norm_sq), denom)
+
+let law1_pcd_range_test() =
+    let edges = [[100, 0], [200, 0], [300, 0]]
+    let d = pcd_compute(edges, 3)
+    if d == 0
+        1
+    else
+        (gf_abs(d) <= 1 ? 1 : 0)
+
+let law2_inphase_min_test() =
+    let edges = [[100, 0], [200, 0], [300, 0]]
+    let d = pcd_compute(edges, 3)
+    (d == 0 ? 1 : 0)
+
+let law3_cancellation_max_test() =
+    let edges = [[1, 0], [gf_neg(1), 0]]
+    let d = pcd_compute(edges, 2)
+    (d == 1 ? 1 : 0)
+
+let SIGMOID_ALPHA = 10
+let SIGMOID_BETA = 3
+let sigmoid_transmittance(pcd_val) =
+    let x = gf_sub(SIGMOID_BETA, gf_mul(SIGMOID_ALPHA, pcd_val))
+    if x > 32768
+        0
+    else
+        if x < 32768
+            65536
+        else
+            gf_div(1, 2)
+
+let law4_sigmoid_center_test() =
+    let pcd_center = gf_div(SIGMOID_BETA, SIGMOID_ALPHA)
+    let t = sigmoid_transmittance(pcd_center)
+    (gf_abs(gf_sub(t, gf_div(1, 2))) <= 1 ? 1 : 0)
+
+let waveguide_compensation(h) =
+    if h <= 1
+        1
+    else
+        0
+    if h == 2
+        gf_div(1, 2)
+    else
+        0
+    if h == 3
+        gf_div(1, 2)
+    else
+        gf_div(1, 4)
+
+let law5_waveguide_decay_test() =
+    let c1 = waveguide_compensation(1)
+    let c2 = waveguide_compensation(2)
+    let c4 = waveguide_compensation(4)
+    if c1 > c2
+        (c2 > c4 ? 1 : 0)
+    else
+        0
+
+let gradient_bias(pcd_val) =
+    gf_add(1, gf_mul(2, gf_sub(1, pcd_val)))
+
+let law6_gradient_monotone_test() =
+    let g_low = gradient_bias(0)
+    let g_high = gradient_bias(1)
+    (g_low > g_high ? 1 : 0)
+
+let resonance_amplify(n, g) =
+    if n <= 0
+        1
+    else
+        let log_n = 0
+        let temp = n
+        for temp > 1
+            temp = temp / 2
+            log_n = log_n + 1
+        gf_add(1, gf_mul(g, gf_sub(log_n, 1)))
+
+let law7_resonance_log_test() =
+    let r1 = resonance_amplify(1, 1)
+    let r10 = resonance_amplify(10, 1)
+    (r10 >= r1 ? 1 : 0)
+
+let crystallization_potential(pcd_val, freq, strength) =
+    let c = gf_sub(1, pcd_val)
+    gf_add(gf_add(gf_mul(gf_div(1, 2), c), gf_mul(gf_div(3, 10), freq)), gf_mul(gf_div(1, 5), strength))
+
+let law8_crystal_bounded_test() =
+    let p = crystallization_potential(0, 1, 1)
+    (p <= 1 ? 1 : 0)
+
+let law9_contradiction_not_crystal_test() =
+    let high_pcd = gf_div(1, 10)
+    let p = crystallization_potential(high_pcd, 1, 1)
+    let p_coherent = crystallization_potential(0, 1, 1)
+    (p < p_coherent ? 1 : 0)
+
+let law10_asymptotic_convergence_test() =
+    let p1 = crystallization_potential(0, gf_div(1, 1), 1)
+    let p10 = crystallization_potential(0, gf_div(10, 10), 1)
+    let p100 = crystallization_potential(0, gf_div(100, 100), 1)
+    if p1 <= p10
+        (p10 <= p100 ? 1 : 0)
+    else
+        0
+
+let pcd_verify_all_laws() =
+    let l1 = law1_pcd_range_test()
+    let l2 = law2_inphase_min_test()
+    let l3 = law3_cancellation_max_test()
+    let l4 = law4_sigmoid_center_test()
+    let l5 = law5_waveguide_decay_test()
+    let l6 = law6_gradient_monotone_test()
+    let l7 = law7_resonance_log_test()
+    let l8 = law8_crystal_bounded_test()
+    let l9 = law9_contradiction_not_crystal_test()
+    let l10 = law10_asymptotic_convergence_test()
+    l1 + l2 + l3 + l4 + l5 + l6 + l7 + l8 + l9 + l10
+
+let PHASE_GAS = 0
+let PHASE_LIQUID = 1
+let PHASE_SOLID = 2
+
+let phase_modulation(phase) =
+    if phase == PHASE_GAS
+        gf_div(3, 10)
+    else
+        0
+    if phase == PHASE_LIQUID
+        gf_div(3, 5)
+    else
+        1
+
+let controlled_transmittance(pcd_val, phase) =
+    gf_mul(sigmoid_transmittance(pcd_val), phase_modulation(phase))
+
+let phase_transition(pcd_val, freq, strength, current_phase) =
+    let pot = crystallization_potential(pcd_val, freq, strength)
+    if pcd_val > gf_div(1, 20)
+        PHASE_GAS
+    else
+        0
+    if pot > gf_div(4, 5)
+        PHASE_SOLID
+    else
+        0
+    if pot > gf_div(2, 5)
+        PHASE_LIQUID
+    else
+        PHASE_GAS
+
+let forgetting_mechanism(phase, ticks) =
+    if phase == PHASE_SOLID
+        (ticks > 1000 ? PHASE_LIQUID : PHASE_SOLID)
+    else
+        0
+    if phase == PHASE_LIQUID
+        (ticks > 500 ? PHASE_GAS : PHASE_LIQUID)
+    else
+        PHASE_GAS
+
+let wave_propagate_step(neighbor_amps, edge_strengths, hops, pcd_val, phase, n) =
+    let result = 0
+    let t_ctrl = controlled_transmittance(pcd_val, phase)
+    let i = 0
+    for i < n
+        let amp = neighbor_amps[i]
+        let s = edge_strengths[i]
+        let h = hops[i]
+        let c = waveguide_compensation(h)
+        let g = gradient_bias(pcd_val)
+        let term = gf_mul(amp, s)
+        term = gf_mul(term, t_ctrl)
+        term = gf_mul(term, c)
+        term = gf_mul(term, g)
+        result = gf_add(result, term)
+        i = i + 1
+    result
+
+let saturate(amp, n_resonance, g_resonance) =
+    let amplified = gf_mul(amp, resonance_amplify(n_resonance, g_resonance))
+    let five_a = gf_mul(5, amplified)
+    let denom = gf_add(1, gf_abs(five_a))
+    (denom == 0 ? 0 : gf_div(five_a, denom))
+
+let HEIS_EXCITE = 0
+let HEIS_FLOW = 1
+let HEIS_SOLIDIFY = 2
+
+let broadband_wavepacket(k, cos_phi, sin_phi) =
+    if k == 0
+        [0, 0]
+    else
+        let inv_sqrt_k = gf_inv(gf_sqrt(k))
+        [gf_mul(inv_sqrt_k, cos_phi), gf_mul(inv_sqrt_k, sin_phi)]
+
+let dynamic_conductance(pcd_val, activation, phase_factor) =
+    let g_pcd = gf_sub(1, pcd_val)
+    gf_mul(gf_mul(g_pcd, activation), phase_factor)
+
+let quantum_tunnel_probability(barrier, delta_phi, amp_combined) =
+    let sqrt_a = gf_sqrt(amp_combined)
+    if sqrt_a == 0
+        0
+    else
+        let exponent = gf_div(gf_mul(barrier, gf_abs(delta_phi)), sqrt_a)
+        gf_div(1, gf_add(1, exponent))
+
+let cognitive_annealing_temp(t, t0, sigma_anneal, t_cognitive) =
+    if t_cognitive == 0
+        0
+    else
+        let ratio = gf_div(t, t_cognitive)
+        let decay = gf_div(1, gf_add(1, ratio))
+        gf_mul(gf_mul(t0, sigma_anneal), decay)
+
+let pcd_curvature(d_neighbor_avg, d_vertex, d_neighbor_var) =
+    let diff = gf_abs(gf_sub(d_neighbor_avg, d_vertex))
+    let var_sqrt = gf_sqrt(d_neighbor_var)
+    gf_add(diff, var_sqrt)
+
+let affect_modulation(arousal, valence) =
+    gf_mul(arousal, gf_div(gf_add(1, valence), 2))
+
+let FIREWALL_BLOCK = 0
+let FIREWALL_WARN = 1
+let FIREWALL_PASS = 2
+
+let logic_firewall(pcd_val) =
+    if pcd_val > gf_div(1, 2)
+        FIREWALL_BLOCK
+    else
+        0
+    if pcd_val > gf_div(1, 5)
+        FIREWALL_WARN
+    else
+        FIREWALL_PASS
+
+let sllas_state(edges, n, freq, strength, phase, ticks) =
+    let l1_wave = edges
+    let l2_pcd = pcd_compute(l1_wave, n)
+    let l3_gate = controlled_transmittance(l2_pcd, phase)
+    let l5_phase = phase_transition(l2_pcd, freq, strength, phase)
+    let l5_forget = forgetting_mechanism(l5_phase, ticks)
+    let l7_meaning = logic_firewall(l2_pcd)
+    [l2_pcd, l3_gate, l5_forget, l7_meaning]
+
+let darwin_select(pcd_val, fitness) =
+    gf_mul(gf_sub(1, pcd_val), fitness)
+
+let darwin_mutate(pcd_val, barrier, delta_phi, amp) =
+    let p_tunnel = quantum_tunnel_probability(barrier, delta_phi, amp)
+    gf_mul(pcd_val, p_tunnel)
+
+let darwin_inherit(phase, pcd_val, fitness) =
+    if phase == PHASE_SOLID
+        darwin_select(pcd_val, fitness)
+    else
+        0
+
+let field_pcd(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 200 + i * 300
+        let diff = gf_sub(z, pole)
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let pcd_verify() =
+    let edges1 = [[100, 0], [200, 0], [300, 0]]
+    let d1 = pcd_compute(edges1, 3)
+    let ok1 = (d1 == 0 ? 1 : 0)
+
+    let edges2 = [[1, 0], [gf_neg(1), 0]]
+    let d2 = pcd_compute(edges2, 2)
+    let ok2 = (d2 == 1 ? 1 : 0)
+
+    let edges3 = [[100, 0], [0, 100]]
+    let d3 = pcd_compute(edges3, 2)
+    let ok3 = (d3 > 0 ? (d3 < 1 ? 1 : 0) : 0)
+
+    let laws = pcd_verify_all_laws()
+
+    let fw_block = logic_firewall(gf_div(3, 5))
+    let ok5 = (fw_block == FIREWALL_BLOCK ? 1 : 0)
+
+    let fw_pass = logic_firewall(gf_div(1, 10))
+    let ok6 = (fw_pass == FIREWALL_PASS ? 1 : 0)
+
+    ok1 + ok2 + ok3 + ok5 + ok6
+
+let ALPHA = 100
+let BETA = 200
+let EPSILON = 500
+let GAMMA_R = 1000
+let KAPPA = 300
+let LAMBDA_DECAY = 50
+
+let DT = 100
+
+let cx_add(u1, u2) = [gf_add(u1[0], u2[0]), gf_add(u1[1], u2[1])]
+let cx_sub(u1, u2) = [gf_sub(u1[0], u2[0]), gf_sub(u1[1], u2[1])]
+let cx_mul(u1, u2) =
+    [gf_sub(gf_mul(u1[0], u2[0]), gf_mul(u1[1], u2[1])),
+     gf_add(gf_mul(u1[0], u2[1]), gf_mul(u1[1], u2[0]))]
+let cx_scale(s, u) = [gf_mul(s, u[0]), gf_mul(s, u[1])]
+let cx_abs_sq(u) = gf_add(gf_mul(u[0], u[0]), gf_mul(u[1], u[1]))
+let cx_conj(u) = [u[0], gf_neg(u[1])]
+let cx_im(u) = u[1]
+
+let cgl_diffusion(U, psi, i, n) =
+    let sum_re = 0
+    let sum_im = 0
+    let j = 0
+    for j < n
+        if j != i
+            let u_ij = U[i * n + j]
+            let prod_re = gf_mul(u_ij, psi[j][0])
+            let prod_im = gf_mul(u_ij, psi[j][1])
+            sum_re = gf_add(sum_re, gf_sub(prod_re, psi[i][0]))
+            sum_im = gf_add(sum_im, gf_sub(prod_im, psi[i][1]))
+        j = j + 1
+    [gf_sub(sum_re, gf_mul(ALPHA, sum_im)),
+     gf_add(sum_im, gf_mul(ALPHA, sum_re))]
+
+let cgl_pumping(psi_i) = cx_scale(EPSILON, psi_i)
+
+let cgl_nonlinear(psi_i) =
+    let abs_sq = cx_abs_sq(psi_i)
+    let scaled = cx_scale(abs_sq, psi_i)
+    [gf_sub(scaled[0], gf_mul(BETA, scaled[1])),
+     gf_add(scaled[1], gf_mul(BETA, scaled[0]))]
+
+let cgl_pcd_dissipation(psi_i, pcd_i) = cx_scale(gf_mul(GAMMA_R, pcd_i), psi_i)
+
+let cgl_external_drive(j_val) = j_val
+
+let genesis_eq_I(U, psi, i, n, pcd_i, j_val) =
+    let term1 = cgl_diffusion(U, psi, i, n)
+    let term2 = cgl_pumping(psi[i])
+    let term3 = cgl_nonlinear(psi[i])
+    let term4 = cgl_pcd_dissipation(psi[i], pcd_i)
+    let term5 = cgl_external_drive(j_val)
+    let result = cx_add(term1, term2)
+    result = cx_sub(result, term3)
+    result = cx_sub(result, term4)
+    result = cx_add(result, term5)
+    result
+
+let genesis_step_I(U, psi, i, n, pcd_i, j_val) =
+    let dpsi = genesis_eq_I(U, psi, i, n, pcd_i, j_val)
+    let new_re = gf_add(psi[i][0], gf_mul(DT, dpsi[0]))
+    let new_im = gf_add(psi[i][1], gf_mul(DT, dpsi[1]))
+    [new_re, new_im]
+
+let covariant_derivative(A_mu, psi) = cx_mul([A_mu, 0], psi)
+
+let im_psi_star_d_psi(psi, A_mu) =
+    let d_psi = covariant_derivative(A_mu, psi)
+    let psi_star = cx_conj(psi)
+    let product = cx_mul(psi_star, d_psi)
+    cx_im(product)
+
+let genesis_eq_II(psi, A_mu) =
+    let im_val = im_psi_star_d_psi(psi, A_mu)
+    gf_sub(gf_mul(KAPPA, im_val), gf_mul(LAMBDA_DECAY, A_mu))
+
+let genesis_step_II(psi, A_mu) =
+    let dA = genesis_eq_II(psi, A_mu)
+    gf_add(A_mu, gf_mul(DT, dA))
+
+let degrade_to_schrodinger(psi_i, energy) =
+    [gf_mul(energy, psi_i[1]), gf_neg(gf_mul(energy, psi_i[0]))]
+
+let degrade_to_diffusion(psi_i, diff_coeff) =
+    [gf_mul(diff_coeff, psi_i[0]), 0]
+
+let degrade_to_turing(psi_i, reaction_rate, diff_coeff) =
+    [gf_add(gf_mul(reaction_rate, psi_i[0]), gf_mul(diff_coeff, psi_i[0])), 0]
+
+let free_energy_density(psi_i, potential, coupling) =
+    let abs_sq = cx_abs_sq(psi_i)
+    let abs_4 = gf_mul(abs_sq, abs_sq)
+    gf_add(gf_mul(potential, abs_sq), gf_mul(coupling, abs_4))
+
+let hopf_bifurcation(psi_i, epsilon) =
+    let abs_sq = cx_abs_sq(psi_i)
+    let linear = cx_scale(epsilon, psi_i)
+    let nonlinear = cx_scale(abs_sq, psi_i)
+    cx_sub(linear, nonlinear)
+
+let pcd_from_wavefield(psi, n) =
+    pcd_compute(psi, n)
+
+let adaptive_pcd_damping(pcd_val) =
+    gf_mul(GAMMA_R, gf_add(1, pcd_val))
+
+let berry_curvature(e1, e2, matrix_element) =
+    let gap = gf_sub(e1, e2)
+    if gap == 0
+        0
+    else
+        let numer = gf_mul(matrix_element, matrix_element)
+        gf_div(numer, gf_mul(gap, gap))
+
+let chern_simons_action(A, n) =
+    let cs = 0
+    let i = 0
+    for i < n - 1
+        let dA = gf_sub(A[i + 1], A[i])
+        cs = gf_add(cs, gf_mul(A[i], dA))
+        i = i + 1
+    cs
+
+let wzw_term(g_values, n) =
+    let wzw = 0
+    let i = 0
+    for i < n - 1
+        if g_values[i] == 0
+            wzw
+        else
+            let dg = gf_div(gf_sub(g_values[i + 1], g_values[i]), g_values[i])
+            wzw = gf_add(wzw, gf_mul(dg, dg))
+            i = i + 1
+    wzw
+
+let field_genesis(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 500 + i * 1000
+        let diff = gf_sub(z, pole)
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let genesis_verify() =
+    let psi = [[100, 50], [200, 100]]
+    let U = [0, 1, 1, 0]
+    let pcd_val = 0
+    let j_val = [0, 0]
+    let new_psi = genesis_step_I(U, psi, 0, 2, pcd_val, j_val)
+    let ok1 = (new_psi[0] != psi[0][0] ? 1 : 0)
+
+    let A_mu = 100
+    let new_A = genesis_step_II(psi[0], A_mu)
+    let ok2 = (new_A != A_mu ? 1 : 0)
+
+    let schrodinger = degrade_to_schrodinger([100, 0], 500)
+    let ok3 = (schrodinger[0] == 0 ? 1 : 0)
+
+    let diffusion = degrade_to_diffusion([100, 50], 200)
+    let ok4 = (diffusion[1] == 0 ? 1 : 0)
+
+    let fe = free_energy_density([100, 0], 500, 200)
+    let ok5 = (fe > 0 ? 1 : 0)
+
+    let berry = berry_curvature(1000, 500, 100)
+    let ok6 = (berry > 0 ? 1 : 0)
+
+    ok1 + ok2 + ok3 + ok4 + ok5 + ok6

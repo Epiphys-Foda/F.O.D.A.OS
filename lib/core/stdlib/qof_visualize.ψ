@@ -1,0 +1,144 @@
+let qof_op_meta(op) =
+    if op == 0
+      { name: "CONST", shape: "ellipse",       color: "#888888", physics: "scalar state" }
+    else
+      if op == 1
+        { name: "GFMUL", shape: "box",          color: "#409eff", physics: "Galois field" }
+      else
+        if op == 2
+          { name: "CLIFFORD", shape: "diamond",     color: "#9c27b0", physics: "Clifford algebra" }
+        else
+          if op == 3
+            { name: "NTT", shape: "hexagon",      color: "#4caf50", physics: "number theory" }
+          else
+            if op == 4
+              { name: "BORN", shape: "doublecircle", color: "#f44336", physics: "Born collapse" }
+            else
+              if op == 5
+                { name: "HEBBIAN", shape: "parallelogram", color: "#ff9800", physics: "Hebbian learning" }
+              else
+                { name: "UNKNOWN", shape: "point",      color: "#000000", physics: "unknown" }
+
+let qof_cost_node(node) =
+    let arg = node.args[0]
+    (arg < 0 ? 0 - arg : arg)
+
+let qof_to_graph_impl(nodes, idx, gn, ge) =
+    if idx < len(nodes)
+      let node = nodes[idx]
+      let meta = qof_op_meta(node.op)
+      let gnode = { id: idx, op: node.op, name: meta.name, arg: node.args[0], layer: idx, shape: meta.shape, color: meta.color, physics: meta.physics }
+      let new_ge = idx + 1 < len(nodes) ? ge.push({ from: idx, to_: idx + 1, tensor_size: qof_cost_node(node) }) : ge
+      qof_to_graph_impl(nodes, idx + 1, gn.push(gnode), new_ge)
+    else
+      { nodes: gn, edges: ge }
+
+let qof_to_graph(nodes) = qof_to_graph_impl(nodes, 0, [], [])
+
+let qof_graph_stats(nodes) =
+    let g = qof_to_graph(nodes)
+      { node_count: g.len(nodes), edge_count: g.len(edges), depth: len(nodes), width: 1, is_linear: true }
+
+let qof_op_histogram_impl(nodes, idx, h0, h1, h2, h3, h4, h5) =
+    if idx < len(nodes)
+      let op = nodes[idx].op
+      let n0 = (op == 0 ? h0 + 1 : h0)
+      let n1 = (op == 1 ? h1 + 1 : h1)
+      let n2 = (op == 2 ? h2 + 1 : h2)
+      let n3 = (op == 3 ? h3 + 1 : h3)
+      let n4 = (op == 4 ? h4 + 1 : h4)
+      let n5 = (op == 5 ? h5 + 1 : h5)
+      qof_op_histogram_impl(nodes, idx + 1, n0, n1, n2, n3, n4, n5)
+    else
+      [h0, h1, h2, h3, h4, h5]
+
+let qof_op_histogram(nodes) = qof_op_histogram_impl(nodes, 0, 0, 0, 0, 0, 0, 0)
+
+let qof_svg_layout_impl(nodes, idx, positions) =
+    if idx < len(nodes)
+      let node = nodes[idx]
+      let meta = qof_op_meta(node.op)
+      let pos =
+        { id: idx, x: 80 + idx * 120, y: 100, label: meta.name, color: meta.color, shape: meta.shape }
+      qof_svg_layout_impl(nodes, idx + 1, positions.push(pos))
+    else
+      positions
+
+let qof_svg_layout(nodes) = qof_svg_layout_impl(nodes, 0, [])
+
+let qof_svg_canvas(nodes) =
+    let n = len(nodes)
+    { width: 80 + n * 120 + 80, height: 200, layout: "linear", spacing: 120 }
+
+let qof_to_dot_meta(nodes) =
+    let g = qof_to_graph(nodes)
+    { format: "dot", directed: true, nodes: g.nodes, edges: g.edges }
+
+let qof_to_mermaid_meta(nodes) =
+    let g = qof_to_graph(nodes)
+    { format: "mermaid", direction: "LR", nodes: g.nodes, edges: g.edges }
+
+let qof_to_svg_meta(nodes) =
+    let g = qof_to_graph(nodes)
+    let positions = qof_svg_layout(nodes)
+    let canvas = qof_svg_canvas(nodes)
+      { format: "svg", nodes: g.nodes, edges: g.edges, positions: positions, canvas: canvas }
+
+let qof_verify_graph_invariant_impl(nodes, idx) =
+    if idx < len(nodes)
+      let node = nodes[idx]
+      if node.id == idx
+        qof_verify_graph_invariant_impl(nodes, idx + 1)
+      else
+        false
+    else
+      true
+
+let qof_verify_graph_invariant(graph) =
+    let nc = graph.len(nodes)
+    let ec = graph.len(edges)
+    let id_ok = qof_verify_graph_invariant_impl(graph.nodes, 0)
+    let edge_count_ok = ec + 1 == nc
+    id_ok && edge_count_ok
+
+let qof_verify_graph_dfl_impl(nodes, test_idx) =
+    if test_idx < 20
+      let g1 = qof_to_graph(nodes)
+      let g2 = qof_to_graph(nodes)
+      let eq = g1.len(nodes) == g2.len(nodes) && g1.len(edges) == g2.len(edges)
+      if eq
+        qof_verify_graph_dfl_impl(nodes, test_idx + 1)
+      else
+        false
+    else
+      true
+
+let qof_verify_graph_dfl(nodes) = qof_verify_graph_dfl_impl(nodes, 0)
+
+let qof_visualize_formats() =
+      [ { format: "dot",     renderer: "Graphviz",  use_case: "academic publishing/paper figures" },
+      { format: "mermaid", renderer: "Mermaid.js", use_case: "Markdown/Web docs" },
+      { format: "svg",     renderer: "inline",     use_case: "inline HTML diagrams" }
+    ]
+
+let qof_visualize_passes() = [
+      { pass: "qof_to_graph",       layer: "structure",  physics: "tensor projection" },
+      { pass: "qof_op_histogram",   layer: "statistics",  physics: "Casimir spectrum" },
+      { pass: "qof_svg_layout",     layer: "layout",      physics: "1D chain projection" },
+      { pass: "qof_to_dot_meta",    layer: "render-meta", physics: "DOT projection" },
+      { pass: "qof_to_mermaid_meta",layer: "render-meta", physics: "Mermaid projection" },
+      { pass: "qof_to_svg_meta",    layer: "render-meta", physics: "SVG projection" }
+    ]
+
+let qof_visualize_demo() =
+    let nodes = [
+      { op: 1, args: [3], name: "GFMUL" },
+      { op: 4, args: [0], name: "BORN" },
+      { op: 1, args: [5], name: "GFMUL" },
+      { op: 5, args: [3], name: "HEBBIAN" }
+    ]
+    let g = qof_to_graph(nodes)
+    let stats = qof_graph_stats(nodes)
+    let hist = qof_op_histogram(nodes)
+    let svg = qof_to_svg_meta(nodes)
+      { node_count: stats.node_count, edge_count: stats.edge_count, depth: stats.depth, histogram: hist, svg_width: svg.canvas.width, svg_height: svg.canvas.height, positions_count: svg.len(positions), is_linear: stats.is_linear }

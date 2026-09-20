@@ -1,0 +1,854 @@
+import "../domain_field.ψ"
+let TH_P = 65537
+
+let TH_STATE_NEW     = 0
+let TH_STATE_READY   = 1
+let TH_STATE_RUNNING = 2
+let TH_STATE_BLOCKED = 3
+let TH_STATE_DEAD    = 4
+
+let TH_SYNC_MUTEX = 1
+let TH_SYNC_SEM   = 2
+let TH_SYNC_COND  = 3
+let TH_SYNC_RW    = 4
+
+let TH_FUTURE_PENDING  = 0
+let TH_FUTURE_RESOLVED = 1
+let TH_FUTURE_REJECTED = 2
+
+let TH_CHAN_BOUNDED   = 1
+let TH_CHAN_UNBOUNDED = 2
+
+let TH_REJECT_ABORT       = 1
+let TH_REJECT_CALLER_RUNS = 2
+let TH_REJECT_DISCARD     = 3
+
+let TH_DEFAULT_STACK      = 65536
+let TH_DEFAULT_PRIORITY   = 16
+let TH_DEFAULT_POOL_SIZE  = 8
+let TH_DEFAULT_CHAN_CAP   = 1024
+let TH_DEFAULT_MAX_TID    = 65536
+
+let th_new(tid, pid, priority, stack_base, stack_size) =
+    [tid, pid, TH_STATE_NEW, priority, stack_base, stack_size, 0, {}]
+
+let th_tid(t) = t[0]
+let th_pid(t) = t[1]
+let th_state(t) = t[2]
+let th_priority(t) = t[3]
+let th_stack_base(t) = t[4]
+let th_stack_size(t) = t[5]
+let th_cpu_time(t) = t[6]
+let th_registers(t) = t[7]
+
+let th_set_state(t, s) =
+    t[2] = s
+    t
+
+let th_set_priority(t, prio) =
+    t[3] = prio
+    t
+
+let th_inc_cpu(t, ticks) =
+    t[6] = t[6] + ticks
+    t
+
+let th_reg_set(t, name, val) =
+    let regs = th_registers(t)
+    regs[name] = val
+    t[7] = regs
+    t
+
+let th_reg_get(t, name) =
+    let regs = th_registers(t)
+    let v = regs[name]
+    if v == 0
+        0
+    else
+        v
+
+let th_can_transition(from, to_) =
+    let ok = 0
+    if from == TH_STATE_NEW
+        if to_ == TH_STATE_READY
+            ok = 1
+        else
+            0
+    if from == TH_STATE_READY
+        if to_ == TH_STATE_RUNNING
+            ok = 1
+        else
+            0
+        if to_ == TH_STATE_DEAD
+            ok = 1
+        else
+            0
+    if from == TH_STATE_RUNNING
+        if to_ == TH_STATE_READY
+            ok = 1
+        else
+            0
+        if to_ == TH_STATE_BLOCKED
+            ok = 1
+        else
+            0
+        if to_ == TH_STATE_DEAD
+            ok = 1
+        else
+            0
+    if from == TH_STATE_BLOCKED
+        if to_ == TH_STATE_READY
+            ok = 1
+        else
+            0
+        if to_ == TH_STATE_DEAD
+            ok = 1
+    ok
+
+let tt_new(max_tid) =
+    [{}, {}, 1, 0, max_tid]
+
+let tt_threads(t) = t[0]
+let tt_by_pid(t) = t[1]
+let tt_next_tid(t) = t[2]
+let tt_count(t) = t[3]
+let tt_max_tid(t) = t[4]
+
+let tt_set_threads(t, th) =
+    t[0] = th
+    t
+
+let tt_set_by_pid(t, b) =
+    t[1] = b
+    t
+
+let tt_set_next_tid(t, n) =
+    t[2] = n
+    t
+
+let tt_set_count(t, c) =
+    t[3] = c
+    t
+
+let tt_alloc_tid(t) =
+    let n = tt_next_tid(t)
+    let max_v = tt_max_tid(t)
+    let result = 0
+    if n <= max_v
+        result = n
+        tt_set_next_tid(t, n + 1)
+    result
+
+let tt_add(t, th) =
+    let threads = tt_threads(t)
+    let tid = th_tid(th)
+    threads[tid] = th
+    tt_set_threads(t, threads)
+    let pid = th_pid(th)
+    let by_pid = tt_by_pid(t)
+    let list = by_pid[pid]
+    if list == 0
+        list = []
+        by_pid[pid] = list
+    list.push(tid)
+    tt_set_by_pid(t, by_pid)
+    tt_set_count(t, tt_count(t) + 1)
+    t
+
+let tt_remove(t, tid) =
+    let threads = tt_threads(t)
+    let th = threads[tid]
+    if th != 0
+        let pid = th_pid(th)
+        let by_pid = tt_by_pid(t)
+        let list = by_pid[pid]
+        if list != 0
+            let out = []
+            let i = 0
+            let n = len(list)
+            for i < n
+                if list[i] != tid
+                    out.push(list[i])
+                i = i + 1
+            by_pid[pid] = out
+            tt_set_by_pid(t, by_pid)
+        threads[tid] = 0
+        tt_set_threads(t, threads)
+        tt_set_count(t, tt_count(t) - 1)
+    t
+
+let tt_get(t, tid) =
+    tt_threads(t)[tid]
+
+let tt_list_pid(t, pid) =
+    let by_pid = tt_by_pid(t)
+    let list = by_pid[pid]
+    if list == 0
+        []
+    else
+        list
+
+let sync_new() =
+    [{}, {}, {}, {}, 1]
+
+let sync_mutexes(m) = m[0]
+let sync_sems(m) = m[1]
+let sync_conds(m) = m[2]
+let sync_rwlocks(m) = m[3]
+let sync_next_id(m) = m[4]
+
+let sync_set_mutexes(m, x) =
+    m[0] = x
+    m
+
+let sync_set_sems(m, x) =
+    m[1] = x
+    m
+
+let sync_set_conds(m, x) =
+    m[2] = x
+    m
+
+let sync_set_rwlocks(m, x) =
+    m[3] = x
+    m
+
+let sync_set_next_id(m, n) =
+    m[4] = n
+    m
+
+let sync_mutex_create(m) =
+    let id = sync_next_id(m)
+    sync_set_next_id(m, id + 1)
+    let mutexes = sync_mutexes(m)
+    mutexes[id] = [0, 0, []]
+    sync_set_mutexes(m, mutexes)
+    id
+
+let sync_mutex_lock(m, id, tid) =
+    let mutexes = sync_mutexes(m)
+    let mtx = mutexes[id]
+    let result = 1
+    if mtx != 0
+        let locked = mtx[0]
+        if locked == 0
+            mtx[0] = 1
+            mtx[1] = tid
+            mutexes[id] = mtx
+            sync_set_mutexes(m, mutexes)
+            result = 1
+        else
+            let wq = mtx[2]
+            wq.push(tid)
+            mtx[2] = wq
+            mutexes[id] = mtx
+            sync_set_mutexes(m, mutexes)
+            result = 0
+    result
+
+let sync_mutex_unlock(m, id, tid) =
+    let mutexes = sync_mutexes(m)
+    let mtx = mutexes[id]
+    let result = 0
+    if mtx != 0
+        if mtx[1] == tid
+            let wq = mtx[2]
+            if len(wq) > 0
+                let next_tid = wq[0]
+                let out = []
+                let i = 1
+                let n = len(wq)
+                for i < n
+                    out.push(wq[i])
+                    i = i + 1
+                mtx[2] = out
+                mtx[1] = next_tid
+                mtx[0] = 1
+                result = next_tid
+            else
+                mtx[0] = 0
+                mtx[1] = 0
+                result = 0
+            mutexes[id] = mtx
+            sync_set_mutexes(m, mutexes)
+    result
+
+let sync_sem_create(m, initial) =
+    let id = sync_next_id(m)
+    sync_set_next_id(m, id + 1)
+    let sems = sync_sems(m)
+    sems[id] = [initial, []]
+    sync_set_sems(m, sems)
+    id
+
+let sync_sem_wait(m, id, tid) =
+    let sems = sync_sems(m)
+    let sem = sems[id]
+    let result = 1
+    if sem != 0
+        let cnt = sem[0]
+        if cnt > 0
+            sem[0] = cnt - 1
+            sems[id] = sem
+            sync_set_sems(m, sems)
+            result = 1
+        else
+            let wq = sem[1]
+            wq.push(tid)
+            sem[1] = wq
+            sems[id] = sem
+            sync_set_sems(m, sems)
+            result = 0
+    result
+
+let sync_sem_post(m, id) =
+    let sems = sync_sems(m)
+    let sem = sems[id]
+    let result = 0
+    if sem != 0
+        let wq = sem[1]
+        if len(wq) > 0
+            let woken = wq[0]
+            let out = []
+            let i = 1
+            let n = len(wq)
+            for i < n
+                out.push(wq[i])
+                i = i + 1
+            sem[1] = out
+            result = woken
+        else
+            sem[0] = sem[0] + 1
+            result = 0
+        sems[id] = sem
+        sync_set_sems(m, sems)
+    result
+
+let sync_cond_create(m, mutex_id) =
+    let id = sync_next_id(m)
+    sync_set_next_id(m, id + 1)
+    let conds = sync_conds(m)
+    conds[id] = [[], mutex_id]
+    sync_set_conds(m, conds)
+    id
+
+let sync_cond_wait(m, id, tid) =
+    let conds = sync_conds(m)
+    let cv = conds[id]
+    let result = 0
+    if cv != 0
+        let wq = cv[0]
+        wq.push(tid)
+        cv[0] = wq
+        conds[id] = cv
+        sync_set_conds(m, conds)
+        result = 1
+    result
+
+let sync_cond_signal(m, id) =
+    let conds = sync_conds(m)
+    let cv = conds[id]
+    let result = 0
+    if cv != 0
+        let wq = cv[0]
+        if len(wq) > 0
+            let woken = wq[0]
+            let out = []
+            let i = 1
+            let n = len(wq)
+            for i < n
+                out.push(wq[i])
+                i = i + 1
+            cv[0] = out
+            result = woken
+            conds[id] = cv
+            sync_set_conds(m, conds)
+    result
+
+let sync_cond_broadcast(m, id) =
+    let conds = sync_conds(m)
+    let cv = conds[id]
+    let result = 0
+    if cv != 0
+        let wq = cv[0]
+        result = len(wq)
+        cv[0] = []
+        conds[id] = cv
+        sync_set_conds(m, conds)
+    result
+
+let sync_rwlock_create(m) =
+    let id = sync_next_id(m)
+    sync_set_next_id(m, id + 1)
+    let rwlocks = sync_rwlocks(m)
+    rwlocks[id] = [0, 0, [], []]
+    sync_set_rwlocks(m, rwlocks)
+    id
+
+let sync_rwlock_rlock(m, id, tid) =
+    let rwlocks = sync_rwlocks(m)
+    let lock = rwlocks[id]
+    let result = 1
+    if lock != 0
+        let writer = lock[1]
+        let write_wait = lock[2]
+        if writer == 0
+            if len(write_wait) == 0
+                lock[0] = lock[0] + 1
+                rwlocks[id] = lock
+                sync_set_rwlocks(m, rwlocks)
+                result = 1
+            else
+                let rw = lock[3]
+                rw.push(tid)
+                lock[3] = rw
+                rwlocks[id] = lock
+                sync_set_rwlocks(m, rwlocks)
+                result = 0
+        else
+            let rw = lock[3]
+            rw.push(tid)
+            lock[3] = rw
+            rwlocks[id] = lock
+            sync_set_rwlocks(m, rwlocks)
+            result = 0
+    result
+
+let sync_rwlock_wlock(m, id, tid) =
+    let rwlocks = sync_rwlocks(m)
+    let lock = rwlocks[id]
+    let result = 1
+    if lock != 0
+        let readers = lock[0]
+        let writer = lock[1]
+        if readers == 0
+            if writer == 0
+                lock[1] = tid
+                rwlocks[id] = lock
+                sync_set_rwlocks(m, rwlocks)
+                result = 1
+            else
+                let ww = lock[2]
+                ww.push(tid)
+                lock[2] = ww
+                rwlocks[id] = lock
+                sync_set_rwlocks(m, rwlocks)
+                result = 0
+        else
+            let ww = lock[2]
+            ww.push(tid)
+            lock[2] = ww
+            rwlocks[id] = lock
+            sync_set_rwlocks(m, rwlocks)
+            result = 0
+    result
+
+let sync_rwlock_unlock(m, id, tid) =
+    let rwlocks = sync_rwlocks(m)
+    let lock = rwlocks[id]
+    let result = 0
+    if lock != 0
+        if lock[1] == tid
+            lock[1] = 0
+            let ww = lock[2]
+            if len(ww) > 0
+                let next_tid = ww[0]
+                let out = []
+                let i = 1
+                let n = len(ww)
+                for i < n
+                    out.push(ww[i])
+                    i = i + 1
+                lock[2] = out
+                lock[1] = next_tid
+                result = next_tid
+            else
+                let rw = lock[3]
+                result = len(rw)
+                lock[0] = len(rw)
+                lock[3] = []
+            rwlocks[id] = lock
+            sync_set_rwlocks(m, rwlocks)
+        else
+            lock[0] = lock[0] - 1
+            if lock[0] == 0
+                let ww = lock[2]
+                if len(ww) > 0
+                    let next_tid = ww[0]
+                    let out = []
+                    let i = 1
+                    let n = len(ww)
+                    for i < n
+                        out.push(ww[i])
+                        i = i + 1
+                    lock[2] = out
+                    lock[1] = next_tid
+                    result = next_tid
+            rwlocks[id] = lock
+            sync_set_rwlocks(m, rwlocks)
+    result
+
+let tp_new(max_workers, reject_policy) =
+    [[], [], max_workers, 0, reject_policy, 0]
+
+let tp_workers(p) = p[0]
+let tp_tasks(p) = p[1]
+let tp_max_workers(p) = p[2]
+let tp_active(p) = p[3]
+let tp_reject(p) = p[4]
+let tp_completed(p) = p[5]
+
+let tp_set_workers(p, w) =
+    p[0] = w
+    p
+
+let tp_set_tasks(p, t) =
+    p[1] = t
+    p
+
+let tp_set_active(p, a) =
+    p[3] = a
+    p
+
+let tp_set_completed(p, c) =
+    p[5] = c
+    p
+
+let tp_add_worker(p, tid) =
+    let w = tp_workers(p)
+    w.push(tid)
+    tp_set_workers(p, w)
+    p
+
+let tp_submit(p, task_id, fn_ref, args, priority) =
+    let active = tp_active(p)
+    let max_w = tp_max_workers(p)
+    let result = 1
+    if active < max_w
+        let tasks = tp_tasks(p)
+        tasks.push({task_id: task_id, fref: fn_ref, args: args, priority: priority})
+        tp_set_tasks(p, tasks)
+        tp_set_active(p, active + 1)
+        result = 1
+    else
+        let policy = tp_reject(p)
+        if policy == TH_REJECT_ABORT
+            result = 0
+        else
+            0
+        if policy == TH_REJECT_CALLER_RUNS
+            let tasks = tp_tasks(p)
+            tasks.push({task_id: task_id, fref: fn_ref, args: args, priority: priority})
+            tp_set_tasks(p, tasks)
+            result = 1
+        else
+            0
+        if policy == TH_REJECT_DISCARD
+            result = 0
+    result
+
+let tp_pick_task(p) =
+    let tasks = tp_tasks(p)
+    let n = len(tasks)
+    let result = 0
+    if n > 0
+        let best_i = 0
+        let best_prio = 0
+        let i = 0
+        for i < n
+            let t = tasks[i]
+            let prio = t["priority"]
+            if i == 0
+                best_i = 0
+                best_prio = prio
+            else
+                0
+            if prio < best_prio
+                best_i = i
+                best_prio = prio
+            i = i + 1
+        result = tasks[best_i]
+        let out = []
+        let j = 0
+        for j < n
+            if j != best_i
+                out.push(tasks[j])
+            j = j + 1
+        tp_set_tasks(p, out)
+    result
+
+let tp_done(p, tid) =
+    tp_set_active(p, tp_active(p) - 1)
+    tp_set_completed(p, tp_completed(p) + 1)
+    p
+
+let fut_new() =
+    [TH_FUTURE_PENDING, 0, 0, []]
+
+let fut_state(f) = f[0]
+let fut_value(f) = f[1]
+let fut_error(f) = f[2]
+let fut_callbacks(f) = f[3]
+
+let fut_set_state(f, s) =
+    f[0] = s
+    f
+
+let fut_set_value(f, v) =
+    f[1] = v
+    f
+
+let fut_set_error(f, e) =
+    f[2] = e
+    f
+
+let fut_set_callbacks(f, c) =
+    f[3] = c
+    f
+
+let fut_then(f, fn_ref) =
+    let state = fut_state(f)
+    if state == TH_FUTURE_RESOLVED
+        let new_f = fut_new()
+        fut_set_state(new_f, TH_FUTURE_RESOLVED)
+        let chained = fn_ref
+        fut_set_value(new_f, fut_value(f))
+        new_f
+    else
+        0
+    if state == TH_FUTURE_REJECTED
+        let new_f = fut_new()
+        fut_set_state(new_f, TH_FUTURE_REJECTED)
+        fut_set_error(new_f, fut_error(f))
+        new_f
+    else
+        let cbs = fut_callbacks(f)
+        cbs.push(fn_ref)
+        fut_set_callbacks(f, cbs)
+        f
+
+let fut_resolve(f, value) =
+    let state = fut_state(f)
+    if state == TH_FUTURE_PENDING
+        fut_set_value(f, value)
+        fut_set_state(f, TH_FUTURE_RESOLVED)
+    f
+
+let fut_reject(f, error) =
+    let state = fut_state(f)
+    if state == TH_FUTURE_PENDING
+        fut_set_error(f, error)
+        fut_set_state(f, TH_FUTURE_REJECTED)
+    f
+
+let fut_await(f) =
+    fut_state(f)
+
+let chan_new(type_v, capacity) =
+    [type_v, capacity, [], 0, [], []]
+
+let chan_type(c) = c[0]
+let chan_cap(c) = c[1]
+let chan_queue(c) = c[2]
+let chan_closed(c) = c[3]
+let chan_senders(c) = c[4]
+let chan_receivers(c) = c[5]
+
+let chan_set_queue(c, q) =
+    c[2] = q
+    c
+
+let chan_set_closed(c, v) =
+    c[3] = v
+    c
+
+let chan_set_senders(c, s) =
+    c[4] = s
+    c
+
+let chan_set_receivers(c, r) =
+    c[5] = r
+    c
+
+let chan_send(c, tid, item) =
+    let result = 1
+    if chan_closed(c) != 0
+        result = 0
+    else
+        let q = chan_queue(c)
+        let type_v = chan_type(c)
+        let can_send = 0
+        if type_v == TH_CHAN_UNBOUNDED
+            can_send = 1
+        else
+            let cap = chan_cap(c)
+            if len(q) < cap
+                can_send = 1
+        if can_send != 0
+            q.push(item)
+            chan_set_queue(c, q)
+            let r = chan_receivers(c)
+            if len(r) > 0
+                let woken = r[0]
+                let out = []
+                let i = 1
+                let n = len(r)
+                for i < n
+                    out.push(r[i])
+                    i = i + 1
+                chan_set_receivers(c, out)
+                result = 2
+            else
+                0
+            let s = chan_senders(c)
+            s.push(tid)
+            chan_set_senders(c, s)
+            result = 0
+    result
+
+let chan_recv(c, tid) =
+    let result = [0, 0]
+    let q = chan_queue(c)
+    if len(q) > 0
+        let item = q[0]
+        let out = []
+        let i = 1
+        let n = len(q)
+        for i < n
+            out.push(q[i])
+            i = i + 1
+        chan_set_queue(c, out)
+        let s = chan_senders(c)
+        if len(s) > 0
+            let woken = s[0]
+            let out2 = []
+            let j = 1
+            let m = len(s)
+            for j < m
+                out2.push(s[j])
+                j = j + 1
+            chan_set_senders(c, out2)
+        result = [1, item]
+    else
+        if chan_closed(c) != 0
+            result = [-1, 0]
+        else
+            let r = chan_receivers(c)
+            r.push(tid)
+            chan_set_receivers(c, r)
+            result = [0, 0]
+    result
+
+let chan_close(c) =
+    chan_set_closed(c, 1)
+    c
+
+let ws_new() =
+    [{}, {}, {}]
+
+let ws_deques(w) = w[0]
+let ws_owners(w) = w[1]
+let ws_stats(w) = w[2]
+
+let ws_set_deques(w, d) =
+    w[0] = d
+    w
+
+let ws_set_owners(w, o) =
+    w[1] = o
+    w
+
+let ws_set_stats(w, s) =
+    w[2] = s
+    w
+
+let ws_register(w, tid) =
+    let deques = ws_deques(w)
+    deques[tid] = [[], [], []]
+    ws_set_deques(w, deques)
+    let stats = ws_stats(w)
+    stats[tid] = 0
+    ws_set_stats(w, stats)
+    w
+
+let ws_push(w, tid, task) =
+    let deques = ws_deques(w)
+    let dq = deques[tid]
+    if dq != 0
+        let local = dq[0]
+        local.push(task)
+        dq[0] = local
+        deques[tid] = dq
+        ws_set_deques(w, deques)
+    w
+
+let ws_pop(w, tid) =
+    let deques = ws_deques(w)
+    let dq = deques[tid]
+    let result = 0
+    if dq != 0
+        let local = dq[0]
+        if len(local) > 0
+            result = local[len(local) - 1]
+            let out = []
+            let i = 0
+            let n = len(local) - 1
+            for i < n
+                out.push(local[i])
+                i = i + 1
+            dq[0] = out
+            deques[tid] = dq
+            ws_set_deques(w, deques)
+    result
+
+let ws_steal(w, thief_tid, victim_tid) =
+    let deques = ws_deques(w)
+    let dq = deques[victim_tid]
+    let result = 0
+    if dq != 0
+        let steal = dq[2]
+        if len(steal) > 0
+            result = steal[0]
+            let out = []
+            let i = 1
+            let n = len(steal)
+            for i < n
+                out.push(steal[i])
+                i = i + 1
+            dq[2] = out
+            deques[victim_tid] = dq
+            ws_set_deques(w, deques)
+            let stats = ws_stats(w)
+            let cnt = stats[victim_tid]
+            if cnt == 0
+                cnt = 0
+            stats[victim_tid] = cnt + 1
+            ws_set_stats(w, stats)
+            let owners = ws_owners(w)
+            owners[thief_tid] = victim_tid
+            ws_set_owners(w, owners)
+    result
+
+let ws_find_victim(w, except_tid) =
+    let deques = ws_deques(w)
+    let keys = keys_of(deques)
+    let result = 0
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let k = keys[i]
+        if k != except_tid
+            let dq = deques[k]
+            if dq != 0
+                let steal = dq[2]
+                if len(steal) > 0
+                    result = k
+                    i = n
+                else
+                    i = i + 1
+            else
+                i = i + 1
+        else
+            i = i + 1
+    result
+

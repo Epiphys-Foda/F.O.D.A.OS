@@ -1,0 +1,32 @@
+import "ck.ψ"
+let bad = [0]
+
+let a1 = 1
+let a2 = 4
+let v1 = 1
+let v2 = 8
+let dz1 = a2 - a1 * 4
+bad[0] = bad[0] + ck(dz1, 0, 0)
+let dz2 = v2 - a1 * 8
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+bad[0] = bad[0] + ck_lo(v2, a2)
+
+let rel1 = 2
+let rel2 = 1
+let dz3 = rel2 * 2 - rel1
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let bone = 283
+bad[0] = bad[0] + ck(bone, 270, 290)
+
+let heat_made = v2
+let heat_shed = a2
+bad[0] = bad[0] + ck_lo(heat_made, heat_shed)
+
+if 1638 < 1636
+    bad[0] = bad[0] + 1
+if 1638 > 1640
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

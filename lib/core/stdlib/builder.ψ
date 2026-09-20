@@ -1,0 +1,129 @@
+let builder_new() =
+    [{}, 0]
+
+let builder_set(builder, key, value) =
+    builder[0][key] = value
+    builder
+
+let builder_add(builder, key, value) =
+    let existing = builder[0][key]
+    if existing == 0
+        builder[0][key] = [value]
+    else
+        builder[0][key] = arr_concat(existing, [value])
+    builder
+
+let builder_get(builder, key) =
+    builder[0][key]
+
+let builder_build(builder) =
+    builder[1] = builder[0]
+    builder[1]
+
+let builder_reset(builder) =
+    builder[0] = {}
+    builder[1] = 0
+    builder
+
+let string_builder_new() =
+    [""]
+
+let string_builder_append(sb, s) =
+    sb[0] = str_concat(sb[0], s)
+    sb
+
+let string_builder_append_line(sb, s) =
+    sb[0] = str_concat(sb[0], str_concat(s, "\n"))
+    sb
+
+let string_builder_append_char(sb, c) =
+    sb[0] = str_concat(sb[0], c)
+    sb
+
+let string_builder_to_string(sb) =
+    sb[0]
+
+let string_builder_len(sb) =
+    sb[0].len()
+
+let string_builder_clear(sb) =
+    sb[0] = ""
+    sb
+
+let array_builder_new() =
+    [[]]
+
+let array_builder_push(ab, value) =
+    ab[0] = arr_concat(ab[0], [value])
+    ab
+
+let array_builder_push_all(ab, values) =
+    let i = 0
+    for i < values.len()
+        ab[0] = arr_concat(ab[0], [values[i]])
+        i = i + 1
+    ab
+
+let array_builder_build(ab) =
+    ab[0]
+
+let array_builder_len(ab) =
+    ab[0].len()
+
+let query_builder_new(table) =
+    [table, ["*"], [], [], 0]
+
+let query_builder_select(qb, columns) =
+    qb[1] = columns
+    qb
+
+let query_builder_where(qb, condition) =
+    qb[2] = arr_concat(qb[2], [condition])
+    qb
+
+let query_builder_order_by(qb, column, desc) =
+    qb[3] = arr_concat(qb[3], [[column, desc]])
+    qb
+
+let query_builder_limit(qb, n) =
+    qb[4] = n
+    qb
+
+let query_builder_build(qb) =
+    let sql = str_concat("SELECT ", str_join(qb[1], ", "))
+    sql = str_concat(sql, str_concat(" FROM ", qb[0]))
+    if qb[2].len() > 0
+        sql = str_concat(sql, str_concat(" WHERE ", str_join(qb[2], " AND ")))
+    if qb[3].len() > 0
+        sql = str_concat(sql, " ORDER BY ")
+    if qb[4] > 0
+        sql = str_concat(sql, str_concat(" LIMIT ", str(qb[4])))
+    sql
+
+let config_builder_new() =
+    [{}]
+
+let config_builder_set(cb, key, value) =
+    cb[0][key] = value
+    cb
+
+let config_builder_set_default(cb, key, value) =
+    if cb[0][key] == 0
+        cb[0][key] = value
+    cb
+
+let config_builder_build(cb) =
+    cb[0]
+
+let main() =
+    let sb = string_builder_new()
+    string_builder_append(sb, "Hello")
+    string_builder_append(sb, " ")
+    string_builder_append(sb, "World")
+    print(string_builder_to_string(sb))
+    let ab = array_builder_new()
+    array_builder_push(ab, 1)
+    array_builder_push(ab, 2)
+    array_builder_push(ab, 3)
+    print(array_builder_build(ab))
+    0

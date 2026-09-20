@@ -1,0 +1,112 @@
+let beta_prior(alpha, beta, x) =
+    let scale = 1000
+    let result = 1
+    let i = 0
+    for i < alpha - 1
+        result = result * x / scale
+        i = i + 1
+    let q = scale - x
+    let i = 0
+    for i < beta - 1
+        result = result * q / scale
+        i = i + 1
+    result
+
+let beta_posterior(alpha, beta, successes, failures) =
+    [alpha + successes, beta + failures]
+
+let beta_mean(alpha, beta) =
+    alpha * 1000 / (alpha + beta)
+
+let beta_mode(alpha, beta) =
+    if alpha > 1 && beta > 1
+        (alpha - 1) * 1000 / (alpha + beta - 2)
+    else
+        0
+
+let dirichlet_posterior(alphas, counts) =
+    let result = []
+    let i = 0
+    for i < alphas.len()
+        result = arr_concat(result, [alphas[i] + counts[i]])
+        i = i + 1
+    result
+
+let dirichlet_mean(alphas) =
+    let total = 0
+    let i = 0
+    for i < alphas.len()
+        total = total + alphas[i]
+        i = i + 1
+    let result = []
+    let i = 0
+    for i < alphas.len()
+        result = arr_concat(result, [alphas[i] * 1000 / total])
+        i = i + 1
+    result
+
+let gaussian_posterior(prior_mean, prior_var, obs_mean, obs_var) =
+    let precision = 1000000 / prior_var + 1000000 / obs_var
+    let post_var = 1000000 / precision
+    let post_mean = post_var * (prior_mean * 1000000 / prior_var + obs_mean * 1000000 / obs_var) / 1000000
+    [post_mean, post_var]
+
+let map_estimate_beta(alpha, beta, successes, failures) =
+    let post = beta_posterior(alpha, beta, successes, failures)
+    beta_mode(post[0], post[1])
+
+let naive_bayes_predict(prior, likelihoods, features) =
+    let n_classes = prior.len()
+    let posteriors = []
+    let c = 0
+    for c < n_classes
+        let prob = prior[c]
+        let f = 0
+        for f < features.len()
+            prob = prob * likelihoods[c][features[f]] / 1000
+            f = f + 1
+        posteriors = arr_concat(posteriors, [prob])
+        c = c + 1
+    let best = 0
+    let best_prob = posteriors[0]
+    let c = 1
+    for c < n_classes
+        if posteriors[c] > best_prob
+            best_prob = posteriors[c]
+            best = c
+        c = c + 1
+    best
+
+let bayes_update(prior, likelihood, evidence) =
+    likelihood * prior / evidence
+
+let sequential_bayesian(prior, observations, likelihood_fn) =
+    let belief = prior
+    let i = 0
+    for i < observations.len()
+        let obs = observations[i]
+        let lik = likelihood_fn(obs)
+        let sum = 0
+        let j = 0
+        for j < belief.len()
+            sum = sum + belief[j] * lik[j]
+            j = j + 1
+        let new_belief = []
+        let j = 0
+        for j < belief.len()
+            new_belief = arr_concat(new_belief, [belief[j] * lik[j] * 1000 / sum])
+            j = j + 1
+        belief = new_belief
+        i = i + 1
+    belief
+
+let main() =
+    let post = beta_posterior(2, 3, 5, 3)
+    print(post)
+    let mean = beta_mean(7, 6)
+    print(mean)
+    let mode = map_estimate_beta(2, 3, 5, 3)
+    print(mode)
+    let gp = gaussian_posterior(500, 100, 600, 200)
+    print(gp)
+    0

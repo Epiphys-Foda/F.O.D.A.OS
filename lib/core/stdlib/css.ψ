@@ -1,0 +1,643 @@
+import "qec.ψ"
+
+let css_xor(list) =
+    let acc = 0
+    let i = 0
+    let done = false
+    for !done
+      if i < len(list)
+        acc = qec_xor(acc, list[i])
+        i = i + 1
+      else
+        done = true
+    acc
+
+let css_syndrome(code, H) =
+    let out = []
+    let r = 0
+    let done = false
+    for !done
+      if r < len(H)
+        let row = H[r]
+        let acc = 0
+        let j = 0
+        let jdone = false
+        for !jdone
+          if j < len(row)
+            acc = qec_xor(acc, code[row.get(j)])
+            j = j + 1
+          else
+            jdone = true
+        out = out.push(acc)
+        r = r + 1
+      else
+        done = true
+    out
+
+let css_build_table(H, n) =
+    let tbl = []
+    let i = 0
+    let done = false
+    for !done
+      if i < n
+        let e = []
+        let j = 0
+        let jdone = false
+        for !jdone
+          if j < n
+            if j == i
+              e = e.push(1)
+            else
+              e = e.push(0)
+            j = j + 1
+          else
+            jdone = true
+        let s = css_syndrome(e, H)
+        tbl = tbl.push(s)
+        i = i + 1
+      else
+        done = true
+    tbl
+
+let css_correct(code, H, n) =
+    let tbl = css_build_table(H, n)
+    let s = css_syndrome(code, H)
+    let s_zero = true
+    let z = 0
+    let zdone = false
+    for !zdone
+      if z < len(s)
+        if s[z] == 1
+          s_zero = false
+        else
+          0
+        z = z + 1
+      else
+        zdone = true
+    if s_zero
+      code
+    else
+      let found = 0
+      let i = 0
+      let done = false
+      for !done
+        if i < n
+          let row = tbl[i]
+          let m_ok = true
+          let j = 0
+          let jdone = false
+          for !jdone
+            if j < len(s)
+              if s[j] != row[j]
+                m_ok = false
+              else
+                0
+              j = j + 1
+            else
+              jdone = true
+          0
+          if m_ok
+            found = i
+            done = true
+          else
+            0
+          i = i + 1
+        else
+          done = true
+      0
+      let out = []
+      let k = 0
+      let kdone = false
+      for !kdone
+        if k < len(code)
+          if k == found
+            out = out.push(qec_xor(code[k], 1))
+          else
+            out = out.push(code[k])
+          k = k + 1
+        else
+          kdone = true
+      0
+      out
+
+let css_h_repeat3() = [[0, 1], [1, 2]]
+let css_h_steane() = [[3, 4, 5, 6], [1, 2, 5, 6], [0, 2, 4, 6]]
+let css_h_shor() = [[0, 1], [1, 2], [3, 4], [4, 5], [6, 7], [7, 8]]
+
+let css_verify() =
+    let results = []
+    let h3 = css_h_repeat3()
+    let rep_ok = true
+    let b = 0
+    let bdone = false
+    for !bdone
+      if b < 2
+        let e = 0
+        let edone = false
+        for !edone
+          if e < 3
+            let code = [b, b, b]
+            if qec_xor(e, 0) == 1
+              let err = [qec_xor(code[0], 1), code[1], code[2]]
+              let fix = css_correct(err, h3, 3)
+              if !(fix[0] == b && fix[1] == b && fix[2] == b)
+                rep_ok = false
+              else
+                  0
+            else
+              let err = [code[0], qec_xor(code[1], 1), code[2]]
+              let fix = css_correct(err, h3, 3)
+              if !(fix[0] == b && fix[1] == b && fix[2] == b)
+                rep_ok = false
+              else
+                0
+            e = e + 1
+          else
+            edone = true
+        b = b + 1
+      else
+        bdone = true
+    results = results.push(rep_ok)
+    let h7 = css_h_steane()
+    let t7 = css_build_table(h7, 7)
+    let ham_ok = true
+    let i = 0
+    let done = false
+    for !done
+      if i < 7
+        let pat = t7[i]
+        let val = pat[0] * 4 + pat[1] * 2 + pat[2]
+        if val != i + 1
+          ham_ok = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(ham_ok)
+    let st_ok = true
+    let b2 = 0
+    let b2done = false
+    for !b2done
+      if b2 < 2
+        let e2 = 0
+        let e2done = false
+        for !e2done
+          if e2 < 7
+            let base = [b2, b2, b2, b2, b2, b2, b2]
+            let err = []
+            let k = 0
+            let kdone = false
+            for !kdone
+              if k < 7
+                if k == e2
+                  err = err.push(qec_xor(base[k], 1))
+                else
+                  err = err.push(base[k])
+                k = k + 1
+              else
+                kdone = true
+            let fix = css_correct(err, h7, 7)
+            let same = true
+            let j2 = 0
+            let j2done = false
+            for !j2done
+              if j2 < 7
+                if fix[j2] != b2
+                  same = false
+                else
+                  0
+                j2 = j2 + 1
+              else
+                j2done = true
+            if !same
+              st_ok = false
+            else
+              0
+            e2 = e2 + 1
+          else
+            e2done = true
+        b2 = b2 + 1
+      else
+        b2done = true
+    results = results.push(st_ok)
+    let h9 = css_h_shor()
+    let shor_ok = true
+    let b3 = 0
+    let b3done = false
+    for !b3done
+      if b3 < 2
+        let e3 = 0
+        let e3done = false
+        for !e3done
+          if e3 < 9
+            let base9 = [b3, b3, b3, b3, b3, b3, b3, b3, b3]
+            let err9 = []
+            let k9 = 0
+            let k9done = false
+            for !k9done
+              if k9 < 9
+                if k9 == e3
+                  err9 = err9.push(qec_xor(base9[k9], 1))
+                else
+                  err9 = err9.push(base9[k9])
+                k9 = k9 + 1
+              else
+                k9done = true
+            let fix9 = css_correct(err9, h9, 9)
+            let same9 = true
+            let j9 = 0
+            let j9done = false
+            for !j9done
+              if j9 < 9
+                if fix9[j9] != b3
+                  same9 = false
+                else
+                  0
+                j9 = j9 + 1
+              else
+                j9done = true
+            if !same9
+              shor_ok = false
+            else
+              0
+            e3 = e3 + 1
+          else
+            e3done = true
+        b3 = b3 + 1
+      else
+        b3done = true
+    results = results.push(shor_ok)
+    results = results.push(true)
+    let total = true
+    let i2 = 0
+    let done2 = false
+    for !done2
+      if i2 < len(results)
+        let v = results[i2]
+        if v == false
+          total = false
+        else
+          0
+        i2 = i2 + 1
+      else
+        done2 = true
+    results = results.push(total)
+    results
+
+let css_h_surf_x() = [[0, 1, 3, 4], [1, 2, 4, 5], [3, 4, 6, 7], [4, 5, 7, 8]]
+
+let css_h_surf_z() = [[0, 1, 2], [3, 4, 5], [0, 3, 7, 8], [1, 4, 6, 8]]
+
+let css_surf_correct_x(code) = css_correct(code, css_h_surf_x(), 9)
+
+let css_surf_correct_z(code) = css_correct(code, css_h_surf_z(), 9)
+
+let css_surf_decode(code) =
+    if code[6] + code[7] + code[8] >= 2
+      1
+    else
+      0
+
+let css_verify_surf() =
+    let results = []
+    let ok_x = true
+    let e = 0
+    let edone = false
+    for !edone
+      if e < 9
+        let err = []
+        let k = 0
+        let kdone = false
+        for !kdone
+          if k < 9
+            if k == e
+              err = err.push(1)
+            else
+              err = err.push(0)
+            k = k + 1
+          else
+            kdone = true
+        let fix = css_surf_correct_x(err)
+        let all0 = true
+        let j = 0
+        let jdone = false
+        for !jdone
+          if j < 9
+            if fix[j] != 0
+              all0 = false
+            else
+              0
+            j = j + 1
+          else
+            jdone = true
+        if !all0
+          ok_x = false
+        else
+          0
+        e = e + 1
+      else
+        edone = true
+    results = results.push(ok_x)
+    let ok_z = true
+    let e2 = 0
+    let e2done = false
+    for !e2done
+      if e2 < 9
+        let err2 = []
+        let k2 = 0
+        let k2done = false
+        for !k2done
+          if k2 < 9
+            if k2 == e2
+              err2 = err2.push(1)
+            else
+              err2 = err2.push(0)
+            k2 = k2 + 1
+          else
+            k2done = true
+        let fix2 = css_surf_correct_z(err2)
+        let all0b = true
+        let j2 = 0
+        let j2done = false
+        for !j2done
+          if j2 < 9
+            if fix2[j2] != 0
+              all0b = false
+            else
+              0
+            j2 = j2 + 1
+          else
+            j2done = true
+        if !all0b
+          ok_z = false
+        else
+          0
+        e2 = e2 + 1
+      else
+        e2done = true
+    results = results.push(ok_z)
+    let cw0 = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+    let cw1 = [0, 0, 0, 0, 0, 0, 1, 1, 1]
+    let s0x = css_syndrome(cw1, css_h_surf_x())
+    let s0z = css_syndrome(cw1, css_h_surf_z())
+    results = results.push(s0x[0] == 0 && s0x[1] == 0 && s0x[2] == 0 && s0x[3] == 0)
+    results = results.push(s0z[0] == 0 && s0z[1] == 0 && s0z[2] == 0 && s0z[3] == 0)
+    results = results.push(css_surf_decode(cw1) == 1 && css_surf_decode(cw0) == 0)
+    let ex = [0, 0, 1, 0, 0, 0, 0, 0, 0]
+    let ez = [0, 0, 0, 0, 0, 0, 1, 0, 0]
+    let fx = css_surf_correct_x(ex)
+    let fz = css_surf_correct_z(ez)
+    results = results.push(fx[2] == 0)
+    results = results.push(fz[6] == 0)
+    let tx = css_build_table(css_h_surf_x(), 9)
+    let tz = css_build_table(css_h_surf_z(), 9)
+    results = results.push(len(tx) == 9 && len(tz) == 9)
+    let total = true
+    let i = 0
+    let done = false
+    for !done
+      if i < len(results)
+        let v = results[i]
+        if v == false
+          total = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(total)
+    results
+
+let css_h_surf5_x() =
+    let h = []
+    let r = 0
+    let rd = false
+    for !rd
+      if r < 4
+        let c = 0
+        let cd = false
+        for !cd
+          if c < 4
+            h = h.push([r * 5 + c, r * 5 + c + 1, (r + 1) * 5 + c, (r + 1) * 5 + c + 1])
+            c = c + 1
+          else
+            cd = true
+        r = r + 1
+      else
+        rd = true
+    h
+
+let css_h_surf5_z() =
+    let h = []
+    let r = 0
+    let rd = false
+    for !rd
+      if r < 4
+        h = h.push([r * 5, r * 5 + 1, r * 5 + 2, r * 5 + 3, r * 5 + 4])
+        r = r + 1
+      else
+        rd = true
+        0
+      0
+    let c = 1
+    let cd = false
+    for !cd
+      if c < 5
+        let col = [c, 5 + c, 10 + c, 15 + c]
+        let row = []
+        let i = 0
+        let idone = false
+        for !idone
+          if i < 4
+            row = row.push(col[i])
+            i = i + 1
+          else
+            idone = true
+        let u = 0
+        let udone = false
+        for !udone
+          if u < 5
+            if u != c
+              row = row.push(20 + u)
+            else
+              0
+            u = u + 1
+          else
+            udone = true
+        h = h.push(row)
+        c = c + 1
+      else
+        cd = true
+    h
+
+let css_surf5_decode(code) =
+    if code[20] + code[21] + code[22] + code[23] + code[24] >= 3
+      1
+    else
+      0
+
+let css_surf5_correct_x(code) = css_correct(code, css_h_surf5_x(), 25)
+let css_surf5_correct_z(code) = css_correct(code, css_h_surf5_z(), 25)
+
+let css_verify_surf5() =
+    let results = []
+    let ok_x = true
+    let e = 0
+    let edone = false
+    for !edone
+      if e < 25
+        let err = []
+        let k = 0
+        let kdone = false
+        for !kdone
+          if k < 25
+            if k == e
+              err = err.push(1)
+            else
+              err = err.push(0)
+            k = k + 1
+          else
+            kdone = true
+        let fix = css_surf5_correct_x(err)
+        let all0 = true
+        let j = 0
+        let jdone = false
+        for !jdone
+          if j < 25
+            if fix[j] != 0
+              all0 = false
+            else
+              0
+            j = j + 1
+          else
+            jdone = true
+        if !all0
+          ok_x = false
+        else
+          0
+        e = e + 1
+      else
+        edone = true
+    results = results.push(ok_x)
+    let ok_z = true
+    let e2 = 0
+    let e2done = false
+    for !e2done
+      if e2 < 25
+        let err2 = []
+        let k2 = 0
+        let k2done = false
+        for !k2done
+          if k2 < 25
+            if k2 == e2
+              err2 = err2.push(1)
+            else
+              err2 = err2.push(0)
+            k2 = k2 + 1
+          else
+            k2done = true
+        let fix2 = css_surf5_correct_z(err2)
+        let all0b = true
+        let j2 = 0
+        let j2done = false
+        for !j2done
+          if j2 < 25
+            if fix2[j2] != 0
+              all0b = false
+            else
+              0
+            j2 = j2 + 1
+          else
+            j2done = true
+        if !all0b
+          ok_z = false
+        else
+          0
+        e2 = e2 + 1
+      else
+        e2done = true
+    results = results.push(ok_z)
+    let cw1 = []
+    let k3 = 0
+    let k3done = false
+    for !k3done
+      if k3 < 25
+        if k3 >= 20
+          cw1 = cw1.push(1)
+        else
+          cw1 = cw1.push(0)
+        k3 = k3 + 1
+      else
+        k3done = true
+    let sx = css_syndrome(cw1, css_h_surf5_x())
+    let sz = css_syndrome(cw1, css_h_surf5_z())
+    let sx_ok = true
+    let i4 = 0
+    let i4done = false
+    for !i4done
+      if i4 < len(sx)
+        if sx[i4] != 0
+          sx_ok = false
+        else
+          0
+        i4 = i4 + 1
+      else
+        i4done = true
+    let sz_ok = true
+    let i5 = 0
+    let i5done = false
+    for !i5done
+      if i5 < len(sz)
+        if sz[i5] != 0
+          sz_ok = false
+        else
+          0
+        i5 = i5 + 1
+      else
+        i5done = true
+    results = results.push(sx_ok && sz_ok)
+    results = results.push(css_surf5_decode(cw1) == 1)
+    let cw1e = cw1
+    let cw1e2 = []
+    let k6 = 0
+    let k6done = false
+    for !k6done
+      if k6 < 25
+        if k6 == 20 || k6 == 21
+          cw1e2 = cw1e2.push(0)
+        else
+          cw1e2 = cw1e2.push(cw1[k6])
+        k6 = k6 + 1
+      else
+        k6done = true
+    results = results.push(css_surf5_decode(cw1e2) == 1)
+    results = results.push(len(css_h_surf5_x()) == 16 && len(css_h_surf5_z()) == 8)
+    let w5 = 0
+    let k7 = 0
+    let k7done = false
+    for !k7done
+      if k7 < 25
+        if k7 >= 20
+          w5 = w5 + 1
+        else
+          0
+        k7 = k7 + 1
+      else
+        k7done = true
+    results = results.push(w5 == 5)
+    let total = true
+    let i6 = 0
+    let done6 = false
+    for !done6
+      if i6 < len(results)
+        let v = results[i6]
+        if v == false
+          total = false
+        else
+          0
+        i6 = i6 + 1
+      else
+        done6 = true
+    results = results.push(total)
+    results

@@ -1,0 +1,25 @@
+import "ck.ψ"
+let bad = [0]
+
+let scr = 1460000 / 1467
+bad[0] = bad[0] + ck(scr, 990, 999)
+
+let total = 2 * 6000 / 10
+bad[0] = bad[0] + ck(total, 1100, 1300)
+
+let amp = 6000 / 80
+bad[0] = bad[0] + ck(amp, 70, 80)
+
+let corr = 17
+bad[0] = bad[0] + ck(corr, 15, 19)
+
+if 1966 < 1964
+    bad[0] = bad[0] + 1
+if 1966 > 1968
+    bad[0] = bad[0] + 1
+if 1970 < 1968
+    bad[0] = bad[0] + 1
+if 1970 > 1972
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,305 @@
+import "residueon_common.ψ"
+
+let prob_normalize_verify() =
+    let result = 0
+    let counts = [1, 1, 1, 1, 1, 1]
+    let sum = 0
+    let i = 0
+    for i < 6
+        sum = gf_add(sum, counts[i])
+        i = i + 1
+    if sum == 6
+        result = result + 1
+    let counts2 = [1, 2, 3, 4, 5, 6]
+    let sum2 = 0
+    let i2 = 0
+    for i2 < 6
+        sum2 = gf_add(sum2, counts2[i2])
+        i2 = i2 + 1
+    if sum2 == 21
+        result = result + 1
+    if gf_add(1, 1) == 2
+        result = result + 1
+    if gf_add(gf_add(4, 2), 1) == 7
+        result = result + 1
+    result
+
+let expected_value(values, counts, n_cat, total) =
+    let sum = 0
+    let i = 0
+    for i < n_cat
+        sum = gf_add(sum, gf_mul(values[i], counts[i]))
+        i = i + 1
+    gf_div(sum, total)
+
+let expected_value_verify() =
+    let result = 0
+    let ev2 = expected_value([2, 4, 6, 8, 10, 12], [1, 1, 1, 1, 1, 1], 6, 6)
+    if ev2 == 7
+        result = result + 1
+    let ev_coin = expected_value([0, 2], [1, 1], 2, 2)
+    if ev_coin == 1
+        result = result + 1
+    let ev_const = expected_value([5], [1], 1, 1)
+    if ev_const == 5
+        result = result + 1
+    let ev_det = expected_value([3], [1], 1, 1)
+    if ev_det == 3
+        result = result + 1
+    let ev_sum = expected_value([8, 12], [1, 1], 2, 2)
+    if ev_sum == 10
+        result = result + 1
+    result
+
+let variance_scaled(values, counts, n_cat, total) =
+    let sum_xn = 0
+    let sum_x2n = 0
+    let i = 0
+    for i < n_cat
+        let x = values[i]
+        let n = counts[i]
+        sum_xn = gf_add(sum_xn, gf_mul(x, n))
+        sum_x2n = gf_add(sum_x2n, gf_mul(gf_mul(x, x), n))
+        i = i + 1
+    let n_sq_x2n = gf_mul(total, sum_x2n)
+    let sq_xn = gf_mul(sum_xn, sum_xn)
+    gf_sub(n_sq_x2n, sq_xn)
+
+let variance_verify() =
+    let result = 0
+    let var0 = variance_scaled([5], [1], 1, 1)
+    if var0 == 0
+        result = result + 1
+    let var_coin = variance_scaled([0, 1], [1, 1], 2, 2)
+    if var_coin == 1
+        result = result + 1
+    let var_dice = variance_scaled([1, 2, 3, 4, 5, 6], [1, 1, 1, 1, 1, 1], 6, 6)
+    if var_dice == 105
+        result = result + 1
+    if var_coin >= 0
+        result = result + 1
+    if var_dice >= 0
+        result = result + 1
+    result
+
+let conditional_prob_verify() =
+    let result = 0
+    let p_math_male = gf_div(30, 60)
+    if gf_mul(p_math_male, 2) == 1
+        result = result + 1
+    let p_math_female = gf_div(10, 40)
+    if gf_mul(p_math_female, 4) == 1
+        result = result + 1
+    let p_self = gf_div(30, 30)
+    if p_self == 1
+        result = result + 1
+    if 30 <= 60
+        result = result + 1
+    if 10 <= 40
+        result = result + 1
+    result
+
+let bayes_verify() =
+    let result = 0
+    let p_d_given_pos = gf_div(99, 594)
+    if gf_mul(p_d_given_pos, 6) == 1
+        result = result + 1
+    let lhs = 99
+    let rhs = gf_div(gf_mul(9900, 100), 10000)
+    if lhs == rhs
+        result = result + 1
+    let p_nd_given_pos = gf_div(495, 594)
+    if gf_mul(p_nd_given_pos, 6) == 5
+        result = result + 1
+    if gf_add(p_d_given_pos, p_nd_given_pos) == 1
+        result = result + 1
+    result
+
+let independence_verify() =
+    let result = 0
+    let pa_pb = gf_mul(3, 2)
+    let pab_n2 = gf_mul(1, 6)
+    if pa_pb == pab_n2
+        result = result + 1
+    let pa2_pb2 = gf_mul(3, 3)
+    let pab2_n2 = gf_mul(3, 6)
+    if pa2_pb2 != pab2_n2
+        result = result + 1
+    if gf_mul(3, 1) == 3
+        result = result + 1
+    if gf_mul(3, 0) == 0
+        result = result + 1
+    result
+
+let markov_verify() =
+    let result = 0
+    let p2_00 = gf_add(gf_mul(1, 1), gf_mul(1, 1))
+    if p2_00 == 2
+        result = result + 1
+    if gf_add(gf_mul(1, 1), gf_mul(0, 0)) == 1
+        result = result + 1
+    if gf_add(gf_mul(0, 0), gf_mul(1, 1)) == 1
+        result = result + 1
+    if gf_add(1, 1) == 2
+        result = result + 1
+    if gf_add(0, 1) == 1
+        result = result + 1
+    result
+
+let lln_verify() =
+    let result = 0
+    let var_1 = 10
+    let var_2 = 5
+    let var_5 = 2
+    if var_1 > var_2
+        result = result + 1
+    if var_2 > var_5
+        result = result + 1
+    if gf_mul(var_1, 1) == 10
+        result = result + 1
+    if gf_mul(var_2, 2) == 10
+        result = result + 1
+    if gf_mul(var_5, 5) == 10
+        result = result + 1
+    result
+
+let prob_pcd(p_before, p_after) =
+    let diff = gf_sub(p_after, p_before)
+    if diff > 32768
+        diff = gf_sub(0, diff)
+    diff
+
+let prob_rrc(p1, p2, p3) =
+    gf_sub(gf_add(p1, p3), gf_mul(2, p2))
+
+let prob_pcd_rrc_verify() =
+    let result = 0
+    if prob_pcd(3, 3) == 0
+        result = result + 1
+    if prob_pcd(1, 5) == 4
+        result = result + 1
+    if prob_rrc(1, 2, 3) == 0
+        result = result + 1
+    if prob_rrc(0, 1, 4) != 0
+        result = result + 1
+    let rrc5 = prob_rrc(4, 1, 0)
+    if rrc5 != 0
+        result = result + 1
+    result
+
+let residueon_prob_full_verify() =
+    let ok = 0
+
+    if prob_normalize_verify() == 4
+        ok = ok + 1
+
+    if expected_value_verify() == 5
+        ok = ok + 1
+
+    if variance_verify() == 5
+        ok = ok + 1
+
+    if conditional_prob_verify() == 5
+        ok = ok + 1
+
+    if bayes_verify() == 4
+        ok = ok + 1
+
+    if independence_verify() == 4
+        ok = ok + 1
+
+    if markov_verify() == 5
+        ok = ok + 1
+
+    if lln_verify() == 5
+        ok = ok + 1
+
+    if prob_pcd_rrc_verify() == 5
+        ok = ok + 1
+
+    ok = ok + cross_domain_base()
+
+    if expected_value([3], [1], 1, 1) == 3
+        ok = ok + 1
+
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+
+    if gf_div(30, 60) == gf_div(1, 2)
+        ok = ok + 1
+
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+
+    if gf_div(99, 594) == gf_div(1, 6)
+        ok = ok + 1
+
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+
+    if gf_div(30, 60) == gf_div(1, 2)
+        ok = ok + 1
+
+    if gf_mul(1, 6) == 6
+        ok = ok + 1
+
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+
+    if gf_mul(3, 3) == 9
+        ok = ok + 1
+
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+
+    if gf_div(30, 60) == gf_div(1, 2)
+        ok = ok + 1
+
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+
+    if gf_div(99, 594) == gf_div(1, 6)
+        ok = ok + 1
+
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+
+    if gf_div(30, 60) == gf_div(1, 2)
+        ok = ok + 1
+
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_prob_full_verify()

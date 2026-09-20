@@ -1,0 +1,88 @@
+let PSI_MSG_FULL_DAG   = 0
+let PSI_MSG_DELTA      = 1
+let PSI_MSG_PARAM      = 2
+let PSI_MSG_SYNC_REQ   = 3
+let PSI_MSG_ACK        = 4
+let PSI_MSG_HEARTBEAT  = 5
+let PSI_MSG_METADATA   = 6
+
+let psi_frame_encode(msg_type, stream_id, seq, payload) =
+    let b0 = msg_type * 32 + stream_id
+    let b1 = seq
+    let plen = len(payload)
+    let b2 = plen % 256
+    let b3 = plen / 256
+    let frame = [[b0, b1, b2, b3], payload].flat()
+    frame
+
+let psi_frame_decode(frame) =
+    let b0 = frame[0]
+    let msg_type = b0 / 32
+    let stream_id = b0 % 32
+    let seq = frame[1]
+    let payload_len = frame[2] + frame[3] * 256
+    let payload = []
+    let i = 0
+    let n = len(frame) - 4
+    let done = false
+    for !done
+      if i < n
+        payload = payload.push(frame[4 + i])
+        i = i + 1
+      else
+        done = true
+    { msg_type: msg_type, stream_id: stream_id, seq: seq, payload_len: payload_len, payload: payload }
+
+let psi_param_encode(node_id, param_index, value) = [node_id, param_index, value % 256, (value / 256) % 256, (value / 65536) % 256, value / 16777216]
+
+let psi_param_decode(payload) =
+    let node_id = payload[0]
+    let param_index = payload[1]
+    let value = payload[2] + payload[3] * 256 + payload[4] * 65536 + payload[5] * 16777216
+    [node_id, param_index, value]
+
+let psi_delta_between(log, from_version, to_version) =
+    let result = []
+    let i = from_version
+    let done = false
+    for !done
+      if i < to_version && i < len(log)
+        result = result.push(log[i])
+        i = i + 1
+      else
+        done = true
+    result
+
+let psi_sync_decision(local_version, remote_version, threshold) =
+    let diff = if remote_version > local_version
+      remote_version - local_version
+    else
+      0
+    if diff <= threshold
+        "delta"
+    else
+        "full"
+
+let psi_msg_name(msg_type) =
+    if msg_type == 0
+        "FULL_DAG"
+    else
+      if msg_type == 1
+          "DELTA"
+      else
+        if msg_type == 2
+            "PARAM"
+        else
+          if msg_type == 3
+              "SYNC_REQ"
+          else
+            if msg_type == 4
+                "ACK"
+            else
+              if msg_type == 5
+                  "HEARTBEAT"
+              else
+                if msg_type == 6
+                    "METADATA"
+                else
+                    "RESERVED"

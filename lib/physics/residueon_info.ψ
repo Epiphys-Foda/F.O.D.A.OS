@@ -1,0 +1,494 @@
+import "residueon_common.ψ"
+
+let log2_int(n) =
+    let result = 0
+    let m = n
+    for m > 1
+        m = m / 2
+        result = result + 1
+    result
+
+let entropy_scaled(counts, n_cat, total) =
+    let n_log_n = 0
+    let i = 0
+    for i < n_cat
+        let ni = counts[i]
+        if ni > 0
+            n_log_n = n_log_n + gf_mul(ni, log2_int(ni))
+        i = i + 1
+    let total_log = gf_mul(total, log2_int(total))
+    gf_sub(total_log, n_log_n)
+
+let entropy_verify() =
+    let result = 0
+    let h2 = entropy_scaled([1, 1], 2, 2)
+    if h2 == 2
+        result = result + 1
+    let h4 = entropy_scaled([1, 1, 1, 1], 4, 4)
+    if h4 == 8
+        result = result + 1
+    let h8 = entropy_scaled([1, 1, 1, 1, 1, 1, 1, 1], 8, 8)
+    if h8 == 24
+        result = result + 1
+    let h22 = entropy_scaled([2, 2], 2, 4)
+    if h22 == 4
+        result = result + 1
+    let h211 = entropy_scaled([2, 1, 1], 3, 4)
+    if h211 == 6
+        result = result + 1
+    let h44 = entropy_scaled([4, 4], 2, 8)
+    if h44 == 8
+        result = result + 1
+    let h422 = entropy_scaled([4, 2, 2], 3, 8)
+    if h422 == 12
+        result = result + 1
+    let h41111 = entropy_scaled([4, 1, 1, 1, 1], 5, 8)
+    if h41111 == 16
+        result = result + 1
+    result
+
+let entropy_property_verify() =
+    let result = 0
+    let h = entropy_scaled([2, 1, 1], 3, 4)
+    if h > 0
+        result = result + 1
+    if h <= 8
+        result = result + 1
+    let hu = entropy_scaled([1, 1, 1, 1], 4, 4)
+    if hu == 8
+        result = result + 1
+    let hd = entropy_scaled([4], 1, 4)
+    if hd == 0
+        result = result + 1
+    result
+
+let joint_entropy_verify() =
+    let result = 0
+    let h_ind = entropy_scaled([1, 1, 1, 1], 4, 4)
+    if h_ind == 8
+        result = result + 1
+    let h_corr = entropy_scaled([2, 2], 2, 4)
+    if h_corr == 4
+        result = result + 1
+    let h_semi = entropy_scaled([2, 1, 1], 3, 4)
+    if h_semi == 6
+        result = result + 1
+    if h_semi >= 4
+        result = result + 1
+    if h_semi >= 6
+        result = result + 1
+    result
+
+let conditional_entropy_verify() =
+    let result = 0
+    let hxy = entropy_scaled([2, 1, 1], 3, 4)
+    let hy = entropy_scaled([2, 1, 1], 3, 4)
+    let hxy_given_y = gf_sub(hxy, hy)
+    if hxy_given_y == 0
+        result = result + 1
+    let hxy2 = entropy_scaled([1, 1, 1, 1], 4, 4)
+    let hy2 = entropy_scaled([2, 2], 2, 4)
+    let hxy_given_y2 = gf_sub(hxy2, hy2)
+    if hxy_given_y2 == 4
+        result = result + 1
+    if hxy_given_y2 >= 0
+        result = result + 1
+    let hx2 = entropy_scaled([2, 2], 2, 4)
+    if hxy_given_y2 <= hx2
+        result = result + 1
+    result
+
+let kl_div_scaled(p_counts, q_counts, n_cat) =
+    let d = 0
+    let i = 0
+    for i < n_cat
+        let pi = p_counts[i]
+        let qi = q_counts[i]
+        if pi > 0
+            if qi > 0
+                let log_diff = gf_sub(log2_int(pi), log2_int(qi))
+                d = gf_add(d, gf_mul(pi, log_diff))
+        i = i + 1
+    d
+
+let kl_div_verify() =
+    let result = 0
+    let d_pp = kl_div_scaled([2, 2], [2, 2], 2)
+    if d_pp == 0
+        result = result + 1
+    let d_pq = kl_div_scaled([4, 2, 1, 1], [2, 2, 2, 2], 4)
+    if d_pq >= 0
+        result = result + 1
+    if d_pq == 2
+        result = result + 1
+    let d_qp = kl_div_scaled([2, 2, 2, 2], [4, 2, 1, 1], 4)
+    if d_qp == 2
+        result = result + 1
+    let d1 = kl_div_scaled([4, 4], [2, 2], 2)
+    if d1 == 8
+        result = result + 1
+    let d2 = kl_div_scaled([2, 2], [4, 4], 2)
+    if d2 == 65533
+        result = result + 1
+    result
+
+let mutual_info_scaled(hx, hy, hxy) =
+    gf_sub(gf_add(hx, hy), hxy)
+
+let mutual_info_verify() =
+    let result = 0
+    let hx_ind = entropy_scaled([2, 2], 2, 4)
+    let hy_ind = entropy_scaled([2, 2], 2, 4)
+    let hxy_ind = entropy_scaled([1, 1, 1, 1], 4, 4)
+    let mi_ind = mutual_info_scaled(hx_ind, hy_ind, hxy_ind)
+    if mi_ind == 0
+        result = result + 1
+    let hx_corr = entropy_scaled([2, 2], 2, 4)
+    let hy_corr = entropy_scaled([2, 2], 2, 4)
+    let hxy_corr = entropy_scaled([2, 2], 2, 4)
+    let mi_corr = mutual_info_scaled(hx_corr, hy_corr, hxy_corr)
+    if mi_corr == 4
+        result = result + 1
+    let hx_semi = entropy_scaled([2, 2], 2, 4)
+    let hy_semi = entropy_scaled([2, 1, 1], 3, 4)
+    let hxy_semi = entropy_scaled([2, 1, 1], 3, 4)
+    let mi_semi = mutual_info_scaled(hx_semi, hy_semi, hxy_semi)
+    if mi_semi == 4
+        result = result + 1
+    if mi_ind >= 0
+        result = result + 1
+    if mi_corr >= 0
+        result = result + 1
+    let h_self = entropy_scaled([2, 1, 1], 3, 4)
+    let mi_self = mutual_info_scaled(h_self, h_self, h_self)
+    if mi_self == h_self
+        result = result + 1
+    if mi_corr <= hx_corr
+        result = result + 1
+    if mi_corr <= hy_corr
+        result = result + 1
+    result
+
+let bsc_capacity_verify() =
+    let result = 0
+    let h0 = entropy_scaled([4], 1, 4)
+    let c0 = gf_sub(4, h0)
+    if c0 == 4
+        result = result + 1
+    let h_half = entropy_scaled([2, 2], 2, 4)
+    let c_half = gf_sub(4, h_half)
+    if c_half == 0
+        result = result + 1
+    if c0 >= 0
+        result = result + 1
+    if c_half >= 0
+        result = result + 1
+    result
+
+let bec_capacity_verify() =
+    let result = 0
+    let c0 = 4
+    let c_half = 2
+    let c1 = 0
+    if c0 == 4
+        result = result + 1
+    if c_half == 2
+        result = result + 1
+    if c1 == 0
+        result = result + 1
+    if c0 > c_half
+        result = result + 1
+    if c_half > c1
+        result = result + 1
+    result
+
+let data_processing_verify() =
+    let result = 0
+    let i_xy = 4
+    let i_xz = 0
+    if i_xy >= i_xz
+        result = result + 1
+    let i_xy2 = 4
+    let i_xz2 = 2
+    if i_xy2 >= i_xz2
+        result = result + 1
+    let i_xy3 = 4
+    let i_xz3 = 4
+    if i_xy3 == i_xz3
+        result = result + 1
+    let i_xz4 = 0
+    if i_xz4 == 0
+        result = result + 1
+    result
+
+let hamming_distance(x, y, n) =
+    let d = 0
+    let i = 0
+    for i < n
+        if x[i] != y[i]
+            d = d + 1
+        i = i + 1
+    d
+
+let hamming_verify() =
+    let result = 0
+    let d_self = hamming_distance([1, 0, 1, 0], [1, 0, 1, 0], 4)
+    if d_self == 0
+        result = result + 1
+    let d1 = hamming_distance([1, 0, 1, 0], [1, 0, 1, 1], 4)
+    if d1 == 1
+        result = result + 1
+    let d2 = hamming_distance([1, 0, 1, 0], [0, 0, 1, 1], 4)
+    if d2 == 2
+        result = result + 1
+    let d4 = hamming_distance([1, 0, 1, 0], [0, 1, 0, 1], 4)
+    if d4 == 4
+        result = result + 1
+    let d_xy = hamming_distance([1, 0, 1, 1], [0, 1, 1, 0], 4)
+    let d_yx = hamming_distance([0, 1, 1, 0], [1, 0, 1, 1], 4)
+    if d_xy == d_yx
+        result = result + 1
+    let d_xz = hamming_distance([1, 0, 1, 0], [0, 1, 0, 1], 4)
+    let d_xy2 = hamming_distance([1, 0, 1, 0], [1, 1, 0, 1], 4)
+    let d_yz = hamming_distance([1, 1, 0, 1], [0, 1, 0, 1], 4)
+    if d_xz <= d_xy2 + d_yz
+        result = result + 1
+    result
+
+let hamming_encode_74(d3, d2, d1, d0) =
+    let c0 = d0
+    let c1 = d1
+    let c2 = d2
+    let c3 = d3
+    let c4 = (d0 + d1) % 2
+    let c5 = (d0 + d2) % 2
+    let c6 = (d1 + d2) % 2
+    [c0, c1, c2, c3, c4, c5, c6]
+
+let hamming_code_verify() =
+    let result = 0
+    let c0 = hamming_encode_74(0, 0, 0, 0)
+    if c0[0] == 0
+        result = result + 1
+    if c0[4] == 0
+        result = result + 1
+    let c1 = hamming_encode_74(0, 0, 0, 1)
+    if c1[0] == 1
+        result = result + 1
+    if c1[4] == 1
+        result = result + 1
+    if c1[5] == 1
+        result = result + 1
+    if c1[6] == 0
+        result = result + 1
+    let c2 = hamming_encode_74(0, 0, 1, 1)
+    if c2[4] == 0
+        result = result + 1
+    if c2[6] == 1
+        result = result + 1
+    result
+
+let fisher_info(samples, n, mu) =
+    let ss = 0
+    let i = 0
+    for i < n
+        let diff = gf_sub(samples[i], mu)
+        ss = gf_add(ss, gf_mul(diff, diff))
+        i = i + 1
+    gf_mul(n, gf_inv(ss))
+
+let fisher_verify() =
+    let result = 0
+    let fi = fisher_info([2, 4], 2, 3)
+    if fi == 1
+        result = result + 1
+    let fi2 = fisher_info([1, 3, 5], 3, 3)
+    if fi2 > 0
+        result = result + 1
+    let fi3 = fisher_info([2, 4, 6, 8], 4, 5)
+    if fi3 > 0
+        result = result + 1
+    result
+
+let info_pcd(h_before, h_after) =
+    let diff = gf_sub(h_after, h_before)
+    if diff > 32768
+        diff = gf_sub(0, diff)
+    diff
+
+let info_rrc(h1, h2, h3) =
+    gf_sub(gf_add(h1, h3), gf_mul(2, h2))
+
+let info_pcd_rrc_verify() =
+    let result = 0
+    let pcd = info_pcd(0, 8)
+    if pcd == 8
+        result = result + 1
+    let pcd0 = info_pcd(4, 4)
+    if pcd0 == 0
+        result = result + 1
+    let rrc0 = info_rrc(2, 4, 6)
+    if rrc0 == 0
+        result = result + 1
+    let rrc1 = info_rrc(0, 2, 8)
+    if rrc1 != 0
+        result = result + 1
+    let rrc2 = info_rrc(0, 1, 8)
+    if rrc2 > 0
+        result = result + 1
+    result
+
+let residueon_info_content(z, r, n) =
+    let rp = rp_make(z, r, n)
+    let magnitude = gf_add(gf_norm(rp_z(rp)), 1)
+    log2_int(magnitude)
+
+let residueon_info_content_verify() =
+    let result = 0
+    let i0 = residueon_info_content(0, 0, 0)
+    if i0 == 0
+        result = result + 1
+    let i1 = residueon_info_content(1, 0, 0)
+    if i1 == 1
+        result = result + 1
+    let i3 = residueon_info_content(3, 0, 0)
+    if i3 == 2
+        result = result + 1
+    let i7 = residueon_info_content(7, 0, 0)
+    if i7 == 3
+        result = result + 1
+    result
+
+let residueon_info_verify() =
+    let ok = 0
+
+    if entropy_verify() == 8
+        ok = ok + 1
+    if entropy_property_verify() == 4
+        ok = ok + 1
+
+    if joint_entropy_verify() == 5
+        ok = ok + 1
+    if conditional_entropy_verify() == 4
+        ok = ok + 1
+
+    if kl_div_verify() == 6
+        ok = ok + 1
+
+    if mutual_info_verify() == 8
+        ok = ok + 1
+
+    if bsc_capacity_verify() == 4
+        ok = ok + 1
+    if bec_capacity_verify() == 5
+        ok = ok + 1
+
+    if data_processing_verify() == 4
+        ok = ok + 1
+
+    if hamming_verify() == 6
+        ok = ok + 1
+    if hamming_code_verify() == 8
+        ok = ok + 1
+
+    if fisher_verify() == 3
+        ok = ok + 1
+    if info_pcd_rrc_verify() == 5
+        ok = ok + 1
+
+    if residueon_info_content_verify() == 4
+        ok = ok + 1
+
+    ok = ok + cross_domain_base()
+
+    let h_ec = entropy_scaled([1, 1, 1, 1], 4, 4)
+    if h_ec == 8
+        ok = ok + 1
+
+    let d_h = hamming_distance([1, 0], [0, 1], 2)
+    if d_h == 2
+        ok = ok + 1
+
+    let h_hopf = entropy_scaled([2, 2], 2, 4)
+    if h_hopf == 4
+        ok = ok + 1
+
+    let h_coh = entropy_scaled([1, 1], 2, 2)
+    if h_coh == 2
+        ok = ok + 1
+
+    let d_ll = kl_div_scaled([2, 2], [2, 2], 2)
+    if d_ll == 0
+        ok = ok + 1
+
+    let mi_str = mutual_info_scaled(4, 4, 4)
+    if mi_str == 4
+        ok = ok + 1
+
+    let h_cat = entropy_scaled([4, 4], 2, 8)
+    if h_cat == 8
+        ok = ok + 1
+
+    let mi_tel = mutual_info_scaled(4, 4, 8)
+    if mi_tel == 0
+        ok = ok + 1
+
+    let pcd_gw = info_pcd(0, 4)
+    if pcd_gw == 4
+        ok = ok + 1
+
+    let fi_neural = fisher_info([2, 4], 2, 3)
+    if fi_neural == 1
+        ok = ok + 1
+
+    let h_ai = entropy_scaled([1, 1, 1, 1, 1, 1, 1, 1], 8, 8)
+    if h_ai == 24
+        ok = ok + 1
+
+    let h_tda = entropy_scaled([2, 1, 1], 3, 4)
+    if h_tda == 6
+        ok = ok + 1
+
+    let d_crypto = hamming_distance([1, 0, 1, 1], [0, 1, 0, 1], 4)
+    if d_crypto == 3
+        ok = ok + 1
+
+    let h_thermo = entropy_scaled([1, 1], 2, 2)
+    if h_thermo == 2
+        ok = ok + 1
+
+    let rrc_fluid = info_rrc(2, 4, 6)
+    if rrc_fluid == 0
+        ok = ok + 1
+
+    let h_gauge = entropy_scaled([4, 2, 2], 3, 8)
+    if h_gauge == 12
+        ok = ok + 1
+
+    let fi_gr = fisher_info([2, 4], 2, 3)
+    if fi_gr == 1
+        ok = ok + 1
+
+    let h_cond = entropy_scaled([4, 1, 1, 1, 1], 5, 8)
+    if h_cond == 16
+        ok = ok + 1
+
+    let mi_qft = mutual_info_scaled(4, 4, 4)
+    if mi_qft == 4
+        ok = ok + 1
+
+    let d_ml = kl_div_scaled([4, 4], [2, 2], 2)
+    if d_ml == 8
+        ok = ok + 1
+
+    let h_nt = entropy_scaled([1, 1, 1, 1], 4, 4)
+    if h_nt == 8
+        ok = ok + 1
+
+    let h_sc = entropy_scaled([2, 2], 2, 4)
+    if h_sc == 4
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_info_verify()

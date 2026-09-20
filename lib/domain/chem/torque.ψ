@@ -1,0 +1,30 @@
+import "ck.ψ"
+let bad = [0]
+
+let m1 = 30
+let d1 = 2
+let m2 = 60
+let d2 = 1
+let tau1 = m1 * d1
+let tau2 = m2 * d2
+let dz1 = tau1 - tau2
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let f_wrench = 50
+let tau_short = 15
+let tau_long = 30
+let dz2 = tau_long - tau_short * 2
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let d_handle = 8
+let d_hinge = 1
+let lever = d_handle / d_hinge
+let dz3 = lever - 8
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+if 250 < 200
+    bad[0] = bad[0] + 1
+if 250 > 300
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

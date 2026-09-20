@@ -1,0 +1,342 @@
+import "../domain_field.ψ"
+
+let LB_P = 65537
+let LB_HASH_BASE = 31
+let LB_HASH_SALT = 17
+let LB_HEALTH_FAIL_THRESHOLD = 3
+let LB_HEALTH_SUCCESS_THRESHOLD = 1
+let LB_DEFAULT_CAPACITY = 1000
+let LB_ALGO_ROUND_ROBIN = 1
+let LB_ALGO_WEIGHTED_RR = 2
+let LB_ALGO_LEAST_CONN  = 3
+let LB_ALGO_IP_HASH     = 4
+let LB_ALGO_LATENCY     = 5
+let LB_RULE_PATH   = 1
+let LB_RULE_HOST   = 2
+let LB_RULE_HEADER = 3
+let LB_RULE_QUERY  = 4
+
+let lb_backend_new(id, address, port, weight, capacity) =
+    [id, address, port, weight, 1, 0, 0, capacity]
+
+let lb_bk_id(b) = b[0]
+let lb_bk_weight(b) = b[3]
+let lb_bk_healthy(b) = b[4]
+let lb_bk_conns(b) = b[5]
+let lb_bk_latency(b) = b[6]
+let lb_bk_set_healthy(b, v) =
+    b[4] = v
+    b
+
+let lb_bk_inc_conns(b) =
+    b[5] = b[5] + 1
+    b
+
+let lb_health_new(backend_id) =
+    [backend_id, 0, 1, 0, 0]
+
+let lb_h_healthy(h) = h[2]
+
+let lb_h_set_healthy(h, v) =
+    h[2] = v
+    h
+
+let lb_h_set_last(h, ts) =
+    h[1] = ts
+    h
+
+let lb_rule_new(id, type_v, matcher_map, target_group, priority) =
+    [id, type_v, matcher_map, target_group, priority]
+
+let lb_r_id(g) = g[0]
+let lb_r_type(g) = g[1]
+let lb_r_matcher(g) = g[2]
+let lb_r_priority(g) = g[4]
+
+let lb_default_balancer() =
+    [{}, {}, [], {}, [0, 0, 0, 0], []]
+
+let lb_lb_backends(l) = l[0]
+let lb_lb_healths(l) = l[1]
+let lb_lb_rules(l) = l[2]
+let lb_lb_sessions(l) = l[3]
+let lb_lb_stats(l) = l[4]
+let lb_lb_log(l) = l[5]
+
+let lb_lb_set_backends(l, b) =
+    l[0] = b
+    l
+let lb_lb_set_healths(l, h) =
+    l[1] = h
+    l
+let lb_lb_set_rules(l, r) =
+    l[2] = r
+    l
+let lb_lb_set_sessions(l, s) =
+    l[3] = s
+    l
+let lb_lb_set_stats(l, s) =
+    l[4] = s
+    l
+
+let lb_lb_append_log(l, entry) =
+    let lg = lb_lb_log(l)
+    lg.push(entry)
+    l[5] = lg
+    l
+
+let lb_add_backend(lb, backend) =
+    let backends = lb_lb_backends(lb)
+    let id = lb_bk_id(backend)
+    backends[id] = backend
+    let healths = lb_lb_healths(lb)
+    healths[id] = lb_health_new(id)
+    lb = lb_lb_set_backends(lb, backends)
+    lb = lb_lb_set_healths(lb, healths)
+    lb = lb_lb_append_log(lb, ["add_backend", id, 0])
+    lb
+
+let lb_remove_backend(lb, backend_id) =
+    let backends = lb_lb_backends(lb)
+    if backends[backend_id] != 0
+        backends[backend_id] = 0
+    let healths = lb_lb_healths(lb)
+    if healths[backend_id] != 0
+        healths[backend_id] = 0
+    lb = lb_lb_set_backends(lb, backends)
+    lb = lb_lb_set_healths(lb, healths)
+    lb = lb_lb_append_log(lb, ["remove_backend", backend_id, 0])
+    lb
+
+let lb_health_check(lb, backend_id, ts, success) =
+    let healths = lb_lb_healths(lb)
+    let h = healths[backend_id]
+    if h == 0
+        lb
+    else
+        h = lb_h_set_last(h, ts)
+        if success == 1
+            h[4] = h[4] + 1
+            h[3] = 0
+            if h[4] >= LB_HEALTH_SUCCESS_THRESHOLD
+                h = lb_h_set_healthy(h, 1)
+            else
+                0
+            h[3] = h[3] + 1
+            h[4] = 0
+            if h[3] >= LB_HEALTH_FAIL_THRESHOLD
+                h = lb_h_set_healthy(h, 0)
+        healths[backend_id] = h
+        let backends = lb_lb_backends(lb)
+        let b = backends[backend_id]
+        if b != 0
+            b = lb_bk_set_healthy(b, lb_h_healthy(h))
+            backends[backend_id] = b
+            lb = lb_lb_set_backends(lb, backends)
+        lb = lb_lb_set_healths(lb, healths)
+        lb = lb_lb_append_log(lb, ["health_check", backend_id, success])
+        lb
+
+let lb_add_rule(lb, rule) =
+    let rules = lb_lb_rules(lb)
+    rules.push(rule)
+    let n = len(rules)
+    let i = n - 1
+    for i > 0
+        if lb_r_priority(rules[i]) > lb_r_priority(rules[i - 1])
+            let tmp = rules[i]
+            rules[i] = rules[i - 1]
+            rules[i - 1] = tmp
+        i = i - 1
+    lb = lb_lb_set_rules(lb, rules)
+    lb = lb_lb_append_log(lb, ["add_rule", lb_r_id(rule), 0])
+    lb
+
+let lb_match_rule(lb, request) =
+    let rules = lb_lb_rules(lb)
+    let i = 0
+    let n = len(rules)
+    let matched = 0
+    for i < n
+        let r = rules[i]
+        let t = lb_r_type(r)
+        let matcher = lb_r_matcher(r)
+        let hit = 0
+        if t == LB_RULE_PATH
+            if matcher["path"] == request[0]
+                hit = 1
+            else
+                0
+        if t == LB_RULE_HOST
+            if matcher["host"] == request[1]
+                hit = 1
+            else
+                0
+        if t == LB_RULE_HEADER
+            let hv = request[2][matcher["header_key"]]
+            if hv == matcher["header_val"]
+                hit = 1
+            else
+                0
+        if t == LB_RULE_QUERY
+            let qv = request[3][matcher["query_key"]]
+            if qv == matcher["query_val"]
+                hit = 1
+        if hit == 1
+            matched = r
+            i = n
+        i = i + 1
+    matched
+
+let lb_filter_healthy(lb) =
+    let backends = lb_lb_backends(lb)
+    let ids = keys_of(backends)
+    let n = len(ids)
+    let result = []
+    let i = 0
+    for i < n
+        let b = backends[ids[i]]
+        if b != 0
+            if lb_bk_healthy(b) == 1
+                result.push(b)
+        i = i + 1
+    result
+
+let lb_select_backend(lb, request, algo, ts) =
+    let healthy_ids = lb_filter_healthy(lb)
+    let m = len(healthy_ids)
+    if m == 0
+        0
+    else
+        let picked = 0
+        if algo == LB_ALGO_ROUND_ROBIN
+            let stats = lb_lb_stats(lb)
+            let idx = (stats[3] + 1) % m
+            picked = healthy_ids[idx]
+            stats[3] = idx
+            lb = lb_lb_set_stats(lb, stats)
+        else
+            0
+        if algo == LB_ALGO_WEIGHTED_RR
+            let stats = lb_lb_stats(lb)
+            let seed = (stats[3] * LB_HASH_BASE + LB_HASH_SALT) % LB_P
+            let total_w = 0
+            let k = 0
+            for k < m
+                total_w = total_w + lb_bk_weight(healthy_ids[k])
+                k = k + 1
+            if total_w == 0
+                picked = healthy_ids[0]
+            else
+                let idx = seed % total_w
+                let acc = 0
+                let j = 0
+                for j < m
+                    acc = acc + lb_bk_weight(healthy_ids[j])
+                    if acc > idx
+                        picked = healthy_ids[j]
+                        j = m
+                    j = j + 1
+                stats[3] = stats[3] + 1
+                lb = lb_lb_set_stats(lb, stats)
+        if algo == LB_ALGO_LEAST_CONN
+            let best = healthy_ids[0]
+            let min_c = lb_bk_conns(best)
+            let j = 1
+            for j < m
+                let c = lb_bk_conns(healthy_ids[j])
+                if c < min_c
+                    min_c = c
+                    best = healthy_ids[j]
+                j = j + 1
+            picked = best
+        if algo == LB_ALGO_IP_HASH
+            let hash = LB_HASH_SALT
+            let ip_arr = request[4]
+            let ip_n = len(ip_arr)
+            let j = 0
+            for j < ip_n
+                hash = (hash * LB_HASH_BASE + ip_arr[j]) % LB_P
+                j = j + 1
+            picked = healthy_ids[hash % m]
+        else
+            0
+        if algo == LB_ALGO_LATENCY
+            let best = healthy_ids[0]
+            let min_lat = lb_bk_latency(best)
+            let j = 1
+            for j < m
+                let lat = lb_bk_latency(healthy_ids[j])
+                if lat < min_lat
+                    min_lat = lat
+                    best = healthy_ids[j]
+                j = j + 1
+            picked = best
+        if picked != 0
+            picked = lb_bk_inc_conns(picked)
+            let pid = lb_bk_id(picked)
+            let backends = lb_lb_backends(lb)
+            backends[pid] = picked
+            lb = lb_lb_set_backends(lb, backends)
+            let stats2 = lb_lb_stats(lb)
+            stats2[0] = stats2[0] + 1
+            lb = lb_lb_set_stats(lb, stats2)
+            lb = lb_lb_append_log(lb, ["select", pid, ts])
+        picked
+
+let lb_session_stick(lb, session_id, backend_id, ts) =
+    let sessions = lb_lb_sessions(lb)
+    sessions[session_id] = [backend_id, ts]
+    lb = lb_lb_set_sessions(lb, sessions)
+    lb = lb_lb_append_log(lb, ["session_stick", session_id, backend_id])
+    lb
+
+let lb_replay_ids(lb, ops_seq) =
+    let seq = []
+    let i = 0
+    let n = len(ops_seq)
+    for i < n
+        let op = ops_seq[i]
+        let b = lb_select_backend(lb, op[0], op[1], op[2])
+        if b != 0
+            seq.push(lb_bk_id(b))
+        i = i + 1
+    seq
+
+let lb_bragg_verify(lb, ops_seq) =
+    let d_seq = lb_replay_ids(lb, ops_seq)
+    let lb_r = lb_default_balancer()
+    let backends = lb_lb_backends(lb)
+    let b_ids = keys_of(backends)
+    let bi = 0
+    let bn = len(b_ids)
+    for bi < bn
+        lb_r = lb_add_backend(lb_r, backends[b_ids[bi]])
+        bi = bi + 1
+    let r_seq = lb_replay_ids(lb_r, ops_seq)
+    let ok = 1
+    let n = len(ops_seq)
+    if len(d_seq) != len(r_seq)
+        ok = 0
+    else
+        let k = 0
+        let kn = len(d_seq)
+        for k < kn
+            if d_seq[k] != r_seq[k]
+                ok = 0
+                k = kn
+            k = k + 1
+    [ok, n]
+
+let lb_gf_mod(x) = domain_gf_mod(x)
+let lb_gf_inv(a) = domain_gf_inv(a)
+let lb_field_encode(items, n) =
+    let records = []
+    let _i = 0
+    for _i < n
+        records.push([items[_i], items[_i]])
+        _i = _i + 1
+    domain_field_encode(records, n, 256, 1)
+
+let lb_field_eval(poles, residues, z) = domain_field_eval(poles, residues, z)
+let lb_field_bragg_verify(current, replay) = domain_bragg_verify(current[0], current[1], replay[0], replay[1])

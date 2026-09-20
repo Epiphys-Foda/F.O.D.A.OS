@@ -1,0 +1,252 @@
+import "opt.ψ"
+
+let msh_vv_new(n) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < n
+        out = out.push(0)
+        i = i + 1
+      else
+        done = true
+    out
+
+let msh_vv_inc(vv, i) =
+    let out = []
+    let j = 0
+    let done = false
+    for !done
+      if j < len(vv)
+        if j == i
+          out = out.push(vv[j] + 1)
+        else
+          out = out.push(vv[j])
+        j = j + 1
+      else
+        done = true
+    out
+
+let msh_vv_merge(a, b) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(a)
+        if a[i] > b[i]
+          out = out.push(a[i])
+        else
+          out = out.push(b[i])
+        i = i + 1
+      else
+        done = true
+    out
+
+let msh_vv_dom(a, b) =
+    let ok = true
+    let i = 0
+    let done = false
+    for !done
+      if i < len(a)
+        if a[i] < b[i]
+          ok = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    ok
+
+let msh_neighbors(node, r, n) =
+    let out = []
+    let a = (node + 1) % n
+    let b = (node + n - 1) % n
+    let c = (node + r * 3 + 2) % n
+    let cands = [a, b, c]
+    let i = 0
+    let done = false
+    for !done
+      if i < 3
+        let v = cands[i]
+        let dup = false
+        let j = 0
+        let jdone = false
+        for !jdone
+          if j < len(out)
+            if out[j] == v
+              dup = true
+            else
+              0
+            j = j + 1
+          else
+            jdone = true
+        if !dup && v != node
+          out = out.push(v)
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    out
+
+let msh_gossip(start, ttl, n) =
+    let seen = [start]
+    let frontier = [start]
+    let r = 0
+    let done = false
+    for !done
+      if r < ttl
+        let nxt = []
+        let i = 0
+        let idone = false
+        for !idone
+          if i < len(frontier)
+            let nbs = msh_neighbors(frontier[i], r, n)
+            let j = 0
+            let jdone = false
+            for !jdone
+              if j < len(nbs)
+                let nb = nbs[j]
+                let in_seen = false
+                let k = 0
+                let kdone = false
+                for !kdone
+                  if k < len(seen)
+                    if seen[k] == nb
+                      in_seen = true
+                    else
+                      0
+                    k = k + 1
+                  else
+                    kdone = true
+                if !in_seen
+                  seen = seen.push(nb)
+                  nxt = nxt.push(nb)
+                else
+                  0
+                j = j + 1
+              else
+                jdone = true
+            i = i + 1
+          else
+            idone = true
+        frontier = nxt
+        r = r + 1
+      else
+        done = true
+    seen
+
+let msh_lamport(events) =
+    let out = []
+    let clock = 0
+    let i = 0
+    let done = false
+    for !done
+      if i < len(events)
+        if events[i] > clock
+          clock = events[i]
+        else
+          0
+        clock = clock + 1
+        out = out.push(clock)
+        i = i + 1
+      else
+        done = true
+    out
+
+let msh_message(id, ttl, sender, data) =
+    let sig = opt_num_hash([id, ttl, sender, data])
+    [id, ttl, sender, data, sig]
+
+let msh_msg_ok(msg) = opt_num_hash([msg[0], msg[1], msg[2], msg[3]]) == msg[4]
+
+let msh_verify() =
+    let results = []
+    let vv0 = msh_vv_new(3)
+    let vv1 = msh_vv_inc(vv0, 0)
+    results = results.push(vv1[0] == 1 && vv1[1] == 0)
+    let vv2 = msh_vv_inc(msh_vv_inc(vv0, 1), 1)
+    let m = msh_vv_merge(vv1, vv2)
+    results = results.push(m[0] == 1 && m[1] == 2)
+    results = results.push(msh_vv_dom(m, vv1) && msh_vv_dom(m, vv2))
+    results = results.push(!msh_vv_dom(vv1, vv2))
+    let cov = msh_gossip(0, 6, 6)
+    results = results.push(len(cov) == 6)
+    let cov2 = msh_gossip(0, 3, 6)
+    results = results.push(len(cov2) <= len(cov))
+    let cov3 = msh_gossip(0, 6, 6)
+    let same = true
+    let i = 0
+    let done = false
+    for !done
+      if i < 6
+        if cov[i] != cov3[i]
+          same = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(same)
+    let lp = msh_lamport([0, 0, 2, 0, 5])
+    results = results.push(lp[0] == 1 && lp[1] == 2 && lp[4] == 6)
+    let msg = msh_message(7, 3, 1, 99)
+    results = results.push(msh_msg_ok(msg))
+    let bad = [7, 3, 1, 100, msg[4]]
+    results = results.push(!msh_msg_ok(bad))
+    let total = true
+    let j = 0
+    let done2 = false
+    for !done2
+      if j < len(results)
+        let v = results[j]
+        if v == false
+          total = false
+        else
+          0
+        j = j + 1
+      else
+        done2 = true
+    results = results.push(total)
+    results
+
+let msh_commit(v, r) =
+    let gv = opt_mod_pow(3, v, 65537)
+    let hr = opt_mod_pow(5, r, 65537)
+    (gv * hr) % 65537
+
+let msh_sigma_resp(v, r, c) = (r + c * v) % 65536
+
+let msh_sigma_verify(v, r, c) = msh_sigma_resp(v, r, c)
+
+let msh_verify_zk() =
+    let results = []
+    let c1 = msh_commit(42, 7)
+    let c2 = msh_commit(42, 7)
+    results = results.push(c1 == c2)
+    let c3 = msh_commit(42, 8)
+    results = results.push(c1 != c3)
+    let c4 = msh_commit(43, 7)
+    results = results.push(c1 != c4)
+    let s1 = msh_sigma_resp(42, 7, 3)
+    let s2 = msh_sigma_resp(42, 7, 3)
+    results = results.push(s1 == s2)
+    let s3 = msh_sigma_resp(42, 7, 4)
+    results = results.push(s1 != s3)
+    let s4 = msh_sigma_resp(43, 7, 3)
+    results = results.push(s1 != s4)
+    let total = true
+    let i = 0
+    let done = false
+    for !done
+      if i < len(results)
+        let v = results[i]
+        if v == false
+          total = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(total)
+    results

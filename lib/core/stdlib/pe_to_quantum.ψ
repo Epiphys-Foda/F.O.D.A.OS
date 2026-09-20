@@ -1,0 +1,95 @@
+let QUBIT_GATE_X = "X"
+let QUBIT_GATE_H = "H"
+let QUBIT_GATE_CNOT = "CNOT"
+let QUBIT_GATE_TOFFOLI = "TOFFOLI"
+let QUBIT_GATE_SWAP = "SWAP"
+let QUBIT_UNIT_MODMUL = "MODMUL(65537)"
+let QUBIT_UNIT_QFT = "QFT"
+let QUBIT_UNIT_ORACLE = "ORACLE"
+let QUBIT_UNIT_PREP = "PREPARE"
+let QUBIT_UNIT_MEAS = "MEASURE"
+
+let QPE_SPECS = [
+  { pe: 1, name: "PE_MAC",  qubit: "MODMUL(65537)", gates: [QUBIT_UNIT_MODMUL],      qubits: 17, note: "GF modular-multiply circuit (17 qubits ≈ 65537 field)" },
+  { pe: 2, name: "PE_LUT",  qubit: "ORACLE",        gates: [QUBIT_UNIT_ORACLE],      qubits: 8,  note: "table lookup = Oracle" },
+  { pe: 3, name: "PE_FFT",  qubit: "QFT",           gates: [QUBIT_UNIT_QFT, QUBIT_GATE_H], qubits: 8, note: "butterfly = QFT" },
+  { pe: 4, name: "PE_FIFO", qubit: "REG_CHAIN",     gates: [],                       qubits: 1,  note: "buffering = register chain" },
+  { pe: 5, name: "PE_ROUTE", qubit: "SWAP_NET",     gates: [QUBIT_GATE_SWAP],        qubits: 2,  note: "routing = SWAP network" },
+  { pe: 6, name: "PE_ALU",  qubit: "ALU_Q",         gates: [QUBIT_GATE_TOFFOLI],     qubits: 3,  note: "logic/compare = Toffoli family" },
+  { pe: 16, name: "PE_TOKEN", qubit: "PREPARE",     gates: [QUBIT_UNIT_PREP],        qubits: 8,  note: "input = state preparation" },
+  { pe: 17, name: "PE_EMIT",  qubit: "MEASURE",     gates: [QUBIT_UNIT_MEAS],        qubits: 1,  note: "output = measurement" }
+]
+
+let pe_q_spec(pe_type) =
+    let found = null
+    let i = 0
+    let n = len(QPE_SPECS)
+    let done = false
+    for !done
+      if i < n
+        let row = QPE_SPECS[i]
+        if row.pe == pe_type
+          found = row
+          done = true
+        else
+          i = i + 1
+      else
+        done = true
+    found
+
+let pe_q_qubit_unit(pe_type) =
+    let spec = pe_q_spec(pe_type)
+    (spec == null ? "UNKNOWN" : spec.qubit)
+
+let pe_q_qubits(pe_type) =
+    let spec = pe_q_spec(pe_type)
+    (spec == null ? 0 : spec.qubits)
+
+let pe_q_gates(pe_type) =
+    let spec = pe_q_spec(pe_type)
+    (spec == null ? [] : spec.gates)
+
+let pe_op_to_pe_type(opcode) =
+    if opcode == 1 || opcode == 2
+        1
+    else
+      if opcode >= 3 && opcode <= 8
+          6
+      else
+        if opcode == 9
+            2
+        else
+          if opcode == 10
+              4
+          else
+            if opcode == 11
+                5
+            else
+              if opcode == 14
+                  3
+              else
+                  0
+
+let pe_q_budget(pe_ops) =
+    let total_qubits = 0
+    let gates = []
+    let pc = 0
+    let n = len(pe_ops)
+    let done = false
+    for !done
+      if pc < n
+        let op = pe_ops[pc]
+        pc = pc + 1
+        if op == 13
+          pc = pc + 1
+        else
+          0
+        let pe_type = pe_op_to_pe_type(op)
+        if pe_type != 0
+          total_qubits = total_qubits + pe_q_qubits(pe_type)
+          gates = [gates, pe_q_gates(pe_type)].flat()
+        else
+            0
+      else
+        done = true
+    { total_qubits: total_qubits, gates: gates }

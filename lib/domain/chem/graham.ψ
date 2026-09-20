@@ -1,0 +1,43 @@
+import "ck.ψ"
+let bad = [0]
+
+let r_h2 = 4
+let r_o2 = 1
+let dz1 = r_h2 - r_o2 * 4
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let m_h2 = 2
+let m_o2 = 32
+let dz2 = r_h2 * r_h2 * m_h2 - r_o2 * r_o2 * m_o2
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let m_uf6_235 = 349
+let m_uf6_238 = 352
+let dz3 = m_uf6_238 - m_uf6_235 - 3
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let alpha_x4 = 10043
+bad[0] = bad[0] + ck(alpha_x4, 10040, 10046)
+bad[0] = bad[0] + ck_lo(alpha_x4, 10000)
+
+let stages = 3000
+bad[0] = bad[0] + ck_lo(stages, 1000)
+
+if 1829 < 1826
+    bad[0] = bad[0] + 1
+if 1829 > 1832
+    bad[0] = bad[0] + 1
+if 1848 < 1846
+    bad[0] = bad[0] + 1
+if 1848 > 1850
+    bad[0] = bad[0] + 1
+if 1848 < 1829
+    bad[0] = bad[0] + 1
+if 1945 < 1943
+    bad[0] = bad[0] + 1
+if 1945 > 1947
+    bad[0] = bad[0] + 1
+if 1945 < 1848
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

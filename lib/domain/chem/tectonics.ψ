@@ -1,0 +1,69 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let vp = 8000
+let vs = 4450
+bad[0] = bad[0] + ck(vp, 7500, 8500)
+bad[0] = bad[0] + ck(vs, 4200, 4700)
+
+let pr = small_div(vp * 10, vs)
+bad[0] = bad[0] + ck(pr, 16, 19)
+
+let ts = small_div(1000000, vs)
+let tp = small_div(1000000, vp)
+let lag = ts - tp
+bad[0] = bad[0] + ck(lag, 90, 110)
+
+let fac = small_div(vp * vs, vp - vs)
+bad[0] = bad[0] + ck(fac, 9500, 10500)
+
+let dist = small_div(fac * lag, 1000)
+bad[0] = bad[0] + ck(dist, 950, 1050)
+
+let cmb = 2900
+bad[0] = bad[0] + ck(cmb, 2880, 2920)
+
+let sh1 = 103
+let sh2 = 143
+bad[0] = bad[0] + ck(sh1, 102, 105)
+bad[0] = bad[0] + ck(sh2, 142, 145)
+
+let icb = 5150
+bad[0] = bad[0] + ck(icb, 5100, 5200)
+
+bad[0] = bad[0] + ck_lo(icb, cmb)
+
+let rate = 35
+bad[0] = bad[0] + ck(rate, 25, 45)
+
+let width = small_div(rate * 150000000, 10000000)
+bad[0] = bad[0] + ck(width, 470, 570)
+
+let pacific = 100
+bad[0] = bad[0] + ck(pacific, 80, 110)
+bad[0] = bad[0] + ck_hi(rate, pacific)
+
+let days = 400
+bad[0] = bad[0] + ck(days, 390, 410)
+
+let dlen = small_div(24 * 365, days)
+bad[0] = bad[0] + ck(dlen, 20, 23)
+
+bad[0] = bad[0] + ck_lo(days, 365)
+
+if 1912 < 1910
+    bad[0] = bad[0] + 1
+if 1912 > 1915
+    bad[0] = bad[0] + 1
+if 1968 < 1966
+    bad[0] = bad[0] + 1
+if 1968 > 1970
+    bad[0] = bad[0] + 1
+if 1936 < 1934
+    bad[0] = bad[0] + 1
+if 1936 > 1938
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

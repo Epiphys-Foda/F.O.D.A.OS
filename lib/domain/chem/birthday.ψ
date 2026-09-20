@@ -1,0 +1,40 @@
+import "ck.ψ"
+let bad = [0]
+
+let n_ppl = 23
+let n_day = 365
+let c_pairs = n_ppl * (n_ppl - 1) / 2
+let dz1 = c_pairs - 253
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let pr22 = [1000000]
+for k in 22
+    pr22[0] = pr22[0] * (n_day - k) / n_day
+bad[0] = bad[0] + ck_lo(pr22[0], 500000)
+bad[0] = bad[0] + ck(pr22[0], 510000, 540000)
+
+let pr23 = [1000000]
+for k in 23
+    pr23[0] = pr23[0] * (n_day - k) / n_day
+bad[0] = bad[0] + ck(pr23[0], 490000, 500000)
+bad[0] = bad[0] + ck_hi(pr23[0], 495000)
+
+let pr60 = [1000000]
+for k in 60
+    pr60[0] = pr60[0] * (n_day - k) / n_day
+bad[0] = bad[0] + ck(pr60[0], 1000, 10000)
+
+let ln2_scaled = n_ppl * (n_ppl - 1) * 100000 / 2 / n_day
+let dz5 = ln2_scaled - 69315
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let n_wall = 366
+let pigeon = n_wall - n_day
+bad[0] = bad[0] + ck_lo(pigeon, 1)
+
+if 1939 < 1937
+    bad[0] = bad[0] + 1
+if 1939 > 1941
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

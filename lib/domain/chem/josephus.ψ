@@ -1,0 +1,44 @@
+import "ck.ψ"
+let bad = [0]
+
+let s2 = 1
+let dz1 = s2 - 1
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let p6 = 4
+let L6 = 6 - p6
+let s6 = 2 * L6 + 1
+let dz2 = s6 - 5
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let p10 = 8
+let L10 = 10 - p10
+let s10 = 2 * L10 + 1
+let dz3 = s10 - 5
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let p41 = 32
+let L41 = 41 - p41
+let s41 = 2 * L41 + 1
+let dz4 = s41 - 19
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let p8 = 8
+let L8 = 8 - p8
+let s8 = 2 * L8 + 1
+let dz5 = s8 - 1
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let s5 = 2 * (5 - 4) + 1
+let dz6 = s5 - 3
+bad[0] = bad[0] + ck(dz6, 0, 0)
+let s7 = 2 * (7 - 4) + 1
+let dz7 = s7 - 7
+bad[0] = bad[0] + ck(dz7, 0, 0)
+
+if 67 < 65
+    bad[0] = bad[0] + 1
+if 67 > 69
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

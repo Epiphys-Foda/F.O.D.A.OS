@@ -1,0 +1,97 @@
+import "gfx.ψ"
+import "render3d.ψ"
+
+let rf_rdru_mark(fb, w, h, x, y, z, cam_z, color) =
+    let out = fb
+    let sx = w / 2 + x
+    let sy = h / 2 - y
+    if sx >= 0 && sx < w && sy >= 0 && sy < h
+      out = gfx_set_pixel(out, w, sx, sy, color)
+    else
+      0
+    out
+
+let rf_rdru_scene(env, robots, targets, w, h, z) =
+    let fb = rf_rd3_render(env, w, h, z)
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(robots)
+        fb = rf_rdru_mark(fb, w, h, robots[i], robots[i + 1], robots[i + 2], z, gfx_pack_rgb(255, 255, 255))
+        i = i + 3
+      else
+        done = true
+    i = 0
+    done = false
+    for !done
+      if i + 2 < len(targets)
+        fb = rf_rdru_mark(fb, w, h, targets[i], targets[i + 1], targets[i + 2], z, gfx_pack_rgb(255, 255, 0))
+        i = i + 3
+      else
+        done = true
+    fb
+
+let rf_rdru_stream(env, robots, targets, w, h) =
+    let out = []
+    out = out.push(250)
+    out = out.push(w)
+    out = out.push(h)
+    out = out.push(0)
+    out = out.push(len(robots))
+    let i = 0
+    let done = false
+    for !done
+      if i < len(robots)
+        out = out.push(robots[i])
+        i = i + 1
+      else
+        done = true
+    out = out.push(len(targets))
+    i = 0
+    done = false
+    for !done
+      if i < len(targets)
+        out = out.push(targets[i])
+        i = i + 1
+      else
+        done = true
+    out
+
+let rf_rdru_execute(stream, env, w, h) =
+    let robots = []
+    let targets = []
+    let rlen = stream[4]
+    let i = 0
+    let done = false
+    for !done
+      if i < rlen
+        robots = robots.push(stream[5 + i])
+        i = i + 1
+      else
+        done = true
+    let tlen = stream[5 + rlen]
+    i = 0
+    done = false
+    for !done
+      if i < tlen
+        targets = targets.push(stream[6 + rlen + i])
+        i = i + 1
+      else
+        done = true
+    rf_rdru_scene(env, robots, targets, w, h, 0)
+
+let rf_rdru_frame(env, robots, targets, w, h, z) = rf_rdru_scene(env, robots, targets, w, h, z)
+
+let rf_rdru_verify() =
+    let env = [0, 0, 0, 100]
+    let fb0 = gfx_create(16, 16)
+    let fb1 = rf_rdru_mark(fb0, 16, 16, 2, 0, 0, 0, gfx_pack_rgb(255, 255, 255))
+    let t1 = gfx_get_pixel(fb1, 16, 10, 8) == gfx_pack_rgb(255, 255, 255)
+    let sc = rf_rdru_scene(env, [2, 0, 0], [0, 0, 0], 16, 16, 0)
+    let t2 = gfx_get_pixel(sc, 16, 10, 8) == gfx_pack_rgb(255, 255, 255)
+    let st = rf_rdru_stream(env, [2, 0, 0], [0, 0, 0], 16, 16)
+    let t3 = st[0] == 250 && st[4] == 3
+    let ex = rf_rdru_execute(st, env, 16, 16)
+    let t4 = gfx_get_pixel(ex, 16, 10, 8) == gfx_pack_rgb(255, 255, 255)
+    let t5 = len(rf_rdru_frame(env, [2, 0, 0], [0, 0, 0], 16, 16, 0)) == 256
+    t1 && t2 && t3 && t4 && t5

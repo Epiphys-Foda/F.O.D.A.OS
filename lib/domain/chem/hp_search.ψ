@@ -1,0 +1,59 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let e17 = (0 - 6) * (0 - 6) + (0 - 0) * (0 - 0)
+let e18 = (0 - 7) * (0 - 7) + (0 - 0) * (0 - 0)
+let e27 = (1 - 6) * (1 - 6) + (0 - 0) * (0 - 0)
+let e28 = (1 - 7) * (1 - 7) + (0 - 0) * (0 - 0)
+if e17 == 1
+    bad[0] = bad[0] + 1
+if e18 == 1
+    bad[0] = bad[0] + 1
+if e27 == 1
+    bad[0] = bad[0] + 1
+if e28 == 1
+    bad[0] = bad[0] + 1
+
+let h17 = (0 - 1) * (0 - 1) + (0 - 1) * (0 - 1)
+let h18 = (0 - 1) * (0 - 1) + (0 - 2) * (0 - 2)
+let h27 = (1 - 1) * (1 - 1) + (1 - 0) * (1 - 0)
+let h28 = (1 - 1) * (1 - 1) + (2 - 0) * (2 - 0)
+if h27 != 1
+    bad[0] = bad[0] + 1
+if h17 == 1
+    bad[0] = bad[0] + 1
+if h18 == 1
+    bad[0] = bad[0] + 1
+if h28 == 1
+    bad[0] = bad[0] + 1
+
+let b17 = (0 - 1) * (0 - 1) + (0 - 1) * (0 - 1)
+let b18 = (0 - 0) * (0 - 0) + (1 - 0) * (1 - 0)
+let b27 = (1 - 1) * (1 - 1) + (0 - 1) * (0 - 1)
+let b28 = (1 - 0) * (1 - 0) + (0 - 1) * (0 - 1)
+if b18 != 1
+    bad[0] = bad[0] + 1
+if b27 != 1
+    bad[0] = bad[0] + 1
+if b17 == 1
+    bad[0] = bad[0] + 1
+if b28 == 1
+    bad[0] = bad[0] + 1
+
+let c_ext = 0
+let c_half = 1
+let c_box = 2
+bad[0] = bad[0] + ck(c_box, 2, 2)
+if c_ext >= c_half
+    bad[0] = bad[0] + 1
+if c_half >= c_box
+    bad[0] = bad[0] + 1
+
+if 1985 < 1983
+    bad[0] = bad[0] + 1
+if 1985 > 1987
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

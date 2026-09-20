@@ -1,0 +1,29 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let t2 = 4 * 1
+let t = isqrt(t2)
+if t != 2
+    bad[0] = bad[0] + 1
+
+let t2_long = 4 * 4
+let t_long = isqrt(t2_long)
+if t_long != 4
+    bad[0] = bad[0] + 1
+
+bad[0] = bad[0] + ck_lo(t_long, t)
+
+let L_sec = 1
+bad[0] = bad[0] + ck_lo(L_sec, 0)
+
+let clock = 1656
+bad[0] = bad[0] + ck(clock, 1650, 1660)
+
+if 1602 < 1600
+    bad[0] = bad[0] + 1
+if 1602 > 1604
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

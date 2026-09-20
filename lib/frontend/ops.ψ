@@ -1,0 +1,61 @@
+import "fb.ψ"
+
+let ops_clear(s, i, c) =
+    arr_set(s, i, 205)
+    arr_set(s, i + 1, c)
+    i + 2
+
+let ops_rect(s, i, x, y, w, h, c) =
+    arr_set(s, i, 201)
+    arr_set(s, i + 1, x)
+    arr_set(s, i + 2, y)
+    arr_set(s, i + 3, w)
+    arr_set(s, i + 4, h)
+    arr_set(s, i + 5, c)
+    i + 6
+
+let ops_line(s, i, x1, y1, x2, y2, c) =
+    arr_set(s, i, 202)
+    arr_set(s, i + 1, x1)
+    arr_set(s, i + 2, y1)
+    arr_set(s, i + 3, x2)
+    arr_set(s, i + 4, y2)
+    arr_set(s, i + 5, c)
+    i + 6
+
+let ops_point(s, i, x, y, c) =
+    arr_set(s, i, 200)
+    arr_set(s, i + 1, x)
+    arr_set(s, i + 2, y)
+    arr_set(s, i + 3, c)
+    i + 4
+
+let ops_frame(s, i) =
+    arr_set(s, i, 209)
+    i + 1
+
+let ops_play(s, len, fb) =
+    let i = 0
+    for i < len
+      let op = s[i]
+      if op == 205
+        fb_fill(fb, s[i + 1])
+        i = i + 2
+      else
+        if op == 201
+          fb_rect(fb, s[i + 1], s[i + 2], s[i + 3], s[i + 4], s[i + 5])
+          i = i + 6
+        else
+          if op == 202
+            fb_line(fb, s[i + 1], s[i + 2], s[i + 3], s[i + 4], s[i + 5])
+            i = i + 6
+          else
+            if op == 200
+              fb_set(fb, s[i + 1], s[i + 2], s[i + 3])
+              i = i + 4
+            else
+              if op == 209
+                i = i + 1
+              else
+                i = i + 1
+    fb

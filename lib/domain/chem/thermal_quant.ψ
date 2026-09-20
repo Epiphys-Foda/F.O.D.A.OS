@@ -1,0 +1,40 @@
+import "ck.ψ"
+let bad = [0]
+
+let coef = 95
+bad[0] = bad[0] + ck(coef, 90, 100)
+
+let l0 = 244
+bad[0] = bad[0] + ck(l0, 240, 248)
+
+let eh = 387
+bad[0] = bad[0] + ck(eh, 380, 395)
+
+let prod = l0 * eh
+let dc = coef * 1000 - prod
+let dcr = 0 - dc
+bad[0] = bad[0] + ck_hi(dc, 1000)
+bad[0] = bad[0] + ck_hi(dcr, 1000)
+
+let kappa2 = 190
+let g0 = 775
+let l0chk = kappa2 * 1000 / g0
+let dq = l0chk - l0
+let dqr = 0 - dq
+bad[0] = bad[0] + ck_hi(dq, 5)
+bad[0] = bad[0] + ck_hi(dqr, 5)
+
+if 1983 < 1981
+    bad[0] = bad[0] + 1
+if 1983 > 1985
+    bad[0] = bad[0] + 1
+if 2000 < 1998
+    bad[0] = bad[0] + 1
+if 2000 > 2002
+    bad[0] = bad[0] + 1
+if 2013 < 2011
+    bad[0] = bad[0] + 1
+if 2013 > 2015
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

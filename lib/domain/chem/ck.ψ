@@ -1,0 +1,8 @@
+let ck_lo(x, lo) =
+    (x < lo) ? 1 : 0
+
+let ck_hi(x, hi) =
+    (x > hi) ? 1 : 0
+
+let ck(x, lo, hi) =
+    ((x < lo) ? 1 : 0) + ((x > hi) ? 1 : 0)

@@ -1,0 +1,153 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let MAGIC_NUMBERS = [2, 8, 20, 28, 50, 82, 126]
+let SHELL_CAPACITIES = [6, 12, 8, 22, 32, 44]
+
+let nuclear_field(A) =
+    let val = 0
+    let k = 0
+    for k < 6
+        let d = A - MAGIC_NUMBERS[k]
+        if d == 0
+            val = gf_add(val, SHELL_CAPACITIES[k])
+        else
+            val = gf_add(val, gf_mul(SHELL_CAPACITIES[k], gf_inv(d)))
+        k = k + 1
+    val
+
+let nuclear_shell_gap(A) =
+    let val = 0
+    let k = 0
+    for k < 6
+        let d = A - MAGIC_NUMBERS[k]
+        if d != 0
+            let dd = gf_mul(d, d)
+            val = gf_sub(val, gf_mul(SHELL_CAPACITIES[k], gf_inv(dd)))
+        k = k + 1
+    val
+
+let ho_shell_capacity(N) = (N + 1) * (N + 2) / 2 * 2 / 2 * 2
+let ho_cumulative(N_max) =
+    let total = 0
+    let N = 0
+    for N <= N_max
+        total = total + (N + 1) * (N + 2)
+        N = N + 1
+    total
+
+let STABLE_Z_TABLE = [1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 24, 26, 29, 30, 35, 47, 50, 54, 56, 74, 78, 79, 82, 83, 92]
+let STABLE_A_TABLE = [1, 4, 7, 9, 11, 12, 14, 16, 20, 23, 24, 27, 28, 31, 32, 35, 40, 39, 40, 52, 56, 63, 64, 79, 107, 112, 132, 138, 184, 195, 197, 208, 209, 238]
+
+let neutron_number(Z, A) = A - Z
+
+let WEI_AV_X100 = 1575
+let WEI_AS_X100 = 1771
+let WEI_AC_X100 = 711
+let WEI_AA_X100 = 237
+
+let nimul(a0, b0) =
+    let r = 0
+    let a = a0
+    let b = b0
+    for b > 0
+        if b % 2 == 1
+            r = r + a
+        a = a + a
+        b = b / 2
+    r
+
+let icbrt1000(n) =
+    if n <= 0
+        0
+    else
+        let target = nimul(n, 1000000)
+        let lo = 0
+        let hi = 100000
+        for lo < hi
+            let mid = (lo + hi + 1) / 2
+            let q1 = target / mid
+            let q2 = q1 / mid
+            if mid <= q2
+                lo = mid
+            else
+                hi = mid - 1
+        lo
+
+let weizsaecker_b_x100(A, Z) =
+    let c100 = icbrt1000(A)
+    if c100 == 0
+        c100 = 100
+    let vol = nimul(1575, A)
+    let surf_term = nimul(nimul(1771, A), 100) / (nimul(c100, c100) / 100)
+    let coul = nimul(nimul(71, nimul(Z, Z - 1)), 100) / c100
+    let asym = nimul(2370, nimul(A - 2 * Z, A - 2 * Z)) / A
+    vol - surf_term - coul - asym
+
+let BINDING_ANCHOR_HE4_X100 = 707
+let BINDING_ANCHOR_FE56_X100 = 879
+
+let shell_gap_average() =
+    let total = 0
+    let k = 0
+    for k < 6
+        total = total + SHELL_CAPACITIES[k]
+        k = k + 1
+    total / 6
+
+let shell_gap_at(k) = SHELL_CAPACITIES[k]
+
+let enhancement_x100(k) =
+    nimul(SHELL_CAPACITIES[k], 100) / shell_gap_average()
+
+let relative_enhancement_126_vs_82_x1000() =
+    nimul(SHELL_CAPACITIES[5], 1000) / SHELL_CAPACITIES[4]
+
+let shell_correction_ratio_x100() =
+    let g126 = nimul(SHELL_CAPACITIES[5], SHELL_CAPACITIES[5])
+    let g82 = nimul(SHELL_CAPACITIES[4], SHELL_CAPACITIES[4])
+    nimul(g126, 100) / g82
+
+let z126_prediction_report() =
+    let gap = shell_gap_at(5)
+    let enh = enhancement_x100(5)
+    let rel = relative_enhancement_126_vs_82_x1000()
+    let corr = shell_correction_ratio_x100()
+    [gap, enh, rel, corr]
+
+let stability_profile_126() =
+    let result = []
+    let Z = 120
+    for Z <= 132
+        let field_val = nuclear_field(Z)
+        let gap_val = nuclear_shell_gap(Z)
+        result.push([Z, field_val, gap_val])
+        Z = Z + 1
+    result
+
+let known_magic_enhancement_pb208() =
+    let z_gap = shell_gap_at(4)
+    let n_gap = shell_gap_at(5)
+    nimul(nimul(z_gap, n_gap), 10000) / nimul(shell_gap_average(), shell_gap_average())
+
+let isotope_verify() =
+    let t1 = MAGIC_NUMBERS[0] < MAGIC_NUMBERS[1] && MAGIC_NUMBERS[5] < MAGIC_NUMBERS[6]
+    let t2 = SHELL_CAPACITIES[0] == 8 - 2 && SHELL_CAPACITIES[5] == 126 - 82
+    let t3 = nuclear_field(56) != 0
+    let t4 = ho_cumulative(0) == 2 && ho_cumulative(1) == 8
+    let t5 = ho_cumulative(2) == 20
+    let t6 = ho_cumulative(3) == 40 && MAGIC_NUMBERS[3] == 28
+    let t7 = neutron_number(26, 56) == 30
+    let t8 = STABLE_A_TABLE[1] == 4 && STABLE_A_TABLE[31] == 208
+    let t9 = MAGIC_NUMBERS[5] == 82 && MAGIC_NUMBERS[6] == 126
+    let bhe = weizsaecker_b_x100(4, 2)
+    let t10 = bhe > 2000 && bhe < 5000
+    let t11 = BINDING_ANCHOR_FE56_X100 > BINDING_ANCHOR_HE4_X100
+    let t12 = icbrt1000(27) / 100 == 3 && icbrt1000(8) / 100 == 2
+    let t13 = shell_gap_average() == 20
+    let t14 = shell_gap_at(5) == 44
+    let t15 = enhancement_x100(5) == 220
+    let t16 = relative_enhancement_126_vs_82_x1000() == 1375
+    let t17 = shell_correction_ratio_x100() == 189
+    let t18 = known_magic_enhancement_pb208() > enhancement_x100(5) * 100
+    let passed = t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12 + t13 + t14 + t15 + t16 + t17 + t18
+    passed == 18

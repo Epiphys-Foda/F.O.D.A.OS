@@ -1,0 +1,29 @@
+import "ck.ψ"
+let bad = [0]
+let e6 = 1000000
+let e8 = e6 * 100
+
+let mAst = 131
+bad[0] = bad[0] + ck(mAst, 125, 135)
+
+let eImp = 262
+bad[0] = bad[0] + ck(eImp, 240, 285)
+
+let hiro = 42
+bad[0] = bad[0] + ck(hiro, 30, 50)
+
+let irLayer = 660
+let irCrust = 40
+if irLayer < 16 * irCrust
+    bad[0] = bad[0] + 1
+
+let tImp = 660
+bad[0] = bad[0] + ck(tImp, 630, 690)
+
+let crater = 180
+bad[0] = bad[0] + ck(crater, 170, 190)
+
+let extinct = 75
+bad[0] = bad[0] + ck(extinct, 70, 80)
+
+arr_get(arr_new_n(1), bad[0])

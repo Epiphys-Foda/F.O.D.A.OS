@@ -1,0 +1,364 @@
+import "residueon_common.ψ"
+
+let hopf_mul(a, b) = rp_mul(a, b)
+
+let hopf_coproduct(rp) =
+    let z = rp_z(rp)
+    let r = rp_r(rp)
+    let n = rp_n(rp)
+    [rp_make(z, r, n), rp_make(z, 1, n)]
+
+let hopf_counit(rp) = rp_r(rp)
+
+let hopf_antipode(rp) = rp_make(rp_z(rp), gf_neg(rp_r(rp)), rp_n(rp))
+
+let hopf_unit() = rp_make(0, 1, 0)
+
+let algebra_associative(a, b, c) =
+    let ab = hopf_mul(a, b)
+    let ab_c = hopf_mul(ab, c)
+    let bc = hopf_mul(b, c)
+    let a_bc = hopf_mul(a, bc)
+    let result = 0
+    if rp_z(ab_c) == rp_z(a_bc)
+        if rp_r(ab_c) == rp_r(a_bc)
+            result = 1
+    result
+
+let algebra_unit(a) =
+    let u = hopf_unit()
+    let result = 0
+    if rp_r(u) == 1
+        if rp_n(u) == 0
+            result = 1
+    result
+
+let coalgebra_coassociative(rp) =
+    let delta = hopf_coproduct(rp)
+    let rp1 = delta[0]
+    let rp2 = delta[1]
+    let delta1 = hopf_coproduct(rp1)
+    let left_a = delta1[0]
+    let left_b = delta1[1]
+    let left_c = rp2
+    let delta2 = hopf_coproduct(rp2)
+    let right_a = rp1
+    let right_b = delta2[0]
+    let right_c = delta2[1]
+    let result = 0
+    if rp_r(left_a) == rp_r(right_a)
+        if rp_r(left_b) == rp_r(right_b)
+            if rp_r(left_c) == rp_r(right_c)
+                result = 1
+    result
+
+let coalgebra_counit(rp) =
+    let delta = hopf_coproduct(rp)
+    let rp1 = delta[0]
+    let rp2 = delta[1]
+    let eps1 = hopf_counit(rp1)
+    let left = rp_make(rp_z(rp2), gf_mul(eps1, rp_r(rp2)), rp_n(rp2))
+    let eps2 = hopf_counit(rp2)
+    let right = rp_make(rp_z(rp1), gf_mul(rp_r(rp1), eps2), rp_n(rp1))
+    let result = 0
+    if rp_r(left) == rp_r(rp)
+        if rp_r(right) == rp_r(rp)
+            result = 1
+    result
+
+let antipode_left(rp) =
+    let s_rp = hopf_antipode(rp)
+    let left = hopf_mul(s_rp, rp)
+    let right = hopf_mul(rp, s_rp)
+    let result = 0
+    if rp_r(left) == rp_r(right)
+        result = 1
+    result
+
+let antipode_right(rp) =
+    let s_rp = hopf_antipode(rp)
+    let left = hopf_mul(s_rp, rp)
+    let right = hopf_mul(rp, s_rp)
+    let result = 0
+    if rp_z(left) == rp_z(right)
+        result = 1
+    result
+
+let Q_PARAM() = 3
+
+let uq_e() = rp_make(1, 1, 1)
+let uq_f() = rp_make(2, 1, 1)
+let uq_k() = rp_make(3, Q_PARAM(), 1)
+let uq_k_inv() = rp_make(3, gf_inv(Q_PARAM()), 1)
+
+let uq_relation_KEK() =
+    let q = Q_PARAM()
+    let q2 = gf_mul(q, q)
+    let q_inv2 = gf_mul(gf_inv(q), gf_inv(q))
+    let result = 0
+    if gf_mul(q2, q_inv2) == 1
+        result = 1
+    result
+
+let uq_relation_KFK() =
+    let q = Q_PARAM()
+    let q_inv = gf_inv(q)
+    let q_inv2 = gf_mul(q_inv, q_inv)
+    let result = 0
+    if q_inv2 != 0
+        result = 1
+    result
+
+let uq_coproduct_k() =
+    let k = uq_k()
+    let delta = hopf_coproduct(k)
+    let k1 = delta[0]
+    let k2 = delta[1]
+    let result = 0
+    if rp_r(k1) == Q_PARAM()
+        if rp_r(k2) == 1
+            result = 1
+    result
+
+let r_matrix(a, b) =
+    let q = Q_PARAM()
+    let q_inv = gf_inv(q)
+    [gf_mul(q, a), gf_mul(q_inv, b)]
+
+let yb_left(a, b, c) =
+    let r12 = r_matrix(a, b)
+    let a1 = r12[0]
+    let b1 = r12[1]
+    let r13 = r_matrix(a1, c)
+    let a2 = r13[0]
+    let c1 = r13[1]
+    let r23 = r_matrix(b1, c1)
+    let b2 = r23[0]
+    let c2 = r23[1]
+    [a2, b2, c2]
+
+let yb_right(a, b, c) =
+    let r23 = r_matrix(b, c)
+    let b1 = r23[0]
+    let c1 = r23[1]
+    let r13 = r_matrix(a, c1)
+    let a1 = r13[0]
+    let c2 = r13[1]
+    let r12 = r_matrix(a1, b1)
+    let a2 = r12[0]
+    let b2 = r12[1]
+    [a2, b2, c2]
+
+let yang_baxter_verify(a, b, c) =
+    let left = yb_left(a, b, c)
+    let right = yb_right(a, b, c)
+    let result = 0
+    if left[0] == right[0]
+        if left[1] == right[1]
+    result
+
+let braid_from_r(a, b) =
+    let r = r_matrix(a, b)
+    [r[1], r[0]]
+
+let braid_relation(a, b, c) =
+    let s1 = braid_from_r(a, b)
+    let a1 = s1[0]
+    let b1 = s1[1]
+    let s2 = braid_from_r(b1, c)
+    let b2 = s2[0]
+    let c1 = s2[1]
+    let s3 = braid_from_r(a1, b2)
+    let a2 = s3[0]
+    let b3 = s3[1]
+    let left = [a2, b3, c1]
+
+    let t1 = braid_from_r(b, c)
+    let b4 = t1[0]
+    let c2 = t1[1]
+    let t2 = braid_from_r(a, b4)
+    let a3 = t2[0]
+    let b5 = t2[1]
+    let t3 = braid_from_r(b5, c2)
+    let b6 = t3[0]
+    let c3 = t3[1]
+    let right = [a3, b6, c3]
+
+    let result = 0
+    if left[0] == right[0]
+        if left[1] == right[1]
+    result
+
+let anyon_statistics(a) =
+    let r = r_matrix(a, a)
+    let phase = r[0]
+    let r2 = r_matrix(phase, phase)
+    let phase2 = r2[0]
+    let a2 = gf_mul(a, a)
+    let stat = gf_div(phase2, a2)
+    stat
+
+let anyon_type(a) =
+    let stat = anyon_statistics(a)
+    let result = 2
+    if stat == 1
+        result = 0
+    if stat == gf_neg(1)
+        result = 1
+    result
+
+let residueon_hopf_verify() =
+    let ok = 0
+
+    let u = hopf_unit()
+    if rp_r(u) == 1
+        ok = ok + 1
+    if rp_z(u) == 0
+        ok = ok + 1
+
+    let rp1 = rp_make(5, 3, 1)
+    let rp2 = rp_make(5, 7, 1)
+    let rp3 = rp_make(5, 11, 1)
+
+    let s_rp1 = hopf_antipode(rp1)
+    if rp_r(s_rp1) == gf_neg(3)
+        ok = ok + 1
+    if rp_z(s_rp1) == 5
+        ok = ok + 1
+
+    if hopf_counit(rp1) == 3
+        ok = ok + 1
+    if hopf_counit(rp2) == 7
+        ok = ok + 1
+
+    let delta = hopf_coproduct(rp1)
+    if rp_r(delta[0]) == 3
+        ok = ok + 1
+    if rp_r(delta[1]) == 1
+        ok = ok + 1
+
+    if algebra_associative(rp1, rp2, rp3) == 1
+        ok = ok + 1
+    if algebra_unit(rp1) == 1
+        ok = ok + 1
+    if algebra_unit(rp2) == 1
+        ok = ok + 1
+
+    if coalgebra_coassociative(rp1) == 1
+        ok = ok + 1
+    if coalgebra_coassociative(rp2) == 1
+        ok = ok + 1
+    if coalgebra_counit(rp1) == 1
+        ok = ok + 1
+    if coalgebra_counit(rp2) == 1
+        ok = ok + 1
+
+    if antipode_left(rp1) == 1
+        ok = ok + 1
+    if antipode_left(rp2) == 1
+        ok = ok + 1
+    if antipode_right(rp1) == 1
+        ok = ok + 1
+    if antipode_right(rp2) == 1
+        ok = ok + 1
+
+    if uq_relation_KEK() == 1
+        ok = ok + 1
+    if uq_relation_KFK() == 1
+        ok = ok + 1
+    if uq_coproduct_k() == 1
+        ok = ok + 1
+
+    if Q_PARAM() == 3
+        ok = ok + 1
+    let q = Q_PARAM()
+    let q_inv = gf_inv(q)
+    if gf_mul(q, q_inv) == 1
+        ok = ok + 1
+
+    if yang_baxter_verify(2, 3, 5) == 1
+        ok = ok + 1
+    if yang_baxter_verify(7, 11, 13) == 1
+        ok = ok + 1
+    if yang_baxter_verify(1, 1, 1) == 1
+        ok = ok + 1
+    if yang_baxter_verify(4, 9, 16) == 1
+        ok = ok + 1
+
+    let r = r_matrix(5, 7)
+    if r[0] == gf_mul(Q_PARAM(), 5)
+        ok = ok + 1
+    if r[1] == gf_mul(gf_inv(Q_PARAM()), 7)
+        ok = ok + 1
+
+    if braid_relation(2, 3, 5) == 1
+        ok = ok + 1
+    if braid_relation(7, 11, 13) == 1
+        ok = ok + 1
+    if braid_relation(1, 1, 1) == 1
+        ok = ok + 1
+
+    let stat = anyon_statistics(5)
+    if stat >= 0
+        ok = ok + 1
+
+    let atype = anyon_type(5)
+    if atype >= 0
+        ok = ok + 1
+    if atype <= 2
+        ok = ok + 1
+
+    if anyon_type(1) == 2
+        ok = ok + 1
+
+    let hopf_field = rpf_make([rp1, rp2], 2)
+    if rpf_count(hopf_field) == 2
+        ok = ok + 1
+
+    let mutated = rpf_galois(hopf_field, 2)
+    if rpf_count(mutated) == 2
+        ok = ok + 1
+
+    let hom = rpf_homology(hopf_field)
+    if hom[0] == 2
+        ok = ok + 1
+
+    if ast_to_op(AST_LITERAL()) == OP_OBSERVE()
+        ok = ok + 1
+
+    let f = mf_make([0, 1], [3, 5], 2)
+    let fI = combinator_I(f)
+    if mf_equal(fI, f) == 1
+        ok = ok + 1
+
+    if bootstrap_tower(8) == 1
+        ok = ok + 1
+
+    let apop = apoptosis(f)
+    if mf_size(apop) >= 0
+        ok = ok + 1
+
+    let mc = meta_compiler()
+    if mf_size(mc) == 6
+        ok = ok + 1
+
+    let s_ok = hopf_antipode(hopf_unit())
+    if rp_r(s_ok) == gf_neg(1)
+        ok = ok + 1
+
+    let ec_point_rp = rp_make(3, gf_inv(12), 1)
+    let ec_antipode = hopf_antipode(ec_point_rp)
+    if rp_z(ec_antipode) == 3
+        ok = ok + 1
+
+    let r_for_qec = r_matrix(1, 1)
+    if r_for_qec[0] == Q_PARAM()
+        ok = ok + 1
+
+    let g_sym = gf_mul(Q_PARAM(), gf_inv(Q_PARAM()))
+    if g_sym == 1
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_hopf_verify()

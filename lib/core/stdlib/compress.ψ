@@ -1,0 +1,266 @@
+let comp_rle_encode(data) =
+    let result = arr_new()
+    let n = data.len()
+    if n == 0
+        return result
+    let current = data[0]
+    let count = 1
+    let i = 1
+    for i < n
+        if data[i] == current
+            count = count + 1
+        else
+            result = arr_push(result, count)
+            result = arr_push(result, current)
+            current = data[i]
+            count = 1
+        i = i + 1
+    result = arr_push(result, count)
+    result = arr_push(result, current)
+    result
+
+let comp_rle_decode(data) =
+    let result = arr_new()
+    let n = data.len()
+    let i = 0
+    for i + 1 < n
+        let count = data[i]
+        let val = data[i + 1]
+        let j = 0
+        for j < count
+            result = arr_push(result, val)
+            j = j + 1
+        i = i + 2
+    result
+
+let comp_rle_encode_str(s) =
+    let result = ""
+    let n = s.len()
+    if n == 0
+        return result
+    let current = s[0]
+    let count = 1
+    let i = 1
+    for i < n
+        if s[i] == current
+            count = count + 1
+        else
+            result = result + count + current
+            current = s[i]
+            count = 1
+        i = i + 1
+    result = result + count + current
+    result
+
+let comp_lz77_encode(data, window_size) =
+    let result = arr_new()
+    let n = data.len()
+    let pos = 0
+    for pos < n
+        let best_offset = 0
+        let best_length = 0
+        let window_start = pos - window_size
+        if window_start < 0
+            window_start = 0
+        let i = window_start
+        for i < pos
+            let match_len = 0
+            for pos + match_len < n && data[i + match_len] == data[pos + match_len] && match_len < window_size
+                match_len = match_len + 1
+            if match_len > best_length
+                best_length = match_len
+                best_offset = pos - i
+            i = i + 1
+        let token = arr_new()
+        token = arr_push(token, best_offset)
+        token = arr_push(token, best_length)
+        if pos + best_length < n
+            token = arr_push(token, data[pos + best_length])
+        else
+            token = arr_push(token, 0)
+        result = arr_push(result, token)
+        pos = pos + best_length + 1
+    result
+
+let comp_lz77_decode(tokens) =
+    let result = arr_new()
+    let n = tokens.len()
+    let i = 0
+    for i < n
+        let token = tokens[i]
+        let offset = token[0]
+        let length = token[1]
+        let next_char = token[2]
+        let start = result.len() - offset
+        let j = 0
+        for j < length
+            result = arr_push(result, result[start + j])
+            j = j + 1
+        result = arr_push(result, next_char)
+        i = i + 1
+    result
+
+let comp_delta_encode(data) =
+    let result = arr_new()
+    let n = data.len()
+    if n == 0
+        return result
+    result = arr_push(result, data[0])
+    let i = 1
+    for i < n
+        result = arr_push(result, data[i] - data[i - 1])
+        i = i + 1
+    result
+
+let comp_delta_decode(data) =
+    let result = arr_new()
+    let n = data.len()
+    if n == 0
+        return result
+    result = arr_push(result, data[0])
+    let i = 1
+    for i < n
+        let prev = result[i - 1]
+        result = arr_push(result, prev + data[i])
+        i = i + 1
+    result
+
+let comp_xor_encode(data, key) =
+    let result = arr_new()
+    let n = data.len()
+    let i = 0
+    for i < n
+        result = arr_push(result, data[i] ^ key)
+        i = i + 1
+    result
+
+let comp_xor_decode(data, key) = comp_xor_encode(data, key)
+
+let comp_frequency_table(data) =
+    let freq = arr_new_n(256)
+    let n = data.len()
+    let i = 0
+    for i < n
+        freq[data[i]] = freq[data[i]] + 1
+        i = i + 1
+    freq
+
+let comp_entropy(data) =
+    let freq = comp_frequency_table(data)
+    let n = data.len()
+    if n == 0
+        return 0
+    let entropy = 0
+    let i = 0
+    for i < 256
+        if freq[i] > 0
+            let p = freq[i] * 1000 / n
+            entropy = entropy + p * (1000 - p) / 1000
+        i = i + 1
+    entropy / 1000
+
+let comp_ratio(original_size, compressed_size) =
+    if original_size == 0
+        return 0
+    (compressed_size * 100) / original_size
+
+let comp_mtf_encode(data) =
+    let result = arr_new()
+    let table = arr_new_n(256)
+    let i = 0
+    for i < 256
+        table[i] = i
+        i = i + 1
+    let n = data.len()
+    i = 0
+    for i < n
+        let c = data[i]
+        let pos = 0
+        for table[pos] != c
+            pos = pos + 1
+        result = arr_push(result, pos)
+        let j = pos
+        for j > 0
+            table[j] = table[j - 1]
+            j = j - 1
+        table[0] = c
+        i = i + 1
+    result
+
+let comp_mtf_decode(data) =
+    let result = arr_new()
+    let table = arr_new_n(256)
+    let i = 0
+    for i < 256
+        table[i] = i
+        i = i + 1
+    let n = data.len()
+    i = 0
+    for i < n
+        let pos = data[i]
+        let c = table[pos]
+        result = arr_push(result, c)
+        let j = pos
+        for j > 0
+            table[j] = table[j - 1]
+            j = j - 1
+        table[0] = c
+        i = i + 1
+    result
+
+let comp_dict_build(data) =
+    let dict = arr_new()
+    let n = data.len()
+    let i = 0
+    for i < n
+        let val = data[i]
+        let found = 0 - 1
+        let j = 0
+        let m = dict.len()
+        for j < m
+            if dict[j] == val
+                found = j
+            j = j + 1
+        if found < 0
+            dict = arr_push(dict, val)
+        i = i + 1
+    dict
+
+let comp_dict_encode(data, dict) =
+    let result = arr_new()
+    let n = data.len()
+    let i = 0
+    for i < n
+        let val = data[i]
+        let j = 0
+        let m = dict.len()
+        for j < m
+            if dict[j] == val
+                result = arr_push(result, j)
+            j = j + 1
+        i = i + 1
+    result
+
+let comp_dict_decode(indices, dict) =
+    let result = arr_new()
+    let n = indices.len()
+    let i = 0
+    for i < n
+        result = arr_push(result, dict[indices[i]])
+        i = i + 1
+    result
+
+let main() =
+    let data = arr_new()
+    data = arr_push(data, 1)
+    data = arr_push(data, 1)
+    data = arr_push(data, 1)
+    data = arr_push(data, 2)
+    data = arr_push(data, 2)
+    data = arr_push(data, 3)
+    let encoded = comp_rle_encode(data)
+    print(encoded.len())
+    let decoded = comp_rle_decode(encoded)
+    print(decoded[0])
+    print(decoded[3])
+    0

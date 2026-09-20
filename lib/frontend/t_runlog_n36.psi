@@ -1,0 +1,60 @@
+import "wblit.ψ"
+import "wui.ψ"
+import "win_shell.ψ"
+
+let init(w, h) =
+    let st = arr_new_n(96)
+    let fb = arr_new_n(w * h)
+    arr_set(st, 6, fb)
+    arr_set(st, 9, font_glyphs())
+    arr_set(st, 5, ui_ctx(st, fb, w, h, st[9]))
+    arr_set(st, 15, arr_new_n(8))
+    st
+
+let frame(st) =
+    let u = st[5]
+    let fb = u[0]
+    let w = u[1]
+    let h = u[2]
+    let fg = u[4]
+    let th = u[14]
+    let vals = st[15]
+    let base = 22 - vals[0]
+    fill_rect(fb, w, h, 0, 0, w, h, th[0])
+    blit_text(fb, w, h, 4, 4, "TRAINING RUN", th[6], fg)
+    ui_scroll_begin(u, 4, 20, w - 8, h - 28, 368, vals, 0)
+    blit_text(fb, w, h, 8, base + 0, "epoch 001  loss 0.987", th[6], fg)
+    blit_text(fb, w, h, 8, base + 12, "epoch 002  loss 0.974", th[6], fg)
+    blit_text(fb, w, h, 8, base + 24, "epoch 003  loss 0.961", th[6], fg)
+    blit_text(fb, w, h, 8, base + 36, "epoch 004  loss 0.948", th[6], fg)
+    blit_text(fb, w, h, 8, base + 48, "epoch 005  loss 0.935", th[6], fg)
+    blit_text(fb, w, h, 8, base + 60, "epoch 006  loss 0.921", th[6], fg)
+    blit_text(fb, w, h, 8, base + 72, "epoch 007  loss 0.908", th[6], fg)
+    blit_text(fb, w, h, 8, base + 84, "epoch 008  loss 0.894", th[6], fg)
+    blit_text(fb, w, h, 8, base + 96, "epoch 009  loss 0.880", th[6], fg)
+    blit_text(fb, w, h, 8, base + 108, "epoch 010  loss 0.866", th[6], fg)
+    blit_text(fb, w, h, 8, base + 120, "epoch 011  loss 0.852", th[6], fg)
+    blit_text(fb, w, h, 8, base + 132, "epoch 012  loss 0.838", th[6], fg)
+    blit_text(fb, w, h, 8, base + 144, "epoch 013  loss 0.823", th[6], fg)
+    blit_text(fb, w, h, 8, base + 156, "epoch 014  loss 0.809", th[6], fg)
+    blit_text(fb, w, h, 8, base + 168, "epoch 015  loss 0.794", th[6], fg)
+    blit_text(fb, w, h, 8, base + 180, "epoch 016  loss 0.779", th[6], fg)
+    blit_text(fb, w, h, 8, base + 192, "epoch 017  loss 0.764", th[6], fg)
+    blit_text(fb, w, h, 8, base + 204, "epoch 018  loss 0.749", th[6], fg)
+    blit_text(fb, w, h, 8, base + 216, "epoch 019  loss 0.733", th[6], fg)
+    blit_text(fb, w, h, 8, base + 228, "epoch 020  loss 0.718", th[6], fg)
+    blit_text(fb, w, h, 8, base + 240, "epoch 021  loss 0.702", th[6], fg)
+    blit_text(fb, w, h, 8, base + 252, "epoch 022  loss 0.686", th[6], fg)
+    blit_text(fb, w, h, 8, base + 264, "epoch 023  loss 0.671", th[6], fg)
+    blit_text(fb, w, h, 8, base + 276, "epoch 024  loss 0.655", th[6], fg)
+    blit_text(fb, w, h, 8, base + 288, "epoch 025  loss 0.639", th[6], fg)
+    blit_text(fb, w, h, 8, base + 300, "epoch 026  loss 0.622", th[6], fg)
+    blit_text(fb, w, h, 8, base + 312, "epoch 027  loss 0.606", th[6], fg)
+    blit_text(fb, w, h, 8, base + 324, "epoch 028  loss 0.590", th[6], fg)
+    blit_text(fb, w, h, 8, base + 336, "epoch 029  loss 0.573", th[6], fg)
+    blit_text(fb, w, h, 8, base + 348, "epoch 030  loss 0.557", th[6], fg)
+    ui_scroll_end(u)
+    present_size(w, h)
+    present(fb, w * h)
+    0
+

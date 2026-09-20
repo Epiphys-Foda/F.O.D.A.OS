@@ -1,0 +1,325 @@
+import "../domain_field.ψ"
+
+let memtable_new() =
+    [{}, 0]
+
+let memtable_rows(m) = m[0]
+let memtable_size(m) = m[1]
+
+let memtable_put(m, key, columns) =
+    let rows = memtable_rows(m)
+    rows[key] = columns
+    m[0] = rows
+    m[1] = m[1] + 1
+    m
+
+let memtable_get(m, key) =
+    let rows = memtable_rows(m)
+    rows[key]
+
+let memtable_delete(m, key) =
+    let rows = memtable_rows(m)
+    rows[key] = 0
+    m[0] = rows
+    m
+
+let memtable_scan(m, start_key, limit) =
+    let rows = memtable_rows(m)
+    let keys = keys_of(rows)
+    let result = []
+    let i = 0
+    let n = len(keys)
+    let cnt = 0
+    for i < n
+        let k = keys[i]
+        if k >= start_key
+            if cnt < limit
+                let row = rows[k]
+                if row != 0
+                    result.push([k, row])
+                    cnt = cnt + 1
+        i = i + 1
+    result
+
+let memtable_clear(m) =
+    m[0] = {}
+    m[1] = 0
+    m
+
+let sstable_new(seg_id, sorted_rows) =
+    let index = {}
+    let bloom = {}
+    let min_k = ""
+    let max_k = ""
+    let cnt = 0
+    let i = 0
+    let n = len(sorted_rows)
+    for i < n
+        let item = sorted_rows[i]
+        let k = item[0]
+        index[k] = item[1]
+        bloom[k] = 1
+        if cnt == 0
+            min_k = k
+            max_k = k
+        else
+            if k < min_k
+                min_k = k
+            if k > max_k
+                max_k = k
+        cnt = cnt + 1
+        i = i + 1
+    [seg_id, index, bloom, min_k, max_k, cnt]
+
+let sstable_id(s) = s[0]
+let sstable_index(s) = s[1]
+let sstable_bloom(s) = s[2]
+let sstable_min(s) = s[3]
+let sstable_max(s) = s[4]
+let sstable_count(s) = s[5]
+
+let sstable_get(s, key) =
+    let bloom = sstable_bloom(s)
+    if bloom[key] == 0
+        0
+    else
+        sstable_index(s)[key]
+
+let sstable_might_contain(s, key) =
+    sstable_bloom(s)[key] != 0
+
+let sstable_scan(s, start_key, limit) =
+    let index = sstable_index(s)
+    let keys = keys_of(index)
+    let result = []
+    let cnt = 0
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let k = keys[i]
+        if k >= start_key
+            if cnt < limit
+                let row = index[k]
+                if row != 0
+                    result.push([k, row])
+                    cnt = cnt + 1
+        i = i + 1
+    result
+
+let lsm_new() =
+    [{}, [], 0, 65536]
+
+let lsm_memtable(l) = l[0]
+let lsm_segments(l) = l[1]
+let lsm_next_seg(l) = l[2]
+let lsm_threshold(l) = l[3]
+
+let lsm_set_threshold(l, n) =
+    l[3] = n
+    l
+
+let lsm_put(l, key, columns) =
+    let m = lsm_memtable(l)
+    m = memtable_put(m, key, columns)
+    l[0] = m
+    if memtable_size(m) >= lsm_threshold(l)
+        l = lsm_flush(l)
+    l
+
+let lsm_get(l, key) =
+    let m = lsm_memtable(l)
+    let val = memtable_get(m, key)
+    if val != 0
+        val
+    else
+        let segs = lsm_segments(l)
+        let i = len(segs) - 1
+        let result = 0
+        for i >= 0
+            let s = segs[i]
+            if sstable_might_contain(s, key) == 1
+                let v = sstable_get(s, key)
+                if v != 0
+                    result = v
+                    i = -1
+                else
+                    i = i - 1
+            else
+                i = i - 1
+        result
+
+let lsm_flush(l) =
+    let m = lsm_memtable(l)
+    if memtable_size(m) == 0
+        l
+    else
+        let sorted_rows = memtable_scan(m, "", 65536)
+        let seg_id = lsm_next_seg(l)
+        l[2] = seg_id + 1
+        let sst = sstable_new(seg_id, sorted_rows)
+        let segs = lsm_segments(l)
+        segs.push(sst)
+        l[1] = segs
+        l[0] = memtable_new()
+        l
+
+let lsm_compact(l) =
+    let segs = lsm_segments(l)
+    if len(segs) < 2
+        l
+    else
+        let merged = {}
+        let i = 0
+        let n = len(segs)
+        for i < n
+            let s = segs[i]
+            let idx = sstable_index(s)
+            let keys = keys_of(idx)
+            let j = 0
+            let m = len(keys)
+            for j < m
+                let k = keys[j]
+                merged[k] = idx[k]
+                j = j + 1
+            i = i + 1
+        let merged_keys = keys_of(merged)
+        let sorted_rows = []
+        i = 0
+        let nk = len(merged_keys)
+        for i < nk
+            let k = merged_keys[i]
+            let row = merged[k]
+            if row != 0
+                sorted_rows.push([k, row])
+            i = i + 1
+        let seg_id = lsm_next_seg(l)
+        l[2] = seg_id + 1
+        let new_sst = sstable_new(seg_id, sorted_rows)
+        l[1] = [new_sst]
+        l
+
+let columnar_pack(rows, column_names) =
+    let cols = {}
+    let i = 0
+    let nc = len(column_names)
+    for i < nc
+        cols[column_names[i]] = []
+        i = i + 1
+    let r = 0
+    let nr = len(rows)
+    for r < nr
+        let row = rows[r][1]
+        let c = 0
+        for c < nc
+            let cname = column_names[c]
+            cols[cname].push(row[cname])
+            c = c + 1
+        r = r + 1
+    cols
+
+let columnar_sum(col_data) =
+    let sum = 0
+    let i = 0
+    let n = len(col_data)
+    for i < n
+        sum = sum + col_data[i]
+        i = i + 1
+    sum
+
+let columnar_min(col_data) =
+    let m = 0
+    let first = 1
+    let i = 0
+    let n = len(col_data)
+    for i < n
+        let v = col_data[i]
+        if first == 1
+            m = v
+            first = 0
+        else
+            0
+        if v < m
+            m = v
+        i = i + 1
+    m
+
+let columnar_max(col_data) =
+    let m = 0
+    let i = 0
+    let n = len(col_data)
+    for i < n
+        let v = col_data[i]
+        if v > m
+            m = v
+        i = i + 1
+    m
+
+let columnar_count(col_data) =
+    len(col_data)
+
+let columnar_mean(col_data) =
+    let n = len(col_data)
+    if n == 0
+        0
+    else
+        columnar_sum(col_data) / n
+
+let mv_new(name, group_by_cols, agg_col, agg_fn) =
+    [name, group_by_cols, agg_col, agg_fn, {}]
+
+let mv_name(mv) = mv[0]
+let mv_group_by(mv) = mv[1]
+let mv_agg_col(mv) = mv[2]
+let mv_agg_fn(mv) = mv[3]
+let mv_data(mv) = mv[4]
+
+let mv_refresh(mv, rows) =
+    let groups = {}
+    let i = 0
+    let n = len(rows)
+    for i < n
+        let row = rows[i][1]
+        let gkeys = mv_group_by(mv)
+        let gkey = ""
+        let j = 0
+        let ng = len(gkeys)
+        for j < ng
+            gkey = gkey + row[gkeys[j]] + "|"
+            j = j + 1
+        let lst = groups[gkey]
+        if lst == 0
+            lst = []
+        lst.push(row[mv_agg_col(mv)])
+        groups[gkey] = lst
+        i = i + 1
+    let result = {}
+    let keys = keys_of(groups)
+    i = 0
+    let nk = len(keys)
+    for i < nk
+        let k = keys[i]
+        let vals = groups[k]
+        let agg = 0
+        let fn_name = mv_agg_fn(mv)
+        if fn_name == "sum"
+            agg = columnar_sum(vals)
+        else
+            0
+        if fn_name == "max"
+            agg = columnar_max(vals)
+        else
+            0
+        if fn_name == "min"
+            agg = columnar_min(vals)
+        else
+            0
+        if fn_name == "count"
+            agg = columnar_count(vals)
+        else
+            0
+        if fn_name == "mean"
+            agg = columnar_mean(vals)
+        result[k] = agg
+        i = i + 1
+    mv[4] = result
+    mv

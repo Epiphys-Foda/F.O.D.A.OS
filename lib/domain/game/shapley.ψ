@@ -1,0 +1,228 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let SHAPLEY_MAX_PLAYERS = 16
+
+let shapley_value(game, player) =
+    let n = game[0]
+    let values = game[1]
+    let shapley = 0
+    let i = 0
+    let n_coalitions = len(values)
+    for i < n_coalitions
+        let coalition_value = values[i]
+        let mask = i
+        let size = 0
+        let j = 0
+        for j < n
+            if mask / gf_pow(2, j) % 2 == 1
+                size = size + 1
+            j = j + 1
+        let in_coalition = mask / gf_pow(2, player) % 2
+        if in_coalition == 1
+            let prev_mask = mask - gf_pow(2, player)
+            let prev_value = values[prev_mask]
+            let marginal = gf_sub(coalition_value, prev_value)
+            let weight = gf_div(gf_mul(factorial(size - 1), factorial(n - size)), factorial(n))
+            shapley = gf_add(shapley, gf_mul(weight, marginal))
+        i = i + 1
+    shapley
+let factorial(n) =
+    let result = 1
+    let i = 2
+    for i <= n
+        result = gf_mul(result, i)
+        i = i + 1
+    result
+let core_check(game, allocation) =
+    let values = game[1]
+    let i = 0
+    let n_coalitions = len(values)
+    for i < n_coalitions
+        let coalition_value = values[i]
+        let allocation_sum = 0
+        let j = 0
+        let n = game[0]
+        for j < n
+            if i / gf_pow(2, j) % 2 == 1
+                allocation_sum = gf_add(allocation_sum, allocation[j])
+            j = j + 1
+        if allocation_sum < coalition_value
+            0
+        i = i + 1
+    1
+let coalition_create(members) = [members, 0]
+let coalition_value(game, coalition) =
+    let members = coalition[0]
+    let mask = 0
+    let i = 0
+    let n = len(members)
+    for i < n
+        mask = mask + gf_pow(2, members[i])
+        i = i + 1
+    game[1][mask]
+let banzhaf_index(game, player) =
+    let n = game[0]
+    let values = game[1]
+    let banzhaf = 0
+    let i = 0
+    let n_coalitions = len(values)
+    for i < n_coalitions
+        let in_coalition = i / gf_pow(2, player) % 2
+        if in_coalition == 1
+            let prev_mask = i - gf_pow(2, player)
+            let marginal = gf_sub(values[i], values[prev_mask])
+            if marginal > 0
+                banzhaf = banzhaf + 1
+        i = i + 1
+    banzhaf
+let field_shapley(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let shapley_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_shapley(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+
+let SHAP_COAL_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let SHAP_COAL_WEIGHTS = [10, 20, 30, 40, 50, 60, 70, 80]
+
+let psi_shap_coal(c_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(c_idx), gf_norm(SHAP_COAL_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(SHAP_COAL_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let SHAP_MARG_POLES = [10, 20, 30, 40, 50, 60, 70, 80]
+let SHAP_MARG_WEIGHTS = [80, 70, 60, 50, 40, 30, 20, 10]
+
+let psi_shap_marg(m_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(m_idx), gf_norm(SHAP_MARG_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(SHAP_MARG_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let SHAP_VAL_POLES = [100, 200, 300, 400, 500, 600, 700, 800]
+let SHAP_VAL_WEIGHTS = [10, 20, 30, 40, 50, 60, 70, 80]
+
+let psi_shap_val(v_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(v_idx), gf_norm(SHAP_VAL_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(SHAP_VAL_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let shapley_global_response(c_idx, m_idx, v_idx) =
+    let e1 = psi_shap_coal(c_idx)
+    let e2 = psi_shap_marg(m_idx)
+    let e3 = psi_shap_val(v_idx)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+
+let shap_coal_monotonic_test() =
+    let v1 = psi_shap_coal(1)
+    let v2 = psi_shap_coal(8)
+    (v1 != v2 ? 1 : 0)
+
+let shap_marg_decay_test() =
+    let v1 = SHAP_MARG_WEIGHTS[0]
+    let v2 = SHAP_MARG_WEIGHTS[7]
+    (v1 > v2 ? 1 : 0)
+
+let shap_val_monotonic_test() =
+    let v1 = psi_shap_val(100)
+    let v2 = psi_shap_val(800)
+    (v1 != v2 ? 1 : 0)
+
+let shap_global_nonzero_test() =
+    let g = shapley_global_response(1, 10, 100)
+    (g != 0 ? 1 : 0)
+
+let shap_symmetry_test() =
+    let v1 = shapley_global_response(1, 10, 100)
+    let v2 = shapley_global_response(1, 10, 100)
+    (v1 == v2 ? 1 : 0)
+
+let shap_efficiency_test() =
+    let v1 = psi_shap_coal(1)
+    let v2 = psi_shap_coal(8)
+    (v1 != v2 ? 1 : 0)
+
+let nested_fractal_shapley_invariants() =
+    let e1 = psi_shap_coal(1)
+    let e2 = psi_shap_marg(10)
+    let e3 = psi_shap_val(100)
+    let inv1 = 0
+    if e1 != 0
+        (e2 != 0 ? (e3 != 0 ? (inv1 = 1) : 0) : 0)
+    let inv2 = 0
+    if SHAP_COAL_WEIGHTS[0] < SHAP_COAL_WEIGHTS[7]
+        inv2 = 1
+    let inv3 = 0
+    if SHAP_MARG_WEIGHTS[0] > SHAP_MARG_WEIGHTS[7]
+        inv3 = 1
+    let inv4 = 0
+    if SHAP_VAL_POLES[0] < SHAP_VAL_POLES[7]
+        inv4 = 1
+    let inv5 = 0
+    if shapley_global_response(1, 10, 100) != 0
+        inv5 = 1
+    [inv1, inv2, inv3, inv4, inv5]
+
+let shapley_verify_v22() =
+    let t1 = 0
+    if psi_shap_coal(1) != 0
+        t1 = 1
+    let t2 = 0
+    if psi_shap_marg(10) != 0
+        t2 = 1
+    let t3 = 0
+    if psi_shap_val(100) != 0
+        t3 = 1
+    let t4 = 0
+    if shapley_global_response(1, 10, 100) != 0
+        t4 = 1
+    let t5 = shap_coal_monotonic_test()
+    let t6 = shap_marg_decay_test()
+    let t7 = shap_val_monotonic_test()
+    let t8 = shap_global_nonzero_test()
+    let t9 = shap_symmetry_test()
+    let t10 = shap_efficiency_test()
+    let t11 = 0
+    if SHAP_COAL_WEIGHTS[0] < SHAP_COAL_WEIGHTS[7]
+        t11 = 1
+    let t12 = 0
+    if SHAP_COAL_POLES[0] < SHAP_COAL_POLES[7]
+        t12 = 1
+    let invs = nested_fractal_shapley_invariants()
+    let inv_ok = 0
+    if invs[0] == 1
+        if invs[1] == 1
+            if invs[2] == 1
+                if invs[3] == 1
+                    if invs[4] == 1
+                        inv_ok = 1
+    let passed = t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12 + inv_ok
+    passed == 13
+

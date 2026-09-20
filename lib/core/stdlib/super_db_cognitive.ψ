@@ -1,0 +1,31 @@
+import "super_db.ψ"
+import "super_db_dynamics.ψ"
+import "super_db_quantum.ψ"
+let rf_db_cog_ingest(db, x, y, r) = rf_db_insert(db, x, y, r)
+
+let rf_db_cog_learn(db, signal, eta) = rf_db_learn(db, 0, 0, rf_db_mul(signal, eta))
+
+let rf_db_cog_evolve(db, vx, vy, steps) = rf_db_evolve(db, vx, vy, steps)
+
+let rf_db_cog_query(db, cx, cy, w, h) = rf_db_cauchy_sum(db, cx, cy, w, h)
+
+let rf_db_cog_decision(state) = rf_db_q_born(state)
+
+let rf_db_cog_pipeline(db, signal, eta, steps, vx, vy, cx, cy, w, h) =
+    let cur = db
+    cur = rf_db_cog_learn(cur, signal, eta)
+    cur = rf_db_cog_evolve(cur, vx, vy, steps)
+    let focus = rf_db_cog_query(cur, cx, cy, w, h)
+    let decision = rf_db_cog_decision([focus, cur[2], 1])
+    [focus, decision]
+
+let rf_db_cog_verify() =
+    let results = []
+    results = results.push(rf_db_cog_ingest([], 0, 0, 5) == [0, 0, 5])
+    results = results.push(rf_db_cog_learn([0, 0, 3], 2, 4)[2] == 11)
+    results = results.push(rf_db_cog_evolve([0, 0, 5], 1, 0, 3)[0] == 3)
+    results = results.push(rf_db_cog_query([0, 0, 5, 100, 100, 7], 0, 0, 10, 10) == 5)
+    results = results.push(rf_db_cog_decision([3, 9, 5]) == 1)
+    let pipe = rf_db_cog_pipeline([0, 0, 3], 2, 4, 2, 1, 0, 0, 0, 10, 10)
+    results = results.push(len(pipe) == 2)
+    results

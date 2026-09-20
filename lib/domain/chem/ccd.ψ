@@ -1,0 +1,29 @@
+import "ck.ψ"
+let bad = [0]
+
+let photons = 10000
+let qe = 50
+let q = photons * qe / 100
+bad[0] = bad[0] + ck(q, 4000, 6000)
+
+let fwc = 100000
+bad[0] = bad[0] + ck(fwc, 50000, 200000)
+
+let dr = fwc / 10
+let drdb = 4 * 20
+bad[0] = bad[0] + ck(drdb, 75, 85)
+
+let np = 4000 * 3000
+let dnp = np - 12000000
+bad[0] = bad[0] + ck(dnp, 0, 0)
+
+if 1969 < 1967
+    bad[0] = bad[0] + 1
+if 1969 > 1971
+    bad[0] = bad[0] + 1
+if 2009 < 2007
+    bad[0] = bad[0] + 1
+if 2009 > 2011
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

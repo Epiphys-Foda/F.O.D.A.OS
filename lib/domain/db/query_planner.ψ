@@ -1,0 +1,378 @@
+import "../domain_field.ψ"
+
+let QP_P = 65537
+let QP_OP_SCAN = 1
+let QP_OP_FILTER = 2
+let QP_OP_PROJECT = 3
+let QP_OP_JOIN = 4
+let QP_OP_AGG = 5
+let QP_OP_SORT = 6
+let QP_ACCESS_FULL = 1
+let QP_ACCESS_INDEX = 2
+let QP_ACCESS_INDEX_RANGE = 3
+let QP_JOIN_NESTED_LOOP = 1
+let QP_JOIN_HASH = 2
+let QP_JOIN_MERGE = 3
+let QP_W_CPU = 1
+let QP_W_IO = 4
+let QP_SMALL_TABLE = 100
+let QP_LARGE_TABLE = 10000
+let QP_PRED_EQ = 1
+let QP_PRED_RANGE = 2
+let QP_FIELD_SCALE  = 256
+let QP_FIELD_OFFSET = 1
+let QP_BRAGG_Z      = 256
+let qp_logical_plan_new(op_type, table_name) = [op_type, table_name, [], [], [], []]
+let qp_lp_op(p) = p[0]
+let qp_lp_table(p) = p[1]
+let qp_lp_preds(p) = p[2]
+let qp_lp_children(p) = p[5]
+let qp_lp_set_preds(plan, preds) =
+    plan[2] = preds
+    plan
+let qp_lp_set_projs(plan, projs) =
+    plan[3] = projs
+    plan
+let qp_lp_add_child(plan, child) =
+    let ch = qp_lp_children(plan)
+    ch.push(child)
+    plan[5] = ch
+    plan
+let qp_physical_plan_new(op_type, table_name, access_method) = [op_type, table_name, access_method, 0, 0, []]
+let qp_pp_op(p) = p[0]
+let qp_pp_access(p) = p[2]
+let qp_pp_cost(p) = p[3]
+let qp_pp_cardinality(p) = p[4]
+let qp_pp_children(p) = p[5]
+let qp_pp_set_cost(plan, cost) =
+    plan[3] = cost
+    plan
+let qp_pp_set_card(plan, card) =
+    plan[4] = card
+    plan
+let qp_pp_add_child(plan, child) =
+    let ch = qp_pp_children(plan)
+    ch.push(child)
+    plan[5] = ch
+    plan
+let qp_join_tree_new(left, right, join_type, condition) = [left, right, join_type, condition, 0]
+let qp_planner_new() = [{}, [], 0, []]
+let qp_p_stats(p) = p[0]
+let qp_p_current(p) = p[2]
+let qp_p_log(p) = p[3]
+let qp_p_set_current(p, plan) =
+    p[2] = plan
+    p
+let qp_stat_add(planner, table, rows, dm, im) =
+    let s = qp_p_stats(planner)
+    s[table] = [rows, dm, im]
+    planner[0] = s
+    planner
+let qp_stat_rows(planner, table) =
+    let e = qp_p_stats(planner)[table]
+    if e == 0
+        0
+    else
+        e[0]
+let qp_stat_distinct(planner, table, col_id) =
+    let e = qp_p_stats(planner)[table]
+    if e == 0
+        1
+    else
+        let d = e[1][col_id]
+        if d == 0
+            1
+        else
+            d
+let qp_stat_has_index(planner, table, col_id) =
+    let e = qp_p_stats(planner)[table]
+    if e == 0
+        0
+    else
+        let v = e[2][col_id]
+        if v == 0
+            0
+        else
+            1
+let qp_log_op(planner, rec) =
+    let lg = qp_p_log(planner)
+    lg.push(rec)
+    planner[3] = lg
+    planner
+let qp_parse_select(planner, table, preds, projs) =
+    qp_log_op(planner, ["parse_select", table, len(preds), len(projs)])
+    [table, preds, projs]
+let qp_build_logical_plan(planner, parsed) =
+    let table = parsed[0]
+    let preds = parsed[1]
+    let projs = parsed[2]
+    let scan = qp_logical_plan_new(QP_OP_SCAN, table)
+    if len(preds) > 0
+        scan = qp_lp_set_preds(scan, preds)
+    let root = scan
+    if len(preds) > 0
+        let filt = qp_logical_plan_new(QP_OP_FILTER, table)
+        filt = qp_lp_set_preds(filt, preds)
+        filt = qp_lp_add_child(filt, scan)
+        root = filt
+    if len(projs) > 0
+        let proj = qp_logical_plan_new(QP_OP_PROJECT, table)
+        proj = qp_lp_set_projs(proj, projs)
+        proj = qp_lp_add_child(proj, root)
+        root = proj
+    qp_log_op(planner, ["build_logical", table, len(preds), len(projs)])
+    root
+let qp_estimate_cardinality(planner, table, preds) =
+    let rows = qp_stat_rows(planner, table)
+    if rows == 0
+        rows
+    let card = rows
+    let i = 0
+    for i < len(preds)
+        let pred = preds[i]
+        if pred[1] == QP_PRED_EQ
+            let d = qp_stat_distinct(planner, table, pred[0])
+            card = card / d
+            if card == 0
+                card = 1
+            else
+                0
+        if pred[1] == QP_PRED_RANGE
+            card = card / 4
+            if card == 0
+                card = 1
+        i = i + 1
+    card
+let qp_choose_access_method(planner, table, preds) =
+    if len(preds) == 0
+        QP_ACCESS_FULL
+    let i = 0
+    let has_eq = 0
+    let has_range = 0
+    for i < len(preds)
+        if qp_stat_has_index(planner, table, preds[i][0]) == 1
+            if preds[i][1] == QP_PRED_EQ
+                has_eq = 1
+            else
+                0
+            if preds[i][1] == QP_PRED_RANGE
+                has_range = 1
+        i = i + 1
+    if has_eq == 1
+        QP_ACCESS_INDEX
+    if has_range == 1
+        QP_ACCESS_INDEX_RANGE
+    QP_ACCESS_FULL
+let qp_choose_join_algo(planner, left_card, right_card) =
+    let small = left_card
+    let large = right_card
+    if left_card > right_card
+        small = right_card
+        large = left_card
+    if small < QP_SMALL_TABLE
+        if large >= QP_LARGE_TABLE
+            QP_JOIN_HASH
+        else
+            QP_JOIN_NESTED_LOOP
+    else
+        0
+    if small >= QP_LARGE_TABLE
+        QP_JOIN_MERGE
+    else
+        QP_JOIN_HASH
+let qp_join_cost(left_card, right_card, algo) =
+    if algo == QP_JOIN_NESTED_LOOP
+        (left_card * right_card) % QP_P
+    else
+        0
+    if algo == QP_JOIN_HASH
+        (left_card + right_card) % QP_P
+    else
+        0
+    if algo == QP_JOIN_MERGE
+        (left_card + right_card) % QP_P
+    else
+        (left_card * right_card) % QP_P
+let qp_choose_join_order(planner, joins_buf) =
+    let remaining = []
+    let i = 0
+    for i < len(joins_buf)
+        remaining.push(joins_buf[i])
+        i = i + 1
+    let ordered = []
+    for len(remaining) > 0
+        let best_idx = 0
+        let best_cost = QP_P
+        let j = 0
+        for j < len(remaining)
+            let jn = remaining[j]
+            let lc = qp_estimate_cardinality(planner, jn[0], [])
+            let rc = qp_estimate_cardinality(planner, jn[1], [])
+            let c = qp_join_cost(lc, rc, qp_choose_join_algo(planner, lc, rc))
+            if c < best_cost
+                best_cost = c
+                best_idx = j
+            j = j + 1
+        ordered.push(remaining[best_idx])
+        let nr = []
+        let k = 0
+        for k < len(remaining)
+            if k != best_idx
+                nr.push(remaining[k])
+            k = k + 1
+        remaining = nr
+    qp_log_op(planner, ["join_order", len(ordered)])
+    ordered
+let qp_ilog2(n) =
+    let r = 0
+    let v = n
+    for v > 1
+        v = v / 2
+        r = r + 1
+    r
+let qp_collect_children_pp(planner, pp, children) =
+    let i = 0
+    let tc = 0
+    let tcard = 0
+    for i < len(children)
+        let cpp = qp_build_physical_plan(planner, children[i])
+        pp = qp_pp_add_child(pp, cpp)
+        tc = tc + qp_pp_cost(cpp)
+        tcard = tcard + qp_pp_cardinality(cpp)
+        i = i + 1
+    [pp, tc, tcard]
+let qp_build_physical_plan(planner, lp) =
+    let op = qp_lp_op(lp)
+    let table = qp_lp_table(lp)
+    let preds = qp_lp_preds(lp)
+    let children = qp_lp_children(lp)
+    if op == QP_OP_SCAN
+        let access = qp_choose_access_method(planner, table, preds)
+        let pp = qp_physical_plan_new(QP_OP_SCAN, table, access)
+        let card = qp_estimate_cardinality(planner, table, preds)
+        let rows = qp_stat_rows(planner, table)
+        let cost = 0
+        if access == QP_ACCESS_FULL
+            cost = rows * QP_W_IO
+        else
+            cost = qp_ilog2(rows + 1) * QP_W_IO + card * QP_W_CPU
+        pp = qp_pp_set_cost(pp, cost)
+        pp = qp_pp_set_card(pp, card)
+        pp
+    else
+        0
+    if op == QP_OP_FILTER
+        let pp = qp_physical_plan_new(QP_OP_FILTER, table, 0)
+        let r = qp_collect_children_pp(planner, pp, children)
+        pp = r[0]
+        let card = qp_estimate_cardinality(planner, table, preds)
+        if card == 0
+            card = r[2]
+        pp = qp_pp_set_cost(pp, card * QP_W_CPU)
+        pp = qp_pp_set_card(pp, card)
+        pp
+    if op == QP_OP_PROJECT
+        let pp = qp_physical_plan_new(QP_OP_PROJECT, table, 0)
+        let r = qp_collect_children_pp(planner, pp, children)
+        pp = r[0]
+        let card = 0
+        if len(qp_pp_children(pp)) > 0
+            card = qp_pp_cardinality(qp_pp_children(pp)[0])
+        pp = qp_pp_set_cost(pp, r[1] + card * QP_W_CPU)
+        pp = qp_pp_set_card(pp, card)
+        pp
+    if op == QP_OP_JOIN
+        let pp = qp_physical_plan_new(QP_OP_JOIN, table, 0)
+        let l_card = 0
+        let r_card = 0
+        if len(children) >= 2
+            let l_pp = qp_build_physical_plan(planner, children[0])
+            let r_pp = qp_build_physical_plan(planner, children[1])
+            pp = qp_pp_add_child(pp, l_pp)
+            pp = qp_pp_add_child(pp, r_pp)
+            l_card = qp_pp_cardinality(l_pp)
+            r_card = qp_pp_cardinality(r_pp)
+        let jcost = qp_join_cost(l_card, r_card, qp_choose_join_algo(planner, l_card, r_card))
+        pp = qp_pp_set_cost(pp, jcost)
+        pp = qp_pp_set_card(pp, (l_card + r_card) % QP_P)
+        pp
+    else
+        let pp = qp_physical_plan_new(op, table, 0)
+        let r = qp_collect_children_pp(planner, pp, children)
+        pp = r[0]
+        let card = r[2]
+        if op == QP_OP_SORT
+            let sc = 0
+            if card > 1
+                sc = qp_ilog2(card + 1) * card * QP_W_CPU
+            pp = qp_pp_set_cost(pp, r[1] + sc)
+        if op == QP_OP_AGG
+            pp = qp_pp_set_cost(pp, r[1] + card * QP_W_CPU)
+        else
+            pp = qp_pp_set_cost(pp, r[1])
+        pp = qp_pp_set_card(pp, card)
+        pp
+let qp_plan_hash(plan) =
+    if plan == 0
+        0
+    let h = qp_pp_op(plan)
+    h = (h * 31 + qp_pp_access(plan)) % QP_P
+    h = (h * 31 + qp_pp_cost(plan)) % QP_P
+    h = (h * 31 + qp_pp_cardinality(plan)) % QP_P
+    let ch = qp_pp_children(plan)
+    let i = 0
+    for i < len(ch)
+        h = (h * 7 + qp_plan_hash(ch[i])) % QP_P
+        i = i + 1
+    h
+let qp_bragg_verify(planner, ops_seq) =
+    let ok = 1
+    let ph = 0
+    let cur = qp_p_current(planner)
+    if cur != 0
+        ph = qp_plan_hash(cur)
+    if len(ops_seq) != len(qp_p_log(planner))
+        ok = 0
+    [ok, ph, len(qp_p_log(planner))]
+let qp_default_planner() =
+    let p = qp_planner_new()
+    p = qp_stat_add(p, "users", 1000, [0, 100, 50], [0, 1, 0])
+    p = qp_stat_add(p, "orders", 5000, [0, 5000, 100], [0, 1, 1])
+    p = qp_stat_add(p, "items", 100, [0, 100], [0, 1])
+    p
+let qp_self_test() =
+    let p = qp_default_planner()
+    let preds = [[1, QP_PRED_EQ, 42]]
+    let projs = [1, 2]
+    let parsed = qp_parse_select(p, "users", preds, projs)
+    let lp = qp_build_logical_plan(p, parsed)
+    let ok1 = qp_lp_op(lp) == QP_OP_PROJECT
+    let card = qp_estimate_cardinality(p, "users", preds)
+    let ok2 = card == 10
+    let am = qp_choose_access_method(p, "users", preds)
+    let ok3 = am == QP_ACCESS_INDEX
+    let algo = qp_choose_join_algo(p, 10, 5000)
+    let ok4 = algo == QP_JOIN_HASH
+    let pp = qp_build_physical_plan(p, lp)
+    let ok5 = qp_pp_op(pp) == QP_OP_PROJECT
+    let ok6 = qp_pp_access(qp_pp_children(pp)[0]) == QP_ACCESS_INDEX
+    p = qp_p_set_current(p, pp)
+    let bv = qp_bragg_verify(p, qp_p_log(p))
+    let ok7 = bv[0] == 1
+    ["query_planner", ok1, ok2, ok3, ok4, ok5, ok6, ok7]
+
+let qp_gf_mod(x) = domain_gf_mod(x)
+
+let qp_gf_inv(a) = domain_gf_inv(a)
+
+let qp_field_encode(items, n) =
+    let records = []
+    let _i = 0
+    for _i < n
+        records.push([items[_i], items[_i]])
+        _i = _i + 1
+    domain_field_encode(records, n, 1, 0)
+let qp_field_eval(poles, residues, z) = domain_field_eval(poles, residues, z)
+
+let qp_field_bragg_verify(current, replay) = domain_bragg_verify(current[0], current[1], replay[0], replay[1])
+

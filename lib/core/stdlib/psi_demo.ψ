@@ -1,0 +1,57 @@
+import "psi_dataflow.ψ"
+import "dag_scheduler.ψ"
+
+let true PSI_THETA = [0]
+let psi_frame_eval(node_id, opcode, pe_type) =
+    psi_demo_eval(node_id, opcode, pe_type, PSI_THETA[0])
+
+let psi_demo_scene() =
+    let d = dag_create()
+    d = dag_add_node_v13_1(d, 16, 16, -1, 0)
+    d = dag_add_node_v13_1(d, 1, 1, 0, 0)
+    d = dag_add_node_v13_1(d, 3, 3, -1, 1)
+    d = dag_add_node_v13_1(d, 4, 4, -1, 2)
+    d = dag_add_node_v13_1(d, 17, 17, -1, 3)
+    d = dag_add_edge_v13_1(d, 0, 0, 1, 0, 0, 4)
+    d = dag_add_edge_v13_1(d, 1, 0, 2, 0, 0, 4)
+    d = dag_add_edge_v13_1(d, 2, 0, 3, 0, 0, 4)
+    d = dag_add_edge_v13_1(d, 3, 0, 4, 0, 0, 4)
+    d
+
+let psi_demo_eval(node_id, opcode, pe_type, theta) =
+    if node_id == 0
+      theta
+    else
+      if node_id == 1
+        (theta * 6) % 65537
+      else
+        if node_id == 2
+          let t2 = (theta * 6) % 65537
+          (t2 * 2) % 65537
+        else
+          if node_id == 3
+            ((theta * 6) % 65537 > 100 ? 1 : 0)
+          else
+                0
+            theta
+
+let psi_demo_animate(scene, frames, theta0, delta) =
+    let frame_results = []
+    let fi = 0
+    let done = false
+    for !done
+      if fi < frames
+        let theta = theta0 + delta * fi
+        PSI_THETA[0] = theta
+        let r = sched_run(scene, psi_frame_eval)
+        frame_results = frame_results.push(r.results[4])
+        fi = fi + 1
+      else
+        done = true
+    frame_results
+
+let psi_demo_frame_stats(dag) =
+    let eval_any(node_id, opcode, pe_type) = 1
+    let r = sched_run(dag, eval_any)
+    let profile = sched_parallelism_profile(dag)
+    { num_batches: r.num_batches, max_parallel: r.max_parallel, critical_path: r.critical_path, profile: profile }

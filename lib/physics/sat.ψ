@@ -1,0 +1,113 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let bool_not(x) = 1 - x
+let bool_or(a, b) =
+    (a == 1 ? 1 : b)
+
+let clause0(x0, x1, x2) = bool_or(bool_or(x0, x1), x2)
+let clause1(x0, x1, x2) = bool_or(bool_not(x0), x1)
+let clause2(x0, x1, x2) = bool_or(bool_not(x1), x2)
+let clause3(x0, x1, x2) = bool_or(x0, bool_not(x2))
+
+let energy(x0, x1, x2) =
+    let e = 0
+    if clause0(x0, x1, x2) == 0
+        e = e + 1
+    if clause1(x0, x1, x2) == 0
+        e = e + 1
+    if clause2(x0, x1, x2) == 0
+        e = e + 1
+    if clause3(x0, x1, x2) == 0
+        e = e + 1
+    e
+
+let solve_3sat(x0_init, x1_init, x2_init) =
+    let x0 = x0_init
+    let x1 = x1_init
+    let x2 = x2_init
+    let t = 0
+    let e = energy(x0, x1, x2)
+    for t < 32
+        if e == 0
+            t = 32
+        else
+            let improved = 0
+            let e0 = energy(bool_not(x0), x1, x2)
+            if e0 < e
+                x0 = bool_not(x0)
+                e = e0
+                improved = 1
+            let e1 = energy(x0, bool_not(x1), x2)
+            if e1 < e
+                x1 = bool_not(x1)
+                e = e1
+                improved = 1
+            let e2 = energy(x0, x1, bool_not(x2))
+            if e2 < e
+                x2 = bool_not(x2)
+                e = e2
+                improved = 1
+            if improved == 0
+                let e01 = energy(bool_not(x0), bool_not(x1), x2)
+                if e01 < e
+                    x0 = bool_not(x0)
+                    x1 = bool_not(x1)
+                    e = e01
+                else
+                    let e12 = energy(x0, bool_not(x1), bool_not(x2))
+                    if e12 < e
+                        x1 = bool_not(x1)
+                        x2 = bool_not(x2)
+                        e = e12
+                    else
+                        let e02 = energy(bool_not(x0), x1, bool_not(x2))
+                        if e02 < e
+                            x0 = bool_not(x0)
+                            x2 = bool_not(x2)
+                            e = e02
+                        else
+                            let e123 = energy(bool_not(x0), bool_not(x1), bool_not(x2))
+                            if e123 < e
+                                x0 = bool_not(x0)
+                                x1 = bool_not(x1)
+                                x2 = bool_not(x2)
+                                e = e123
+            t = t + 1
+    x0 * 100 + x1 * 10 + x2
+
+let main() =
+    let pass = 0
+
+    let r = solve_3sat(0, 0, 0)
+    if energy(r / 100, (r % 100) / 10, r % 10) == 0
+        pass = pass + 1
+
+    r = solve_3sat(0, 0, 1)
+    if energy(r / 100, (r % 100) / 10, r % 10) == 0
+        pass = pass + 1
+
+    r = solve_3sat(0, 1, 0)
+    if energy(r / 100, (r % 100) / 10, r % 10) == 0
+        pass = pass + 1
+
+    r = solve_3sat(0, 1, 1)
+    if energy(r / 100, (r % 100) / 10, r % 10) == 0
+        pass = pass + 1
+
+    r = solve_3sat(1, 0, 0)
+    if energy(r / 100, (r % 100) / 10, r % 10) == 0
+        pass = pass + 1
+
+    r = solve_3sat(1, 0, 1)
+    if energy(r / 100, (r % 100) / 10, r % 10) == 0
+        pass = pass + 1
+
+    r = solve_3sat(1, 1, 0)
+    if energy(r / 100, (r % 100) / 10, r % 10) == 0
+        pass = pass + 1
+
+    r = solve_3sat(1, 1, 1)
+    if energy(r / 100, (r % 100) / 10, r % 10) == 0
+        pass = pass + 1
+
+    pass

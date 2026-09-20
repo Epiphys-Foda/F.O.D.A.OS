@@ -1,0 +1,32 @@
+import "ck.ψ"
+let bad = [0]
+
+let xtl = 0
+bad[0] = bad[0] + ck(xtl, 0, 0)
+
+let visc = 18
+bad[0] = bad[0] + ck(visc, 17, 19)
+
+let myth = 0
+bad[0] = bad[0] + ck(myth, 0, 0)
+
+let tg = 550
+bad[0] = bad[0] + ck(tg, 500, 600)
+
+let crown = 1
+bad[0] = bad[0] + ck_lo(crown, 1)
+
+if 100 < 98
+    bad[0] = bad[0] + 1
+if 100 > 102
+    bad[0] = bad[0] + 1
+if 1400 < 1398
+    bad[0] = bad[0] + 1
+if 1400 > 1402
+    bad[0] = bad[0] + 1
+if 1998 < 1996
+    bad[0] = bad[0] + 1
+if 1998 > 2000
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

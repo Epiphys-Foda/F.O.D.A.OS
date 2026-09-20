@@ -1,0 +1,284 @@
+import "residueon_common.ψ"
+
+let descriptive_stats_verify() =
+    let result = 0
+    let data = [1, 2, 3, 4, 5]
+    let sum = 0
+    let i = 0
+    for i < 5
+        sum = gf_add(sum, data[i])
+        i = i + 1
+    if gf_div(sum, 5) == 3
+        result = result + 1
+    if data[2] == 3
+        result = result + 1
+    let mode_data = [1, 2, 2, 3, 4]
+    if mode_data[1] == 2
+        result = result + 1
+    if mode_data[2] == 2
+        result = result + 1
+    result
+
+let variance_moment_verify() =
+    let result = 0
+    let sum_x = 15
+    let sum_x2 = 55
+    let n = 5
+    let var_n2 = gf_sub(gf_mul(n, sum_x2), gf_mul(sum_x, sum_x))
+    if var_n2 == 50
+        result = result + 1
+    if gf_div(var_n2, gf_mul(n, n)) == 2
+        result = result + 1
+    let m3 = gf_add(gf_add(gf_add(gf_add(65529, 65536), 0), 1), 8)
+    if m3 == 0
+        result = result + 1
+    let var_2x_n2 = gf_sub(gf_mul(5, 220), gf_mul(30, 30))
+    if gf_div(var_2x_n2, 25) == 8
+        result = result + 1
+    if gf_div(55, 5) == 11
+        result = result + 1
+    result
+
+let covariance_corr_verify() =
+    let result = 0
+    let cov_xx = gf_sub(gf_mul(3, 14), gf_mul(6, 6))
+    if cov_xx == 6
+        result = result + 1
+    let cov_xy = gf_sub(gf_mul(3, 28), gf_mul(6, 12))
+    if cov_xy == 12
+        result = result + 1
+    let var_y = gf_sub(gf_mul(3, 56), gf_mul(12, 12))
+    if gf_mul(cov_xy, cov_xy) == gf_mul(cov_xx, var_y)
+        result = result + 1
+    let cov_ind = gf_sub(gf_mul(4, 1), gf_mul(2, 2))
+    if cov_ind == 0
+        result = result + 1
+    result
+
+let linear_regression_verify() =
+    let result = 0
+    let sum_x = 15
+    let sum_y = 35
+    let sum_xy = 125
+    let sum_x2 = 55
+    let n = 5
+    let cov_n2 = gf_sub(gf_mul(n, sum_xy), gf_mul(sum_x, sum_y))
+    let var_n2 = gf_sub(gf_mul(n, sum_x2), gf_mul(sum_x, sum_x))
+    let slope = gf_div(cov_n2, var_n2)
+    if slope == 2
+        result = result + 1
+    let mean_y = gf_div(sum_y, n)
+    let mean_x = gf_div(sum_x, n)
+    let intercept = gf_sub(mean_y, gf_mul(slope, mean_x))
+    if intercept == 1
+        result = result + 1
+    let var_y_n2 = gf_sub(gf_mul(5, 285), gf_mul(35, 35))
+    if gf_mul(cov_n2, cov_n2) == gf_mul(var_n2, var_y_n2)
+        result = result + 1
+    if gf_sub(9, gf_add(gf_mul(2, 4), 1)) == 0
+        result = result + 1
+    if gf_div(42, 14) == 3
+        result = result + 1
+    result
+
+let hypothesis_test_verify() =
+    let result = 0
+    let chi1 = gf_add(gf_add(gf_div(gf_mul(0, 0), 10), gf_div(gf_mul(0, 0), 20)), gf_div(gf_mul(0, 0), 30))
+    if chi1 == 0
+        result = result + 1
+    let chi2_scaled = gf_add(gf_div(gf_mul(4, 20), 10), gf_div(gf_mul(4, 20), 20))
+    if chi2_scaled == 12
+        result = result + 1
+    let t_stat = gf_div(gf_mul(2, 2), 2)
+    if t_stat == 2
+        result = result + 1
+    if gf_div(4, 2) == 2
+        result = result + 1
+    result
+
+let clt_verify() =
+    let result = 0
+    if gf_div(9, 3) == 3
+        result = result + 1
+    if gf_div(6, 2) == 3
+        result = result + 1
+    let var_x = 2
+    let n_samples = 4
+    let var_xbar = gf_div(var_x, n_samples)
+    if gf_mul(var_xbar, n_samples) == var_x
+        result = result + 1
+    if gf_sub(3, 3) == 0
+        result = result + 1
+    result
+
+let mgf_verify() =
+    let result = 0
+    if gf_mul(7, 0) == 0
+        result = result + 1
+    let p = gf_div(1, 2)
+    let m0 = gf_add(gf_sub(1, p), p)
+    if m0 == 1
+        result = result + 1
+    if gf_mul(5, gf_sub(1, 1)) == 0
+        result = result + 1
+    if gf_mul(1, 1) == 1
+        result = result + 1
+    result
+
+let sufficient_stats_verify() =
+    let result = 0
+    let sum_poisson = gf_add(gf_add(3, 5), 2)
+    if sum_poisson == 10
+        result = result + 1
+    let fisher = gf_div(3, 5)
+    if gf_mul(fisher, 5) == 3
+        result = result + 1
+    let var_estimator = gf_div(5, 3)
+    let cr_bound = gf_div(1, gf_mul(3, fisher))
+    if gf_mul(var_estimator, fisher) == 1
+        result = result + 1
+    let sum_x = gf_add(gf_add(1, 2), 3)
+    let sum_x2 = gf_add(gf_add(1, 4), 9)
+    if sum_x == 6
+        result = result + 1
+    if sum_x2 == 14
+        result = result + 1
+    result
+
+let stats_pcd_rrc_verify() =
+    let result = 0
+    let p1 = gf_div(1, 4)
+    let p2 = gf_div(1, 4)
+    let p3 = gf_div(1, 4)
+    let p4 = gf_div(1, 4)
+    if gf_add(gf_add(gf_add(p1, p2), p3), p4) == 1
+        result = result + 1
+    if p1 > 0
+        result = result + 1
+    if gf_mul(4, p1) == 1
+        result = result + 1
+    if gf_add(gf_add(1, 65536), 0) == 0
+        result = result + 1
+    if gf_div(3, 5) > 0
+        result = result + 1
+    result
+
+let residueon_stats_full_verify() =
+    let ok = 0
+
+    if descriptive_stats_verify() == 4
+        ok = ok + 1
+
+    if variance_moment_verify() == 5
+        ok = ok + 1
+
+    if covariance_corr_verify() == 4
+        ok = ok + 1
+
+    if linear_regression_verify() == 5
+        ok = ok + 1
+
+    if hypothesis_test_verify() == 4
+        ok = ok + 1
+
+    if clt_verify() == 4
+        ok = ok + 1
+
+    if mgf_verify() == 4
+        ok = ok + 1
+
+    if sufficient_stats_verify() == 5
+        ok = ok + 1
+
+    if stats_pcd_rrc_verify() == 5
+        ok = ok + 1
+
+    ok = ok + cross_domain_base()
+
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+
+    if gf_mul(1, 6) == 6
+        ok = ok + 1
+
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+
+    if gf_mul(3, 3) == 9
+        ok = ok + 1
+
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+
+    if gf_div(30, 60) == gf_div(1, 2)
+        ok = ok + 1
+
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_stats_full_verify()

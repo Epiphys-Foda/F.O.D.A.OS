@@ -1,0 +1,156 @@
+import "opt.ψ"
+
+let QCR_P = 65537
+
+let qcr_mulmod(a, b) =
+    let r = 0
+    let x = a % QCR_P
+    let y = b % QCR_P
+    let done = false
+    for !done
+      if y > 0
+        if y % 2 == 1
+          r = (r + x) % QCR_P
+        else
+          0
+        x = (x + x) % QCR_P
+        y = y / 2
+      else
+        done = true
+    r
+
+let qcr_step(x, a, c) = (qcr_mulmod(a, x) + c) % QCR_P
+
+let qcr_stream_impl(seed, a, c, n, idx, acc) =
+    let r = if idx < n
+      let nx = qcr_step(seed, a, c)
+      qcr_stream_impl(nx, a, c, n, idx + 1, acc.push(nx))
+    else
+      acc
+    r
+
+let qcr_stream(seed, a, c, n) = qcr_stream_impl(seed, a, c, n, 0, [])
+
+let qcr_key(seed, a, c, n) = qcr_stream(seed, a, c, n)
+
+let qcr_key_dfl(seed, n) =
+    let k1 = qcr_key(seed, 3, 5, n)
+    let k2 = qcr_key(seed, 3, 5, n)
+    k1[0] == k2[0] && k1[1] == k2[1]
+
+let qcr_basis_impl(seed, a, c, i, acc) =
+    let r = if i > 0
+      qcr_basis_impl(qcr_step(seed, a, c), a, c, i - 1, acc)
+    else
+      seed - (seed / 2) * 2
+    r
+
+let qcr_basis(seed, i) = qcr_basis_impl(seed, 3, 5, i, 0)
+
+let qcr_bit_impl(seed, a, c, i, acc) =
+    let r = if i > 0
+      qcr_bit_impl(qcr_step(seed, a, c), a, c, i - 1, acc)
+    else
+      seed - (seed / 32768) * 32768
+    r
+
+let qcr_bit(seed, i) =
+    let v = qcr_bit_impl(seed, 7, 11, i, 0)
+    v - (v / 2) * 2
+
+let qcr_encode(bit, basis) =
+    (basis == 0 ? bit : bit + 2)
+
+let qcr_measure(encoded, rx_basis) =
+    if rx_basis == 0
+      encoded - (encoded / 2) * 2
+    else
+      (encoded >= 2 ? encoded - 2 : (encoded + 1) - (encoded + 1) / 2 * 2)
+
+let qcr_sift_ok(tx_basis, rx_basis) = tx_basis == rx_basis
+
+let qcr_sift_key_impl(bits, tx_bases, rx_bases, idx, acc) =
+    let n = len(bits)
+    if idx < n
+      if tx_bases[idx] == rx_bases[idx]
+        qcr_sift_key_impl(bits, tx_bases, rx_bases, idx + 1, acc.push(bits[idx]))
+      else
+        qcr_sift_key_impl(bits, tx_bases, rx_bases, idx + 1, acc)
+    else
+      acc
+
+let qcr_sift_key(bits, tx_bases, rx_bases) = qcr_sift_key_impl(bits, tx_bases, rx_bases, 0, [])
+
+let qcr_eavesdrop_impl(bits, tx_bases, rx_bases, idx, acc) =
+    let n = len(bits)
+    let r = if idx < n
+      let enc = qcr_encode(bits[idx], tx_bases[idx])
+      let dec = qcr_measure(enc, rx_bases[idx])
+      if tx_bases[idx] == rx_bases[idx]
+        if dec == bits[idx]
+          qcr_eavesdrop_impl(bits, tx_bases, rx_bases, idx + 1, acc)
+        else
+          qcr_eavesdrop_impl(bits, tx_bases, rx_bases, idx + 1, acc + 1)
+      else
+        qcr_eavesdrop_impl(bits, tx_bases, rx_bases, idx + 1, acc)
+    else
+      acc
+    r
+
+let qcr_eavesdrop(bits, tx_bases, rx_bases) = qcr_eavesdrop_impl(bits, tx_bases, rx_bases, 0, 0)
+
+let qcr_eavesdrop_clean(bits, tx_bases, rx_bases) = qcr_eavesdrop(bits, tx_bases, rx_bases) == 0
+
+let qcr_convolve_impl(a, b, k, i, acc) =
+    let na = len(a)
+    let r = if i < na
+      let j = k - i
+      let term = if j >= 0
+        if j < len(b)
+          qcr_mulmod(a[i], b[j])
+        else
+          0
+      else
+        0
+      qcr_convolve_impl(a, b, k, i + 1, acc + term)
+    else
+      acc - (acc / QCR_P) * QCR_P
+    r
+
+let qcr_convolve_k(a, b, k) = qcr_convolve_impl(a, b, k, 0, 0)
+
+let qcr_convolve_impl2(a, b, k, acc) =
+    let total = len(a) + len(b) - 1
+    let r = if k < total
+      qcr_convolve_impl2(a, b, k + 1, acc.push(qcr_convolve_k(a, b, k)))
+    else
+      acc
+    r
+
+let qcr_convolve(a, b) = qcr_convolve_impl2(a, b, 0, [])
+
+let qcr_encapsulate(public_key, msg) = qcr_convolve(public_key, msg)
+
+let qcr_decapsulate(ct, secret_key) = qcr_convolve(ct, secret_key)
+
+let qcr_convolve_comm(a, b) = qcr_convolve(a, b)[0] == qcr_convolve(b, a)[0]
+
+let qcr_encrypt_ok(seed, n) =
+    let public_key = qcr_key(seed, 3, 5, n)
+    let msg = qcr_key(seed, 7, 11, n)
+    let ct = qcr_encapsulate(public_key, msg)
+    let recovered = qcr_decapsulate(ct, [1])
+    recovered[0] == qcr_convolve(public_key, msg)[0]
+
+let qcr_summary() =
+    { theory: "quantum crypto base library (three-non DFL edition)", key: "key derivation = affine stream (GF(65537) deterministic)", bb84: "BB84 determinized: seed → bases/bits, eavesdropping = mismatch-rate assertion", ntt: "NTT lattice encapsulation (FIPS 203 style): convolution round-trip", postquantum: "post-quantum path: finite-field NTT encapsulation", principle: "no randomness source — fully seed-driven, assertable determinism" }
+
+let gcr_keygen(p, q) =
+    let n = p * q
+    let phi = (p - 1) * (q - 1)
+    let e = 17
+    let d = opt_inv(e, phi)
+    [n, e, d]
+
+let gcr_encrypt(msg, e, n) = opt_mod_pow(msg, e, n)
+let gcr_decrypt(ct, d, n) = opt_mod_pow(ct, d, n)

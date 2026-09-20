@@ -1,0 +1,17 @@
+let bad = [0]
+
+let b_basic = 3
+let b_acid = 1
+let b_net = b_basic - b_acid
+let db = b_net - 2
+bad[0] = bad[0] + db * db
+let a_acid = 2
+let da2 = a_acid - 2
+bad[0] = bad[0] + da2 * da2
+let chain_a_charge = 0 - 1
+let chain_b_charge = 1 - 1
+let total = chain_a_charge + chain_b_charge
+let dt = total - (0 - 1)
+bad[0] = bad[0] + dt * dt
+
+arr_get(arr_new_n(1), bad[0])

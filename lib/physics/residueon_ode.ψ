@@ -1,0 +1,211 @@
+import "residueon_common.ψ"
+
+let first_order_ode_verify() =
+    let result = 0
+    if gf_mul(3, 3) == 9
+        result = result + 1
+    let y0 = 1
+    let y1 = gf_add(y0, y0)
+    let y2 = gf_add(y1, y1)
+    let y3 = gf_add(y2, y2)
+    if y3 == 8
+        result = result + 1
+    let y_exact = gf_add(gf_mul(2, 2), gf_mul(3, 2))
+    if y_exact == 10
+        result = result + 1
+    if gf_add(gf_mul(3, 3), gf_mul(3, 3)) == 18
+        result = result + 1
+    result
+
+let euler_verify() =
+    let result = 0
+    let y0 = 0
+    let y1 = gf_add(y0, gf_mul(2, 0))
+    let y2 = gf_add(y1, gf_mul(2, 1))
+    let y3 = gf_add(y2, gf_mul(2, 2))
+    if y3 == 6
+        result = result + 1
+    if y3 < 9
+        result = result + 1
+    let z0 = 1
+    let z1 = gf_add(z0, z0)
+    if z1 == 2
+        result = result + 1
+    result
+
+let second_order_ode_verify() =
+    let result = 0
+    if gf_sub(gf_mul(2, 2), 1) == 3
+        result = result + 1
+    let s0 = 1
+    let s1 = 0
+    let s2 = gf_sub(s1, s0)
+    let s3 = gf_sub(s2, s1)
+    let s5 = gf_sub(gf_sub(s3, s2), s3)
+    if s2 == 65536
+        result = result + 1
+    let s4 = gf_sub(s3, s2)
+    let s6 = gf_sub(s5, s4)
+    if s6 == s0
+        result = result + 1
+    result
+
+let boundary_value_verify() =
+    let result = 0
+    if gf_div(gf_sub(3, 0), 3) == 1
+        result = result + 1
+    if gf_div(gf_sub(6, 0), 3) == 2
+        result = result + 1
+    if gf_add(gf_mul(2, 0), 3) == 3
+        result = result + 1
+    result
+
+let stability_verify() =
+    let result = 0
+    let y1 = gf_add(1, gf_mul(65536, 1))
+    if y1 == 0
+        result = result + 1
+    if gf_sub(gf_mul(3, 3), 9) == 0
+        result = result + 1
+    if 3 > 1
+        result = result + 1
+    result
+
+let pde_verify() =
+    let result = 0
+    let u_xx = 2
+    let u_yy = 65535
+    if gf_add(u_xx, u_yy) == 0
+        result = result + 1
+    if gf_div(1, 2) > 0
+        result = result + 1
+    if gf_mul(gf_sub(3, 1), gf_sub(3, 1)) == 4
+        result = result + 1
+    result
+
+let conservation_verify() =
+    let result = 0
+    if gf_div(gf_sub(6, 2), 2) == 2
+        result = result + 1
+    let energy = gf_add(gf_mul(3, 3), gf_mul(4, 4))
+    if energy == 25
+        result = result + 1
+    if gf_sub(5, 3) == gf_sub(7, 5)
+        result = result + 1
+    result
+
+let ode_pcd_rrc_verify() =
+    let result = 0
+    if gf_add(2, 65535) == 0
+        result = result + 1
+    if gf_sub(gf_sub(gf_sub(gf_sub(gf_sub(0, 65536), 65536), 0), 1), gf_sub(gf_sub(gf_sub(0, 65536), 65536), 0)) == 65536
+        result = result + 1
+    if 0 < 1
+        result = result + 1
+    if gf_add(gf_mul(3, 3), gf_mul(4, 4)) == 25
+        result = result + 1
+    if gf_div(6, 3) == 2
+        result = result + 1
+    result
+
+let residueon_ode_full_verify() =
+    let ok = 0
+
+    if first_order_ode_verify() == 4
+        ok = ok + 1
+
+    if euler_verify() == 3
+        ok = ok + 1
+
+    if second_order_ode_verify() == 3
+        ok = ok + 1
+
+    if boundary_value_verify() == 3
+        ok = ok + 1
+
+    if stability_verify() == 3
+        ok = ok + 1
+
+    if pde_verify() == 3
+        ok = ok + 1
+
+    if conservation_verify() == 3
+        ok = ok + 1
+
+    if ode_pcd_rrc_verify() == 5
+        ok = ok + 1
+
+    ok = ok + cross_domain_base()
+
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(1, 6) == 6
+        ok = ok + 1
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_mul(3, 3) == 9
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(30, 60) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(256, 256) == 65536
+        ok = ok + 1
+    if gf_add(1, 65536) == 0
+        ok = ok + 1
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+    if gf_add(2, 65535) == 0
+        ok = ok + 1
+    if gf_sub(10, gf_div(gf_sub(gf_mul(2, 10), 6), 2)) == 3
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_ode_full_verify()

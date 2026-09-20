@@ -1,0 +1,50 @@
+import "ck.ψ"
+let bad = [0]
+
+let dz1 = 1 + 7 - 8
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let dz2 = 2 * 2 * 2 - 8
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let dz3 = 9 + 7 - 16
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let dz4 = 2 * 2 * 2 * 2 - 16
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let dz5 = 25 + 7 - 32
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let dz6 = 2 * 2 * 2 * 2 * 2 - 32
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+let dz7 = 121 + 7 - 128
+bad[0] = bad[0] + ck(dz7, 0, 0)
+
+let dz8 = 2 * 2 * 2 * 2 * 2 * 2 * 2 - 128
+bad[0] = bad[0] + ck(dz8, 0, 0)
+
+let s181 = 181 * 181
+let dz9 = s181 - 32761
+bad[0] = bad[0] + ck(dz9, 0, 0)
+
+let dz10 = 32761 + 7 - 32768
+bad[0] = bad[0] + ck(dz10, 0, 0)
+
+let dz11 = 256 * 128 - 32768
+bad[0] = bad[0] + ck(dz11, 0, 0)
+
+let dz12 = 3 * 19 - 57
+bad[0] = bad[0] + ck(dz12, 0, 0)
+
+if 1913 < 1911
+    bad[0] = bad[0] + 1
+if 1913 > 1915
+    bad[0] = bad[0] + 1
+if 1948 < 1946
+    bad[0] = bad[0] + 1
+if 1948 > 1950
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,28 @@
+import "ck.ψ"
+let bad = [0]
+
+let ic = 1000
+let ib = 10
+let beta = ic / ib
+bad[0] = bad[0] + ck(beta, 50, 200)
+
+let ratio = 154000000000 / 2300
+bad[0] = bad[0] + ck(ratio, 66000000, 68000000)
+
+let univ = 1
+let duniv = univ - 1
+bad[0] = bad[0] + ck(duniv, 0, 0)
+
+let sw = 10
+bad[0] = bad[0] + ck(sw, 5, 20)
+
+if 1947 < 1945
+    bad[0] = bad[0] + 1
+if 1947 > 1949
+    bad[0] = bad[0] + 1
+if 1956 < 1954
+    bad[0] = bad[0] + 1
+if 1956 > 1958
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

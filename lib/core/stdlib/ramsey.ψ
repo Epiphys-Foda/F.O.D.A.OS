@@ -1,0 +1,251 @@
+let ramsey_qr17(x) =
+    let v = if x < 0
+      x + 17
+    else
+      if x >= 17
+        x - 17
+      else
+        x
+    let r1 = v == 1
+    let r2 = v == 2
+    let r4 = v == 4
+    let r8 = v == 8
+    let r9 = v == 9
+    let r13 = v == 13
+    let r15 = v == 15
+    let r16 = v == 16
+    r1 || r2 || r4 || r8 || r9 || r13 || r15 || r16
+
+let ramsey_paley17() =
+    let mat = []
+    let i = 0
+    for i < 17
+      let row = []
+      let j = 0
+      for j < 17
+        let is_red = if i == j
+          0
+        else
+          ramsey_qr17(i - j)
+        row = row.push(is_red)
+        j = j + 1
+      mat = mat.push(row)
+      i = i + 1
+    mat
+
+let ramsey_has_mono_k4(m) =
+    let a = 0
+    let found = 0
+    for a < 14
+      let b = a + 1
+      for b < 15
+        let c = b + 1
+        for c < 16
+          let d = c + 1
+          for d < 17
+            let e_ab = m[a][b]
+            let e_ac = m[a][c]
+            let e_ad = m[a][d]
+            let e_bc = m[b][c]
+            let e_bd = m[b][d]
+            let e_cd = m[c][d]
+            let red_all = e_ab == 1 && e_ac == 1 && e_ad == 1 && e_bc == 1 && e_bd == 1 && e_cd == 1
+            let blue_all = e_ab == 0 && e_ac == 0 && e_ad == 0 && e_bc == 0 && e_bd == 0 && e_cd == 0
+            if red_all || blue_all
+              found = 1
+            else
+              0
+            d = d + 1
+          c = c + 1
+        b = b + 1
+      a = a + 1
+    found
+
+let ramsey_c5_no_tri() =
+    let bad = 0
+    let i = 0
+    for i < 5
+      let j = i + 1
+      for j < 5
+        let k = j + 1
+        for k < 5
+          let e1 = if (j - i) == 1 || (j - i) == 4
+            1
+          else
+            0
+          let e2 = if (k - i) == 1 || (k - i) == 4
+            1
+          else
+            0
+          let e3 = if (k - j) == 1 || (k - j) == 4
+            1
+          else
+            0
+          let red_tri = e1 == 1 && e2 == 1 && e3 == 1
+          let blue_tri = e1 == 0 && e2 == 0 && e3 == 0
+          if red_tri || blue_tri
+            bad = 1
+          else
+            0
+          k = k + 1
+        j = j + 1
+      i = i + 1
+    bad == 0
+
+let ramsey_find_tri(c15) =
+    let i = 0
+    let res = []
+    for i < 6
+      let j = i + 1
+      for j < 6
+        let k = j + 1
+        for k < 6
+          let idx_ij = ramsey_edge_idx(i, j)
+          let idx_ik = ramsey_edge_idx(i, k)
+          let idx_jk = ramsey_edge_idx(j, k)
+          let e1 = c15[idx_ij]
+          let e2 = c15[idx_ik]
+          let e3 = c15[idx_jk]
+          if e1 == e2 && e2 == e3
+            if len(res) == 0
+              res = [i, j, k]
+            else
+                0
+          else
+            0
+          k = k + 1
+        j = j + 1
+      i = i + 1
+    res
+
+let ramsey_edge_idx(a, b) =
+    let off = 0
+    let r = 0
+    for r < a
+      off = off + (5 - r)
+      r = r + 1
+    off + (b - a - 1)
+
+let ramsey_deg(m, v) =
+    let s = 0
+    let j = 0
+    let done = false
+    for !done
+      if j < 17
+        let bit = m[v][j]
+        if bit == 1
+          s = s + 1
+        else
+          0
+        j = j + 1
+      else
+        done = true
+    s
+
+let ramsey_verify() =
+    let results = []
+    let ok1 = ramsey_c5_no_tri()
+    let all_red = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    let t1 = ramsey_find_tri(all_red)
+    let ok2 = len(t1) == 3
+    let all_blue = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    let t2 = ramsey_find_tri(all_blue)
+    let ok3 = len(t2) == 3
+    let mixed = [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1]
+    let t3 = ramsey_find_tri(mixed)
+    let ok4 = len(t3) == 3
+    let p17 = ramsey_paley17()
+    let ok5 = ramsey_has_mono_k4(p17) == 0
+    let deg0 = ramsey_deg(p17, 0)
+    let ok6 = deg0 == 8
+    let ok7 = ok1 && ok2 && ok3 && ok4 && ok5 && ok6
+    [ok1, ok2, ok3, ok4, ok5, ok6, ok7]
+
+let ramsey_qr41(x) =
+    let v = (x < 0 ? x + 41 : (x >= 41 ? x - 41 : x))
+    let r1 = v == 1
+    let r2 = v == 4
+    let r3 = v == 9
+    let r4 = v == 16
+    let r5 = v == 25
+    let r6 = v == 36
+    let r7 = v == 8
+    let r8 = v == 23
+    let r9 = v == 40
+    let r10 = v == 18
+    let r11 = v == 39
+    let r12 = v == 21
+    let r13 = v == 5
+    let r14 = v == 32
+    let r15 = v == 20
+    let r16 = v == 10
+    let r17 = v == 2
+    let r18 = v == 37
+    let r19 = v == 33
+    let r20 = v == 31
+    r1 || r2 || r3 || r4 || r5 || r6 || r7 || r8 || r9 || r10 || r11 || r12 || r13 || r14 || r15 || r16 || r17 || r18 || r19 || r20
+
+let r55_paley41() =
+    let mat = []
+    let i = 0
+    for i < 41
+      let row = []
+      let j = 0
+      for j < 41
+        let is_red = (i == j ? 0 : (ramsey_qr41(i - j) ? 1 : 0))
+        row = row.push(is_red)
+        j = j + 1
+      mat = mat.push(row)
+      i = i + 1
+    mat
+
+let r55_has_mono_k5(m) =
+      let a = 0
+      let found = 0
+      for a < 37
+        let b = a + 1
+        for b < 38
+          let c = b + 1
+          for c < 39
+            let d = c + 1
+            for d < 40
+              let e = d + 1
+              for e < 41
+                let e_ab = m[a][b]
+                let e_ac = m[a][c]
+                let e_ad = m[a][d]
+                let e_ae = m[a][e]
+                let e_bc = m[b][c]
+                let e_bd = m[b][d]
+                let e_be = m[b][e]
+                let e_cd = m[c][d]
+                let e_ce = m[c][e]
+                let e_de = m[d][e]
+                let red_all = e_ab == 1 && e_ac == 1 && e_ad == 1 && e_ae == 1 && e_bc == 1 && e_bd == 1 && e_be == 1 && e_cd == 1 && e_ce == 1 && e_de == 1
+                let blue_all = e_ab == 0 && e_ac == 0 && e_ad == 0 && e_ae == 0 && e_bc == 0 && e_bd == 0 && e_be == 0 && e_cd == 0 && e_ce == 0 && e_de == 0
+                if red_all || blue_all
+                  found = 1
+                else
+                  0
+                e = e + 1
+              d = d + 1
+            c = c + 1
+          b = b + 1
+        a = a + 1
+      found
+
+let r55_construct() = r55_paley41()
+
+let r55_construct_verify() =
+    let m = r55_paley41()
+    let no_k5 = r55_has_mono_k5(m) == 0
+    let deg0 = ramsey_deg(m, 0)
+    let deg_ok = deg0 == 20
+    (no_k5 && deg_ok) ? 1 : 0
+
+let r55_summary() =
+    let m = r55_paley41()
+    let has_k5 = r55_has_mono_k5(m)
+    let deg0 = ramsey_deg(m, 0)
+    let v = [1 - has_k5, deg0, 41]
+    v

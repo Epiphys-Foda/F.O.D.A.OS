@@ -1,0 +1,113 @@
+import "quantum_circuit.ψ"
+let qs_h2() = [[1, 1], [1, 65536]]
+
+let qs_x2() = [[0, 1], [1, 0]]
+
+let qs_z2() = [[1, 0], [0, 65536]]
+
+let qs_id2() = [[1, 0], [0, 1]]
+
+let qs_cnot4() = [
+      [1, 0, 0, 0],
+      [0, 1, 0, 0],
+      [0, 0, 0, 1],
+      [0, 0, 1, 0]
+    ]
+
+let qs_tensor2(ma, mb) =
+    let result = []
+    let r = 0
+    let done = false
+    for !done
+      if r < 4
+        let i = r / 2
+        let p = r % 2
+        let row_bp = mb[p]
+        let row = [
+          qc_mul(ma[i][0], row_bp[0]),
+          qc_mul(ma[i][0], row_bp[1]),
+          qc_mul(ma[i][1], row_bp[0]),
+          qc_mul(ma[i][1], row_bp[1])
+        ]
+        result = result.push(row)
+        r = r + 1
+      else
+        done = true
+    result
+
+let qs_qft4(omega4) =
+    let result = []
+    let j = 0
+    let done = false
+    for !done
+      if j < 4
+        let row = []
+        let k = 0
+        let kd = false
+        for !kd
+          if k < 4
+            let phase = (j * k) % 4
+            let unit = omega4[phase]
+            row = row.push(qc_mul(unit, qc_inv(2)))
+            k = k + 1
+          else
+            kd = true
+        result = result.push(row)
+        j = j + 1
+      else
+        done = true
+    result
+
+let qs_iqft4(omega4) =
+    let result = []
+    let j = 0
+    let done = false
+    for !done
+      if j < 4
+        let row = []
+        let k = 0
+        let kd = false
+        for !kd
+          if k < 4
+            let phase = (j * k) % 4
+            let unit = omega4[(4 - phase) % 4]
+            row = row.push(qc_mul(unit, qc_inv(2)))
+            k = k + 1
+          else
+            kd = true
+        result = result.push(row)
+        j = j + 1
+      else
+        done = true
+    result
+
+let qs_qft_roundtrip(omega4) =
+    let results = []
+    let qft = qs_qft4(omega4)
+    let iqft = qs_iqft4(omega4)
+    let b = 0
+    let done = false
+    for !done
+      if b < 4
+        let basis = [0, 0, 0, 0]
+        basis = [basis.slice(0, b), 1, basis.slice(b + 1, 4)].flat()
+        let mid = qs_matvec4(qft, basis)
+        let back = qs_matvec4(iqft, mid)
+        let max_i = 0
+        let mi = 0
+        let mn = 4
+        let md = false
+        for !md
+          if mi < mn
+            if back[mi] > back[max_i]
+              max_i = mi
+            else
+              0
+            mi = mi + 1
+          else
+            md = true
+        results = results.push(max_i == b)
+        b = b + 1
+      else
+        done = true
+    results

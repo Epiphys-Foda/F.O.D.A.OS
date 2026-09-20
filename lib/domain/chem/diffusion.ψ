@@ -1,0 +1,43 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let d = 2000
+bad[0] = bad[0] + ck(d, 1800, 2200)
+
+let t_ecoli = small_div(2 * 2, 2)
+bad[0] = bad[0] + ck(t_ecoli, 1, 4)
+
+let t100 = small_div(100 * 100, d)
+bad[0] = bad[0] + ck(t100, 4, 7)
+
+let t_mm = small_div(1000 * 1000, d)
+bad[0] = bad[0] + ck(t_mm, 450, 560)
+
+let t_cm = small_div(10000 * 10000, d)
+bad[0] = bad[0] + ck(t_cm, 45000, 56000)
+
+let ratio = small_div(t_cm, t100)
+if ratio != 10000
+    bad[0] = bad[0] + 1
+
+let q = small_div(t_cm * 10000, 1000)
+let yr = small_div(q, 315)
+bad[0] = bad[0] + ck(yr, 1400, 1800)
+
+let krogh = 100
+bad[0] = bad[0] + ck(krogh, 80, 200)
+
+bad[0] = bad[0] + ck_hi(t100, 60)
+
+if 1855 < 1853
+    bad[0] = bad[0] + 1
+if 1855 > 1857
+    bad[0] = bad[0] + 1
+if 1827 < 1825
+    bad[0] = bad[0] + 1
+if 1827 > 1829
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

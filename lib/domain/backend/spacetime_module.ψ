@@ -1,0 +1,562 @@
+import "../domain_field.ψ"
+let STM_P = 65537
+
+let STM_STATE_CREATED   = 0
+let STM_STATE_INITIALIZING = 1
+let STM_STATE_READY     = 2
+let STM_STATE_UPGRADING = 3
+let STM_STATE_DELETING  = 4
+let STM_STATE_DELETED   = 5
+let STM_STATE_ERROR    = 6
+
+let STM_PERM_NONE      = 0
+let STM_PERM_READ     = 1
+let STM_PERM_WRITE    = 2
+let STM_PERM_READWRITE = 3
+
+let STM_DESC_TABLE    = 1
+let STM_DESC_REDUCER  = 2
+let STM_DESC_TIMER    = 3
+let STM_DESC_SUBSCRIPTION = 4
+
+let stm_version_new(maj, minr, pat) = [maj, minr, pat]
+let stm_version_major(v) = v[0]
+let stm_version_minor(v) = v[1]
+let stm_version_patch(v) = v[2]
+
+let stm_version_compat(required, actual) =
+    if stm_version_major(required) != stm_version_major(actual)
+        0
+    else
+        0
+    if stm_version_minor(actual) < stm_version_minor(required)
+        0
+    else
+        1
+
+let stm_version_cmp(a, b) =
+    if stm_version_major(a) < stm_version_major(b)
+        -1
+    else
+        0
+    if stm_version_major(a) > stm_version_major(b)
+        1
+    else
+        if stm_version_minor(a) < stm_version_minor(b)
+            -1
+        else
+            0
+        if stm_version_minor(a) > stm_version_minor(b)
+            1
+        else
+            if stm_version_patch(a) < stm_version_patch(b)
+                -1
+            else
+                0
+            if stm_version_patch(a) > stm_version_patch(b)
+                1
+            else
+                0
+
+let stm_table_new(name, schema_fields, access_perm, indices) =
+    [name, schema_fields, access_perm, indices]
+
+let stm_tbl_name(t)     = t[0]
+let stm_tbl_schema(t)    = t[1]
+let stm_tbl_perm(t)      = t[2]
+let stm_tbl_indices(t)   = t[3]
+
+let stm_reducer_new(name, params, body_ref, table_access, idempotent) =
+    [name, params, body_ref, table_access, idempotent]
+
+let stm_rdc_name(r)      = r[0]
+let stm_rdc_params(r)    = r[1]
+let stm_rdc_body(r)      = r[2]
+let stm_rdc_access(r)    = r[3]
+let stm_rdc_idempotent(r) = r[4]
+
+let stm_timer_new(name, schedule, reducer_ref, initial_delay, period) =
+    [name, schedule, reducer_ref, initial_delay, period]
+
+let stm_tmr_name(t)         = t[0]
+let stm_tmr_schedule(t)     = t[1]
+let stm_tmr_reducer(t)      = t[2]
+let stm_tmr_delay(t)        = t[3]
+let stm_tmr_period(t)       = t[4]
+
+let stm_subscription_new(name, table_filter, op_mask, reducer_ref) =
+    [name, table_filter, op_mask, reducer_ref]
+
+let stm_sub_name(s)        = s[0]
+let stm_sub_tables(s)      = s[1]
+let stm_sub_op_mask(s)     = s[2]
+let stm_sub_reducer(s)     = s[3]
+
+let stm_module_new(module_id, name, version, dependencies) =
+    [module_id, name, version, dependencies, [], [], [], [], STM_STATE_CREATED, 0, 0, 0, 0, 0]
+
+let stm_mod_id(m)            = m[0]
+let stm_mod_name(m)          = m[1]
+let stm_mod_version(m)       = m[2]
+let stm_mod_deps(m)          = m[3]
+let stm_mod_tables(m)        = m[4]
+let stm_mod_reducers(m)      = m[5]
+let stm_mod_timers(m)        = m[6]
+let stm_mod_subscriptions(m) = m[7]
+let stm_mod_state(m)         = m[8]
+let stm_mod_install_ts(m)    = m[9]
+let stm_mod_last_upgrade(m)  = m[10]
+let stm_mod_call_count(m)    = m[11]
+let stm_mod_error_count(m)   = m[12]
+let stm_mod_schema_hash(m)   = m[13]
+
+let stm_mod_set_state(m, s) =
+    m[8] = s
+    m
+let stm_mod_set_install_ts(m, ts) =
+    m[9] = ts
+    m
+let stm_mod_set_last_upgrade(m, ts) =
+    m[10] = ts
+    m
+let stm_mod_inc_call(m) =
+    m[11] = m[11] + 1
+    m
+let stm_mod_inc_error(m) =
+    m[12] = m[12] + 1
+    m
+let stm_mod_set_schema_hash(m, h) =
+    m[13] = h
+    m
+
+let stm_mod_add_table(m, table_desc) =
+    let tables = stm_mod_tables(m)
+    tables.push(table_desc)
+    m[4] = tables
+    m
+
+let stm_mod_add_reducer(m, reducer_desc) =
+    let reducers = stm_mod_reducers(m)
+    reducers.push(reducer_desc)
+    m[5] = reducers
+    m
+
+let stm_mod_add_timer(m, timer_desc) =
+    let timers = stm_mod_timers(m)
+    timers.push(timer_desc)
+    m[6] = timers
+    m
+
+let stm_mod_add_subscription(m, sub_desc) =
+    let subs = stm_mod_subscriptions(m)
+    subs.push(sub_desc)
+    m[7] = subs
+    m
+
+let stm_mod_compute_schema_hash(m) =
+    let h = 0
+    let tables = stm_mod_tables(m)
+    let i = 0
+    let n = len(tables)
+    for i < n
+        let t = tables[i]
+        h = (h * 31 + stm_tbl_perm(t)) % STM_P
+        h = (h + len(stm_tbl_schema(t))) % STM_P
+        i = i + 1
+    let reducers = stm_mod_reducers(m)
+    i = 0
+    n = len(reducers)
+    for i < n
+        let r = reducers[i]
+        h = (h * 17 + stm_rdc_idempotent(r)) % STM_P
+        h = (h + len(stm_rdc_params(r))) % STM_P
+        i = i + 1
+    let timers = stm_mod_timers(m)
+    i = 0
+    n = len(timers)
+    for i < n
+        let tm = timers[i]
+        h = (h * 13 + stm_tmr_schedule(tm)) % STM_P
+        h = (h + stm_tmr_period(tm)) % STM_P
+        i = i + 1
+    h
+
+let stm_mod_find_reducer(m, name) =
+    let reducers = stm_mod_reducers(m)
+    let i = 0
+    let n = len(reducers)
+    let found = 0
+    for i < n
+        if stm_rdc_name(reducers[i]) == name
+            found = reducers[i]
+            i = n
+        i = i + 1
+    found
+
+let stm_mod_find_table(m, name) =
+    let tables = stm_mod_tables(m)
+    let i = 0
+    let n = len(tables)
+    let found = 0
+    for i < n
+        if stm_tbl_name(tables[i]) == name
+            found = tables[i]
+            i = n
+        i = i + 1
+    found
+
+let stm_registry_new() =
+    [{}, {}, {}, 1, [], [0, 0, 0, 0, 0]]
+
+let stm_reg_modules(r)      = r[0]
+let stm_reg_name_map(r)     = r[1]
+let stm_reg_table_map(r)    = r[2]
+let stm_reg_next_id(r)      = r[3]
+let stm_reg_log(r)          = r[4]
+let stm_reg_stats(r)        = r[5]
+
+let stm_reg_set_modules(r, m)  = [m, r[1], r[2], r[3], r[4], r[5]]
+let stm_reg_set_name_map(r, m) = [r[0], m, r[2], r[3], r[4], r[5]]
+let stm_reg_set_table_map(r, m) = [r[0], r[1], m, r[3], r[4], r[5]]
+let stm_reg_set_next_id(r, n)  = [r[0], r[1], r[2], n, r[4], r[5]]
+let stm_reg_set_log(r, l)      = [r[0], r[1], r[2], r[3], l, r[5]]
+let stm_reg_set_stats(r, s)   = [r[0], r[1], r[2], r[3], r[4], s]
+
+let stm_reg_stats_inc_installed(r) =
+    let st = stm_reg_stats(r)
+    st[0] = st[0] + 1
+    stm_reg_set_stats(r, st)
+let stm_reg_stats_inc_upgrade(r) =
+    let st = stm_reg_stats(r)
+    st[1] = st[1] + 1
+    stm_reg_set_stats(r, st)
+let stm_reg_stats_inc_delete(r) =
+    let st = stm_reg_stats(r)
+    st[2] = st[2] + 1
+    stm_reg_set_stats(r, st)
+let stm_reg_stats_inc_call(r) =
+    let st = stm_reg_stats(r)
+    st[3] = st[3] + 1
+    stm_reg_set_stats(r, st)
+let stm_reg_stats_inc_error(r) =
+    let st = stm_reg_stats(r)
+    st[4] = st[4] + 1
+    stm_reg_set_stats(r, st)
+
+let stm_reg_log_append(r, ts, action, mid, name, version, schema_hash) =
+    let log = stm_reg_log(r)
+    log.push([ts, action, mid, name, version, schema_hash])
+    stm_reg_set_log(r, log)
+
+let stm_reg_install(r, name, version, dependencies, tables, reducers, timers, subscriptions, now_ts) =
+    let mid = stm_reg_next_id(r)
+    let name_map = stm_reg_name_map(r)
+    let deps_ok = 1
+    let i = 0
+    let nd = len(dependencies)
+    for i < nd
+        let dep_name = dependencies[i]
+        if name_map[dep_name] == 0
+            deps_ok = 0
+        i = i + 1
+    if deps_ok == 0
+        [r, 0, 1]
+    else
+        let m = stm_module_new(mid, name, version, dependencies)
+        m = stm_mod_set_state(m, STM_STATE_INITIALIZING)
+        m = stm_mod_set_install_ts(m, now_ts)
+        i = 0
+        let nt = len(tables)
+        for i < nt
+            m = stm_mod_add_table(m, tables[i])
+            i = i + 1
+        i = 0
+        let nr = len(reducers)
+        for i < nr
+            m = stm_mod_add_reducer(m, reducers[i])
+            i = i + 1
+        i = 0
+        let ntm = len(timers)
+        for i < ntm
+            m = stm_mod_add_timer(m, timers[i])
+            i = i + 1
+        i = 0
+        let ns = len(subscriptions)
+        for i < ns
+            m = stm_mod_add_subscription(m, subscriptions[i])
+            i = i + 1
+        let schema_h = stm_mod_compute_schema_hash(m)
+        m = stm_mod_set_schema_hash(m, schema_h)
+        m = stm_mod_set_state(m, STM_STATE_READY)
+        let modules = stm_reg_modules(r)
+        modules[mid] = m
+        name_map[name] = mid
+        r = stm_reg_set_modules(r, modules)
+        r = stm_reg_set_name_map(r, name_map)
+        let table_map = stm_reg_table_map(r)
+        i = 0
+        for i < nt
+            let tname = stm_tbl_name(tables[i])
+            table_map[tname] = mid
+            i = i + 1
+        r = stm_reg_set_table_map(r, table_map)
+        r = stm_reg_set_next_id(r, mid + 1)
+        r = stm_reg_stats_inc_installed(r)
+        r = stm_reg_log_append(r, now_ts, "install", mid, name, version, schema_h)
+        [r, mid, 0]
+
+let stm_reg_upgrade(r, name, new_version, new_tables, new_reducers, new_timers, new_subscriptions, now_ts) =
+    let name_map = stm_reg_name_map(r)
+    let mid = name_map[name]
+    if mid == 0
+        [r, 1]
+    else
+        let modules = stm_reg_modules(r)
+        let m = modules[mid]
+        if m == 0
+            [r, 1]
+        else
+            let old_v = stm_mod_version(m)
+            if stm_version_cmp(new_version, old_v) <= 0
+                [r, 2]
+            else
+                m = stm_mod_set_state(m, STM_STATE_UPGRADING)
+                m[4] = new_tables
+                m[5] = new_reducers
+                m[6] = new_timers
+                m[7] = new_subscriptions
+                m[2] = new_version
+                m = stm_mod_set_last_upgrade(m, now_ts)
+                let schema_h = stm_mod_compute_schema_hash(m)
+                m = stm_mod_set_schema_hash(m, schema_h)
+                m = stm_mod_set_state(m, STM_STATE_READY)
+                modules[mid] = m
+                r = stm_reg_set_modules(r, modules)
+                let table_map = stm_reg_table_map(r)
+                let i = 0
+                let nt = len(new_tables)
+                for i < nt
+                    let tname = stm_tbl_name(new_tables[i])
+                    table_map[tname] = mid
+                    i = i + 1
+                r = stm_reg_set_table_map(r, table_map)
+                r = stm_reg_stats_inc_upgrade(r)
+                r = stm_reg_log_append(r, now_ts, "upgrade", mid, name, new_version, schema_h)
+                [r, 0]
+
+let stm_reg_delete(r, name, now_ts) =
+    let name_map = stm_reg_name_map(r)
+    let mid = name_map[name]
+    if mid == 0
+        [r, 1]
+    else
+        let modules = stm_reg_modules(r)
+        let m = modules[mid]
+        if m == 0
+            [r, 1]
+        else
+            m = stm_mod_set_state(m, STM_STATE_DELETING)
+            let schema_h = stm_mod_schema_hash(m)
+            modules[mid] = m
+            r = stm_reg_set_modules(r, modules)
+            r = stm_reg_log_append(r, now_ts, "delete_start", mid, name, stm_mod_version(m), schema_h)
+            modules[mid] = 0
+            r = stm_reg_set_modules(r, modules)
+            name_map[name] = 0
+            r = stm_reg_set_name_map(r, name_map)
+            let table_map = stm_reg_table_map(r)
+            let keys = keys_of(table_map)
+            let i = 0
+            let n = len(keys)
+            for i < n
+                if table_map[keys[i]] == mid
+                    table_map[keys[i]] = 0
+                i = i + 1
+            r = stm_reg_set_table_map(r, table_map)
+            r = stm_reg_stats_inc_delete(r)
+            r = stm_reg_log_append(r, now_ts, "delete_complete", mid, name, stm_mod_version(m), schema_h)
+            [r, 0]
+
+let stm_reg_call_reducer(r, module_name, reducer_name, caller_module_id, now_ts) =
+    let name_map = stm_reg_name_map(r)
+    let mid = name_map[module_name]
+    if mid == 0
+        [r, 1, 0]
+    else
+        let modules = stm_reg_modules(r)
+        let m = modules[mid]
+        if m == 0
+            [r, 1, 0]
+        else
+            0
+        if stm_mod_state(m) != STM_STATE_READY
+            [r, 2, 0]
+        else
+            let reducer = stm_mod_find_reducer(m, reducer_name)
+            if reducer == 0
+                [r, 3, 0]
+            else
+                m = stm_mod_inc_call(m)
+                modules[mid] = m
+                r = stm_reg_set_modules(r, modules)
+                r = stm_reg_stats_inc_call(r)
+                r = stm_reg_log_append(r, now_ts, "call", mid, module_name, stm_mod_version(m), stm_mod_schema_hash(m))
+                [r, 0, stm_rdc_body(reducer)]
+
+let stm_reg_bragg_check(r) =
+    let log = stm_reg_log(r)
+    let modules = stm_reg_modules(r)
+    let current_hashes = {}
+    let keys = keys_of(modules)
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let m = modules[keys[i]]
+        if m != 0
+            if stm_mod_state(m) == STM_STATE_READY
+                current_hashes[stm_mod_id(m)] = stm_mod_schema_hash(m)
+        i = i + 1
+    let replayed_hashes = {}
+    i = 0
+    n = len(log)
+    for i < n
+        let entry = log[i]
+        let action = entry[1]
+        let mid = entry[2]
+        let schema_h = entry[5]
+        if action == "install"
+            replayed_hashes[mid] = schema_h
+        else
+            0
+        if action == "upgrade"
+            replayed_hashes[mid] = schema_h
+        else
+            0
+        if action == "delete_complete"
+            replayed_hashes[mid] = 0
+        i = i + 1
+    let ok = 1
+    let rkeys = keys_of(replayed_hashes)
+    i = 0
+    n = len(rkeys)
+    for i < n
+        let mid = rkeys[i]
+        let expected = replayed_hashes[mid]
+        let actual = current_hashes[mid]
+        if actual == 0
+            actual = 0
+        if expected != 0
+            if actual != expected
+                ok = 0
+        i = i + 1
+    ok
+
+let stm_topo_sort(module_names, deps_map) =
+    let in_degree = {}
+    let i = 0
+    let n = len(module_names)
+    for i < n
+        let name = module_names[i]
+        in_degree[name] = 0
+        i = i + 1
+    i = 0
+    for i < n
+        let name = module_names[i]
+        let deps = deps_map[name]
+        if deps != 0
+            in_degree[name] = len(deps)
+        i = i + 1
+    let queue = []
+    i = 0
+    for i < n
+        let name = module_names[i]
+        if in_degree[name] == 0
+            queue.push(name)
+        i = i + 1
+    let ordered = []
+    for len(queue) > 0
+        let cur = queue[0]
+        queue = arr_drop(queue, 1)
+        ordered.push(cur)
+        i = 0
+        for i < n
+            let name = module_names[i]
+            let deps = deps_map[name]
+            if deps != 0
+                let j = 0
+                let m = len(deps)
+                let found = 0
+                for j < m
+                    if deps[j] == cur
+                        found = 1
+                    j = j + 1
+                if found == 1
+                    in_degree[name] = in_degree[name] - 1
+                    if in_degree[name] == 0
+                        queue.push(name)
+            i = i + 1
+    let has_cycle = 0
+    if len(ordered) != n
+        has_cycle = 1
+    [ordered, has_cycle]
+
+let stm_self_test() =
+    let r = stm_registry_new()
+    let t1 = stm_table_new("users", [["id", "int"], ["name", "str"]], STM_PERM_READWRITE, [["id", "primary"]])
+    let rdc1 = stm_reducer_new("create_user", [["name", "str"]], 100, {users: STM_PERM_WRITE}, 0)
+    let tmr1 = stm_timer_new("cleanup", 1, "cleanup_expired", 100, 1000)
+    let sub1 = stm_subscription_new("notify_users", ["users"], 7, "on_user_change")
+    let v1 = stm_version_new(1, 0, 0)
+    let inst = stm_reg_install(r, "user_mod", v1, [], [t1], [rdc1], [tmr1], [sub1], 1000)
+    r = inst[0]
+    let mid = inst[1]
+    let t1_ok = 0
+    if mid == 1
+        t1_ok = 1
+
+    let m = stm_reg_modules(r)[1]
+    let t2 = 0
+    if stm_mod_state(m) == STM_STATE_READY
+        t2 = 1
+
+    let call = stm_reg_call_reducer(r, "user_mod", "create_user", 0, 1001)
+    r = call[0]
+    let t3 = 0
+    if call[1] == 0
+        if call[2] == 100
+            t3 = 1
+
+    let v2 = stm_version_new(1, 1, 0)
+    let t1_v2 = stm_table_new("users", [["id", "int"], ["name", "str"], ["email", "str"]], STM_PERM_READWRITE, [["id", "primary"]])
+    let upg = stm_reg_upgrade(r, "user_mod", v2, [t1_v2], [rdc1], [tmr1], [sub1], 1002)
+    r = upg[0]
+    let t4 = 0
+    if upg[1] == 0
+        t4 = 1
+
+    let compat_ok = stm_version_compat(v1, v2)
+    let t5 = 0
+    if compat_ok == 1
+        t5 = 1
+
+    let mods = ["a", "b", "c"]
+    let deps = {a: [], b: ["a"], c: ["b"]}
+    let topo = stm_topo_sort(mods, deps)
+    let t6 = 0
+    if topo[1] == 0
+        if topo[0][0] == "a"
+            if topo[0][1] == "b"
+                t6 = 1
+
+    let bragg_ok = stm_reg_bragg_check(r)
+
+    let del = stm_reg_delete(r, "user_mod", 1003)
+    r = del[0]
+    let t8 = 0
+    if del[1] == 0
+        t8 = 1
+
+    [t1_ok, t2, t3, t4, t5, t6, bragg_ok, t8]
+
+let stm_default_registry() =
+    stm_registry_new()

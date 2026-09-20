@@ -1,0 +1,28 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let grBend = 175
+bad[0] = bad[0] + ck(grBend, 170, 180)
+
+let nBend = small_div(grBend, 2)
+bad[0] = bad[0] + ck(nBend, 85, 90)
+
+if 2 * nBend < 170
+    bad[0] = bad[0] + 1
+if 2 * nBend > 180
+    bad[0] = bad[0] + 1
+
+let edd = 161
+bad[0] = bad[0] + ck(edd, 140, 180)
+
+if edd * 10 < 9 * grBend
+    bad[0] = bad[0] + 1
+if edd * 10 > 11 * grBend
+    bad[0] = bad[0] + 1
+
+let bHalf = small_div(grBend, 1)
+bad[0] = bad[0] + ck_lo(bHalf, grBend)
+
+arr_get(arr_new_n(1), bad[0])

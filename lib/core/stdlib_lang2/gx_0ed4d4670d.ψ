@@ -1,0 +1,35 @@
+let ledger_merge(L1, k1, L2, k2, LM) =
+    let i = 0
+    for i < 6 * k1
+        LM[i] = L1[i]
+        i = i + 1
+    let added = 0
+    let j = 0
+    for j < k2
+        let c1 = L2[6 * j + 4]
+        let c2 = L2[6 * j + 5]
+        let dup = 0
+        let t = 0
+        for t < k1 + added
+            let m1 = 0
+            if LM[6 * t + 4] == c1
+                m1 = 1
+            let m2 = 0
+            if LM[6 * t + 5] == c2
+                m2 = 1
+            let both = m1 * m2
+            if both == 1
+                dup = 1
+            t = t + 1
+        let keep = 0
+        if dup == 0
+            keep = 1
+        if keep == 1
+            let s = 0
+            for s < 6
+                LM[6 * (k1 + added) + s] = L2[6 * j + s]
+                s = s + 1
+        added = added + keep
+        j = j + 1
+    k1 + added
+

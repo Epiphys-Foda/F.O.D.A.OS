@@ -1,0 +1,134 @@
+let SCHED_MAX_PROCS = 65536
+let SCHED_MAX_PRIO = 256
+let SCHED_TICK_DEFAULT = 64
+let SCHED_TIME_SLICE_BASE = 1
+
+let sched_current = 0
+let sched_ready_head = 0
+let sched_ready_queues = array_new(SCHED_MAX_PRIO)
+let sched_procs = array_new(SCHED_MAX_PROCS)
+let sched_tick_count = 0
+let sched_quantum = 0
+
+let sched_create(pid, priority) =
+    let pcb =
+        { pid: pid, prio: priority, ticks: sched_quantum_for_prio(priority), total_ticks: sched_quantum_for_prio(priority), state: 0, quantum: 0, start_time: sched_tick_count, cpu_time: 0, next: 0, prev: 0 }
+    sched_procs[pid] = pcb
+    sched_enqueue(pid, priority)
+    pid
+
+let sched_quantum_for_prio(prio) =
+    let q = SCHED_TIME_SLICE_BASE
+    let i = 0
+    for i < prio
+        q = q * 2
+        if q > SCHED_TICK_DEFAULT
+            q = SCHED_TICK_DEFAULT
+        i = i + 1
+    q
+
+let sched_enqueue(pid, prio) =
+        let head = sched_ready_queues[prio]
+        if head == 0
+            sched_ready_queues[prio] = pid
+            let __p = sched_procs[pid]
+            __p.next = pid
+            __p.prev = pid
+        else
+            let tail = sched_procs[head].prev
+            let __p2 = sched_procs[pid]
+            __p2.next = head
+            __p2.prev = tail
+            let __t2 = sched_procs[tail]
+            __t2.next = pid
+            let __h = sched_procs[head]
+            __h.prev = pid
+
+let sched_dequeue(prio) =
+        let head = sched_ready_queues[prio]
+        if head == 0
+            0
+        let next = sched_procs[head].next
+        if next == head
+            sched_ready_queues[prio] = 0
+        else
+            let tail = sched_procs[head].prev
+            sched_ready_queues[prio] = next
+            let __t7 = sched_procs[next]
+            __t7.prev = tail
+            let __t8 = sched_procs[tail]
+            __t8.next = next
+        let __t9 = sched_procs[head]
+        __t9.next = 0
+        let __t10 = sched_procs[head]
+        __t10.prev = 0
+        head
+
+let sched_pick_next() =
+    let prio = 0
+    for prio < SCHED_MAX_PRIO
+        let pid = sched_dequeue(prio)
+        if pid != 0
+            let __t11 = sched_procs[pid]
+            __t11.state = 1
+            let __t12 = sched_procs[pid]
+            __t12.ticks = sched_procs[pid].total_ticks
+            pid
+        prio = prio + 1
+    0
+
+let sched_tick() =
+        sched_tick_count = sched_tick_count + 1
+        if sched_current != 0
+            let pcb = sched_procs[sched_current]
+            pcb.ticks = pcb.ticks - 1
+            pcb.cpu_time = pcb.cpu_time + 1
+            if pcb.ticks == 0
+                sched_yield()
+            else
+                0
+            sched_current = sched_pick_next()
+            sched_quantum = 0
+
+let sched_yield() =
+    if sched_current != 0
+        let pcb = sched_procs[sched_current]
+        pcb.state = 0
+        if pcb.prio < SCHED_MAX_PRIO - 1
+            pcb.prio = pcb.prio + 1
+            pcb.total_ticks = sched_quantum_for_prio(pcb.prio)
+        sched_enqueue(sched_current, pcb.prio)
+        sched_current = sched_pick_next()
+        sched_quantum = 0
+
+let sched_block(pid) =
+    let __t13 = sched_procs[pid]
+    __t13.state = 2
+    if pid == sched_current
+        sched_current = sched_pick_next()
+        sched_quantum = 0
+
+let sched_wake(pid) =
+    let pcb = sched_procs[pid]
+    if pcb.state == 2
+        pcb.state = 0
+        sched_enqueue(pid, pcb.prio)
+
+let sched_exit(pid) =
+    let __t14 = sched_procs[pid]
+    __t14.state = 3
+    if pid == sched_current
+        sched_current = sched_pick_next()
+        sched_quantum = 0
+
+let sched_fairness_check(N) =
+    let total_procs = 0
+    let pid = 0
+    for pid < SCHED_MAX_PROCS
+        if sched_procs[pid].state != 3 && pid != 0
+            total_procs = total_procs + 1
+        pid = pid + 1
+    (total_procs == 0 ? 1 : N / total_procs)
+
+let array_new(n) = arr_new_n(n)
+

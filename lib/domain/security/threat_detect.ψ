@@ -1,0 +1,245 @@
+let TD_P = 65537
+let TD_SCALE = 1000
+
+let TD_SEV_INFO     = 1
+let TD_SEV_LOW      = 2
+let TD_SEV_MEDIUM   = 3
+let TD_SEV_HIGH     = 4
+let TD_SEV_CRITICAL = 5
+
+let TD_DEFAULT_THRESHOLD = 500
+let TD_RISK_SCALE = 100
+
+let td_profile_new(user_id) =
+    [user_id, {}, {}, {}, 0]
+
+let td_p_uid(p)       = p[0]
+let td_p_actions(p)   = p[1]
+let td_p_hours(p)     = p[2]
+let td_p_ips(p)       = p[3]
+let td_p_score(p)     = p[4]
+
+let td_event_new(user_id, action_type, ip, ts, params_map) =
+    [user_id, action_type, ip, ts, params_map]
+
+let td_e_uid(e)       = e[0]
+let td_e_type(e)      = e[1]
+let td_e_ip(e)        = e[2]
+let td_e_ts(e)        = e[3]
+let td_e_params(e)    = e[4]
+
+let td_rule_new(id, name, pattern_map, severity, action) =
+    [id, name, pattern_map, severity, action, 0]
+
+let td_r_id(r)        = r[0]
+let td_r_name(r)      = r[1]
+let td_r_pattern(r)   = r[2]
+let td_r_sev(r)       = r[3]
+let td_r_action(r)    = r[4]
+let td_r_fired(r)     = r[5]
+
+let td_default_detector() =
+    [{}, [], [], {}, []]
+
+let td_d_profiles(d)  = d[0]
+let td_d_rules(d)     = d[1]
+let td_d_alerts(d)    = d[2]
+let td_d_baseline(d)  = d[3]
+let td_d_log(d)       = d[4]
+
+let td_build_profile(detector, user_id, history_buf) =
+    let profiles = td_d_profiles(detector)
+    let profile = profiles[user_id]
+    if profile == 0
+        profile = td_profile_new(user_id)
+        profiles[user_id] = profile
+    let actions = td_p_actions(profile)
+    let hours = td_p_hours(profile)
+    let ips = td_p_ips(profile)
+    let n = len(history_buf)
+    let i = 0
+    for i < n
+        let evt = history_buf[i]
+        let atype = td_e_type(evt)
+        let cnt = actions[atype]
+        if cnt == 0
+            cnt = 0
+        actions[atype] = cnt + 1
+        let ts = td_e_ts(evt)
+        let hour = (ts / 3600) % 24
+        hours[hour] = 1
+        let ip_str = td_e_ip(evt)
+        let ip_h = 0
+        let j = 0
+        let sl = len(ip_str)
+        for j < sl
+            ip_h = (ip_h * 31 + ip_str[j]) % TD_P
+            j = j + 1
+        ips[ip_h] = 1
+        let baseline = td_d_baseline(detector)
+        let bkey = user_id * 65536 + atype
+        let bcnt = baseline[bkey]
+        if bcnt == 0
+            bcnt = 0
+        baseline[bkey] = bcnt + 1
+        i = i + 1
+    let log = td_d_log(detector)
+    log.push("profile_built user=" + user_id + " events=" + n)
+    detector[4] = log
+    detector
+
+let td_add_rule(detector, rule) =
+    let rules = td_d_rules(detector)
+    rules.push(rule)
+    detector
+
+let td_check_anomaly(detector, event) =
+    let profiles = td_d_profiles(detector)
+    let uid = td_e_uid(event)
+    let profile = profiles[uid]
+    let score = 0
+    if profile == 0
+        1000
+    else
+        let actions = td_p_actions(profile)
+        let atype = td_e_type(event)
+        let act_cnt = actions[atype]
+        if act_cnt == 0
+            score = score + 400
+        else
+            let baseline = td_d_baseline(detector)
+            let bkey = uid * 65536 + atype
+            let bcnt = baseline[bkey]
+            if bcnt == 0
+                bcnt = 1
+            if act_cnt > bcnt * 2
+                score = score + 100
+        let hours = td_p_hours(profile)
+        let ts = td_e_ts(event)
+        let hour = (ts / 3600) % 24
+        if hours[hour] == 0
+            score = score + 200
+        let ips = td_p_ips(profile)
+        let ip_str = td_e_ip(event)
+        let ip_h = 0
+        let j = 0
+        let sl = len(ip_str)
+        for j < sl
+            ip_h = (ip_h * 31 + ip_str[j]) % TD_P
+            j = j + 1
+        if ips[ip_h] == 0
+            score = score + 300
+        if score > 1000
+            score = 1000
+        score
+
+let td_record_event(detector, event, ts) =
+    let uid = td_e_uid(event)
+    let profiles = td_d_profiles(detector)
+    let profile = profiles[uid]
+    let score = td_check_anomaly(detector, event)
+    if profile != 0
+        let cur_score = td_p_score(profile)
+        profile[4] = cur_score + score
+    if score >= TD_DEFAULT_THRESHOLD
+        td_fire_alert(detector, 0, uid, TD_SEV_MEDIUM, ts)
+    if score >= 800
+        td_fire_alert(detector, 0, uid, TD_SEV_HIGH, ts)
+    if score >= 950
+        td_fire_alert(detector, 0, uid, TD_SEV_CRITICAL, ts)
+    let log = td_d_log(detector)
+    log.push("event_recorded user=" + uid + " score=" + score + " ts=" + ts)
+    detector[4] = log
+    detector
+
+let td_fire_alert(detector, rule_id, user_id, severity, ts) =
+    let alerts = td_d_alerts(detector)
+    alerts.push([rule_id, user_id, severity, ts])
+    if rule_id != 0
+        let rules = td_d_rules(detector)
+        let n = len(rules)
+        let i = 0
+        for i < n
+            let r = rules[i]
+            if td_r_id(r) == rule_id
+                r[5] = td_r_fired(r) + 1
+                i = n
+            i = i + 1
+    let log = td_d_log(detector)
+    log.push("alert_fired rule=" + rule_id + " user=" + user_id + " sev=" + severity + " ts=" + ts)
+    detector[4] = log
+    detector
+
+let td_get_risk_score(detector, user_id) =
+    let profiles = td_d_profiles(detector)
+    let profile = profiles[user_id]
+    if profile == 0
+        0
+    else
+        let raw = td_p_score(profile)
+        let risk = raw / 10
+        if risk > 100
+            risk = 100
+        risk
+
+let td_detector_sig(detector) =
+    let alerts = td_d_alerts(detector)
+    let n = len(alerts)
+    let sig = 0
+    let i = 0
+    for i < n
+        let a = alerts[i]
+        sig = (sig * 31 + a[0] + a[1] * 7 + a[2] * 13 + a[3] * 17) % TD_P
+        i = i + 1
+    sig * 65536 + n
+
+let td_bragg_verify(detector, ops_seq) =
+    let d1 = td_default_detector()
+    let d2 = td_default_detector()
+    let baseline = td_d_baseline(detector)
+    let bkeys = keys_of(baseline)
+    let bn = len(bkeys)
+    let bi = 0
+    for bi < bn
+        let bk = bkeys[bi]
+        td_d_baseline(d1)[bk] = baseline[bk]
+        td_d_baseline(d2)[bk] = baseline[bk]
+        bi = bi + 1
+    let profiles = td_d_profiles(detector)
+    let pkeys = keys_of(profiles)
+    let pn = len(pkeys)
+    let pi = 0
+    for pi < pn
+        let pid = pkeys[pi]
+        let src_p = profiles[pid]
+        td_d_profiles(d1)[pid] = src_p
+        td_d_profiles(d2)[pid] = src_p
+        pi = pi + 1
+    let n = len(ops_seq)
+    let i = 0
+    for i < n
+        let evt = ops_seq[i]
+        td_record_event(d1, evt, td_e_ts(evt))
+        td_record_event(d2, evt, td_e_ts(evt))
+        i = i + 1
+    let sig1 = td_detector_sig(d1)
+    let sig2 = td_detector_sig(d2)
+    let ok = 0
+    if sig1 == sig2
+        ok = 1
+    ok
+
+import "../domain_field.ψ"
+
+let td_gf_mod(x) = domain_gf_mod(x)
+let td_gf_inv(a) = domain_gf_inv(a)
+let td_field_encode(items, n) =
+    let records = []
+    let _i = 0
+    for _i < n
+        records.push([items[_i], items[_i]])
+        _i = _i + 1
+    domain_field_encode(records, n, 256, 1)
+
+let td_field_eval(poles, residues, z) = domain_field_eval(poles, residues, z)
+let td_field_bragg_verify(current, replay) = domain_bragg_verify(current[0], current[1], replay[0], replay[1])

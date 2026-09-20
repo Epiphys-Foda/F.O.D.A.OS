@@ -1,0 +1,193 @@
+let CB_STATE_CLOSED = 0
+let CB_STATE_OPEN = 1
+let CB_STATE_HALF_OPEN = 2
+
+let CB_DEFAULT_FAILURE_THRESHOLD = 10
+let CB_DEFAULT_SUCCESS_THRESHOLD = 3
+let CB_DEFAULT_TIMEOUT_MS = 30000
+let CB_DEFAULT_HALF_OPEN_REQUESTS = 5
+let CB_DEFAULT_ROLLING_WINDOW = 60
+
+let cb_new(failure_threshold, success_threshold, timeout_ms, half_open_max, window_size) =
+    [CB_STATE_CLOSED, 0, 0, failure_threshold, success_threshold, timeout_ms, 0, half_open_max, 0, [], window_size, 0, 0]
+
+let cb_default() =
+    cb_new(CB_DEFAULT_FAILURE_THRESHOLD, CB_DEFAULT_SUCCESS_THRESHOLD, CB_DEFAULT_TIMEOUT_MS, CB_DEFAULT_HALF_OPEN_REQUESTS, CB_DEFAULT_ROLLING_WINDOW)
+
+let cb_state(cb) = cb[0]
+let cb_failure_count(cb) = cb[1]
+let cb_success_count(cb) = cb[2]
+let cb_failure_threshold(cb) = cb[3]
+let cb_success_threshold(cb) = cb[4]
+let cb_timeout_ms(cb) = cb[5]
+let cb_opened_at(cb) = cb[6]
+let cb_half_open_max(cb) = cb[7]
+let cb_half_open_count(cb) = cb[8]
+let cb_rolling_window(cb) = cb[9]
+let cb_rolling_size(cb) = cb[10]
+let cb_total_requests(cb) = cb[11]
+let cb_total_failures(cb) = cb[12]
+
+let cb_set_state(cb, s) = [s, cb[1], cb[2], cb[3], cb[4], cb[5], cb[6], cb[7], cb[8], cb[9], cb[10], cb[11], cb[12]]
+let cb_set_failure_count(cb, n) = [cb[0], n, cb[2], cb[3], cb[4], cb[5], cb[6], cb[7], cb[8], cb[9], cb[10], cb[11], cb[12]]
+let cb_set_success_count(cb, n) = [cb[0], cb[1], n, cb[3], cb[4], cb[5], cb[6], cb[7], cb[8], cb[9], cb[10], cb[11], cb[12]]
+let cb_set_opened_at(cb, t) = [cb[0], cb[1], cb[2], cb[3], cb[4], cb[5], t, cb[7], cb[8], cb[9], cb[10], cb[11], cb[12]]
+let cb_set_half_open_count(cb, n) = [cb[0], cb[1], cb[2], cb[3], cb[4], cb[5], cb[6], cb[7], n, cb[9], cb[10], cb[11], cb[12]]
+let cb_set_rolling_window(cb, w) = [cb[0], cb[1], cb[2], cb[3], cb[4], cb[5], cb[6], cb[7], cb[8], w, cb[10], cb[11], cb[12]]
+let cb_inc_requests(cb) = [cb[0], cb[1], cb[2], cb[3], cb[4], cb[5], cb[6], cb[7], cb[8], cb[9], cb[10], cb[11] + 1, cb[12]]
+let cb_inc_failures(cb) = [cb[0], cb[1], cb[2], cb[3], cb[4], cb[5], cb[6], cb[7], cb[8], cb[9], cb[10], cb[11], cb[12] + 1]
+
+let cb_window_push(window, size, value) =
+    let new_w = window
+    new_w.push(value)
+    for len(new_w) > size
+        new_w.shift()
+    new_w
+
+let cb_window_failure_rate(cb) =
+    let window = cb_rolling_window(cb)
+    let n = len(window)
+    if n == 0
+        0
+    else
+        let failures = 0
+        let i = 0
+        for i < n
+            if window[i] == 0
+                failures = failures + 1
+            i = i + 1
+        (failures * 1024) / n
+
+let cb_allow_request(cb, now_ms) =
+    let state = cb_state(cb)
+    if state == CB_STATE_CLOSED
+        [cb, 1]
+    else
+        if state == CB_STATE_OPEN
+            let elapsed = now_ms - cb_opened_at(cb)
+            if elapsed >= cb_timeout_ms(cb)
+                let cb2 = cb_set_state(cb, CB_STATE_HALF_OPEN)
+                cb2 = cb_set_half_open_count(cb2, 0)
+                cb2 = cb_set_success_count(cb2, 0)
+                [cb2, 1]
+            else
+                [cb, 0]
+        else
+            if cb_half_open_count(cb) < cb_half_open_max(cb)
+                [cb_set_half_open_count(cb, cb_half_open_count(cb) + 1), 1]
+            else
+                [cb, 0]
+
+let cb_record_success(cb) =
+    let state = cb_state(cb)
+    if state == CB_STATE_CLOSED
+        let cb2 = cb_set_failure_count(cb, 0)
+        let window = cb_window_push(cb_rolling_window(cb2), cb_rolling_size(cb2), 1)
+        cb2 = cb_set_rolling_window(cb2, window)
+        cb2 = cb_inc_requests(cb2)
+        [cb2, state]
+    else
+        if state == CB_STATE_HALF_OPEN
+            let sc = cb_success_count(cb) + 1
+            let cb2 = cb_set_success_count(cb, sc)
+            if sc >= cb_success_threshold(cb)
+                cb2 = cb_set_state(cb2, CB_STATE_CLOSED)
+                cb2 = cb_set_failure_count(cb2, 0)
+                cb2 = cb_set_success_count(cb2, 0)
+                [cb2, CB_STATE_CLOSED]
+            else
+                [cb2, state]
+        else
+            [cb, state]
+
+let cb_record_failure(cb, now_ms) =
+    let state = cb_state(cb)
+    if state == CB_STATE_CLOSED
+        let fc = cb_failure_count(cb) + 1
+        let cb2 = cb_set_failure_count(cb, fc)
+        let window = cb_window_push(cb_rolling_window(cb2), cb_rolling_size(cb2), 0)
+        cb2 = cb_set_rolling_window(cb2, window)
+        cb2 = cb_inc_requests(cb2)
+        cb2 = cb_inc_failures(cb2)
+        let rate = cb_window_failure_rate(cb2)
+        if fc >= cb_failure_threshold(cb2)
+            cb2 = cb_set_state(cb2, CB_STATE_OPEN)
+            cb2 = cb_set_opened_at(cb2, now_ms)
+            [cb2, CB_STATE_OPEN]
+        else
+            if rate >= 512
+                cb2 = cb_set_state(cb2, CB_STATE_OPEN)
+                cb2 = cb_set_opened_at(cb2, now_ms)
+                [cb2, CB_STATE_OPEN]
+            else
+                [cb2, state]
+    else
+        if state == CB_STATE_HALF_OPEN
+            let cb2 = cb_set_state(cb, CB_STATE_OPEN)
+            cb2 = cb_set_opened_at(cb2, now_ms)
+            cb2 = cb_set_failure_count(cb2, 0)
+            cb2 = cb_set_success_count(cb2, 0)
+            [cb2, CB_STATE_OPEN]
+        else
+            let cb2 = cb_set_opened_at(cb, now_ms)
+            [cb2, state]
+
+let cb_bragg_verify_transition(cb, from_state, to_state, expected_count) =
+    if from_state == CB_STATE_CLOSED
+        if to_state == CB_STATE_OPEN
+            if cb_failure_count(cb) == expected_count
+                1
+            else
+                0
+        else
+            1
+    else
+        if from_state == CB_STATE_HALF_OPEN
+            if to_state == CB_STATE_CLOSED
+                if cb_success_count(cb) == expected_count
+                    1
+                else
+                    0
+            else
+                    if to_state == CB_STATE_OPEN
+                        1
+                    else
+                        0
+        else
+                1
+
+let cb_self_test() =
+    let cb = cb_default()
+    let results = []
+
+    let res1 = cb_allow_request(cb, 0)
+    let allowed1 = res1[1]
+    results.push(allowed1)
+
+    let i = 0
+    let cur = res1[0]
+    for i < 10
+        let r = cb_record_failure(cur, i * 1000)
+        cur = r[0]
+        i = i + 1
+    results.push(cb_state(cur) == CB_STATE_OPEN)
+
+    let res3 = cb_allow_request(cur, 5000)
+    results.push(res3[1] == 0)
+
+    let res4 = cb_allow_request(cur, 40000)
+    results.push(cb_state(res4[0]) == CB_STATE_HALF_OPEN)
+
+    cur = res4[0]
+    i = 0
+    for i < 3
+        let r = cb_record_success(cur)
+        cur = r[0]
+        i = i + 1
+    results.push(cb_state(cur) == CB_STATE_CLOSED)
+
+    results.push(cb_bragg_verify_transition(cur, CB_STATE_HALF_OPEN, CB_STATE_CLOSED, 3))
+
+    results
+
+let cb_default_breaker() = cb_default()

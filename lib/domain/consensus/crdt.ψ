@@ -1,0 +1,357 @@
+import "../domain_field.ψ"
+
+let CR_P = 65537
+
+let cr_gcounter_new() =
+    [{}]
+
+let cr_gc_counts(c) = c[0]
+
+let cr_gc_increment(c, node_id, amount) =
+    let counts = cr_gc_counts(c)
+    let cur = counts[node_id]
+    if cur == 0
+        cur = 0
+    counts[node_id] = cur + amount
+    [counts]
+
+let cr_gc_value(c) =
+    let counts = cr_gc_counts(c)
+    let keys = keys_of(counts)
+    let n = len(keys)
+    let total = 0
+    let i = 0
+    for i < n
+        total = total + counts[keys[i]]
+        i = i + 1
+    total
+
+let cr_gc_merge(a, b) =
+    let ca = cr_gc_counts(a)
+    let cb = cr_gc_counts(b)
+    let keys_a = keys_of(ca)
+    let keys_b = keys_of(cb)
+    let merged = {}
+    let i = 0
+    let na = len(keys_a)
+    for i < na
+        merged[keys_a[i]] = ca[keys_a[i]]
+        i = i + 1
+    i = 0
+    let nb = len(keys_b)
+    for i < nb
+        let k = keys_b[i]
+        let bv = cb[k]
+        let av = merged[k]
+        if av == 0
+            av = 0
+        if bv > av
+            merged[k] = bv
+        else
+            merged[k] = av
+        i = i + 1
+    [merged]
+
+let cr_pncounter_new() =
+    [cr_gcounter_new(), cr_gcounter_new()]
+
+let cr_pn_p(c) = c[0]
+let cr_pn_n(c) = c[1]
+
+let cr_pn_increment(c, node_id, amount) =
+    let p = cr_pn_p(c)
+    p = cr_gc_increment(p, node_id, amount)
+    [p, cr_pn_n(c)]
+
+let cr_pn_decrement(c, node_id, amount) =
+    let n = cr_pn_n(c)
+    n = cr_gc_increment(n, node_id, amount)
+    [cr_pn_p(c), n]
+
+let cr_pn_value(c) =
+    cr_gc_value(cr_pn_p(c)) - cr_gc_value(cr_pn_n(c))
+
+let cr_pn_merge(a, b) =
+    [cr_gc_merge(cr_pn_p(a), cr_pn_p(b)), cr_gc_merge(cr_pn_n(a), cr_pn_n(b))]
+
+let cr_gset_new() =
+    [{}]
+
+let cr_gs_elements(s) = s[0]
+
+let cr_gs_add(s, element) =
+    let els = cr_gs_elements(s)
+    els[element] = 1
+    [els]
+
+let cr_gs_contains(s, element) =
+    let els = cr_gs_elements(s)
+    if els[element] == 1
+        1
+    else
+        0
+
+let cr_gs_size(s) =
+    let els = cr_gs_elements(s)
+    len(keys_of(els))
+
+let cr_gs_merge(a, b) =
+    let ea = cr_gs_elements(a)
+    let eb = cr_gs_elements(b)
+    let keys_b = keys_of(eb)
+    let i = 0
+    let n = len(keys_b)
+    for i < n
+        ea[keys_b[i]] = 1
+        i = i + 1
+    [ea]
+
+let cr_orset_new() =
+    [{}, {}]
+
+let cr_or_elements(s)    = s[0]
+let cr_or_tombstones(s)  = s[1]
+
+let cr_or_add(s, element, tag) =
+    let els = cr_or_elements(s)
+    let tags = els[element]
+    if tags == 0
+        tags = []
+    tags.push(tag)
+    els[element] = tags
+    [els, cr_or_tombstones(s)]
+
+let cr_or_remove(s, element) =
+    let els = cr_or_elements(s)
+    let tombs = cr_or_tombstones(s)
+    let tags = els[element]
+    if tags != 0
+        let tombed = tombs[element]
+        if tombed == 0
+            tombed = []
+        let i = 0
+        let n = len(tags)
+        for i < n
+            tombed.push(tags[i])
+            i = i + 1
+        tombs[element] = tombed
+        els[element] = []
+    [els, tombs]
+
+let cr_or_contains(s, element) =
+    let els = cr_or_elements(s)
+    let tombs = cr_or_tombstones(s)
+    let tags = els[element]
+    let tombed = tombs[element]
+    if tags == 0
+        0
+    else
+        if len(tags) == 0
+            0
+        else
+            let has_alive = 0
+            let i = 0
+            let n = len(tags)
+            for i < n
+                let t = tags[i]
+                let in_tomb = 0
+                if tombed != 0
+                    let j = 0
+                    let m = len(tombed)
+                    for j < m
+                        if tombed[j] == t
+                            in_tomb = 1
+                            j = m
+                        j = j + 1
+                if in_tomb == 0
+                    has_alive = 1
+                    i = n
+                i = i + 1
+            has_alive
+
+let cr_or_merge(a, b) =
+    let ea = cr_or_elements(a)
+    let eb = cr_or_elements(b)
+    let ta = cr_or_tombstones(a)
+    let tb = cr_or_tombstones(b)
+    let keys_b = keys_of(eb)
+    let i = 0
+    let nb = len(keys_b)
+    for i < nb
+        let k = keys_b[i]
+        let a_tags = ea[k]
+        if a_tags == 0
+            a_tags = []
+        let b_tags = eb[k]
+        let j = 0
+        let m = len(b_tags)
+        for j < m
+            let exists = 0
+            let kk = 0
+            let nn = len(a_tags)
+            for kk < nn
+                if a_tags[kk] == b_tags[j]
+                    exists = 1
+                    kk = nn
+                kk = kk + 1
+            if exists == 0
+                a_tags.push(b_tags[j])
+            j = j + 1
+        ea[k] = a_tags
+        i = i + 1
+    let keys_tb = keys_of(tb)
+    i = 0
+    let ntb = len(keys_tb)
+    for i < ntb
+        let k = keys_tb[i]
+        let a_tombed = ta[k]
+        if a_tombed == 0
+            a_tombed = []
+        let b_tombed = tb[k]
+        let j = 0
+        let m = len(b_tombed)
+        for j < m
+            a_tombed.push(b_tombed[j])
+            j = j + 1
+        ta[k] = a_tombed
+        i = i + 1
+    [ea, ta]
+
+let cr_lww_new() =
+    [{}]
+
+let cr_lww_entries(m) = m[0]
+
+let cr_lww_put(m, key, value, ts, node_id) =
+    let entries = cr_lww_entries(m)
+    let cur = entries[key]
+    if cur == 0
+        entries[key] = [value, ts, node_id]
+    else
+        let cur_ts = cur[1]
+        if ts > cur_ts
+            entries[key] = [value, ts, node_id]
+        else
+            if ts == cur_ts
+                if node_id > cur[2]
+                    entries[key] = [value, ts, node_id]
+    [entries]
+
+let cr_lww_get(m, key) =
+    let entries = cr_lww_entries(m)
+    let cur = entries[key]
+    if cur == 0
+        0
+    else
+        cur[0]
+
+let cr_lww_merge(a, b) =
+    let ea = cr_lww_entries(a)
+    let eb = cr_lww_entries(b)
+    let keys_b = keys_of(eb)
+    let i = 0
+    let n = len(keys_b)
+    for i < n
+        let k = keys_b[i]
+        let bv = eb[k]
+        let av = ea[k]
+        if av == 0
+            ea[k] = bv
+        else
+            if bv[1] > av[1]
+                ea[k] = bv
+            else
+                if bv[1] == av[1]
+                    if bv[2] > av[2]
+                        ea[k] = bv
+        i = i + 1
+    [ea]
+
+let cr_self_test() =
+    let c1 = cr_gcounter_new()
+    c1 = cr_gc_increment(c1, 1, 5)
+    c1 = cr_gc_increment(c1, 1, 3)
+    let c2 = cr_gcounter_new()
+    c2 = cr_gc_increment(c2, 2, 10)
+    let merged = cr_gc_merge(c1, c2)
+    let v = cr_gc_value(merged)
+    let t_gc = 0
+    if v == 18
+        t_gc = 1
+
+    let pn1 = cr_pncounter_new()
+    pn1 = cr_pn_increment(pn1, 1, 10)
+    pn1 = cr_pn_decrement(pn1, 1, 3)
+    let pn2 = cr_pncounter_new()
+    pn2 = cr_pn_increment(pn2, 2, 5)
+    let pn_merged = cr_pn_merge(pn1, pn2)
+    let pn_v = cr_pn_value(pn_merged)
+    let t_pn = 0
+    if pn_v == 12
+        t_pn = 1
+
+    let s1 = cr_gset_new()
+    s1 = cr_gs_add(s1, 100)
+    s1 = cr_gs_add(s1, 200)
+    let s2 = cr_gset_new()
+    s2 = cr_gs_add(s2, 200)
+    s2 = cr_gs_add(s2, 300)
+    let s_merged = cr_gs_merge(s1, s2)
+    let t_gs = 0
+    if cr_gs_contains(s_merged, 100) == 1
+        if cr_gs_contains(s_merged, 200) == 1
+            if cr_gs_contains(s_merged, 300) == 1
+                if cr_gs_size(s_merged) == 3
+                    t_gs = 1
+
+    let o1 = cr_orset_new()
+    o1 = cr_or_add(o1, 1, 100)
+    let has_before = cr_or_contains(o1, 1)
+    o1 = cr_or_remove(o1, 1)
+    let has_after = cr_or_contains(o1, 1)
+    let t_or = 0
+    if has_before == 1
+        if has_after == 0
+            t_or = 1
+
+    let o2 = cr_orset_new()
+    o2 = cr_or_add(o2, 1, 200)
+    let o_merged = cr_or_merge(o1, o2)
+    let has_merged = cr_or_contains(o_merged, 1)
+    let t_or_merge = 0
+    if has_merged == 1
+        t_or_merge = 1
+
+    let m1 = cr_lww_new()
+    m1 = cr_lww_put(m1, 1, 100, 1000, 1)
+    m1 = cr_lww_put(m1, 1, 200, 2000, 1)
+    let t_lww = 0
+    if cr_lww_get(m1, 1) == 200
+        t_lww = 1
+
+    let m2 = cr_lww_new()
+    m2 = cr_lww_put(m2, 1, 300, 1500, 2)
+    let m_merged = cr_lww_merge(m1, m2)
+    let t_lww_merge = 0
+    if cr_lww_get(m_merged, 1) == 200
+        t_lww_merge = 1
+
+    let m3 = cr_lww_new()
+    m3 = cr_lww_put(m3, 1, 500, 2000, 5)
+    let m4 = cr_lww_new()
+    m4 = cr_lww_put(m4, 1, 600, 2000, 3)
+    let m34 = cr_lww_merge(m3, m4)
+    let t_lww_node = 0
+    if cr_lww_get(m34, 1) == 500
+        t_lww_node = 1
+
+    [t_gc, t_pn, t_gs, t_or, t_or_merge, t_lww, t_lww_merge, t_lww_node]
+
+let cr_default_gcounter() =
+    cr_gcounter_new()
+
+let cr_default_orset() =
+    cr_orset_new()
+
+let cr_default_lww_map() =
+    cr_lww_new()

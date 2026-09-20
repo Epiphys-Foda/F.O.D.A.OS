@@ -1,0 +1,55 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let hc = 1988
+bad[0] = bad[0] + ck(hc, 1985, 1990)
+
+let lam7 = 8
+let E21 = small_div(hc, lam7)
+bad[0] = bad[0] + ck(E21, 240, 255)
+
+let eV10 = small_div(E21 * 100, 1602)
+bad[0] = bad[0] + ck(eV10, 14, 17)
+
+let wn = small_div(100000000, lam7 * 1000)
+bad[0] = bad[0] + ck(wn, 12000, 13000)
+
+let kTcm = small_div(4143000, 19864)
+bad[0] = bad[0] + ck(kTcm, 200, 215)
+
+bad[0] = bad[0] + ck_lo(kTcm, 100)
+
+let coh_fs = 100
+bad[0] = bad[0] + ck(coh_fs, 80, 300)
+
+let t_ps = 2
+bad[0] = bad[0] + ck(t_ps, 1, 4)
+
+let ratio = small_div(t_ps * 1000, coh_fs)
+bad[0] = bad[0] + ck(ratio, 5, 40)
+
+let sites = 7
+bad[0] = bad[0] + ck(sites, 6, 9)
+
+let eff = 95
+bad[0] = bad[0] + ck(eff, 93, 98)
+
+let kok = 4
+bad[0] = bad[0] + ck(kok, 4, 4)
+if 2 * kok > 8
+    bad[0] = bad[0] + 1
+if 2 * kok < 8
+    bad[0] = bad[0] + 1
+
+if 2007 < 2005
+    bad[0] = bad[0] + 1
+if 2007 > 2009
+    bad[0] = bad[0] + 1
+if 1970 < 1968
+    bad[0] = bad[0] + 1
+if 1970 > 1972
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

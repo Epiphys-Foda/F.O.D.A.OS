@@ -1,0 +1,25 @@
+import "ck.ψ"
+let bad = [0]
+
+let mCh = 138
+bad[0] = bad[0] + ck(mCh, 135, 141)
+
+let mB = 0 - 193
+if mB < 0 - 196
+    bad[0] = bad[0] + 1
+if mB > 0 - 190
+    bad[0] = bad[0] + 1
+
+let lSun = 44
+bad[0] = bad[0] + ck(lSun, 40, 50)
+
+let phill = 15
+bad[0] = bad[0] + ck(phill, 10, 20)
+
+let accel = 25
+bad[0] = bad[0] + ck(accel, 20, 30)
+
+let gain = 1000000
+bad[0] = bad[0] + ck_lo(gain, 1000000)
+
+arr_get(arr_new_n(1), bad[0])

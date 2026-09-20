@@ -1,0 +1,35 @@
+import "ck.ψ"
+let bad = [0]
+
+let m = 2
+let v = 3
+let r = 1
+let f_base = 18
+let dz1 = f_base * r - m * v * v
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let f_2v = 72
+let dz2 = f_2v - f_base * 4
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let f_2r_x2 = 18
+let dz3 = f_2r_x2 - f_base
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let gravity = 1
+let falling = 1
+bad[0] = bad[0] + ck_lo(gravity, 1)
+bad[0] = bad[0] + ck_lo(falling, 1)
+
+if 1659 < 1657
+    bad[0] = bad[0] + 1
+if 1659 > 1661
+    bad[0] = bad[0] + 1
+if 1687 < 1685
+    bad[0] = bad[0] + 1
+if 1687 > 1689
+    bad[0] = bad[0] + 1
+if 1687 < 1659
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

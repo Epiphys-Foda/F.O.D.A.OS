@@ -1,0 +1,859 @@
+import "./inverted_index.ψ"
+
+let Q_TYPE_TERM     = 1
+let Q_TYPE_BOOLEAN  = 2
+let Q_TYPE_PHRASE   = 3
+let Q_TYPE_RANGE    = 4
+let Q_TYPE_WILDCARD = 5
+
+let Q_OCCUR_MUST    = 1
+let Q_OCCUR_SHOULD  = 2
+let Q_OCCUR_MUSTNOT = 3
+
+let Q_FIELD_TYPE   = 0
+let Q_FIELD_PARAMS = 1
+let Q_FIELD_BOOST  = 2
+
+let Q_DEFAULT_BOOST = 1024
+
+let Q_TOK_WORD   = 1
+let Q_TOK_AND    = 2
+let Q_TOK_OR     = 3
+let Q_TOK_NOT    = 4
+let Q_TOK_PHRASE = 5
+let Q_TOK_LPAREN = 6
+let Q_TOK_RPAREN = 7
+let Q_TOK_EOF    = 8
+
+let query_new(qtype, params, boost) =
+    [qtype, params, boost]
+
+let query_type(q) = q[Q_FIELD_TYPE]
+let query_params(q) = q[Q_FIELD_PARAMS]
+let query_boost(q) = q[Q_FIELD_BOOST]
+
+let query_set_boost(q, boost) =
+    q[Q_FIELD_BOOST] = boost
+    q
+
+let query_term(term) =
+    query_new(Q_TYPE_TERM, [term], Q_DEFAULT_BOOST)
+
+let query_term_boost(term, boost) =
+    query_new(Q_TYPE_TERM, [term], boost)
+
+let query_boolean(clauses) =
+    query_new(Q_TYPE_BOOLEAN, clauses, Q_DEFAULT_BOOST)
+
+let query_boolean_boost(clauses, boost) =
+    query_new(Q_TYPE_BOOLEAN, clauses, boost)
+
+let qclause_must(sub_query) =
+    [Q_OCCUR_MUST, sub_query]
+
+let qclause_should(sub_query) =
+    [Q_OCCUR_SHOULD, sub_query]
+
+let qclause_mustnot(sub_query) =
+    [Q_OCCUR_MUSTNOT, sub_query]
+
+let query_phrase(terms, slop) =
+    query_new(Q_TYPE_PHRASE, [terms, slop], Q_DEFAULT_BOOST)
+
+let query_phrase_boost(terms, slop, boost) =
+    query_new(Q_TYPE_PHRASE, [terms, slop], boost)
+
+let query_range(field, low, high, inclusive) =
+    query_new(Q_TYPE_RANGE, [field, low, high, inclusive], Q_DEFAULT_BOOST)
+
+let query_wildcard(field, pattern) =
+    query_new(Q_TYPE_WILDCARD, [field, pattern], Q_DEFAULT_BOOST)
+
+let query_execute_term(idx, q) =
+    let params = query_params(q)
+    let term = params[0]
+    let boost = query_boost(q)
+    let plist = index_search_term(idx, term)
+    if len(plist) == 0
+        []
+    let result = []
+    let i = 0
+    let n = len(plist)
+    for i < n
+        let p = plist[i]
+        let doc_id = posting_doc_id(p)
+        let score = index_bm25_score(idx, term, doc_id)
+        score = score * boost / Q_DEFAULT_BOOST
+        result.push([doc_id, score])
+        i = i + 1
+    result
+
+let q_exec_subquery(idx, q) =
+    let qt = query_type(q)
+    if qt == Q_TYPE_TERM
+        query_execute_term(idx, q)
+    else
+        0
+    if qt == Q_TYPE_BOOLEAN
+        query_execute_boolean(idx, q)
+    else
+        0
+    if qt == Q_TYPE_PHRASE
+        query_execute_phrase(idx, q)
+    else
+        0
+    if qt == Q_TYPE_RANGE
+        query_execute_range(idx, q)
+    else
+        0
+    if qt == Q_TYPE_WILDCARD
+        query_execute_wildcard(idx, q)
+    else
+        []
+
+let q_results_to_doc_ids(results) =
+    let ids = []
+    let i = 0
+    let n = len(results)
+    for i < n
+        ids.push(results[i][0])
+        i = i + 1
+    ids
+
+let q_doc_id_to_score(doc_id, results) =
+    let i = 0
+    let n = len(results)
+    let best = 0
+    for i < n
+        if results[i][0] == doc_id
+            if results[i][1] > best
+                best = results[i][1]
+        i = i + 1
+    best
+
+let q_and_merge(results_list) =
+    if len(results_list) == 0
+        []
+    let first = results_list[0]
+    let first_ids = q_results_to_doc_ids(first)
+    let result = first_ids
+    let i = 1
+    let n = len(results_list)
+    for i < n
+        let cur_ids = q_results_to_doc_ids(results_list[i])
+        result = ii_and_doc_ids(result, cur_ids)
+        i = i + 1
+    let scored = []
+    let j = 0
+    let m = len(result)
+    for j < m
+        let doc_id = result[j]
+        let min_score = 0
+        let first_score = 0
+        let k = 0
+        let kn = len(results_list)
+        for k < kn
+            let s = q_doc_id_to_score(doc_id, results_list[k])
+            if k == 0
+                min_score = s
+            else
+                if s < min_score
+                    min_score = s
+            k = k + 1
+        scored.push([doc_id, min_score])
+        j = j + 1
+    scored
+
+let q_or_merge(results_list) =
+    let seen = {}
+    let scored = []
+    let i = 0
+    let n = len(results_list)
+    for i < n
+        let sub = results_list[i]
+        let j = 0
+        let m = len(sub)
+        for j < m
+            let doc_id = sub[j][0]
+            let score = sub[j][1]
+            if seen[doc_id] == 0
+                seen[doc_id] = 1
+                scored.push([doc_id, score])
+            else
+                let k = 0
+                let kn = len(scored)
+                for k < kn
+                    if scored[k][0] == doc_id
+                        scored[k][1] = scored[k][1] + score
+                        k = kn
+                    k = k + 1
+            j = j + 1
+        i = i + 1
+    scored
+
+let q_not_filter(base_results, exclude_results) =
+    let exclude_ids = q_results_to_doc_ids(exclude_results)
+    let result = []
+    let i = 0
+    let n = len(base_results)
+    for i < n
+        let doc_id = base_results[i][0]
+        let excluded = 0
+        let j = 0
+        let m = len(exclude_ids)
+        for j < m
+            if exclude_ids[j] == doc_id
+                excluded = 1
+                j = m
+            j = j + 1
+        if excluded == 0
+            result.push(base_results[i])
+        i = i + 1
+    result
+
+let query_execute_boolean(idx, q) =
+    let clauses = query_params(q)
+    let boost = query_boost(q)
+
+    let must_results = []
+    let should_results = []
+    let mustnot_results = []
+
+    let i = 0
+    let n = len(clauses)
+    for i < n
+        let clause = clauses[i]
+        let occur = clause[0]
+        let sub_q = clause[1]
+        let sub_results = q_exec_subquery(idx, sub_q)
+        if occur == Q_OCCUR_MUST
+            must_results.push(sub_results)
+        else
+            0
+        if occur == Q_OCCUR_SHOULD
+            should_results.push(sub_results)
+        else
+            0
+        if occur == Q_OCCUR_MUSTNOT
+            mustnot_results.push(sub_results)
+        i = i + 1
+
+    let base = []
+    if len(must_results) > 0
+        base = q_and_merge(must_results)
+    else
+        base = q_or_merge(should_results)
+        should_results = []
+
+    if len(must_results) > 0 && len(should_results) > 0
+        let should_merged = q_or_merge(should_results)
+        let i2 = 0
+        let n2 = len(should_merged)
+        for i2 < n2
+            let doc_id = should_merged[i2][0]
+            let sc = should_merged[i2][1]
+            let j2 = 0
+            let m2 = len(base)
+            for j2 < m2
+                if base[j2][0] == doc_id
+                    base[j2][1] = base[j2][1] + sc
+                    j2 = m2
+                j2 = j2 + 1
+            i2 = i2 + 1
+
+    let k = 0
+    let kn = len(mustnot_results)
+    for k < kn
+        base = q_not_filter(base, mustnot_results[k])
+        k = k + 1
+
+    let final = []
+    let fi = 0
+    let fn_ = len(base)
+    for fi < fn_
+        let doc_id = base[fi][0]
+        let sc = base[fi][1]
+        sc = sc * boost / Q_DEFAULT_BOOST
+        final.push([doc_id, sc])
+        fi = fi + 1
+    final
+
+let query_execute_phrase(idx, q) =
+    let params = query_params(q)
+    let terms = params[0]
+    let slop = params[1]
+    let boost = query_boost(q)
+
+    if len(terms) == 0
+        []
+    let first_term = terms[0]
+    let plist = index_search_term(idx, first_term)
+    let candidates = ii_plist_to_doc_ids(plist)
+
+    let result = []
+    let i = 0
+    let n = len(candidates)
+    for i < n
+        let doc_id = candidates[i]
+        let matched = index_phrase_match(idx, terms, doc_id, slop)
+        if matched == 1
+            let score = 0
+            let ti = 0
+            let tn = len(terms)
+            for ti < tn
+                score = score + index_bm25_score(idx, terms[ti], doc_id)
+                ti = ti + 1
+            score = score * boost / Q_DEFAULT_BOOST
+            result.push([doc_id, score])
+        i = i + 1
+    result
+
+let query_execute_range(idx, q) =
+    let params = query_params(q)
+    let field = params[0]
+    let low = params[1]
+    let high = params[2]
+    let inclusive = params[3]
+    let boost = query_boost(q)
+
+    let doc_freqs = index_doc_freqs(idx)
+    let all_terms = doc_freqs.keys()
+    let matched_terms = []
+    let i = 0
+    let n = len(all_terms)
+    for i < n
+        let t = all_terms[i]
+        let ok = 0
+        if inclusive == 1
+            if t >= low && t <= high
+                ok = 1
+            else
+                0
+            if t > low && t < high
+                ok = 1
+        if ok == 1
+            matched_terms.push(t)
+        i = i + 1
+
+    let result_map = {}
+    let j = 0
+    let m = len(matched_terms)
+    for j < m
+        let term = matched_terms[j]
+        let plist = index_search_term(idx, term)
+        let k = 0
+        let p = len(plist)
+        for k < p
+            let posting = plist[k]
+            let doc_id = posting_doc_id(posting)
+            let score = index_bm25_score(idx, term, doc_id)
+            if result_map[doc_id] == 0
+                result_map[doc_id] = score
+            else
+                result_map[doc_id] = result_map[doc_id] + score
+            k = k + 1
+        j = j + 1
+
+    let keys = result_map.keys()
+    let result = []
+    let ri = 0
+    let rn = len(keys)
+    for ri < rn
+        let doc_id = keys[ri]
+        let sc = result_map[doc_id]
+        sc = sc * boost / Q_DEFAULT_BOOST
+        result.push([doc_id, sc])
+        ri = ri + 1
+    result
+
+let Q_WILDCARD_ANY = -2
+let Q_WILDCARD_ONE = -1
+
+let q_wildcard_match_impl(term_arr, ti, tn, pat, pi, pn) =
+    if pi == pn
+        if ti == tn
+            1
+        else
+            0
+    if ti == tn
+        if pat[pi] == Q_WILDCARD_ANY
+            q_wildcard_match_impl(term_arr, ti, tn, pat, pi + 1, pn)
+        else
+            0
+    let pc = pat[pi]
+    if pc == Q_WILDCARD_ANY
+        let r1 = q_wildcard_match_impl(term_arr, ti, tn, pat, pi + 1, pn)
+        if r1 == 1
+            1
+        let r2 = q_wildcard_match_impl(term_arr, ti + 1, tn, pat, pi, pn)
+        if r2 == 1
+            1
+        0
+    if pc == Q_WILDCARD_ONE
+        q_wildcard_match_impl(term_arr, ti + 1, tn, pat, pi + 1, pn)
+    else
+        if ti < tn && term_arr[ti] == pc
+            q_wildcard_match_impl(term_arr, ti + 1, tn, pat, pi + 1, pn)
+        else
+            0
+
+let q_wildcard_match(term_arr, pattern) =
+    let tn = len(term_arr)
+    let pn = len(pattern)
+    q_wildcard_match_impl(term_arr, 0, tn, pattern, 0, pn)
+
+let query_execute_wildcard(idx, q) =
+    let params = query_params(q)
+    let field = params[0]
+    let pattern = params[1]
+    let boost = query_boost(q)
+
+    let doc_freqs = index_doc_freqs(idx)
+    let all_terms = doc_freqs.keys()
+    let matched_terms = []
+    let i = 0
+    let n = len(all_terms)
+    for i < n
+        let t = all_terms[i]
+        let t_arr = [t]
+        if q_wildcard_match(t_arr, pattern) == 1
+            matched_terms.push(t)
+        i = i + 1
+
+    let result_map = {}
+    let j = 0
+    let m = len(matched_terms)
+    for j < m
+        let term = matched_terms[j]
+        let plist = index_search_term(idx, term)
+        let k = 0
+        let p = len(plist)
+        for k < p
+            let posting = plist[k]
+            let doc_id = posting_doc_id(posting)
+            let score = index_bm25_score(idx, term, doc_id)
+            if result_map[doc_id] == 0
+                result_map[doc_id] = score
+            else
+                result_map[doc_id] = result_map[doc_id] + score
+            k = k + 1
+        j = j + 1
+
+    let keys = result_map.keys()
+    let result = []
+    let ri = 0
+    let rn = len(keys)
+    for ri < rn
+        let doc_id = keys[ri]
+        let sc = result_map[doc_id]
+        sc = sc * boost / Q_DEFAULT_BOOST
+        result.push([doc_id, sc])
+        ri = ri + 1
+    result
+
+let query_execute(idx, q) =
+    q_exec_subquery(idx, q)
+
+let q_is_space(ch) =
+    if ch == 32
+        1
+    else
+        0
+    if ch == 9
+        1
+    else
+        0
+    if ch == 10
+        1
+    else
+        0
+
+let q_is_alpha_num(ch) =
+    if ch >= 48 && ch <= 57
+        1
+    else
+        0
+    if ch >= 65 && ch <= 90
+        1
+    else
+        0
+    if ch >= 97 && ch <= 122
+        1
+    else
+        0
+    if ch == 95
+        1
+    else
+        0
+
+let q_tokenize(chars) =
+    let tokens = []
+    let i = 0
+    let n = len(chars)
+    for i < n
+        let ch = chars[i]
+        if q_is_space(ch) == 1
+            i = i + 1
+        else
+            0
+        if ch == 40
+            tokens.push([Q_TOK_LPAREN, 0])
+            i = i + 1
+        else
+            0
+        if ch == 41
+            tokens.push([Q_TOK_RPAREN, 0])
+            i = i + 1
+        else
+            0
+        if ch == 34
+            i = i + 1
+            let phrase_terms = []
+            let cur_word = []
+            let in_word = 0
+            for i < n && chars[i] != 34
+                if q_is_space(chars[i]) == 1
+                    if in_word == 1
+                        phrase_terms.push(cur_word)
+                        cur_word = []
+                        in_word = 0
+                    else
+                        0
+                    cur_word.push(chars[i])
+                    in_word = 1
+                i = i + 1
+            if in_word == 1
+                phrase_terms.push(cur_word)
+            if i < n
+                i = i + 1
+            tokens.push([Q_TOK_PHRASE, phrase_terms])
+        else
+            let word = []
+            for i < n && q_is_alpha_num(chars[i]) == 1
+                word.push(chars[i])
+                i = i + 1
+            if len(word) == 0
+                i = i + 1
+            else
+                let tok_type = Q_TOK_WORD
+                if len(word) == 3
+                    if word[0] == 65 && word[1] == 78 && word[2] == 68
+                        tok_type = Q_TOK_AND
+                    else
+                        0
+                    if word[0] == 78 && word[1] == 79 && word[2] == 84
+                        tok_type = Q_TOK_NOT
+                    else
+                        0
+                if len(word) == 2
+                    if word[0] == 79 && word[1] == 82
+                        tok_type = Q_TOK_OR
+                tokens.push([tok_type, word])
+    tokens.push([Q_TOK_EOF, 0])
+    tokens
+
+let q_word_to_term_int(word) =
+    let h = 5381
+    let i = 0
+    let n = len(word)
+    for i < n
+        h = (h * 33 + word[i]) % II_P_MOD
+        i = i + 1
+    h
+
+let q_parser_new(tokens) =
+    [tokens, 0]
+
+let q_parser_tokens(p) = p[0]
+let q_parser_pos(p) = p[1]
+let q_parser_set_pos(p, pos) =
+    p[1] = pos
+    p
+
+let q_parser_peek(p) =
+    let tokens = q_parser_tokens(p)
+    let pos = q_parser_pos(p)
+    tokens[pos]
+
+let q_parser_advance(p) =
+    let pos = q_parser_pos(p)
+    q_parser_set_pos(p, pos + 1)
+    p
+
+let q_parse_atom(p) =
+    let tok = q_parser_peek(p)
+    let ttype = tok[0]
+    if ttype == Q_TOK_WORD
+        let word = tok[1]
+        let term_int = q_word_to_term_int(word)
+        q_parser_advance(p)
+        query_term(term_int)
+    else
+        0
+    if ttype == Q_TOK_PHRASE
+        let phrase_words = tok[1]
+        let terms = []
+        let i = 0
+        let n = len(phrase_words)
+        for i < n
+            terms.push(q_word_to_term_int(phrase_words[i]))
+            i = i + 1
+        q_parser_advance(p)
+        query_phrase(terms, 0)
+    else
+        0
+    if ttype == Q_TOK_LPAREN
+        q_parser_advance(p)
+        let inner = q_parse_or(p)
+        let next_tok = q_parser_peek(p)
+        if next_tok[0] == Q_TOK_RPAREN
+            q_parser_advance(p)
+        inner
+    else
+        query_term(0)
+
+let q_parse_not(p) =
+    let tok = q_parser_peek(p)
+    if tok[0] == Q_TOK_NOT
+        q_parser_advance(p)
+        let sub = q_parse_not(p)
+        query_boolean([qclause_mustnot(sub)])
+    else
+        q_parse_atom(p)
+
+let q_parse_and(p) =
+    let left = q_parse_not(p)
+    let tok = q_parser_peek(p)
+    for tok[0] == Q_TOK_AND
+        q_parser_advance(p)
+        let right = q_parse_not(p)
+        let lt = query_type(left)
+        if lt == Q_TYPE_BOOLEAN
+            let existing_clauses = query_params(left)
+            existing_clauses.push(qclause_must(right))
+            left = query_boolean(existing_clauses)
+        else
+            left = query_boolean([qclause_must(left), qclause_must(right)])
+        tok = q_parser_peek(p)
+    left
+
+let q_parse_or(p) =
+    let left = q_parse_and(p)
+    let tok = q_parser_peek(p)
+    for tok[0] == Q_TOK_OR
+        q_parser_advance(p)
+        let right = q_parse_and(p)
+        let lt = query_type(left)
+        if lt == Q_TYPE_BOOLEAN
+            let existing_clauses = query_params(left)
+            existing_clauses.push(qclause_should(right))
+            left = query_boolean(existing_clauses)
+        else
+            left = query_boolean([qclause_should(left), qclause_should(right)])
+        tok = q_parser_peek(p)
+    left
+
+let q_parse(p) =
+    q_parse_or(p)
+
+let query_parse(query_chars) =
+    let tokens = q_tokenize(query_chars)
+    let parser = q_parser_new(tokens)
+    let ast = q_parse(parser)
+    ast
+
+let Q_SORT_BY_SCORE  = 1
+let Q_SORT_BY_FIELD  = 2
+let Q_SORT_BY_DOC_ID = 3
+
+let q_sort_results(results, sort_type, field_accessor) =
+    let arr = results
+    let n = len(arr)
+    let i = 0
+    for i < n
+        let best = i
+        let j = i + 1
+        for j < n
+            let cmp = 0
+            if sort_type == Q_SORT_BY_SCORE
+                if arr[j][1] > arr[best][1]
+                    cmp = 1
+                else
+                    0
+            if sort_type == Q_SORT_BY_FIELD
+                if arr[j][1] > arr[best][1]
+                    cmp = 1
+                else
+                    0
+            if sort_type == Q_SORT_BY_DOC_ID
+                if arr[j][0] < arr[best][0]
+                    cmp = 1
+            if cmp == 1
+                best = j
+            j = j + 1
+        if best != i
+            let tmp = arr[i]
+            arr[i] = arr[best]
+            arr[best] = tmp
+        i = i + 1
+    arr
+
+let q_sort_by_score(results) =
+    q_sort_results(results, Q_SORT_BY_SCORE, 0)
+
+let q_sort_by_doc_id(results) =
+    q_sort_results(results, Q_SORT_BY_DOC_ID, 0)
+
+let query_paginate(results, from_offset, size) =
+    let total = len(results)
+    if from_offset >= total
+        []
+    let end = from_offset + size
+    if end > total
+        end = total
+    let page = []
+    let i = from_offset
+    for i < end
+        page.push(results[i])
+        i = i + 1
+    page
+
+let query_search_full(idx, query_chars, sort_type, from_offset, size) =
+    let ast = query_parse(query_chars)
+    let raw = query_execute(idx, ast)
+    let sorted = q_sort_results(raw, sort_type, 0)
+    query_paginate(sorted, from_offset, size)
+
+let q_verify_term() =
+    let idx = index_new()
+    idx = index_add_doc(idx, 1, [10, 20, 10, 30])
+    idx = index_add_doc(idx, 2, [10, 30, 40])
+    idx = index_add_doc(idx, 3, [20, 50])
+
+    let q = query_term(10)
+    let results = query_execute(idx, q)
+    let ok = 0
+    if len(results) == 2
+        ok = 1
+    ok
+
+let q_verify_boolean_and() =
+    let idx = index_new()
+    idx = index_add_doc(idx, 1, [10, 20, 10, 30])
+    idx = index_add_doc(idx, 2, [10, 30, 40])
+    idx = index_add_doc(idx, 3, [20, 50])
+
+    let q1 = query_term(10)
+    let q2 = query_term(30)
+    let bq = query_boolean([qclause_must(q1), qclause_must(q2)])
+    let results = query_execute(idx, bq)
+    let ok = 0
+    if len(results) == 2
+        ok = 1
+    ok
+
+let q_verify_boolean_or() =
+    let idx = index_new()
+    idx = index_add_doc(idx, 1, [10, 20, 10, 30])
+    idx = index_add_doc(idx, 2, [10, 30, 40])
+    idx = index_add_doc(idx, 3, [20, 50])
+
+    let q1 = query_term(40)
+    let q2 = query_term(50)
+    let bq = query_boolean([qclause_should(q1), qclause_should(q2)])
+    let results = query_execute(idx, bq)
+    let ok = 0
+    if len(results) == 2
+        ok = 1
+    ok
+
+let q_verify_boolean_not() =
+    let idx = index_new()
+    idx = index_add_doc(idx, 1, [10, 20, 10, 30])
+    idx = index_add_doc(idx, 2, [10, 30, 40])
+    idx = index_add_doc(idx, 3, [20, 50])
+
+    let q1 = query_term(10)
+    let q2 = query_term(30)
+    let bq = query_boolean([qclause_must(q1), qclause_mustnot(q2)])
+    let results = query_execute(idx, bq)
+    let ok = 0
+    if len(results) == 0
+        ok = 1
+    ok
+
+let q_verify_phrase() =
+    let idx = index_new()
+    idx = index_add_doc(idx, 1, [10, 20, 10, 30])
+    idx = index_add_doc(idx, 2, [10, 30, 40])
+
+    let q = query_phrase([10, 20], 0)
+    let results = query_execute(idx, q)
+    let ok = 0
+    if len(results) == 1
+        ok = 1
+    ok
+
+let q_verify_range() =
+    let idx = index_new()
+    idx = index_add_doc(idx, 1, [10, 20, 10, 30])
+    idx = index_add_doc(idx, 2, [10, 30, 40])
+    idx = index_add_doc(idx, 3, [20, 50])
+
+    let q = query_range(0, 20, 40, 1)
+    let results = query_execute(idx, q)
+    let ok = 0
+    if len(results) > 0
+        ok = 1
+    ok
+
+let q_verify_wildcard() =
+    let idx = index_new()
+    idx = index_add_doc(idx, 1, [10, 20, 10, 30])
+    idx = index_add_doc(idx, 2, [10, 30, 40])
+    idx = index_add_doc(idx, 3, [20, 50])
+
+    let q = query_wildcard(0, [Q_WILDCARD_ANY])
+    let results = query_execute(idx, q)
+    let ok = 0
+    if len(results) > 0
+        ok = 1
+    ok
+
+let q_verify_parser() =
+    let chars = [49, 48]
+    let ast = query_parse(chars)
+    let qt = query_type(ast)
+    let ok = 0
+    if qt == Q_TYPE_TERM
+        ok = 1
+    ok
+
+let q_verify_sort() =
+    let results = [[1, 5], [2, 10], [3, 3]]
+    let sorted = q_sort_by_score(results)
+    let ok = 0
+    if sorted[0][1] == 10
+        ok = 1
+    ok
+
+let q_verify_paginate() =
+    let results = [[1, 5], [2, 10], [3, 3], [4, 8], [5, 1]]
+    let page = query_paginate(results, 1, 2)
+    let ok = 0
+    if len(page) == 2
+        ok = 1
+    ok
+
+let q_verify_all() =
+    let r1 = q_verify_term()
+    let r2 = q_verify_boolean_and()
+    let r3 = q_verify_boolean_or()
+    let r4 = q_verify_boolean_not()
+    let r5 = q_verify_phrase()
+    let r6 = q_verify_range()
+    let r7 = q_verify_wildcard()
+    let r8 = q_verify_parser()
+    let r9 = q_verify_sort()
+    let r10 = q_verify_paginate()
+    r1 + r2 + r3 + r4 + r5 + r6 + r7 + r8 + r9 + r10

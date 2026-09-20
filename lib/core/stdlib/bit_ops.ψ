@@ -1,0 +1,91 @@
+let band(a, b) = a & b
+
+let bor(a, b) = a | b
+
+let xor(a, b) = a ^ b
+
+let bnot(a) = -1 ^ a
+
+let shl(a, n) = a << n
+
+let shr(a, n) = a >> n
+
+let swap(a) =
+    let m = (1 << 16) - 1
+    let lo = a & m
+    let hi = (a >> 16) & m
+    (lo << 16) | hi
+
+let roll(a, n) =
+    let mask = (1 << n) - 1
+    (a << n) | ((a >> (32 - n)) & mask)
+
+let rotl(a, n) = (a << n) | (a >> (32 - n))
+
+let rotr(a, n) = (a >> n) | (a << (32 - n))
+
+let mirror(a) =
+    let m5 = 1 | (1 << 2)
+    let m55 = m5 | (m5 << 4)
+    let m5555 = m55 | (m55 << 8)
+    let m1 = m5555 | (m5555 << 16)
+    let s1 = ((a >> 1) & m1) | ((a & m1) << 1)
+
+    let m3 = 1 | (1 << 1)
+    let m33 = m3 | (m3 << 4)
+    let m3333 = m33 | (m33 << 8)
+    let m2 = m3333 | (m3333 << 16)
+    let s2 = ((s1 >> 2) & m2) | ((s1 & m2) << 2)
+
+    let mf = (1 << 4) - 1
+    let mff = mf | (mf << 8)
+    let m3m = mff | (mff << 16)
+    let s3 = ((s2 >> 4) & m3m) | ((s2 & m3m) << 4)
+
+    let mb = (1 << 8) - 1
+    let m4 = mb | (mb << 16)
+    let s4 = ((s3 >> 8) & m4) | ((s3 & m4) << 8)
+
+    (s4 >> 16) | (s4 << 16)
+
+let swiz(a, b) =
+    let mask = (1 << 8) - 1
+
+    let idx0 = b & mask
+    let src0 = (a >> (idx0 << 3)) & mask
+
+    let idx1 = (b >> 8) & mask
+    let src1 = (a >> (idx1 << 3)) & mask
+    let r1 = src0 | (src1 << 8)
+
+    let idx2 = (b >> 16) & mask
+    let src2 = (a >> (idx2 << 3)) & mask
+    let r2 = r1 | (src2 << 16)
+
+    let idx3 = (b >> (8 + 16)) & mask
+    let src3 = (a >> (idx3 << 3)) & mask
+    r2 | (src3 << (8 + 16))
+
+let test_bit_ops() =
+    assert_eq(band(12, 10), 8)
+    assert_eq(bor(12, 10), 14)
+    assert_eq(xor(12, 10), 6)
+    assert_eq(bnot(0), -1)
+    assert_eq(shl(1, 4), 16)
+    assert_eq(shr(256, 4), 16)
+
+    assert_eq(swap(1), 65536)
+    assert_eq(swap(65536), 1)
+
+    assert_eq(roll(1, 4), 16)
+    assert_eq(rotl(1, 4), 16)
+    assert_eq(rotr(16, 4), 1)
+
+    assert_eq(mirror(0), 0)
+    assert_eq(mirror(mirror(12345)), 12345)
+    assert_eq(mirror(mirror(65535)), 65535)
+
+    assert_eq(swiz(305419896, 50462976), 305419896)
+    assert_eq(swiz(305419896, 66051), 2018915346)
+
+    0

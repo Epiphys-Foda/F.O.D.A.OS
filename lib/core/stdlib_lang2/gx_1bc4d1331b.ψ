@@ -1,0 +1,35 @@
+let score_perdrift2(YY, n, out2) =
+    let best = 1000000000
+    let bP = 0
+    let P = 2
+    for P < 5
+        let ok = 0
+        if 2 * P + 1 <= n
+            ok = 1
+        let s = 1000000000
+        if ok == 1
+            let dn = YY[n] - 2 * YY[n - P] + YY[n - 2 * P]
+            let dp = YY[n - 1] - 2 * YY[n - 1 - P] + YY[n - 1 - 2 * P]
+            let a2 = abs_i(dp)
+            let z = 0
+            if a2 == 0
+                z = 1
+            if z == 0
+                s = permille(abs_i(dn - dp), a2)
+            if z == 1
+                let nz = 0
+                if dn == 0
+                    nz = 1
+                if nz == 1
+                    s = 0
+        let take = 0
+        if s < best
+            take = 1
+        if take == 1
+            best = s
+            bP = P
+        P = P + 1
+    out2[0] = best
+    out2[1] = bP
+    0
+

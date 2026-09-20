@@ -1,0 +1,409 @@
+import "../domain/domain_field.ψ"
+import "../core/stdlib_lang2/gf_base.ψ"
+
+let BI_BASE = 10000
+
+let bi_from_int(n) =
+    if n == 0
+        [0]
+    else
+        if n < 0
+            [0]
+        else
+            let result = []
+            let x = n
+            for x > 0
+                result.push(x - (x / BI_BASE) * BI_BASE)
+                x = x / BI_BASE
+            result
+
+let bi_zero() = [0]
+
+let bi_one() = [1]
+
+let bi_is_zero(b) =
+    len(b) == 1 && b[0] == 0
+
+let bi_is_one(b) =
+    len(b) == 1 && b[0] == 1
+
+let bi_cmp(a, b) =
+    let na = len(a)
+    for na > 1 && a[na - 1] == 0
+        na = na - 1
+    let nb = len(b)
+    for nb > 1 && b[nb - 1] == 0
+        nb = nb - 1
+    if na > nb
+        1
+    else
+        if na < nb
+            0 - 1
+        else
+            let i = na - 1
+            let result = 0
+            for i >= 0 && result == 0
+                if a[i] > b[i]
+                    result = 1
+                else
+                    0
+                if a[i] < b[i]
+                    result = 0 - 1
+                i = i - 1
+            result
+
+let _bi_get(arr, i) =
+    (i < len(arr) ? arr[i] : 0)
+
+let bi_add(a, b) =
+    let result = []
+    let carry = 0
+    let i = 0
+    let max_len = len(a)
+    if len(b) > max_len
+        max_len = len(b)
+    for i < max_len
+        let da = _bi_get(a, i)
+        let db = _bi_get(b, i)
+        let temp = da + db + carry
+        result.push(temp - (temp / BI_BASE) * BI_BASE)
+        carry = temp / BI_BASE
+        i = i + 1
+    if carry > 0
+        result.push(carry)
+    result
+
+let bi_sub(a, b) =
+    let result = []
+    let borrow = 0
+    let i = 0
+    let la = len(a)
+    for i < la
+        let da = a[i]
+        let db = _bi_get(b, i) + borrow
+        if da >= db
+            result.push(da - db)
+            borrow = 0
+        else
+            result.push(da + BI_BASE - db)
+            borrow = 1
+        i = i + 1
+    let last = len(result) - 1
+    for last > 0 && result[last] == 0
+        last = last - 1
+    let stripped = []
+    let j = 0
+    for j <= last
+        stripped.push(result[j])
+        j = j + 1
+    stripped
+
+let bi_mul_small(a, n) =
+    if n == 0
+        [0]
+    else
+        let result = []
+        let carry = 0
+        let i = 0
+        let la = len(a)
+        for i < la
+            let temp = a[i] * n + carry
+            result.push(temp - (temp / BI_BASE) * BI_BASE)
+            carry = temp / BI_BASE
+            i = i + 1
+        for carry > 0
+            result.push(carry - (carry / BI_BASE) * BI_BASE)
+            carry = carry / BI_BASE
+        result
+
+let bi_mul(a, b) =
+    if bi_is_zero(a)
+        [0]
+    else
+        0
+    if bi_is_zero(b)
+        [0]
+    else
+        let result = [0]
+        let i = 0
+        let lb = len(b)
+        for i < lb
+            if b[i] != 0
+                let partial = bi_mul_small(a, b[i])
+                let shifted = []
+                let j = 0
+                for j < i
+                    shifted.push(0)
+                    j = j + 1
+                let k = 0
+                let lp = len(partial)
+                for k < lp
+                    shifted.push(partial[k])
+                    k = k + 1
+                result = bi_add(result, shifted)
+            i = i + 1
+        result
+
+let bi_to_int(b) =
+    let result = 0
+    let i = len(b) - 1
+    for i >= 0
+        result = result * BI_BASE + b[i]
+        i = i - 1
+    result
+
+let bi_mod_small(b, m) =
+    let rem = 0
+    let i = len(b) - 1
+    for i >= 0
+        rem = (rem * BI_BASE + b[i]) % m
+        i = i - 1
+    rem
+
+let bi_div_small(a, m) =
+    if bi_is_zero(a)
+        [0]
+    else
+        let result = []
+        let rem = 0
+        let la = len(a)
+        let temp = []
+        let i = la - 1
+        for i >= 0
+            let cur = rem * BI_BASE + a[i]
+            let q = cur / m
+            rem = cur - q * m
+            temp.push(q)
+            i = i - 1
+        let j = len(temp) - 1
+        for j >= 0
+            result.push(temp[j])
+            j = j - 1
+        let last = len(result) - 1
+        for last > 0 && result[last] == 0
+            last = last - 1
+        let stripped = []
+        let k = 0
+        for k <= last
+            stripped.push(result[k])
+            k = k + 1
+        stripped
+
+let _bi_int_str(v) =
+    if v == 0
+        "0"
+    else
+        let x = v
+        let digits = []
+        for x > 0
+            let d = x - (x / 10) * 10
+            digits.push(48 + d)
+            x = x / 10
+        let s = ""
+        let k = len(digits) - 1
+        for k >= 0
+            s = s + [digits[k]]
+            k = k - 1
+        s
+
+let _bi_limb_to_str(n) =
+    let d3 = n / 1000
+    let r3 = n - d3 * 1000
+    let d2 = r3 / 100
+    let r2 = r3 - d2 * 100
+    let d1 = r2 / 10
+    let d0 = r2 - d1 * 10
+    let s = ""
+    s = s + _bi_int_str(d3)
+    s = s + _bi_int_str(d2)
+    s = s + _bi_int_str(d1)
+    s = s + _bi_int_str(d0)
+    s
+
+let bi_to_str(b) =
+    if bi_is_zero(b)
+        "0"
+    else
+        let high = len(b) - 1
+        let s = _bi_int_str(b[high])
+        let i = high - 1
+        for i >= 0
+            s = s + _bi_limb_to_str(b[i])
+            i = i - 1
+        s
+
+let bi_is_even(b) =
+    b[0] - (b[0] / 2) * 2 == 0
+
+let bi_divmod(a, b) =
+    if bi_is_zero(b)
+        [bi_zero(), a]
+    else
+        if bi_cmp(a, b) < 0
+            [bi_zero(), a]
+        else
+            let q = bi_zero()
+            let r = a
+            let d = b
+            let shift = 0
+            for bi_cmp(d, r) <= 0
+                d = bi_mul_small(d, 2)
+                shift = shift + 1
+            for shift > 0
+                d = bi_div_small(d, 2)
+                shift = shift - 1
+                q = bi_mul_small(q, 2)
+                if bi_cmp(r, d) >= 0
+                    r = bi_sub(r, d)
+                    q = bi_add(q, bi_one())
+            [q, r]
+
+let bi_gcd(a, b) =
+    if bi_is_zero(a)
+        b
+    else
+        if bi_is_zero(b)
+            a
+        else
+            let x = a
+            let y = b
+            let shift = 0
+            for bi_is_even(x) && bi_is_even(y)
+                x = bi_div_small(x, 2)
+                y = bi_div_small(y, 2)
+                shift = shift + 1
+            for bi_is_even(x)
+                x = bi_div_small(x, 2)
+            for !bi_is_zero(y)
+                for bi_is_even(y)
+                    y = bi_div_small(y, 2)
+                if bi_cmp(x, y) > 0
+                    let tmp = x
+                    x = y
+                    y = tmp
+                y = bi_sub(y, x)
+            let result = x
+            let i = 0
+            for i < shift
+                result = bi_mul_small(result, 2)
+                i = i + 1
+            result
+
+let bi_from_str(s) =
+    let result = bi_zero()
+    let n = len(s)
+    let i = 0
+    for i < n
+        let c = s[i]
+        if c >= 48 && c <= 57
+            result = bi_mul_small(result, 10)
+            result = bi_add(result, bi_from_int(c - 48))
+        i = i + 1
+    result
+
+let bi_pow(base, exp) =
+    if exp == 0
+        bi_one()
+    else
+        if exp == 1
+            base
+        else
+            let result = bi_one()
+            let b = base
+            let e = exp
+            for e > 0
+                if e - (e / 2) * 2 == 1
+                    result = bi_mul(result, b)
+                b = bi_mul(b, b)
+                e = e / 2
+            result
+
+let bi_mod(a, b) =
+    if len(b) == 1 && b[0] != 0
+        bi_from_int(bi_mod_small(a, b[0]))
+    else
+        let qr = bi_divmod(a, b)
+        qr[1]
+
+let bi_div(a, b) =
+    if len(b) == 1 && b[0] != 0
+        bi_div_small(a, b[0])
+    else
+        let qr = bi_divmod(a, b)
+        qr[0]
+
+let bi_factorial(n) =
+    if n <= 1
+        bi_one()
+    else
+        let result = bi_one()
+        let i = 2
+        for i <= n
+            result = bi_mul_small(result, i)
+            i = i + 1
+        result
+
+let bi_fibonacci(n) =
+    if n == 0
+        bi_zero()
+    else
+        0
+    if n == 1
+        bi_one()
+    else
+        let prev = bi_zero()
+        let curr = bi_one()
+        let i = 2
+        for i <= n
+            let next = bi_add(prev, curr)
+            prev = curr
+            curr = next
+            i = i + 1
+        curr
+
+let bi_test() =
+    print_str("=== bigint test ===")
+    let a = bi_from_int(12345)
+    let b = bi_from_int(6789)
+    print_str("a = 12345:")
+    print(bi_to_int(a))
+    print_str("b = 6789:")
+    print(bi_to_int(b))
+    let sum = bi_add(a, b)
+    print_str("a + b = 19134:")
+    print(bi_to_int(sum))
+    let product = bi_mul(a, b)
+    print_str("a * b = 83810205:")
+    print(bi_to_int(product))
+    let c = bi_cmp(a, b)
+    print_str("cmp(a,b) = 1:")
+    print(c)
+    let diff = bi_sub(a, b)
+    print_str("a - b = 5556:")
+    print(bi_to_int(diff))
+    let big = bi_from_int(1000000)
+    let big_sq = bi_mul(big, big)
+    print_str("1000000^2 = 1000000000000:")
+    print_str(bi_to_str(big_sq))
+    let f20 = bi_factorial(20)
+    print_str("20! = 2432902008176640000:")
+    print_str(bi_to_str(f20))
+    let f50 = bi_factorial(50)
+    print_str("50! (65 digits):")
+    print_str(bi_to_str(f50))
+    let fib100 = bi_fibonacci(100)
+    print_str("F(100) = 354224848179261915075:")
+    print_str(bi_to_str(fib100))
+    let g = bi_gcd(bi_from_int(48), bi_from_int(36))
+    print_str("gcd(48, 36) = 12:")
+    print_str(bi_to_str(g))
+    let dm = bi_divmod(bi_from_int(100), bi_from_int(7))
+    print_str("100 / 7 = 14 rem 2:")
+    print_str(bi_to_str(dm[0]))
+    print_str(bi_to_str(dm[1]))
+    print_str("=== bigint test done ===")
+    1
+
+let kleene_verify(t1, t2) = domain_kleene_verify(t1, t2)
+
+let pcd_divergence(u, n) = domain_pcd_divergence(u, n)

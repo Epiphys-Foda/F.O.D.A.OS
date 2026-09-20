@@ -1,0 +1,33 @@
+import "ck.ψ"
+let bad = [0]
+
+let comp = 50
+bad[0] = bad[0] + ck(comp, 45, 55)
+
+let rec = 8
+bad[0] = bad[0] + ck(rec, 5, 10)
+
+let shp = 100
+let loss = 100 - shp
+bad[0] = bad[0] + ck(loss, 0, 0)
+
+let hyst = 25
+bad[0] = bad[0] + ck(hyst, 15, 40)
+
+let af = 30
+bad[0] = bad[0] + ck_hi(af, 37)
+
+if 1961 < 1959
+    bad[0] = bad[0] + 1
+if 1961 > 1963
+    bad[0] = bad[0] + 1
+if 1990 < 1988
+    bad[0] = bad[0] + 1
+if 1990 > 1992
+    bad[0] = bad[0] + 1
+if 2000 < 1998
+    bad[0] = bad[0] + 1
+if 2000 > 2002
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,26 @@
+let domain_field_selftest() =
+    let ok = 1
+    ok = ok * (domain_gf_mod(70000) == 4463)
+    ok = ok * (domain_gf_add(3, 5) == 8)
+    ok = ok * (domain_gf_mul(7, domain_gf_inv(7)) == 1)
+    ok = ok * (domain_gf_pow(5, 65536) == 1)
+    ok = ok * (domain_field_eval([], [], 100) == 0)
+    ok = ok * (domain_bragg_verify([], [], [], []) == 1)
+    ok = ok * (domain_bragg_verify([50], [7], [50], [7]) == 1)
+    ok = ok * (domain_bragg_verify([50], [7], [50], [8]) == 0)
+    ok = ok * (domain_kleene_verify(1, 1) == 1)
+    ok = ok * (domain_kleene_verify(1, 0) == 0)
+    ok = ok * (domain_pcd_divergence([0, 0], 2) == 0)
+    ok = ok * (domain_pcd_divergence([1, 1], 2) == 0)
+    ok = ok * (E_STAR == 3989)
+    ok = ok * (K_TOWER == 6883)
+    ok = ok * (domain_depth_default(0, 0) == 0)
+    ok = ok * (domain_depth_default(0, 1) == 1)
+    ok = ok * (domain_depth_default(0, 2) == 2)
+    ok = ok * (domain_depth_default(0, 4) == 3)
+    ok = ok * (domain_depth_default(0, 16) == 65535)
+    ok = ok * (domain_gf_mod(0 - 5) == 65532)
+    ok = ok * (domain_gf_sub(10, 3) == 7)
+    ok = ok * (domain_gf_div(10, 2) == 5)
+    ok
+

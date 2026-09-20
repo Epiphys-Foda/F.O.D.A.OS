@@ -1,0 +1,110 @@
+import "psi_dataflow.ψ"
+import "qqbc_bin.ψ"
+import "qof_domains.ψ"
+
+let qf_shift_nodes(nodes, offset, idx, acc) =
+    let n = len(nodes)
+    let r = if idx < n
+      let node = nodes[idx]
+      let node2 =
+        { node_id: node.node_id + offset, opcode: node.opcode, pe_type: node.pe_type, in_ports: [], out_ports: [], fusion_group: node.fusion_group, schedule_hint: node.schedule_hint, attrs: node.attrs }
+      qf_shift_nodes(nodes, offset, idx + 1, acc.push(node2))
+    else
+      acc
+    r
+
+let qf_shift_edges(edges, offset, idx, acc) =
+    let n = len(edges)
+    let r = if idx < n
+      let e = edges[idx]
+      let e2 =
+        { src_node: e.src_node + offset, src_port: e.src_port, dst_node: e.dst_node + offset, dst_port: e.dst_port, token_type: e.token_type, fifo_depth: e.fifo_depth }
+      qf_shift_edges(edges, offset, idx + 1, acc.push(e2))
+    else
+      acc
+    r
+
+let qf_append_rest(acc, b, idx) =
+    let n = len(b)
+    let r = if idx < n
+      qf_append_rest(acc.push(b[idx]), b, idx + 1)
+    else
+      acc
+    r
+
+let qf_append_nodes(a, b) =
+    let n = len(b)
+    let r = if n > 0
+      let t = a.push(b[0])
+      qf_append_rest(t, b, 1)
+    else
+      a
+    r
+
+let qf_append_edges(a, b) =
+    let n = len(b)
+    let r = if n > 0
+      let t = a.push(b[0])
+      qf_append_rest(t, b, 1)
+    else
+      a
+    r
+
+let qf_find_token(nodes, idx, fallback) =
+    let n = len(nodes)
+    let r = if idx < n
+      let node = nodes[idx]
+      if node.opcode == 16
+        node.node_id
+      else
+        qf_find_token(nodes, idx + 1, fallback)
+    else
+      fallback
+    r
+
+let qf_compose(dag_a, dag_b) =
+    let n_a = dag_a.node_count
+    let n_b = dag_b.node_count
+    let shifted_b_nodes = qf_shift_nodes(dag_b.nodes, n_a, 0, [])
+    let shifted_b_edges = qf_shift_edges(dag_b.edges, n_a, 0, [])
+    let all_nodes = qf_append_nodes(dag_a.nodes, shifted_b_nodes)
+    let all_edges = qf_append_edges(dag_a.edges, shifted_b_edges)
+    let b_token = qf_find_token(shifted_b_nodes, 0, -1)
+    let link = b_token >= 0 ? { src_node: dag_a.root, src_port: 0, dst_node: b_token, dst_port: 0, token_type: TOKEN_TYPE_GF_ELEMENT, fifo_depth: 4 } : null
+    let final_edges = link == null ? all_edges : all_edges.push(link)
+    let final_nodes = qqbin_rebuild_ports(all_nodes, final_edges, 0, [])
+    let new_root = (dag_b.root >= 0 ? dag_b.root + n_a : dag_a.root)
+      { nodes: final_nodes, edges: final_edges, node_count: n_a + n_b, edge_count: dag_a.edge_count + dag_b.edge_count + 1, root: new_root }
+
+let qf_compose_chain_impl(dags, idx, acc) =
+    let n = len(dags)
+    let r = if idx < n
+      if acc == null
+        qf_compose_chain_impl(dags, idx + 1, dags[idx])
+      else
+        qf_compose_chain_impl(dags, idx + 1, qf_compose(acc, dags[idx]))
+    else
+      acc
+    r
+
+let qf_compose_chain(dags) = qf_compose_chain_impl(dags, 0, null)
+
+let qf_domains_chain_impl(ids, idx, acc) =
+    let n = len(ids)
+    let r = if idx < n
+      let t = domain_template(ids[idx])
+      if acc == null
+        qf_domains_chain_impl(ids, idx + 1, t)
+      else
+        qf_domains_chain_impl(ids, idx + 1, qf_compose(acc, t))
+    else
+      acc
+    r
+
+let qf_domains_chain(ids) = qf_domains_chain_impl(ids, 0, null)
+
+let qf_compose_stats(dag) =
+    { node_count: dag.node_count, edge_count: dag.edge_count, root: dag.root, bytes: qqbin_encode(dag).len(), rt_ok: qqbin_roundtrip(dag) }
+
+let qf_summary() =
+    { compose: "qf_compose(a, b): A as-is + B offset + cross-domain edges (A.emit → B.token)", chain: "qf_compose_chain(dags) / qf_domains_chain(ids)", principle: "cross-domain entanglement = dataflow pipeline (AI → rendering → game)" }

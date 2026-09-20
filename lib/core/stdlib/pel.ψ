@@ -1,0 +1,140 @@
+let pel_isqrt(n) =
+    let x = n
+    let y = (x + n / x) / 2
+    let done = false
+    for !done
+      if y < x
+        x = y
+        y = (x + n / x) / 2
+      else
+        done = true
+    x
+
+let pel_cf_step(m, d, a, D, a0) =
+    let m2 = d * a - m
+    let d2 = (D - m2 * m2) / d
+    let a2 = (a0 + m2) / d2
+    [m2, d2, a2]
+
+let pel_cf_iter(pp2, pp1, qp2, qp1, m, d, a, D, a0) =
+    let p = a * pp1 + pp2
+    let q = a * qp1 + qp2
+    let is_sol = p * p - D * q * q == 1
+    let st = pel_cf_step(m, d, a, D, a0)
+    [p, q, is_sol, st[0], st[1], st[2]]
+
+let pel_solve(D, limit) =
+    let a0 = pel_isqrt(D)
+    if a0 * a0 == D
+      []
+    else
+      pel_solve_impl(D, limit, a0, 0, 0, 1, a0, 0, 1, 1, 0)
+
+let pel_solve_impl(D, limit, a0, n, m, d, a, pp2, pp1, qp2, qp1) =
+    if n >= limit
+      []
+    else
+      let p = a * pp1 + pp2
+      let q = a * qp1 + qp2
+      if p * p - D * q * q == 1
+        [p, q]
+      else
+        let st = pel_cf_step(m, d, a, D, a0)
+        pel_solve_impl(D, limit, a0, n + 1, st[0], st[1], st[2], pp1, p, qp1, q)
+
+let pel_verify() =
+    let results = []
+    let s2 = pel_solve(2, 50)
+    results = results.push(len(s2) == 2 && s2[0] == 3 && s2[1] == 2)
+    let s3 = pel_solve(3, 50)
+    results = results.push(len(s3) == 2 && s3[0] == 2 && s3[1] == 1)
+    let s5 = pel_solve(5, 50)
+    results = results.push(len(s5) == 2 && s5[0] == 9 && s5[1] == 4)
+    let s7 = pel_solve(7, 50)
+    results = results.push(len(s7) == 2 && s7[0] == 8 && s7[1] == 3)
+    let s13 = pel_solve(13, 80)
+    results = results.push(len(s13) == 2 && s13[0] == 649 && s13[1] == 180)
+    results = results.push(s2[0] * s2[0] - 2 * s2[1] * s2[1] == 1)
+    results = results.push(s13[0] * s13[0] - 13 * s13[1] * s13[1] == 1)
+    let s4 = pel_solve(4, 50)
+    results = results.push(len(s4) == 0)
+    results = results.push(pel_isqrt(16) == 4)
+    results = results.push(pel_isqrt(17) == 4)
+    results = results.push(pel_isqrt(65537) == 256)
+    results = results.push(s7[0] > 0 && s7[1] > 0)
+    let total = true
+    let i = 0
+    let done = false
+    for !done
+      if i < len(results)
+        let v = results[i]
+        if v == false
+          total = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(total)
+    results
+
+let pel_next(x, y, x1, y1, D) = [x * x1 + D * y * y1, x * y1 + y * x1]
+
+let pel_solutions(D, count) =
+    let s = pel_solve(D, 100)
+    if len(s) == 0
+      []
+    else
+      pel_solutions_impl(D, s[0], s[1], count, 0, s[0], s[1], [])
+
+let pel_solutions_impl(D, x1, y1, count, k, x, y, acc) =
+    if k >= count
+      acc
+    else
+      let nx = x * x1 + D * y * y1
+      let ny = x * y1 + y * x1
+      pel_solutions_impl(D, x1, y1, count, k + 1, nx, ny, acc.push([x, y]))
+
+let pel_verify_group() =
+    let results = []
+    let sols2 = pel_solutions(2, 4)
+    results = results.push(len(sols2) == 4)
+    results = results.push(sols2[1][0] == 17 && sols2[1][1] == 12)
+    results = results.push(sols2[3][0] == 577 && sols2[3][1] == 408)
+    let all_ok = true
+    let i = 0
+    let done = false
+    for !done
+      if i < len(sols2)
+        let sol = sols2[i]
+        if sol[0] * sol[0] - 2 * sol[1] * sol[1] != 1
+          all_ok = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(all_ok)
+    let sols3 = pel_solutions(3, 3)
+    results = results.push(sols3[1][0] == 7 && sols3[1][1] == 4)
+    results = results.push(sols3[2][0] == 26 && sols3[2][1] == 15)
+    let sols5 = pel_solutions(5, 2)
+    results = results.push(sols5[1][0] == 161 && sols5[1][1] == 72)
+    let nxt = pel_next(3, 2, 3, 2, 2)
+    results = results.push(nxt[0] == 17 && nxt[1] == 12)
+    results = results.push(len(pel_solutions(4, 3)) == 0)
+    let total = true
+    let j = 0
+    let done2 = false
+    for !done2
+      if j < len(results)
+        let v = results[j]
+        if v == false
+          total = false
+        else
+          0
+        j = j + 1
+      else
+        done2 = true
+    results = results.push(total)
+    results

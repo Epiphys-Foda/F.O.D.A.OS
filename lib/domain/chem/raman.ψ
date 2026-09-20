@@ -1,0 +1,50 @@
+import "ck.ψ"
+let bad = [0]
+
+let lam_in = 532
+let nin = 10000000 / 532
+bad[0] = bad[0] + ck(nin, 18700, 18900)
+
+let shift = 2331
+bad[0] = bad[0] + ck(shift, 2300, 2360)
+let evib = shift * 124 / 100
+bad[0] = bad[0] + ck(evib, 2850, 2920)
+
+let ns = nin - shift
+let na = nin + shift
+let d1 = nin - ns - shift
+bad[0] = bad[0] + ck(d1, 0, 0)
+let d2 = na - nin - shift
+bad[0] = bad[0] + ck(d2, 0, 0)
+
+let lam_s = 10000000 / ns
+let lam_a = 10000000 / na
+bad[0] = bad[0] + ck(lam_s, 600, 615)
+bad[0] = bad[0] + ck(lam_a, 466, 480)
+bad[0] = bad[0] + ck_lo(lam_s, lam_in)
+bad[0] = bad[0] + ck_hi(lam_a, lam_in)
+
+let n2_dipole = 0
+let raman_active = 1
+bad[0] = bad[0] + ck_hi(n2_dipole, 0)
+bad[0] = bad[0] + ck_lo(raman_active, 1)
+
+let kt10 = 259
+let ratio = evib / kt10
+bad[0] = bad[0] + ck(ratio, 10, 13)
+let as_ratio = 14
+bad[0] = bad[0] + ck(as_ratio, 10, 20)
+
+let ccl4 = 459
+bad[0] = bad[0] + ck(ccl4, 450, 470)
+
+if 1928 < 1926
+    bad[0] = bad[0] + 1
+if 1928 > 1930
+    bad[0] = bad[0] + 1
+if 1930 < 1928
+    bad[0] = bad[0] + 1
+if 1930 > 1932
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

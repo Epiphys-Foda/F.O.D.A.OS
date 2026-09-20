@@ -1,0 +1,19 @@
+import "ck.ψ"
+let bad = [0]
+
+let lP = 162
+bad[0] = bad[0] + ck(lP, 160, 164)
+
+let tP = 539
+bad[0] = bad[0] + ck(tP, 530, 548)
+
+let mP = 218
+bad[0] = bad[0] + ck(mP, 215, 220)
+
+let eP = 196
+bad[0] = bad[0] + ck(eP, 190, 200)
+
+let tPlanck = 142
+bad[0] = bad[0] + ck(tPlanck, 140, 145)
+
+arr_get(arr_new_n(1), bad[0])

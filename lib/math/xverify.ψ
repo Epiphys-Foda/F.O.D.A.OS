@@ -1,0 +1,228 @@
+import "../domain/domain_field.ψ"
+
+import "../core/stdlib_lang2/gf_base.ψ"
+
+let P1 = 65537
+let P2 = 131071
+
+let gf1_add(a, b) = (a + b) % P1
+let gf1_sub(a, b) = (a - b + P1) % P1
+let gf1_mul(a, b) =
+    let r = 0
+    let x = a % P1
+    let y = b
+    for y > 0
+        if y % 2 == 1
+            r = (r + x) % P1
+        x = (x + x) % P1
+        y = y / 2
+    r
+let gf1_pow(base, exp) =
+    let r = 1
+    let b = base % P1
+    let e = exp
+    for e > 0
+        if e % 2 == 1
+            r = gf1_mul(r, b)
+        b = gf1_mul(b, b)
+        e = e / 2
+    r
+let gf1_inv(a) =
+    (a == 0 ? 0 : gf1_pow(a, P1 - 2))
+
+let gf2_add(a, b) = (a + b) % P2
+let gf2_sub(a, b) = (a - b + P2) % P2
+let gf2_mul(a, b) =
+    let r = 0
+    let x = a % P2
+    let y = b
+    for y > 0
+        if y % 2 == 1
+            r = (r + x) % P2
+        x = (x + x) % P2
+        y = y / 2
+    r
+let gf2_pow(base, exp) =
+    let r = 1
+    let b = base % P2
+    let e = exp
+    for e > 0
+        if e % 2 == 1
+            r = gf2_mul(r, b)
+        b = gf2_mul(b, b)
+        e = e / 2
+    r
+let gf2_inv(a) =
+    (a == 0 ? 0 : gf2_pow(a, P2 - 2))
+
+let z_add(a, b) = a + b
+let z_sub(a, b) = a - b
+let z_mul(a, b) = a * b
+
+let mod_inverse(a, m) =
+    let old_r = m
+    let r = a % m
+    let old_t = 0
+    let t = 1
+    for r != 0
+        let q = old_r / r
+        let temp_r = old_r - q * r
+        old_r = r
+        r = temp_r
+        let temp_t = old_t - q * t
+        old_t = t
+        t = temp_t
+    let result = old_t % m
+    (result < 0 ? result + m : result)
+
+let crt_reconstruct(r1, r2) =
+    let diff = ((r2 - r1) % P2 + P2) % P2
+    let p1_inv = mod_inverse(P1, P2)
+    let t = (diff * p1_inv) % P2
+    r1 + P1 * t
+
+let crt_decompose(x) = [x % P1, x % P2]
+
+let xverify_add(a, b) =
+    let v1 = gf1_add(a, b)
+    let v2 = gf2_add(a, b)
+    let vz = z_add(a, b)
+    let reconstructed = crt_reconstruct(v1, v2)
+    let cert = (reconstructed == vz ? 1 : 0)
+    [v1, v2, vz, reconstructed, cert]
+
+let xverify_mul(a, b) =
+    let v1 = gf1_mul(a, b)
+    let v2 = gf2_mul(a, b)
+    let vz = z_mul(a, b)
+    let reconstructed = crt_reconstruct(v1, v2)
+    let cert = (reconstructed == vz ? 1 : 0)
+    [v1, v2, vz, reconstructed, cert]
+
+let xverify_expr_abc(a, b, c) =
+    let v1 = gf1_add(gf1_mul(a, b), c)
+    let v2 = gf2_add(gf2_mul(a, b), c)
+    let vz = z_add(z_mul(a, b), c)
+    let reconstructed = crt_reconstruct(v1, v2)
+    let cert = (reconstructed == vz ? 1 : 0)
+    [v1, v2, vz, reconstructed, cert]
+
+let xverify_pythagorean(a, b) =
+    let v1 = gf1_add(gf1_mul(a, a), gf1_mul(b, b))
+    let v2 = gf2_add(gf2_mul(a, a), gf2_mul(b, b))
+    let vz = z_add(z_mul(a, a), z_mul(b, b))
+    let reconstructed = crt_reconstruct(v1, v2)
+    let cert = (reconstructed == vz ? 1 : 0)
+    [v1, v2, vz, reconstructed, cert]
+
+let detect_order_dependency(a, b) =
+    let z_result = (a < b ? 1 : 0)
+    [0, 0, z_result, -1, 0]
+
+let detect_overflow(vz) =
+    let crt_modulus = P1 * P2
+    (vz >= crt_modulus ? 1 : 0)
+
+let xverify_with_overflow_check(a, b) =
+    let vz = z_mul(a, b)
+    let overflow = detect_overflow(vz)
+    if overflow == 1
+        let v1 = gf1_mul(a, b)
+        let v2 = gf2_mul(a, b)
+        [v1, v2, vz, -1, 0]
+    else
+        xverify_mul(a, b)
+
+let poly_eval_gf1(coeffs, x, n) =
+    let result = 0
+    let xpow = 1
+    let i = 0
+    for i < n
+        result = gf1_add(result, gf1_mul(coeffs[i], xpow))
+        xpow = gf1_mul(xpow, x)
+        i = i + 1
+    result
+
+let poly_eval_gf2(coeffs, x, n) =
+    let result = 0
+    let xpow = 1
+    let i = 0
+    for i < n
+        result = gf2_add(result, gf2_mul(coeffs[i], xpow))
+        xpow = gf2_mul(xpow, x)
+        i = i + 1
+    result
+
+let poly_eval_z(coeffs, x, n) =
+    let result = 0
+    let xpow = 1
+    let i = 0
+    for i < n
+        result = z_add(result, z_mul(coeffs[i], xpow))
+        xpow = z_mul(xpow, x)
+        i = i + 1
+    result
+
+let xverify_polynomial(coeffs, x, n) =
+    let v1 = poly_eval_gf1(coeffs, x, n)
+    let v2 = poly_eval_gf2(coeffs, x, n)
+    let vz = poly_eval_z(coeffs, x, n)
+    let overflow = detect_overflow(vz)
+    if overflow == 1
+        [v1, v2, vz, -1, 0]
+    else
+        let reconstructed = crt_reconstruct(v1, v2)
+        let cert = (reconstructed == vz ? 1 : 0)
+        [v1, v2, vz, reconstructed, cert]
+
+let value_range_proof(val, bound, p) =
+    let val_mod = val % p
+    (val_mod < bound ? 1 : 0)
+
+let xverify_range_cert(val, bound) =
+    let c1 = value_range_proof(val, bound, P1)
+    let c2 = value_range_proof(val, bound, P2)
+    let cz = (val < 0 ? 0 : (val < bound ? 1 : 0))
+    if c1 != 1
+        0
+    else
+        (c2 != 1 ? 0 : (cz != 1 ? 0 : 1))
+
+let field_xverify(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 700 + i * 400
+        let diff = gf_sub(z, pole)
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let xverify_verify() =
+    let r1 = xverify_add(12345, 6789)
+    let ok1 = r1[4]
+
+    let r2 = xverify_mul(123, 456)
+    let ok2 = r2[4]
+
+    let r3 = xverify_expr_abc(12345, 6789, 777)
+    let ok3 = r3[4]
+
+    let r4 = xverify_pythagorean(3, 4)
+    let ok4 = r4[4]
+
+    let coeffs = [1, 2, 3]
+    let r5 = xverify_polynomial(coeffs, 5, 3)
+    let ok5 = r5[4]
+
+    let overflow = detect_overflow(P1 * P2)
+    let ok6 = (overflow == 1 ? 1 : 0)
+
+    let rc = xverify_range_cert(100, 1000)
+    let ok7 = rc
+
+    ok1 + ok2 + ok3 + ok4 + ok5 + ok6 + ok7
+
+let kleene_verify(t1, t2) = domain_kleene_verify(t1, t2)
+
+let pcd_divergence(u, n) = domain_pcd_divergence(u, n)

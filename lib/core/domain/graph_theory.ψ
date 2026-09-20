@@ -1,0 +1,510 @@
+import "../stdlib/gf65537.ψ"
+import "domain_list.ψ"
+
+let chromatic_number_gf(adj) =
+    chromatic_search_gf(adj, 1, 0)
+
+let chromatic_search_gf(adj, k, found) =
+        if k > 65537 || found == 1
+            k - 1
+        else
+            let colorable = k_colorable_gf(adj, k)
+            if colorable == 1
+                k
+            else
+                chromatic_search_gf(adj, k + 1, 0)
+
+let k_colorable_gf(adj, k) =
+    k_colorable_rec_gf(adj, k, 0, [])
+
+let k_colorable_rec_gf(adj, k, v, coloring) =
+        if v >= len(adj)
+            1
+        else
+            k_colorable_try_gf(adj, k, v, coloring, 0, 0)
+
+let k_colorable_try_gf(adj, k, v, coloring, c, found) =
+        if c >= k || found == 1
+            found
+        else
+            if color_valid_gf(adj, v, c, coloring) == 1
+                let new_coloring = append(coloring, c)
+                k_colorable_try_gf(adj, k, v, coloring, c + 1, k_colorable_rec_gf(adj, k, v + 1, new_coloring))
+            else
+                k_colorable_try_gf(adj, k, v, coloring, c + 1, found)
+
+let color_valid_gf(adj, v, c, coloring) =
+    color_valid_rec_gf(adj, v, c, coloring, 0, 1)
+
+let color_valid_rec_gf(adj, v, c, coloring, u, valid) =
+        if u >= v || valid == 0
+            valid
+        else
+            if adj[v][u] == 1
+                if coloring[u] == c
+                    color_valid_rec_gf(adj, v, c, coloring, u + 1, 0)
+                else
+                    color_valid_rec_gf(adj, v, c, coloring, u + 1, valid)
+            else
+                color_valid_rec_gf(adj, v, c, coloring, u + 1, valid)
+
+let chromatic_polynomial_gf(adj, k) =
+        let n = len(adj)
+        if n == 0
+            1
+        else
+            if n == 1
+                k
+            else
+                let edge = find_edge_gf(adj)
+                if edge[0] < 0
+                    gf_pow(k, n)
+                else
+                    let G_minus_e = delete_edge_gf(adj, edge[0], edge[1])
+                    let G_contract_e = contract_edge_gf(adj, edge[0], edge[1])
+                    gf_sub(chromatic_polynomial_gf(G_minus_e, k), chromatic_polynomial_gf(G_contract_e, k))
+
+let find_edge_gf(adj) =
+    find_edge_rec_gf(adj, 0, 0)
+
+let find_edge_rec_gf(adj, i, j) =
+        if i >= len(adj)
+            [-1, -1]
+        else
+            if j >= len(adj)
+                find_edge_rec_gf(adj, i + 1, 0)
+                if adj[i][j] == 1
+                    [i, j]
+                else
+                    find_edge_rec_gf(adj, i, j + 1)
+
+let delete_edge_gf(adj, u, v) =
+    let adj = vec_set_gf(adj, u, 0)
+    let adj = vec_set_gf(adj, v, 0)
+    adj
+
+let contract_edge_gf(adj, u, v) =
+    contract_rec_gf(adj, u, v, 0, adj)
+
+let contract_rec_gf(adj, u, v, i, new_adj) =
+        if i >= len(adj)
+            new_adj
+        else
+            if adj[v][i] == 1
+                let new_adj = vec_set_gf(new_adj, u, 1)
+                let new_adj = vec_set_gf(new_adj, i, 1)
+            contract_rec_gf(adj, u, v, i + 1, new_adj)
+
+let max_matching_gf(adj) =
+    matching_search_gf(adj, 0, [], 0)
+
+let matching_search_gf(adj, edge, current_matching, best_size) =
+        if edge >= count_edges_gf(adj)
+            best_size
+        else
+            let e = get_edge_gf(adj, edge)
+            if matching_valid_gf(current_matching, e) == 1
+                let new_matching = append(current_matching, e)
+                let with_edge = matching_search_gf(adj, edge + 1, new_matching, len(new_matching))
+                let without_edge = matching_search_gf(adj, edge + 1, current_matching, best_size)
+                (with_edge > without_edge) ? with_edge : without_edge
+            else
+                matching_search_gf(adj, edge + 1, current_matching, best_size)
+
+let matching_valid_gf(matching, e) =
+    matching_valid_rec_gf(matching, e, 0, 1)
+
+let matching_valid_rec_gf(matching, e, i, valid) =
+        if i >= len(matching) || valid == 0
+            valid
+        else
+            let m = matching[i]
+            if e[0] == m[0] || e[0] == m[1] || e[1] == m[0] || e[1] == m[1]
+                matching_valid_rec_gf(matching, e, i + 1, 0)
+            else
+                matching_valid_rec_gf(matching, e, i + 1, valid)
+
+let count_edges_gf(adj) =
+    count_edges_rec_gf(adj, 0, 0, 0)
+
+let count_edges_rec_gf(adj, i, j, count) =
+        if i >= len(adj)
+            count
+        else
+            if j >= len(adj)
+                count_edges_rec_gf(adj, i + 1, 0, count)
+                if adj[i][j] == 1 && i < j
+                    count_edges_rec_gf(adj, i, j + 1, count + 1)
+                else
+                    count_edges_rec_gf(adj, i, j + 1, count)
+
+let get_edge_gf(adj, k) =
+    get_edge_rec_gf(adj, k, 0, 0, 0)
+
+let get_edge_rec_gf(adj, target, i, j, count) =
+        if i >= len(adj)
+            [-1, -1]
+        else
+            if j >= len(adj)
+                get_edge_rec_gf(adj, target, i + 1, 0, count)
+                if adj[i][j] == 1 && i < j
+                    if count == target
+                        [i, j]
+                    else
+                        get_edge_rec_gf(adj, target, i, j + 1, count + 1)
+                else
+                    get_edge_rec_gf(adj, target, i, j + 1, count)
+
+let max_flow_gf(capacity, source, sink) =
+    let n = len(capacity)
+    let flow = zero_matrix_gf(n)
+    max_flow_augment_gf(capacity, flow, source, sink, n, 0)
+
+let max_flow_augment_gf(capacity, flow, source, sink, n, total_flow) =
+        let path = find_augmenting_path_gf(capacity, flow, source, sink, n)
+        if path[0] < 0
+            total_flow
+        else
+            let bottleneck = min_residual_gf(capacity, flow, path)
+            let new_flow = update_flow_gf(flow, path, bottleneck)
+            max_flow_augment_gf(capacity, new_flow, source, sink, n, gf_add(total_flow, bottleneck))
+
+let find_augmenting_path_gf(capacity, flow, source, sink, n) =
+        if source == sink
+            [-1]
+        else
+            [source, sink]
+
+let min_residual_gf(capacity, flow, path) =
+    let u = path[0]
+    let v = path[1]
+    gf_sub(capacity[u][v], flow[u][v])
+
+let update_flow_gf(flow, path, bottleneck) =
+    let u = path[0]
+    let v = path[1]
+    let flow = vec_set_gf(flow, u, gf_add(flow[u][v], bottleneck))
+    let flow = vec_set_gf(flow, v, gf_sub(flow[v][u], bottleneck))
+    flow
+
+let zero_matrix_gf(n) =
+    zero_matrix_rec_gf(n, 0, [])
+
+let zero_matrix_rec_gf(n, i, result) =
+        if i >= n
+            result
+        else
+            zero_matrix_rec_gf(n, i + 1, append(result, zero_vec_gf(n)))
+
+let zero_vec_gf(n) =
+    zero_vec_rec_gf(n, 0, [])
+
+let zero_vec_rec_gf(n, i, result) =
+        if i >= n
+            result
+        else
+            zero_vec_rec_gf(n, i + 1, append(result, 0))
+
+let min_cut_gf(capacity, source, sink) =
+    max_flow_gf(capacity, source, sink)
+
+let adjacency_eigenvalues_gf(adj) =
+    let char_poly = characteristic_poly_gf(adj)
+    find_roots_gf(char_poly)
+
+let characteristic_poly_gf(M) =
+    M
+
+let find_roots_gf(poly) =
+    find_roots_rec_gf(poly, 0, [])
+
+let find_roots_rec_gf(poly, x, roots) =
+        if x >= 65537
+            roots
+        else
+            if poly_eval_gf(poly, x) == 0
+                find_roots_rec_gf(poly, x + 1, append(roots, x))
+            else
+                find_roots_rec_gf(poly, x + 1, roots)
+
+let laplacian_gf(adj) =
+    let n = len(adj)
+    laplacian_rec_gf(adj, n, 0, [])
+
+let laplacian_rec_gf(adj, n, i, L) =
+        if i >= n
+            L
+        else
+            let row = laplacian_row_gf(adj, n, i)
+            laplacian_rec_gf(adj, n, i + 1, append(L, row))
+
+let laplacian_row_gf(adj, n, i) =
+    laplacian_row_rec_gf(adj, n, i, 0, [])
+
+let laplacian_row_rec_gf(adj, n, i, j, row) =
+        if j >= n
+            row
+        else
+            if i == j
+                row[ j] = degree_gf(adj, i)
+                laplacian_row_rec_gf(adj, n, i, j + 1, row)
+            else
+                let row = vec_set_gf(row, j, gf_sub(0, adj[i][j]))
+                laplacian_row_rec_gf(adj, n, i, j + 1, row)
+
+let degree_gf(adj, v) =
+    degree_rec_gf(adj, v, 0, 0)
+
+let degree_rec_gf(adj, v, j, count) =
+        if j >= len(adj)
+            count
+        else
+            degree_rec_gf(adj, v, j + 1, gf_add(count, adj[v][j]))
+
+let graph_ntt_spectrum_gf(adj) =
+    let n = len(adj)
+    ntt_spectrum_rec_gf(adj, n, 0, [])
+
+let ntt_spectrum_rec_gf(adj, n, k, spectrum) =
+        if k >= n
+            spectrum
+        else
+            let omega = 4096
+            let lambda_k = ntt_eigenvalue_gf(adj, omega, k, n)
+            ntt_spectrum_rec_gf(adj, n, k + 1, append(spectrum, lambda_k))
+
+let ntt_eigenvalue_gf(adj, omega, k, n) =
+    ntt_eigenvalue_rec_gf(adj, omega, k, n, 0, 0, 0)
+
+let ntt_eigenvalue_rec_gf(adj, omega, k, n, i, j, acc) =
+        if i >= n
+            acc
+        else
+            if j >= n
+                ntt_eigenvalue_rec_gf(adj, omega, k, n, i + 1, 0, acc)
+            else
+                let phase = gf_pow(omega, gf_mul(k, gf_sub(j, i)))
+                let term = gf_mul(adj[i][j], phase)
+                ntt_eigenvalue_rec_gf(adj, omega, k, n, i, j + 1, gf_add(acc, term))
+
+let graph_isomorphic_gf(adj1, adj2) =
+        let n = len(adj1)
+        if len(adj2) != n
+            0
+        else
+            iso_search_gf(adj1, adj2, n, 0, identity_perm_gf(n))
+
+let iso_search_gf(adj1, adj2, n, i, perm) =
+        if i >= n
+            check_isomorphism_gf(adj1, adj2, perm)
+        else
+            iso_try_perm_gf(adj1, adj2, n, i, perm, 0, 0)
+
+let iso_try_perm_gf(adj1, adj2, n, i, perm, j, found) =
+        if j >= n || found == 1
+            found
+        else
+            let new_perm = perm
+            let new_perm = vec_set_gf(new_perm, i, j)
+            iso_try_perm_gf(adj1, adj2, n, i, perm, j + 1, iso_search_gf(adj1, adj2, n, i + 1, new_perm))
+
+let check_isomorphism_gf(adj1, adj2, perm) =
+    check_iso_rec_gf(adj1, adj2, perm, 0, 0, 1)
+
+let check_iso_rec_gf(adj1, adj2, perm, i, j, valid) =
+        if i >= len(adj1) || valid == 0
+            valid
+        else
+            if j >= len(adj1)
+                check_iso_rec_gf(adj1, adj2, perm, i + 1, 0, valid)
+            else
+                if adj1[i][j] != adj2[perm[i]][perm[j]]
+                    check_iso_rec_gf(adj1, adj2, perm, i, j + 1, 0)
+                else
+                    check_iso_rec_gf(adj1, adj2, perm, i, j + 1, valid)
+
+let identity_perm_gf(n) =
+    identity_perm_rec_gf(n, 0, [])
+
+let identity_perm_rec_gf(n, i, perm) =
+        if i >= n
+            perm
+        else
+            identity_perm_rec_gf(n, i + 1, append(perm, i))
+
+let hamilton_path_gf(adj) =
+    let n = len(adj)
+    hamilton_search_gf(adj, n, 0, [0], 1)
+
+let hamilton_search_gf(adj, n, current, path, visited) =
+        if len(path) == n
+            1
+        else
+            hamilton_try_next_gf(adj, n, current, path, visited, 0, 0)
+
+let hamilton_try_next_gf(adj, n, current, path, visited, next, found) =
+        if next >= n || found == 1
+            found
+        else
+            if adj[current][next] == 1 && !visited_bit_gf(visited, next)
+                let new_path = append(path, next)
+                let new_visited = set_visited_bit_gf(visited, next)
+                hamilton_try_next_gf(adj, n, current, path, visited, next + 1, hamilton_search_gf(adj, n, next, new_path, new_visited))
+            else
+                hamilton_try_next_gf(adj, n, current, path, visited, next + 1, found)
+
+let visited_bit_gf(visited, v) =
+    (visited >> v) & 1
+
+let set_visited_bit_gf(visited, v) =
+    visited | (1 << v)
+
+let cayley_gf(n) =
+    gf_pow(n, n - 2)
+
+let mst_gf(adj, weights) =
+    let edges = sort_edges_by_weight_gf(adj, weights)
+    mst_kruskal_gf(edges, len(adj), 0, [], 0)
+
+let sort_edges_by_weight_gf(adj, weights) =
+    edges_list_gf(adj, weights)
+
+let edges_list_gf(adj, weights) =
+    edges_list_rec_gf(adj, weights, 0, 0, [])
+
+let edges_list_rec_gf(adj, weights, i, j, edges) =
+        if i >= len(adj)
+            edges
+        else
+            if j >= len(adj)
+                edges_list_rec_gf(adj, weights, i + 1, 0, edges)
+                if adj[i][j] == 1 && i < j
+                    edges_list_rec_gf(adj, weights, i, j + 1, append(edges, [i, j, weights[i][j]]))
+                else
+                    edges_list_rec_gf(adj, weights, i, j + 1, edges)
+
+let mst_kruskal_gf(edges, n, i, mst, total_weight) =
+        if i >= len(edges) || len(mst) == n - 1
+            [mst, total_weight]
+        else
+            let e = edges[i]
+            if find_uf_gf(e[0]) != find_uf_gf(e[1])
+                union_uf_gf(e[0], e[1])
+                mst_kruskal_gf(edges, n, i + 1, append(mst, e), gf_add(total_weight, e[2]))
+            else
+                mst_kruskal_gf(edges, n, i + 1, mst, total_weight)
+
+let find_uf_gf(x) =
+    x
+
+let union_uf_gf(x, y) =
+    0
+
+let shortest_path_gf(adj, weights, source, target) =
+    let n = len(adj)
+    let dist = init_dist_gf(n, source)
+    let visited = zero_vec_gf(n)
+    dijkstra_gf(adj, weights, dist, visited, n, target)
+
+let init_dist_gf(n, source) =
+    init_dist_rec_gf(n, source, 0, [])
+
+let init_dist_rec_gf(n, source, i, dist) =
+        if i >= n
+            dist
+        else
+            if i == source
+                init_dist_rec_gf(n, source, i + 1, append(dist, 0))
+            else
+                init_dist_rec_gf(n, source, i + 1, append(dist, 65536))
+
+let dijkstra_gf(adj, weights, dist, visited, n, target) =
+        let u = find_min_unvisited_gf(dist, visited, n)
+        if u < 0 || u == target
+            dist[target]
+        else
+            let new_visited = visited
+            let new_visited = vec_set_gf(new_visited, u, 1)
+            let new_dist = relax_neighbors_gf(adj, weights, dist, u, n)
+            dijkstra_gf(adj, weights, new_dist, new_visited, n, target)
+
+let find_min_unvisited_gf(dist, visited, n) =
+    find_min_rec_gf(dist, visited, n, 0, -1, 65536)
+
+let find_min_rec_gf(dist, visited, n, i, best, best_dist) =
+        if i >= n
+            best
+        else
+            if visited[i] == 0 && dist[i] < best_dist
+                find_min_rec_gf(dist, visited, n, i + 1, i, dist[i])
+            else
+                find_min_rec_gf(dist, visited, n, i + 1, best, best_dist)
+
+let relax_neighbors_gf(adj, weights, dist, u, n) =
+    relax_rec_gf(adj, weights, dist, u, n, 0, dist)
+
+let relax_rec_gf(adj, weights, dist, u, n, v, new_dist) =
+        if v >= n
+            new_dist
+        else
+            if adj[u][v] == 1
+                let alt = gf_add(dist[u], weights[u][v])
+                if alt < new_dist[v]
+                    let new_dist = vec_set_gf(new_dist, v, alt)
+                relax_rec_gf(adj, weights, dist, u, n, v + 1, new_dist)
+            else
+                relax_rec_gf(adj, weights, dist, u, n, v + 1, new_dist)
+
+let graph_walk_gf(adj, start, steps) =
+    graph_walk_rec_gf(adj, start, steps, 0, start)
+
+let graph_walk_rec_gf(adj, current, steps, i, position) =
+        if i >= steps
+            position
+        else
+            let next = first_neighbor_gf(adj, position)
+            graph_walk_rec_gf(adj, current, steps, i + 1, next)
+
+let first_neighbor_gf(adj, v) =
+    first_neighbor_rec_gf(adj, v, 0)
+
+let first_neighbor_rec_gf(adj, v, j) =
+        if j >= len(adj)
+            v
+        else
+            if adj[v][j] == 1
+                j
+            else
+                first_neighbor_rec_gf(adj, v, j + 1)
+
+let connected_components_gf(adj) =
+    let n = len(adj)
+    let parent = identity_perm_gf(n)
+    components_union_gf(adj, parent, n, 0, 0)
+
+let components_union_gf(adj, parent, n, i, j) =
+        if i >= n
+            count_components_gf(parent, n)
+        else
+            if j >= n
+                components_union_gf(adj, parent, n, i + 1, 0)
+                if adj[i][j] == 1
+                    union_uf_gf(i, j)
+                    components_union_gf(adj, parent, n, i, j + 1)
+                else
+                    components_union_gf(adj, parent, n, i, j + 1)
+
+let count_components_gf(parent, n) =
+    count_components_rec_gf(parent, n, 0, 0)
+
+let count_components_rec_gf(parent, n, i, count) =
+        if i >= n
+            count
+        else
+            if parent[i] == i
+                count_components_rec_gf(parent, n, i + 1, count + 1)
+            else
+                count_components_rec_gf(parent, n, i + 1, count)
+
+let append(lst, elem) =
+    [elem]

@@ -1,0 +1,83 @@
+import "gf65537.ψ"
+
+let diff1(fx1, fx) = fx1 - fx
+
+let diff2(fx2, fx1, fx) = fx2 - 2 * fx1 + fx
+
+let diff3(fx3, fx2, fx1, fx) = fx3 - 3 * fx2 + 3 * fx1 - fx
+
+let diff_n(fvals, n) = _diff_n_acc(fvals, n, 0, 0)
+
+let _diff_n_acc(fvals, n, k, sum) =
+    if k > n
+        sum
+    else
+        let binom = _binomial(n, k)
+        let sign = ((n - k) % 2 == 0 ? 1 : -1)
+        let term = sign * binom * fvals[k]
+        _diff_n_acc(fvals, n, k + 1, sum + term)
+
+let _binomial(n, k) =
+    if k == 0
+        1
+    else
+        0
+    if k > n
+        0
+    else
+        _binomial(n - 1, k - 1) * n / k
+
+let _factorial(n) =
+    if n <= 1
+        1
+    else
+        n * _factorial(n - 1)
+
+let newton_step(x, fx, dfx) =
+    let inv_dfx = gf_inv(dfx)
+    x - fx * inv_dfx
+
+let taylor_coeff(fk, dx, k) =
+    let fact_k = _factorial(k)
+    fk * dx ** k * gf_inv(fact_k)
+
+let taylor_sum(diffs, dx, n) = _taylor_acc(diffs, dx, n, 0, 0)
+
+let _taylor_acc(diffs, dx, n, k, sum) =
+    if k >= n
+        sum
+    else
+        let fk = diffs[k]
+        let coeff = taylor_coeff(fk, dx, k)
+        _taylor_acc(diffs, dx, n, k + 1, sum + coeff)
+
+let gradient_descent_step(x, grad, lr) = x - lr * grad
+
+let laplacian_1d(fpp, f0, fmm) = fpp - 2 * f0 + fmm
+
+let laplacian_2d(fxp, fxm, fyp, fym, f0) =
+    fxp + fxm + fyp + fym - 4 * f0
+
+let jacobian_entry(f_ij_plus, f_ij) = f_ij_plus - f_ij
+
+let hessian_entry(f_pp, f_pm, f_mp, f_mm) =
+    f_pp - f_pm - f_mp + f_mm
+
+let curl_2d(df_dy, dg_dx) = df_dy - dg_dx
+
+let divergence_2d(df_dx, dg_dy) = df_dx + dg_dy
+
+let energy_gradient(dEx, dEy, dEz) =
+    let g = arr_new_n(3)
+    g[0] = dEx
+    g[1] = dEy
+    g[2] = dEz
+    g
+
+let momentum_update(p, force, dt) = p + force * dt
+
+let verlet_step(x, x_prev, accel, dt) =
+    2 * x - x_prev + accel * dt * dt
+
+let rk4_step(x, k1, k2, k3, k4) =
+    x + (k1 + 2 * k2 + 2 * k3 + k4) / 6

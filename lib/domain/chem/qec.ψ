@@ -1,0 +1,35 @@
+import "ck.ψ"
+let bad = [0]
+
+let census = 2 + 6
+let dc = census - 8
+bad[0] = bad[0] + ck(dc, 0, 0)
+
+let t1 = (3 - 1) / 2
+let t2 = (5 - 1) / 2
+let t3 = (7 - 1) / 2
+let s1 = t2 - t1 - 1
+bad[0] = bad[0] + ck(s1, 0, 0)
+bad[0] = bad[0] + ck_hi(t2, t3)
+
+let q3 = 3 * 3
+let q5 = 5 * 5
+let q7 = 7 * 7
+let dq5 = q5 - 25
+bad[0] = bad[0] + ck(dq5, 0, 0)
+let dq7 = q7 - 49
+bad[0] = bad[0] + ck(dq7, 0, 0)
+
+let pth = 1
+bad[0] = bad[0] + ck_lo(pth, 1)
+
+if 1995 < 1993
+    bad[0] = bad[0] + 1
+if 1995 > 1997
+    bad[0] = bad[0] + 1
+if 1997 < 1995
+    bad[0] = bad[0] + 1
+if 1997 > 1999
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

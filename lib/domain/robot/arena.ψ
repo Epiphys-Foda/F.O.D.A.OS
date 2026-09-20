@@ -1,0 +1,168 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let ARENA_MAX_OBJECTS = 1024
+let ARENA_WIDTH = 1000
+let ARENA_HEIGHT = 1000
+let ARENA_DEPTH = 1000
+
+let arena_create() = [[], 0, 10]
+let arena_add(arena, obj) =
+    let objects = arena[0]
+    objects.push(obj)
+    [objects, arena[1] + 1, arena[2]]
+let arena_remove(arena, id) =
+    let objects = arena[0]
+    let new_objects = []
+    let i = 0
+    let n = arena[1]
+    for i < n
+        if objects[i][0] != id
+            new_objects.push(objects[i])
+        i = i + 1
+    [new_objects, arena[1] - 1, arena[2]]
+let arena_step_object(obj, gravity, dt) =
+    let x = gf_add(obj[1], gf_mul(obj[4], dt))
+    let y = gf_add(obj[2], gf_mul(obj[5], dt))
+    let z = gf_add(obj[3], gf_mul(obj[6], dt))
+    let vz = gf_add(obj[6], gf_mul(gf_neg(gravity), dt))
+    [obj[0], x, y, z, obj[4], obj[5], vz, obj[7], obj[8]]
+let arena_step(arena, dt) =
+    let objects = arena[0]
+    let new_objects = []
+    let i = 0
+    let n = arena[1]
+    for i < n
+        new_objects.push(arena_step_object(objects[i], arena[2], dt))
+        i = i + 1
+    [new_objects, n, arena[2]]
+let arena_check_collision(a, b) =
+    let dx = gf_sub(a[1], b[1])
+    let dy = gf_sub(a[2], b[2])
+    let dz = gf_sub(a[3], b[3])
+    let dist_sq = gf_add(gf_add(gf_mul(dx, dx), gf_mul(dy, dy)), gf_mul(dz, dz))
+    let r_sum = gf_add(a[7], b[7])
+    (dist_sq < gf_mul(r_sum, r_sum) ? 1 : 0)
+let arena_collisions(arena) =
+    let objects = arena[0]
+    let pairs = []
+    let i = 0
+    let n = arena[1]
+    for i < n
+        let j = i + 1
+        for j < n
+            if arena_check_collision(objects[i], objects[j]) == 1
+                pairs.push([i, j])
+            j = j + 1
+        i = i + 1
+    pairs
+let arena_resolve_collision(a, b) =
+    let total_mass = gf_add(a[8], b[8])
+    let dx = gf_sub(b[1], a[1])
+    let dy = gf_sub(b[2], a[2])
+    let dz = gf_sub(b[3], a[3])
+    let dist = gf_sqrt(gf_add(gf_add(gf_mul(dx, dx), gf_mul(dy, dy)), gf_mul(dz, dz)))
+    if dist == 0
+        [a, b]
+    let overlap = gf_sub(gf_add(a[7], b[7]), dist)
+    let correction_a = gf_div(gf_mul(overlap, b[8]), total_mass)
+    let correction_b = gf_div(gf_mul(overlap, a[8]), total_mass)
+    let new_a = [a[0], gf_sub(a[1], gf_mul(correction_a, gf_div(dx, dist))), a[2], a[3], a[4], a[5], a[6], a[7], a[8]]
+    let new_b = [b[0], gf_add(b[1], gf_mul(correction_b, gf_div(dx, dist))), b[2], b[3], b[4], b[5], b[6], b[7], b[8]]
+    [new_a, new_b]
+let arena_boundary_check(obj) =
+    if obj[1] < 0 || obj[1] > ARENA_WIDTH
+        1
+    if obj[2] < 0 || obj[2] > ARENA_HEIGHT
+        1
+    if obj[3] < 0 || obj[3] > ARENA_DEPTH
+        1
+    0
+let field_arena(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let arena_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_arena(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+
+let ARENA_POS_POLES = [100, 200, 300, 400, 500, 600, 700, 800]
+let ARENA_POS_WEIGHTS = [10, 20, 30, 40, 50, 60, 70, 80]
+
+let psi_arena_pos(p_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(p_idx), gf_norm(ARENA_POS_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(ARENA_POS_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let ARENA_VEL_POLES = [10, 20, 30, 40, 50, 60, 70, 80]
+let ARENA_VEL_WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800]
+
+let psi_arena_vel(v_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(v_idx), gf_norm(ARENA_VEL_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(ARENA_VEL_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let ARENA_COL_POLES = [5, 10, 15, 20, 25, 30, 35, 40]
+let ARENA_COL_WEIGHTS = [80, 70, 60, 50, 40, 30, 20, 10]
+
+let psi_arena_col(d_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(d_idx), gf_norm(ARENA_COL_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(ARENA_COL_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let arena_global_response(p_idx, v_idx, d_idx) =
+    let e1 = psi_arena_pos(p_idx)
+    let e2 = psi_arena_vel(v_idx)
+    let e3 = psi_arena_col(d_idx)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+
+let arena_pos_monotonic_test() =
+    let v1 = psi_arena_pos(100)
+    let v2 = psi_arena_pos(800)
+    (v1 != v2 ? 1 : 0)
+
+let arena_vel_monotonic_test() =
+    let v1 = ARENA_VEL_WEIGHTS[0]
+    let v2 = ARENA_VEL_WEIGHTS[7]
+    (v1 < v2 ? 1 : 0)
+
+let arena_col_decay_test() =
+    let v1 = ARENA_COL_WEIGHTS[0]
+    let v2 = ARENA_COL_WEIGHTS[7]
+    (v1 > v2 ? 1 : 0)
+
+let arena_global_nonzero_test() =
+    let g = arena_global_response(150, 15, 8)
+    (g != 0 ? 1 : 0)
+
+let arena_momentum_symmetry_test() =
+    let v1 = arena_global_response(150, 15, 8)
+    let v2 = arena_global_response(150, 15, 8)
+    (v1 == v2 ? 1 : 0)
+

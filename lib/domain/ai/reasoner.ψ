@@ -1,0 +1,245 @@
+let RS_P_MOD       = 65537
+let RS_MODE_FORWARD  = 1
+let RS_MODE_BACKWARD = 2
+let RS_MODE_CAUSAL   = 3
+let RS_MAX_STEPS     = 1024
+let RS_MAX_DEPTH     = 32
+let RS_CONFIDENCE_MAX = 1000
+let RS_CONTRADICTION  = -1
+
+let RS_FACT_ID         = 0
+let RS_FACT_SUBJECT    = 1
+let RS_FACT_PREDICATE  = 2
+let RS_FACT_OBJECT     = 3
+let RS_FACT_TS         = 4
+let RS_FACT_CONFIDENCE = 5
+
+let RS_RULE_ID          = 0
+let RS_RULE_PREMISES    = 1
+let RS_RULE_CONCLUSION  = 2
+let RS_RULE_PRIORITY    = 3
+let RS_RULE_FIRED_COUNT = 4
+
+let RS_EDGE_FROM   = 0
+let RS_EDGE_TO     = 1
+let RS_EDGE_RULE   = 2
+let RS_EDGE_WEIGHT = 3
+
+let RS_R_FACTS         = 0
+let RS_R_RULES         = 1
+let RS_R_CAUSAL_GRAPH  = 2
+let RS_R_AGENDA        = 3
+let RS_R_INFERRED      = 4
+let RS_R_LOG           = 5
+
+let rs_default_fact(id, subject, predicate, object, ts) =
+    [id, subject, predicate, object, ts, RS_CONFIDENCE_MAX]
+
+let rs_default_rule(id, conclusion, priority) =
+    [id, [], conclusion, priority, 0]
+
+let rs_default_causal_edge(from_fact, to_fact, rule_id, weight) =
+    [from_fact, to_fact, rule_id, weight]
+
+let rs_default_reasoner() =
+    let facts = {}
+    let rules = {}
+    let graph = {}
+    let agenda = []
+    let inferred = []
+    [facts, rules, graph, agenda, inferred, []]
+
+let rs_add_fact(reasoner, fact) =
+    let facts = reasoner[RS_R_FACTS]
+    facts[fact[RS_FACT_ID]] = fact
+    reasoner[RS_R_AGENDA].push(fact[RS_FACT_ID])
+    reasoner[RS_R_LOG].push(["add_fact", fact[RS_FACT_ID]])
+    reasoner
+
+let rs_add_rule(reasoner, rule) =
+    let rules = reasoner[RS_R_RULES]
+    rules[rule[RS_RULE_ID]] = rule
+    let graph = reasoner[RS_R_CAUSAL_GRAPH]
+    let premises = rule[RS_RULE_PREMISES]
+    let conclusion_id = rule[RS_RULE_CONCLUSION][RS_FACT_ID]
+    let i = 0
+    let n = len(premises)
+    for i < n
+        let from_id = premises[i]
+        let edges = graph.get(from_id, [])
+        edges.push(rs_default_causal_edge(from_id, conclusion_id, rule[RS_RULE_ID], 100))
+        graph[from_id] = edges
+        i = i + 1
+    reasoner[RS_R_LOG].push(["add_rule", rule[RS_RULE_ID]])
+    reasoner
+
+let rs_forward_chain(reasoner, max_steps) =
+    let facts = reasoner[RS_R_FACTS]
+    let rules = reasoner[RS_R_RULES]
+    let inferred = reasoner[RS_R_INFERRED]
+    let steps = 0
+    let changed = 1
+    for changed == 1
+        if steps >= max_steps
+            changed = 0
+        else
+            changed = 0
+            let rule_ids = rules.keys()
+            let i = 0
+            let n = len(rule_ids)
+            for i < n
+                let rule = rules[rule_ids[i]]
+                let premises = rule[RS_RULE_PREMISES]
+                let all_met = 1
+                let j = 0
+                let m = len(premises)
+                for j < m
+                    if facts.get(premises[j], 0) == 0
+                        all_met = 0
+                    j = j + 1
+                if all_met == 1
+                    let concl = rule[RS_RULE_CONCLUSION]
+                    let concl_id = concl[RS_FACT_ID]
+                    if facts.get(concl_id, 0) == 0
+                        facts[concl_id] = concl
+                        inferred.push(concl_id)
+                        rule[RS_RULE_FIRED_COUNT] = rule[RS_RULE_FIRED_COUNT] + 1
+                        changed = 1
+                i = i + 1
+            steps = steps + 1
+    reasoner[RS_R_FACTS] = facts
+    reasoner[RS_R_INFERRED] = inferred
+    reasoner[RS_R_LOG].push(["forward_chain", steps])
+    reasoner
+
+let rs_backward_chain(reasoner, goal_fact_id, visited) =
+    let facts = reasoner[RS_R_FACTS]
+    if facts.get(goal_fact_id, 0) != 0
+        1
+    else
+        let in_path = 0
+        let vi = 0
+        let vn = len(visited)
+        for vi < vn
+            if visited[vi] == goal_fact_id
+                in_path = 1
+            vi = vi + 1
+        if in_path == 1
+            0
+        else
+            let rules = reasoner[RS_R_RULES]
+            let rule_ids = rules.keys()
+            let found = 0
+            let i = 0
+            let n = len(rule_ids)
+            for i < n
+                let rule = rules[rule_ids[i]]
+                let concl_id = rule[RS_RULE_CONCLUSION][RS_FACT_ID]
+                if concl_id == goal_fact_id
+                    let premises = rule[RS_RULE_PREMISES]
+                    let all_proven = 1
+                    let new_visited = []
+                    let vi2 = 0
+                    let vn2 = len(visited)
+                    for vi2 < vn2
+                        new_visited.push(visited[vi2])
+                        vi2 = vi2 + 1
+                    new_visited.push(goal_fact_id)
+                    let j = 0
+                    let m = len(premises)
+                    for j < m
+                        let sub = rs_backward_chain(reasoner, premises[j], new_visited)
+                        if sub == 0
+                            all_proven = 0
+                        j = j + 1
+                    if all_proven == 1
+                        if len(premises) == 0
+                            all_proven = 0
+                        found = 1
+                i = i + 1
+            found
+
+let rs_check_consistency(reasoner) =
+    let facts = reasoner[RS_R_FACTS]
+    let keys = facts.keys()
+    let consistent = 1
+    let contradictions = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let f1 = facts[keys[i]]
+        let j = i + 1
+        for j < n
+            let f2 = facts[keys[j]]
+            if f1[RS_FACT_SUBJECT] == f2[RS_FACT_SUBJECT]
+                if f1[RS_FACT_PREDICATE] == f2[RS_FACT_PREDICATE]
+                    if f1[RS_FACT_OBJECT] != f2[RS_FACT_OBJECT]
+                        consistent = 0
+                        contradictions.push([f1[RS_FACT_ID], f2[RS_FACT_ID]])
+            j = j + 1
+        i = i + 1
+    reasoner[RS_R_LOG].push(["consistency_check", consistent])
+    [consistent, contradictions]
+
+let rs_causal_infer(reasoner, cause_fact, depth) =
+    let graph = reasoner[RS_R_CAUSAL_GRAPH]
+    let facts = reasoner[RS_R_FACTS]
+    let results = []
+    let stack = []
+    stack.push([cause_fact, 0])
+    let visited = {}
+    for len(stack) > 0
+        let frame = stack.pop()
+        let cur_fact = frame[0]
+        let cur_depth = frame[1]
+        if cur_depth < depth
+            let edges = graph.get(cur_fact, [])
+            let i = 0
+            let n = len(edges)
+            for i < n
+                let edge = edges[i]
+                let target = edge[RS_EDGE_TO]
+                if visited.get(target, 0) == 0
+                    visited[target] = 1
+                    let target_fact = facts.get(target, [])
+                    if len(target_fact) > 0
+                        results.push(target)
+                    stack.push([target, cur_depth + 1])
+                i = i + 1
+    reasoner[RS_R_LOG].push(["causal_infer", cause_fact, depth])
+    results
+
+let rs_bragg_verify(reasoner, ops_seq) =
+    let facts = reasoner[RS_R_FACTS]
+    let rules = reasoner[RS_R_RULES]
+    let inferred1 = []
+    let i = 0
+    let n = len(ops_seq)
+    for i < n
+        let op = ops_seq[i]
+        let rule = rules.get(op, [])
+        if len(rule) > 0
+            let concl_id = rule[RS_RULE_CONCLUSION][RS_FACT_ID]
+            inferred1.push(concl_id)
+        i = i + 1
+    let inferred2 = []
+    let j = 0
+    for j < n
+        let op = ops_seq[j]
+        let rule = rules.get(op, [])
+        if len(rule) > 0
+            let concl_id = rule[RS_RULE_CONCLUSION][RS_FACT_ID]
+            inferred2.push(concl_id)
+        j = j + 1
+    let matched = 1
+    if len(inferred1) != len(inferred2)
+        matched = 0
+    else
+        let k = 0
+        let nk = len(inferred1)
+        for k < nk
+            if inferred1[k] != inferred2[k]
+                matched = 0
+            k = k + 1
+    matched
+

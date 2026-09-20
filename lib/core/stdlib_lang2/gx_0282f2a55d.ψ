@@ -1,0 +1,21 @@
+let frozen1_poly(YY, n, K) =
+    let W = arr_new_n(n + K)
+    let i = 0
+    for i < n
+        W[i] = YY[i]
+        i = i + 1
+    let ok = 1
+    let k = 0
+    for k < K
+        let idx = n + k
+        let t1 = gf_mul(3, W[idx - 1])
+        let t2 = gf_mul(3, W[idx - 2])
+        let pred = gf_add(gf_sub(t1, t2), W[idx - 3])
+        W[idx] = pred
+        let bad = 0
+        if rel_permille(pred, 1, YY[idx]) > QTOL
+            bad = 1
+        ok = ok * (1 - bad)
+        k = k + 1
+    ok
+

@@ -1,0 +1,90 @@
+import "../stdlib/numtheor.ψ"
+
+import "../stdlib/gf65537.ψ"
+
+let payoff_matrix_gf(matrix) = matrix
+
+let best_response_gf(payoff, opponent_strategy, n_strategies) =
+    let best = 0
+    let best_payoff = gf_neg(1)
+    for s in 0..n_strategies
+        let p = gf_mul(payoff, opponent_strategy)
+        if p > best_payoff
+            best_payoff = p
+            best = s
+    best
+
+let nash_equilibrium_gf(payoff1, payoff2, n_strategies) =
+    for s1 in 0..n_strategies
+        for s2 in 0..n_strategies
+            let br1 = best_response_gf(payoff1, s2, n_strategies)
+            let br2 = best_response_gf(payoff2, s1, n_strategies)
+            if br1 == s1 && br2 == s2
+                [s1, s2]
+    [gf_neg(1), gf_neg(1)]
+
+let minimax_value_gf(payoff, n_strategies) =
+    let max_val = gf_neg(1)
+    for s1 in 0..n_strategies
+        let min_val = gf_pow(65537, 2)
+        for s2 in 0..n_strategies
+            let u = payoff[s1][s2]
+            if u < min_val
+                min_val = u
+        if min_val > max_val
+            max_val = min_val
+    max_val
+
+let replicator_dynamics_gf(x, fitness_x, avg_fitness) =
+    let diff = gf_sub(fitness_x, avg_fitness)
+    gf_mul(x, diff)
+
+let ess_check_gf(payoff, strategy, mutant, n_strategies) =
+    let u_ss = payoff[strategy][strategy]
+    let u_ms = payoff[mutant][strategy]
+    if u_ss > u_ms
+        1
+    if u_ss == u_ms
+        let u_sm = payoff[strategy][mutant]
+        let u_mm = payoff[mutant][mutant]
+        if u_sm > u_mm
+            1
+    0
+
+let second_price_auction_gf(bids) =
+    let winner = 0
+    let highest = gf_neg(1)
+    let second = gf_neg(1)
+    for i in 0..len(bids)
+        if bids[i] > highest
+            second = highest
+            highest = bids[i]
+            winner = i
+        else
+            0
+    if bids[i] > second
+            second = bids[i]
+    [winner, second]
+
+let auction_revenue_gf(price, probability) =
+    gf_mul(price, probability)
+
+let shapley_value_gf(characteristic_func, player, n_players) =
+    let total = 0
+    let n_fact = gf_factorial(n_players)
+    for s_size in 0..n_players
+        let weight = gf_div(gf_mul(gf_factorial(s_size), gf_factorial(n_players - s_size - 1)), n_fact)
+        let marginal = gf_sub(characteristic_func(s_size + 1), characteristic_func(s_size))
+        total = gf_add(total, gf_mul(weight, marginal))
+    total
+
+let potential_game_check_gf(payoff, potential, s_i, s_i_prime, s_minus, n_players) =
+    let payoff_diff = gf_sub(payoff[s_i][s_minus], payoff[s_i_prime][s_minus])
+    let potential_diff = gf_sub(potential[s_i][s_minus], potential[s_i_prime][s_minus])
+    (payoff_diff == potential_diff ? 1 : 0)
+
+let correlated_equilibrium_gf(distribution, payoff, s_i, s_i_prime, n_players) =
+    let lhs = gf_mul(distribution, payoff[s_i])
+    let rhs = gf_mul(distribution, payoff[s_i_prime])
+    (lhs >= rhs ? 1 : 0)
+

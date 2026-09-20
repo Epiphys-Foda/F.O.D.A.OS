@@ -1,0 +1,110 @@
+let hex_digit(d) =
+      if d < 10
+        d + 48
+      else
+        d + 55
+
+let hex_val(c) =
+    if c >= 48
+      if c <= 57
+        c - 48
+      else
+          0
+      if c >= 65
+        if c <= 70
+          c - 55
+        else
+            0
+        if c >= 97
+          if c <= 102
+            c - 87
+          else
+            0
+        else
+          0
+      else
+        0
+    else
+      0
+
+let _hex_encode_loop(n, digits) =
+      if n > 0
+        let d = n & 15
+        let rest = _hex_encode_loop(n >> 4, digits)
+        arr_push(rest, hex_digit(d))
+      else
+        digits
+let hex_encode(n) =
+      if n == 0
+        let d = arr_new()
+        arr_push(d, 48)
+        d
+      else
+        _hex_encode_loop(n, arr_new())
+
+let _hex_decode_loop(arr, n, i, result) =
+      if i >= n
+        result
+      else
+        let c = arr_get(arr, i)
+        let v = hex_val(c)
+        _hex_decode_loop(arr, n, i + 1, result * 16 + v)
+let hex_decode(arr) =
+    let n = arr_len(arr)
+    _hex_decode_loop(arr, n, 0, 0)
+
+let _bin_encode_loop(n, bits) =
+      if n > 0
+        let b = (n & 1) + 48
+        let rest = _bin_encode_loop(n >> 1, bits)
+        arr_push(rest, b)
+      else
+        bits
+let binary_encode(n) =
+      if n == 0
+        let d = arr_new()
+        arr_push(d, 48)
+        d
+      else
+        _bin_encode_loop(n, arr_new())
+
+let gray_encode(n) = n ^ (n >> 1)
+
+let _gray_decode_loop(g, mask, result) =
+      if mask == 0
+        result
+      else
+        _gray_decode_loop(g, mask >> 1, result ^ (g & mask))
+let gray_decode(g) = _gray_decode_loop(g, g >> 1, g)
+
+let _oct_encode_loop(n, digits) =
+      if n > 0
+        let d = (n & 7) + 48
+        let rest = _oct_encode_loop(n >> 3, digits)
+        arr_push(rest, d)
+      else
+        digits
+let octal_encode(n) =
+      if n == 0
+        let d = arr_new()
+        arr_push(d, 48)
+        d
+      else
+        _oct_encode_loop(n, arr_new())
+
+let test_encoding() =
+    assert_eq(hex_digit(0), 48)
+    assert_eq(hex_digit(10), 65)
+    assert_eq(hex_digit(15), 70)
+    assert_eq(hex_val(48), 0)
+    assert_eq(hex_val(65), 10)
+    assert_eq(hex_val(97), 10)
+    assert_eq(gray_encode(0), 0)
+    assert_eq(gray_encode(1), 1)
+    assert_eq(gray_encode(2), 3)
+    assert_eq(gray_encode(3), 2)
+    assert_eq(gray_decode(0), 0)
+    assert_eq(gray_decode(1), 1)
+    assert_eq(gray_decode(3), 2)
+    assert_eq(gray_decode(2), 3)
+    0

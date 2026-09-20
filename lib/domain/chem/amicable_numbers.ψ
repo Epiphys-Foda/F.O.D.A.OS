@@ -1,0 +1,48 @@
+import "ck.ψ"
+let bad = [0]
+
+let s220 = 1 + 2 + 4 + 5 + 10 + 11 + 20 + 22 + 44 + 55 + 110
+let dz1 = s220 - 284
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let s284 = 1 + 2 + 4 + 71 + 142
+let dz2 = s284 - 220
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let dz3 = s220 - 284
+bad[0] = bad[0] + ck(dz3, 0, 0)
+let dz4 = s284 - 220
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let sig = 220 + 284
+let dz5 = sig - 504
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let tA = 4 * 5 * 11
+let dz6 = tA - 220
+bad[0] = bad[0] + ck(dz6, 0, 0)
+let tB = 4 * 71
+let dz7 = tB - 284
+bad[0] = bad[0] + ck(dz7, 0, 0)
+
+let s6 = 1 + 2 + 3
+let dz8 = s6 - 6
+bad[0] = bad[0] + ck(dz8, 0, 0)
+
+if 284 == 220
+    bad[0] = bad[0] + 1
+
+if 850 < 845
+    bad[0] = bad[0] + 1
+if 850 > 855
+    bad[0] = bad[0] + 1
+if 1636 < 1634
+    bad[0] = bad[0] + 1
+if 1636 > 1638
+    bad[0] = bad[0] + 1
+if 1918 < 1916
+    bad[0] = bad[0] + 1
+if 1918 > 1920
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

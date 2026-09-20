@@ -1,0 +1,85 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let QEC_DISTANCE = 7
+let QEC_MAX_SYNDROME = 64
+
+let repetition_encode(bit) = [bit, bit, bit]
+let repetition_decode(bits) =
+    let count_0 = 0
+    let count_1 = 0
+    let i = 0
+    let n = len(bits)
+    for i < n
+        (bits[i] == 0 ? (count_0 = count_0 + 1) : (count_1 = count_1 + 1))
+        i = i + 1
+    (count_0 > count_1 ? 0 : 1)
+let shor_encode(bit) =
+    (bit == 0 ? [1, 0, 0, 1, 0, 0, 1, 0, 0] : [0, 1, 0, 0, 1, 0, 0, 1, 0])
+let surface_code_syndrome(data_qubits, n) =
+    let syndromes = []
+    let i = 0
+    for i < n - 1
+        syndromes.push(gf_add(data_qubits[i], data_qubits[i + 1]))
+        i = i + 1
+    syndromes
+let surface_code_correct(data_qubits, syndromes) =
+    let corrected = []
+    let i = 0
+    let n = len(data_qubits)
+    for i < n
+        corrected.push(data_qubits[i])
+        i = i + 1
+    i = 0
+    let m = len(syndromes)
+    for i < m
+        if syndromes[i] == 1
+            corrected[i] = gf_add(corrected[i], 1)
+        i = i + 1
+    corrected
+let hamming_encode(data) =
+    let n = len(data)
+    let encoded = []
+    let i = 0
+    for i < n * 2
+        encoded.push(0)
+        i = i + 1
+    i = 0
+    for i < n
+        encoded[n + i] = data[i]
+        i = i + 1
+    i = 0
+    for i < n
+        let j = 0
+        for j < n
+            encoded[i] = gf_add(encoded[i], gf_mul(data[j], gf_pow(2, j)))
+            j = j + 1
+        i = i + 1
+    encoded
+let hamming_syndrome(received) =
+    let n = len(received)
+    let syndrome = []
+    let i = 0
+    for i < n / 2
+        syndrome.push(received[i])
+        i = i + 1
+    syndrome
+let qec_field_syndrome(data, n, z) =
+    let syndrome = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        syndrome = gf_add(syndrome, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    syndrome
+
+let qec_verify() =
+    let data = arr_new_n(3)
+    data[0] = 100
+    data[1] = 200
+    data[2] = 300
+    let syndrome = qec_field_syndrome(data, 3, 500)
+    let ok = 0
+    (syndrome != 0 ? (ok = 1) : (ok = 0))
+    ok
+

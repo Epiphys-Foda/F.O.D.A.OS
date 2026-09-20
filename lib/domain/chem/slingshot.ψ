@@ -1,0 +1,32 @@
+import "ck.ψ"
+let bad = [0]
+
+let v_jup = 13
+let dz1 = v_jup - 13
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let max_gain = 2 * v_jup
+let dz2 = max_gain - 26
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let v_gain = 16
+let dz3 = v_gain - 16
+bad[0] = bad[0] + ck(dz3, 0, 0)
+bad[0] = bad[0] + ck(v_gain, 14, 18)
+
+let probe_kg = 722
+let jup_x26 = 19
+bad[0] = bad[0] + ck_hi(probe_kg, 1000)
+bad[0] = bad[0] + ck_lo(jup_x26, 19)
+
+let window = 175
+let dz4 = window - 175
+bad[0] = bad[0] + ck(dz4, 0, 0)
+bad[0] = bad[0] + ck(window, 173, 177)
+
+if 1977 < 1975
+    bad[0] = bad[0] + 1
+if 1977 > 1979
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,35 @@
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let ver = [0]
+let t1 = smod(101 * 1002, 65537)
+ver[0] = smod(ver[0] + t1, 65537)
+let t2 = smod(90 * 716, 65537)
+ver[0] = smod(ver[0] + t2, 65537)
+let t3 = smod(41875 * 1366, 65537)
+ver[0] = smod(ver[0] + t3, 65537)
+let t4 = smod(40362 * 1926, 65537)
+ver[0] = smod(ver[0] + t4, 65537)
+let t5 = smod(5 * 1002, 65537)
+ver[0] = smod(ver[0] + t5, 65537)
+let t6 = smod(12 * 716, 65537)
+ver[0] = smod(ver[0] + t6, 65537)
+let t7 = smod(31 * 1366, 65537)
+ver[0] = smod(ver[0] + t7, 65537)
+let t8 = smod(157 * 1926, 65537)
+ver[0] = smod(ver[0] + t8, 65537)
+let t9 = smod(14 * 1002, 65537)
+ver[0] = smod(ver[0] + t9, 65537)
+let t10 = smod(26 * 716, 65537)
+ver[0] = smod(ver[0] + t10, 65537)
+let t11 = smod(318 * 1366, 65537)
+ver[0] = smod(ver[0] + t11, 65537)
+let t12 = smod(13119 * 1926, 65537)
+ver[0] = smod(ver[0] + t12, 65537)
+
+let dv = ver[0] - 41177
+let adv = smod(dv + 65537, 65537)
+bad[0] = bad[0] + adv
+
+arr_get(arr_new_n(1), bad[0])

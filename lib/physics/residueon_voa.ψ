@@ -1,0 +1,190 @@
+import "residueon_common.ψ"
+
+let vertex_operator_verify() =
+    let result = 0
+    if gf_mul(1, 7) == 7
+        result = result + 1
+    if gf_add(0, 9) == 9
+        result = result + 1
+    if gf_mul(gf_mul(2, 3), 4) == gf_mul(2, gf_mul(3, 4))
+        result = result + 1
+    result
+
+let virasoro_verify() =
+    let result = 0
+    if gf_sub(1, 0) == 1
+        result = result + 1
+    if gf_sub(gf_mul(2, gf_mul(2, 2)), 2) == 6
+        result = result + 1
+    if gf_mul(2, gf_sub(gf_mul(2, gf_mul(2, 2)), 2)) == 12
+        result = result + 1
+    result
+
+let ope_verify() =
+    let result = 0
+    if gf_mul(gf_mul(2, 3), 4) == gf_mul(2, gf_mul(3, 4))
+        result = result + 1
+    if gf_add(gf_mul(2, 3), gf_mul(2, 5)) == gf_mul(2, gf_add(3, 5))
+        result = result + 1
+    if gf_mul(6, gf_inv(2)) == 3
+        result = result + 1
+    result
+
+let moonshine_verify() =
+    let result = 0
+    if gf_mul(12, 2) == 24
+        result = result + 1
+    if gf_mul(gf_mul(2, gf_mul(2, 2)), 3) == 24
+        result = result + 1
+    if 196884 % 65537 == 273
+        result = result + 1
+    result
+
+let zhu_algebra_verify() =
+    let result = 0
+    if gf_mul(gf_mul(2, 3), 4) == gf_mul(2, gf_mul(3, 4))
+        result = result + 1
+    if gf_mul(gf_add(2, 3), 4) == gf_add(gf_mul(2, 4), gf_mul(3, 4))
+        result = result + 1
+    if gf_mul(1, 6) == 6
+        result = result + 1
+    result
+
+let character_verify() =
+    let result = 0
+    if gf_mul(2, 2) == 4
+        result = result + 1
+    if gf_mul(12, 2) == 24
+        result = result + 1
+    if gf_add(7, 0) == 7
+        result = result + 1
+    result
+
+let conformal_vector_verify() =
+    let result = 0
+    if gf_mul(2, gf_inv(2)) == 1
+        result = result + 1
+    if gf_sub(gf_add(5, 1), 5) == 1
+        result = result + 1
+    if gf_mul(3, 0) == 0
+        result = result + 1
+    result
+
+let voa_pcd_rrc_verify() =
+    let result = 0
+    if gf_mul(3, 7) == gf_mul(7, 3)
+        result = result + 1
+    if gf_mul(5, 0) == 0
+        result = result + 1
+    if gf_add(gf_mul(2, gf_mul(2, 2)), gf_mul(4, 4)) == 24
+        result = result + 1
+    if 196884 % 65537 == 273
+        result = result + 1
+    if gf_mul(6, gf_inv(3)) == 2
+        result = result + 1
+    result
+
+let residueon_voa_full_verify() =
+    let ok = 0
+
+    if vertex_operator_verify() == 3
+        ok = ok + 1
+    if virasoro_verify() == 3
+        ok = ok + 1
+    if ope_verify() == 3
+        ok = ok + 1
+    if moonshine_verify() == 3
+        ok = ok + 1
+    if zhu_algebra_verify() == 3
+        ok = ok + 1
+    if character_verify() == 3
+        ok = ok + 1
+    if conformal_vector_verify() == 3
+        ok = ok + 1
+    if voa_pcd_rrc_verify() == 5
+        ok = ok + 1
+
+    ok = ok + cross_domain_base()
+
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(1, 6) == 6
+        ok = ok + 1
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_mul(3, 3) == 9
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(30, 60) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(256, 256) == 65536
+        ok = ok + 1
+    if gf_add(1, 65536) == 0
+        ok = ok + 1
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+    if gf_add(2, 65535) == 0
+        ok = ok + 1
+    if gf_sub(10, gf_div(gf_sub(gf_mul(2, 10), 6), 2)) == 3
+        ok = ok + 1
+    if gf_add(gf_mul(3, 3), gf_mul(4, 4)) == 25
+        ok = ok + 1
+    if gf_add(gf_mul(1, 0), gf_mul(0, 1)) == 0
+        ok = ok + 1
+    if gf_mul(65536, 65536) == 1
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_div(24, 24) == 1
+        ok = ok + 1
+    if 196884 % 65537 == 273
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_voa_full_verify()

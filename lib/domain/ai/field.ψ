@@ -1,0 +1,294 @@
+import "../domain_field.ψ"
+
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let RFAI_MAX_POLES = 4096
+let RFAI_MAX_LAYERS = 64
+
+let residue_field_eval(poles, z) =
+    let _poles = []
+    let _residues = []
+    let _depths = []
+    let _i = 0
+    let _n = len(poles)
+    for _i < _n
+        _poles.push(poles[_i][0])
+        _residues.push(poles[_i][1])
+        _depths.push(1)
+        _i = _i + 1
+    domain_field_eval(_poles, _residues, z)
+let pole_update(pole, z, target, lr) =
+    let diff = gf_sub(z, pole[0])
+    let inv_diff = gf_inv(diff)
+    let pred = gf_mul(pole[1], inv_diff)
+    let error = gf_sub(target, pred)
+    let new_residue = gf_add(pole[1], gf_mul(lr, gf_mul(error, inv_diff)))
+    let grad_pos = gf_mul(error, gf_mul(pole[1], gf_mul(inv_diff, inv_diff)))
+    let new_pos = gf_sub(pole[0], gf_mul(lr, grad_pos))
+    [new_pos, new_residue, pole[2]]
+let rlayer_create(n_poles, activation) =
+    let poles = []
+    let i = 0
+    for i < n_poles
+        poles.push([i + 1, 1, 1])
+        i = i + 1
+    [poles, n_poles, activation]
+let rlayer_forward(layer, input) =
+    let poles = layer[0]
+    let output = residue_field_eval(poles, input)
+    (layer[2] == 1 ? gf_pow(output, 3) : output)
+let rlayer_backward(layer, input, grad, lr) =
+    let poles = layer[0]
+    let new_poles = []
+    let i = 0
+    let n = len(poles)
+    for i < n
+        let pole = poles[i]
+        new_poles.push(pole_update(pole, input, grad, lr))
+        i = i + 1
+    [new_poles, layer[1], layer[2]]
+let rnet_create(n_layers, input_dim, output_dim) =
+    let layers = []
+    let i = 0
+    for i < n_layers
+        layers.push(rlayer_create(16, 1))
+        i = i + 1
+    [layers, n_layers, input_dim, output_dim]
+let rnet_forward(net, input) =
+    let layers = net[0]
+    let x = input
+    let i = 0
+    let n = net[1]
+    for i < n
+        x = rlayer_forward(layers[i], x)
+        i = i + 1
+    x
+let rnet_train(net, data, labels, lr, epochs) =
+    let n = net
+    let e = 0
+    for e < epochs
+        let i = 0
+        let m = len(data)
+        for i < m
+            let pred = rnet_forward(n, data[i])
+            let error = gf_sub(labels[i], pred)
+            let j = 0
+            let layers = n[0]
+            let new_layers = []
+            for j < n[1]
+                new_layers.push(rlayer_backward(layers[j], data[i], error, lr))
+                j = j + 1
+            n = [new_layers, n[1], n[2], n[3]]
+            i = i + 1
+        e = e + 1
+    n
+let field_interference(poles1, residues1, n1, poles2, residues2, n2, z) =
+    let val1 = 0
+    let i = 0
+    for i < n1
+        let diff = gf_sub(z, poles1[i])
+        val1 = gf_add(val1, gf_mul(residues1[i], gf_inv(diff)))
+        i = i + 1
+    let val2 = 0
+    let j = 0
+    for j < n2
+        let diff = gf_sub(z, poles2[j])
+        val2 = gf_add(val2, gf_mul(residues2[j], gf_inv(diff)))
+        j = j + 1
+    gf_add(val1, val2)
+
+let soliton_memory_create(positions, amplitudes, n) =
+    let poles = arr_new_n(n)
+    let residues = arr_new_n(n)
+    let i = 0
+    for i < n
+        poles[i] = positions[i]
+        residues[i] = amplitudes[i]
+        i = i + 1
+    [poles, residues, n]
+
+let soliton_memory_recall(memory, query_z) =
+    let poles = memory[0]
+    let residues = memory[1]
+    let n = memory[2]
+    residue_field_eval(poles, query_z)
+
+let born_decision(amplitudes, n) =
+    let total_prob = 0
+    let i = 0
+    for i < n
+        let a = amplitudes[i]
+        total_prob = gf_add(total_prob, gf_mul(a, a))
+        i = i + 1
+    let best = 0
+    let best_prob = 0
+    let j = 0
+    for j < n
+        let a = amplitudes[j]
+        let prob = gf_mul(a, a)
+        if prob > best_prob
+            best_prob = prob
+            best = j
+        j = j + 1
+    best
+
+let field_attention(query_poles, key_poles, value_residues, n, z) =
+    let scores = arr_new_n(n)
+    let i = 0
+    for i < n
+        let q_diff = gf_sub(z, query_poles[i])
+        let k_diff = gf_sub(z, key_poles[i])
+        let score = gf_mul(gf_inv(q_diff), gf_inv(k_diff))
+        scores[i] = score
+        i = i + 1
+    let total = 0
+    let j = 0
+    for j < n
+        total = gf_add(total, scores[j])
+        j = j + 1
+    let result = 0
+    let k = 0
+    for k < n
+        let weight = gf_mul(scores[k], gf_inv(total))
+        result = gf_add(result, gf_mul(weight, value_residues[k]))
+        k = k + 1
+    result
+
+let rfai_verify() =
+    let net = rnet_create(2, 4, 4)
+    let output = rnet_forward(net, 100)
+    let amps = arr_new_n(3)
+    amps[0] = 100
+    amps[1] = 200
+    amps[2] = 300
+    let decision = born_decision(amps, 3)
+    let positions = arr_new_n(2)
+    positions[0] = 127
+    positions[1] = 1127
+    let amplitudes = arr_new_n(2)
+    amplitudes[0] = 42
+    amplitudes[1] = 84
+    let memory = soliton_memory_create(positions, amplitudes, 2)
+    let recall = soliton_memory_recall(memory, 500)
+    let ok = 0
+    (decision == 2 ? (ok = 1) : (ok = 0))
+    ok
+
+let RFAI_INJECT_POLES = [100, 200, 300, 400, 500, 600, 700, 800]
+let RFAI_INJECT_WEIGHTS = [10, 20, 30, 40, 50, 60, 70, 80]
+
+let psi_rfai_inject(stimulus) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(stimulus), gf_norm(RFAI_INJECT_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(RFAI_INJECT_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let RFAI_RESONATE_POLES = [10, 20, 30, 40, 50, 60, 70, 80]
+let RFAI_RESONATE_WEIGHTS = [80, 70, 60, 50, 40, 30, 20, 10]
+
+let psi_rfai_resonate(freq) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(freq), gf_norm(RFAI_RESONATE_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(RFAI_RESONATE_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let RFAI_VORTEX_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let RFAI_VORTEX_WEIGHTS = [10, 30, 50, 70, 90, 70, 50, 30]
+
+let psi_rfai_vortex(position) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(position), gf_norm(RFAI_VORTEX_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(RFAI_VORTEX_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let field_global_response(stimulus, freq, position) =
+    let e1 = psi_rfai_inject(stimulus)
+    let e2 = psi_rfai_resonate(freq)
+    let e3 = psi_rfai_vortex(position)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+
+let rfai_injection_test() =
+    let v_low = psi_rfai_inject(100)
+    let v_high = psi_rfai_inject(800)
+    (v_low != v_high ? 1 : 0)
+
+let rfai_resonance_test() =
+    let v_low_freq = psi_rfai_resonate(10)
+    let v_high_freq = psi_rfai_resonate(80)
+    (v_low_freq != v_high_freq ? 1 : 0)
+
+let rfai_vortex_peak_test() =
+    let v_peak = psi_rfai_vortex(5)
+    let v_edge = psi_rfai_vortex(1)
+    (v_peak != v_edge ? 1 : 0)
+
+let nested_fractal_field_invariants() =
+    let e1 = psi_rfai_inject(500)
+    let e2 = psi_rfai_resonate(40)
+    let e3 = psi_rfai_vortex(5)
+    let inv1 = 0
+    if e1 != 0
+        (e2 != 0 ? (e3 != 0 ? (inv1 = 1) : 0) : 0)
+    let inv2 = 0
+    if RFAI_INJECT_POLES[0] < RFAI_INJECT_POLES[3]
+        (RFAI_INJECT_POLES[3] < RFAI_INJECT_POLES[7] ? (inv2 = 1) : 0)
+    let inv3 = 0
+    if RFAI_RESONATE_WEIGHTS[0] > RFAI_RESONATE_WEIGHTS[3]
+        (RFAI_RESONATE_WEIGHTS[3] > RFAI_RESONATE_WEIGHTS[7] ? (inv3 = 1) : 0)
+    let inv4 = 0
+    if RFAI_VORTEX_WEIGHTS[4] == 90
+        (RFAI_VORTEX_WEIGHTS[0] == 10 ? (inv4 = 1) : 0)
+    let inv5 = rfai_injection_test()
+    [inv1, inv2, inv3, inv4, inv5]
+
+let field_verify_v21() =
+    let t1 = 0
+    if psi_rfai_inject(500) != 0
+        t1 = 1
+    let t2 = 0
+    if psi_rfai_resonate(40) != 0
+        t2 = 1
+    let t3 = 0
+    if psi_rfai_vortex(5) != 0
+        t3 = 1
+    let t4 = rfai_injection_test()
+    let t5 = rfai_resonance_test()
+    let t6 = rfai_vortex_peak_test()
+    let t7 = 0
+    if RFAI_INJECT_POLES[0] == 100
+        t7 = 1
+    let t8 = 0
+    if RFAI_INJECT_POLES[7] == 800
+        t8 = 1
+    let t9 = 0
+    if RFAI_RESONATE_WEIGHTS[0] == 80
+        t9 = 1
+    let t10 = 0
+    if RFAI_VORTEX_WEIGHTS[4] == 90
+        t10 = 1
+    let t11 = 0
+    if RFAI_VORTEX_WEIGHTS[0] == 10
+        t11 = 1
+    let invs = nested_fractal_field_invariants()
+    let t12 = 0
+    if invs[0] == 1
+        if invs[1] == 1
+            if invs[2] == 1
+                if invs[3] == 1
+                    if invs[4] == 1
+                        t12 = 1
+    let passed = t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12
+    passed == 12
+

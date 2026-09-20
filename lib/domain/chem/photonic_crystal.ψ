@@ -1,0 +1,27 @@
+import "ck.ψ"
+let bad = [0]
+
+let lam1 = 550
+let q = lam1 / 4
+let dq = q - 137
+bad[0] = bad[0] + ck(dq, 0, 0)
+
+let h2 = lam1 / 2
+let dh = h2 - 275
+bad[0] = bad[0] + ck(dh, 0, 0)
+
+let tgap = 0
+let tdef = 100
+bad[0] = bad[0] + ck_hi(tgap, 0)
+let dtd = tdef - 100
+bad[0] = bad[0] + ck(dtd, 0, 0)
+
+let pig = 0
+bad[0] = bad[0] + ck_hi(pig, 0)
+
+if 1987 < 1985
+    bad[0] = bad[0] + 1
+if 1987 > 1989
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,43 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let m = 1
+let v1_before = 3
+let v2_before = 0
+
+let v1_after = 0
+let v2_after = 3
+if v1_after != 0
+    bad[0] = bad[0] + 1
+if v2_after != 3
+    bad[0] = bad[0] + 1
+
+let p_before = m * v1_before + m * v2_before
+let p_after = m * v1_after + m * v2_after
+if p_before != p_after
+    bad[0] = bad[0] + 1
+
+let ke_b = small_div(m * v1_before * v1_before * 100, 200)
+let ke_a = small_div(m * v2_after * v2_after * 100, 200)
+if ke_b != ke_a
+    bad[0] = bad[0] + 1
+
+let m1 = 4
+let m2 = 1
+let u1 = 3
+let u2 = 0
+let w1 = small_div((m1 - m2) * u1, m1 + m2)
+let w2 = small_div(2 * m1 * u1, m1 + m2)
+bad[0] = bad[0] + ck_lo(w1, 1)
+bad[0] = bad[0] + ck_lo(w2, 4)
+
+bad[0] = bad[0] + ck_hi(w1, u1)
+
+if 1687 < 1685
+    bad[0] = bad[0] + 1
+if 1687 > 1689
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

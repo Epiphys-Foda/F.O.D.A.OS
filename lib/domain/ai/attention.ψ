@@ -1,0 +1,94 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let ATT_MAX_HEADS = 32
+let ATT_HEAD_DIM = 64
+let ATT_MAX_SEQ = 4096
+
+let att_head_create() = [1, 1, 1]
+let att_head_forward(head, query, key, value) =
+    let q = gf_mul(query, head[0])
+    let k = gf_mul(key, head[1])
+    let v = gf_mul(value, head[2])
+    let score = gf_mul(q, k)
+    let weight = gf_div(score, gf_add(score, 1))
+    gf_mul(weight, v)
+let mha_create(n_heads, head_dim) =
+    let heads = []
+    let i = 0
+    for i < n_heads
+        heads.push(att_head_create())
+        i = i + 1
+    [heads, n_heads, head_dim]
+let mha_forward(mha, query, key, value) =
+    let heads = mha[0]
+    let outputs = []
+    let i = 0
+    let n = mha[1]
+    for i < n
+        outputs.push(att_head_forward(heads[i], query, key, value))
+        i = i + 1
+    let combined = 0
+    i = 0
+    for i < n
+        combined = gf_add(combined, outputs[i])
+        i = i + 1
+    gf_div(combined, n)
+let sparse_attention(query, keys, values, sparsity) =
+    let n = len(keys)
+    let step = n / sparsity
+    let output = 0
+    let total_weight = 0
+    let i = 0
+    for i < n
+        let score = gf_mul(query, keys[i])
+        let weight = gf_pow(score, 2)
+        output = gf_add(output, gf_mul(weight, values[i]))
+        total_weight = gf_add(total_weight, weight)
+        i = i + step
+    gf_div(output, total_weight)
+let linear_attention(query, keys, values) =
+    let n = len(keys)
+    let q_feat = gf_pow(query, 2)
+    let k_sum = 0
+    let kv_sum = 0
+    let i = 0
+    for i < n
+        let k_feat = gf_pow(keys[i], 2)
+        k_sum = gf_add(k_sum, k_feat)
+        kv_sum = gf_add(kv_sum, gf_mul(k_feat, values[i]))
+        i = i + 1
+    gf_div(gf_mul(q_feat, kv_sum), gf_add(gf_mul(q_feat, k_sum), 1))
+let causal_mask(i, j) =
+    (j <= i ? 1 : 0)
+let apply_causal_mask(scores, seq_len) =
+    let masked = []
+    let i = 0
+    for i < seq_len
+        let row = []
+        let j = 0
+        for j < seq_len
+            (causal_mask(i, j) == 1 ? row.push(scores[i * seq_len + j]) : row.push(0))
+            j = j + 1
+        masked.push(row)
+        i = i + 1
+    masked
+let att_field_coupling(phases, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(phases[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let att_verify() =
+    let phases = arr_new_n(3)
+    phases[0] = 100
+    phases[1] = 200
+    phases[2] = 300
+    let result = att_field_coupling(phases, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+

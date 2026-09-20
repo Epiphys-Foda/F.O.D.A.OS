@@ -1,0 +1,586 @@
+let CO_P = 65537
+
+let CO_STATE_SUSPENDED = 0
+let CO_STATE_RUNNING   = 1
+let CO_STATE_DEAD      = 2
+
+let CO_TASK_PENDING  = 0
+let CO_TASK_RUNNING  = 1
+let CO_TASK_DONE     = 2
+let CO_TASK_FAILED   = 3
+
+let CO_EVENT_READY = 1
+let CO_EVENT_TIMER = 2
+let CO_EVENT_IO    = 3
+
+let CO_DEFAULT_POOL_SIZE   = 64
+let CO_DEFAULT_MAX_CID     = 65536
+let CO_DEFAULT_TASK_QUEUE = 256
+
+let co_new(cid, entry_fn) =
+    [cid, CO_STATE_SUSPENDED, 0, {}, 0, entry_fn, 0]
+
+let co_cid(c) = c[0]
+let co_state(c) = c[1]
+let co_resume_point(c) = c[2]
+let co_locals(c) = c[3]
+let co_yield_value(c) = c[4]
+let co_entry(c) = c[5]
+let co_completed(c) = c[6]
+
+let co_set_state(c, s) =
+    c[1] = s
+    c
+
+let co_set_resume_point(c, p) =
+    c[2] = p
+    c
+
+let co_set_locals(c, l) =
+    c[3] = l
+    c
+
+let co_set_yield_value(c, v) =
+    c[4] = v
+    c
+
+let co_set_completed(c, v) =
+    c[6] = v
+    c
+
+let co_local_set(c, name, val) =
+    let locals = co_locals(c)
+    locals[name] = val
+    c[3] = locals
+    c
+
+let co_local_get(c, name) =
+    let locals = co_locals(c)
+    let v = locals[name]
+    if v == 0
+        0
+    else
+        v
+
+let co_state_can(from, to_) =
+    let ok = 0
+    if from == CO_STATE_SUSPENDED
+        if to_ == CO_STATE_RUNNING
+            ok = 1
+        else
+            0
+    if from == CO_STATE_RUNNING
+        if to_ == CO_STATE_SUSPENDED
+            ok = 1
+        else
+            0
+        if to_ == CO_STATE_DEAD
+            ok = 1
+    ok
+
+let co_state_name(s) =
+    let n = "unknown"
+    if s == CO_STATE_SUSPENDED
+        n = "suspended"
+    else
+        0
+    if s == CO_STATE_RUNNING
+        n = "running"
+    else
+        0
+    if s == CO_STATE_DEAD
+        n = "dead"
+    n
+
+let co_state_transition(c, to_) =
+    let from = co_state(c)
+    let result = 0
+    if co_state_can(from, to_) != 0
+        co_set_state(c, to_)
+        result = 1
+    result
+
+let co_yield(c, resume_point, yield_value) =
+    let result = co_state_transition(c, CO_STATE_SUSPENDED)
+    if result != 0
+        co_set_resume_point(c, resume_point)
+        co_set_yield_value(c, yield_value)
+    result
+
+let co_resume(c) =
+    let result = [0, 0]
+    let ok = co_state_transition(c, CO_STATE_RUNNING)
+    if ok != 0
+        result = [1, co_yield_value(c)]
+        co_set_yield_value(c, 0)
+    result
+
+let co_finish(c) =
+    let ok = co_state_transition(c, CO_STATE_DEAD)
+    if ok != 0
+        co_set_completed(c, 1)
+    c
+
+let cop_new(max_pool) =
+    [{}, [], 1, max_pool, 0]
+
+let cop_coroutines(p) = p[0]
+let cop_free(p) = p[1]
+let cop_next_cid(p) = p[2]
+let cop_max(p) = p[3]
+let cop_in_use(p) = p[4]
+
+let cop_set_coroutines(p, c) =
+    p[0] = c
+    p
+
+let cop_set_free(p, f) =
+    p[1] = f
+    p
+
+let cop_set_next_cid(p, n) =
+    p[2] = n
+    p
+
+let cop_set_in_use(p, n) =
+    p[4] = n
+    p
+
+let cop_acquire(p, entry_fn) =
+    let result = 0
+    let free_list = cop_free(p)
+    let in_use = cop_in_use(p)
+    let max_p = cop_max(p)
+    if len(free_list) > 0
+        let cid = free_list[0]
+        let out = []
+        let i = 1
+        let n = len(free_list)
+        for i < n
+            out.push(free_list[i])
+            i = i + 1
+        cop_set_free(p, out)
+        let coroutines = cop_coroutines(p)
+        let c = coroutines[cid]
+        if c != 0
+            co_set_state(c, CO_STATE_SUSPENDED)
+            co_set_resume_point(c, 0)
+            co_set_locals(c, {})
+            co_set_yield_value(c, 0)
+            co_set_completed(c, 0)
+            c[5] = entry_fn
+            coroutines[cid] = c
+            cop_set_coroutines(p, coroutines)
+        result = cid
+    else
+        if in_use < max_p
+            let cid = cop_next_cid(p)
+            cop_set_next_cid(p, cid + 1)
+            let c = co_new(cid, entry_fn)
+            let coroutines = cop_coroutines(p)
+            coroutines[cid] = c
+            cop_set_coroutines(p, coroutines)
+            result = cid
+    if result != 0
+        cop_set_in_use(p, in_use + 1)
+    result
+
+let cop_release(p, cid) =
+    let coroutines = cop_coroutines(p)
+    let c = coroutines[cid]
+    if c != 0
+        co_set_state(c, CO_STATE_DEAD)
+        co_set_completed(c, 1)
+        coroutines[cid] = c
+        cop_set_coroutines(p, coroutines)
+        let free_list = cop_free(p)
+        free_list.push(cid)
+        cop_set_free(p, free_list)
+        cop_set_in_use(p, cop_in_use(p) - 1)
+    p
+
+let cop_get(p, cid) =
+    cop_coroutines(p)[cid]
+
+let am_new() =
+    [{}, {}, 1]
+
+let am_tasks(m) = m[0]
+let am_callbacks(m) = m[1]
+let am_next_task(m) = m[2]
+
+let am_set_tasks(m, t) =
+    m[0] = t
+    m
+
+let am_set_callbacks(m, c) =
+    m[1] = c
+    m
+
+let am_set_next_task(m, n) =
+    m[2] = n
+    m
+
+let am_spawn(m, fn_ref) =
+    let tid = am_next_task(m)
+    am_set_next_task(m, tid + 1)
+    let tasks = am_tasks(m)
+    tasks[tid] = [tid, CO_TASK_PENDING, 0, 0, 0, fn_ref]
+    am_set_tasks(m, tasks)
+    tid
+
+let am_await(m, task_id, callback) =
+    let tasks = am_tasks(m)
+    let task = tasks[task_id]
+    let result = [CO_TASK_PENDING, 0]
+    if task != 0
+        let state = task[1]
+        if state == CO_TASK_DONE
+            result = [CO_TASK_DONE, task[2]]
+        else
+            0
+        if state == CO_TASK_FAILED
+            result = [CO_TASK_FAILED, task[3]]
+        else
+            let callbacks = am_callbacks(m)
+            let list = callbacks[task_id]
+            if list == 0
+                list = []
+                callbacks[task_id] = list
+            list.push(callback)
+            am_set_callbacks(m, callbacks)
+    result
+
+let am_resolve(m, task_id, value) =
+    let tasks = am_tasks(m)
+    let task = tasks[task_id]
+    if task != 0
+        task[1] = CO_TASK_DONE
+        task[2] = value
+        tasks[task_id] = task
+        am_set_tasks(m, tasks)
+        let callbacks = am_callbacks(m)
+        let list = callbacks[task_id]
+        if list != 0
+            callbacks[task_id] = 0
+            am_set_callbacks(m, callbacks)
+    m
+
+let am_reject(m, task_id, error) =
+    let tasks = am_tasks(m)
+    let task = tasks[task_id]
+    if task != 0
+        task[1] = CO_TASK_FAILED
+        task[3] = error
+        tasks[task_id] = task
+        am_set_tasks(m, tasks)
+        let callbacks = am_callbacks(m)
+        let list = callbacks[task_id]
+        if list != 0
+            callbacks[task_id] = 0
+            am_set_callbacks(m, callbacks)
+    m
+
+let am_then(m, task_id, callback) =
+    let new_task = am_spawn(m, callback)
+    let tasks = am_tasks(m)
+    let nt = tasks[new_task]
+    if nt != 0
+        nt[4] = task_id
+        tasks[new_task] = nt
+        am_set_tasks(m, tasks)
+    new_task
+
+let gen_new(seq_fn) =
+    [0, 0, seq_fn, 0, []]
+
+let gen_cid(g) = g[0]
+let gen_idx(g) = g[1]
+let gen_fn(g) = g[2]
+let gen_done(g) = g[3]
+let gen_cache(g) = g[4]
+
+let gen_set_cid(g, c) =
+    g[0] = c
+    g
+
+let gen_set_idx(g, i) =
+    g[1] = i
+    g
+
+let gen_set_done(g, d) =
+    g[3] = d
+    g
+
+let gen_set_cache(g, c) =
+    g[4] = c
+    g
+
+let gen_next(g) =
+    let result = [0, 0]
+    if gen_done(g) == 0
+        let cache = gen_cache(g)
+        let idx = gen_idx(g)
+        if idx < len(cache)
+            result = [1, cache[idx]]
+            gen_set_idx(g, idx + 1)
+        else
+            gen_set_done(g, 1)
+    result
+
+let gen_push(g, value) =
+    let cache = gen_cache(g)
+    cache.push(value)
+    gen_set_cache(g, cache)
+    g
+
+let el_new() =
+    [[], [], {}, 0, 1, 65536]
+
+let el_ready(e) = e[0]
+let el_timers(e) = e[1]
+let el_io(e) = e[2]
+let el_time(e) = e[3]
+let el_running(e) = e[4]
+let el_max_iter(e) = e[5]
+
+let el_set_ready(e, r) =
+    e[0] = r
+    e
+
+let el_set_timers(e, t) =
+    e[1] = t
+    e
+
+let el_set_io(e, i) =
+    e[2] = i
+    e
+
+let el_set_time(e, t) =
+    e[3] = t
+    e
+
+let el_set_running(e, r) =
+    e[4] = r
+    e
+
+let el_add_ready(e, callback) =
+    let r = el_ready(e)
+    r.push({callback: callback, ts: el_time(e)})
+    el_set_ready(e, r)
+    e
+
+let el_add_timer(e, at_time, callback) =
+    let timers = el_timers(e)
+    timers.push({at: at_time, callback: callback, cancelled: 0})
+    el_set_timers(e, timers)
+    e
+
+let el_cancel_timer(e, idx) =
+    let timers = el_timers(e)
+    if idx < len(timers)
+        let t = timers[idx]
+        t["cancelled"] = 1
+        timers[idx] = t
+        el_set_timers(e, timers)
+    e
+
+let el_add_io(e, fd, callback) =
+    let io = el_io(e)
+    io[fd] = callback
+    el_set_io(e, io)
+    e
+
+let el_remove_io(e, fd) =
+    let io = el_io(e)
+    io[fd] = 0
+    el_set_io(e, io)
+    e
+
+let el_step(e) =
+    let time = el_time(e) + 1
+    el_set_time(e, time)
+    let processed = 0
+    let timers = el_timers(e)
+    let i = 0
+    let n = len(timers)
+    for i < n
+        let t = timers[i]
+        if t["cancelled"] == 0
+            if t["at"] <= time
+                el_add_ready(e, t["callback"])
+                t["cancelled"] = 1
+                timers[i] = t
+                processed = processed + 1
+        i = i + 1
+    el_set_timers(e, timers)
+    let r = el_ready(e)
+    let m = len(r)
+    if m > 0
+        let first = r[0]
+        let out = []
+        let j = 1
+        for j < m
+            out.push(r[j])
+            j = j + 1
+        el_set_ready(e, out)
+        processed = processed + 1
+    processed
+
+let el_run(e) =
+    let total = 0
+    let iter = 0
+    let max_i = el_max_iter(e)
+    for iter < max_i
+        if el_running(e) == 0
+            iter = max_i
+        else
+            let n = el_step(e)
+            total = total + n
+            iter = iter + 1
+    total
+
+let el_stop(e) =
+    el_set_running(e, 0)
+    e
+
+let ts_new(max_queue) =
+    [{}, [], 1, 0, max_queue]
+
+let ts_tasks(s) = s[0]
+let ts_queue(s) = s[1]
+let ts_next_tid(s) = s[2]
+let ts_completed(s) = s[3]
+let ts_max_queue(s) = s[4]
+
+let ts_set_tasks(s, t) =
+    s[0] = t
+    s
+
+let ts_set_queue(s, q) =
+    s[1] = q
+    s
+
+let ts_set_next_tid(s, n) =
+    s[2] = n
+    s
+
+let ts_set_completed(s, c) =
+    s[3] = c
+    s
+
+let ts_submit(s, priority, fn_ref, args) =
+    let result = 0
+    let q = ts_queue(s)
+    if len(q) < ts_max_queue(s)
+        let tid = ts_next_tid(s)
+        ts_set_next_tid(s, tid + 1)
+        let tasks = ts_tasks(s)
+        tasks[tid] = [tid, CO_TASK_PENDING, priority, fn_ref, args, 0, 0]
+        ts_set_tasks(s, tasks)
+        q.push({task_id: tid, priority: priority, seq: tid})
+        ts_set_queue(s, q)
+        result = tid
+    result
+
+let ts_pick(s) =
+    let q = ts_queue(s)
+    let n = len(q)
+    let result = 0
+    if n > 0
+        let best_i = 0
+        let best_prio = 0
+        let best_seq = 0
+        let i = 0
+        for i < n
+            let item = q[i]
+            let prio = item["priority"]
+            let seq = item["seq"]
+            if i == 0
+                best_i = 0
+                best_prio = prio
+                best_seq = seq
+            else
+                if prio < best_prio
+                    best_i = i
+                    best_prio = prio
+                    best_seq = seq
+                else
+                    0
+                if prio == best_prio
+                    if seq < best_seq
+                        best_i = i
+                        best_seq = seq
+            i = i + 1
+        let picked = q[best_i]
+        let out = []
+        let j = 0
+        for j < n
+            if j != best_i
+                out.push(q[j])
+            j = j + 1
+        ts_set_queue(s, out)
+        let tasks = ts_tasks(s)
+        result = tasks[picked["task_id"]]
+    result
+
+let ts_complete(s, task_id, result) =
+    let tasks = ts_tasks(s)
+    let task = tasks[task_id]
+    if task != 0
+        task[1] = CO_TASK_DONE
+        task[5] = result
+        tasks[task_id] = task
+        ts_set_tasks(s, tasks)
+        ts_set_completed(s, ts_completed(s) + 1)
+    s
+
+let ts_fail(s, task_id, error) =
+    let tasks = ts_tasks(s)
+    let task = tasks[task_id]
+    if task != 0
+        task[1] = CO_TASK_FAILED
+        task[6] = error
+        tasks[task_id] = task
+        ts_set_tasks(s, tasks)
+    s
+
+let ts_state(s, task_id) =
+    let tasks = ts_tasks(s)
+    let task = tasks[task_id]
+    if task == 0
+        0
+    else
+        task[1]
+
+let cr_new(max_pool, max_queue) =
+    [cop_new(max_pool), am_new(), el_new(), ts_new(max_queue), 0]
+
+let cr_pool(r) = r[0]
+let cr_async(r) = r[1]
+let cr_event_loop(r) = r[2]
+let cr_task_sched(r) = r[3]
+let cr_tick(r) = r[4]
+
+let cr_set_tick(r, t) =
+    r[4] = t
+    r
+
+let cr_spawn(r, entry_fn) =
+    cop_acquire(cr_pool(r), entry_fn)
+
+let cr_release(r, cid) =
+    cop_release(cr_pool(r), cid)
+    r
+
+let cr_step(r) =
+    let tick = cr_tick(r) + 1
+    cr_set_tick(r, tick)
+    let el = cr_event_loop(r)
+    el_step(el)
+    let ts = cr_task_sched(r)
+    let task = ts_pick(ts)
+    if task != 0
+        ts_complete(ts, task[0], 0)
+    r
+

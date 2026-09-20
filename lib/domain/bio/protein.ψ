@@ -1,0 +1,377 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let PROTEIN_MAX_RES = 4096
+
+let protein_create(sequence) =
+    let residues = []
+    let i = 0
+    let n = len(sequence)
+    for i < n
+        residues.push([i, sequence[i], 0, 0, 0, 0, 0])
+        i = i + 1
+    [residues, n, sequence]
+let residue_set_coords(residue, x, y, z) = [residue[0], residue[1], x, y, z, residue[5], residue[6]]
+let residue_set_angles(residue, phi, psi) = [residue[0], residue[1], residue[2], residue[3], residue[4], phi, psi]
+let SS_HELIX = 1
+let SS_SHEET = 2
+let SS_COIL = 3
+let secondary_structure(phi, psi) =
+    if phi < 0 && psi > 0
+        SS_HELIX
+    else
+        (phi < 0 && psi < 0 ? SS_SHEET : SS_COIL)
+let protein_ss_assign(protein) =
+    let residues = protein[0]
+    let ss = []
+    let i = 0
+    let n = protein[1]
+    for i < n
+        let r = residues[i]
+        ss.push(secondary_structure(r[5], r[6]))
+        i = i + 1
+    ss
+let hp_energy(sequence, conformation) =
+    let energy = 0
+    let i = 0
+    let n = len(sequence)
+    for i < n
+        let j = i + 2
+        for j < n
+            if sequence[i] == 0 && sequence[j] == 0
+                let dx = gf_sub(conformation[i * 3], conformation[j * 3])
+                let dy = gf_sub(conformation[i * 3 + 1], conformation[j * 3 + 1])
+                let dz = gf_sub(conformation[i * 3 + 2], conformation[j * 3 + 2])
+                let dist = gf_add(gf_add(gf_mul(dx, dx), gf_mul(dy, dy)), gf_mul(dz, dz))
+                if dist == 1
+                    energy = gf_sub(energy, 1)
+            j = j + 1
+        i = i + 1
+    energy
+let ramachandran_allowed(phi, psi) =
+    if phi < 0 && psi > 0
+        1
+    else
+        (phi < 0 && psi < 0 ? 1 : 0)
+let docking_score(protein, ligand, position) =
+    let score = 0
+    let residues = protein[0]
+    let i = 0
+    let n = protein[1]
+    for i < n
+        let r = residues[i]
+        let dx = gf_sub(r[2], position[0])
+        let dy = gf_sub(r[3], position[1])
+        let dz = gf_sub(r[4], position[2])
+        let dist = gf_add(gf_add(gf_mul(dx, dx), gf_mul(dy, dy)), gf_mul(dz, dz))
+        score = gf_add(score, gf_div(1, gf_add(dist, 1)))
+        i = i + 1
+    score
+let field_protein(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let AA_RESIDUE_MASS = [
+    0,
+    71,
+    156,
+    114,
+    115,
+    103,
+    128,
+    129,
+    57,
+    137,
+    113,
+    113,
+    128,
+    131,
+    147,
+    97,
+    87,
+    101,
+    186,
+    163,
+    99
+]
+let WATER_MASS = 18
+
+let protein_mass(sequence) =
+    let total = WATER_MASS
+    let i = 0
+    let n = len(sequence)
+    for i < n
+        total = total + AA_RESIDUE_MASS[sequence[i]]
+        i = i + 1
+    total
+
+let protein_net_charge_x100(sequence, ph_x100) =
+    let q = 0
+    let i = 0
+    let n = len(sequence)
+    for i < n
+        let aa = sequence[i]
+        if aa == 4 && ph_x100 > 400
+            q = q - 1
+        if aa == 7 && ph_x100 > 400
+            q = q - 1
+        if aa == 12 && ph_x100 < 1000
+            q = q + 1
+        if aa == 2 && ph_x100 < 1000
+            q = q + 1
+        if aa == 9 && ph_x100 < 600
+            q = q + 1
+        i = i + 1
+    if ph_x100 < 800
+        q = q + 1
+    if ph_x100 > 300
+        q = q - 1
+    q
+
+let peptide_bond_count(sequence) = len(sequence) - 1
+
+let protein_verify_full() =
+    let t1 = AA_RESIDUE_MASS[8] == 57
+    let t2 = AA_RESIDUE_MASS[18] == 186 && AA_RESIDUE_MASS[8] == 57
+    let t3 = protein_mass([8, 8, 1]) == 203
+    let t4 = protein_mass([8]) == 75
+    let t5 = peptide_bond_count([8, 8, 1]) == 2
+    let t6 = AA_RESIDUE_MASS[10] == AA_RESIDUE_MASS[11]
+    let t7 = protein_net_charge_x100([4], 1100) == -2
+    let t8 = protein_net_charge_x100([12], 100) == 2
+    let q_low = protein_net_charge_x100([4, 12], 100)
+    let q_high = protein_net_charge_x100([4, 12], 1200)
+    let t9 = q_low > 0 && q_high < 0
+    let t10 = protein_mass([8, 8, 1]) > protein_mass([8, 8])
+    let all_pos = 1
+    let k = 1
+    for k <= 20
+        if AA_RESIDUE_MASS[k] <= 0
+            all_pos = 0
+        k = k + 1
+    let t11 = all_pos == 1
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let t12 = field_protein(test_data, 3, 500) != 0
+    let passed = t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12
+    passed == 12
+
+let AA_HYDRO_X100 = [
+    0,
+    180,
+    -40,
+    -38,
+    -11,
+    280,
+    -39,
+    -18,
+    -9,
+    -100,
+    450,
+    370,
+    -16,
+    140,
+    290,
+    -46,
+    -5,
+    -7,
+    -90,
+    -140,
+    420
+]
+
+let psi_seq(sequence, z) =
+    let val = 0
+    let i = 0
+    let n = len(sequence)
+    for i < n
+        let diff = gf_sub(z, i)
+        if diff != 0
+            val = gf_add(val, gf_mul(gf_norm(AA_HYDRO_X100[sequence[i]] * AA_RESIDUE_MASS[sequence[i]]), gf_inv(diff)))
+        i = i + 1
+    val
+
+let psi_seq_energy(sequence) =
+    let e = 0
+    let i = 0
+    let n = len(sequence)
+    for i < n
+        let v = psi_seq(sequence, i)
+        e = gf_add(e, gf_mul(v, v))
+        i = i + 1
+    e
+
+let SS_POLES_PHI_X100 = [-5700, -11900, -7500, 6000]
+let SS_POLES_PSI_X100 = [-4700, 11300, 14500, 4100]
+let SS_RESIDUES = [1, 1, 1, 1]
+let SS_LABELS = [1, 2, 3, 1]
+
+let psi_struct(phi_x100, psi_x100) =
+    let best = [-1, 0]
+    let val = 0
+    let k = 0
+    for k < 4
+        let dphi_abs = phi_x100 - SS_POLES_PHI_X100[k]
+        if dphi_abs < 0
+            dphi_abs = -dphi_abs
+        let dpsi_abs = psi_x100 - SS_POLES_PSI_X100[k]
+        if dpsi_abs < 0
+            dpsi_abs = -dpsi_abs
+        let manhattan = dphi_abs + dpsi_abs
+        if best[0] < 0 || manhattan < best[0]
+            best = [manhattan, k]
+        let dphi_gf = gf_sub(gf_norm(phi_x100), gf_norm(SS_POLES_PHI_X100[k]))
+        let dpsi_gf = gf_sub(gf_norm(psi_x100), gf_norm(SS_POLES_PSI_X100[k]))
+        let dist_gf = gf_add(gf_mul(dphi_gf, dphi_gf), gf_mul(dpsi_gf, dpsi_gf))
+        if dist_gf != 0
+            val = gf_add(val, gf_mul(SS_RESIDUES[k], gf_inv(dist_gf)))
+        k = k + 1
+    [SS_LABELS[best[1]], val]
+
+let INTERACT_POLES = [200, 350, 450, 205]
+let INTERACT_RESIDUES = [500, 100, 200, 800]
+
+let psi_energy(r_x100) =
+    let val = 0
+    let k = 0
+    for k < 4
+        let diff = gf_sub(gf_norm(r_x100), gf_norm(INTERACT_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(INTERACT_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let protein_global_energy(sequence, conformations) =
+    let e = 0
+    e = gf_add(e, psi_seq_energy(sequence))
+    let n = len(sequence)
+    let i = 0
+    for i < n
+        let phi = conformations[i * 3 + 1]
+        let psi = conformations[i * 3 + 2]
+        let r2 = psi_struct(phi, psi)
+        e = gf_add(e, r2[1])
+        i = i + 1
+    let j = 0
+    let i2 = 0
+    for i2 < n
+        let j2 = i2 + 2
+        for j2 < n
+            let dx = conformations[i2 * 3] - conformations[j2 * 3]
+            let dy = conformations[i2 * 3 + 1] - conformations[j2 * 3 + 1]
+            let dz = conformations[i2 * 3 + 2] - conformations[j2 * 3 + 2]
+            let r2 = dx * dx + dy * dy + dz * dz
+            e = gf_add(e, psi_energy(r2))
+            j2 = j2 + 1
+        i2 = i2 + 1
+    e
+
+let nested_fractal_invariants(sequence) =
+    let e1 = psi_seq_energy(sequence)
+    let n = len(sequence)
+    let e2_total = 0
+    let i = 0
+    for i < n
+        let v = psi_struct(-5700, -4700)
+        e2_total = gf_add(e2_total, v[1])
+        i = i + 1
+    let e3 = psi_energy(200)
+    let inv1 = 0
+    if e1 != 0
+        (e2_total != 0 ? (e3 != 0 ? (inv1 = 1) : 0) : 0)
+    let aa_hydro_max = 0
+    let aa_hydro_min = 0
+    let k = 1
+    for k <= 20
+        if AA_HYDRO_X100[k] > aa_hydro_max
+            aa_hydro_max = AA_HYDRO_X100[k]
+        if AA_HYDRO_X100[k] < aa_hydro_min
+            aa_hydro_min = AA_HYDRO_X100[k]
+        k = k + 1
+    let inv2 = 0
+    if aa_hydro_max > aa_hydro_min
+        inv2 = 1
+    let inv3 = 0
+    if len(SS_POLES_PHI_X100) == 4
+        (len(SS_POLES_PSI_X100) == 4 ? (inv3 = 1) : 0)
+    let inv4 = 0
+    if len(INTERACT_POLES) == 4
+        inv4 = 1
+    let all_int = 1
+    let m = 1
+    for m <= 20
+        if AA_HYDRO_X100[m] == 0
+            all_int = 0
+        if AA_RESIDUE_MASS[m] == 0
+            all_int = 0
+        m = m + 1
+    let inv5 = all_int
+    [inv1, inv2, inv3, inv4, inv5]
+
+let protein_verify_v18() =
+    let t1 = 0
+    if AA_RESIDUE_MASS[18] == 186
+        (AA_HYDRO_X100[18] == -90 ? (t1 = 1) : 0)
+    let t2 = 0
+    if AA_HYDRO_X100[10] == 450
+        t2 = 1
+    let t3 = 0
+    if AA_RESIDUE_MASS[8] == 57
+        (AA_HYDRO_X100[8] == -9 ? (t3 = 1) : 0)
+    let seq = [8, 8, 1]
+    let t4 = 0
+    if psi_seq_energy(seq) != 0
+        t4 = 1
+    let r5 = psi_struct(-5700, -4700)
+    let t5 = 0
+    if r5[1] != 0
+        t5 = 1
+    let r6 = psi_struct(-11900, 11300)
+    let t6 = 0
+    if r6[1] != 0
+        t6 = 1
+    let t7 = 0
+    if psi_energy(200) != 0
+        t7 = 1
+    let t8 = 0
+    if psi_energy(205) != 0
+        t8 = 1
+    let e1 = psi_seq_energy([1])
+    let e2 = psi_seq_energy([1, 1])
+    let e3 = psi_seq_energy([1, 1, 1])
+    let t9 = 0
+    if e1 != e2
+        (e2 != e3 ? (t9 = 1) : 0)
+    let invs = nested_fractal_invariants([1, 2, 3, 4, 5])
+    let t10 = 0
+    if invs[0] == 1
+        if invs[1] == 1
+            if invs[2] == 1
+                if invs[3] == 1
+                    if invs[4] == 1
+                        t10 = 1
+    let hydro_max = 0
+    let hydro_min = 0
+    let k = 1
+    for k <= 20
+        if AA_HYDRO_X100[k] > hydro_max
+            hydro_max = AA_HYDRO_X100[k]
+        if AA_HYDRO_X100[k] < hydro_min
+            hydro_min = AA_HYDRO_X100[k]
+        k = k + 1
+    let t11 = 0
+    if hydro_max == 450
+        (hydro_min == -140 ? (t11 = 1) : 0)
+    let t12 = 0
+    if SS_POLES_PHI_X100[0] == -5700
+        t12 = 1
+    let passed = t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12
+    passed == 12
+

@@ -1,0 +1,137 @@
+import "../stdlib/gf65537.ψ"
+import "../stdlib/numtheor.ψ"
+
+let permutation_gf(n, k) =
+    let numerator = gf_factorial(n)
+    let denominator = gf_factorial(n - k)
+    gf_div(numerator, denominator)
+
+let combination_gf(n, k) =
+    let numerator = gf_factorial(n)
+    let denominator = gf_mul(gf_factorial(k), gf_factorial(n - k))
+    gf_div(numerator, denominator)
+
+let stirling_second_gf(n, k) =
+        if k == 0 || k > n
+            0
+        else
+            if k == 1 || k == n
+                1
+            else
+                let s1 = gf_mul(k, stirling_second_gf(n - 1, k))
+                let s2 = stirling_second_gf(n - 1, k - 1)
+                gf_add(s1, s2)
+
+let stirling_first_gf(n, k) =
+        if k == 0
+            0
+        else
+            if k == n
+                1
+                if k > n
+                    0
+                else
+                    let s1 = stirling_first_gf(n - 1, k - 1)
+                    let s2 = gf_mul(n - 1, stirling_first_gf(n - 1, k))
+                    gf_add(s1, s2)
+
+let bell_number_gf(n) =
+    let total = 0
+    for k in 0..n
+        total = gf_add(total, stirling_second_gf(n, k))
+    total
+
+let catalan_number_gf(n) =
+    let binomial = combination_gf(2 * n, n)
+    gf_div(binomial, n + 1)
+
+let inclusion_exclusion_gf(sets) =
+    let n = len(sets)
+    let total = 0
+    for k in 1..n
+        let sign = gf_pow(gf_neg(1), k + 1)
+        let intersection_size = sets[k]
+        total = gf_add(total, gf_mul(sign, intersection_size))
+    total
+
+let ramsey_lower_bound_gf(k, l) =
+    combination_gf(k + l - 2, k - 1)
+
+let ramsey_existence_gf(n, k, l) =
+    (n >= ramsey_lower_bound_gf(k, l) ? 1 : 0)
+
+let generating_function_gf(coefficients, x) =
+    let n = len(coefficients)
+    let result = 0
+    for i in 0..n
+        let term = gf_mul(coefficients[i], gf_pow(x, i))
+        result = gf_add(result, term)
+    result
+
+let exponential_generating_function_gf(coefficients, x) =
+    let n = len(coefficients)
+    let result = 0
+    for i in 0..n
+        let term = gf_div(gf_mul(coefficients[i], gf_pow(x, i)), gf_factorial(i))
+        result = gf_add(result, term)
+    result
+
+let bibd_check_gf(v, k, lambda) =
+    let b_num = gf_mul(gf_mul(v, v - 1), lambda)
+    let b_den = gf_mul(k, k - 1)
+    let b = gf_div(b_num, b_den)
+    let r_num = gf_mul(v - 1, lambda)
+    let r_den = k - 1
+    let r = gf_div(r_num, r_den)
+    [b, r]
+
+let symmetric_design_gf(v, k, lambda) =
+    let params = bibd_check_gf(v, k, lambda)
+    (params[0] == v ? 1 : 0)
+
+let burnside_gf(fix_sizes, group_order) =
+    let total = 0
+    for i in 0..len(fix_sizes)
+        total = gf_add(total, fix_sizes[i])
+    gf_div(total, group_order)
+
+let polya_pattern_count_gf(cycle_indices, group_order, colors) =
+    let total = 0
+    for i in 0..len(cycle_indices)
+        let term = gf_pow(colors, cycle_indices[i])
+        total = gf_add(total, term)
+    gf_div(total, group_order)
+
+let partition_number_gf(n) =
+    if n == 0
+        1
+    if n < 0
+        0
+    let total = 0
+    let k = 1
+    for k * (3 * k - 1) / 2 <= n
+        let pent1 = k * (3 * k - 1) / 2
+        let pent2 = k * (3 * k + 1) / 2
+        let sign = gf_pow(gf_neg(1), k - 1)
+        total = gf_add(total, gf_mul(sign, partition_number_gf(n - pent1)))
+        if pent2 <= n
+            total = gf_add(total, gf_mul(sign, partition_number_gf(n - pent2)))
+        k = k + 1
+    total
+
+let pigeonhole_gf(n_objects, n_boxes) =
+        if n_objects > n_boxes
+            gf_div(n_objects + n_boxes - 1, n_boxes)
+        else
+            1
+
+let labeled_graph_count_gf(n) =
+    let edges = gf_div(gf_mul(n, n - 1), 2)
+    gf_pow(2, edges)
+
+let labeled_tree_count_gf(n) =
+    gf_pow(n, n - 2)
+
+let connected_graph_count_gf(n) =
+    labeled_graph_count_gf(n)
+

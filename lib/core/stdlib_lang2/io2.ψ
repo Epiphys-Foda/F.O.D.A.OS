@@ -1,0 +1,171 @@
+let IO2_P = 65537
+let IO2_GEN = 3
+
+let io2_codes(s) =
+    let out = []
+    for c in s
+        out.push(c)
+    out
+
+let io2_str(codes) =
+    let out = ""
+    for c in codes
+        out = str_concat(out, str_from_char(c))
+    out
+
+let io2_chk(data) =
+    let acc = 0
+    for b in data
+        acc = acc ⊙ IO2_GEN ⊕ b
+    acc
+
+let io2_chk_ext(acc, data) =
+    let a = acc
+    for b in data
+        a = a ⊙ IO2_GEN ⊕ b
+    a
+
+let io2_payload(env, plen) =
+    let out = []
+    for i in 1..plen + 1
+        out.push(env[i])
+    out
+
+let io2_seal(data) =
+    let env = []
+    env.push(len(data))
+    for b in data
+        env.push(b)
+    env.push(io2_chk(data))
+    env
+
+let io2_unseal(env) =
+    let n = len(env)
+    if n < 2
+        return [0]
+    let plen = env[0]
+    if plen != n - 2
+        return [0]
+    if io2_chk(io2_payload(env, plen)) != env[n - 1]
+        return [0]
+    let out = [1]
+    for i in 1..n - 1
+        out.push(env[i])
+    out
+
+let io2_tampered(data, idx, val) =
+    let env = io2_seal(data)
+    env[idx] = val
+    env
+
+let io2_eq(a, b) =
+    let n = len(a)
+    if n != len(b)
+        return 0
+    for i in 0..n
+        if a[i] != b[i]
+            return 0
+    1
+
+let io2_cat(a, b) =
+    let out = []
+    for x in a
+        out.push(x)
+    for x in b
+        out.push(x)
+    out
+
+let io2_itos(n) =
+    let neg = n < 0 ? 1 : 0
+    let v = neg == 1 ? 0 - n : n
+    let digits = []
+    if v == 0
+        digits.push(48)
+    for v > 0
+        digits.push(48 + v % 10)
+        v = v / 10
+    let out = []
+    if neg == 1
+        out.push(45)
+    let i = len(digits) - 1
+    for i >= 0
+        out.push(digits[i])
+        i = i - 1
+    out
+
+let _io2_pow10(k) =
+    let p = 1
+    for i in 0..k
+        p = p * 10
+    p
+
+let io2_fp_frac(fp, scale) =
+    let out = []
+    let div = _io2_pow10(scale - 1)
+    let rem = fp
+    for i in 0..scale
+        let d = rem / div
+        out.push(48 + d % 10)
+        rem = rem - d * div
+        div = div / 10
+    out
+
+let io2_fp_codes(value, scale) =
+    scale > 0 ? _io2_fp_full(value, scale) : io2_itos(value)
+
+let _io2_fp_full(value, scale) =
+    let pow10 = _io2_pow10(scale)
+    let ip = value / pow10
+    let fp = value % pow10
+    let head = io2_cat(io2_itos(ip), [46])
+    io2_cat(head, io2_fp_frac(fp, scale))
+
+let io2_write_text(path, s) = write_file(path, s)
+
+let io2_read_text(path) = read_file(path)
+
+let io2_v_chk() =
+    let a = 0
+    let b = a ⊙ 3 ⊕ 1
+    let c = b ⊙ 3 ⊕ 2
+    let d = c ⊙ 3 ⊕ 3
+    io2_chk([1, 2, 3]) == d ? 1 : 0
+
+let io2_v_seal_roundtrip() =
+    let data = [104, 101, 108, 108, 111]
+    let env = io2_seal(data)
+    let un = io2_unseal(env)
+    if un[0] != 1
+        return 0
+    io2_eq(io2_payload(un, un[0]), data)
+
+let io2_v_tamper_detect() =
+    let env = io2_seal([1, 2, 3, 4, 5])
+    env[2] = 99
+    let un = io2_unseal(env)
+    un[0] == 0 ? 1 : 0
+
+let io2_v_eq_negative() =
+    let r1 = io2_eq([1], [1, 2])
+    let r2 = io2_eq([1, 2], [1, 3])
+    r1 == 0 && r2 == 0 ? 1 : 0
+
+let io2_v_itos() =
+    let r1 = io2_eq(io2_itos(0), [48])
+    let r2 = io2_eq(io2_itos(0 - 123), [45, 49, 50, 51])
+    let r3 = io2_eq(io2_itos(90210), [57, 48, 50, 49, 48])
+    let r4 = io2_v_eq_negative()
+    r1 == 1 && r2 == 1 && r3 == 1 && r4 == 1 ? 1 : 0
+
+let io2_v_fp() =
+    let r1 = io2_eq(io2_fp_codes(314, 2), [51, 46, 49, 52])
+    let r2 = io2_eq(io2_fp_codes(50, 1), [53, 46, 48])
+    let r3 = io2_eq(io2_fp_codes(7, 0), [55])
+    r1 == 1 && r2 == 1 && r3 == 1 ? 1 : 0
+
+let io2_v_cat_eq() =
+    io2_eq(io2_cat([1, 2], [3, 4]), [1, 2, 3, 4]) == 1 ? 1 : 0
+
+let io2_v_str_roundtrip() =
+    let codes = io2_codes("abc")
+    len(codes) == 3 ? (io2_str(codes) == "abc" ? 1 : 0) : 0

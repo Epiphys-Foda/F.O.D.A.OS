@@ -1,0 +1,95 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let NET_MAX_PACKET = 65536
+let NET_MAX_CONN = 4096
+let NET_PORT_MAX = 65535
+
+let TCP_CLOSED = 0
+let TCP_LISTEN = 1
+let TCP_SYN_SENT = 2
+let TCP_SYN_RECV = 3
+let TCP_ESTABLISHED = 4
+let TCP_FIN_WAIT1 = 5
+let TCP_FIN_WAIT2 = 6
+let TCP_CLOSE_WAIT = 7
+let TCP_CLOSING = 8
+let TCP_LAST_ACK = 9
+let TCP_TIME_WAIT = 10
+
+let conn_create(id, local_port, remote_addr, remote_port) = [id, local_port, remote_addr, remote_port, TCP_CLOSED, 0, 0]
+let conn_listen(conn) = [conn[0], conn[1], conn[2], conn[3], TCP_LISTEN, 0, 0]
+let conn_syn_sent(conn) = [conn[0], conn[1], conn[2], conn[3], TCP_SYN_SENT, 1, 0]
+let conn_established(conn, ack) = [conn[0], conn[1], conn[2], conn[3], TCP_ESTABLISHED, conn[5], ack]
+let conn_close(conn) = [conn[0], conn[1], conn[2], conn[3], TCP_FIN_WAIT1, conn[5], conn[6]]
+
+let packet_create(src_port, dst_port, seq, flags, payload) = [src_port, dst_port, seq, 0, flags, payload]
+let packet_set_ack(pkt, ack) = [pkt[0], pkt[1], pkt[2], ack, pkt[4], pkt[5]]
+let packet_checksum(pkt) =
+    let cs = gf_add(pkt[0], pkt[1])
+    cs = gf_add(cs, pkt[2])
+    cs = gf_add(cs, pkt[3])
+    cs = gf_add(cs, pkt[4])
+    let payload = pkt[5]
+    let i = 0
+    let n = len(payload)
+    for i < n
+        cs = gf_add(cs, payload[i])
+        i = i + 1
+    gf_pow(cs, 2)
+
+let route_create(dst, mask, next_hop, metric) = [dst, mask, next_hop, metric]
+let route_match(route, addr) =
+    ((addr / route[1]) == (route[0] / route[1]) ? 1 : 0)
+let route_lookup(table, addr) =
+    let best = 0
+    let best_metric = 999999
+    let i = 0
+    let n = len(table)
+    for i < n
+        let route = table[i]
+        if route_match(route, addr) == 1 && route[3] < best_metric
+            best = route
+        best_metric = route[3]
+        i = i + 1
+    best
+
+let window_create(size) = [0, 0, size, []]
+let window_send(win, seq) =
+    let unacked = win[3]
+    unacked.push(seq)
+    [win[0], win[1] + 1, win[2], unacked]
+let window_ack(win, ack) =
+    let unacked = win[3]
+    let new_unacked = []
+    let i = 0
+    let n = len(unacked)
+    for i < n
+        if unacked[i] > ack
+            new_unacked.push(unacked[i])
+        i = i + 1
+    [win[0], win[1], win[2], new_unacked]
+let window_available(win) =
+    (win[2] - win[3].len() > 0 ? 1 : 0)
+let net_field_checksum(data, n) =
+    let poles = arr_new_n(n)
+    let residues = arr_new_n(n)
+    let hash = 0
+    let i = 0
+    for i < n
+        poles[i] = 127 + i * 1000
+        residues[i] = data[i]
+        hash = gf_add(hash, gf_mul(data[i], gf_pow(3, i)))
+        i = i + 1
+    hash
+
+let net_stack_verify() =
+    let conn = conn_create(1, 8080, 100, 9090)
+    let listening = conn_listen(conn)
+    let syn_sent = conn_syn_sent(listening)
+    let established = conn_established(syn_sent, 1)
+    let pkt = packet_create(8080, 9090, 1, 0, arr_new_n(4))
+    let cs = packet_checksum(pkt)
+    let ok = 0
+    (established[4] == 4 ? (ok = 1) : (ok = 0))
+    ok
+

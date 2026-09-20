@@ -1,0 +1,231 @@
+let ed_levenshtein(a, b) =
+    let na = a.len()
+    let nb = b.len()
+    if na == 0
+        return nb
+    if nb == 0
+        return na
+    let dp = arr_new_n((na + 1) * (nb + 1))
+    let i = 0
+    for i <= na
+        dp[i * (nb + 1)] = i
+        i = i + 1
+    let j = 0
+    for j <= nb
+        dp[j] = j
+        j = j + 1
+    i = 1
+    for i <= na
+        j = 1
+        for j <= nb
+            let cost = 1
+            if a[i - 1] == b[j - 1]
+                cost = 0
+            let idx = i * (nb + 1) + j
+            let del = dp[(i - 1) * (nb + 1) + j] + 1
+            let ins = dp[i * (nb + 1) + j - 1] + 1
+            let sub = dp[(i - 1) * (nb + 1) + j - 1] + cost
+            let min_val = del
+            if ins < min_val
+                min_val = ins
+            if sub < min_val
+                min_val = sub
+            dp[idx] = min_val
+            j = j + 1
+        i = i + 1
+    dp[na * (nb + 1) + nb]
+
+let ed_damerau_levenshtein(a, b) =
+    let na = a.len()
+    let nb = b.len()
+    if na == 0
+        return nb
+    if nb == 0
+        return na
+    let dp = arr_new_n((na + 1) * (nb + 1))
+    let i = 0
+    for i <= na
+        dp[i * (nb + 1)] = i
+        i = i + 1
+    let j = 0
+    for j <= nb
+        dp[j] = j
+        j = j + 1
+    i = 1
+    for i <= na
+        j = 1
+        for j <= nb
+            let cost = 1
+            if a[i - 1] == b[j - 1]
+                cost = 0
+            let idx = i * (nb + 1) + j
+            let del = dp[(i - 1) * (nb + 1) + j] + 1
+            let ins = dp[i * (nb + 1) + j - 1] + 1
+            let sub = dp[(i - 1) * (nb + 1) + j - 1] + cost
+            let min_val = del
+            if ins < min_val
+                min_val = ins
+            if sub < min_val
+                min_val = sub
+            if i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1]
+                let trans = dp[(i - 2) * (nb + 1) + j - 2] + 1
+                if trans < min_val
+                    min_val = trans
+            dp[idx] = min_val
+            j = j + 1
+        i = i + 1
+    dp[na * (nb + 1) + nb]
+
+let ed_hamming(a, b) =
+    let na = a.len()
+    let nb = b.len()
+    if na != nb
+        return 0 - 1
+    let count = 0
+    let i = 0
+    for i < na
+        if a[i] != b[i]
+            count = count + 1
+        i = i + 1
+    count
+
+let ed_lcs_length(a, b) =
+    let na = a.len()
+    let nb = b.len()
+    if na == 0 || nb == 0
+        return 0
+    let dp = arr_new_n((na + 1) * (nb + 1))
+    let i = 1
+    for i <= na
+        j = 1
+        for j <= nb
+            let idx = i * (nb + 1) + j
+            if a[i - 1] == b[j - 1]
+                dp[idx] = dp[(i - 1) * (nb + 1) + j - 1] + 1
+            else
+                let up = dp[(i - 1) * (nb + 1) + j]
+                let left = dp[i * (nb + 1) + j - 1]
+                if up > left
+                    dp[idx] = up
+                else
+                    dp[idx] = left
+            j = j + 1
+        i = i + 1
+    arr_last(dp)
+
+let ed_lcss_length(a, b) =
+    let na = a.len()
+    let nb = b.len()
+    if na == 0 || nb == 0
+        return 0
+    let dp = arr_new_n((na + 1) * (nb + 1))
+    let max_len = 0
+    let i = 1
+    for i <= na
+        let j = 1
+        for j <= nb
+            if a[i - 1] == b[j - 1]
+                let idx = i * (nb + 1) + j
+                dp[idx] = dp[(i - 1) * (nb + 1) + j - 1] + 1
+                if dp[idx] > max_len
+                    max_len = dp[idx]
+            j = j + 1
+        i = i + 1
+    max_len
+
+let ed_jaro(a, b) =
+    let na = a.len()
+    let nb = b.len()
+    if na == 0 && nb == 0
+        return 1000
+    if na == 0 || nb == 0
+        return 0
+    let match_dist = na
+    if nb > match_dist
+        match_dist = nb
+    match_dist = match_dist / 2 - 1
+    if match_dist < 0
+        match_dist = 0
+    let a_matches = arr_new_n(na)
+    let b_matches = arr_new_n(nb)
+    let matches = 0
+    let i = 0
+    for i < na
+        let start = i - match_dist
+        if start < 0
+            start = 0
+        let end = i + match_dist + 1
+        if end > nb
+            end = nb
+        let j = start
+        for j < end
+            if b_matches[j] == 0 && a[i] == b[j]
+                a_matches[i] = 1
+                b_matches[j] = 1
+                matches = matches + 1
+                j = end
+            j = j + 1
+        i = i + 1
+    if matches == 0
+        return 0
+    let transpositions = 0
+    let k = 0
+    i = 0
+    for i < na
+        if a_matches[i] == 1
+            for k < nb && b_matches[k] == 0
+                k = k + 1
+            if k < nb && a[i] != b[k]
+                transpositions = transpositions + 1
+            k = k + 1
+        i = i + 1
+    transpositions = transpositions / 2
+    let m = matches
+    let result = (m * 1000 / na + m * 1000 / nb + (m - transpositions) * 1000 / m) / 3
+    result
+
+let ed_jaro_winkler(a, b) =
+    let jaro = ed_jaro(a, b)
+    let na = a.len()
+    let nb = b.len()
+    let n = na
+    if nb < n
+        n = nb
+    let prefix = 0
+    let i = 0
+    for i < n && i < 4 && a[i] == b[i]
+        prefix = prefix + 1
+        i = i + 1
+    jaro + prefix * (1000 - jaro) / 10
+
+let ed_similarity(a, b) =
+    let dist = ed_levenshtein(a, b)
+    let max_len = a.len()
+    if b.len() > max_len
+        max_len = b.len()
+    if max_len == 0
+        return 1000
+    1000 - dist * 1000 / max_len
+
+let ed_are_similar(a, b, threshold) =
+    ed_levenshtein(a, b) <= threshold
+
+let ed_fuzzy_match(query, candidates) =
+    let best_idx = 0
+    let best_dist = ed_levenshtein(query, candidates[0])
+    let n = candidates.len()
+    let i = 1
+    for i < n
+        let dist = ed_levenshtein(query, candidates[i])
+        if dist < best_dist
+            best_dist = dist
+            best_idx = i
+        i = i + 1
+    best_idx
+
+let main() =
+    print(ed_levenshtein("kitten", "sitting"))
+    print(ed_hamming("abc", "abd"))
+    print(ed_lcss_length("abcdef", "xbcdyz"))
+    print(ed_similarity("hello", "hallo"))
+    0

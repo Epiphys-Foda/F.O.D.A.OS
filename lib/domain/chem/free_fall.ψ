@@ -1,0 +1,29 @@
+import "ck.ψ"
+let bad = [0]
+
+let vorb = 77
+bad[0] = bad[0] + ck(vorb, 75, 78)
+
+let iss = 93
+bad[0] = bad[0] + ck(iss, 90, 95)
+
+let scale = 0
+bad[0] = bad[0] + ck(scale, 0, 0)
+
+let land = 1
+bad[0] = bad[0] + ck_lo(land, 1)
+
+if 1687 < 1685
+    bad[0] = bad[0] + 1
+if 1687 > 1689
+    bad[0] = bad[0] + 1
+if 1971 < 1969
+    bad[0] = bad[0] + 1
+if 1971 > 1973
+    bad[0] = bad[0] + 1
+if 2000 < 1998
+    bad[0] = bad[0] + 1
+if 2000 > 2002
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

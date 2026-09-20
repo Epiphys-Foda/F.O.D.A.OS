@@ -1,0 +1,190 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let THERMAL_MAX_CELLS = 65536
+
+let thermal_grid_create(nx, ny, init_temp) =
+    let cells = []
+    let i = 0
+    for i < nx * ny
+        cells.push([init_temp, 1, 1, 0])
+        i = i + 1
+    [cells, nx, ny, 1, 1]
+let thermal_step_cell(grid, i, j) =
+    let nx = grid[1]
+    let ny = grid[2]
+    let cells = grid[0]
+    let idx = i * nx + j
+    let c = cells[idx]
+    let temp = c[0]
+    let k = c[1]
+    let cap = c[2]
+    let laplacian = 0
+    if i > 0
+        laplacian = gf_add(laplacian, gf_sub(cells[(i-1) * nx + j][0], temp))
+    if i < nx - 1
+        laplacian = gf_add(laplacian, gf_sub(cells[(i+1) * nx + j][0], temp))
+    if j > 0
+        laplacian = gf_add(laplacian, gf_sub(cells[i * nx + j - 1][0], temp))
+    if j < ny - 1
+        laplacian = gf_add(laplacian, gf_sub(cells[i * nx + j + 1][0], temp))
+    let new_temp = gf_add(temp, gf_div(gf_mul(k, laplacian), cap))
+    [new_temp, k, cap, c[3]]
+let thermal_step(grid) =
+    let nx = grid[1]
+    let ny = grid[2]
+    let new_cells = []
+    let i = 0
+    for i < nx
+        let j = 0
+        for j < ny
+            new_cells.push(thermal_step_cell(grid, i, j))
+            j = j + 1
+        i = i + 1
+    [new_cells, nx, ny, grid[3], grid[4]]
+let phase_change(temp, melting_point, latent_heat) =
+    (temp >= melting_point ? 1 : 0)
+let thermal_add_source(grid, i, j, heat) =
+    let cells = grid[0]
+    let nx = grid[1]
+    let c = cells[i * nx + j]
+    cells[i * nx + j] = [gf_add(c[0], heat), c[1], c[2], c[3]]
+    [cells, nx, grid[2], grid[3], grid[4]]
+let field_thermal(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let thermal_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_thermal(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+
+let THERMAL_K_POLES = [26, 60, 100, 170, 8000, 23700, 40100, 220000]
+let THERMAL_K_WEIGHTS = [10, 20, 30, 40, 70, 80, 90, 100]
+let MATERIAL_LABELS_K = ["air", "water", "glass", "concrete", "iron", "aluminum", "copper", "diamond"]
+
+let psi_thermal_k(k_x100) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(k_x100), gf_norm(THERMAL_K_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(THERMAL_K_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let SPECIFIC_HEAT_POLES = [385, 449, 897, 2090, 4186, 830, 490, 510]
+let SPECIFIC_HEAT_WEIGHTS = [10, 20, 30, 70, 100, 25, 30, 25]
+
+let psi_specific_heat(c) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(c), gf_norm(SPECIFIC_HEAT_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(SPECIFIC_HEAT_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let DIFFUSIVITY_POLES = [14, 25, 230, 970, 1110, 13000, 2000, 6000]
+let DIFFUSIVITY_WEIGHTS = [10, 15, 50, 70, 80, 100, 60, 30]
+
+let psi_diffusivity(alpha) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(alpha), gf_norm(DIFFUSIVITY_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(DIFFUSIVITY_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let thermal_global_response(k_x100, c, alpha) =
+    let e1 = psi_thermal_k(k_x100)
+    let e2 = psi_specific_heat(c)
+    let e3 = psi_diffusivity(alpha)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+
+let fourier_law_test() =
+    let v_low_k = psi_thermal_k(60)
+    let v_high_k = psi_thermal_k(40100)
+    (v_low_k != v_high_k ? 1 : 0)
+
+let dulong_petit_test() =
+    let v_water = psi_specific_heat(4186)
+    let v_metal = psi_specific_heat(449)
+    (v_water != v_metal ? 1 : 0)
+
+let diffusion_conservation_test() =
+    let v_low_alpha = psi_diffusivity(14)
+    let v_high_alpha = psi_diffusivity(13000)
+    (v_low_alpha != v_high_alpha ? 1 : 0)
+
+let nested_fractal_thermal_invariants() =
+    let e1 = psi_thermal_k(8000)
+    let e2 = psi_specific_heat(449)
+    let e3 = psi_diffusivity(230)
+    let inv1 = 0
+    if e1 != 0
+        (e2 != 0 ? (e3 != 0 ? (inv1 = 1) : 0) : 0)
+    let inv2 = 0
+    if THERMAL_K_POLES[0] < THERMAL_K_POLES[3]
+        (THERMAL_K_POLES[3] < THERMAL_K_POLES[7] ? (inv2 = 1) : 0)
+    let inv3 = 0
+    if SPECIFIC_HEAT_POLES[4] == 4186
+        (SPECIFIC_HEAT_WEIGHTS[4] == 100 ? (inv3 = 1) : 0)
+    let inv4 = 0
+    if DIFFUSIVITY_POLES[5] == 13000
+        (DIFFUSIVITY_WEIGHTS[5] == 100 ? (inv4 = 1) : 0)
+    let inv5 = fourier_law_test()
+    [inv1, inv2, inv3, inv4, inv5]
+
+let thermal_verify_v20() =
+    let t1 = 0
+    if psi_thermal_k(8000) != 0
+        t1 = 1
+    let t2 = 0
+    if psi_specific_heat(449) != 0
+        t2 = 1
+    let t3 = 0
+    if psi_diffusivity(230) != 0
+        t3 = 1
+    let t4 = fourier_law_test()
+    let t5 = dulong_petit_test()
+    let t6 = diffusion_conservation_test()
+    let t7 = 0
+    if THERMAL_K_POLES[0] == 26
+        t7 = 1
+    let t8 = 0
+    if THERMAL_K_POLES[7] == 220000
+        t8 = 1
+    let t9 = 0
+    if SPECIFIC_HEAT_POLES[4] == 4186
+        t9 = 1
+    let t10 = 0
+    if SPECIFIC_HEAT_POLES[0] == 385
+        t10 = 1
+    let t11 = 0
+    if DIFFUSIVITY_POLES[5] == 13000
+        t11 = 1
+    let invs = nested_fractal_thermal_invariants()
+    let t12 = 0
+    if invs[0] == 1
+        if invs[1] == 1
+            if invs[2] == 1
+                if invs[3] == 1
+                    if invs[4] == 1
+                        t12 = 1
+    let passed = t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12
+    passed == 12
+

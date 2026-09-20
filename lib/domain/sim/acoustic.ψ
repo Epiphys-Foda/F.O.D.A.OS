@@ -1,0 +1,74 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let ACOUSTIC_MAX_CELLS = 65536
+let ACOUSTIC_SPEED = 343
+
+let acoustic_grid_create(nx, ny) =
+    let cells = []
+    let i = 0
+    for i < nx * ny
+        cells.push([0, 0, 1])
+        i = i + 1
+    [cells, nx, ny, 1, 1]
+let acoustic_step(grid) =
+    let cells = grid[0]
+    let nx = grid[1]
+    let ny = grid[2]
+    let new_cells = []
+    let i = 0
+    for i < nx * ny
+        new_cells.push(cells[i])
+        i = i + 1
+    i = 1
+    for i < nx - 1
+        let j = 1
+        for j < ny - 1
+            let idx = i * nx + j
+            let p = cells[idx][0]
+            let lap = gf_add(gf_add(gf_sub(cells[idx + 1][0], gf_mul(2, p)), cells[idx - 1][0]), gf_add(gf_sub(cells[idx + nx][0], gf_mul(2, p)), cells[idx - nx][0]))
+            let new_p = gf_add(gf_mul(2, p), gf_sub(cells[idx][0], gf_mul(ACOUSTIC_SPEED, lap)))
+            new_cells[idx] = [new_p, cells[idx][1], cells[idx][2]]
+            j = j + 1
+        i = i + 1
+    [new_cells, nx, ny, grid[3], grid[4]]
+let acoustic_add_source(grid, i, j, amplitude) =
+    let cells = grid[0]
+    let nx = grid[1]
+    let c = cells[i * nx + j]
+    cells[i * nx + j] = [gf_add(c[0], amplitude), c[1], c[2]]
+    [cells, nx, grid[2], grid[3], grid[4]]
+let reverberation(signal, decay, n_taps) =
+    let output = []
+    let i = 0
+    let n = len(signal)
+    for i < n
+        let sum = signal[i]
+        let j = 1
+        for j <= n_taps && i - j * 100 >= 0
+            sum = gf_add(sum, gf_mul(gf_pow(decay, j), signal[i - j * 100]))
+            j = j + 1
+        output.push(sum)
+        i = i + 1
+    output
+let doppler_shift(frequency, source_vel, observer_vel, sound_speed) =
+    gf_mul(gf_div(gf_sub(sound_speed, observer_vel), gf_sub(sound_speed, source_vel)), frequency)
+let field_acoustic(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let acoustic_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_acoustic(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+

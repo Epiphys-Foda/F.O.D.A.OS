@@ -1,0 +1,289 @@
+let val2(n) =
+    if n == 0
+        0
+    else
+        0
+    if (n % 2) != 0
+        0
+    else
+        1 + val2(n / 2)
+
+let val3(n) =
+    if n == 0
+        0
+    else
+        0
+    if (n % 3) != 0
+        0
+    else
+        1 + val3(n / 3)
+
+let bits_of(n) =
+    if n <= 1
+        1
+    else
+        1 + bits_of(n / 2)
+
+let gf_reduce_p(x, p) =
+    if x < 0
+        let r = x % p
+        if r < 0
+            r + p
+        else
+            r
+    else
+        0
+    if x >= p
+        x % p
+    else
+        x
+
+let gf_add_p(a, b, p) =
+    let s = a + b
+    if s >= p
+        s - p
+    else
+        s
+
+let gf_sub_p(a, b, p) =
+    let d = a - b
+    if d < 0
+        d + p
+    else
+        d
+
+let gf_neg_p(a, p) =
+    if a == 0
+        0
+    else
+        p - a
+
+let _gf_mul_loop_p(x, y, p, result) =
+    if y <= 0
+        result
+    else
+        let s = result + x
+        let ns = s
+        if s >= p
+            ns = s - p
+        let next_result = result
+        if (y & 1) == 1
+            next_result = ns
+        let d = x + x
+        let next_x = d
+        if d >= p
+            next_x = d - p
+        _gf_mul_loop_p(next_x, y >> 1, p, next_result)
+
+let gf_mul_p(a, b, p) =
+    let ar = gf_reduce_p(a, p)
+    let br = gf_reduce_p(b, p)
+    if ar == 0
+        0
+    else
+        0
+    if br == 0
+        0
+    else
+        0
+    if ar == 1
+        br
+    else
+        0
+    if br == 1
+        ar
+    else
+        _gf_mul_loop_p(ar, br, p, 0)
+
+let gf_pow_p(base, exp, p) =
+    if exp <= 0
+        1
+    else
+        0
+    if (exp & 1) == 1
+        gf_mul_p(base, gf_pow_p(base, exp - 1, p), p)
+    else
+        let half = gf_pow_p(base, exp >> 1, p)
+        gf_mul_p(half, half, p)
+
+let gf_inv_p(a, p) =
+    if a == 0
+        0
+    else
+        gf_pow_p(a, p - 2, p)
+
+let gf_div_p(a, b, p) =
+    if b == 0
+        0
+    else
+        gf_mul_p(a, gf_inv_p(b, p), p)
+
+let pool_p(idx) =
+    if idx == 0
+        65537
+    else
+        0
+    if idx == 1
+        131071
+    else
+        0
+    if idx == 2
+        786433
+    else
+        0
+    if idx == 3
+        1376257
+    else
+        0
+
+let pool_pm1(idx) =
+    if idx == 0
+        65536
+    else
+        0
+    if idx == 1
+        131070
+    else
+        0
+    if idx == 2
+        786432
+    else
+        0
+    if idx == 3
+        1376256
+    else
+        0
+
+let pool_v2(idx) =
+    if idx == 0
+        16
+    else
+        0
+    if idx == 1
+        1
+    else
+        0
+    if idx == 2
+        18
+    else
+        0
+    if idx == 3
+        16
+    else
+        0
+
+let pool_v3(idx) =
+    if idx == 0
+        0
+    else
+        0
+    if idx == 1
+        1
+    else
+        0
+    if idx == 2
+        1
+    else
+        0
+    if idx == 3
+        1
+    else
+        0
+
+let pool_bits(idx) =
+    if idx == 0
+        17
+    else
+        0
+    if idx == 1
+        17
+    else
+        0
+    if idx == 2
+        20
+    else
+        0
+    if idx == 3
+        21
+    else
+        0
+
+let pool_g(idx) =
+    if idx == 0
+        3
+    else
+        0
+    if idx == 1
+        3
+    else
+        0
+    if idx == 2
+        10
+    else
+        0
+    if idx == 3
+        5
+    else
+        0
+
+let pool_size() = 4
+
+let _select_loop(idx, best_idx, best_bits, bits_needed, v2_needed, v3_needed) =
+    if idx >= 4
+        best_idx
+    else
+        let v2 = pool_v2(idx)
+        let v3 = pool_v3(idx)
+        let bp = pool_bits(idx)
+        let ok = (v2 >= v2_needed) && (v3 >= v3_needed) && (bp >= bits_needed)
+        if ok
+            if best_idx < 0
+                _select_loop(idx + 1, idx, bp, bits_needed, v2_needed, v3_needed)
+            else
+                0
+            if bp < best_bits
+                _select_loop(idx + 1, idx, bp, bits_needed, v2_needed, v3_needed)
+            else
+                _select_loop(idx + 1, best_idx, best_bits, bits_needed, v2_needed, v3_needed)
+        else
+            _select_loop(idx + 1, best_idx, best_bits, bits_needed, v2_needed, v3_needed)
+
+let select_domain(bits_needed, v2_needed, v3_needed) =
+    _select_loop(0, -1, 999, bits_needed, v2_needed, v3_needed)
+
+let pool_ntt_root(idx, k) =
+    let p = pool_p(idx)
+    let g = pool_g(idx)
+    let exp = pool_pm1(idx) >> k
+    gf_pow_p(g, exp, p)
+
+let pool_cubic_root(idx) =
+    let p = pool_p(idx)
+    let g = pool_g(idx)
+    let exp = pool_pm1(idx) / 3
+    gf_pow_p(g, exp, p)
+
+let pool_info(idx) =
+    [pool_p(idx), pool_v2(idx), pool_v3(idx), pool_bits(idx), pool_g(idx)]
+
+let prime_pool_verify() =
+    let ok1 = (pool_p(0) == 65537) && (pool_p(1) == 131071) && (pool_p(2) == 786433) && (pool_p(3) == 1376257)
+    let ok2 = (val2(pool_pm1(0)) == pool_v2(0)) && (val2(pool_pm1(1)) == pool_v2(1)) && (val2(pool_pm1(2)) == pool_v2(2)) && (val2(pool_pm1(3)) == pool_v2(3))
+    let ok3 = (val3(pool_pm1(0)) == pool_v3(0)) && (val3(pool_pm1(1)) == pool_v3(1)) && (val3(pool_pm1(2)) == pool_v3(2)) && (val3(pool_pm1(3)) == pool_v3(3))
+    let ok4 = (pool_bits(0) == 17) && (pool_bits(1) == 17) && (pool_bits(2) == 20) && (pool_bits(3) == 21)
+    let p0 = 65537
+    let ok5 = (gf_mul_p(256, 256, p0) == 65536) && (gf_inv_p(2, p0) == 32769) && (gf_add_p(32768, 32768, p0) == 65536)
+    let ok6 = select_domain(16, 16, 0) == 0
+    let ok7 = select_domain(18, 18, 0) == 2
+    let ok8 = select_domain(17, 1, 1) == 1
+    let r0 = gf_pow_p(pool_g(0), pool_pm1(0), pool_p(0))
+    let ok9 = r0 == 1
+    let w0 = pool_ntt_root(0, 3)
+    let w0_8 = gf_pow_p(w0, 8, p0)
+    let ok10 = w0_8 == 1
+    if ok1 && ok2 && ok3 && ok4 && ok5 && ok6 && ok7 && ok8 && ok9 && ok10
+        1
+    else
+        0
+
+let main() = prime_pool_verify()

@@ -1,0 +1,284 @@
+import "../domain_field.ψ"
+
+let JA_P = 65537
+let JA_TIER_INTERPRETER = 1
+let JA_TIER_BASELINE = 2
+let JA_TIER_OPTIMIZED = 3
+let JA_TIER_AOT = 4
+let JA_HOT_THRESHOLD_DEFAULT = 1000
+let JA_TIER_THRESHOLD_DEFAULT = 10000
+
+let ja_block_new(block_id, bytecode_hash, source_fn) =
+    [block_id, bytecode_hash, [], 0, 0, JA_TIER_INTERPRETER, source_fn]
+
+let ja_b_id(b) = b[0]
+let ja_b_hash(b) = b[1]
+let ja_b_native(b) = b[2]
+let ja_b_ts(b) = b[3]
+let ja_b_count(b) = b[4]
+let ja_b_tier(b) = b[5]
+let ja_b_src(b) = b[6]
+
+let ja_b_set_native(b, code) =
+    b[2] = code
+    b
+
+let ja_b_set_ts(b, ts) =
+    b[3] = ts
+    b
+
+let ja_b_set_tier(b, tier) =
+    b[5] = tier
+    b
+
+let ja_b_inc_count(b) =
+    b[4] = b[4] + 1
+    b
+
+let ja_profile_new(block_id) =
+    [block_id, 0, 0, 0, 0, 0]
+
+let ja_p_id(p) = p[0]
+let ja_p_count(p) = p[1]
+let ja_p_cycles(p) = p[2]
+let ja_p_avg(p) = p[3]
+let ja_p_hot(p) = p[4]
+let ja_p_deopt(p) = p[5]
+
+let ja_p_set_avg(p, avg) =
+    p[3] = avg
+    p
+
+let ja_p_set_hot(p, hot) =
+    p[4] = hot
+    p
+
+let ja_p_inc_deopt(p) =
+    p[5] = p[5] + 1
+    p
+
+let ja_default_compiler() =
+    [{}, {}, JA_HOT_THRESHOLD_DEFAULT, JA_TIER_THRESHOLD_DEFAULT, 0, 0, []]
+
+let ja_c_blocks(c) = c[0]
+let ja_c_profiles(c) = c[1]
+let ja_c_hot_thresh(c) = c[2]
+let ja_c_tier_thresh(c) = c[3]
+let ja_c_total_compiled(c) = c[4]
+let ja_c_total_deopt(c) = c[5]
+let ja_c_log(c) = c[6]
+
+let ja_register_block(compiler, block_id, source_fn, ts) =
+    let blocks = ja_c_blocks(compiler)
+    if blocks[block_id] == 0
+        let hash = (block_id * 31 + 7) % JA_P
+        let block = ja_block_new(block_id, hash, source_fn)
+        blocks[block_id] = block
+        let profiles = ja_c_profiles(compiler)
+        profiles[block_id] = ja_profile_new(block_id)
+        compiler[0] = blocks
+        compiler[1] = profiles
+        let log = ja_c_log(compiler)
+        log.push(["register", block_id, ts])
+        compiler[6] = log
+    compiler
+
+let ja_profile_execution(compiler, block_id, cycles, ts) =
+    let profiles = ja_c_profiles(compiler)
+    let p = profiles[block_id]
+    if p != 0
+        p[1] = p[1] + 1
+        p[2] = p[2] + cycles
+        if p[1] > 0
+            p[3] = p[2] / p[1]
+        let blocks = ja_c_blocks(compiler)
+        let b = blocks[block_id]
+        if b != 0
+            ja_b_inc_count(b)
+        if p[1] > ja_c_hot_thresh(compiler)
+            ja_p_set_hot(p, 1)
+    compiler
+
+let ja_detect_hot(compiler) =
+    let profiles = ja_c_profiles(compiler)
+    let keys = keys_of(profiles)
+    let hot_list = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let bid = keys[i]
+        let p = profiles[bid]
+        if p != 0
+            if p[1] > ja_c_hot_thresh(compiler)
+                if p[4] == 0
+                    ja_p_set_hot(p, 1)
+                hot_list.push(bid)
+        i = i + 1
+    hot_list
+
+let ja_compile_to_baseline(compiler, block_id, ts) =
+    let blocks = ja_c_blocks(compiler)
+    let b = blocks[block_id]
+    if b != 0
+        if ja_b_tier(b) < JA_TIER_BASELINE
+            let native = ["baseline", block_id, ja_b_hash(b)]
+            ja_b_set_native(b, native)
+            ja_b_set_ts(b, ts)
+            ja_b_set_tier(b, JA_TIER_BASELINE)
+            blocks[block_id] = b
+            compiler[0] = blocks
+            compiler[4] = ja_c_total_compiled(compiler) + 1
+            let log = ja_c_log(compiler)
+            log.push(["compile_baseline", block_id, ts])
+            compiler[6] = log
+    compiler
+
+let ja_compile_to_optimized(compiler, block_id, ts) =
+    let blocks = ja_c_blocks(compiler)
+    let b = blocks[block_id]
+    if b != 0
+        let profiles = ja_c_profiles(compiler)
+        let p = profiles[block_id]
+        let can_opt = 0
+        if p != 0
+            if p[1] > ja_c_tier_thresh(compiler)
+                can_opt = 1
+        if can_opt == 1
+            if ja_b_tier(b) < JA_TIER_OPTIMIZED
+                let native = ["optimized", block_id, ja_b_hash(b), "inlined"]
+                ja_b_set_native(b, native)
+                ja_b_set_ts(b, ts)
+                ja_b_set_tier(b, JA_TIER_OPTIMIZED)
+                blocks[block_id] = b
+                compiler[0] = blocks
+                compiler[4] = ja_c_total_compiled(compiler) + 1
+                let log = ja_c_log(compiler)
+                log.push(["compile_optimized", block_id, ts])
+                compiler[6] = log
+    compiler
+
+let ja_aot_compile(compiler, block_id, ts) =
+    let blocks = ja_c_blocks(compiler)
+    let b = blocks[block_id]
+    if b != 0
+        let native = ["aot", block_id, ja_b_hash(b), "fully_optimized"]
+        ja_b_set_native(b, native)
+        ja_b_set_ts(b, ts)
+        ja_b_set_tier(b, JA_TIER_AOT)
+        blocks[block_id] = b
+        compiler[0] = blocks
+        compiler[4] = ja_c_total_compiled(compiler) + 1
+        let log = ja_c_log(compiler)
+        log.push(["aot_compile", block_id, ts])
+        compiler[6] = log
+    compiler
+
+let ja_deoptimize(compiler, block_id, reason, ts) =
+    let blocks = ja_c_blocks(compiler)
+    let b = blocks[block_id]
+    if b != 0
+        if ja_b_tier(b) > JA_TIER_BASELINE
+            ja_b_set_tier(b, JA_TIER_BASELINE)
+            let native = ["baseline", block_id, ja_b_hash(b)]
+            ja_b_set_native(b, native)
+            ja_b_set_ts(b, ts)
+            blocks[block_id] = b
+            compiler[0] = blocks
+            compiler[5] = ja_c_total_deopt(compiler) + 1
+            let profiles = ja_c_profiles(compiler)
+            let p = profiles[block_id]
+            if p != 0
+                ja_p_inc_deopt(p)
+                ja_p_set_hot(p, 0)
+                p[1] = 0
+            let log = ja_c_log(compiler)
+            log.push(["deopt", block_id, reason, ts])
+            compiler[6] = log
+    compiler
+
+let ja_compiler_signature(compiler) =
+    let blocks = ja_c_blocks(compiler)
+    let keys = keys_of(blocks)
+    let nblocks = len(keys)
+    let tier_sum = 0
+    let compiled = ja_c_total_compiled(compiler)
+    let deopt = ja_c_total_deopt(compiler)
+    let i = 0
+    for i < nblocks
+        let bid = keys[i]
+        let b = blocks[bid]
+        if b != 0
+            tier_sum = tier_sum + ja_b_tier(b)
+        i = i + 1
+    [nblocks, compiled, deopt, tier_sum]
+
+let ja_apply_exec(compiler, op, ts) =
+    let bid = op[0]
+    let cycles = op[1]
+    ja_profile_execution(compiler, bid, cycles, ts)
+    let hot = ja_detect_hot(compiler)
+    let i = 0
+    let n = len(hot)
+    for i < n
+        let hot_id = hot[i]
+        ja_compile_to_baseline(compiler, hot_id, ts)
+        let profiles = ja_c_profiles(compiler)
+        let p = profiles[hot_id]
+        if p != 0
+            if p[1] > ja_c_tier_thresh(compiler)
+                ja_compile_to_optimized(compiler, hot_id, ts)
+        i = i + 1
+
+let ja_bragg_verify(compiler, ops_seq) =
+    let c1 = ja_default_compiler()
+    let c2 = ja_default_compiler()
+    let blocks = ja_c_blocks(compiler)
+    let keys = keys_of(blocks)
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let bid = keys[i]
+        let b = blocks[bid]
+        if b != 0
+            ja_register_block(c1, bid, ja_b_src(b), 0)
+            ja_register_block(c2, bid, ja_b_src(b), 0)
+        i = i + 1
+    let j = 0
+    let m = len(ops_seq)
+    for j < m
+        let op = ops_seq[j]
+        ja_apply_exec(c1, op, j)
+        ja_apply_exec(c2, op, j)
+        j = j + 1
+    let d1 = ja_compiler_signature(c1)
+    let r1 = ja_compiler_signature(c2)
+    if d1[0] == r1[0]
+        if d1[1] == r1[1]
+            if d1[2] == r1[2]
+                if d1[3] == r1[3]
+                    1
+                else
+                    0
+            else
+                0
+        else
+            0
+    else
+        0
+
+let ja_gf_mod(x) = domain_gf_mod(x)
+
+let ja_gf_inv(a) = domain_gf_inv(a)
+
+let ja_field_encode(items, n) =
+    let records = []
+    let _i = 0
+    for _i < n
+        records.push([items[_i], items[_i]])
+        _i = _i + 1
+    domain_field_encode(records, n, 256, 1)
+
+let ja_field_eval(poles, residues, z) = domain_field_eval(poles, residues, z)
+
+let ja_field_bragg_verify(current, replay) = domain_bragg_verify(current[0], current[1], replay[0], replay[1])
+

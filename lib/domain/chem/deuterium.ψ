@@ -1,0 +1,29 @@
+import "ck.ψ"
+let bad = [0]
+
+let eta_cmb = 61
+bad[0] = bad[0] + ck(eta_cmb, 60, 62)
+
+let dh_obs = 25
+bad[0] = bad[0] + ck(dh_obs, 24, 26)
+
+let ddh = dh_obs - 25
+let addh =
+    if ddh < 0
+        0 - ddh
+    else
+        ddh
+bad[0] = bad[0] + ck_hi(addh, 2)
+
+let eta_bbn = 61
+bad[0] = bad[0] + ck(eta_bbn, 59, 63)
+
+let dclosure = eta_cmb - eta_bbn
+let adcl =
+    if dclosure < 0
+        0 - dclosure
+    else
+        dclosure
+bad[0] = bad[0] + ck_hi(adcl, 2)
+
+arr_get(arr_new_n(1), bad[0])

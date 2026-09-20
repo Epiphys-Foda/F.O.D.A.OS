@@ -1,0 +1,164 @@
+import "super_db.ψ"
+let rf_db_rect_path(cx, cy, w, h, n) =
+    let path = []
+    let i = 0
+    let done = false
+    for !done
+      if i < n
+        path = path.push(cx - w / 2 + w * i / n)
+        path = path.push(cy - h / 2)
+        i = i + 1
+      else
+        done = true
+    i = 0
+    done = false
+    for !done
+      if i < n
+        path = path.push(cx + w / 2)
+        path = path.push(cy - h / 2 + h * i / n)
+        i = i + 1
+      else
+        done = true
+    i = 0
+    done = false
+    for !done
+      if i < n
+        path = path.push(cx + w / 2 - w * i / n)
+        path = path.push(cy + h / 2)
+        i = i + 1
+      else
+        done = true
+    i = 0
+    done = false
+    for !done
+      if i < n
+        path = path.push(cx - w / 2)
+        path = path.push(cy + h / 2 - h * i / n)
+        i = i + 1
+      else
+        done = true
+    path
+
+let rf_db_cauchy_sum(db, cx, cy, w, h) =
+    let sum = 0
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(db)
+        let xk = db[i]
+        let yk = db[i + 1]
+        let rk = db[i + 2]
+        if rf_db_in_rect(xk, yk, cx, cy, w, h)
+          let s = sum + rk
+          (s >= 65537 ? (sum = s - 65537) : (sum = s))
+        else
+              0
+        i = i + 3
+      else
+            0
+        done = true
+    sum
+
+let rf_db_alg_add(db1, db2) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(db1)
+        out = out.push(db1[i])
+        i = i + 1
+      else
+        done = true
+    i = 0
+    done = false
+    for !done
+      if i < len(db2)
+        out = out.push(db2[i])
+        i = i + 1
+      else
+        done = true
+    out
+
+let rf_db_alg_sub(db1, db2) = rf_db_alg_add(db1, rf_db_alg_scalar(db2, 65536))
+
+let rf_db_alg_scalar(db, c) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(db)
+        if i % 3 == 2
+          let r = rf_db_mul(db[i], c)
+          out = out.push(r - (r / 65537) * 65537)
+        else
+          out = out.push(db[i])
+        i = i + 1
+      else
+        done = true
+    out
+
+let rf_db_evolve(db, vx, vy, steps) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(db)
+        if i % 3 == 0
+          let nx = db[i] + rf_db_mul(vx, steps)
+          out = out.push(nx - (nx / 65537) * 65537)
+        else
+          if i % 3 == 1
+            let ny = db[i] + rf_db_mul(vy, steps)
+            out = out.push(ny - (ny / 65537) * 65537)
+          else
+            out = out.push(db[i])
+        i = i + 1
+      else
+        done = true
+    out
+
+let rf_db_trajectory(db, px, py, vx, vy, steps) =
+    let vals = []
+    let s = 0
+    let done = false
+    for !done
+      if s < steps
+        let nx = px + rf_db_mul(vx, s)
+        let ny = py + rf_db_mul(vy, s)
+        vals = vals.push(rf_db_field(db, nx, ny))
+        s = s + 1
+      else
+        done = true
+    vals
+
+let rf_db_dyn_decay(db, rate, steps) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(db)
+        if i % 3 == 2
+          let r = db[i]
+          let decay = rf_db_mod_pow(rate, steps, 65537)
+          let nr = rf_db_mul(r, decay)
+          out = out.push(nr - (nr / 65537) * 65537)
+        else
+          out = out.push(db[i])
+        i = i + 1
+      else
+        done = true
+    out
+
+let rf_db_dynamics_verify() =
+    let results = []
+    results = results.push(rf_db_cauchy_sum([0, 0, 5], 0, 0, 10, 10) == 5)
+    results = results.push(rf_db_cauchy_sum([100, 100, 7], 0, 0, 10, 10) == 0)
+    results = results.push(rf_db_cauchy_sum([0, 0, 2, 4, 4, 3, 100, 100, 9], 0, 0, 10, 10) == 5)
+    results = results.push(len(rf_db_alg_add([0, 0, 3], [10, 5, 7])) == 6)
+    results = results.push(rf_db_alg_scalar([0, 0, 3], 2)[2] == 6)
+    results = results.push(rf_db_alg_scalar([0, 0, 3], 65536)[2] == 65534)
+    results = results.push(rf_db_evolve([0, 0, 5], 1, 0, 3)[0] == 3)
+    results = results.push(len(rf_db_trajectory([0, 0, 5], 10, 10, 1, 0, 2)) == 2)
+    results = results.push(rf_db_dyn_decay([0, 0, 5], 2, 2)[2] == 20)
+    results = results.push(rf_db_cauchy_sum([0, 0, 1, 4, 4, 2, 3, 3, 3], 0, 0, 100, 100) == 6)
+    results

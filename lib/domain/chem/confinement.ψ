@@ -1,0 +1,31 @@
+import "ck.ψ"
+let bad = [0]
+
+let tens = 160
+bad[0] = bad[0] + ck(tens, 150, 170)
+
+let mesons = 2
+let dmes = mesons - 2
+bad[0] = bad[0] + ck(dmes, 0, 0)
+
+let a_low = 10
+let a_high = 1
+let af = a_low / a_high
+let daf = af - 10
+bad[0] = bad[0] + ck(daf, 0, 0)
+
+let combos = 3 * 3
+let singlet = combos / combos
+let ds = singlet - 1
+bad[0] = bad[0] + ck(ds, 0, 0)
+
+if 1973 < 1971
+    bad[0] = bad[0] + 1
+if 1973 > 1975
+    bad[0] = bad[0] + 1
+if 2004 < 2002
+    bad[0] = bad[0] + 1
+if 2004 > 2006
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

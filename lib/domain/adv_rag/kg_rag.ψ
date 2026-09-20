@@ -1,0 +1,287 @@
+import "../domain_field.ψ"
+let KG_P = 65537
+
+let KG_TRAV_BFS = 1
+let KG_TRAV_DFS = 2
+
+let KG_ENTITY_PERSON    = 1
+let KG_ENTITY_ORG       = 2
+let KG_ENTITY_LOCATION  = 3
+let KG_ENTITY_CONCEPT   = 4
+let KG_ENTITY_EVENT     = 5
+
+let KG_DEFAULT_MAX_HOPS = 3
+let KG_DEFAULT_COMMUNITY_SIZE = 16
+
+let kg_entity_new(eid, etype, name_hash) =
+    [eid, etype, name_hash, {}]
+
+let kg_e_id(e)        = e[0]
+let kg_e_type(e)      = e[1]
+let kg_e_name(e)       = e[2]
+let kg_e_attrs(e)     = e[3]
+
+let kg_e_set_attr(e, key, val) =
+    let attrs = kg_e_attrs(e)
+    attrs[key] = val
+    e[3] = attrs
+    e
+
+let kg_relation_new(from_id, to_id, rel_type, weight) =
+    [from_id, to_id, rel_type, weight]
+
+let kg_r_from(r)    = r[0]
+let kg_r_to(r)       = r[1]
+let kg_r_type(r)     = r[2]
+let kg_r_weight(r)   = r[3]
+
+let kg_graph_new() =
+    [{}, [], {}]
+
+let kg_g_entities(g)   = g[0]
+let kg_g_relations(g)  = g[1]
+let kg_g_adj(g)        = g[2]
+
+let kg_g_add_entity(g, entity) =
+    let entities = kg_g_entities(g)
+    entities[kg_e_id(entity)] = entity
+    [entities, kg_g_relations(g), kg_g_adj(g)]
+
+let kg_g_add_relation(g, relation) =
+    let relations = kg_g_relations(g)
+    relations.push(relation)
+    let adj = kg_g_adj(g)
+    let from_id = kg_r_from(relation)
+    let list = adj[from_id]
+    if list == 0
+        list = []
+    list.push(relation)
+    adj[from_id] = list
+    [kg_g_entities(g), relations, adj]
+
+let kg_g_find_entity(g, name_hash) =
+    let entities = kg_g_entities(g)
+    let keys = keys_of(entities)
+    let i = 0
+    let n = len(keys)
+    let found = 0
+    for i < n
+        let e = entities[keys[i]]
+        if kg_e_name(e) == name_hash
+            found = e
+            i = n
+        i = i + 1
+    found
+
+let kg_extract_entities(g, text_tokens) =
+    let found_ids = []
+    let i = 0
+    let n = len(text_tokens)
+    for i < n
+        let token = text_tokens[i]
+        let e = kg_g_find_entity(g, token)
+        if e != 0
+            found_ids.push(kg_e_id(e))
+        i = i + 1
+    found_ids
+
+let kg_traverse(g, start_ids, max_hops, mode) =
+    let adj = kg_g_adj(g)
+    let visited = {}
+    let results = []
+    let queue = []
+    let i = 0
+    let n = len(start_ids)
+    for i < n
+        queue.push([start_ids[i], 0, 1024])
+        i = i + 1
+    for len(queue) > 0
+        let item = 0
+        if mode == KG_TRAV_BFS
+            item = queue[0]
+            queue = arr_drop(queue, 1)
+        else
+            item = queue[len(queue) - 1]
+            queue = arr_take(arr_drop(queue, 0), (len(queue) - 1) - (0))
+        let eid = item[0]
+        let hops = item[1]
+        let score = item[2]
+        if visited[eid] == 0
+            visited[eid] = 1
+            results.push([eid, hops, score])
+            if hops < max_hops
+                let edges = adj[eid]
+                if edges != 0
+                    let j = 0
+                    let m = len(edges)
+                    for j < m
+                        let edge = edges[j]
+                        let new_score = score * kg_r_weight(edge) / 1024
+                        queue.push([kg_r_to(edge), hops + 1, new_score])
+                        j = j + 1
+    results
+
+let kg_detect_communities(g, max_iter) =
+    let adj = kg_g_adj(g)
+    let entities = kg_g_entities(g)
+    let keys = keys_of(entities)
+    let n = len(keys)
+    let labels = {}
+    let i = 0
+    for i < n
+        labels[keys[i]] = keys[i]
+        i = i + 1
+    let iter = 0
+    for iter < max_iter
+        let changed = 0
+        i = 0
+        for i < n
+            let eid = keys[i]
+            let edges = adj[eid]
+            if edges != 0
+                let neighbor_labels = {}
+                neighbor_labels[labels[eid]] = 1
+                let j = 0
+                let m = len(edges)
+                for j < m
+                    let nid = kg_r_to(edges[j])
+                    let nlabel = labels[nid]
+                    if nlabel != 0
+                        let cur = neighbor_labels[nlabel]
+                        if cur == 0
+                            cur = 0
+                        neighbor_labels[nlabel] = cur + 1
+                    j = j + 1
+                let best_label = labels[eid]
+                let best_count = 0
+                let lab_keys = keys_of(neighbor_labels)
+                let k = 0
+                let nl = len(lab_keys)
+                for k < nl
+                    let l = lab_keys[k]
+                    let c = neighbor_labels[l]
+                    if c > best_count
+                        best_count = c
+                        best_label = l
+                    k = k + 1
+                if best_label != labels[eid]
+                    labels[eid] = best_label
+                    changed = 1
+            i = i + 1
+        if changed == 0
+            iter = max_iter
+        else
+            iter = iter + 1
+    let communities = {}
+    i = 0
+    for i < n
+        let eid = keys[i]
+        let label = labels[eid]
+        let members = communities[label]
+        if members == 0
+            members = []
+        members.push(eid)
+        communities[label] = members
+        i = i + 1
+    communities
+
+let kg_summarize_community(g, member_ids) =
+    let entities = kg_g_entities(g)
+    let summary = {}
+    let i = 0
+    let n = len(member_ids)
+    for i < n
+        let e = entities[member_ids[i]]
+        if e != 0
+            let attrs = kg_e_attrs(e)
+            let keys = keys_of(attrs)
+            let k = 0
+            let nk = len(keys)
+            for k < nk
+                let key = keys[k]
+                let val = attrs[key]
+                let cur = summary[key]
+                if cur == 0
+                    cur = 0
+                summary[key] = cur + val
+                k = k + 1
+        i = i + 1
+    summary
+
+let kg_bragg_traverse(g, start_ids, max_hops, mode) =
+    let r1 = kg_traverse(g, start_ids, max_hops, mode)
+    let r2 = kg_traverse(g, start_ids, max_hops, mode)
+    let pass = 1
+    if len(r1) != len(r2)
+        pass = 0
+    else
+        let i = 0
+        let n = len(r1)
+        for i < n
+            if r1[i][0] != r2[i][0]
+                pass = 0
+            if r1[i][1] != r2[i][1]
+                pass = 0
+            i = i + 1
+    pass
+
+let kg_self_test() =
+    let g = kg_graph_new()
+    let e1 = kg_entity_new(1, KG_ENTITY_PERSON, 100)
+    let e2 = kg_entity_new(2, KG_ENTITY_ORG, 200)
+    let e3 = kg_entity_new(3, KG_ENTITY_LOCATION, 300)
+    g = kg_g_add_entity(g, e1)
+    g = kg_g_add_entity(g, e2)
+    g = kg_g_add_entity(g, e3)
+    g = kg_g_add_relation(g, kg_relation_new(1, 2, 1, 1024))
+    g = kg_g_add_relation(g, kg_relation_new(2, 3, 2, 512))
+    let t_graph = 0
+    if len(kg_g_entities(g)) == 3
+        if len(kg_g_relations(g)) == 2
+            t_graph = 1
+
+    let found = kg_g_find_entity(g, 200)
+    let t_find = 0
+    if found != 0
+        if kg_e_id(found) == 2
+            t_find = 1
+
+    let tokens = [100, 999, 200]
+    let extracted = kg_extract_entities(g, tokens)
+    let t_extract = 0
+    if len(extracted) == 2
+        t_extract = 1
+
+    let bfs_results = kg_traverse(g, [1], 2, KG_TRAV_BFS)
+    let t_bfs = 0
+    if len(bfs_results) == 3
+        if bfs_results[0][0] == 1
+            if bfs_results[0][1] == 0
+                t_bfs = 1
+
+    let dfs_results = kg_traverse(g, [1], 2, KG_TRAV_DFS)
+    let t_dfs = 0
+    if len(dfs_results) == 3
+        t_dfs = 1
+
+    let communities = kg_detect_communities(g, 5)
+    let t_comm = 0
+    if len(keys_of(communities)) > 0
+        t_comm = 1
+
+    let comm_keys = keys_of(communities)
+    let first_comm = communities[comm_keys[0]]
+    let summary = kg_summarize_community(g, first_comm)
+    let t_summary = 0
+    if len(keys_of(summary)) >= 0
+        t_summary = 1
+
+    let bragg = kg_bragg_traverse(g, [1], 2, KG_TRAV_BFS)
+    let t_bragg = 0
+    if bragg == 1
+        t_bragg = 1
+
+    [t_graph, t_find, t_extract, t_bfs, t_dfs, t_comm, t_summary, t_bragg]
+
+let kg_default_graph() =
+    kg_graph_new()

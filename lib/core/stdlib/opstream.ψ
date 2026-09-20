@@ -1,0 +1,40 @@
+import "diophantine.ψ"
+import "trit.ψ"
+
+let os_build_scene() = qf_domains_chain([DOMAIN_AI, DOMAIN_RENDER, DOMAIN_GAME])
+
+let os_verify_scene(dag) = !gauge_has_cycle(dag) && dag.node_count > 0 && dag.edge_count > 0
+
+let os_fingerprint(dag) = dph_token_hash(dag.node_count, dag.edge_count, 3)
+
+let os_trit_density(dag) = [trit_digits_needed(dag.node_count), bin_digits_needed(dag.node_count)]
+
+let os_padic_meta(dag) = pd_compress(dag.edge_count, 2)
+
+let os_braid_order(dag) = braid_apply(dag.node_count, [0, 1])
+
+let os_transmit(poles, vs, dt, n) = qa_animate(poles, vs, dt, n)
+
+let os_pipeline(poles, vs, dt, frames) =
+    let scene = os_build_scene()
+    let verified = os_verify_scene(scene)
+    let fp = os_fingerprint(scene)
+    let tri = os_trit_density(scene)
+    let meta = os_padic_meta(scene)
+    let anim = os_transmit(poles, vs, dt, frames)
+    [scene.node_count, scene.edge_count, qqbin_encode(scene).len(), fp,
+     tri[0], tri[1], meta[0], meta[1],
+     anim[0], anim[1], anim[2], anim[5], anim[6]]
+
+let os_universe_demo() =
+    let scene = os_build_scene()
+    let all7 = qf_domains_chain([DOMAIN_RENDER, DOMAIN_AUDIO, DOMAIN_PHYSICS, DOMAIN_AI, DOMAIN_GAME, DOMAIN_DB, DOMAIN_STORE])
+    let sts = reservoir_stream(7, 5, 3, 4)
+    let wts = [0, 0, 0, 0]
+    let learned = el_learn_sample(sts, wts, 1)
+    [scene.node_count, scene.edge_count, qqbin_encode(all7).len(),
+     qqbin_encode(scene).len(), learned[0], reservoir_readout(sts, learned),
+     domain_total_bytes(), pd_valuation(domain_total_bytes(), 2)]
+
+let os_summary() =
+    { theory: "operator-stream universe (full-chain assembly)", chain: "seven domains → cross-domain → gauge → fingerprint → ternary → p-adic → braid → animation frame stream", verify: "acyclic = contradiction-free (gauge validation)", compress: "two-level compression: ternary (radix economy) + p-adic (exponent-residue)", edge: "edge learning (Hebbian, backprop-free) feeds the universe", principle: "every paradigm has an explicit place in the chain — executable-artifact discipline" }

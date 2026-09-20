@@ -1,0 +1,42 @@
+import "ck.ψ"
+let bad = [0]
+
+let vp_100 = 1013
+let dz1 = vp_100 - 1013
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let vp70 = 31
+let vp90 = 70
+let vp110 = 143
+bad[0] = bad[0] + ck(vp70, 29, 34)
+bad[0] = bad[0] + ck(vp90, 68, 73)
+bad[0] = bad[0] + ck(vp110, 140, 146)
+bad[0] = bad[0] + ck_hi(vp70, vp90)
+bad[0] = bad[0] + ck_hi(vp90, vp110)
+
+let p_ever = 34
+let t_ever = 71
+bad[0] = bad[0] + ck(p_ever, 32, 36)
+bad[0] = bad[0] + ck(t_ever, 68, 74)
+let dz2 = p_ever - 34
+bad[0] = bad[0] + ck(dz2, 0, 0)
+bad[0] = bad[0] + ck_hi(t_ever, 100)
+
+let p_cook = 200
+let t_cook = 120
+bad[0] = bad[0] + ck(p_cook, 195, 205)
+bad[0] = bad[0] + ck(t_cook, 117, 123)
+bad[0] = bad[0] + ck_lo(t_cook, 100)
+
+if 1679 < 1677
+    bad[0] = bad[0] + 1
+if 1679 > 1681
+    bad[0] = bad[0] + 1
+if 1850 < 1848
+    bad[0] = bad[0] + 1
+if 1850 > 1852
+    bad[0] = bad[0] + 1
+if 1850 < 1679
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

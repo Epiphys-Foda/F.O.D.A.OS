@@ -1,0 +1,286 @@
+let nt_gcd(a, b) =
+    for b != 0
+        let t = b
+        b = a % b
+        a = t
+    (a < 0 ? 0 - a : a)
+
+let nt_lcm(a, b) =
+    if a == 0 || b == 0
+        return 0
+    let g = nt_gcd(a, b)
+    (a / g) * b
+
+let nt_ext_gcd(a, b) =
+    let old_r = a
+    let r = b
+    let old_s = 1
+    let s = 0
+    let old_t = 0
+    let t = 1
+    for r != 0
+        let q = old_r / r
+        let temp = old_r - q * r
+        old_r = r
+        r = temp
+        temp = old_s - q * s
+        old_s = s
+        s = temp
+        temp = old_t - q * t
+        old_t = t
+        t = temp
+    let result = arr_new()
+    result = arr_push(result, old_r)
+    result = arr_push(result, old_s)
+    result = arr_push(result, old_t)
+    result
+
+let nt_mod_inverse(a, m) =
+    let ext = nt_ext_gcd(a % m, m)
+    let x = ext[1]
+    x % m
+
+let nt_mod_pow(base, exp, m) =
+    let result = 1
+    let b = base % m
+    let e = exp
+    for e > 0
+        if e % 2 == 1
+            result = (result * b) % m
+        e = e / 2
+        b = (b * b) % m
+    result
+
+let nt_is_prime(n) =
+    if n < 2
+        return 0
+    if n == 2
+        return 1
+    if n % 2 == 0
+        return 0
+    let i = 3
+    for i * i <= n
+        if n % i == 0
+            return 0
+        i = i + 2
+    1
+
+let nt_sieve(limit) =
+    let is_comp = arr_new_n(limit + 1)
+    let i = 2
+    for i * i <= limit
+        if is_comp[i] == 0
+            let j = i * i
+            for j <= limit
+                is_comp[j] = 1
+                j = j + i
+        i = i + 1
+    let primes = arr_new()
+    i = 2
+    for i <= limit
+        if is_comp[i] == 0
+            primes = arr_push(primes, i)
+        i = i + 1
+    primes
+
+let nt_euler_totient(n) =
+    let result = n
+    let p = 2
+    for p * p <= n
+        if n % p == 0
+            for n % p == 0
+                n = n / p
+            result = result - result / p
+        p = p + 1
+    if n > 1
+        result = result - result / n
+    result
+
+let nt_mobius(n) =
+    if n == 1
+        return 1
+    let count = 0
+    let p = 2
+    for p * p <= n
+        if n % p == 0
+            n = n / p
+            if n % p == 0
+                return 0
+            count = count + 1
+        p = p + 1
+    if n > 1
+        count = count + 1
+    (count % 2 == 0 ? 1 : 0 - 1)
+
+let nt_legendre(a, p) =
+    if a % p == 0
+        return 0
+    let r = nt_mod_pow(a, (p - 1) / 2, p)
+    (r == 1 ? 1 : 0 - 1)
+
+let nt_jacobi(a, n) =
+    if n <= 0 || n % 2 == 0
+        return 0
+    a = a % n
+    let result = 1
+    for a != 0
+        for a % 2 == 0
+            a = a / 2
+            let r = n % 8
+            if r == 3 || r == 5
+                result = 0 - result
+        let temp = a
+        a = n
+        n = temp
+        if a % 4 == 3 && n % 4 == 3
+            result = 0 - result
+        a = a % n
+    (n == 1 ? result : 0)
+
+let nt_crt(remainders, moduli) =
+    let n = remainders.len()
+    let M = 1
+    let i = 0
+    for i < n
+        M = M * moduli[i]
+        i = i + 1
+    let result = 0
+    i = 0
+    for i < n
+        let mi = moduli[i]
+        let Mi = M / mi
+        let yi = nt_mod_inverse(Mi, mi)
+        result = result + remainders[i] * Mi * yi
+        i = i + 1
+    result % M
+
+let nt_continued_fraction(p, q) =
+    let result = arr_new()
+    for q != 0
+        result = arr_push(result, p / q)
+        let t = p % q
+        p = q
+        q = t
+    result
+
+let nt_factor_count(n) =
+    if n < 2
+        return 1
+    let count = 1
+    let p = 2
+    for p * p <= n
+        let exp = 0
+        for n % p == 0
+            exp = exp + 1
+            n = n / p
+        count = count * (exp + 1)
+        p = p + 1
+    if n > 1
+        count = count * 2
+    count
+
+let nt_sum_divisors(n) =
+    if n < 1
+        return 0
+    let sum = 0
+    let i = 1
+    for i * i <= n
+        if n % i == 0
+            sum = sum + i
+            if i != n / i
+                sum = sum + n / i
+        i = i + 1
+    sum
+
+let nt_is_perfect(n) =
+    if n < 2
+        return 0
+    nt_sum_divisors(n) - n == n
+
+let nt_next_prime(n) =
+    let candidate = n + 1
+    if candidate < 2
+        candidate = 2
+    for nt_is_prime(candidate) == 0
+        candidate = candidate + 1
+    candidate
+
+let nt_prime_count(n) =
+    let primes = nt_sieve(n)
+    primes.len()
+
+let nt_isqrt(n) =
+    if n < 0
+        return 0
+    if n == 0
+        return 0
+    let x = n
+    let y = (x + 1) / 2
+    for y < x
+        x = y
+        y = (x + n / x) / 2
+    x
+
+let nt_fibonacci(n) =
+    if n == 0
+        return 0
+    if n == 1
+        return 1
+    let a = 0
+    let b = 1
+    let i = 1
+    for i < n
+        let c = a + b
+        a = b
+        b = c
+        i = i + 1
+    b
+
+let nt_binomial(n, k) =
+    if k < 0 || k > n
+        return 0
+    if k == 0 || k == n
+        return 1
+    if k > n - k
+        k = n - k
+    let result = 1
+    let i = 0
+    for i < k
+        result = result * (n - i)
+        result = result / (i + 1)
+        i = i + 1
+    result
+
+let nt_catalan(n) =
+    nt_binomial(2 * n, n) / (n + 1)
+
+let nt_partitions(n) =
+    if n == 0
+        return 1
+    let p = arr_new_n(n + 1)
+    p[0] = 1
+    let i = 1
+    for i <= n
+        let sum = 0
+        let k = 1
+        for k * (3 * k - 1) / 2 <= i
+            let g1 = k * (3 * k - 1) / 2
+            let g2 = k * (3 * k + 1) / 2
+            let sign = 1
+            if k % 2 == 0
+                sign = 0 - 1
+            sum = sum + sign * p[i - g1]
+            if g2 <= i
+                sum = sum + sign * p[i - g2]
+            k = k + 1
+        p[i] = sum
+        i = i + 1
+    p[n]
+
+let main() =
+    print(nt_is_prime(97))
+    print(nt_gcd(48, 36))
+    print(nt_mod_pow(2, 10, 1000))
+    print(nt_fibonacci(10))
+    print(nt_binomial(10, 3))
+    0

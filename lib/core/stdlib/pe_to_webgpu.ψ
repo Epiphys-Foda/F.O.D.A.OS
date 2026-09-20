@@ -1,0 +1,80 @@
+let pe_op_to_wgsl(opcode, out, a, b) =
+    let v = "v".concat(str(out))
+    let a2 = "v".concat(str(a))
+    let b2 = "v".concat(str(b))
+    if opcode == 1
+      "let ".concat(v).concat(" = (").concat(a2).concat(" * ").concat(b2).concat(") % 65537u")
+    else
+      if opcode == 2
+        "let ".concat(v).concat(" = (").concat(a2).concat(" + ").concat(b2).concat(") % 65537u")
+      else
+        if opcode == 3
+          "let ".concat(v).concat(" = ").concat(a2).concat(" + ").concat(b2)
+        else
+          if opcode == 4
+            "let ".concat(v).concat(" = ").concat(a2).concat(" - ").concat(b2)
+          else
+            if opcode == 5
+              "let ".concat(v).concat(" = ").concat(a2).concat(" & ").concat(b2)
+            else
+              if opcode == 6
+                "let ".concat(v).concat(" = ").concat(a2).concat(" | ").concat(b2)
+              else
+                if opcode == 7
+                  "let ".concat(v).concat(" = ").concat(a2).concat(" ^ ").concat(b2)
+                else
+                  if opcode == 8
+                    "let ".concat(v).concat(" = select(0u, 1u, ").concat(a2).concat(" < ").concat(b2).concat(")")
+                  else
+                    if opcode == 9
+                      "let ".concat(v).concat(" = ~").concat(a2)
+                    else
+                      if opcode == 10
+                        "let ".concat(v).concat(" = ").concat(a2)
+                      else
+                        if opcode == 11
+                          "let ".concat(v).concat(" = ").concat(a2)
+                        else
+                          if opcode == 12
+                            "result = ".concat(a2)
+                          else
+                            if opcode == 14
+                              "let ".concat(v).concat(" = (").concat(a2).concat(" + ").concat(b2).concat(") | (").concat(a2).concat(" - ").concat(b2).concat(")")
+                            else
+                              ""
+
+let pe_emit_wgsl_rec(pe_ops, pc, var_idx, lines, is_result) =
+    let n = len(pe_ops)
+    if pc >= n
+      [lines, var_idx, is_result]
+    else
+      let op = pe_ops[pc]
+      if op == 13
+        let imm = pe_ops[pc + 1]
+        let line = "let v".concat(str(var_idx)).concat(" = ").concat(str(imm)).concat("u")
+        pe_emit_wgsl_rec(pe_ops, pc + 2, var_idx + 1, [lines, line].flat(), is_result)
+      else
+        let line = pe_op_to_wgsl(op, var_idx, var_idx - 1, var_idx - 2)
+        let new_result = (op == 12 ? 1 : is_result)
+        pe_emit_wgsl_rec(pe_ops, pc + 1, var_idx + 1, [lines, line].flat(), new_result)
+
+let pe_seq_to_wgsl(pe_ops) =
+    let r = pe_emit_wgsl_rec(pe_ops, 0, 0, [], 0)
+    let body = r[0]
+    let has_result = r[2]
+    let lines = [str_concat(str_concat("fn main(@builtin(global_invocation_id) gid: vec3u) ", chr(123)), "")]
+    let i = 0
+    let n = len(body)
+    let d = false
+    for !d
+      if i < n
+        lines = lines.push("  ".concat(body[i]).concat(";"))
+        i = i + 1
+      else
+        d = true
+    if has_result == 1
+      lines = lines.push("}")
+    else
+      lines = lines.push("}")
+      0
+    lines

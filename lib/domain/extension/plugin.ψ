@@ -1,0 +1,308 @@
+let PL_P = 65537
+
+let PL_STATE_INSTALLED  = 1
+let PL_STATE_ACTIVATING  = 2
+let PL_STATE_ACTIVE     = 3
+let PL_STATE_DEACTIVATING = 4
+let PL_STATE_INACTIVE   = 5
+let PL_STATE_ERROR      = 6
+
+let PL_CONTRIB_COMMAND   = 1
+let PL_CONTRIB_HOOK      = 2
+let PL_CONTRIB_TRIGGER   = 3
+let PL_CONTRIB_VIEW      = 4
+let PL_CONTRIB_SETTING   = 5
+
+let PL_MAX_PLUGINS  = 256
+let PL_MAX_DEPS     = 32
+
+let pl_manifest_new(name, version) =
+    [name, version, [], [], [], 1]
+
+let pl_mf_name(m)        = m[0]
+let pl_mf_version(m)     = m[1]
+let pl_mf_contribs(m)     = m[2]
+let pl_mf_deps(m)        = m[3]
+let pl_mf_apis(m)        = m[4]
+let pl_mf_min_host(m)    = m[5]
+
+let pl_mf_add_contrib(m, ctype, name, ref) =
+    let cs = pl_mf_contribs(m)
+    cs.push([ctype, name, ref])
+    m[2] = cs
+    m
+
+let pl_mf_add_dep(m, dep_name) =
+    let deps = pl_mf_deps(m)
+    deps.push(dep_name)
+    m[3] = deps
+    m
+
+let pl_mf_add_api_req(m, api_id) =
+    let apis = pl_mf_apis(m)
+    apis.push(api_id)
+    m[4] = apis
+    m
+
+let pl_contrib_type(c)  = c[0]
+let pl_contrib_name(c)  = c[1]
+let pl_contrib_ref(c)   = c[2]
+
+let pl_api_new(api_id, name, fn_ref) =
+    [api_id, name, fn_ref, 1]
+
+let pl_api_id(a)        = a[0]
+let pl_api_name(a)       = a[1]
+let pl_api_ref(a)       = a[2]
+let pl_api_avail(a)     = a[3]
+
+let pl_api_set_avail(a, v) =
+    a[3] = v
+    a
+
+let pl_instance_new(manifest) =
+    [manifest, PL_STATE_INSTALLED, [], 0]
+
+let pl_inst_manifest(i)   = i[0]
+let pl_inst_state(i)       = i[1]
+let pl_inst_ctx(i)        = i[2]
+let pl_inst_activated(i)   = i[3]
+
+let pl_inst_set_state(i, s) =
+    i[1] = s
+    i
+
+let pl_inst_set_ctx(i, ctx) =
+    i[2] = ctx
+    i
+
+let pl_inst_set_activated(i, ts) =
+    i[3] = ts
+    i
+
+let pl_resolve_deps(manifests_map) =
+    let in_degree = {}
+    let adj = {}
+    let keys = keys_of(manifests_map)
+    let n = len(keys)
+    let i = 0
+    for i < n
+        let name = keys[i]
+        in_degree[name] = 0
+        adj[name] = []
+        i = i + 1
+    i = 0
+    for i < n
+        let name = keys[i]
+        let m = manifests_map[name]
+        let deps = pl_mf_deps(m)
+        let nd = len(deps)
+        let j = 0
+        for j < nd
+            let dep = deps[j]
+            if in_degree[dep] != 0
+                in_degree[dep] = 0
+            in_degree[dep] = in_degree[dep]
+            let adj_list = adj[dep]
+            if adj_list == 0
+                adj_list = []
+            adj_list.push(name)
+            adj[dep] = adj_list
+            in_degree[name] = in_degree[name] + 1
+            j = j + 1
+        i = i + 1
+    let queue = []
+    i = 0
+    for i < n
+        let name = keys[i]
+        if in_degree[name] == 0
+            queue.push(name)
+        i = i + 1
+    let sorted = []
+    for len(queue) > 0
+        let name = queue[0]
+        queue = arr_drop(queue, 1)
+        sorted.push(name)
+        let adj_list = adj[name]
+        if adj_list != 0
+            let m = len(adj_list)
+            let k = 0
+            for k < m
+                let neighbor = adj_list[k]
+                in_degree[neighbor] = in_degree[neighbor] - 1
+                if in_degree[neighbor] == 0
+                    queue.push(neighbor)
+                k = k + 1
+    let has_cycle = 0
+    if len(sorted) < n
+        has_cycle = 1
+    [sorted, has_cycle]
+
+let pl_host_new() =
+    [{}, {}, {}, []]
+
+let pl_host_instances(h)   = h[0]
+let pl_host_manifests(h)    = h[1]
+let pl_host_apis(h)        = h[2]
+let pl_host_order(h)      = h[3]
+
+let pl_host_register_api(h, api) =
+    let apis = pl_host_apis(h)
+    apis[pl_api_id(api)] = api
+    [pl_host_instances(h), pl_host_manifests(h), apis, pl_host_order(h)]
+
+let pl_host_install(h, manifest) =
+    let manifests = pl_host_manifests(h)
+    let name = pl_mf_name(manifest)
+    manifests[name] = manifest
+    let instances = pl_host_instances(h)
+    instances[name] = pl_instance_new(manifest)
+    [instances, manifests, pl_host_apis(h), pl_host_order(h)]
+
+let pl_host_activate_all(h, ts) =
+    let manifests = pl_host_manifests(h)
+    let resolve_res = pl_resolve_deps(manifests)
+    let sorted = resolve_res[0]
+    let has_cycle = resolve_res[1]
+    if has_cycle == 1
+        [h, 0, has_cycle]
+    else
+        let instances = pl_host_instances(h)
+        let activated = []
+        let i = 0
+        let n = len(sorted)
+        for i < n
+            let name = sorted[i]
+            let inst = instances[name]
+            if inst != 0
+                inst = pl_inst_set_state(inst, PL_STATE_ACTIVATING)
+                inst = pl_inst_set_activated(inst, ts)
+                inst = pl_inst_set_state(inst, PL_STATE_ACTIVE)
+                instances[name] = inst
+                activated.push(name)
+            i = i + 1
+        [[instances, manifests, pl_host_apis(h), activated], activated, 0]
+
+let pl_host_activate(h, name, ts) =
+    let instances = pl_host_instances(h)
+    let inst = instances[name]
+    if inst == 0
+        [h, 0]
+    else
+        let manifests = pl_host_manifests(h)
+        let m = manifests[name]
+        let deps = pl_mf_deps(m)
+        let nd = len(deps)
+        let all_active = 1
+        let i = 0
+        for i < nd
+            let dep_inst = instances[deps[i]]
+            if dep_inst == 0
+                all_active = 0
+            else
+                if pl_inst_state(dep_inst) != PL_STATE_ACTIVE
+                    all_active = 0
+            i = i + 1
+        if all_active == 0
+            [h, 0]
+        else
+            inst = pl_inst_set_state(inst, PL_STATE_ACTIVATING)
+            inst = pl_inst_set_activated(inst, ts)
+            inst = pl_inst_set_state(inst, PL_STATE_ACTIVE)
+            instances[name] = inst
+            let order = pl_host_order(h)
+            order.push(name)
+            [[instances, manifests, pl_host_apis(h), order], 1]
+
+let pl_host_deactivate(h, name) =
+    let instances = pl_host_instances(h)
+    let inst = instances[name]
+    if inst == 0
+        h
+    else
+        inst = pl_inst_set_state(inst, PL_STATE_INACTIVE)
+        instances[name] = inst
+        [instances, pl_host_manifests(h), pl_host_apis(h), pl_host_order(h)]
+
+let pl_host_get_contribs(h, name, ctype) =
+    let manifests = pl_host_manifests(h)
+    let m = manifests[name]
+    if m == 0
+        []
+    else
+        let contribs = pl_mf_contribs(m)
+        let result = []
+        let i = 0
+        let n = len(contribs)
+        for i < n
+            if pl_contrib_type(contribs[i]) == ctype
+                result.push(contribs[i])
+            i = i + 1
+        result
+
+let pl_self_test() =
+    let m1 = pl_manifest_new(100, 1)
+    m1 = pl_mf_add_contrib(m1, PL_CONTRIB_COMMAND, 1, 200)
+    m1 = pl_mf_add_dep(m1, 200)
+    let t_manifest = 0
+    if len(pl_mf_contribs(m1)) == 1
+        if len(pl_mf_deps(m1)) == 1
+            t_manifest = 1
+
+    let h = pl_host_new()
+    let m2 = pl_manifest_new(200, 1)
+    h = pl_host_install(h, m1)
+    h = pl_host_install(h, m2)
+    let t_install = 0
+    if pl_host_instances(h)[100] != 0
+        if pl_host_instances(h)[200] != 0
+            t_install = 1
+
+    let act_res = pl_host_activate_all(h, 1000)
+    let act_h = act_res[0]
+    let activated = act_res[1]
+    let t_activate = 0
+    if len(activated) == 2
+        if activated[0] == 200
+            if activated[1] == 100
+                t_activate = 1
+
+    let inst_100 = pl_host_instances(act_h)[100]
+    let t_state = 0
+    if pl_inst_state(inst_100) == PL_STATE_ACTIVE
+        t_state = 1
+
+    let h_deact = pl_host_deactivate(act_h, 100)
+    let inst_100_after = pl_host_instances(h_deact)[100]
+    let t_deactivate = 0
+    if pl_inst_state(inst_100_after) == PL_STATE_INACTIVE
+        t_deactivate = 1
+
+    let api = pl_api_new(1, 100, 999)
+    let h_api = pl_host_register_api(h_deact, api)
+    let api_lookup = pl_host_apis(h_api)[1]
+    let t_api = 0
+    if pl_api_ref(api_lookup) == 999
+        t_api = 1
+
+    let contribs = pl_host_get_contribs(act_h, 100, PL_CONTRIB_COMMAND)
+    let t_contrib = 0
+    if len(contribs) == 1
+        if pl_contrib_ref(contribs[0]) == 200
+            t_contrib = 1
+
+    let cyclic = {}
+    cyclic[1] = pl_manifest_new(1, 1)
+    cyclic[1] = pl_mf_add_dep(cyclic[1], 2)
+    cyclic[2] = pl_manifest_new(2, 1)
+    cyclic[2] = pl_mf_add_dep(cyclic[2], 1)
+    let resolve_res = pl_resolve_deps(cyclic)
+    let has_cycle = resolve_res[1]
+    let t_cycle = 0
+    if has_cycle == 1
+        t_cycle = 1
+
+    [t_manifest, t_install, t_activate, t_state, t_deactivate, t_api, t_contrib, t_cycle]
+
+let pl_default_host() =
+    pl_host_new()

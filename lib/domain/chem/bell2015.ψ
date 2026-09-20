@@ -1,0 +1,28 @@
+import "ck.ψ"
+let bad = [0]
+
+let s242 = 242
+bad[0] = bad[0] + ck(s242, 235, 265)
+
+let dist = 1280
+bad[0] = bad[0] + ck(dist, 1250, 1310)
+
+let travel = 1280000 / 300
+bad[0] = bad[0] + ck(travel, 4200, 4350)
+
+let win = 4700
+let close = win - travel
+bad[0] = bad[0] + ck_lo(close, 0)
+
+let p = 39
+bad[0] = bad[0] + ck(p, 30, 50)
+if 1964 < 1962
+    bad[0] = bad[0] + 1
+if 1964 > 1966
+    bad[0] = bad[0] + 1
+if 2015 < 2013
+    bad[0] = bad[0] + 1
+if 2015 > 2017
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

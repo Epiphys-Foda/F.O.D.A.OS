@@ -1,0 +1,27 @@
+import "ck.ψ"
+let bad = [0]
+
+let tau = 22
+bad[0] = bad[0] + ck(tau, 20, 24)
+
+let nd = 660 * 999 / 1000
+bad[0] = bad[0] + ck(nd, 630, 690)
+
+let g = 20
+bad[0] = bad[0] + ck(g, 19, 21)
+
+let wd = nd * g
+bad[0] = bad[0] + ck(wd, 12500, 14000)
+let alt = 10000
+bad[0] = bad[0] + ck_lo(wd, alt)
+
+if 1941 < 1939
+    bad[0] = bad[0] + 1
+if 1941 > 1943
+    bad[0] = bad[0] + 1
+if 1905 < 1903
+    bad[0] = bad[0] + 1
+if 1905 > 1907
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

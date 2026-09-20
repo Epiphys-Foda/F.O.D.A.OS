@@ -1,0 +1,192 @@
+import "resfield2d.ψ"
+import "wblit.ψ"
+import "wui.ψ"
+
+let cross5() = [
+  0, 0, 1894805759, 0, 0,
+  0, 0, 1894805759, 0, 0,
+  1894805759, 1894805759, 0, 1894805759, 1894805759,
+  0, 0, 1894805759, 0, 0,
+  0, 0, 1894805759, 0, 0
+]
+
+let pal() = [
+  16777215,
+  16774143,
+  16767295,
+  16742655,
+  10486271,
+  986895,
+  263475,
+  393475,
+  656640
+]
+
+let init(w, h) =
+    let st = arr_new_n(80)
+    let fb = arr_new_n(w * h)
+    arr_set(st, 6, fb)
+    arr_set(st, 9, font_glyphs())
+    arr_set(st, 5, ui_ctx(st, fb, w, h, st[9]))
+    arr_set(st, 10, cross5())
+    arr_set(st, 20, arr_new_n(w * h))
+    arr_set(st, 21, 48)
+    arr_set(st, 22, 40)
+    arr_set(st, 23, 96)
+    arr_set(st, 24, 72)
+    arr_set(st, 26, 0)
+    arr_set(st, 17, 1)
+    st
+
+let recompute(st) =
+    let u = st[5]
+    let fb = st[6]
+    let clean = st[20]
+    let w = u[1]
+    let h = u[2]
+    let hw = w // 2
+    let hh = h // 2
+    let p1a = (8 + st[21] * (w - 16) // 100 - hw) * 2
+    let p1b = (8 + st[22] * (h - 16) // 100 - hh) * 2
+    let p2a = (8 + st[23] * (w - 16) // 100 - hw) * 2
+    let p2b = (8 + st[24] * (h - 16) // 100 - hh) * 2
+    let prep1 = rf_pole_prep(p1a, p1b)
+    let prep2 = rf_pole_prep(p2a, p2b)
+    let pa = arr_new_n(2)
+    let pb = arr_new_n(2)
+    let pu = arr_new_n(2)
+    let pv = arr_new_n(2)
+    let pr = arr_new_n(2)
+    arr_set(pa, 0, p1a)
+    arr_set(pa, 1, p2a)
+    arr_set(pb, 0, p1b)
+    arr_set(pb, 1, p2b)
+    arr_set(pu, 0, prep1[0])
+    arr_set(pu, 1, prep2[0])
+    arr_set(pv, 0, prep1[1])
+    arr_set(pv, 1, prep2[1])
+    let sw = st[26]
+    arr_set(pr, 0, 1 + sw * 65535)
+    arr_set(pr, 1, 65536 - sw * 65535)
+    let y = 0
+    for y < h
+      let x = 0
+      for x < w
+        let zx = (x - hw) * 2
+        let zy = (y - hh) * 2
+        let s = rf_pixel(zx, zy, 2, pa, pb, pr, pu, pv)
+        arr_set(clean, y * w + x, rf_color888(s[0], s[1], s[2], s[4], pal()))
+        x = x + 1
+      y = y + 1
+    let total = w * h
+    let i = 0
+    for i < total
+      arr_set(fb, i, clean[i])
+      i = i + 1
+    0
+
+let draw_cross(st, cx, cy) =
+    let u = st[5]
+    let fb = st[6]
+    let clean = st[20]
+    let w = u[1]
+    let h = u[2]
+    let r = 0
+    for r < 7
+      let c = 0
+      for c < 7
+        let sx = cx - 3 + c
+        let sy = cy - 3 + r
+        let vis = ((sx >= 0) & (sx < w)) & ((sy >= 0) & (sy < h))
+        if vis == 1
+          arr_set(fb, sy * w + sx, clean[sy * w + sx])
+        c = c + 1
+      r = r + 1
+    blit_sprite(fb, w, h, cx - 2, cy - 2, st[10], 5, 5)
+    0
+
+let frame(st) =
+    let u = st[5]
+    let fb = st[6]
+    let fg = st[9]
+    let w = u[1]
+    let h = u[2]
+    if (st[17] == 1) & (st[2] == 0)
+      recompute(st)
+      arr_set(st, 17, 0)
+    let p1px = 8 + st[21] * (w - 16) // 100
+    let p1py = 8 + st[22] * (h - 16) // 100
+    let p2px = 8 + st[23] * (w - 16) // 100
+    let p2py = 8 + st[24] * (h - 16) // 100
+    let d1x = st[0] - p1px
+    let d1y = st[1] - p1py
+    let d2x = st[0] - p2px
+    let d2y = st[1] - p2py
+    let near1 = ((d1x * d1x) + (d1y * d1y)) < 49
+    let near2 = ((d2x * d2x) + (d2y * d2y)) < 49
+    if (st[2] == 1) & (st[4] == 0)
+      if near1 == 1
+        arr_set(st, 4, 100)
+      else
+        if near2 == 1
+          arr_set(st, 4, 101)
+    if st[4] == 100
+      let nv1 = (st[0] - 8) * 100 // (w - 16)
+      let nv2 = (st[1] - 8) * 100 // (h - 16)
+      if nv1 < 0
+        nv1 = 0
+      if nv1 > 100
+        nv1 = 100
+      if nv2 < 0
+        nv2 = 0
+      if nv2 > 100
+        nv2 = 100
+      arr_set(st, 21, nv1)
+      arr_set(st, 22, nv2)
+    if st[4] == 101
+      let nv3 = (st[0] - 8) * 100 // (w - 16)
+      let nv4 = (st[1] - 8) * 100 // (h - 16)
+      if nv3 < 0
+        nv3 = 0
+      if nv3 > 100
+        nv3 = 100
+      if nv4 < 0
+        nv4 = 0
+      if nv4 > 100
+        nv4 = 100
+      arr_set(st, 23, nv3)
+      arr_set(st, 24, nv4)
+    ui_begin(u)
+    ui_panel(u, 2, 2, w - 4, 88)
+    let b1 = st[21]
+    let b2 = st[22]
+    let b3 = st[23]
+    let b4 = st[24]
+    let b5 = st[26]
+    ui_slider(u, 1, 8, 8, 100, st, 21)
+    blit_text(fb, w, h, w - 44, 10, "P1X", 13668464, fg)
+    ui_slider(u, 2, 8, 24, 100, st, 22)
+    blit_text(fb, w, h, w - 44, 26, "P1Y", 13668464, fg)
+    ui_slider(u, 3, 8, 40, 100, st, 23)
+    blit_text(fb, w, h, w - 44, 42, "P2X", 13668464, fg)
+    ui_slider(u, 4, 8, 56, 100, st, 24)
+    blit_text(fb, w, h, w - 44, 58, "P2Y", 13668464, fg)
+    ui_toggle(u, 5, 8, 72, "SWAP CHARGES", st, 26)
+    let moved = ((st[21] != b1) + (st[22] != b2)) + ((st[23] != b3) + (st[24] != b4))
+    let changed = moved + (st[26] != b5)
+    if changed > 0
+      arr_set(st, 17, 1)
+    draw_cross(st, p1px, p1py)
+    draw_cross(st, p2px, p2py)
+    fill_rect(fb, w, h, 0, h - 8, w, 8, 2233360)
+    blit_text(fb, w, h, 3, h - 7, "P1", 13668464, fg)
+    let w1 = blit_num(u, 15, h - 7, p1px)
+    blit_text(fb, w, h, 17 + w1, h - 7, ",", 13668464, fg)
+    let w2 = blit_num(u, 21 + w1, h - 7, p1py)
+    blit_text(fb, w, h, 25 + w2, h - 7, "P2", 13668464, fg)
+    let w3 = blit_num(u, 37 + w2, h - 7, p2px)
+    blit_text(fb, w, h, 41 + w3, h - 7, ",", 13668464, fg)
+    blit_num(u, 45 + w3, h - 7, p2py)
+    present_size(w, h)
+    present(fb, w * h)
+    0

@@ -1,0 +1,32 @@
+import "ck.ψ"
+let bad = [0]
+
+let f_eq = 30
+let f_pole = 60
+bad[0] = bad[0] + ck(f_eq, 25, 35)
+bad[0] = bad[0] + ck(f_pole, 55, 65)
+bad[0] = bad[0] + ck_lo(f_pole, f_eq)
+
+let tilt = 11
+bad[0] = bad[0] + ck(tilt, 9, 13)
+
+let last_rev = 780
+bad[0] = bad[0] + ck(last_rev, 750, 800)
+let spacing = 300
+bad[0] = bad[0] + ck(spacing, 250, 350)
+
+let core_depth = 3000
+bad[0] = bad[0] + ck(core_depth, 2800, 3200)
+
+if 1600 < 1598
+    bad[0] = bad[0] + 1
+if 1600 > 1602
+    bad[0] = bad[0] + 1
+if 1906 < 1904
+    bad[0] = bad[0] + 1
+if 1906 > 1908
+    bad[0] = bad[0] + 1
+if 1906 < 1600
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

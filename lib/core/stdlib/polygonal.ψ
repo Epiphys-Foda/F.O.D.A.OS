@@ -1,0 +1,65 @@
+let tri(n) =
+    if n < 0
+        0
+    else
+        (n * (n + 1)) >> 1
+
+let tetra(n) =
+    if n < 0
+        0
+    else
+        (n * (n + 1) * (n + 2)) / 6
+
+let penta(n) =
+    if n < 0
+        0
+    else
+        (n * ((3 * n) - 1)) >> 1
+
+let hexa(n) =
+    if n < 0
+        0
+    else
+        n * ((n << 1) - 1)
+
+let hept(n) =
+    if n < 0
+        0
+    else
+        (n * ((5 * n) - 3)) >> 1
+
+let octa(n) =
+    if n < 0
+        0
+    else
+        n * ((3 * n) - 2)
+
+let nona(n) =
+    if n < 0
+        0
+    else
+        (n * ((7 * n) - 5)) >> 1
+
+let degon(n) =
+    if n < 0
+        0
+    else
+        n * ((n << 2) - 3)
+
+let pronic(n) =
+    if n < 0
+        0
+    else
+        n * (n + 1)
+
+let poly(s, n) =
+    if n < 0
+        0
+    else
+        0
+    if s < 3
+        0
+    else
+      let s2 = s - 2
+      let s4 = s - 4
+      ((s2 * n * n) - (s4 * n)) >> 1

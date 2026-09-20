@@ -1,0 +1,71 @@
+import "ck.ψ"
+let bad = [0]
+
+let c1 = 7
+let c2 = 7
+let c3 = 7
+let dz1 = c2 - c1
+bad[0] = bad[0] + ck(dz1, 0, 0)
+let dz2 = c3 - c1
+bad[0] = bad[0] + ck(dz2, 0, 0)
+let tot_100 = 700
+let dz3 = tot_100 - 100 * c1
+bad[0] = bad[0] + ck(dz3, 0, 0)
+let tot_1m = 7000000
+if tot_1m < 10 * tot_100
+    bad[0] = bad[0] + 1
+
+let sky_eq = 1
+bad[0] = bad[0] + ck(sky_eq, 1, 1)
+
+let age_myr = 13800
+bad[0] = bad[0] + ck(age_myr, 13700, 13900)
+let horizon_x10 = 138
+let dz4 = horizon_x10 * 100 - age_myr
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let zcmb = 1100
+bad[0] = bad[0] + ck(zcmb, 1050, 1150)
+let t_then_mK = 3000000
+bad[0] = bad[0] + ck(t_then_mK, 2900000, 3100000)
+let t_now_mK = 2725
+bad[0] = bad[0] + ck(t_now_mK, 2700, 2750)
+let ratio = t_then_mK / t_now_mK
+let dz5 = ratio - zcmb
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let t_o = 3
+bad[0] = bad[0] + ck(t_o, 2, 4)
+if age_myr < 1000 * t_o
+    bad[0] = bad[0] + 1
+
+if 1610 < 1608
+    bad[0] = bad[0] + 1
+if 1610 > 1612
+    bad[0] = bad[0] + 1
+if 1823 < 1821
+    bad[0] = bad[0] + 1
+if 1823 > 1825
+    bad[0] = bad[0] + 1
+if 1823 < 1610
+    bad[0] = bad[0] + 1
+if 1848 < 1846
+    bad[0] = bad[0] + 1
+if 1848 > 1850
+    bad[0] = bad[0] + 1
+if 1848 < 1823
+    bad[0] = bad[0] + 1
+if 1929 < 1927
+    bad[0] = bad[0] + 1
+if 1929 > 1931
+    bad[0] = bad[0] + 1
+if 1929 < 1848
+    bad[0] = bad[0] + 1
+if 1965 < 1963
+    bad[0] = bad[0] + 1
+if 1965 > 1967
+    bad[0] = bad[0] + 1
+if 1965 < 1929
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

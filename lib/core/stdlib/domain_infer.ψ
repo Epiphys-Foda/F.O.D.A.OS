@@ -1,0 +1,174 @@
+let DOM_K0 = 0
+let DOM_K1 = 1
+let DOM_K2 = 2
+let DOM_K3 = 3
+
+let OP_LIT = 0
+let OP_VAR = 1
+let OP_ADD = 2
+let OP_SUB = 3
+let OP_MUL = 4
+let OP_DIV = 5
+let OP_SQRT = 6
+
+let dom_max(a, b) =
+    if a >= b
+        a
+    else
+        b
+
+let dom_cap(k) =
+    if k > 3
+        3
+    else
+        k
+
+let dom_add_one(k) = dom_cap(k + 1)
+
+let infer_domain(expr) =
+    let op = expr[0]
+    if op == 0
+        0
+    else
+        0
+    if op == 1
+        0
+    else
+        0
+    if op == 2
+        dom_max(infer_domain(expr[1]), infer_domain(expr[2]))
+    else
+        0
+    if op == 3
+        dom_max(infer_domain(expr[1]), infer_domain(expr[2]))
+    else
+        0
+    if op == 4
+        dom_max(infer_domain(expr[1]), infer_domain(expr[2]))
+    else
+        0
+    if op == 5
+        dom_add_one(dom_max(infer_domain(expr[1]), infer_domain(expr[2])))
+    else
+        0
+    if op == 6
+        dom_add_one(infer_domain(expr[1]))
+    else
+        3
+
+let chomsky_type(k) =
+    if k == 0
+        3
+    else
+        0
+    if k == 1
+        2
+    else
+        0
+    if k == 2
+        1
+    else
+        0
+
+let chomsky_to_k(t) =
+    if t == 3
+        0
+    else
+        0
+    if t == 2
+        1
+    else
+        0
+    if t == 1
+        2
+    else
+        3
+
+let chomsky_roundtrip(k) = chomsky_to_k(chomsky_type(k)) == k
+
+let constraint_max(c1, c2) =
+    let k1 = c1[1]
+    let k2 = c2[1]
+    if k1 >= k2
+        c1
+    else
+        c2
+
+let solve_constraints(c1, c2, c3) =
+    let m12 = constraint_max(c1, c2)
+    constraint_max(m12, c3)
+
+let mosaic_domains(expr) =
+    let op = expr[0]
+    let k_root = infer_domain(expr)
+    if op == 0
+        [k_root, 0, 0]
+    else
+        0
+    if op == 1
+        [k_root, 0, 0]
+    else
+        0
+    if op == 6
+        let k_child = infer_domain(expr[1])
+        [k_root, k_child, 0]
+    else
+        let k_left = infer_domain(expr[1])
+        let k_right = infer_domain(expr[2])
+        [k_root, k_left, k_right]
+
+let mosaic_margin(expr) =
+    let m = mosaic_domains(expr)
+    let k_root = m[0]
+    let k_left = m[1]
+    let k_right = m[2]
+    k_root - dom_max(k_left, k_right)
+
+let count_nodes(expr) =
+    let op = expr[0]
+    if op == 0
+        1
+    else
+        0
+    if op == 1
+        1
+    else
+        0
+    if op == 6
+        1 + count_nodes(expr[1])
+    else
+        1 + count_nodes(expr[1]) + count_nodes(expr[2])
+
+let compile_quality(expr) =
+    let k = infer_domain(expr)
+    let n = count_nodes(expr)
+    let margin = mosaic_margin(expr)
+    k * 100 + margin * 10 + n
+
+let domain_infer_verify() =
+    let lit42 = [0, 42]
+    let var_x = [1, 0]
+    let var_y = [1, 1]
+    let add_xy = [2, var_x, var_y]
+    let mul_xy = [4, var_x, var_y]
+    let div_xy = [5, var_x, var_y]
+    let sqrt_div = [6, div_xy, 0]
+    let div_div = [5, div_xy, var_y]
+    let sqrt_div_div = [6, div_div, 0]
+
+    let ok1 = infer_domain(lit42) == 0
+    let ok2 = infer_domain(var_x) == 0
+    let ok3 = infer_domain(add_xy) == 0
+    let ok4 = infer_domain(mul_xy) == 0
+    let ok5 = infer_domain(div_xy) == 1
+    let ok6 = infer_domain(sqrt_div) == 2
+    let ok7 = infer_domain(div_div) == 2
+    let ok8 = infer_domain(sqrt_div_div) == 3
+    let ok9 = chomsky_roundtrip(0) && chomsky_roundtrip(1) && chomsky_roundtrip(2) && chomsky_roundtrip(3)
+    let ok10 = mosaic_margin(div_xy) == 1
+    if ok1 && ok2 && ok3 && ok4 && ok5 && ok6 && ok7 && ok8 && ok9 && ok10
+        1
+    else
+        0
+
+let main() = domain_infer_verify()

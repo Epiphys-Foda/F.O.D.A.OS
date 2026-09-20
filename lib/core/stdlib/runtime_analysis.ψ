@@ -1,0 +1,239 @@
+import "gf65537.ψ"
+import "arr.ψ"
+
+let ESCAPE_NONE    = 0
+let ESCAPE_RETURN  = 1
+let ESCAPE_STORE   = 2
+let ESCAPE_GLOBAL  = 3
+
+let escape_analyze_var(uses, return_count, store_count, global_count) =
+    if global_count > 0
+        ESCAPE_GLOBAL
+    if store_count > 0
+        ESCAPE_STORE
+    if return_count > 0
+        ESCAPE_RETURN
+    ESCAPE_NONE
+
+let escape_can_stack_allocate(escape_level) = ((escape_level == ESCAPE_NONE) ? (1) : (0))
+
+let escape_estimate_gc_savings(stack_allocated_count) = stack_allocated_count * 100
+
+let escape_analyze_function(vars, returns, stores) =
+    let n = arr_len(vars)
+    _escape_fn_acc(vars, returns, stores, n, 0, 0)
+let _escape_fn_acc(vars, returns, stores, n, i, count) =
+    if i >= n
+        count
+    let var_id = arr_get(vars, i)
+    let return_count = _count_in(returns, var_id, arr_len(returns), 0)
+    let store_count = _count_in(stores, var_id, arr_len(stores), 0)
+    let escape = escape_analyze_var(0, return_count, store_count, 0)
+    let new_count = ((escape == ESCAPE_NONE) ? (count + 1) : (count))
+    _escape_fn_acc(vars, returns, stores, n, i + 1, new_count)
+let _count_in(arr, val, n, i) =
+    if i >= n
+        0
+    if arr_get(arr, i) == val
+        1 + _count_in(arr, val, n, i + 1)
+    _count_in(arr, val, n, i + 1)
+
+let ALIAS_NO      = 0
+let ALIAS_MAY     = 1
+let ALIAS_MUST    = 2
+
+let alias_make(ptr1, ptr2, alias_type) =
+    let v = arr_new_n(3)
+    arr_set(v, 0, ptr1)
+    arr_set(v, 1, ptr2)
+    arr_set(v, 2, alias_type)
+    v
+
+let alias_check(ptr1, ptr2, alias_set) =
+    let n = arr_len(alias_set)
+    _alias_check_acc(ptr1, ptr2, alias_set, n, 0, ALIAS_MAY)
+let _alias_check_acc(p1, p2, alias_set, n, i, result) =
+    if i >= n
+        result
+    let entry = arr_get(alias_set, i)
+    let e1 = arr_get(entry, 0)
+    let e2 = arr_get(entry, 1)
+    let e_type = arr_get(entry, 2)
+    if (e1 == p1 && e2 == p2) || (e1 == p2 && e2 == p1)
+      e_type
+    _alias_check_acc(p1, p2, alias_set, n, i + 1, result)
+
+let alias_can_reorder(ptr1, ptr2, alias_set) =
+    let alias_type = alias_check(ptr1, ptr2, alias_set)
+    ((alias_type == ALIAS_NO) ? (1) : (0))
+
+let alias_estimate_reorder_count(no_alias_pairs) = no_alias_pairs * 2
+
+let alias_union_find_merge(uf, a, b) =
+    arr_push(uf, alias_make(a, b, ALIAS_MUST))
+    uf
+
+let dse_analyze_stores(stores) =
+    let n = arr_len(stores)
+    let dead = arr_new_n(n)
+    let count = _dse_acc(stores, dead, n, 0, 0 - 1, 0)
+    sa_slice(dead, 0, count)
+let _dse_acc(stores, dead, n, i, last_var, count) =
+    if i >= n
+        count
+    else
+        let store = arr_get(stores, i)
+        let kind = arr_get(store, 0)
+        if kind == last_var
+          arr_set(dead, count, i - 1)
+        let new_count = ((kind == last_var) ? (count + 1) : (count))
+        _dse_acc(stores, dead, n, i + 1, kind, new_count)
+
+let dse_estimate_savings(dead_count) = dead_count * 5
+
+let dse_check_read_between(store1_idx, store2_idx, reads) =
+    let n = arr_len(reads)
+    _dse_read_acc(reads, n, 0, store1_idx, store2_idx)
+let _dse_read_acc(reads, n, i, lo, hi) =
+    if i >= n
+        0
+    let r = arr_get(reads, i)
+    if r > lo && r < hi
+        1
+    _dse_read_acc(reads, n, i + 1, lo, hi)
+
+let parallel_analyze_loop(iterations, dependencies) =
+    if dependencies == 0
+        1
+    if dependencies >= iterations
+        0
+    ((dependencies * 4 < iterations) ? (1) : (0))
+
+let parallel_estimate_speedup(parallelizable_iters, total_iters, cores) =
+    if total_iters == 0
+        1
+    if cores <= 1
+        1
+    let p = parallelizable_iters / total_iters
+    if p == 0
+        1
+    let serial = 1 - p
+    let parallel_part = p / cores
+    let denom = serial + parallel_part
+    if denom == 0
+        1
+    1 / denom
+
+let parallel_detect_reduction(loop_body) =
+    let n = arr_len(loop_body)
+    if n < 2
+        0
+    let op1 = arr_get(loop_body, 0)
+    let op2 = arr_get(loop_body, 1)
+    ((op1 == 1 || op1 == 3) ? (1) : (0))
+
+let parallel_check_data_race(reads, writes) =
+    let n_r = arr_len(reads)
+    let n_w = arr_len(writes)
+    _parallel_race_acc(reads, writes, n_r, n_w, 0, 0)
+let _parallel_race_acc(reads, writes, n_r, n_w, i, j) =
+    if i >= n_r
+        0
+    if j >= n_w
+        _parallel_race_acc(reads, writes, n_r, n_w, i + 1, 0)
+    if arr_get(reads, i) == arr_get(writes, j)
+        1
+    _parallel_race_acc(reads, writes, n_r, n_w, i, j + 1)
+
+let CACHE_LINE_SIZE = 64
+
+let cache_analyze_access_pattern(accesses) =
+    let n = arr_len(accesses)
+    if n < 4
+        0
+    let sequential = _cache_seq_acc(accesses, n, 1, 0)
+    if sequential * 4 >= n
+        0
+    1
+let _cache_seq_acc(accesses, n, i, count) =
+    if i >= n
+        count
+    let prev = arr_get(accesses, i - 1)
+    let curr = arr_get(accesses, i)
+    let new_count = ((curr == prev + 1) ? (count + 1) : (count))
+    _cache_seq_acc(accesses, n, i + 1, new_count)
+
+let cache_estimate_alignment_savings(sequential_count) = sequential_count * 5
+
+let cache_suggest_alignment(access_pattern, data_size) =
+    if access_pattern == 0
+        CACHE_LINE_SIZE
+    if data_size <= 32 * 1024
+        32
+    64
+
+let cache_estimate_cold_data(cold_count, total_count) =
+    if total_count == 0
+        0
+    cold_count / total_count
+
+let zerocopy_analyze_data(data_size, transfer_count) =
+    if data_size >= 1024 && transfer_count >= 10
+        1
+    0
+
+let zerocopy_estimate_savings(data_size, transfer_count) = (data_size / 8) * transfer_count
+
+let zerocopy_check_shareable(data1, data2) =
+    ((arr_len(data1) == arr_len(data2)) ? (1) : (0))
+
+let zerocopy_mmap_analyze(data_size) =
+      let v = arr_new_n(2)
+      if data_size >= 4096
+        arr_set(v, 0, 1)
+        arr_set(v, 1, 4096)
+      else
+        arr_set(v, 0, 0)
+        arr_set(v, 1, 64)
+      v
+
+let runtime_analyze_program(program_ast) =
+    let suggestions = arr_new()
+    let n = arr_len(program_ast)
+    let escape_count = escape_analyze_function(program_ast, arr_new(), arr_new())
+    if escape_count > 0
+      let s = arr_new_n(2)
+      arr_set(s, 0, 1)
+      arr_set(s, 1, escape_count)
+      arr_push(suggestions, s)
+    let pattern = cache_analyze_access_pattern(program_ast)
+    if pattern == 0
+      let s = arr_new_n(2)
+      arr_set(s, 0, 2)
+      arr_set(s, 1, 64)
+      arr_push(suggestions, s)
+    let parallel_ok = parallel_analyze_loop(n, 0)
+    if parallel_ok == 1
+      let s = arr_new_n(2)
+      arr_set(s, 0, 3)
+      arr_set(s, 1, n)
+      arr_push(suggestions, s)
+    suggestions
+
+let runtime_estimate_total_speedup(suggestions) =
+    let n = arr_len(suggestions)
+    _rt_speedup_acc(suggestions, n, 0, 0)
+let _rt_speedup_acc(suggestions, n, i, total) =
+    if i >= n
+        total
+    let s = arr_get(suggestions, i)
+    let category = arr_get(s, 0)
+    let count = arr_get(s, 1)
+    let benefit = 0
+    if category == 1
+        benefit = escape_estimate_gc_savings(count)
+    if category == 2
+        benefit = cache_estimate_alignment_savings(count)
+    if category == 3
+        benefit = count * 10
+    _rt_speedup_acc(suggestions, n, i + 1, total + benefit)

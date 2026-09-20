@@ -1,0 +1,275 @@
+let P = 65537
+
+let gf_inv_mod(a) =
+    let b = gf_canon(a)
+    if b == 0
+        0
+    else
+        let r = 1
+        let e = 65535
+        for e > 0
+            if e % 2 == 1
+                r = gf_canon(r * b)
+            b = gf_canon(b * b)
+            e = e / 2
+        r
+
+let gf_poly_trim(p) =
+    let n = len(p)
+    let end = n
+    let done = 0
+    for done == 0
+        if end == 0
+            done = 1
+        else if p[end - 1] != 0
+            done = 1
+        else
+            end = end - 1
+    if end == 0
+        arr_new()
+    else
+        let r = arr_new_n(end)
+        let i = 0
+        for i < end
+            r[i] = p[i]
+            i = i + 1
+        r
+
+let gf_poly_add(a, b) =
+    let n = len(a)
+    let m = len(b)
+    let sz = n
+    if m > n
+        sz = m
+    let r = arr_new_n(sz)
+    let i = 0
+    for i < n
+        r[i] = gf_canon(a[i])
+        i = i + 1
+    let j = 0
+    for j < m
+        let bv = gf_canon(b[j])
+        if j < sz
+            r[j] = gf_canon(r[j] + bv)
+        else
+            r[j] = bv
+        j = j + 1
+    gf_poly_trim(r)
+
+let gf_poly_mul(a, b) =
+    let n = len(a)
+    let m = len(b)
+    if n == 0
+        arr_new()
+    else if m == 0
+        arr_new()
+    else
+        let sz = n + m - 1
+        let r = arr_new_n(sz)
+        let i = 0
+        for i < n
+            let j = 0
+            for j < m
+                let av = gf_canon(a[i])
+                let bv = gf_canon(b[j])
+                r[i + j] = gf_canon(r[i + j] + av * bv)
+                j = j + 1
+            i = i + 1
+        gf_poly_trim(r)
+
+let gf_poly_eval(p, x) =
+    let n = len(p)
+    let r = 0
+    let i = n - 1
+    for i >= 0
+        r = gf_canon(r * gf_canon(x) + gf_canon(p[i]))
+        i = i - 1
+    r
+
+let gf_poly_deriv(p) =
+    let n = len(p)
+    if n <= 1
+        arr_new()
+    else
+        let r = arr_new_n(n - 1)
+        let i = 1
+        for i < n
+            let coef = gf_canon(p[i])
+            r[i - 1] = gf_canon(i * coef)
+            i = i + 1
+        gf_poly_trim(r)
+
+let gf_poly_integrate(p) =
+    let n = len(p)
+    if n == 0
+        arr_new()
+    else
+        let r = arr_new_n(n + 1)
+        r[0] = 0
+        let i = 0
+        for i < n
+            let inv = gf_inv_mod(i + 1)
+            r[i + 1] = gf_canon(gf_canon(p[i]) * inv)
+            i = i + 1
+        gf_poly_trim(r)
+
+let gf_poly_divmod(a, b) =
+    let db = len(b) - 1
+    let da = len(a) - 1
+    if db < 0
+        [arr_new(), arr_new()]
+    else if da < db
+        [a, arr_new()]
+    else
+        let q = arr_new_n(da - db + 1)
+        let r = arr_new_n(da + 1)
+        let i = 0
+        for i <= da
+            r[i] = gf_canon(a[i])
+            i = i + 1
+        let inv_lead = gf_inv_mod(b[db])
+        let k = da
+        for k >= db
+            let coef = gf_canon(r[k] * inv_lead)
+            q[k - db] = coef
+            let j = 0
+            for j <= db
+                r[k - db + j] = gf_canon(r[k - db + j] - coef * b[j])
+                j = j + 1
+            k = k - 1
+        let qt = gf_poly_trim(q)
+        let rt = gf_poly_trim(r)
+        [qt, rt]
+
+let gf_poly_gcd(a, b) =
+    let bb = gf_poly_trim(b)
+    if len(bb) == 0
+        gf_poly_trim(a)
+    else
+        let dm = gf_poly_divmod(a, bb)
+        gf_poly_gcd(bb, dm[1])
+
+let gf_poly_integrate(p) =
+    let n = len(p)
+    if n == 0
+        arr_new()
+    else
+        let r = arr_new_n(n + 1)
+        r[0] = 0
+        let i = 0
+        for i < n
+            let inv = gf_inv_mod(i + 1)
+            r[i + 1] = gf_canon(gf_canon(p[i]) * inv)
+            i = i + 1
+        gf_poly_trim(r)
+
+let gf_poly_interp(xs, ys) =
+    let n = len(xs)
+    let r = arr_new_n(n)
+    let i = 0
+    for i < n
+        let li = arr_new_n(1)
+        li[0] = 1
+        let denom = 1
+        let j = 0
+        for j < n
+            if j != i
+                let term = arr_new_n(2)
+                term[0] = gf_canon(0 - xs[j])
+                term[1] = 1
+                li = gf_poly_mul(li, term)
+                denom = gf_canon(denom * gf_canon(xs[i] - xs[j]))
+            j = j + 1
+        let scale = gf_canon(gf_inv_mod(denom) * ys[i])
+        let k = 0
+        for k < len(li)
+            li[k] = gf_canon(li[k] * scale)
+            k = k + 1
+        r = gf_poly_add(r, li)
+        i = i + 1
+    r
+
+let bad = [0]
+
+let t1a = gf_poly_add([1, 2, 3], [4, 5])
+let t1b = gf_poly_add([4, 5], [1, 2, 3])
+let t1ok = 1
+let ti = 0
+for ti < len(t1a)
+    if t1a[ti] != t1b[ti]
+        t1ok = 0
+    ti = ti + 1
+if t1ok == 0
+    bad[0] = bad[0] + 1
+
+let t2 = gf_poly_mul([0, 1], [1, 1])
+if t2[1] != 1
+    bad[0] = bad[0] + 1
+if t2[2] != 1
+    bad[0] = bad[0] + 1
+
+let t3 = gf_poly_eval([1, 0, 1], 2)
+if t3 != 5
+    bad[0] = bad[0] + 1
+
+let t4 = gf_poly_deriv([1, 0, 1])
+if t4[1] != 2
+    bad[0] = bad[0] + 1
+
+let t5 = gf_poly_divmod([1, 0, 1], [1, 1])
+if t5[0][0] != 65536
+    bad[0] = bad[0] + 1
+if t5[1][0] != 2
+    bad[0] = bad[0] + 1
+
+let t6 = gf_poly_gcd([65536, 0, 1], [65536, 1])
+if len(t6) != 2
+    bad[0] = bad[0] + 1
+
+let t7 = gf_inv_mod(3)
+if t7 != 21846
+    bad[0] = bad[0] + 1
+
+let t8 = gf_canon(3 * t7)
+if t8 != 1
+    bad[0] = bad[0] + 1
+
+let ix = [0, 1, 2]
+let iy = [1, 3, 7]
+let ip = gf_poly_interp(ix, iy)
+if len(ip) != 3
+    bad[0] = bad[0] + 1
+if ip[0] != 1
+    bad[0] = bad[0] + 1
+if ip[1] != 1
+    bad[0] = bad[0] + 1
+if ip[2] != 1
+    bad[0] = bad[0] + 1
+
+if gf_poly_eval(ip, 0) != 1
+    bad[0] = bad[0] + 1
+if gf_poly_eval(ip, 1) != 3
+    bad[0] = bad[0] + 1
+if gf_poly_eval(ip, 2) != 7
+    bad[0] = bad[0] + 1
+
+let t9r = gf_poly_integrate([1, 0, 1])
+if len(t9r) != 4
+    bad[0] = bad[0] + 1
+if t9r[1] != 1
+    bad[0] = bad[0] + 1
+if t9r[3] != gf_inv_mod(3)
+    bad[0] = bad[0] + 1
+
+let t10i = gf_poly_integrate([3, 7, 11])
+let t10d = gf_poly_deriv(t10i)
+if t10d[0] != 3
+    bad[0] = bad[0] + 1
+if t10d[1] != 7
+    bad[0] = bad[0] + 1
+if t10d[2] != 11
+    bad[0] = bad[0] + 1
+
+arr_new_n(1)[bad[0]]
+print(99731 - bad[0])
+import "../core/stdlib_lang2/gf_canon_shared.ψ"

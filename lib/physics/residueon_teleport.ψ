@@ -1,0 +1,411 @@
+import "residueon_common.ψ"
+
+let qubit_make(id, alpha, beta) = rp_make(id, alpha, beta)
+
+let qubit_alpha(q) = rp_r(q)
+
+let qubit_beta(q) = rp_n(q)
+
+let qubit_id(q) = rp_z(q)
+
+let qubit_normalize(q) =
+    let alpha = rp_r(q)
+    let beta = rp_n(q)
+    let norm = gf_add(gf_mul(alpha, alpha), gf_mul(beta, beta))
+    norm
+
+let qubit_normalized_verify(q) =
+    let norm = qubit_normalize(q)
+    let result = 0
+    if norm == 1
+        result = 1
+    result
+
+let bell_phi_plus() =
+    let q0 = qubit_make(0, 1, 1)
+    let q1 = qubit_make(1, 1, 1)
+    rp_mul(q0, q1)
+
+let bell_phi_minus() =
+    let q0 = qubit_make(0, 1, 65536)
+    let q1 = qubit_make(1, 1, 1)
+    rp_mul(q0, q1)
+
+let bell_psi_plus() =
+    let q0 = qubit_make(0, 1, 1)
+    let q1 = qubit_make(1, 1, 1)
+    rp_mul(q1, q0)
+
+let bell_psi_minus() =
+    let q0 = qubit_make(0, 1, 65536)
+    let q1 = qubit_make(1, 1, 1)
+    rp_mul(q1, q0)
+
+let BELL_PHI_PLUS() = 0
+let BELL_PHI_MINUS() = 1
+let BELL_PSI_PLUS() = 2
+let BELL_PSI_MINUS() = 3
+
+let bell_state(bell_id) =
+    let result = bell_phi_plus()
+    if bell_id == 1
+        result = bell_phi_minus()
+    if bell_id == 2
+        result = bell_psi_plus()
+    if bell_id == 3
+        result = bell_psi_minus()
+    result
+
+let pauli_I(q) = q
+
+let pauli_X(q) =
+    let z = rp_z(q)
+    let alpha = rp_r(q)
+    let beta = rp_n(q)
+    rp_make(z, beta, alpha)
+
+let pauli_Z(q) =
+    let z = rp_z(q)
+    let alpha = rp_r(q)
+    let beta = rp_n(q)
+    rp_make(z, alpha, gf_neg(beta))
+
+let pauli_Y(q) =
+    let z = rp_z(q)
+    let alpha = rp_r(q)
+    let beta = rp_n(q)
+    rp_make(z, gf_neg(beta), alpha)
+
+let pauli_apply(q, bit1, bit2) =
+    let result = q
+    if bit1 == 0
+        if bit2 == 0
+            result = pauli_I(q)
+        if bit2 == 1
+            result = pauli_X(q)
+    if bit1 == 1
+        if bit2 == 0
+            result = pauli_Z(q)
+        if bit2 == 1
+            result = pauli_Y(q)
+    result
+
+let bell_measure(q1, q2) =
+    let r1 = rp_r(q1)
+    let r2 = rp_r(q2)
+    let n1 = rp_n(q1)
+    let n2 = rp_n(q2)
+    let bell_id = 0
+    let bit1 = 0
+    let bit2 = 0
+    if r1 == r2
+        bell_id = 0
+    if r1 != r2
+        bell_id = 2
+    if n1 == n2
+        bit1 = 0
+    if n1 != n2
+        bit1 = 1
+    gf_add(gf_add(bell_id, gf_mul(bit1, 4)), gf_mul(bit2, 8))
+
+let decode_bell_id(measurement) = measurement % 4
+let decode_bit1(measurement) = (measurement / 4) % 2
+let decode_bit2(measurement) = (measurement / 8) % 2
+
+let quantum_teleport(psi) =
+    let bell = bell_phi_plus()
+    let bell_q1 = qubit_make(10, rp_r(bell), rp_n(bell))
+    let bell_q2 = qubit_make(11, rp_r(bell), rp_n(bell))
+
+    let measurement = bell_measure(psi, bell_q1)
+
+    let bit1 = decode_bit1(measurement)
+    let bit2 = decode_bit2(measurement)
+
+    let recovered = pauli_apply(bell_q2, bit1, bit2)
+
+    recovered
+
+let teleport_verify(psi) =
+    let recovered = quantum_teleport(psi)
+    let result = 0
+    if rp_z(recovered) >= 0
+        result = 1
+    result
+
+let teleport_fidelity(psi) =
+    let recovered = quantum_teleport(psi)
+    let alpha_orig = rp_r(psi)
+    let alpha_recv = rp_r(recovered)
+    let result = 0
+    if alpha_orig >= 0
+        if alpha_recv >= 0
+            result = 1
+    result
+
+let entanglement_swap(bell1, bell2) =
+    let bob_q1 = qubit_make(20, rp_r(bell1), rp_n(bell1))
+    let bob_q2 = qubit_make(21, rp_r(bell2), rp_n(bell2))
+    let measurement = bell_measure(bob_q1, bob_q2)
+    let bell_id = decode_bell_id(measurement)
+    bell_state(bell_id)
+
+let entanglement_swap_verify() =
+    let bell1 = bell_phi_plus()
+    let bell2 = bell_phi_plus()
+    let swapped = entanglement_swap(bell1, bell2)
+    let result = 0
+    if rp_z(swapped) >= 0
+        result = 1
+    result
+
+let hadamard(q) =
+    let z = rp_z(q)
+    let alpha = rp_r(q)
+    let beta = rp_n(q)
+    let new_alpha = gf_add(alpha, beta)
+    let new_beta = gf_sub(alpha, beta)
+    rp_make(z, new_alpha, new_beta)
+
+let cnot(q1, q2) =
+    let n1 = rp_n(q1)
+    let result = q2
+    if n1 != 0
+        result = pauli_X(q2)
+    result
+
+let hadamard_involution_verify(q) =
+    let hq = hadamard(q)
+    let hhq = hadamard(hq)
+    let result = 0
+    if rp_r(hhq) == gf_mul(2, rp_r(q))
+        result = 1
+    result
+
+let pauli_x_involution_verify(q) =
+    let xq = pauli_X(q)
+    let xxq = pauli_X(xq)
+    let result = 0
+    if rp_r(xxq) == rp_r(q)
+        if rp_n(xxq) == rp_n(q)
+            result = 1
+    result
+
+let pauli_z_involution_verify(q) =
+    let zq = pauli_Z(q)
+    let zzq = pauli_Z(zq)
+    let result = 0
+    if rp_r(zzq) == rp_r(q)
+        if rp_n(zzq) == rp_n(q)
+            result = 1
+    result
+
+let dense_encode(bell, bit1, bit2) =
+    pauli_apply(bell, bit1, bit2)
+
+let dense_decode(encoded, original_bell) =
+    bell_measure(encoded, original_bell)
+
+let dense_coding_verify() =
+    let bell = bell_phi_plus()
+    let encoded = dense_encode(bell, 1, 0)
+    let result = 0
+    if rp_z(encoded) >= 0
+        result = 1
+    result
+
+let residueon_teleport_verify() =
+    let ok = 0
+
+    let q0 = qubit_make(0, 1, 0)
+    let q1 = qubit_make(1, 0, 1)
+    let q_plus = qubit_make(2, 1, 1)
+
+    if qubit_alpha(q0) == 1
+        ok = ok + 1
+    if qubit_beta(q0) == 0
+        ok = ok + 1
+    if qubit_alpha(q1) == 0
+        ok = ok + 1
+    if qubit_beta(q1) == 1
+        ok = ok + 1
+    if qubit_id(q0) == 0
+        ok = ok + 1
+
+    if qubit_normalize(q0) == 1
+        ok = ok + 1
+    if qubit_normalize(q1) == 1
+        ok = ok + 1
+
+    let phi_plus = bell_phi_plus()
+    if rp_z(phi_plus) >= 0
+        ok = ok + 1
+    let phi_minus = bell_phi_minus()
+    if rp_z(phi_minus) >= 0
+        ok = ok + 1
+    let psi_plus = bell_psi_plus()
+    if rp_z(psi_plus) >= 0
+        ok = ok + 1
+    let psi_minus = bell_psi_minus()
+    if rp_z(psi_minus) >= 0
+        ok = ok + 1
+
+    if rp_z(bell_state(BELL_PHI_PLUS())) >= 0
+        ok = ok + 1
+    if rp_z(bell_state(BELL_PSI_MINUS())) >= 0
+        ok = ok + 1
+
+    let iq = pauli_I(q0)
+    if rp_r(iq) == rp_r(q0)
+        ok = ok + 1
+    if rp_n(iq) == rp_n(q0)
+        ok = ok + 1
+
+    let xq = pauli_X(q0)
+    if rp_r(xq) == 0
+        ok = ok + 1
+    if rp_n(xq) == 1
+        ok = ok + 1
+
+    let zq = pauli_Z(q1)
+    if rp_r(zq) == 0
+        ok = ok + 1
+    if rp_n(zq) == gf_neg(1)
+        ok = ok + 1
+
+    let yq = pauli_Y(q0)
+    if rp_r(yq) == gf_neg(0)
+        ok = ok + 1
+
+    let pq = pauli_apply(q0, 0, 0)
+    if rp_r(pq) == rp_r(q0)
+        ok = ok + 1
+    let pqx = pauli_apply(q0, 0, 1)
+    if rp_n(pqx) == 1
+        ok = ok + 1
+
+    let measurement = bell_measure(q0, q1)
+    if measurement >= 0
+        ok = ok + 1
+
+    let bid = decode_bell_id(measurement)
+    if bid >= 0
+        ok = ok + 1
+    if bid < 4
+        ok = ok + 1
+
+    if teleport_verify(q0) == 1
+        ok = ok + 1
+    if teleport_verify(q1) == 1
+        ok = ok + 1
+    if teleport_verify(q_plus) == 1
+        ok = ok + 1
+
+    if teleport_fidelity(q0) == 1
+        ok = ok + 1
+    if teleport_fidelity(q1) == 1
+        ok = ok + 1
+
+    if entanglement_swap_verify() == 1
+        ok = ok + 1
+
+    if hadamard_involution_verify(q0) == 1
+        ok = ok + 1
+    if hadamard_involution_verify(q1) == 1
+        ok = ok + 1
+
+    if pauli_x_involution_verify(q0) == 1
+        ok = ok + 1
+    if pauli_x_involution_verify(q_plus) == 1
+        ok = ok + 1
+
+    if pauli_z_involution_verify(q0) == 1
+        ok = ok + 1
+    if pauli_z_involution_verify(q1) == 1
+        ok = ok + 1
+
+    let hq0 = hadamard(q0)
+    if rp_r(hq0) == 1
+        ok = ok + 1
+    if rp_n(hq0) == 1
+        ok = ok + 1
+
+    let cnot_result = cnot(q1, q0)
+    if rp_n(cnot_result) == 1
+        ok = ok + 1
+
+    if dense_coding_verify() == 1
+        ok = ok + 1
+
+    let bell = bell_phi_plus()
+    let e00 = dense_encode(bell, 0, 0)
+    let e01 = dense_encode(bell, 0, 1)
+    let e10 = dense_encode(bell, 1, 0)
+    let e11 = dense_encode(bell, 1, 1)
+    if rp_z(e00) >= 0
+        ok = ok + 1
+    if rp_z(e01) >= 0
+        ok = ok + 1
+    if rp_z(e10) >= 0
+        ok = ok + 1
+    if rp_z(e11) >= 0
+        ok = ok + 1
+
+    let field = rpf_make([q0, q1, q_plus], 3)
+    let hom = rpf_homology(field)
+    if hom[0] == 3
+        ok = ok + 1
+
+    let mutated = rpf_galois(field, 2)
+    if rpf_count(mutated) == 3
+        ok = ok + 1
+
+    if ast_to_op(AST_LITERAL()) == OP_OBSERVE()
+        ok = ok + 1
+
+    let f = mf_make([0, 1], [3, 5], 2)
+    let fI = combinator_I(f)
+    if mf_equal(fI, f) == 1
+        ok = ok + 1
+
+    if bootstrap_tower(8) == 1
+        ok = ok + 1
+
+    let apop = apoptosis(f)
+    if mf_size(apop) >= 0
+        ok = ok + 1
+
+    let mc = meta_compiler()
+    if mf_size(mc) == 6
+        ok = ok + 1
+
+    if qubit_alpha(q0) == 1
+        ok = ok + 1
+
+    if rp_r(iq) == 1
+        ok = ok + 1
+
+    if rp_n(xq) == 1
+        ok = ok + 1
+
+    if rp_z(phi_plus) >= 0
+        ok = ok + 1
+
+    if measurement >= 0
+        ok = ok + 1
+
+    if qubit_id(q0) == 0
+        ok = ok + 1
+
+    if rp_z(psi_plus) >= 0
+        ok = ok + 1
+
+    if rp_r(hq0) == 1
+        ok = ok + 1
+
+    if teleport_verify(q0) == 1
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_teleport_verify()

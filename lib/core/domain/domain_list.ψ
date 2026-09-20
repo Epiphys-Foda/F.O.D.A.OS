@@ -1,0 +1,206 @@
+import "../stdlib/gf65537.ψ"
+
+let length_rec(s, i) =
+    if s[i] == -1
+        i
+    else
+        length_rec(s, i + 1)
+
+let len(s) =
+    length_rec(s, 0)
+
+let append(lst, elem) =
+    lst[len(lst)] = elem
+    lst
+
+let push_gf(stack, elem) = append(stack, elem)
+
+let vec_add_rec_gf(v1, v2, i, result) =
+    if i >= len(v1)
+        result
+    else
+        vec_add_rec_gf(v1, v2, i + 1, append(result, gf_add(v1[i], v2[i])))
+let vec_add_gf(v1, v2) =
+    vec_add_rec_gf(v1, v2, 0, [])
+
+let vec_div_scalar_rec_gf(v, s, i, result) =
+    if i >= len(v)
+        result
+    else
+        vec_div_scalar_rec_gf(v, s, i + 1, append(result, gf_div(v[i], s)))
+let vec_div_scalar_gf(v, s) =
+    vec_div_scalar_rec_gf(v, s, 0, [])
+
+let vec_dot_rec_gf(v1, v2, i, acc) =
+    if i >= len(v1)
+        acc
+    else
+        vec_dot_rec_gf(v1, v2, i + 1, gf_add(acc, gf_mul(v1[i], v2[i])))
+let vec_dot_gf(v1, v2) =
+    vec_dot_rec_gf(v1, v2, 0, 0)
+
+let vec_sum_rec_gf(v, i, acc) =
+    if i >= len(v)
+        acc
+    else
+        vec_sum_rec_gf(v, i + 1, gf_add(acc, v[i]))
+let vec_sum_gf(v) =
+    vec_sum_rec_gf(v, 0, 0)
+
+let get_col_rec_gf(M, j, i, result) =
+    if i >= len(M)
+        result
+    else
+        get_col_rec_gf(M, j, i + 1, append(result, M[i][j]))
+let get_col_gf(M, j) =
+    get_col_rec_gf(M, j, 0, [])
+
+let mat_mul_row_rec_gf(row, B, j, result) =
+    if j >= len(B[0])
+        result
+    else
+        mat_mul_row_rec_gf(row, B, j + 1, append(result, vec_dot_gf(row, get_col_gf(B, j))))
+let mat_mul_row_gf(row, B) =
+    mat_mul_row_rec_gf(row, B, 0, [])
+let mat_mul_rec_gf(A, B, i, result) =
+    if i >= len(A)
+        result
+    else
+        mat_mul_rec_gf(A, B, i + 1, append(result, mat_mul_row_gf(A[i], B)))
+let mat_mul_gf(A, B) =
+    mat_mul_rec_gf(A, B, 0, [])
+
+let mat_add_rec_gf(A, B, i, result) =
+    if i >= len(A)
+        result
+    else
+        mat_add_rec_gf(A, B, i + 1, append(result, vec_add_gf(A[i], B[i])))
+let mat_add_gf(A, B) =
+    mat_add_rec_gf(A, B, 0, [])
+
+let contains_rec_gf(lst, elem, i) =
+    if i >= len(lst)
+        0
+    else
+        0
+    if lst[i] == elem
+        1
+    else
+        contains_rec_gf(lst, elem, i + 1)
+let contains_gf(lst, elem) =
+    contains_rec_gf(lst, elem, 0)
+
+let vec_set_rec_gf(v, i, val, j, acc) =
+    if j >= len(v)
+        acc
+    else
+        0
+    if j == i
+        vec_set_rec_gf(v, i, val, j + 1, append(acc, val))
+    else
+        vec_set_rec_gf(v, i, val, j + 1, append(acc, v[j]))
+let vec_set_gf(v, i, val) =
+    vec_set_rec_gf(v, i, val, 0, [])
+
+let vec_set2_gf(mat, i, j, val) =
+    let row = mat[i]
+    let new_row = vec_set_gf(row, j, val)
+    vec_set_gf(mat, i, new_row)
+
+let mat_vec_mul_rec_gf(M, v, i, result) =
+    if i >= len(M)
+        result
+    else
+        mat_vec_mul_rec_gf(M, v, i + 1, append(result, vec_dot_gf(M[i], v)))
+let mat_vec_mul_gf(M, v) =
+    mat_vec_mul_rec_gf(M, v, 0, [])
+
+let matrix_vec_mul_gf(M, v) = mat_vec_mul_gf(M, v)
+
+let transpose_rec_gf(M, j, result) =
+    if j >= len(M[0])
+        result
+    else
+        transpose_rec_gf(M, j + 1, append(result, get_col_gf(M, j)))
+let transpose_gf(M) =
+    transpose_rec_gf(M, 0, [])
+
+let poly_eval_rec_gf(poly, x, i, acc) =
+    if i < 0
+        acc
+    else
+        poly_eval_rec_gf(poly, x, i - 1, gf_add(gf_mul(acc, x), poly[i]))
+let poly_eval_gf(poly, x) =
+    poly_eval_rec_gf(poly, x, len(poly) - 1, 0)
+
+let ntt_sum_gf(v, omega, k, j, acc) =
+    if j >= len(v)
+        acc
+    else
+        let omega_pow = gf_pow(omega, gf_mul(k, j))
+        let term = gf_mul(v[j], omega_pow)
+        ntt_sum_gf(v, omega, k, j + 1, gf_add(acc, term))
+
+let ntt_rec_gf(v, omega, k, result) =
+    if k >= len(v)
+        result
+    else
+        let sum = ntt_sum_gf(v, omega, k, 0, 0)
+        ntt_rec_gf(v, omega, k + 1, append(result, sum))
+
+let ntt_gf(v) =
+    let omega = 4096
+    ntt_rec_gf(v, omega, 0, [])
+
+let sign_gf(n) =
+    (n % 2 == 0) ? 1 : 65536
+
+let remove_col_rec_gf(row, col, i, acc) =
+    if i >= len(row)
+        acc
+    else
+        0
+    if i == col
+        remove_col_rec_gf(row, col, i + 1, acc)
+    else
+        remove_col_rec_gf(row, col, i + 1, append(acc, row[i]))
+let remove_col_gf(row, col) =
+    remove_col_rec_gf(row, col, 0, [])
+
+let minor_rec_gf(M, row, col, i, acc) =
+    if i >= len(M)
+        acc
+    else
+        0
+    if i == row
+        minor_rec_gf(M, row, col, i + 1, acc)
+    else
+        let new_row = remove_col_gf(M[i], col)
+        minor_rec_gf(M, row, col, i + 1, append(acc, new_row))
+let minor_gf(M, row, col) =
+    minor_rec_gf(M, row, col, 0, [])
+
+let det_laplace_gf(M, col, row, acc) =
+    if row >= len(M)
+        acc
+    else
+        let minor = minor_gf(M, row, col)
+        let term = gf_mul(gf_mul(M[row][col], sign_gf(row + col)), det_gf(minor))
+        det_laplace_gf(M, col, row + 1, gf_add(acc, term))
+
+let det_rec_gf(M, col, sign) =
+    if col >= len(M)
+        sign
+    else
+        det_laplace_gf(M, col, 0, 0)
+
+let det_gf(M) =
+    det_rec_gf(M, 0, 1)
+
+let mat2_mul(a, b) =
+    let r00 = gf_add(gf_mul(a[0][0], b[0][0]), gf_mul(a[0][1], b[1][0]))
+    let r01 = gf_add(gf_mul(a[0][0], b[0][1]), gf_mul(a[0][1], b[1][1]))
+    let r10 = gf_add(gf_mul(a[1][0], b[0][0]), gf_mul(a[1][1], b[1][0]))
+    let r11 = gf_add(gf_mul(a[1][0], b[0][1]), gf_mul(a[1][1], b[1][1]))
+    [[r00, r01], [r10, r11]]
+

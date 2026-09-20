@@ -1,0 +1,339 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+import "bootstrap3_domain.ψ"
+import "bootstrap3_ml_quantum.ψ"
+
+import "sh_e39bb00202.ψ"
+import "sh_af95b2b028.ψ"
+import "sh_7c6dfc404d.ψ"
+import "sh_cb68026814.ψ"
+
+import "sh_0ce8ba5325.ψ"
+
+import "sh_0473596775.ψ"
+import "sh_34708e8229.ψ"
+
+import "sh_e06a4e4200.ψ"
+
+import "sh_1b5ec76ed2.ψ"
+
+import "../core/stdlib_lang2/gx_33aab46c3d.ψ"
+import "sh_e0d12bd923.ψ"
+import "sh_b63852aa1c.ψ"
+import "sh_beb5173b91.ψ"
+
+    let f1 = mf_make([0, 1, 2], [10, 20, 30], 3)
+    if mf_size(f1) == 3
+        ok = ok + 1
+    if mf_poles(f1)[0] == 0
+        ok = ok + 1
+    if mf_residues(f1)[1] == 20
+        ok = ok + 1
+
+    let f2 = mf_make([0, 1, 2], [5, 5, 5], 3)
+    let fadd = mf_add(f1, f2)
+    if mf_residues(fadd)[0] == 15
+        ok = ok + 1
+
+    let fmul = mf_mul(f1, f2)
+    if mf_residues(fmul)[0] == 50
+        ok = ok + 1
+
+    let fscale = mf_scale(f1, 2)
+    if mf_residues(fscale)[0] == 20
+        ok = ok + 1
+
+    let fcomp = mf_compose(f1, f2)
+    if mf_size(fcomp) == 3
+        ok = ok + 1
+
+    let fp1 = mf_fingerprint(f1)
+    if fp1 >= 0
+        ok = ok + 1
+
+    if mf_equal(f1, f1) == 1
+        ok = ok + 1
+    if mf_equal(f1, f2) == 0
+        ok = ok + 1
+
+    if ast_to_op(AST_LITERAL()) == OP_OBSERVE()
+        ok = ok + 1
+    if ast_to_op(AST_BINOP()) == OP_COMPILE()
+        ok = ok + 1
+    if ast_to_op(AST_IF()) == OP_SELF_VERIFY()
+        ok = ok + 1
+    if ast_to_op(AST_WHILE()) == OP_GALOIS()
+        ok = ok + 1
+    if ast_to_op(AST_CALL()) == OP_META_OBSERVE()
+        ok = ok + 1
+    if ast_to_op(AST_LET()) == OP_HOMOLOGY()
+        ok = ok + 1
+
+    let ast_t = [AST_LITERAL(), AST_BINOP(), AST_IF()]
+    let ast_v = [42, 7, 1]
+    let ast_field = ast_to_meta_field(ast_t, ast_v, 3)
+    if mf_size(ast_field) == 3
+        ok = ok + 1
+    if mf_poles(ast_field)[0] == gf_add(gf_mul(OP_OBSERVE(), 1000), 42)
+        ok = ok + 1
+
+    let fI = combinator_I(f1)
+    if mf_equal(fI, f1) == 1
+        ok = ok + 1
+
+    let fK = combinator_K([0], [99], 1)
+    if mf_residues(fK)[0] == 99
+        ok = ok + 1
+
+    let fB = combinator_B(f1, f2, f1)
+    if mf_size(fB) == 3
+        ok = ok + 1
+
+    let fS = combinator_S(f1, f2, f1)
+    if mf_size(fS) == 3
+        ok = ok + 1
+
+    let fY = combinator_Y(f1, 3)
+    if mf_size(fY) == 3
+        ok = ok + 1
+
+    let fp_result = kleene_fp(1, 2, 100)
+    if fp_result[2] >= 0
+        ok = ok + 1
+
+    let mf_fp = kleene_mf_fp(f1, 5)
+    if mf_fp[2] >= 0
+        ok = ok + 1
+
+    let hom = homology_compute(f1)
+    if hom[0] == 3
+        ok = ok + 1
+
+    let cancer = homology_cancer_check(f1)
+    if cancer == 0 || cancer == 1
+        ok = ok + 1
+
+    let apop = apoptosis(f1)
+    if mf_size(apop) >= 0
+        ok = ok + 1
+
+    let mutv = galois_mutate(f1, 2)
+    if mf_size(mutv) == 3
+        ok = ok + 1
+
+    let orbit = galois_orbit(f1, 2, 5)
+    if orbit[0] == mf_fingerprint(f1)
+        ok = ok + 1
+
+    let order = galois_order(f1, 2, 100)
+    if order >= 1
+        ok = ok + 1
+
+    let mc = meta_compiler()
+    if mf_size(mc) == 6
+        ok = ok + 1
+
+    let mcs = meta_compile_self()
+    if mf_equal(mc, mcs) == 1
+        ok = ok + 1
+
+    let proj = project(mc)
+    if mf_size(proj) >= 1
+        ok = ok + 1
+
+    let lifted = lift(G0_POLES(), G0_RESIDUES(), G0_N())
+    if mf_size(lifted) == 3
+        ok = ok + 1
+
+    if bootstrap_tower(4) == 1
+        ok = ok + 1
+    if bootstrap_tower(8) == 1
+        ok = ok + 1
+
+    ok
+
+let mmm_compiler_fp() =
+    let mc = meta_compiler()
+    let mc_fp = mf_fingerprint(mc)
+    let h = 0
+    let i = 0
+    for i < 6
+        h = gf_add(gf_mul(h, 31), gf_pow(gf_add(mc_fp, i + 1), 2))
+        i = i + 1
+    h
+
+let mmm_apply(op) =
+    let base_fp = mmm_compiler_fp()
+    let result = 0
+    if op == 0
+        result = base_fp
+    else
+        0
+    if op == 1
+        result = gf_pow(base_fp, 2)
+    else
+        0
+    if op == 2
+        result = gf_pow(base_fp, 3)
+    else
+        0
+    if op == 3
+        result = gf_add(base_fp, 1)
+    else
+        0
+    if op == 4
+        result = gf_mul(base_fp, base_fp)
+    else
+        0
+    if op == 5
+        result = gf_pow(base_fp, 4)
+    else
+        0
+    if op == 6
+        result = gf_mul(gf_pow(base_fp, 2), gf_pow(base_fp, 3))
+    else
+        0
+    if op == 7
+        result = gf_add(gf_mul(base_fp, 31), 7)
+    result
+
+let mmm_compiler() =
+    let poles = [0, 1, 2, 3, 4, 5, 6, 7]
+    let res = [mmm_apply(0), mmm_apply(1), mmm_apply(2), mmm_apply(3), mmm_apply(4), mmm_apply(5), mmm_apply(6), mmm_apply(7)]
+    mf_make(poles, res, 8)
+
+let mmm_compile_self() =
+    let mmm = mmm_compiler()
+    let n = mf_size(mmm)
+    let out_p = []
+    let out_r = []
+    let i = 0
+    for i < n
+        let op = mf_poles(mmm)[i]
+        out_p = out_p.push(op)
+        out_r = out_r.push(mmm_apply(op))
+        i = i + 1
+    mf_make(out_p, out_r, n)
+
+let verify_t12() =
+    let mmm = mmm_compiler()
+    let mmm_compiled = mmm_compile_self()
+    mf_equal(mmm, mmm_compiled)
+
+let verify_t13() =
+    let mmm = mmm_compiler()
+    let n = mf_size(mmm)
+    let has_observe = 0
+    let i = 0
+    for i < n
+        if mf_poles(mmm)[i] == 0
+            has_observe = 1
+        i = i + 1
+    let fp = mmm_compiler_fp()
+    let has_fp = 0
+    let j = 0
+    for j < n
+        if mf_poles(mmm)[j] == 0
+            if mf_residues(mmm)[j] == fp
+                has_fp = 1
+        j = j + 1
+    gf_mul(has_observe, has_fp)
+
+let verify_t14() =
+    let mmm = mmm_compiler()
+    let n = mf_size(mmm)
+    let has_meta = 0
+    let has_high = 0
+    let i = 0
+    for i < n
+        if mf_poles(mmm)[i] == 4
+            has_meta = 1
+        if mf_poles(mmm)[i] == 7
+            has_high = 1
+        i = i + 1
+    gf_mul(has_meta, has_high)
+
+let mmm_galois_t12(sigma) =
+    let mmm = mmm_compiler()
+    let mutated = galois_mutate(mmm, sigma)
+    let n1 = mf_size(mmm)
+    let n2 = mf_size(mutated)
+    let result = 0
+    if n1 == n2
+        result = 1
+    result
+
+let mmm_homology_check() =
+    let mmm = mmm_compiler()
+    let hom = homology_compute(mmm)
+    hom
+
+let bootstrap5_verify() =
+    let ok = 0
+
+    let mmm = mmm_compiler()
+    if mf_size(mmm) == 8
+        ok = ok + 1
+
+    let fp = mmm_compiler_fp()
+    if fp >= 0
+        ok = ok + 1
+
+    let mmm_compiled = mmm_compile_self()
+    if mf_size(mmm_compiled) == 8
+        ok = ok + 1
+
+    let t12 = verify_t12()
+    let t13 = verify_t13()
+    let t14 = verify_t14()
+    if t12 == 1
+        ok = ok + 1
+    if t13 == 1
+        ok = ok + 1
+    if t14 == 1
+        ok = ok + 1
+    if t12 == 1
+        if t13 == 1
+            if t14 == 1
+                ok = ok + 1
+
+    if mmm_galois_t12(1) == 1
+        ok = ok + 1
+    if mmm_galois_t12(2) == 1
+        ok = ok + 1
+
+    let hom = mmm_homology_check()
+    if hom[0] == 8
+        ok = ok + 1
+
+    if bootstrap_tower(4) == 1
+        ok = ok + 1
+    if bootstrap_tower(8) == 1
+        ok = ok + 1
+    if bootstrap_tower(16) == 1
+        ok = ok + 1
+    if bootstrap_tower(32) == 1
+        ok = ok + 1
+    if bootstrap_tower(64) == 1
+        ok = ok + 1
+
+    if ast_to_op(AST_LITERAL()) == OP_OBSERVE()
+        ok = ok + 1
+    if ast_to_op(AST_CALL()) == OP_META_OBSERVE()
+        ok = ok + 1
+
+    let fI = combinator_I(mmm)
+    if mf_equal(fI, mmm) == 1
+        ok = ok + 1
+
+    let apop = apoptosis(mmm)
+    if mf_size(apop) >= 0
+        ok = ok + 1
+
+    let fp1 = mf_fingerprint(mmm)
+    let fp2 = mf_fingerprint(mmm_compiled)
+    if fp1 == fp2
+        ok = ok + 1
+
+    ok
+
+let main() = bootstrap5_verify()

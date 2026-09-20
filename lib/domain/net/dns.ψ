@@ -1,0 +1,78 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let DNS_MAX_RECORDS = 65536
+let DNS_TTL_DEFAULT = 3600
+
+let DNS_TYPE_A = 1
+let DNS_TYPE_AAAA = 2
+let DNS_TYPE_CNAME = 3
+let DNS_TYPE_MX = 4
+let DNS_TYPE_TXT = 5
+let DNS_TYPE_NS = 6
+let DNS_TYPE_PTR = 7
+let DNS_TYPE_SOA = 8
+
+let dns_record_create(name, kind, value, ttl, timestamp) = [name, kind, value, ttl, timestamp]
+let dns_record_expired(record, current_time) =
+    (current_time > record[3] + record[4] ? 1 : 0)
+let dns_cache_create(size) =
+    let records = []
+    let i = 0
+    for i < size
+        records.push(0)
+        i = i + 1
+    [records, size, 0]
+let dns_cache_key(name, kind) = gf_add(gf_mul(name, 256), kind)
+let dns_cache_put(cache, record) =
+    let records = cache[0]
+    let size = cache[1]
+    let key = dns_cache_key(record[0], record[1]) % size
+    records[key] = record
+    [records, size, cache[2] + 1]
+let dns_cache_get(cache, name, kind, current_time) =
+    let records = cache[0]
+    let size = cache[1]
+    let key = dns_cache_key(name, kind) % size
+    let record = records[key]
+    if record == 0
+        0
+    if dns_record_expired(record, current_time) == 1
+        0
+    record
+let dns_name_hash(name) =
+    let h = 0
+    let i = 0
+    let n = len(name)
+    for i < n
+        h = gf_add(gf_mul(h, 31), name[i])
+        i = i + 1
+    h
+let dns_resolve(cache, name, kind, current_time) =
+    let name_hash = dns_name_hash(name)
+    let record = dns_cache_get(cache, name_hash, kind, current_time)
+    (record != 0 ? record[2] : 0)
+let dns_field_resolve(name_hash, n) =
+    let poles = arr_new_n(n)
+    let residues = arr_new_n(n)
+    let hash = name_hash
+    let i = 0
+    for i < n
+        poles[i] = 127 + i * 1000
+        residues[i] = gf_mul(name_hash, gf_pow(3, i))
+        i = i + 1
+    hash
+
+let dns_verify() =
+    let cache = dns_cache_create(256)
+    let name = arr_new_n(3)
+    name[0] = 100
+    name[1] = 200
+    name[2] = 300
+    let name_hash = dns_name_hash(name)
+    let record = dns_record_create(name_hash, DNS_TYPE_A, 1000, DNS_TTL_DEFAULT, 0)
+    let cache2 = dns_cache_put(cache, record)
+    let resolved = dns_resolve(cache2, name_hash, DNS_TYPE_A, 100)
+    let ok = 0
+    (resolved == 1000 ? (ok = 1) : (ok = 0))
+    ok
+

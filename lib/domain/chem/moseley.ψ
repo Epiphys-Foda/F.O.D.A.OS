@@ -1,0 +1,23 @@
+import "ck.ψ"
+let bad = [0]
+
+let feE = 10204 * 625 / 1000
+bad[0] = bad[0] + ck(feE, 6300, 6500)
+
+let cuE = 10204 * 784 / 1000
+bad[0] = bad[0] + ck(cuE, 7900, 8200)
+
+let moE = 10204 * 1681 / 1000
+bad[0] = bad[0] + ck(moE, 16500, 17800)
+
+let zSq = 26 * 26
+let z1Sq = 25 * 25
+bad[0] = bad[0] + ck_hi(z1Sq, zSq)
+
+let ratio = cuE * 100 / feE
+bad[0] = bad[0] + ck(ratio, 125, 126)
+
+let tcYear = 1937
+bad[0] = bad[0] + ck(tcYear, 1935, 1940)
+
+arr_get(arr_new_n(1), bad[0])

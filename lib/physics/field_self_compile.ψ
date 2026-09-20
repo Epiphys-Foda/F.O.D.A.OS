@@ -1,0 +1,164 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let PHASE_LEX = 0
+let PHASE_PARSE = 1
+let PHASE_CODEGEN = 2
+let PHASE_OPTIMIZE = 3
+let PHASE_EMIT = 4
+
+let compiler_to_field(phases, data, n, poles, residues) =
+    let i = 0
+    for i < n
+        let base = 200 + phases[i] * 1000
+        poles[i] = base + i * 10
+        residues[i] = data[i]
+        i = i + 1
+
+let field_compile_step(residues, n) =
+    let changed = 0
+    let i = 0
+    for i < n
+        if i > 0
+            let prev = residues[i - 1]
+            let cur = residues[i]
+            let next_val = (prev + cur * 3) % 65537
+            if next_val != cur
+                residues[i] = next_val
+                changed = 1
+        i = i + 1
+    changed
+
+let field_self_compile(phases, data, n, max_steps) =
+    let poles = arr_new_n(n)
+    let residues = arr_new_n(n)
+    compiler_to_field(phases, data, n, poles, residues)
+    let steps = 0
+    let converged = 0
+    for steps < max_steps
+        let changed = field_compile_step(residues, n)
+        if changed == 0
+            converged = 1
+            steps = max_steps
+        steps = steps + 1
+    let result = arr_new_n(3)
+    result[0] = residues[n - 1]
+    result[1] = steps
+    result[2] = converged
+    result
+
+let field_fixed_point_check(residues, n) =
+    let r1 = arr_new_n(n)
+    let i = 0
+    for i < n
+        r1[i] = residues[i]
+        i = i + 1
+    field_compile_step(r1, n)
+    let r2 = arr_new_n(n)
+    let j = 0
+    for j < n
+        r2[j] = r1[j]
+        j = j + 1
+    field_compile_step(r2, n)
+    let ok = 1
+    let k = 0
+    for k < n
+        if r1[k] != r2[k]
+            ok = 0
+        k = k + 1
+    ok
+
+let bootstrap_verify(phases, data, n, max_steps) =
+    let result = field_self_compile(phases, data, n, max_steps)
+    let fp_ok = field_fixed_point_check(data, n)
+    let out = arr_new_n(4)
+    out[0] = result[0]
+    out[1] = result[1]
+    out[2] = result[2]
+    out[3] = fp_ok
+    out
+
+let main() =
+    print(111)
+    let n = 5
+    let phases = arr_new_n(n)
+    phases[0] = 0
+    phases[1] = 1
+    phases[2] = 2
+    phases[3] = 3
+    phases[4] = 4
+    let data = arr_new_n(n)
+    data[0] = 65
+    data[1] = 42
+    data[2] = 106
+    data[3] = 58
+    data[4] = 70
+
+    let poles = arr_new_n(n)
+    let residues = arr_new_n(n)
+    compiler_to_field(phases, data, n, poles, residues)
+    let i = 0
+    for i < n
+        print(poles[i])
+        print(residues[i])
+        i = i + 1
+
+    print(222)
+    let result = field_self_compile(phases, data, n, 100)
+    print(result[0])
+    print(result[1])
+    print(result[2])
+
+    print(333)
+    let data2 = arr_new_n(n)
+    data2[0] = 65
+    data2[1] = 42
+    data2[2] = 106
+    data2[3] = 58
+    data2[4] = 70
+    let fp = field_fixed_point_check(data2, n)
+    print(fp)
+
+    print(444)
+    let data3 = arr_new_n(n)
+    data3[0] = 100
+    data3[1] = 200
+    data3[2] = 300
+    data3[3] = 400
+    data3[4] = 500
+    let bv = bootstrap_verify(phases, data3, n, 100)
+    print(bv[0])
+    print(bv[1])
+    print(bv[2])
+    print(bv[3])
+
+    print(555)
+    let t = 0
+    for t < 5
+        let dt = arr_new_n(n)
+        let p = 0
+        for p < n
+            dt[p] = (t + 1) * (p + 1) * 7
+            p = p + 1
+        let rt = field_self_compile(phases, dt, n, 100)
+        print(rt[0])
+        print(rt[2])
+        t = t + 1
+
+    print(666)
+    let d4 = arr_new_n(n)
+    let d5 = arr_new_n(n)
+    let q = 0
+    for q < n
+        d4[q] = (q + 1) * 13
+        d5[q] = (q + 1) * 13
+        q = q + 1
+    let r4 = field_self_compile(phases, d4, n, 100)
+    let r5 = field_self_compile(phases, d5, n, 100)
+    let sym_ok = 0
+    if r4[0] == r5[0]
+        sym_ok = 1
+    print(r4[0])
+    print(r5[0])
+    print(sym_ok)
+
+    result[2]

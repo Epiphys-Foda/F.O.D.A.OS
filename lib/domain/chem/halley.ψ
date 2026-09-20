@@ -1,0 +1,25 @@
+import "ck.ψ"
+let bad = [0]
+
+let per = 76
+bad[0] = bad[0] + ck(per, 74, 78)
+
+let r86 = 1910 + 76
+bad[0] = bad[0] + ck(r86, 1985, 1987)
+
+let err = 1759 - 1758
+bad[0] = bad[0] + ck(err, 0, 2)
+
+let q = 59
+bad[0] = bad[0] + ck(q, 55, 62)
+
+let qq = 351
+bad[0] = bad[0] + ck(qq, 340, 360)
+
+let rec = 29
+bad[0] = bad[0] + ck(rec, 25, 32)
+
+let next = 1986 + 75
+bad[0] = bad[0] + ck(next, 2060, 2062)
+
+arr_get(arr_new_n(1), bad[0])

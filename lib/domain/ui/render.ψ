@@ -1,0 +1,259 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let RENDER_MAX_PIXELS = 1048576
+let RENDER_WIDTH = 1920
+let RENDER_HEIGHT = 1080
+
+let rgb565(r, g, b) = (r % 32) * 2048 + (g % 64) * 32 + (b % 32)
+let rgb_get_r(c) = (c / 2048) % 32
+let rgb_get_g(c) = (c / 32) % 64
+let rgb_get_b(c) = c % 32
+
+let fb_create(width, height) =
+    let pixels = []
+    let depth = []
+    let i = 0
+    for i < width * height
+        pixels.push(0)
+        depth.push(65536)
+        i = i + 1
+    [pixels, width, height, depth]
+let fb_set_pixel(fb, x, y, color) =
+    let w = fb[1]
+    let h = fb[2]
+    if x >= 0 && x < w && y >= 0 && y < h
+        let pixels = fb[0]
+        pixels[y * w + x] = color
+        [pixels, w, h, fb[3]]
+    else
+        fb
+let fb_get_pixel(fb, x, y) =
+    let w = fb[1]
+    let h = fb[2]
+    (x >= 0 && x < w && y >= 0 && y < h ? fb[0][y * w + x] : 0)
+let fb_clear(fb, color) =
+    let pixels = []
+    let depth = []
+    let i = 0
+    let n = fb[1] * fb[2]
+    for i < n
+        pixels.push(color)
+        depth.push(65536)
+        i = i + 1
+    [pixels, fb[1], fb[2], depth]
+
+let fb_depth_test(fb, x, y, z) =
+    let w = fb[1]
+    let h = fb[2]
+    if x >= 0 && x < w && y >= 0 && y < h
+        let depth = fb[3]
+        (z < depth[y * w + x] ? 1 : 0)
+    else
+            0
+let fb_depth_write(fb, x, y, z) =
+    let w = fb[1]
+    let h = fb[2]
+    if x >= 0 && x < w && y >= 0 && y < h
+        let depth = fb[3]
+        depth[y * w + x] = z
+        [fb[0], w, h, depth]
+    else
+        fb
+let fb_set_pixel_depth(fb, x, y, z, color) =
+    if fb_depth_test(fb, x, y, z) == 1
+        let f = fb_set_pixel(fb, x, y, color)
+        fb_depth_write(f, x, y, z)
+    else
+        fb
+
+let fb_blend_pixel(fb, x, y, color, alpha) =
+    let dst = fb_get_pixel(fb, x, y)
+    let dr = rgb_get_r(dst)
+    let dg = rgb_get_g(dst)
+    let db = rgb_get_b(dst)
+    let sr = rgb_get_r(color)
+    let sg = rgb_get_g(color)
+    let sb = rgb_get_b(color)
+    let inv_a = 255 - alpha
+    let r = (sr * alpha + dr * inv_a) / 255
+    let g = (sg * alpha + dg * inv_a) / 255
+    let b = (sb * alpha + db * inv_a) / 255
+    fb_set_pixel(fb, x, y, rgb565(r, g, b))
+
+let fb_draw_line(fb, x0, y0, x1, y1, color) =
+    let dx = gf_norm(x1 - x0)
+    let dy = gf_norm(y1 - y0)
+    let sx = (x0 < x1 ? 1 : -1)
+    let sy = (y0 < y1 ? 1 : -1)
+    let err = gf_sub(dx, dy)
+    let x = x0
+    let y = y0
+    let f = fb
+    for x != x1 || y != y1
+        f = fb_set_pixel(f, x, y, color)
+        let e2 = gf_mul(err, 2)
+        if e2 > gf_neg(dy)
+            err = gf_add(err, gf_neg(dy))
+        x = x + sx
+        if e2 < dx
+            err = gf_add(err, dx)
+        y = y + sy
+    f
+
+let fb_draw_rect(fb, x, y, w, h, color) =
+    let f = fb_draw_line(fb, x, y, x + w - 1, y, color)
+    f = fb_draw_line(f, x, y + h - 1, x + w - 1, y + h - 1, color)
+    f = fb_draw_line(f, x, y, x, y + h - 1, color)
+    f = fb_draw_line(f, x + w - 1, y, x + w - 1, y + h - 1, color)
+    f
+let fb_fill_rect(fb, x, y, w, h, color) =
+    let f = fb
+    let j = 0
+    for j < h
+        let i = 0
+        for i < w
+            f = fb_set_pixel(f, x + i, y + j, color)
+            i = i + 1
+        j = j + 1
+    f
+
+let fb_draw_circle(fb, cx, cy, r, color) =
+    let x = r
+    let y = 0
+    let d = gf_sub(1, r)
+    let f = fb
+    for x >= y
+        f = fb_set_pixel(f, cx + x, cy + y, color)
+        f = fb_set_pixel(f, cx - x, cy + y, color)
+        f = fb_set_pixel(f, cx + x, cy - y, color)
+        f = fb_set_pixel(f, cx - x, cy - y, color)
+        f = fb_set_pixel(f, cx + y, cy + x, color)
+        f = fb_set_pixel(f, cx - y, cy + x, color)
+        f = fb_set_pixel(f, cx + y, cy - x, color)
+        f = fb_set_pixel(f, cx - y, cy - x, color)
+        y = y + 1
+        if d < 0
+            d = d + 2 * y + 1
+        else
+            x = x - 1
+            d = d + 2 * (y - x) + 1
+    f
+let fb_fill_circle(fb, cx, cy, r, color) =
+    let f = fb
+    let y = -r
+    for y <= r
+        let chord = gf_sqrt(r * r - y * y)
+        let x = -chord
+        for x <= chord
+            f = fb_set_pixel(f, cx + x, cy + y, color)
+            x = x + 1
+        y = y + 1
+    f
+
+let fb_draw_triangle(fb, v0, v1, v2, color) =
+    let f = fb_draw_line(fb, v0[0], v0[1], v1[0], v1[1], color)
+    f = fb_draw_line(f, v1[0], v1[1], v2[0], v2[1], color)
+    f = fb_draw_line(f, v2[0], v2[1], v0[0], v0[1], color)
+    f
+let fb_fill_triangle(fb, v0, v1, v2, color) =
+    let x0 = v0[0]
+    let y0 = v0[1]
+    let x1 = v1[0]
+    let y1 = v1[1]
+    let x2 = v2[0]
+    let y2 = v2[1]
+    let minY = (y0 < y1 ? (y0 < y2 ? y0 : y2) : (y1 < y2 ? y1 : y2))
+    let maxY = (y0 > y1 ? (y0 > y2 ? y0 : y2) : (y1 > y2 ? y1 : y2))
+    let f = fb
+    let y = minY
+    for y <= maxY
+        let xa = 0
+        let xb = 0
+        let cnt = 0
+        let a0 = fb_edge_interp(x0, y0, x1, y1, y)
+        let a1 = fb_edge_interp(x1, y1, x2, y2, y)
+        let a2 = fb_edge_interp(x2, y2, x0, y0, y)
+        let xs = fb_sort3(a0, a1, a2)
+        let lx = xs[0]
+        let rx = xs[2]
+        if lx >= 0 && rx >= 0
+            let x = lx
+            for x <= rx
+                f = fb_set_pixel(f, x, y, color)
+                x = x + 1
+        y = y + 1
+    f
+let fb_edge_interp(xa, ya, xb, yb, y) =
+    if ya == yb
+        -1
+    else
+        let t = (y - ya) / (yb - ya)
+        xa + t * (xb - xa)
+let fb_sort3(a, b, c) =
+    let lo = (a < b ? a : b)
+    let hi = (a > b ? a : b)
+    let mid = (c < lo ? lo : (c > hi ? hi : c))
+    lo = (a < b ? a : b)
+    hi = (a > b ? a : b)
+    if c < lo
+        [lo, mid, hi]
+    else
+        (c > hi ? [lo, mid, c] : [lo, c, hi])
+
+let fb_draw_text(fb, x, y, text, font, color) =
+    let f = fb
+    let cx = x
+    let i = 0
+    let n = len(text)
+    for i < n
+        let code = text[i]
+        let glyph = font_lookup_glyph(font, code)
+        f = fb_draw_glyph(f, cx, y, glyph, color)
+        cx = cx + glyph[3]
+        i = i + 1
+    f
+let fb_draw_glyph(fb, x, y, glyph, color) =
+    let f = fb
+    let gw = glyph[1]
+    let gh = glyph[2]
+    let bitmap = glyph[4]
+    let j = 0
+    for j < gh
+        let i = 0
+        for i < gw
+            if bitmap[j * gw + i] != 0
+                f = fb_set_pixel(f, x + i, y + j, color)
+            i = i + 1
+        j = j + 1
+    f
+let font_lookup_glyph(font, code) =
+    let glyphs = font[0]
+    let i = 0
+    let n = len(glyphs)
+    let result = [0, 8, 8, 8, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]
+    for i < n
+        if glyphs[i][0] == code
+            result = glyphs[i]
+        i = i + 1
+    result
+
+let shader_flat(triangle, light_dir) =
+    gf_mul(triangle[3], light_dir)
+let shader_gouraud(v0_intensity, v1_intensity, v2_intensity, u, v) =
+    let w = gf_sub(gf_sub(1, u), v)
+    gf_add(gf_add(gf_mul(w, v0_intensity), gf_mul(u, v1_intensity)), gf_mul(v, v2_intensity))
+
+let fb_blit(dst, src, dx, dy) =
+    let f = dst
+    let sw = src[1]
+    let sh = src[2]
+    let j = 0
+    for j < sh
+        let i = 0
+        for i < sw
+            f = fb_set_pixel(f, dx + i, dy + j, fb_get_pixel(src, i, j))
+            i = i + 1
+        j = j + 1
+    f
+
+let render_verify() = 1

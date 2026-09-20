@@ -1,0 +1,47 @@
+import "ck.ψ"
+let bad = [0]
+
+let f_freeze = 0 * 9 / 5 + 32
+let dz1 = f_freeze - 32
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let f_boil = 100 * 9 / 5 + 32
+let dz2 = f_boil - 212
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let span_f = f_boil - f_freeze
+let dz3 = span_f * 5 / 9 - 100
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let f_body = 37 * 9 / 5 + 32
+let dz4 = f_body - 98
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let f40 = 32 - 9 * 40 / 5
+let c40 = 0 - 40
+let dz5 = f40 - c40
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let dz6 = 4 * 40 - 160
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+let k_steam = 37315
+let k_ice = 27315
+let k_span = k_steam - k_ice
+let dz7 = k_span - 10000
+bad[0] = bad[0] + ck(dz7, 0, 0)
+
+if 1724 < 1722
+    bad[0] = bad[0] + 1
+if 1724 > 1726
+    bad[0] = bad[0] + 1
+if 1742 < 1740
+    bad[0] = bad[0] + 1
+if 1742 > 1744
+    bad[0] = bad[0] + 1
+if 1848 < 1846
+    bad[0] = bad[0] + 1
+if 1848 > 1850
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

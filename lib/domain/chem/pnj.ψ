@@ -1,0 +1,31 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let eg = 112
+bad[0] = bad[0] + ck(eg, 110, 115)
+
+let atoms = 5
+let carr = 1
+let ratio = small_div(atoms * 100, carr)
+bad[0] = bad[0] + ck(ratio, 400, 600)
+
+let v_mV = 600
+let kT_mV = 26
+let ex = small_div(v_mV, kT_mV)
+bad[0] = bad[0] + ck(ex, 22, 24)
+
+let decades = 10
+bad[0] = bad[0] + ck_hi(decades, ex)
+
+let led = 19
+let lam = small_div(1240, led)
+bad[0] = bad[0] + ck(lam, 60, 70)
+
+if 1947 < 1945
+    bad[0] = bad[0] + 1
+if 1947 > 1949
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

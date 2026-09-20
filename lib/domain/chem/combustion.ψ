@@ -1,0 +1,38 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let ch = 413
+let oh = 463
+let co = 799
+let oo = 498
+let nn = 945
+bad[0] = bad[0] + ck(ch, 400, 425)
+bad[0] = bad[0] + ck(oo, 490, 505)
+bad[0] = bad[0] + ck(nn, 935, 955)
+
+let bin = 4 * ch + 2 * oo
+let bout = 2 * co + 4 * oh
+if bin != 2648
+    bad[0] = bad[0] + 1
+if bout != 3450
+    bad[0] = bad[0] + 1
+
+let dh = bout - bin
+bad[0] = bad[0] + ck(dh, 750, 850)
+
+bad[0] = bad[0] + ck_lo(bout, bin)
+
+bad[0] = bad[0] + ck_lo(nn, oo)
+
+let atp = 31
+bad[0] = bad[0] + ck_hi(atp, 35)
+bad[0] = bad[0] + ck_hi(atp, ch)
+
+if 1939 < 1937
+    bad[0] = bad[0] + 1
+if 1939 > 1941
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

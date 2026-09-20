@@ -1,0 +1,30 @@
+let fact(n) =
+    (n == 0 ? 1 : n * fact(n - 1))
+let fib(n) =
+    (n < 2 ? n : fib(n - 1) + fib(n - 2))
+
+let n = 5
+let f = 1
+let i = 1
+for i <= n
+  let f = f * i
+  let i = i + 1
+end
+
+let arr = alloc(10)
+arr[0] = 0
+arr[1] = 1
+let i = 2
+for i < 10
+  arr[i] = arr[i - 1] + arr[i - 2]
+  let i = i + 1
+end
+
+let sum = 0
+let i = 0
+for i < 10
+  let sum = sum + arr[i]
+  let i = i + 1
+end
+
+print(f + fact(n) + sum + fib(10))

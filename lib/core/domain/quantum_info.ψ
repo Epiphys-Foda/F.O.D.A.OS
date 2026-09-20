@@ -1,0 +1,265 @@
+import "../stdlib/gf65537.ψ"
+import "domain_list.ψ"
+
+let mat2_trace(m) =
+    gf_add(m[0][0], m[1][1])
+
+let mat2_det(m) =
+    let ad = gf_mul(m[0][0], m[1][1])
+    let bc = gf_mul(m[0][1], m[1][0])
+    gf_sub(ad, bc)
+
+let mat2_sq(m) =
+    mat2_mul(m, m)
+
+let mat2_transpose(m) =
+    [[m[0][0], m[1][0]], [m[0][1], m[1][1]]]
+
+let mat2_dagger(m) =
+    mat2_transpose(m)
+
+let algebraic_entropy_2x2(rho) =
+        let d = mat2_det(rho)
+        if d == 0
+            1
+        else
+            2
+
+let purity_2x2(rho) =
+    let rho_sq = mat2_sq(rho)
+    mat2_trace(rho_sq)
+
+let is_entangled(rho_a) =
+        let d = mat2_det(rho_a)
+        if d == 0
+            0
+        else
+            1
+
+let bell_state_rho_a() =
+    let half = gf_inv(2)
+    [[half, 0], [0, half]]
+
+let bell_state_schmidt_rank() =
+    let rho_a = bell_state_rho_a()
+    algebraic_entropy_2x2(rho_a)
+
+let separable_state_rho_a() =
+    [[1, 0], [0, 0]]
+
+let separable_state_schmidt_rank() =
+    let rho_a = separable_state_rho_a()
+    algebraic_entropy_2x2(rho_a)
+
+let algebraic_mutual_info(rank_a, rank_b, rank_ab) =
+    gf_add(gf_sub(rank_a, rank_ab), rank_b)
+
+let eac_pure_state(rank_a) =
+    gf_sub(gf_mul(2, rank_a), 1)
+
+let algebraic_relative_entropy(rho, sigma) =
+    let rank_rho = algebraic_entropy_2x2(rho)
+    let rank_sigma = algebraic_entropy_2x2(sigma)
+    gf_sub(rank_rho, rank_sigma)
+
+let algebraic_holevo_2(rho1, rho2, p1, p2) =
+    let r00 = gf_add(gf_mul(p1, rho1[0][0]), gf_mul(p2, rho2[0][0]))
+    let r01 = gf_add(gf_mul(p1, rho1[0][1]), gf_mul(p2, rho2[0][1]))
+    let r10 = gf_add(gf_mul(p1, rho1[1][0]), gf_mul(p2, rho2[1][0]))
+    let r11 = gf_add(gf_mul(p1, rho1[1][1]), gf_mul(p2, rho2[1][1]))
+    let rho_mix = [[r00, r01], [r10, r11]]
+    let rank_mix = algebraic_entropy_2x2(rho_mix)
+    let rank_1 = algebraic_entropy_2x2(rho1)
+    let rank_2 = algebraic_entropy_2x2(rho2)
+    gf_sub(gf_sub(rank_mix, rank_1), rank_2)
+
+let kraus_channel_1op(k, rho) =
+    let k_rho = mat2_mul(k, rho)
+    let k_dag = mat2_dagger(k)
+    mat2_mul(k_rho, k_dag)
+
+let kraus_channel_2op(k1, k2, rho) =
+    let term1 = kraus_channel_1op(k1, rho)
+    let term2 = kraus_channel_1op(k2, rho)
+    let r00 = gf_add(term1[0][0], term2[0][0])
+    let r01 = gf_add(term1[0][1], term2[0][1])
+    let r10 = gf_add(term1[1][0], term2[1][0])
+    let r11 = gf_add(term1[1][1], term2[1][1])
+    [[r00, r01], [r10, r11]]
+
+let kraus_trace_preserving_2op(k1, k2) =
+        let k1_dag = mat2_dagger(k1)
+        let k2_dag = mat2_dagger(k2)
+        let kk1 = mat2_mul(k1_dag, k1)
+        let kk2 = mat2_mul(k2_dag, k2)
+        let r00 = gf_add(kk1[0][0], kk2[0][0])
+        let r01 = gf_add(kk1[0][1], kk2[0][1])
+        let r10 = gf_add(kk1[1][0], kk2[1][0])
+        let r11 = gf_add(kk1[1][1], kk2[1][1])
+        if r00 == 1 && r01 == 0 && r10 == 0 && r11 == 1
+            1
+        else
+            0
+
+let bit_flip_channel(rho, p_err) =
+    let x_gate = [[0, 1], [1, 0]]
+    let one_minus_p = gf_sub(1, p_err)
+    let rho_term = [[gf_mul(one_minus_p, rho[0][0]), gf_mul(one_minus_p, rho[0][1])],
+                    [gf_mul(one_minus_p, rho[1][0]), gf_mul(one_minus_p, rho[1][1])]]
+    let x_rho = mat2_mul(x_gate, rho)
+    let x_rho_x = mat2_mul(x_rho, x_gate)
+    let flip_term = [[gf_mul(p_err, x_rho_x[0][0]), gf_mul(p_err, x_rho_x[0][1])],
+                     [gf_mul(p_err, x_rho_x[1][0]), gf_mul(p_err, x_rho_x[1][1])]]
+    let r00 = gf_add(rho_term[0][0], flip_term[0][0])
+    let r01 = gf_add(rho_term[0][1], flip_term[0][1])
+    let r10 = gf_add(rho_term[1][0], flip_term[1][0])
+    let r11 = gf_add(rho_term[1][1], flip_term[1][1])
+    [[r00, r01], [r10, r11]]
+
+let depolarizing_channel(rho, p_err) =
+    let one_minus_p = gf_sub(1, p_err)
+    let half = gf_inv(2)
+    let half_p = gf_mul(p_err, half)
+    let r00 = gf_add(gf_mul(one_minus_p, rho[0][0]), half_p)
+    let r01 = gf_mul(one_minus_p, rho[0][1])
+    let r10 = gf_mul(one_minus_p, rho[1][0])
+    let r11 = gf_add(gf_mul(one_minus_p, rho[1][1]), half_p)
+    [[r00, r01], [r10, r11]]
+
+let amplitude_damping_channel(rho, sqrt_gamma, sqrt_one_minus_gamma) =
+    let k0 = [[1, 0], [0, sqrt_one_minus_gamma]]
+    let k1 = [[0, sqrt_gamma], [0, 0]]
+    kraus_channel_2op(k0, k1, rho)
+
+let coherent_info(rho_input, rho_output) =
+    let rank_in = algebraic_entropy_2x2(rho_input)
+    let rank_out = algebraic_entropy_2x2(rho_output)
+    gf_sub(rank_out, rank_in)
+
+let quantum_fisher_info(rho_plus, rho_0, rho_minus) =
+    let d_plus = gf_sub(algebraic_entropy_2x2(rho_plus), algebraic_entropy_2x2(rho_0))
+    let d_zero = 0
+    let d_minus = gf_sub(algebraic_entropy_2x2(rho_minus), algebraic_entropy_2x2(rho_0))
+    let second_deriv = gf_sub(gf_add(d_plus, d_minus), gf_mul(2, d_zero))
+    gf_mul(4, second_deriv)
+
+let concurrence_pure(a, b, c, d) =
+    let ad = gf_mul(a, d)
+    let bc = gf_mul(b, c)
+    let det = gf_sub(ad, bc)
+    gf_mul(2, det)
+
+let tsirelson_bound() =
+    gf_mul(2, 4080)
+
+let classical_chsh_bound() =
+    2
+
+let violates_bell(chsh_value) =
+    if chsh_value > 2 && chsh_value < 32768
+        1
+    else
+        0
+    if chsh_value > 32769 && chsh_value < 65535
+        1
+    else
+        0
+
+let negativity_2x2(rho_a) =
+        let d = mat2_det(rho_a)
+        let leg = gf_legendre(d)
+        if leg == 65536
+            1
+        else
+            0
+
+let log_negativity_2x2(rho_a) =
+    negativity_2x2(rho_a)
+
+let quantum_singleton_bound(n, d) =
+    gf_sub(n, gf_mul(2, gf_sub(d, 1)))
+
+let quantum_hamming_lhs(n, t) =
+    _qh_hamming_loop(n, t, 0, 0)
+let _qh_hamming_loop(n, t, j, acc) =
+        if j > t
+            acc
+        else
+            let cnj = _binomial(n, j)
+            let three_j = gf_pow(3, j)
+            let term = gf_mul(cnj, three_j)
+            _qh_hamming_loop(n, t, j + 1, gf_add(acc, term))
+let _binomial(n, k) =
+    if k == 0 || k == n
+        1
+    else
+        0
+    if k > n
+        0
+    else
+        gf_add(_binomial(n - 1, k - 1), _binomial(n - 1, k))
+
+let quantum_gv_bound(n, k, d) =
+        let t = (d - 1) / 2
+        let lhs = quantum_hamming_lhs(n, t)
+        let rhs = gf_pow(2, gf_sub(n, k))
+        if lhs > rhs
+            1
+        else
+            0
+
+let stinespring_isometry(v) =
+        let v_dag = mat2_dagger(v)
+        let vv = mat2_mul(v_dag, v)
+        if vv[0][0] == 1 && vv[0][1] == 0 && vv[1][0] == 0 && vv[1][1] == 1
+            1
+        else
+            0
+
+let depolarizing_capacity(p_err) =
+    if p_err == 0
+        1
+    else
+        0
+    if p_err == 1
+        65536
+    else
+        0
+
+let quantum_stein_criterion(rho_a) =
+    negativity_2x2(rho_a)
+
+let ckw_monogamy(tau_ab, tau_ac_list, n) =
+    _ckw_loop(tau_ac_list, n, 0, tau_ab)
+let _ckw_loop(tau_list, n, i, acc) =
+        if i >= n
+            acc
+        else
+            _ckw_loop(tau_list, n, i + 1, gf_add(acc, tau_list[i]))
+
+let algebraic_renyi_entropy(rho, alpha) =
+    algebraic_entropy_2x2(rho)
+
+let algebraic_conditional_entropy(rank_ab, rank_b) =
+    gf_sub(rank_ab, rank_b)
+
+let has_negative_conditional_entropy(rank_ab, rank_b) =
+        let s_cond = algebraic_conditional_entropy(rank_ab, rank_b)
+        if s_cond > 32768
+            1
+        else
+            0
+
+let quantum_causality_check(rank_ac, rank_b, rank_c) =
+        let lhs = rank_ac
+        let rhs = gf_add(rank_b, rank_c)
+        if lhs <= rhs
+            1
+        else
+            0
+
+let quantum_locking_ratio(rank_unconditional, rank_conditional) =
+        if rank_unconditional == 0
+            0
+        else
+            gf_div(rank_conditional, rank_unconditional)

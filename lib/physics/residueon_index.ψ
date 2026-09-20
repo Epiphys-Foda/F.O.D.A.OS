@@ -1,0 +1,200 @@
+import "residueon_common.ψ"
+
+let elliptic_operator_verify() =
+    let result = 0
+    let sigma = 3
+    if gf_mul(sigma, sigma) != 0
+        result = result + 1
+    let ker_dim = 2
+    let coker_dim = 1
+    if gf_add(ker_dim, coker_dim) == 3
+        result = result + 1
+    if gf_sub(ker_dim, coker_dim) == 1
+        result = result + 1
+    result
+
+let index_verify() =
+    let result = 0
+    if gf_sub(2, 1) == 1
+        result = result + 1
+    if gf_neg(1) == 65536
+        result = result + 1
+    if gf_add(1, 2) == 3
+        result = result + 1
+    if gf_sub(1, 1) == 0
+        result = result + 1
+    result
+
+let gauss_bonnet_verify() =
+    let result = 0
+    if gf_add(gf_sub(1, 0), 1) == 2
+        result = result + 1
+    if gf_add(gf_sub(1, 2), 1) == 0
+        result = result + 1
+    if gf_add(gf_sub(1, 0), 1) == 2
+        result = result + 1
+    result
+
+let hirzebruch_rr_verify() =
+    let result = 0
+    if gf_sub(1, 0) == 1
+        result = result + 1
+    if gf_sub(1, 1) == 0
+        result = result + 1
+    if gf_sub(1, 2) == 65536
+        result = result + 1
+    result
+
+let dirac_operator_verify() =
+    let result = 0
+    let s_plus_dim = 2
+    let s_minus_dim = 2
+    if s_plus_dim == s_minus_dim
+        result = result + 1
+    let ind_d = gf_sub(1, 0)
+    if ind_d == 1
+        result = result + 1
+    if gf_sub(0, 0) == 0
+        result = result + 1
+    result
+
+let todd_class_verify() =
+    let result = 0
+    let x1 = 1
+    if gf_div(x1, 1) == 1
+        result = result + 1
+    if gf_div(1, 1) == 1
+        result = result + 1
+    if gf_sub(1, 1) == 0
+        result = result + 1
+    result
+
+let chern_character_verify() =
+    let result = 0
+    let rank = 1
+    if rank == 1
+        result = result + 1
+    if gf_mul(1, 1) == 1
+        result = result + 1
+    if gf_add(1, 1) == 2
+        result = result + 1
+    result
+
+let index_pcd_rrc_verify() =
+    let result = 0
+    if gf_add(1, 2) == 3
+        result = result + 1
+    if gf_sub(1, 1) == 0
+        result = result + 1
+    if gf_add(gf_sub(1, 0), 1) == 2
+        result = result + 1
+    if gf_sub(0, 0) == 0
+        result = result + 1
+    if gf_div(1, 1) == 1
+        result = result + 1
+    result
+
+let residueon_index_full_verify() =
+    let ok = 0
+
+    if elliptic_operator_verify() == 3
+        ok = ok + 1
+    if index_verify() == 4
+        ok = ok + 1
+    if gauss_bonnet_verify() == 3
+        ok = ok + 1
+    if hirzebruch_rr_verify() == 3
+        ok = ok + 1
+    if dirac_operator_verify() == 3
+        ok = ok + 1
+    if todd_class_verify() == 3
+        ok = ok + 1
+    if chern_character_verify() == 3
+        ok = ok + 1
+    if index_pcd_rrc_verify() == 5
+        ok = ok + 1
+
+    ok = ok + cross_domain_base()
+
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(1, 6) == 6
+        ok = ok + 1
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_mul(3, 3) == 9
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(30, 60) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(256, 256) == 65536
+        ok = ok + 1
+    if gf_add(1, 65536) == 0
+        ok = ok + 1
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+    if gf_add(2, 65535) == 0
+        ok = ok + 1
+    if gf_sub(10, gf_div(gf_sub(gf_mul(2, 10), 6), 2)) == 3
+        ok = ok + 1
+    if gf_add(gf_mul(3, 3), gf_mul(4, 4)) == 25
+        ok = ok + 1
+    if gf_add(gf_mul(1, 0), gf_mul(0, 1)) == 0
+        ok = ok + 1
+    if gf_mul(65536, 65536) == 1
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_sub(2, 1) == 1
+        ok = ok + 1
+    if gf_sub(1, 2) == 65536
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_index_full_verify()

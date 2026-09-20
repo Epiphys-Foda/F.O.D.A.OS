@@ -1,0 +1,297 @@
+import "../domain_field.ψ"
+
+let ISO_READ_UNCOMMITTED = 0
+let ISO_READ_COMMITTED = 1
+let ISO_REPEATABLE_READ = 2
+let ISO_SERIALIZABLE = 3
+
+let version_new(data, xmin) =
+    [data, xmin, 0, 0, 0]
+
+let ver_data(v) = v[0]
+let ver_xmin(v) = v[1]
+let ver_xmax(v) = v[2]
+let ver_cmin(v) = v[3]
+let ver_cmax(v) = v[4]
+
+let ver_set_xmax(v, xmax) =
+    v[2] = xmax
+    v
+
+let ver_set_cmax(v, cmax) =
+    v[4] = cmax
+    v
+
+let mvcc_table_new() =
+    [{}, 0]
+
+let mvcc_versions(t) = t[0]
+let mvcc_next_tx(t) = t[1]
+
+let mvcc_alloc_tx(t) =
+    let tx_id = mvcc_next_tx(t)
+    t[1] = tx_id + 1
+    tx_id
+
+let tx_begin_mvcc(table, isolation) =
+    let tx_id = mvcc_alloc_tx(table)
+    let snap = tx_id
+    [tx_id, snap, isolation, 0, []]
+
+let mvcc_tx_id(tx) = tx[0]
+let mvcc_tx_snap(tx) = tx[1]
+let mvcc_tx_iso(tx) = tx[2]
+let mvcc_tx_status(tx) = tx[3]
+
+let tx_commit(tx) =
+    tx[3] = 1
+    tx
+
+let tx_abort(tx) =
+    tx[3] = 2
+    tx
+
+let is_visible(version, tx, tx_status_map) =
+    let xmin = ver_xmin(version)
+    let xmax = ver_xmax(version)
+    let snap = mvcc_tx_snap(tx)
+    let visible = 0
+    if xmin < snap
+        let xmin_status = tx_status_map[xmin]
+        if xmin_status == 0
+            xmin_status = 1
+        if xmin_status == 1
+            if xmax == 0
+                visible = 1
+            else
+                0
+            if xmax > snap
+                visible = 1
+            else
+                let xmax_status = tx_status_map[xmax]
+                if xmax_status == 0
+                    xmax_status = 1
+                if xmax_status != 1
+                    visible = 1
+    visible
+
+let mvcc_insert(table, tx, key, data) =
+    let versions = mvcc_versions(table)
+    let lst = versions[key]
+    if lst == 0
+        lst = []
+    let v = version_new(data, mvcc_tx_id(tx))
+    lst.push(v)
+    versions[key] = lst
+    table[0] = versions
+    v
+
+let mvcc_select(table, tx, key, tx_status_map) =
+    let versions = mvcc_versions(table)
+    let lst = versions[key]
+    if lst == 0
+        0
+    else
+        let found = 0
+        let i = len(lst) - 1
+        for i >= 0
+            let v = lst[i]
+            if is_visible(v, tx, tx_status_map) == 1
+                found = v
+                i = -1
+            i = i - 1
+        found
+
+let mvcc_update(table, tx, key, new_data, tx_status_map) =
+    let old = mvcc_select(table, tx, key, tx_status_map)
+    if old == 0
+        0
+    else
+        ver_set_xmax(old, mvcc_tx_id(tx))
+        let new_v = mvcc_insert(table, tx, key, new_data)
+        new_v
+
+let mvcc_delete(table, tx, key, tx_status_map) =
+    let old = mvcc_select(table, tx, key, tx_status_map)
+    if old == 0
+        0
+    else
+        ver_set_xmax(old, mvcc_tx_id(tx))
+        1
+
+let mvcc_vacuum(table, oldest_active_tx, tx_status_map) =
+    let versions = mvcc_versions(table)
+    let keys = keys_of(versions)
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let key = keys[i]
+        let lst = versions[key]
+        if lst != 0
+            let new_lst = []
+            let j = 0
+            let m = len(lst)
+            for j < m
+                let v = lst[j]
+                let xmax = ver_xmax(v)
+                if xmax == 0
+                    new_lst.push(v)
+                else
+                    0
+                if xmax > oldest_active_tx
+                    new_lst.push(v)
+                j = j + 1
+            versions[key] = new_lst
+        i = i + 1
+    table[0] = versions
+    table
+
+let tx_isolation_name(tx) =
+    let iso = mvcc_tx_iso(tx)
+    if iso == ISO_READ_UNCOMMITTED
+        "read_uncommitted"
+    else
+        0
+    if iso == ISO_READ_COMMITTED
+        "read_committed"
+    else
+        0
+    if iso == ISO_REPEATABLE_READ
+        "repeatable_read"
+    else
+        0
+    if iso == ISO_SERIALIZABLE
+        "serializable"
+    else
+        "unknown"
+
+let detect_conflict(tx1, tx2, write_set_1, write_set_2) =
+    let keys1 = keys_of(write_set_1)
+    let i = 0
+    let n = len(keys1)
+    for i < n
+        if write_set_2[keys1[i]] != 0
+            i = n
+            1
+        i = i + 1
+    0
+
+let mvcc_verify() =
+    let ok1 = 1
+    let table = mvcc_table_new()
+    if mvcc_next_tx(table) != 0
+        ok1 = 0
+
+    let ok2 = 1
+    let tx1 = tx_begin_mvcc(table, ISO_READ_COMMITTED)
+    if mvcc_tx_id(tx1) != 0
+        ok2 = 0
+    if mvcc_tx_status(tx1) != 0
+        ok2 = 0
+    let tx2 = tx_begin_mvcc(table, ISO_REPEATABLE_READ)
+    if mvcc_tx_id(tx2) != 1
+        ok2 = 0
+
+    let ok3 = 1
+    let v1 = mvcc_insert(table, tx1, "alice", {name: "alice", age: 30})
+    if v1 == 0
+        ok3 = 0
+    if ver_xmin(v1) != 0
+        ok3 = 0
+    if ver_xmax(v1) != 0
+        ok3 = 0
+
+    let ok4 = 1
+    let status_map = {}
+    status_map[0] = 1
+    let read_v = mvcc_select(table, tx2, "alice", status_map)
+    if read_v == 0
+        ok4 = 0
+    let data = ver_data(read_v)
+    if data["age"] != 30
+        ok4 = 0
+
+    let ok5 = 1
+    let tx3 = tx_begin_mvcc(table, ISO_READ_COMMITTED)
+    let updated = mvcc_update(table, tx3, "alice", {name: "alice", age: 31}, status_map)
+    if updated == 0
+        ok5 = 0
+    if ver_xmin(updated) != 2
+        ok5 = 0
+
+    let ok6 = 1
+    if ver_xmax(v1) != 2
+        ok6 = 0
+
+    let ok7 = 1
+    tx3 = tx_commit(tx3)
+    if mvcc_tx_status(tx3) != 1
+        ok7 = 0
+    status_map[2] = 1
+
+    let ok8 = 1
+    let tx4 = tx_begin_mvcc(table, ISO_READ_COMMITTED)
+    let new_v = mvcc_select(table, tx4, "alice", status_map)
+    if new_v == 0
+        ok8 = 0
+    let new_data = ver_data(new_v)
+    if new_data["age"] != 31
+        ok8 = 0
+
+    let ok9 = 1
+    let old_v = mvcc_select(table, tx2, "alice", status_map)
+    if old_v == 0
+        ok9 = 0
+    let old_data = ver_data(old_v)
+    if old_data["age"] != 30
+        ok9 = 0
+
+    let ok10 = 1
+    let tx5 = tx_begin_mvcc(table, ISO_READ_COMMITTED)
+    let del_result = mvcc_delete(table, tx5, "alice", status_map)
+    if del_result != 1
+        ok10 = 0
+    status_map[3] = 1
+    let tx6 = tx_begin_mvcc(table, ISO_READ_COMMITTED)
+    let deleted_v = mvcc_select(table, tx6, "alice", status_map)
+    if deleted_v != 0
+        ok10 = 0
+
+    let ok11 = 1
+    let before_keys = keys_of(mvcc_versions(table))
+    mvcc_vacuum(table, 4, status_map)
+    let after_keys = keys_of(mvcc_versions(table))
+    let still_exists = 0
+    let i = 0
+    let n = len(after_keys)
+    for i < n
+        if after_keys[i] == "alice"
+            still_exists = 1
+        i = i + 1
+    if still_exists != 1
+        ok11 = 0
+
+    let ok12 = 1
+    if tx_isolation_name(tx1) != "read_committed"
+        ok12 = 0
+    if tx_isolation_name(tx2) != "repeatable_read"
+        ok12 = 0
+
+    let all_ok = ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7 * ok8 * ok9 * ok10 * ok11 * ok12
+    if all_ok == 1
+        print("mvcc_verify: ALL PASS")
+    else
+        print("mvcc_verify: FAIL")
+        print(ok1)
+        print(ok2)
+        print(ok3)
+        print(ok4)
+        print(ok5)
+        print(ok6)
+        print(ok7)
+        print(ok8)
+        print(ok9)
+        print(ok10)
+        print(ok11)
+        print(ok12)
+    all_ok

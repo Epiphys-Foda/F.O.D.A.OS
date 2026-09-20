@@ -1,0 +1,170 @@
+let INT_P = 65537
+let INT_MAX_VECTORS = 256
+
+let INT_DIV_ZERO = 0
+let INT_PAGE_FAULT = 1
+let INT_TIMER = 2
+let INT_SYSCALL = 3
+let INT_IPC = 4
+let INT_NET = 5
+let INT_DISK = 6
+let INT_KBD = 7
+let INT_USER = 8
+
+let INT_PRIO_CRITICAL = 0
+let INT_PRIO_HIGH = 1
+let INT_PRIO_MEDIUM = 2
+let INT_PRIO_LOW = 3
+
+let int_vectors = array_new(INT_MAX_VECTORS)
+let int_current_prio = 255
+let int_nested_count = 0
+let int_pending = array_new(INT_MAX_VECTORS)
+
+let int_init() =
+    int_register(INT_DIV_ZERO, INT_PRIO_CRITICAL, 1)
+    int_register(INT_PAGE_FAULT, INT_PRIO_CRITICAL, 1)
+
+    int_register(INT_TIMER, INT_PRIO_HIGH, 1)
+    int_register(INT_SYSCALL, INT_PRIO_HIGH, 1)
+
+    int_register(INT_IPC, INT_PRIO_MEDIUM, 1)
+    int_register(INT_NET, INT_PRIO_MEDIUM, 1)
+
+    int_register(INT_DISK, INT_PRIO_LOW, 1)
+    int_register(INT_KBD, INT_PRIO_LOW, 1)
+
+    int_current_prio = 255
+    int_nested_count = 0
+
+let int_register(num, prio, enabled) =
+    int_vectors[num] = { num: num, prio: prio, handler: num, enabled: enabled, count: 0, saved_state: 0 }
+
+let int_trigger(num) =
+    let vec = int_vectors[num]
+    if vec == 0
+        0
+    if vec.enabled == 0
+        0
+
+    if vec.prio >= int_current_prio
+        int_pending[num] = 1
+        0
+
+    vec.saved_state = int_current_prio
+    int_current_prio = vec.prio
+    int_nested_count = int_nested_count + 1
+    vec.count = vec.count + 1
+
+    int_dispatch(num)
+
+    int_current_prio = vec.saved_state
+    int_nested_count = int_nested_count - 1
+
+    int_process_pending()
+
+    1
+
+let int_dispatch(num) =
+        if num == INT_DIV_ZERO
+            int_handle_div_zero()
+        else
+            if num == INT_PAGE_FAULT
+                int_handle_page_fault()
+            else
+                if num == INT_TIMER
+                    int_handle_timer()
+                else
+                    if num == INT_SYSCALL
+                        int_handle_syscall()
+                    else
+                        if num == INT_IPC
+                            int_handle_ipc()
+                        else
+                            if num == INT_NET
+                                int_handle_net()
+                            else
+                                if num == INT_DISK
+                                    int_handle_disk()
+                                else
+                                    if num == INT_KBD
+                                        int_handle_kbd()
+                                    else
+                                        int_handle_user(num)
+
+let int_handle_div_zero() =
+    int_log(INT_DIV_ZERO)
+
+let int_handle_page_fault() =
+    int_log(INT_PAGE_FAULT)
+
+let int_handle_timer() =
+    int_log(INT_TIMER)
+
+let int_handle_syscall() =
+    int_log(INT_SYSCALL)
+
+let int_handle_ipc() =
+    int_log(INT_IPC)
+
+let int_handle_net() =
+    int_log(INT_NET)
+
+let int_handle_disk() =
+    int_log(INT_DISK)
+
+let int_handle_kbd() =
+    int_log(INT_KBD)
+
+let int_handle_user(num) =
+    int_log(num)
+
+let int_process_pending() =
+    let prio = 0
+    for prio <= INT_PRIO_LOW
+        let num = 0
+        for num < INT_MAX_VECTORS
+            if int_pending[num] == 1
+                let vec = int_vectors[num]
+                if vec != 0 && vec.prio == prio && vec.prio < int_current_prio
+                    int_pending[num] = 0
+                    int_trigger(num)
+            num = num + 1
+        prio = prio + 1
+
+let int_disable(num) =
+    let vec = int_vectors[num]
+    if vec != 0
+        vec.enabled = 0
+
+let int_enable(num) =
+    let vec = int_vectors[num]
+    if vec != 0
+        vec.enabled = 1
+
+let int_cli() =
+    int_current_prio = 0
+
+let int_sti() =
+    int_current_prio = 255
+    int_process_pending()
+
+let int_log(num) =
+    num
+
+let int_get_count(num) =
+    let vec = int_vectors[num]
+    (vec == 0 ? 0 : vec.count)
+
+let int_get_total_count() =
+    let total = 0
+    let num = 0
+    for num < INT_MAX_VECTORS
+        let vec = int_vectors[num]
+        if vec != 0
+            total = total + vec.count
+        num = num + 1
+    total
+
+let array_new(n) = arr_new_n(n)
+

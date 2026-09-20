@@ -1,0 +1,375 @@
+import "../core/stdlib/arr.ψ"
+import "../core/stdlib/gf65537.ψ"
+import "bootstrap_residue.ψ"
+
+import "sh_a9f96f3ee7.ψ"
+
+let P = 65537
+
+let gf_euler(a) = gf_pow(a, (P - 1) / 2)
+
+let unode(z, r) = [z, r]
+let unode2(z, r, c0, c1) = [z, r, c0, c1]
+let uz(node) = node[0]
+let ur(node) = node[1]
+let uc(node, i) = node[i + 2]
+let n_int(v) = unode(0, v)
+let n_var(id) = unode(1, id)
+let n_add(l, r) = unode2(2, 43, l, r)
+let n_sub(l, r) = unode2(2, 45, l, r)
+let n_mul(l, r) = unode2(2, 42, l, r)
+let n_div(l, r) = unode2(2, 47, l, r)
+
+let inject(env, id, val) = arr_push(arr_push(env, id), val)
+
+let env_get(env, id) =
+    let i = 0
+    let found = 0
+    for i + 1 < len(env)
+        if env[i] == id
+            found = 1
+        env[i + 1]
+        i = i + 2
+    found
+
+let collapse(node, env) =
+    let z = uz(node)
+    if z == 0
+        ur(node)
+    if z == 1
+        env_get(env, ur(node))
+    if z == 2
+        let op = ur(node)
+        let l = collapse(uc(node, 0), env)
+        let r = collapse(uc(node, 1), env)
+        if op == 43
+            (l + r) % P
+        if op == 45
+            (l - r + P) % P
+        if op == 42
+            l * r % P
+        if op == 47
+            gf_div(l, r)
+        0
+    0
+
+let field_eval(poles, z) =
+    let sum = 0
+    let i = 0
+    for i + 2 < len(poles)
+        let zk = poles[i]
+        let rk = poles[i + 1]
+        let nk = poles[i + 2]
+        let den = (z - zk + P) % P
+        let pw = 1
+        let k = 0
+        for k < nk
+            pw = pw * den % P
+            k = k + 1
+        sum = (sum + gf_div(rk, pw)) % P
+        i = i + 3
+    sum
+
+let pole1(z, r, n) = [z, r, n]
+
+let inverse_square(c, x) = field_eval(pole1(0, c, 2), x)
+
+let law_planck() =
+    let ok = 0
+    let tree = n_mul(n_int(414), n_var(0))
+    let nu = 100
+    for nu <= 300
+        let classical = 414 * nu % P
+        let fractal = collapse(tree, inject([], 0, nu))
+        if classical == fractal
+            ok = ok + 1
+        nu = nu + 100
+    ok
+
+let law_emc2() =
+    let tree = n_mul(n_var(1), n_int(89))
+    let m = 1
+    let ok = 0
+    for m <= 5
+        let classical = m * 89 % P
+        let fractal = collapse(tree, inject([], 1, m))
+        if classical == fractal
+            ok = ok + 1
+        m = m + 2
+    ok
+
+let law_ohm() =
+    let tree = n_mul(n_var(2), n_var(3))
+    let ok = 0
+    let i = 2
+    for i <= 6
+        let env = inject(inject([], 2, i), 3, 7)
+        let classical = i * 7 % P
+        if classical == collapse(tree, env)
+            ok = ok + 1
+        i = i + 2
+    ok
+
+let law_hooke() =
+    let tree = n_sub(n_int(0), n_mul(n_int(20), n_var(4)))
+    let ok = 0
+    let x = 1
+    for x <= 5
+        let classical = gf_neg(20 * x % P)
+        let fractal = collapse(tree, inject([], 4, x))
+        if classical == fractal
+            ok = ok + 1
+        x = x + 1
+    ok
+
+let law_photo() =
+    let tree = n_sub(n_mul(n_int(414), n_var(0)), n_int(230))
+    let ok = 0
+    let nu = 100
+    for nu <= 300
+        let classical = (414 * nu % P + P - 230) % P
+        let fractal = collapse(tree, inject([], 0, nu))
+        if classical == fractal
+            ok = ok + 1
+        nu = nu + 50
+    ok
+
+let law_newton() =
+    let ok = 0
+    let tree = n_div(n_mul(n_mul(n_int(67), n_int(600)), n_int(15)), n_mul(n_var(5), n_var(5)))
+    let r = 3
+    for r <= 8
+        let c = 67 * 600 % P * 15 % P
+        let classical = gf_div(c, r * r % P)
+        let fractal = collapse(tree, inject([], 5, r))
+        let poles = pole1(0, c, 2)
+        let field = inverse_square(c, r)
+        if classical == fractal
+            if classical == field
+        r = r + 1
+    ok
+
+let law_coulomb() =
+    let ok = 0
+    let tree = n_div(n_mul(n_mul(n_int(899), n_int(3)), n_int(2)), n_mul(n_var(5), n_var(5)))
+    let r = 2
+    for r <= 7
+        let c = 899 * 3 % P * 2 % P
+        let classical = gf_div(c, r * r % P)
+        let fractal = collapse(tree, inject([], 5, r))
+        let field = inverse_square(c, r)
+        if classical == fractal
+            if classical == field
+        r = r + 1
+    ok
+
+let law_bohr() =
+    let ok = 0
+    let tree = n_sub(n_int(0), n_div(n_int(136), n_mul(n_var(6), n_var(6))))
+    let n = 1
+    for n <= 6
+        let classical = gf_neg(gf_div(136, n * n % P))
+        let fractal = collapse(tree, inject([], 6, n))
+        let field = gf_neg(inverse_square(136, n))
+        if classical == fractal
+            if classical == field
+        n = n + 1
+    ok
+
+let law_rydberg() =
+    let ok = 0
+    let n1 = 1
+    for n1 <= 3
+        let n2 = n1 + 1
+        for n2 <= 5
+            let classical = (gf_div(136, n1 * n1 % P) + P - gf_div(136, n2 * n2 % P)) % P
+            let field = (inverse_square(136, n1) + P - inverse_square(136, n2)) % P
+            if classical == field
+                ok = ok + 1
+            n2 = n2 + 1
+        n1 = n1 + 1
+    ok
+
+let law_debroglie() =
+    let ok = 0
+    let tree = n_div(n_int(414), n_var(7))
+    let pv = 2
+    for pv <= 9
+        let classical = gf_div(414, pv)
+        let fractal = collapse(tree, inject([], 7, pv))
+        let field = field_eval(pole1(0, 414, 1), pv)
+        if classical == fractal
+            if classical == field
+        pv = pv + 1
+    ok
+
+let law_gas() =
+    let ok = 0
+    let c = 2 * 831 % P * 300 % P
+    let tree = n_div(n_int(c), n_var(8))
+    let v = 2
+    for v <= 10
+        let classical = gf_div(c, v)
+        let fractal = collapse(tree, inject([], 8, v))
+        let field = field_eval(pole1(0, c, 1), v)
+        if classical == fractal
+            if classical == field
+        v = v + 2
+    ok
+
+let isqrt(v) =
+    let i = 0
+    for i * i < v
+        i = i + 1
+    if i * i == v
+        i
+    0 - 1
+
+let law_kepler() =
+    let ok = 0
+    let tree = n_mul(n_int(4), n_mul(n_var(9), n_mul(n_var(9), n_var(9))))
+    let samples = [1, 4, 9]
+    let si = 0
+    for si < 3
+        let a = samples[si]
+        let t2_classical = 4 * (a * a % P) % P * a % P
+        let t2_fractal = collapse(tree, inject([], 9, a))
+        let t = isqrt(t2_classical)
+        if t2_classical == t2_fractal
+            if t > 0
+                if t * t == t2_classical
+                    ok = ok + 1
+        si = si + 1
+    ok
+
+let law_shm() =
+    let ok = 0
+    let tree = n_div(n_var(10), n_var(11))
+    let k = 200
+    let m = 8
+    let i = 0
+    for i < 3
+        let w2 = gf_div(k, m)
+        let w2_fractal = collapse(tree, inject(inject([], 10, k), 11, m))
+        let w = isqrt(w2)
+        if w2 == w2_fractal
+            if w > 0
+                if w * w == w2
+                else
+                    0
+        k = 50
+        m = 2
+        i = i + 1
+    ok
+
+let poly_mul(a, b, deg) =
+    let out = []
+    let i = 0
+    for i <= deg
+        out = arr_push(out, 0)
+        i = i + 1
+    let i = 0
+    for i < len(a)
+        let j = 0
+        for j < len(b)
+            if i + j <= deg
+                let old = out[i + j]
+                out[i + j] = (old + a[i] * b[j]) % P
+            j = j + 1
+        i = i + 1
+    out
+
+let poly_exp(sign, deg) =
+    let out = [1]
+    let term = 1
+    let k = 1
+    for k <= deg
+        term = term * sign % P
+        let coeff = gf_div(term, fact(k))
+        out = arr_push(out, coeff)
+        k = k + 1
+    out
+
+let fact(n) =
+    let r = 1
+    let i = 2
+    for i <= n
+        r = r * i % P
+        i = i + 1
+    r
+
+let law_transcendental() =
+    let ok = 0
+    let deg = 10
+    let ex = poly_exp(1, deg)
+    let emx = poly_exp(P - 1, deg)
+    let prod = poly_mul(ex, emx, deg)
+    if prod[0] == 1
+        ok = ok + 1
+    let i = 1
+    let allzero = 1
+    for i <= deg
+        if prod[i] != 0
+            allzero = 0
+        i = i + 1
+    if allzero == 1
+        ok = ok + 1
+    ok
+
+let fib_iter(n) =
+    let a = 0
+    let b = 1
+    let i = 2
+    for i <= n
+        let c = (a + b) % P
+        a = b
+        b = c
+        i = i + 1
+    if n == 0
+        0
+    b
+
+let law_phyllotaxis() =
+    let ok = 0
+    if fib_iter(10) == 55
+        ok = ok + 1
+    if fib_iter(15) == 610
+        ok = ok + 1
+    if gf_euler(5) == P - 1
+        ok = ok + 1
+    if gf_euler(8) == 1
+        ok = ok + 1
+    ok
+
+let fractal_physics_verify() =
+    let ok = 0
+    let total = 0
+
+    total = total + 5
+    ok = ok + (law_planck() / 3)
+    ok = ok + (law_emc2() / 3)
+    ok = ok + (law_ohm() / 3)
+    ok = ok + (law_hooke() / 5)
+    ok = ok + (law_photo() / 5)
+
+    total = total + 6
+    ok = ok + (law_newton() / 6)
+    ok = ok + (law_coulomb() / 6)
+    ok = ok + (law_bohr() / 6)
+    ok = ok + (law_rydberg() / 9)
+    ok = ok + (law_debroglie() / 8)
+    ok = ok + (law_gas() / 5)
+
+    total = total + 2
+    ok = ok + (law_kepler() / 3)
+    ok = ok + (law_shm() / 3)
+
+    total = total + 1
+    ok = ok + (law_transcendental() / 2)
+
+    total = total + 1
+    ok = ok + (law_phyllotaxis() / 4)
+
+    ok * 10000 + total
+
+let main() = fractal_physics_verify()

@@ -1,0 +1,71 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let seqLen = 8
+let s0 = 1
+let s1 = 0
+let s2 = 0
+let s3 = 1
+let s4 = 1
+let s5 = 0
+let s6 = 1
+let s7 = 1
+
+let nH = s0 + s3 + s4 + s6 + s7
+if nH != 5
+    bad[0] = bad[0] + 1
+
+let x3 = 1
+let y3 = 2
+let x6 = 1
+let y6 = 3
+let dx36 = x6 - x3
+    let dy36 = y6 - y3
+    let dist36 = dx36 + dy36
+
+let nContacts = 2
+let energy = 0 - nContacts
+
+let unfoldedE = 0
+if unfoldedE != 0
+    bad[0] = bad[0] + 1
+
+let foldGain = energy - unfoldedE
+bad[0] = bad[0] + ck_hi(foldGain, 0)
+
+let hpContact = 0
+if hpContact != 0
+    bad[0] = bad[0] + 1
+
+let ppContact = 0
+if ppContact != 0
+    bad[0] = bad[0] + 1
+
+let hhE = 0 - 1
+bad[0] = bad[0] + ck_hi(hhE, hpContact)
+
+let foldE = 0 - 2
+bad[0] = bad[0] + ck_hi(foldE, 0)
+
+let totalE = 0 - 2
+bad[0] = bad[0] + ck_hi(totalE, 0)
+
+let sawValid = 1
+if sawValid != 1
+    bad[0] = bad[0] + 1
+
+let maxHH = 6
+bad[0] = bad[0] + ck_lo(maxHH, 5)
+
+let coreFrac = 60
+bad[0] = bad[0] + ck(coreFrac, 50, 80)
+
+let ePerRes = 0 - 25
+bad[0] = bad[0] + ck_hi(ePerRes, 0)
+
+let contactOrder = small_div(5, 2)
+bad[0] = bad[0] + ck_hi(contactOrder, 4)
+
+arr_get(arr_new_n(1), bad[0])

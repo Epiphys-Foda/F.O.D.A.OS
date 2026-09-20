@@ -1,0 +1,38 @@
+import "ck.ψ"
+let bad = [0]
+
+let n_in = 3
+let n_out = 2
+let dz1 = n_out * 3 - n_in * 2
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let cl_before = 1
+let cl_after = 1
+let dz2 = cl_after - cl_before
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let atoms_in = 3 + 1
+let atoms_out = 2 * 2
+let dz3 = atoms_in - atoms_out
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let kills = 100000
+bad[0] = bad[0] + ck(kills, 50000, 150000)
+
+let d_high = 300
+let d_low = 180
+let loss = d_high - d_low
+let dz4 = loss * 100 - 40 * d_high
+bad[0] = bad[0] + ck(dz4, 0, 0)
+bad[0] = bad[0] + ck(d_low, 160, 200)
+
+let y_disc = 1985
+let y_treaty = 1987
+let y_nobel = 1995
+let y_heal = 2066
+bad[0] = bad[0] + ck(y_disc, 1983, 1987)
+bad[0] = bad[0] + ck_lo(y_treaty, y_disc)
+bad[0] = bad[0] + ck_lo(y_nobel, y_treaty)
+bad[0] = bad[0] + ck(y_heal, 2050, 2080)
+
+arr_get(arr_new_n(1), bad[0])

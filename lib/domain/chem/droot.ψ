@@ -1,0 +1,33 @@
+import "ck.ψ"
+let bad = [0]
+
+let dsum = 1 + 2 + 3 + 4 + 5
+let dz1 = dsum - 15
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let droot = 1 + 5
+let dz2 = droot - 6
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let m9 = 12345 - 12345 / 9 * 9
+let dz3 = m9 - 6
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let add_a = 3
+let add_b = 7
+let add_sum = add_a + add_b
+let add_root = add_sum - 10 + 1
+let dz4 = add_root - 1
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let mul_prod = add_a * add_b
+let mul_dr = mul_prod - mul_prod / 9 * 9
+let dz5 = mul_dr - 3
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+if 800 < 780
+    bad[0] = bad[0] + 1
+if 800 > 820
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

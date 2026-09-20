@@ -1,0 +1,168 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let field_gradient(r, n, k) =
+    (2 * r[k]) % 65537
+
+let field_gradient_descent(r, n, eta, out) =
+    let i = 0
+    for i < n
+        let grad = field_gradient(r, n, i)
+        let new_r = (r[i] + 65537 - eta * grad) % 65537
+        out[i] = new_r
+        i = i + 1
+
+let field_global_solve(init, n, eta, max_steps, out) =
+    let cur = arr_new_n(n)
+    let i = 0
+    for i < n
+        cur[i] = init[i]
+        i = i + 1
+    let steps = 0
+    let prev_energy = field_energy(cur, n)
+    for steps < max_steps
+        let next = arr_new_n(n)
+        field_gradient_descent(cur, n, eta, next)
+        let new_energy = field_energy(next, n)
+        if new_energy == prev_energy
+            steps = max_steps
+        else
+            prev_energy = new_energy
+        let j = 0
+        for j < n
+            cur[j] = next[j]
+            j = j + 1
+        steps = steps + 1
+    let k = 0
+    for k < n
+        out[k] = cur[k]
+        k = k + 1
+    prev_energy
+
+let residue_theorem_solve(poles, residues, n) =
+    let sum = 0
+    let i = 0
+    for i < n
+        sum = (sum + residues[i]) % 65537
+        i = i + 1
+    sum
+
+let sat_to_field(clauses, var_vals, n_clauses, n_vars, poles, residues) =
+    let i = 0
+    for i < n_clauses
+        poles[i] = 300 + i * 100
+        let clause_energy = 0
+        let j = 0
+        for j < n_vars
+            let v = var_vals[j]
+            clause_energy = (clause_energy + v * v) % 65537
+            j = j + 1
+        residues[i] = clause_energy
+        i = i + 1
+
+let main() =
+    print(111)
+    let n = 4
+    let init = arr_new_n(n)
+    init[0] = 100
+    init[1] = 200
+    init[2] = 300
+    init[3] = 400
+    let e_init = field_energy(init, n)
+    print(e_init)
+
+    let opt = arr_new_n(n)
+    let e_opt = field_global_solve(init, n, 1, 100, opt)
+    print(e_opt)
+    let i = 0
+    for i < n
+        print(opt[i])
+        i = i + 1
+
+    print(222)
+    let eta = 1
+    for eta <= 5
+        let o = arr_new_n(n)
+        let e = field_global_solve(init, n, eta, 100, o)
+        print(e)
+        eta = eta + 1
+
+    print(333)
+    let poles = arr_new_n(n)
+    poles[0] = 127
+    poles[1] = 1127
+    poles[2] = 2101
+    poles[3] = 3107
+    let residues = arr_new_n(n)
+    residues[0] = 10
+    residues[1] = 20
+    residues[2] = 30
+    residues[3] = 40
+    let global_sol = residue_theorem_solve(poles, residues, n)
+    print(global_sol)
+
+    print(444)
+    let n_clauses = 3
+    let n_vars = 4
+    let clauses = arr_new_n(n_clauses)
+    clauses[0] = 1
+    clauses[1] = 2
+    clauses[2] = 3
+    let var_vals = arr_new_n(n_vars)
+    var_vals[0] = 1
+    var_vals[1] = 0
+    var_vals[2] = 1
+    var_vals[3] = 1
+    let sat_poles = arr_new_n(n_clauses)
+    let sat_residues = arr_new_n(n_clauses)
+    sat_to_field(clauses, var_vals, n_clauses, n_vars, sat_poles, sat_residues)
+    let sat_sol = residue_theorem_solve(sat_poles, sat_residues, n_clauses)
+    print(sat_sol)
+    let j = 0
+    for j < n_clauses
+        print(sat_poles[j])
+        print(sat_residues[j])
+        j = j + 1
+
+    print(555)
+    let cur = arr_new_n(n)
+    let k = 0
+    for k < n
+        cur[k] = init[k]
+        k = k + 1
+    let step = 0
+    for step < 5
+        let e = field_energy(cur, n)
+        print(e)
+        let next = arr_new_n(n)
+        field_gradient_descent(cur, n, 1, next)
+        let m = 0
+        for m < n
+            cur[m] = next[m]
+            m = m + 1
+        step = step + 1
+
+    print(666)
+    let cur6 = arr_new_n(n)
+    let p = 0
+    for p < n
+        cur6[p] = 50 + p * 100
+        p = p + 1
+    let monotone = 1
+    let prev_e = field_energy(cur6, n)
+    let s = 0
+    for s < 10
+        let next6 = arr_new_n(n)
+        field_gradient_descent(cur6, n, 1, next6)
+        let new_e = field_energy(next6, n)
+        if new_e > prev_e
+            monotone = 0
+        prev_e = new_e
+        let q = 0
+        for q < n
+            cur6[q] = next6[q]
+            q = q + 1
+        s = s + 1
+    print(monotone)
+    print(prev_e)
+
+    e_opt

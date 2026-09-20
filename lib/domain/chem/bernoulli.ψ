@@ -1,0 +1,28 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let q = small_div(129 * 40 * 40, 200)
+bad[0] = bad[0] + ck(q, 950, 1100)
+
+let f_roof = small_div(q * 100, 1000)
+bad[0] = bad[0] + ck(f_roof, 95, 110)
+
+let v_jet = isqrt(2 * 9810 * 500 / 1000)
+bad[0] = bad[0] + ck(v_jet, 95, 103)
+
+if 2 * v_jet < 198
+    bad[0] = bad[0] + 1
+
+let lift = small_div(129 * 900 * 162, 2000)
+bad[0] = bad[0] + ck(lift, 9000, 10000)
+
+bad[0] = bad[0] + ck_lo(lift, 9000)
+
+if 1738 < 1736
+    bad[0] = bad[0] + 1
+if 1738 > 1740
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

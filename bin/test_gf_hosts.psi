@@ -1,0 +1,28 @@
+let s = gf_sqrt(2)
+let q = gf_div(57, 3)
+let half = gf_div(1, 2)
+let r = str_replace("hello world", "world", "there")
+let parts = str_split("a-b-c", "-")
+let j = str_join(parts, "+")
+let rp = str_repeat("ab", 3)
+let d0 = arr_new_n(3)
+let cz = cert_zero(d0)
+d0[1] = 5
+let cz2 = cert_zero(d0)
+let c = arr_new_n(3)
+c[0] = 1
+c[1] = 2
+c[2] = 3
+let pe = poly_eval(c, 3)
+let mn = mod_norm(0 - 5, 65537)
+print(s)
+print(q)
+print(half)
+print(len(r))
+print(len(j))
+print(len(rp))
+print(cz)
+print(cz2)
+print(pe)
+print(mn)
+return (s - 4080) + (q - 19) + (half - 32769) + (gf_mul(s, s) - 2) + (gf_sqrt(65536) - 256) + (len(r) - 11) + (len(j) - 5) + (len(rp) - 6) + cz + (cz2 - 25) + (pe - 34) + (mn - 65532)

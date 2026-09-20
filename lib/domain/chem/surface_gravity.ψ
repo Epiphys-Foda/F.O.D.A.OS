@@ -1,0 +1,24 @@
+import "ck.ψ"
+let bad = [0]
+
+let gS = 2743
+bad[0] = bad[0] + ck(gS, 2700, 2790)
+
+let gE = 982
+bad[0] = bad[0] + ck(gE, 970, 995)
+
+let gM = 16
+bad[0] = bad[0] + ck(gM, 15, 18)
+
+let gMa = 37
+bad[0] = bad[0] + ck(gMa, 35, 40)
+
+let gJ = 259
+bad[0] = bad[0] + ck(gJ, 250, 270)
+
+bad[0] = bad[0] + ck_lo(gS, gJ)
+
+if 16 * 6 > 982
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

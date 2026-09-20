@@ -1,0 +1,241 @@
+import "../domain_field.ψ"
+
+let SE_P = 65537
+let SE_RETRY_DEFAULT = 3000
+let SE_RETRY_MIN = 1000
+let SE_RETRY_MAX = 30000
+let SE_MAX_CONNECTIONS = 1024
+let SE_MAX_EVENTS = 65536
+let SE_MAX_TOPICS_PER_CONN = 64
+
+let SE_STATE_CONNECTING = 1
+let SE_STATE_OPEN = 2
+let SE_STATE_CLOSED = 3
+let SE_STATE_RECONNECTING = 4
+
+let se_event_new(id, event_type, data, retry_ms, ts) =
+    [id, event_type, data, retry_ms, ts]
+
+let se_evid(e) = e[0]
+let se_evtype(e) = e[1]
+let se_evdata(e) = e[2]
+let se_evretry(e) = e[3]
+let se_evts(e) = e[4]
+
+let se_conn_new(conn_id, client_id, last_event_id, opened_at) =
+    [conn_id, client_id, last_event_id, [], SE_STATE_CONNECTING, opened_at, []]
+
+let se_c_id(c) = c[0]
+let se_c_client(c) = c[1]
+let se_c_last(c) = c[2]
+let se_c_topics(c) = c[3]
+let se_c_state(c) = c[4]
+let se_c_opened(c) = c[5]
+let se_c_log(c) = c[6]
+
+let se_default_broker() =
+    [{}, [], 1, 0, []]
+
+let se_b_conns(b) = b[0]
+let se_b_events(b) = b[1]
+let se_b_next_id(b) = b[2]
+let se_b_total(b) = b[3]
+let se_b_log(b) = b[4]
+
+let se_open(broker, conn_id, client_id, last_event_id, ts) =
+    let conns = se_b_conns(broker)
+    if len(conns) >= SE_MAX_CONNECTIONS
+        broker
+    else
+        let conn = se_conn_new(conn_id, client_id, last_event_id, ts)
+        conn[4] = SE_STATE_OPEN
+        conns[conn_id] = conn
+        se_b_log(broker).push(["open", conn_id, client_id, last_event_id])
+        broker
+
+let se_topic_in(topics_buf, topic) =
+    let found = 0
+    let i = 0
+    let n = len(topics_buf)
+    for i < n
+        if topics_buf[i] == topic
+            found = 1
+        i = i + 1
+    found
+
+let se_subscribe(broker, conn_id, topic, ts) =
+    let conns = se_b_conns(broker)
+    let conn = conns[conn_id]
+    if conn != 0
+        let topics = se_c_topics(conn)
+        if len(topics) < SE_MAX_TOPICS_PER_CONN
+            if se_topic_in(topics, topic) == 0
+                topics.push(topic)
+                se_c_log(conn).push(["subscribe", topic, ts])
+        conns[conn_id] = conn
+    broker
+
+let se_unsubscribe(broker, conn_id, topic, ts) =
+    let conns = se_b_conns(broker)
+    let conn = conns[conn_id]
+    if conn != 0
+        let topics = se_c_topics(conn)
+        let new_topics = []
+        let i = 0
+        let n = len(topics)
+        for i < n
+            if topics[i] != topic
+                new_topics.push(topics[i])
+            i = i + 1
+        conn[3] = new_topics
+        se_c_log(conn).push(["unsubscribe", topic, ts])
+        conns[conn_id] = conn
+    broker
+
+let se_publish(broker, topic, event_type, data, ts) =
+    let events = se_b_events(broker)
+    if len(events) >= SE_MAX_EVENTS
+        events.shift()
+    let eid = se_b_next_id(broker)
+    let ev = se_event_new(eid, event_type, data, SE_RETRY_DEFAULT, ts)
+    events.push(ev)
+    broker[2] = eid + 1
+    let conns = se_b_conns(broker)
+    let keys = keys_of(conns)
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let cid = keys[i]
+        let conn = conns[cid]
+        if conn != 0
+            if se_c_state(conn) == SE_STATE_OPEN
+                let topics = se_c_topics(conn)
+                if se_topic_in(topics, topic) == 1
+                    conn[2] = eid
+                    se_c_log(conn).push(["recv", eid, topic, event_type])
+                    conns[cid] = conn
+                    broker[3] = se_b_total(broker) + 1
+        i = i + 1
+    se_b_log(broker).push(["publish", eid, topic, event_type])
+    broker
+
+let se_close(broker, conn_id, reason, ts) =
+    let conns = se_b_conns(broker)
+    let conn = conns[conn_id]
+    if conn != 0
+        conn[4] = SE_STATE_CLOSED
+        se_c_log(conn).push(["close", reason, ts])
+        conns[conn_id] = conn
+        se_b_log(broker).push(["close", conn_id, reason])
+    broker
+
+let se_reconnect(broker, conn_id, last_event_id, ts) =
+    let conns = se_b_conns(broker)
+    let conn = conns[conn_id]
+    if conn != 0
+        conn[4] = SE_STATE_RECONNECTING
+        let events = se_b_events(broker)
+        let i = 0
+        let n = len(events)
+        for i < n
+            let ev = events[i]
+            if ev[0] > last_event_id
+                let topics = se_c_topics(conn)
+                if se_topic_in(topics, ev[1]) == 1
+                    conn[2] = ev[0]
+            i = i + 1
+        conn[4] = SE_STATE_OPEN
+        se_c_log(conn).push(["reconnect", last_event_id, ts])
+        conns[conn_id] = conn
+        se_b_log(broker).push(["reconnect", conn_id, last_event_id])
+    broker
+
+let se_set_retry(broker, conn_id, retry_ms) =
+    let conns = se_b_conns(broker)
+    let conn = conns[conn_id]
+    if conn != 0
+        let r = retry_ms
+        if r < SE_RETRY_MIN
+            r = SE_RETRY_MIN
+        if r > SE_RETRY_MAX
+            r = SE_RETRY_MAX
+        se_c_log(conn).push(["set_retry", r])
+        conns[conn_id] = conn
+    broker
+
+let se_apply_op(broker, op) =
+    let op_name = op[0]
+    if op_name == "open"
+        se_open(broker, op[1], op[2], op[3], op[4])
+    else
+        0
+    if op_name == "subscribe"
+        se_subscribe(broker, op[1], op[2], op[3])
+    else
+        0
+    if op_name == "unsubscribe"
+        se_unsubscribe(broker, op[1], op[2], op[3])
+    else
+        0
+    if op_name == "publish"
+        se_publish(broker, op[1], op[2], op[3], op[4])
+    else
+        0
+    if op_name == "close"
+        se_close(broker, op[1], op[2], op[3])
+    else
+        0
+    if op_name == "reconnect"
+        se_reconnect(broker, op[1], op[2], op[3])
+    broker
+
+let se_state_signature(broker) =
+    let conns = se_b_conns(broker)
+    let ccount = len(keys_of(conns))
+    let ecount = len(se_b_events(broker))
+    let next_id = se_b_next_id(broker)
+    let total = se_b_total(broker)
+    let lcount = len(se_b_log(broker))
+    [ccount, ecount, next_id, total, lcount]
+
+let se_bragg_verify(broker, ops_seq) =
+    let b1 = se_default_broker()
+    let b2 = se_default_broker()
+    let i = 0
+    let n = len(ops_seq)
+    for i < n
+        let op = ops_seq[i]
+        se_apply_op(b1, op)
+        se_apply_op(b2, op)
+        i = i + 1
+    let d1 = se_state_signature(b1)
+    let r1 = se_state_signature(b2)
+    if d1[0] == r1[0]
+        if d1[1] == r1[1]
+            if d1[2] == r1[2]
+                if d1[3] == r1[3]
+                    if d1[4] == r1[4]
+                        1
+                    else
+                        0
+                else
+                    0
+            else
+                0
+        else
+            0
+    else
+        0
+
+let se_gf_mod(x) = domain_gf_mod(x)
+let se_gf_inv(a) = domain_gf_inv(a)
+let se_field_encode(items, n) =
+    let records = []
+    let _i = 0
+    for _i < n
+        records.push([items[_i], items[_i]])
+        _i = _i + 1
+    domain_field_encode(records, n, 256, 1)
+
+let se_field_eval(poles, residues, z) = domain_field_eval(poles, residues, z)
+let se_field_bragg_verify(current, replay) = domain_bragg_verify(current[0], current[1], replay[0], replay[1])

@@ -1,0 +1,37 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+let e6 = 1000000
+let e8 = e6 * 100
+let e9 = e6 * 1000
+let e12 = e6 * e6
+let e15 = e12 * 1000
+let e20 = e12 * e8
+
+let NUMg = 2953 * 299792 * 299792 * e6
+let DENg = 3978 * e15
+if 6670 * DENg > NUMg * 100
+    bad[0] = bad[0] + 1
+if NUMg * 100 > 6678 * DENg
+    bad[0] = bad[0] + 1
+
+let ve2 = 11186 * 11186
+let GMaud = ve2 * 6371 * 500
+if 398500 * e9 > GMaud
+    bad[0] = bad[0] + 1
+if GMaud > 398700 * e9
+    bad[0] = bad[0] + 1
+
+let lhs3 = 299792 * 299792 * 299792 * e9
+let rhs3 = 269439 * e20
+let cdiff = rhs3 - lhs3
+bad[0] = bad[0] + ck(cdiff, 0, e20)
+
+let hcA = 6283 * 197327 / e6
+bad[0] = bad[0] + ck(hcA, 1239, 1241)
+
+let re100 = 19732700 / (137 * 511)
+bad[0] = bad[0] + ck(re100, 280, 284)
+
+arr_get(arr_new_n(1), bad[0])

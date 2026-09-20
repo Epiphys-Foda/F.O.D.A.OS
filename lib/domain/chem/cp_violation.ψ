@@ -1,0 +1,27 @@
+import "ck.ψ"
+let bad = [0]
+
+let ks = 1
+let kl = 0 - 1
+let sum = ks + kl
+bad[0] = bad[0] + ck(sum, 0, 0)
+
+let rate = 2
+bad[0] = bad[0] + ck(rate, 1, 3)
+
+let cond = 3
+bad[0] = bad[0] + ck_lo(cond, 3)
+
+let gen = 3
+bad[0] = bad[0] + ck_lo(gen, 3)
+
+if 1964 < 1962
+    bad[0] = bad[0] + 1
+if 1964 > 1966
+    bad[0] = bad[0] + 1
+if 1980 < 1978
+    bad[0] = bad[0] + 1
+if 1980 > 1982
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

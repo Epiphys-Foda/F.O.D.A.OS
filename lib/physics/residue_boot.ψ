@@ -1,0 +1,69 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let residue_energy(arr, n) =
+    let energy = 0
+    let i = 0
+    for i < n
+        let v = arr[i]
+        energy = energy + v * v
+        i = i + 1
+    energy
+
+let poly_eval(coeffs, n, x) =
+    let result = 0
+    let i = n - 1
+    for i >= 0
+        result = result * x + coeffs[i]
+        i = i - 1
+    result
+
+let find_roots(coeffs, n) =
+    let roots = arr_new()
+    let x = 0
+    for x < 65537
+        if poly_eval(coeffs, n, x) == 0
+            roots = arr_push(roots, x)
+            if len(roots) >= 8
+                x = 65537
+        x = x + 1
+    roots
+
+let main() =
+    let wasm = arr_new_n(8)
+    wasm[0] = 65
+    wasm[1] = 42
+    wasm[2] = 65
+    wasm[3] = 58
+    wasm[4] = 106
+    wasm[5] = 65
+    wasm[6] = 0
+    wasm[7] = 70
+
+    let e1 = residue_energy(wasm, 8)
+    print(e1)
+
+    let inv256 = gf_inv(256)
+    let check = 256 * inv256
+    print(inv256)
+    print(check)
+
+    let poly_i = poly_eval(wasm, 8, 256)
+    print(poly_i)
+
+    let poly_sqrt2 = poly_eval(wasm, 8, 4080)
+    print(poly_sqrt2)
+
+    let poly_g = poly_eval(wasm, 8, 3)
+    print(poly_g)
+
+    let autocorr = 0
+    let i = 0
+    for i < 8
+        autocorr = autocorr + wasm[i]
+        i = i + 1
+    print(autocorr)
+
+    let energy_mod = e1 % 65537
+    print(energy_mod)
+
+    poly_i

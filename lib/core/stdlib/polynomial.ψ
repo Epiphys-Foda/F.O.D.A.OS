@@ -1,0 +1,230 @@
+let poly_degree(p) =
+    let n = p.len()
+    let i = n - 1
+    for i >= 0 && p[i] == 0
+        i = i - 1
+    i
+
+let poly_add(a, b) =
+    let na = a.len()
+    let nb = b.len()
+    let n = na
+    if nb > n
+        n = nb
+    let result = arr_new()
+    let i = 0
+    for i < n
+        let coeff = 0
+        if i < na
+            coeff = coeff + a[i]
+        if i < nb
+            coeff = coeff + b[i]
+        result = arr_push(result, coeff)
+        i = i + 1
+    result
+
+let poly_sub(a, b) =
+    let na = a.len()
+    let nb = b.len()
+    let n = na
+    if nb > n
+        n = nb
+    let result = arr_new()
+    let i = 0
+    for i < n
+        let coeff = 0
+        if i < na
+            coeff = coeff + a[i]
+        if i < nb
+            coeff = coeff - b[i]
+        result = arr_push(result, coeff)
+        i = i + 1
+    result
+
+let poly_mul(a, b) =
+    let na = a.len()
+    let nb = b.len()
+    let n = na + nb - 1
+    let result = arr_new_n(n)
+    let i = 0
+    for i < na
+        let j = 0
+        for j < nb
+            result[i + j] = result[i + j] + a[i] * b[j]
+            j = j + 1
+        i = i + 1
+    result
+
+let poly_scale(p, s) =
+    let n = p.len()
+    let result = arr_new()
+    let i = 0
+    for i < n
+        result = arr_push(result, p[i] * s)
+        i = i + 1
+    result
+
+let poly_eval(p, x) =
+    let n = p.len()
+    let result = 0
+    let i = n - 1
+    for i >= 0
+        result = result * x + p[i]
+        i = i - 1
+    result
+
+let poly_derivative(p) =
+    let n = p.len()
+    if n <= 1
+        return arr_new()
+    let result = arr_new()
+    let i = 1
+    for i < n
+        result = arr_push(result, i * p[i])
+        i = i + 1
+    result
+
+let poly_integral(p) =
+    let n = p.len()
+    let result = arr_new()
+    result = arr_push(result, 0)
+    let i = 0
+    for i < n
+        result = arr_push(result, p[i] / (i + 1))
+        i = i + 1
+    result
+
+let poly_divmod(a, b) =
+    let da = poly_degree(a)
+    let db = poly_degree(b)
+    if db < 0
+        return arr_new()
+    if da < db
+        let result = arr_new()
+        result = arr_push(result, arr_new())
+        result = arr_push(result, a)
+        return result
+    let qsize = da - db + 1
+    let quotient = arr_new_n(qsize)
+    let rem = arr_new()
+    let i = 0
+    let alen = a.len()
+    for i < alen
+        rem = arr_push(rem, a[i])
+        i = i + 1
+    let lead_b = b[db]
+    let i = da
+    for i >= db
+        let coeff = rem[i] / lead_b
+        quotient[i - db] = coeff
+        let j = 0
+        for j <= db
+            rem[i - db + j] = rem[i - db + j] - coeff * b[j]
+            j = j + 1
+        i = i - 1
+    let result = arr_new()
+    result = arr_push(result, quotient)
+    result = arr_push(result, rem)
+    result
+
+let poly_gcd(a, b) =
+    let da = poly_degree(a)
+    let db = poly_degree(b)
+    if db < 0
+        return a
+    if da < 0
+        return b
+    let divmod = poly_divmod(a, b)
+    let rem = divmod[1]
+    if poly_degree(rem) < 0
+        return b
+    poly_gcd(b, rem)
+
+let poly_compose(p, q) =
+    let n = p.len()
+    let result = arr_new()
+    result = arr_push(result, 0)
+    let i = n - 1
+    for i >= 0
+        result = poly_add(poly_mul(result, q), arr_new())
+        let constant = arr_new()
+        constant = arr_push(constant, p[i])
+        result = poly_add(result, constant)
+        i = i - 1
+    result
+
+let poly_lagrange(xs, ys) =
+    let n = xs.len()
+    let result = arr_new()
+    result = arr_push(result, 0)
+    let i = 0
+    for i < n
+        let basis = arr_new()
+        basis = arr_push(basis, 1)
+        let denom = 1
+        let j = 0
+        for j < n
+            if j != i
+                let factor = arr_new()
+                factor = arr_push(factor, 0 - xs[j])
+                factor = arr_push(factor, 1)
+                basis = poly_mul(basis, factor)
+                denom = denom * (xs[i] - xs[j])
+            j = j + 1
+        if denom != 0
+            basis = poly_scale(basis, ys[i] / denom)
+        result = poly_add(result, basis)
+        i = i + 1
+    result
+
+let poly_from_roots(roots) =
+    let result = arr_new()
+    result = arr_push(result, 1)
+    let i = 0
+    let n = roots.len()
+    for i < n
+        let factor = arr_new()
+        factor = arr_push(factor, 0 - roots[i])
+        factor = arr_push(factor, 1)
+        result = poly_mul(result, factor)
+        i = i + 1
+    result
+
+let poly_normalize(p) =
+    let d = poly_degree(p)
+    if d < 0
+        return arr_new()
+    let result = arr_new()
+    let i = 0
+    for i <= d
+        result = arr_push(result, p[i])
+        i = i + 1
+    result
+
+let poly_is_zero(p) =
+    poly_degree(p) < 0
+
+let poly_make_monic(p) =
+    let d = poly_degree(p)
+    if d < 0
+        return p
+    let lead = p[d]
+    if lead == 0
+        return p
+    let result = arr_new()
+    let i = 0
+    for i <= d
+        result = arr_push(result, p[i] / lead)
+        i = i + 1
+    result
+
+let main() =
+    let p = arr_new()
+    p = arr_push(p, 1)
+    p = arr_push(p, 2)
+    p = arr_push(p, 3)
+    print(poly_eval(p, 2))
+    let dp = poly_derivative(p)
+    print(dp[0])
+    print(dp[1])
+    0

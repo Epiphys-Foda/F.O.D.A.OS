@@ -1,0 +1,640 @@
+let P = 65537
+
+let OP_ADD = 1
+let OP_SUB = 2
+let OP_MUL = 3
+let OP_INV = 4
+let OP_DIV = 5
+let OP_POW = 6
+let OP_NEG = 7
+let OP_EQ  = 8
+let OP_LT  = 9
+
+let OP_PRIME_MAKE = 10
+let OP_PRIME_Z    = 11
+let OP_PRIME_R    = 12
+let OP_PRIME_N    = 13
+
+let OP_FIELD_EVAL   = 20
+let OP_FIELD_ADD    = 21
+let OP_FIELD_MUL    = 22
+let OP_FIELD_DIFF   = 23
+let OP_FIELD_INT    = 24
+let OP_FIELD_EQUAL  = 27
+
+let OP_RECUR_K      = 30
+let OP_FIXED_POINT  = 32
+
+let OP_LEX    = 40
+let OP_PARSE  = 41
+let OP_CODEGEN = 42
+let OP_COMPILE = 43
+
+let OP_GCD       = 50
+let OP_IS_PRIME  = 54
+
+let OP_FIB       = 70
+let OP_TRIBONACCI = 71
+
+let OP_OPLUS  = 100
+let OP_ODOT   = 101
+let OP_COMPOSE = 102
+let OP_NTT    = 103
+let OP_BORN   = 104
+let OP_HEBBIAN = 105
+
+let bit_alg_add(a, b) = (a + b) % P
+let bit_alg_sub(a, b) = (a + P - b % P) % P
+let bit_alg_neg(a) = (P - a % P) % P
+let bit_alg_mul(a, b) =
+    let result = 0
+    let aa = a % P
+    let bb = b % P
+    for bb > 0
+        if bb % 2 == 1
+            result = (result + aa) % P
+        aa = (aa + aa) % P
+        bb = bb / 2
+    result
+
+let bit_alg_pow(base, exp) =
+    let r = 1
+    let b = base % P
+    let e = exp
+    for e > 0
+        if e % 2 == 1
+            r = bit_alg_mul(r, b)
+        b = bit_alg_mul(b, b)
+        e = e / 2
+    r
+
+let bit_alg_inv(a) =
+    (a == 0 ? 0 : bit_alg_pow(a, P - 2))
+
+let bit_alg_div(a, b) = bit_alg_mul(a, bit_alg_inv(b))
+
+let field_eval_impl(field, z0) =
+    let total = 0
+    let i = 0
+    for i < len(field)
+        let p = field[i]
+        let dz = bit_alg_sub(z0, p[0])
+        if dz == 0
+            total = (total + p[1]) % P
+        if dz != 0
+            let inv_dz = bit_alg_inv(dz)
+            let inv_dz_n = bit_alg_pow(inv_dz, p[2])
+            total = (total + bit_alg_mul(p[1], inv_dz_n)) % P
+        i = i + 1
+    total
+
+let field_diff_impl(field) =
+    let out = []
+    let i = 0
+    for i < len(field)
+        let p = field[i]
+        let order = p[2]
+        if order < 1
+            order = 1
+        let new_r = bit_alg_mul(p[1], bit_alg_neg(order))
+        out.push([p[0], new_r, order + 1])
+        i = i + 1
+    out
+
+let field_int_impl(field) =
+    let out = []
+    let i = 0
+    for i < len(field)
+        let p = field[i]
+        if p[2] > 1
+            let new_r = bit_alg_div(p[1], bit_alg_neg(p[2] - 1))
+            out.push([p[0], new_r, p[2] - 1])
+        i = i + 1
+    out
+
+let field_equal_impl(f1, f2) =
+    let ok = 1
+    if len(f1) != len(f2)
+        ok = 0
+    let i = 0
+    for i < len(f1)
+        if i < len(f2)
+            if f1[i][0] != f2[i][0]
+                ok = 0
+            if f1[i][1] != f2[i][1]
+                ok = 0
+            if f1[i][2] != f2[i][2]
+                ok = 0
+        i = i + 1
+    ok
+
+let recur_k_impl(coeffs, init, n) =
+    let k = len(coeffs)
+    if n < k
+        init[n]
+    else
+        let state = []
+        let i = 0
+        for i < k
+            state.push(init[i])
+            i = i + 1
+        let j = k
+        for j <= n
+            let next = 0
+            let c = 0
+            for c < k
+                next = (next + coeffs[c] * state[k - 1 - c]) % P
+                c = c + 1
+            let s = 1
+            for s < k
+                state[s - 1] = state[s]
+                s = s + 1
+            state[k - 1] = next
+            j = j + 1
+        state[k - 1]
+
+let gcd_impl(a, b) =
+    let x = a
+    let y = b
+    for y != 0
+        let t = x % y
+        x = y
+        y = t
+    x
+
+let is_prime_impl(n) =
+    if n < 2
+        0
+    else
+        if n == 2
+            1
+        else
+            if n % 2 == 0
+                0
+            else
+                let r = 1
+                let i = 3
+                for i * i <= n
+                    if n % i == 0
+                        r = 0
+                    i = i + 2
+                r
+
+let alu(z, r) =
+    if z == OP_ADD
+        bit_alg_add(r[0], r[1])
+    else
+        0
+    if z == OP_SUB
+        bit_alg_sub(r[0], r[1])
+    else
+        0
+    if z == OP_MUL
+        bit_alg_mul(r[0], r[1])
+    else
+        0
+    if z == OP_INV
+        bit_alg_inv(r[0])
+    else
+        0
+    if z == OP_DIV
+        bit_alg_div(r[0], r[1])
+    else
+        0
+    if z == OP_POW
+        bit_alg_pow(r[0], r[1])
+    else
+        0
+    if z == OP_NEG
+        bit_alg_neg(r[0])
+    else
+        0
+    if z == OP_EQ
+        (r[0] == r[1] ? 1 : 0)
+    else
+        0
+    if z == OP_LT
+        (r[0] < r[1] ? 1 : 0)
+    else
+        0
+    if z == OP_PRIME_MAKE
+        [r[0], r[1], r[2]]
+    else
+        0
+    if z == OP_PRIME_Z
+        r[0][0]
+    else
+        0
+    if z == OP_PRIME_R
+        r[0][1]
+    else
+        0
+    if z == OP_PRIME_N
+        r[0][2]
+    else
+        0
+    if z == OP_FIELD_EVAL
+        field_eval_impl(r[0], r[1])
+    else
+        0
+    if z == OP_FIELD_DIFF
+        field_diff_impl(r[0])
+    else
+        0
+    if z == OP_FIELD_INT
+        field_int_impl(r[0])
+    else
+        0
+    if z == OP_FIELD_EQUAL
+        field_equal_impl(r[0], r[1])
+    else
+        0
+    if z == OP_RECUR_K
+        recur_k_impl(r[0], r[1], r[2])
+    else
+        0
+    if z == OP_GCD
+        gcd_impl(r[0], r[1])
+    else
+        0
+    if z == OP_IS_PRIME
+        is_prime_impl(r[0])
+    else
+        0
+    if z == OP_FIB
+        recur_k_impl([1, 1], [0, 1], r[0])
+    else
+        0
+    if z == OP_TRIBONACCI
+        recur_k_impl([1, 1, 1], [0, 0, 1], r[0])
+    else
+        0
+    if z == OP_OPLUS
+        bit_alg_add(r[0], r[1])
+    else
+        0
+    if z == OP_ODOT
+        bit_alg_mul(r[0], r[1])
+    else
+        0
+    if z == OP_COMPOSE
+        bit_alg_mul(r[0], r[1])
+    else
+        0
+    if z == OP_NTT
+        r[0]
+    else
+        0
+    if z == OP_BORN
+        bit_alg_mul(r[0], r[0])
+    else
+        0
+    if z == OP_HEBBIAN
+        bit_alg_add(r[0], r[1])
+    else
+        0
+
+let residue_to_wasm(z) =
+    if z == OP_OPLUS
+        106
+    else
+        0
+    if z == OP_ODOT
+        108
+    else
+        0
+    if z == OP_COMPOSE
+        115
+    else
+        0
+    if z == OP_NTT
+        108
+    else
+        0
+    if z == OP_BORN
+        40
+    else
+        0
+    if z == OP_HEBBIAN
+        41
+    else
+        0
+    if z == OP_ADD
+        106
+    else
+        0
+    if z == OP_MUL
+        108
+    else
+        0
+
+let backend_native(z, args) = alu(z, args)
+
+let bit_wasm_dispatch(z, a, b) =
+    if z == OP_ADD
+        host_call(10, a, b)
+    else
+        0
+    if z == OP_SUB
+        host_call(11, a, b)
+    else
+        0
+    if z == OP_MUL
+        host_call(12, a, b)
+    else
+        0
+    if z == OP_INV
+        host_call(13, a, 0)
+    else
+        0
+    if z == OP_POW
+        host_call(14, a, b)
+    else
+        0
+    if z == OP_NEG
+        host_call(11, 0, a)
+    else
+        0
+    if z == OP_DIV
+        host_call(12, a, host_call(13, b, 0))
+    else
+        0
+    if z == OP_OPLUS
+        host_call(10, a, b)
+    else
+        0
+    if z == OP_ODOT
+        host_call(12, a, b)
+    else
+        0
+    if z == OP_COMPOSE
+        host_call(12, a, b)
+    else
+        0
+    if z == OP_BORN
+        host_call(12, a, a)
+    else
+        0
+    if z == OP_HEBBIAN
+        host_call(10, a, b)
+    else
+        0
+
+let backend_wasm(z, args) =
+    bit_wasm_dispatch(z, args[0], args[1])
+
+let alu_exec(z, args, backend) =
+    if backend == 0
+        backend_native(z, args)
+    else
+        0
+    if backend == 1
+        backend_wasm(z, args)
+    else
+        backend_native(z, args)
+
+let alu_execute_residue(entries) =
+    let stack = []
+    let i = 0
+    let n = len(entries)
+    let done = 0
+    let retval = 0
+    for i < n
+        let entry = entries[i]
+        let z = entry[0]
+        let r = entry[1]
+        let arity = entry[2]
+        if z == 0
+            stack.push(r)
+        else
+            0
+        if z == 2
+            stack.push(r)
+        else
+            0
+        if z == 3
+            stack.push(r)
+        else
+            0
+        if z == 5
+            let b = stack[len(stack) - 1]
+            stack.pop()
+            let a = stack[len(stack) - 1]
+            stack.pop()
+            if r == "+"
+                stack.push(bit_alg_add(a, b))
+            else
+                0
+            if r == "-"
+                stack.push(bit_alg_sub(a, b))
+            else
+                0
+            if r == "*"
+                stack.push(bit_alg_mul(a, b))
+            else
+                0
+            if r == "/"
+                stack.push(bit_alg_div(a, b))
+            else
+                stack.push(0)
+        else
+            0
+        if z == 6
+            if arity == 0
+                stack.push(0)
+            else
+                0
+            if arity == 1
+                let a = stack[len(stack) - 1]
+                stack.pop()
+                stack.push(alu(OP_NEG, [a]))
+            else
+                stack.push(0)
+        else
+            0
+        if z == 12
+            if len(stack) > 0
+                stack.pop()
+            else
+                0
+        if z == 24
+            if len(stack) > 0
+                retval = stack[len(stack) - 1]
+            done = 1
+            i = n
+        if done == 0
+            i = i + 1
+    if done == 1
+        retval
+    else
+        0
+    if len(stack) > 0
+        stack[len(stack) - 1]
+    else
+        0
+
+let alu_bragg_verify(z, args) =
+    let native_result = backend_native(z, args)
+    let wasm_result = backend_wasm(z, args)
+    (native_result == wasm_result ? 1 : 0)
+
+let alu_arity(z) =
+    if z == OP_ADD
+        2
+    else
+        0
+    if z == OP_SUB
+        2
+    else
+        0
+    if z == OP_MUL
+        2
+    else
+        0
+    if z == OP_INV
+        1
+    else
+        0
+    if z == OP_DIV
+        2
+    else
+        0
+    if z == OP_POW
+        2
+    else
+        0
+    if z == OP_NEG
+        1
+    else
+        0
+    if z == OP_PRIME_MAKE
+        3
+    else
+        0
+    if z == OP_FIELD_EVAL
+        2
+    else
+        0
+    if z == OP_FIELD_DIFF
+        1
+    else
+        0
+    if z == OP_FIELD_INT
+        1
+    else
+        0
+    if z == OP_RECUR_K
+        3
+    else
+        0
+    if z == OP_GCD
+        2
+    else
+        0
+    if z == OP_IS_PRIME
+        1
+    else
+        0
+    if z == OP_FIB
+        1
+    else
+        0
+    if z == OP_TRIBONACCI
+        1
+    else
+        0
+    if z == OP_OPLUS
+        2
+    else
+        0
+    if z == OP_ODOT
+        2
+    else
+        0
+    if z == OP_COMPOSE
+        2
+    else
+        0
+    if z == OP_BORN
+        1
+    else
+        0
+    if z == OP_HEBBIAN
+        2
+    else
+        0
+
+let alu_verify() =
+    let ok = 1
+    if alu(OP_ADD, [3, 5]) != 8
+        ok = 0
+    if alu(OP_MUL, [3, 5]) != 15
+        ok = 0
+    if alu(OP_INV, [3]) * 3 % P != 1
+        ok = 0
+    if alu(OP_NEG, [5]) != P - 5
+        ok = 0
+    if alu(OP_POW, [2, 10]) != 1024
+        ok = 0
+    if alu(OP_GCD, [12, 18]) != 6
+        ok = 0
+    if alu(OP_IS_PRIME, [7]) != 1
+        ok = 0
+    if alu(OP_IS_PRIME, [8]) != 0
+        ok = 0
+    if alu(OP_FIB, [0]) != 0
+        ok = 0
+    if alu(OP_FIB, [10]) != 55
+        ok = 0
+    if alu(OP_OPLUS, [3, 4]) != 7
+        ok = 0
+    if alu(OP_ODOT, [3, 4]) != 12
+        ok = 0
+    if alu(OP_BORN, [3]) != 9
+        ok = 0
+    if alu_exec(OP_ADD, [3, 5], 0) != 8
+        ok = 0
+    if alu_exec(OP_ADD, [3, 5], 1) != 8
+        ok = 0
+    if alu_bragg_verify(OP_ADD, [3, 5]) != 1
+        ok = 0
+    if alu_bragg_verify(OP_MUL, [3, 5]) != 1
+        ok = 0
+    if alu_arity(OP_ADD) != 2
+        ok = 0
+    if alu_arity(OP_INV) != 1
+        ok = 0
+    ok
+
+let main() =
+    print_str("=== ALU Optimized (i32 native) ===")
+    print_str("bit_alg_pow(2,10):")
+    print(bit_alg_pow(2, 10))
+    print_str("bit_alg_pow(3,65535):")
+    print(bit_alg_pow(3, 65535))
+    print_str("bit_alg_inv(3):")
+    print(bit_alg_inv(3))
+    print_str("alu_verify():")
+    print(alu_verify())
+    print_str("=== Backends ===")
+    print_str("native POW(2,10):")
+    print(backend_native(OP_POW, [2, 10]))
+    print_str("native INV(3):")
+    print(backend_native(OP_INV, [3]))
+    print_str("wasm ADD(3,5):")
+    print(backend_wasm(OP_ADD, [3, 5]))
+    print_str("wasm MUL(3,5):")
+    print(backend_wasm(OP_MUL, [3, 5]))
+    print_str("wasm POW(2,10):")
+    print(backend_wasm(OP_POW, [2, 10]))
+    print_str("wasm INV(3):")
+    print(backend_wasm(OP_INV, [3]))
+    print_str("hw ADD(3,5) [fallback]:")
+    print(alu_exec(OP_ADD, [3, 5], 2))
+    print_str("bragg ADD:")
+    print(alu_bragg_verify(OP_ADD, [3, 5]))
+    print_str("bragg MUL:")
+    print(alu_bragg_verify(OP_MUL, [3, 5]))
+    print_str("bragg POW:")
+    print(alu_bragg_verify(OP_POW, [2, 10]))
+    return 0

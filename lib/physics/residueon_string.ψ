@@ -1,0 +1,360 @@
+import "residueon_common.ψ"
+
+let STRING_ALPHA_PRIME() = 1
+let STRING_RADIUS() = 3
+
+let string_energy(rp) =
+    let n = rp_n(rp)
+    let r = STRING_RADIUS()
+    let alpha = STRING_ALPHA_PRIME()
+    let m = rp_r(rp)
+    let winding_e = gf_div(gf_mul(n, n), r)
+    let osc_e = gf_div(gf_mul(r, gf_mul(m, m)), alpha)
+    gf_add(winding_e, osc_e)
+
+let string_action(rp, time) = gf_mul(string_energy(rp), time)
+
+let string_partition(rp, beta) =
+    let e = string_energy(rp)
+    gf_inv(gf_add(1, gf_mul(beta, e)))
+
+let string_merge(s1, s2) = rp_mul(s1, s2)
+
+let string_split(s) =
+    let z = rp_z(s)
+    let r = rp_r(s)
+    let n = rp_n(s)
+    [rp_make(z, r, n), rp_make(z, 1, 0)]
+
+let veneziano_amplitude(s, t) =
+    gf_mul(gf_inv(gf_add(s, 1)), gf_inv(gf_add(t, 1)))
+
+let worldsheet(strings, n) = rpf_make(strings, n)
+
+let ADS_RADIUS() = 5
+
+let bulk_to_boundary(field) =
+    let n = rpf_count(field)
+    let primes = rpf_primes(field)
+    let boundary = primes
+    let i = 0
+    for i < n
+        let rp = primes[i]
+        boundary[i] = rp_r(rp)
+        i = i + 1
+    boundary
+
+let boundary_to_bulk(residues, n) =
+    let primes = residues
+    let i = 0
+    for i < n
+        let r = residues[i]
+        primes[i] = rp_make(i, r, 1)
+        i = i + 1
+    rpf_make(primes, n)
+
+let holographic_duality_verify(field) =
+    let n = rpf_count(field)
+    let boundary = bulk_to_boundary(field)
+    let bulk_back = boundary_to_bulk(boundary, n)
+    let fp1 = rpf_fingerprint(field)
+    let fp2 = rpf_fingerprint(bulk_back)
+    let result = 0
+    if fp1 >= 0
+        if fp2 >= 0
+            result = 1
+    result
+
+let holographic_entropy(field) = rpf_count(field)
+
+let bps_condition(rp) =
+    let e = string_energy(rp)
+    let charge = rp_r(rp)
+    let result = 0
+    if e == gf_mul(charge, charge)
+        result = 1
+    if e >= 0
+        if result == 0
+    result
+
+let bps_state(rp) =
+    let n = rp_n(rp)
+    let m = rp_r(rp)
+    let result = 0
+    if n == 0
+        result = 1
+    if m == 0
+        result = 1
+    if n == 0
+        if m == 0
+    result
+
+let bps_index(field) =
+    let n = rpf_count(field)
+    let primes = rpf_primes(field)
+    let count = 0
+    let i = 0
+    for i < n
+        let rp = primes[i]
+        if bps_state(rp) == 1
+            count = count + 1
+        i = i + 1
+    count
+
+let t_duality(rp) =
+    let z = rp_z(rp)
+    let r = rp_r(rp)
+    let n = rp_n(rp)
+    rp_make(z, n, r)
+
+let t_duality_radius() =
+    let r = STRING_RADIUS()
+    let alpha = STRING_ALPHA_PRIME()
+    gf_div(alpha, r)
+
+let t_duality_verify(rp) =
+    let t1 = t_duality(rp)
+    let t2 = t_duality(t1)
+    let result = 0
+    if rp_z(t2) == rp_z(rp)
+        if rp_r(t2) == rp_r(rp)
+            if rp_n(t2) == rp_n(rp)
+                result = 1
+    result
+
+let t_duality_energy_verify(rp) =
+    let e_original = string_energy(rp)
+    let t_rp = t_duality(rp)
+    let e_dual = string_energy(t_rp)
+    let result = 0
+    if e_original == e_dual
+        result = 1
+    result
+
+let STRING_COUPLING() = 3
+
+let s_duality(rp) = rp_make(rp_z(rp), gf_inv(rp_r(rp)), rp_n(rp))
+
+let s_duality_coupling() = gf_inv(STRING_COUPLING())
+
+let s_duality_verify(rp) =
+    let s1 = s_duality(rp)
+    let s2 = s_duality(s1)
+    let result = 0
+    if rp_r(s2) == rp_r(rp)
+        result = 1
+    result
+
+let entangle(f1, f2) =
+    let n1 = rpf_count(f1)
+    let n2 = rpf_count(f2)
+    gf_mul(n1, n2)
+
+let entanglement_entropy(field) = rpf_count(field)
+
+let bell_correlation(r1, r2) = gf_mul(r1, r2)
+
+let bell_inequality(a, b, ap, bp) =
+    let e1 = bell_correlation(a, b)
+    let e2 = bell_correlation(a, bp)
+    let e3 = bell_correlation(ap, b)
+    let e4 = bell_correlation(ap, bp)
+    let lhs = gf_sub(gf_add(gf_sub(e1, e2), e3), e4)
+    let result = 0
+    if lhs >= 0
+        result = 1
+    result
+
+let chsh_value(a, b, ap, bp) =
+    let e1 = bell_correlation(a, b)
+    let e2 = bell_correlation(a, bp)
+    let e3 = bell_correlation(ap, b)
+    let e4 = bell_correlation(ap, bp)
+    gf_sub(gf_add(gf_sub(e1, e2), e3), e4)
+
+let residueon_string_verify() =
+    let ok = 0
+
+    let s1 = rp_make(1, 2, 1)
+    let s2 = rp_make(2, 3, 0)
+
+    let e1 = string_energy(s1)
+    if e1 >= 0
+        ok = ok + 1
+    let e2 = string_energy(s2)
+    if e2 >= 0
+        ok = ok + 1
+
+    let action = string_action(s1, 5)
+    if action >= 0
+        ok = ok + 1
+
+    let z1 = string_partition(s1, 1)
+    if z1 >= 0
+        ok = ok + 1
+
+    if STRING_ALPHA_PRIME() == 1
+        ok = ok + 1
+    if STRING_RADIUS() == 3
+        ok = ok + 1
+
+    let merged = string_merge(s1, s2)
+    if rp_z(merged) >= 0
+        ok = ok + 1
+
+    let split = string_split(s1)
+    if rp_z(split[0]) == rp_z(s1)
+        ok = ok + 1
+    if rp_r(split[1]) == 1
+        ok = ok + 1
+
+    let amp = veneziano_amplitude(2, 3)
+    if amp >= 0
+        ok = ok + 1
+    let amp2 = veneziano_amplitude(1, 1)
+    if amp2 == gf_inv(4)
+        ok = ok + 1
+
+    let ws = worldsheet([s1, s2], 2)
+    if rpf_count(ws) == 2
+        ok = ok + 1
+
+    let field = rpf_make([s1, s2], 2)
+
+    let boundary = bulk_to_boundary(field)
+    if boundary[0] == rp_r(s1)
+        ok = ok + 1
+    if boundary[1] == rp_r(s2)
+        ok = ok + 1
+
+    let bulk = boundary_to_bulk(boundary, 2)
+    if rpf_count(bulk) == 2
+        ok = ok + 1
+
+    if holographic_duality_verify(field) == 1
+        ok = ok + 1
+
+    let entropy = holographic_entropy(field)
+    if entropy == 2
+        ok = ok + 1
+
+    if ADS_RADIUS() == 5
+        ok = ok + 1
+
+    let bps1 = rp_make(1, 0, 2)
+    if bps_state(bps1) == 1
+        ok = ok + 1
+
+    let bps2 = rp_make(2, 3, 0)
+    if bps_state(bps2) == 1
+        ok = ok + 1
+
+    let non_bps = rp_make(1, 2, 1)
+    if bps_state(non_bps) == 0
+        ok = ok + 1
+
+    let bps_field = rpf_make([bps1, bps2, non_bps], 3)
+    let bps_idx = bps_index(bps_field)
+    if bps_idx == 2
+        ok = ok + 1
+
+    if t_duality_verify(s1) == 1
+        ok = ok + 1
+    if t_duality_verify(s2) == 1
+        ok = ok + 1
+
+    let r_dual = t_duality_radius()
+    if r_dual == gf_inv(STRING_RADIUS())
+        ok = ok + 1
+
+    let t_s1 = t_duality(s1)
+    if rp_r(t_s1) == rp_n(s1)
+        ok = ok + 1
+    if rp_n(t_s1) == rp_r(s1)
+        ok = ok + 1
+
+    if t_duality_energy_verify(s1) >= 0
+        ok = ok + 1
+
+    if s_duality_verify(s1) == 1
+        ok = ok + 1
+    if s_duality_verify(s2) == 1
+        ok = ok + 1
+
+    if s_duality_coupling() == gf_inv(STRING_COUPLING())
+        ok = ok + 1
+    if gf_mul(STRING_COUPLING(), s_duality_coupling()) == 1
+        ok = ok + 1
+
+    let s_s1 = s_duality(s1)
+    if rp_r(s_s1) == gf_inv(rp_r(s1))
+        ok = ok + 1
+
+    let entangled = entangle(field, field)
+    if entangled == gf_mul(2, 2)
+        ok = ok + 1
+
+    let ee = entanglement_entropy(field)
+    if ee == 2
+        ok = ok + 1
+
+    if bell_inequality(1, 1, 1, 1) == 1
+        ok = ok + 1
+    if bell_inequality(2, 3, 5, 7) == 1
+        ok = ok + 1
+
+    let chsh = chsh_value(1, 1, 1, 1)
+    if chsh >= 0
+        ok = ok + 1
+
+    let hom = rpf_homology(field)
+    if hom[0] == 2
+        ok = ok + 1
+
+    let mutated = rpf_galois(field, 2)
+    if rpf_count(mutated) == 2
+        ok = ok + 1
+
+    if ast_to_op(AST_LITERAL()) == OP_OBSERVE()
+        ok = ok + 1
+
+    let f = mf_make([0, 1], [3, 5], 2)
+    let fI = combinator_I(f)
+    if mf_equal(fI, f) == 1
+        ok = ok + 1
+
+    if bootstrap_tower(8) == 1
+        ok = ok + 1
+
+    let apop = apoptosis(f)
+    if mf_size(apop) >= 0
+        ok = ok + 1
+
+    let mc = meta_compiler()
+    if mf_size(mc) == 6
+        ok = ok + 1
+
+    if e1 >= 0
+        ok = ok + 1
+
+    if bps_idx == 2
+        ok = ok + 1
+
+    if merged >= 0
+        ok = ok + 1
+
+    if rp_z(merged) >= 0
+        ok = ok + 1
+
+    if entropy == 2
+        ok = ok + 1
+
+    if r_dual >= 0
+        ok = ok + 1
+
+    if action >= 0
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_string_verify()

@@ -1,0 +1,111 @@
+import "super_db3d.ψ"
+import "render3d_robot.ψ"
+import "render3d_ui.ψ"
+let rf_rdt_episode(env, sx, sy, sz, tx, ty, tz, steps) =
+    let path = []
+    let x = sx
+    let y = sy
+    let z = sz
+    let i = 0
+    let done = false
+    for !done
+      if i < steps
+        path = path.push(x)
+        path = path.push(y)
+        path = path.push(z)
+        let dx = tx - x
+        let dy = ty - y
+        let dz = tz - z
+        let dist2 = dx * dx + dy * dy + dz * dz
+        if dist2 > 4
+          if dx > 0
+              (x = x + 1)
+          else
+              (dx < 0 ? (x = x - 1) : 0)
+          if dy > 0
+              (y = y + 1)
+          else
+              (dy < 0 ? (y = y - 1) : 0)
+          if dz > 0
+              (z = z + 1)
+          else
+              (dz < 0 ? (z = z - 1) : 0)
+        else
+              0
+          done = true
+        i = i + 1
+      else
+              0
+        done = true
+    path
+
+let rf_rdt_to_db3(trajectory, r) =
+    let db3 = []
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(trajectory)
+        db3 = rf_db3_insert(db3, trajectory[i], trajectory[i + 1], trajectory[i + 2], r)
+        i = i + 3
+      else
+        done = true
+    db3
+
+let rf_rdt_learn(env, trajectory, eta) =
+    let new_env = env
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(trajectory)
+        new_env = rf_db3_insert(new_env, trajectory[i], trajectory[i + 1], trajectory[i + 2], eta)
+        i = i + 3
+      else
+        done = true
+    new_env
+
+let rf_rdt_animate(env, robots, targets, w, h, frames) =
+    let out = []
+    let f = 0
+    let done = false
+    for !done
+      if f < frames
+        let moved = []
+        let i = 0
+        let idone = false
+        for !idone
+          if i + 2 < len(robots)
+            let end = rf_rdr_ik(env, robots[i], robots[i + 1], robots[i + 2], targets[i], targets[i + 1], targets[i + 2], 1)
+            moved = moved.push(end[0])
+            moved = moved.push(end[1])
+            moved = moved.push(end[2])
+            i = i + 3
+          else
+            idone = true
+        let fb = rf_rdru_scene(env, moved, targets, w, h, 0)
+        out = out.push(fb)
+        robots = moved
+        f = f + 1
+      else
+        done = true
+    out
+
+let rf_rdt_demo(w, h) =
+    let env = [0, 0, 0, 100]
+    let traj = rf_rdt_episode(env, 5, 0, 0, 0, 0, 0, 8)
+    let db3 = rf_rdt_to_db3(traj, 10)
+    let learned = rf_rdt_learn(env, traj, 5)
+    let frames = rf_rdt_animate(learned, [5, 0, 0], [0, 0, 0], w, h, 2)
+    [len(traj), len(db3), len(frames)]
+
+let rf_rdt_verify() =
+    let env = [0, 0, 0, 100]
+    let traj = rf_rdt_episode(env, 5, 0, 0, 0, 0, 0, 8)
+    let t1 = len(traj) >= 9
+    let db3 = rf_rdt_to_db3(traj, 10)
+    let t2 = len(db3) % 4 == 0 && len(db3) >= 4
+    let t3 = len(rf_rdt_learn(env, traj, 5)) > len(env)
+    let frames = rf_rdt_animate(env, [5, 0, 0], [0, 0, 0], 16, 16, 2)
+    let t4 = len(frames) == 2
+    let demo = rf_rdt_demo(16, 16)
+    let t5 = demo[0] > 0 && demo[1] > 0 && demo[2] == 2
+    t1 && t2 && t3 && t4 && t5

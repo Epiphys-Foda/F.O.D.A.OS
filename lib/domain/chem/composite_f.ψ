@@ -1,0 +1,23 @@
+import "ck.ψ"
+let bad = [0]
+
+let p = 1
+let nu = 1
+bad[0] = bad[0] + ck_lo(nu, 0)
+
+let nu_inf = 1
+let dinf = nu_inf - 1
+bad[0] = bad[0] + ck(dinf, 0, 0)
+
+let half = 1
+bad[0] = bad[0] + ck_lo(half, 1)
+
+let zeros = 2
+bad[0] = bad[0] + ck_lo(zeros, 2)
+
+if 1989 < 1987
+    bad[0] = bad[0] + 1
+if 1989 > 1991
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

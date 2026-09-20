@@ -1,0 +1,31 @@
+import "ck.ψ"
+let bad = [0]
+
+let p = 7
+let q = 3
+let dz1 = p + q - 10
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let pp = p * p
+let carr = 2 * p * q
+let qq = q * q
+let dz2 = pp + carr + qq - 100
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+bad[0] = bad[0] + ck_lo(carr, qq)
+
+let g1 = pp + carr + qq
+let g2 = 49 + 42 + 9
+let dz3 = g2 - g1
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+if 1908 < 1906
+    bad[0] = bad[0] + 1
+if 1908 > 1910
+    bad[0] = bad[0] + 1
+if 1908 < 1906
+    bad[0] = bad[0] + 1
+if 1908 > 1910
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

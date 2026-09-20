@@ -1,0 +1,333 @@
+import "../domain_field.ψ"
+let LQ_P = 65537
+
+let LQ_OP_INSERT = 1
+let LQ_OP_UPDATE = 2
+let LQ_OP_DELETE = 3
+
+let LQ_SUB_ACTIVE    = 1
+let LQ_SUB_PAUSED    = 2
+let LQ_SUB_CLOSED    = 3
+
+let LQ_NOTIFY_OK        = 1
+let LQ_NOTIFY_SKIP      = 2
+let LQ_NOTIFY_BACKPRESS = 3
+
+let LQ_DEFAULT_WINDOW     = 64
+let LQ_DEFAULT_MAX_SUBS   = 256
+let LQ_BACKPRESS_LIMIT    = 1024
+
+let ce_new(seq, ts, op, table, row_id, old_row, new_row) =
+    [seq, ts, op, table, row_id, old_row, new_row]
+
+let ce_seq(c)      = c[0]
+let ce_ts(c)       = c[1]
+let ce_op(c)       = c[2]
+let ce_table(c)    = c[3]
+let ce_row_id(c)   = c[4]
+let ce_old(c)      = c[5]
+let ce_new(c)      = c[6]
+
+let cl_new(max_size) =
+    [[], 0, 0, max_size]
+
+let cl_events(c)    = c[0]
+let cl_head(c)      = c[1]
+let cl_tail(c)      = c[2]
+let cl_max(c)       = c[3]
+
+let cl_append(c, ts, op, table, row_id, old_row, new_row) =
+    let events = cl_events(c)
+    let head = cl_head(c)
+    let new_seq = head + 1
+    events.push(ce_new(new_seq, ts, op, table, row_id, old_row, new_row))
+    let max_sz = cl_max(c)
+    let tail = cl_tail(c)
+    for len(events) > max_sz
+        events = arr_drop(events, 1)
+        tail = tail + 1
+    [events, new_seq, tail, max_sz]
+
+let cl_range(c, from_seq, to_seq) =
+    let events = cl_events(c)
+    let result = []
+    let i = 0
+    let n = len(events)
+    for i < n
+        let e = events[i]
+        let s = ce_seq(e)
+        if s > from_seq
+            if s <= to_seq
+                result.push(e)
+        i = i + 1
+    result
+
+let cl_bragg_replay(c, from_seq, to_seq, expected_state_hash) =
+    let events = cl_range(c, from_seq, to_seq)
+    let state_hash = 0
+    let i = 0
+    let n = len(events)
+    for i < n
+        let e = events[i]
+        let op = ce_op(e)
+        if op == LQ_OP_INSERT
+            state_hash = state_hash + ce_row_id(e) * 31 + ce_seq(e)
+        else
+            if op == LQ_OP_UPDATE
+                state_hash = state_hash + ce_row_id(e) * 17 + ce_seq(e)
+            else
+                if op == LQ_OP_DELETE
+                    state_hash = state_hash - ce_row_id(e) * 7 + ce_seq(e)
+        i = i + 1
+    if state_hash == expected_state_hash
+        1
+    else
+        0
+
+let lq_new(query_id, table_filter, window) =
+    [query_id, table_filter, 0, [], LQ_SUB_ACTIVE, window]
+
+let lq_id(q)         = q[0]
+let lq_tables(q)     = q[1]
+let lq_filter(q)     = q[2]
+let lq_subs(q)       = q[3]
+let lq_state(q)      = q[4]
+let lq_window(q)     = q[5]
+
+let lq_set_state(q, s) =
+    q[4] = s
+    q
+
+let lq_add_sub(q, sub_id) =
+    let subs = lq_subs(q)
+    if len(subs) < LQ_DEFAULT_MAX_SUBS
+        subs.push(sub_id)
+    q[3] = subs
+    q
+
+let lq_remove_sub(q, sub_id) =
+    let subs = lq_subs(q)
+    let new_subs = []
+    let i = 0
+    let n = len(subs)
+    for i < n
+        if subs[i] != sub_id
+            new_subs.push(subs[i])
+        i = i + 1
+    q[3] = new_subs
+    q
+
+let lq_matches(q, change) =
+    if lq_state(q) != LQ_SUB_ACTIVE
+        0
+    else
+        let tables = lq_tables(q)
+        let t = ce_table(change)
+        let hit = 0
+        if len(tables) == 0
+            hit = 1
+        else
+            let i = 0
+            let n = len(tables)
+            for i < n
+                if tables[i] == t
+                    hit = 1
+                    i = n
+                i = i + 1
+        hit
+
+let lc_new(sub_id, query_id, window) =
+    [sub_id, query_id, 0, window, []]
+
+let lc_sub(c)      = c[0]
+let lc_query(c)    = c[1]
+let lc_last(c)     = c[2]
+let lc_window(c)   = c[3]
+let lc_pending(c)  = c[4]
+
+let lc_set_last(c, seq) =
+    c[2] = seq
+    c
+
+let lc_enqueue(c, change) =
+    let pend = lc_pending(c)
+    pend.push(change)
+    c[4] = pend
+    c
+
+let lc_drain(c) =
+    let pend = lc_pending(c)
+    let w = lc_window(c)
+    let n = len(pend)
+    let take = w
+    if n < take
+        take = n
+    let batch = []
+    let i = 0
+    for i < take
+        batch.push(pend[i])
+        i = i + 1
+    let rest = []
+    for i < n
+        rest.push(pend[i])
+        i = i + 1
+    let new_last = c[2]
+    if take > 0
+        new_last = ce_seq(pend[take - 1])
+    [batch, [c[0], c[1], new_last, c[3], rest]]
+
+let sr_new() =
+    [{}, {}, 1]
+
+let sr_queries(r)        = r[0]
+let sr_sub_map(r)        = r[1]
+let sr_next_qid(r)       = r[2]
+
+let sr_create_query(r, table_filter, window) =
+    let qid = sr_next_qid(r)
+    let q = lq_new(qid, table_filter, window)
+    let queries = sr_queries(r)
+    queries[qid] = q
+    [queries, sr_sub_map(r), qid + 1]
+
+let sr_subscribe(r, query_id, sub_id) =
+    let queries = sr_queries(r)
+    let q = queries[query_id]
+    if q == 0
+        r
+    else
+        q = lq_add_sub(q, sub_id)
+        queries[query_id] = q
+        let sub_map = sr_sub_map(r)
+        sub_map[sub_id] = query_id
+        [queries, sub_map, sr_next_qid(r)]
+
+let sr_unsubscribe(r, sub_id) =
+    let sub_map = sr_sub_map(r)
+    let qid = sub_map[sub_id]
+    if qid == 0
+        r
+    else
+        let queries = sr_queries(r)
+        let q = queries[qid]
+        if q != 0
+            q = lq_remove_sub(q, sub_id)
+            queries[qid] = q
+        sub_map[sub_id] = 0
+        [queries, sub_map, sr_next_qid(r)]
+
+let sr_close_query(r, query_id) =
+    let queries = sr_queries(r)
+    let q = queries[query_id]
+    if q == 0
+        r
+    else
+        q = lq_set_state(q, LQ_SUB_CLOSED)
+        queries[query_id] = q
+        [queries, sr_sub_map(r), sr_next_qid(r)]
+
+let nd_new() =
+    [sr_new(), {}]
+
+let nd_registry(d)        = d[0]
+let nd_backpress(d)       = d[1]
+
+let nd_dispatch(d, change, cursor_map) =
+    let r = nd_registry(d)
+    let queries = sr_queries(r)
+    let keys = keys_of(queries)
+    let nk = len(keys)
+    let i = 0
+    let bp = nd_backpress(d)
+    for i < nk
+        let qid = keys[i]
+        let q = queries[qid]
+        if lq_matches(q, change) == 1
+            let subs = lq_subs(q)
+            let ns = len(subs)
+            let j = 0
+            for j < ns
+                let sid = subs[j]
+                let cur = cursor_map[sid]
+                if cur != 0
+                    let bp_count = bp[sid]
+                    if bp_count == 0
+                        bp_count = 0
+                    if bp_count < LQ_BACKPRESS_LIMIT
+                        cur = lc_enqueue(cur, change)
+                        cursor_map[sid] = cur
+                    else
+                        bp[sid] = bp_count
+                j = j + 1
+        i = i + 1
+    [r, bp]
+
+let lq_self_test() =
+    let cl = cl_new(64)
+    cl = cl_append(cl, 1000, LQ_OP_INSERT, 1, 100, 0, 1000)
+    cl = cl_append(cl, 1001, LQ_OP_UPDATE, 1, 100, 1000, 2000)
+    cl = cl_append(cl, 1002, LQ_OP_DELETE, 1, 100, 2000, 0)
+    let rng = cl_range(cl, 0, 1002)
+    let n_events = len(rng)
+    let t1 = 0
+    if n_events == 3
+        t1 = 1
+
+    let expected_hash = 0
+    expected_hash = expected_hash + 100 * 31 + 1
+    expected_hash = expected_hash + 100 * 17 + 2
+    expected_hash = expected_hash - 100 * 7 + 3
+    let bragg_ok = cl_bragg_replay(cl, 0, 1002, expected_hash)
+
+    let q = lq_new(1, [1], LQ_DEFAULT_WINDOW)
+    let hit_insert = lq_matches(q, ce_new(1, 1000, LQ_OP_INSERT, 1, 100, 0, 1000))
+    let hit_other  = lq_matches(q, ce_new(2, 1003, LQ_OP_INSERT, 2, 200, 0, 500))
+
+    let cur = lc_new(10, 1, 2)
+    cur = lc_enqueue(cur, ce_new(1, 1000, LQ_OP_INSERT, 1, 100, 0, 1000))
+    cur = lc_enqueue(cur, ce_new(2, 1001, LQ_OP_UPDATE, 1, 100, 1000, 2000))
+    cur = lc_enqueue(cur, ce_new(3, 1002, LQ_OP_DELETE, 1, 100, 2000, 0))
+    let drain_result = lc_drain(cur)
+    let batch = drain_result[0]
+    let new_cur = drain_result[1]
+    let batch_ok = 0
+    if len(batch) == 2
+        if lc_last(new_cur) == 2
+            batch_ok = 1
+
+    let r = sr_new()
+    let r2 = sr_create_query(r, [1], 8)
+    r = [r2[0], r2[1], r2[2]]
+    let qid = 1
+    r = sr_subscribe(r, qid, 100)
+    let q_after = sr_queries(r)[qid]
+    let sub_ok = 0
+    if len(lq_subs(q_after)) == 1
+        sub_ok = 1
+    r = sr_unsubscribe(r, 100)
+    let q_after2 = sr_queries(r)[qid]
+    let unsub_ok = 0
+    if len(lq_subs(q_after2)) == 0
+        unsub_ok = 1
+
+    let disp = nd_new()
+    let cm = {}
+    cm[100] = lc_new(100, 1, 8)
+    r = sr_queries(r)
+    let r3 = sr_queries(r)
+    disp = [r3, nd_backpress(disp)]
+    let ch = ce_new(1, 1000, LQ_OP_INSERT, 1, 100, 0, 1000)
+    let disp_after = nd_dispatch(disp, ch, cm)
+    let disp_ok = 0
+    let cur_after = cm[100]
+    if cur_after != 0
+        if len(lc_pending(cur_after)) == 1
+            disp_ok = 1
+
+    [t1, bragg_ok, hit_insert, 1 - hit_other, batch_ok, sub_ok, unsub_ok, disp_ok]
+
+let lq_default_engine() =
+    cl_new(1024)
+
+let lq_default_registry() =
+    sr_new()

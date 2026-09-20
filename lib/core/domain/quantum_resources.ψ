@@ -1,0 +1,197 @@
+import "../stdlib/gf65537.ψ"
+
+let schmidt_coeffs(psi_coeffs) =
+    let nonzero = [0] * len(psi_coeffs)
+    let count = 0
+    for i in 0..len(psi_coeffs)
+        if psi_coeffs[i] != 0
+            nonzero[count] = psi_coeffs[i]
+            count = count + 1
+    nonzero[0..count]
+
+let schmidt_rank(psi_coeffs) =
+    let rank = 0
+    for i in 0..len(psi_coeffs)
+        if psi_coeffs[i] != 0
+            rank = rank + 1
+    rank
+
+let entanglement_entropy_algebraic(psi_coeffs) =
+    schmidt_rank(psi_coeffs)
+
+let entanglement_measure(psi_coeffs) =
+    gf_sub(schmidt_rank(psi_coeffs), 1)
+
+let is_separable(psi_coeffs) =
+    (schmidt_rank(psi_coeffs) == 1 ? 1 : 0)
+
+let entanglement_witness_check(w, rho_diag) =
+    let trace = 0
+    for i in 0..len(rho_diag)
+        trace = gf_add(trace, gf_mul(w[i], rho_diag[i]))
+    (trace > 32768 ? 1 : 0)
+
+let coherence_l1_algebraic(rho_matrix) =
+    let n = len(rho_matrix)
+    let count = 0
+    for i in 0..n
+        for j in 0..n
+            if i != j && rho_matrix[i][j] != 0
+                count = count + 1
+    count
+
+let coherence_relative_entropy_algebraic(rho_matrix) =
+    coherence_l1_algebraic(rho_matrix)
+
+let is_incoherent(rho_matrix) =
+    (coherence_l1_algebraic(rho_matrix) == 0 ? 1 : 0)
+
+let coherence_distillation(rho_matrix) =
+    coherence_l1_algebraic(rho_matrix)
+
+let coherence_cost(rho_matrix) =
+    coherence_l1_algebraic(rho_matrix)
+
+let wigner_negativity_algebraic(wigner_values) =
+    let count = 0
+    for i in 0..len(wigner_values)
+        if wigner_values[i] > 32768
+            count = count + 1
+    count
+
+let magic_measure(wigner_values) =
+    wigner_negativity_algebraic(wigner_values)
+
+let is_stabilizer_state(wigner_values) =
+    (wigner_negativity_algebraic(wigner_values) == 0 ? 1 : 0)
+
+let magic_t_state() =
+    let inv_sqrt2 = gf_inv(4080)
+    let t_phase = gf_pow(3, 8192)
+    [inv_sqrt2, gf_mul(inv_sqrt2, t_phase)]
+
+let magic_distillation(wigner_values, n_copies) =
+    gf_mul(n_copies, magic_measure(wigner_values))
+
+let magic_cost(wigner_values) =
+    magic_measure(wigner_values)
+
+let resource_monotone_check(e_before, e_after) =
+    (e_after <= e_before ? 1 : 0)
+
+let entanglement_monotone(psi_before, psi_after) =
+    let e_before = schmidt_rank(psi_before)
+    let e_after = schmidt_rank(psi_after)
+    resource_monotone_check(e_before, e_after)
+
+let coherence_monotone(rho_before, rho_after) =
+    let c_before = coherence_l1_algebraic(rho_before)
+    let c_after = coherence_l1_algebraic(rho_after)
+    resource_monotone_check(c_before, c_after)
+
+let magic_monotone(wigner_before, wigner_after) =
+    let m_before = magic_measure(wigner_before)
+    let m_after = magic_measure(wigner_after)
+    resource_monotone_check(m_before, m_after)
+
+let resource_convertible(e_rho, e_sigma) =
+    (e_rho >= e_sigma ? 1 : 0)
+
+let majorization(lambda, mu) =
+    let n = len(lambda)
+    let sum_lambda = 0
+    let sum_mu = 0
+    for k in 0..n
+        sum_lambda = gf_add(sum_lambda, lambda[k])
+        sum_mu = gf_add(sum_mu, mu[k])
+        if sum_lambda < sum_mu
+            0
+    1
+
+let nielsen_convertible(lambda_psi, lambda_phi) =
+    majorization(lambda_psi, lambda_phi)
+
+let asymptotic_rate(e_rho, e_sigma) =
+    gf_div(e_sigma, e_rho)
+
+let entanglement_rate(psi_coeffs, phi_coeffs) =
+    let e_psi = schmidt_rank(psi_coeffs)
+    let e_phi = schmidt_rank(phi_coeffs)
+    asymptotic_rate(e_psi, e_phi)
+
+let coherence_rate(rho_matrix, sigma_matrix) =
+    let c_rho = coherence_l1_algebraic(rho_matrix)
+    let c_sigma = coherence_l1_algebraic(sigma_matrix)
+    asymptotic_rate(c_rho, c_sigma)
+
+let magic_rate(wigner_rho, wigner_sigma) =
+    let m_rho = magic_measure(wigner_rho)
+    let m_sigma = magic_measure(wigner_sigma)
+    asymptotic_rate(m_rho, m_sigma)
+
+let entanglement_additivity(psi_coeffs, phi_coeffs) =
+    let e_psi = schmidt_rank(psi_coeffs)
+    let e_phi = schmidt_rank(phi_coeffs)
+    gf_add(e_psi, e_phi)
+
+let coherence_additivity(rho_matrix, sigma_matrix) =
+    let c_rho = coherence_l1_algebraic(rho_matrix)
+    let c_sigma = coherence_l1_algebraic(sigma_matrix)
+    gf_add(c_rho, c_sigma)
+
+let magic_additivity(wigner_rho, wigner_sigma) =
+    let m_rho = magic_measure(wigner_rho)
+    let m_sigma = magic_measure(wigner_sigma)
+    gf_add(m_rho, m_sigma)
+
+let entanglement_distillable(psi_coeffs) =
+    schmidt_rank(psi_coeffs)
+
+let entanglement_cost(psi_coeffs) =
+    schmidt_rank(psi_coeffs)
+
+let distillation_cost_gap(psi_coeffs) =
+    let d = entanglement_distillable(psi_coeffs)
+    let c = entanglement_cost(psi_coeffs)
+    gf_sub(c, d)
+
+let entanglement_resource_theory() =
+    [1, 0]
+
+let coherence_resource_theory() =
+    [1, 0]
+
+let magic_resource_theory() =
+    [1, 0]
+
+let classify_resource(state_type, measure_val) =
+        if measure_val == 0
+            0
+        else
+            1
+
+let resource_tensor_power(e_single, n_copies) =
+    gf_mul(n_copies, e_single)
+
+let resource_dilution(e_rho, e_sigma) =
+    gf_div(e_rho, e_sigma)
+
+let ghz_state(n_qubits) =
+    let inv_sqrt2 = gf_inv(4080)
+    [inv_sqrt2, inv_sqrt2]
+
+let w_state(n_qubits) =
+    let sqrt_n = gf_sqrt(n_qubits)
+    let inv_sqrt_n = gf_inv(sqrt_n)
+    [inv_sqrt_n] * n_qubits
+
+let ghz_entanglement(n_qubits) =
+    2
+
+let w_entanglement(n_qubits) =
+    (n_qubits >= 2 ? 2 : n_qubits)
+
+let ghz_w_inconvertible(n_qubits) =
+    let e_ghz = ghz_entanglement(n_qubits)
+    let e_w = w_entanglement(n_qubits)
+    (e_ghz == e_w ? 0 : 1)

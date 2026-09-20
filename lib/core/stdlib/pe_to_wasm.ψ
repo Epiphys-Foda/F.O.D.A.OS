@@ -1,0 +1,114 @@
+let W_I32_CONST = 65
+let W_I32_ADD = 106
+let W_I32_SUB = 107
+let W_I32_MUL = 108
+let W_I32_REM_U = 111
+let W_I32_AND = 113
+let W_I32_OR = 114
+let W_I32_XOR = 115
+let W_I32_LT_S = 116
+let W_I32_EQZ = 69
+let W_LOCAL_GET = 32
+let W_LOCAL_SET = 33
+let W_END = 11
+
+let W_LEB_65537 = [129, 128, 4]
+let W_LEB_NEG1 = [127]
+
+let pe_wasm_imm(imm) =
+    let result = []
+    let value = imm
+    let done = false
+    for !done
+      if value < -64 || value > 63
+        let byte = value % 128
+        let byte2 = (byte < 0 ? byte + 128 : byte)
+        result = result.push(byte2 + 128)
+        value = value / 128
+      else
+        done = true
+    let last = (value < 0 ? value + 128 : value)
+    result = result.push(last)
+    result
+
+let pe_op_to_wasm(opcode) =
+    if opcode == 1
+      [106, 65, 129, 128, 4, 111]
+    else
+      if opcode == 2
+        [106, 65, 129, 128, 4, 111]
+      else
+        if opcode == 3
+          [106]
+        else
+          if opcode == 4
+            [107]
+          else
+            if opcode == 5
+              [113]
+            else
+              if opcode == 6
+                [114]
+              else
+                if opcode == 7
+                  [115]
+                else
+                  if opcode == 8
+                    [116]
+                  else
+                    if opcode == 9
+                      [65, 127, 115]
+                    else
+                      if opcode == 10
+                        []
+                      else
+                        if opcode == 11
+                          []
+                        else
+                          if opcode == 12
+                            []
+                          else
+                            if opcode == 14
+                              [33, 8, 33, 9, 32, 8, 32, 9, 106, 32, 8, 32, 9, 107, 114]
+                            else
+                              []
+
+let pe_wasm_emit_rec(pe_ops, pc, acc, need_local) =
+    let n = len(pe_ops)
+    if pc >= n
+      [acc, need_local]
+    else
+      let op = pe_ops[pc]
+      if op == 13
+        let imm = pe_ops[pc + 1]
+        pe_wasm_emit_rec(pe_ops, pc + 2, [acc, [65], pe_wasm_imm(imm)].flat(), need_local)
+      else
+        let t = pe_op_to_wasm(op)
+        let new_local = (op == 14 ? 1 : need_local)
+        pe_wasm_emit_rec(pe_ops, pc + 1, [acc, t].flat(), new_local)
+
+let pe_seq_to_wasm_body(pe_ops) =
+    let r = pe_wasm_emit_rec(pe_ops, 0, [], 0)
+    { body: r[0], use_local: r[1] }
+
+let pe_seq_to_wasm_module(pe_ops) =
+    let body_info = pe_wasm_emit_rec(pe_ops, 0, [], 0)
+    let body = body_info[0]
+    let use_local = body_info[1]
+    let locals = []
+    if use_local == 1
+      locals = [2, 10, 127]
+    else
+      locals = [0]
+      0
+    let local_bytes = [locals, body, [11]].flat()
+    let body_len = len(local_bytes)
+    let size_leb = pe_wasm_imm(body_len)
+    let code_section = [10, 1, size_leb, local_bytes].flat()
+    let header = [0, 97, 115, 109, 1, 0, 0, 0]
+    let type_sec = [1, 7, 1, 96, 2, 127, 127, 1, 127]
+    let import_sec = [2, 17, 1, 3, 112, 115, 105, 9, 104, 111, 115, 116, 95, 99, 97, 108, 108, 0, 0]
+    let func_sec = [3, 2, 1, 0]
+    let memory_sec = [5, 3, 1, 0, 1]
+    let export_sec = [7, 8, 1, 4, 109, 97, 105, 110, 0, 1]
+    [header, type_sec, import_sec, func_sec, memory_sec, export_sec, code_section].flat()

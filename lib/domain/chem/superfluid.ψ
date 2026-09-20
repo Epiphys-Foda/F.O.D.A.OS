@@ -1,0 +1,41 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let tlam = 217
+bad[0] = bad[0] + ck(tlam, 210, 225)
+
+let boil = 420
+bad[0] = bad[0] + ck(boil, 410, 430)
+
+bad[0] = bad[0] + ck_hi(tlam, boil)
+
+let mass_num = 4
+if mass_num != 4
+    bad[0] = bad[0] + 1
+
+let ratio = 165
+bad[0] = bad[0] + ck(ratio, 100, 200)
+
+bad[0] = bad[0] + ck_lo(ratio, 100)
+
+let visc = 0
+bad[0] = bad[0] + ck_hi(visc, 0)
+
+let creep = 30
+bad[0] = bad[0] + ck(creep, 20, 40)
+
+let he3_superfluid_t = 3
+bad[0] = bad[0] + ck_hi(he3_superfluid_t, 100)
+
+if 1938 < 1936
+    bad[0] = bad[0] + 1
+if 1938 > 1940
+    bad[0] = bad[0] + 1
+if 1972 < 1970
+    bad[0] = bad[0] + 1
+if 1972 > 1974
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

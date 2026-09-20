@@ -1,0 +1,158 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let majority3(a, b, c) =
+    let ab = wfc_mul(a, b)
+    let ac = wfc_mul(a, c)
+    let bc = wfc_mul(b, c)
+    let abc = wfc_mul(ab, c)
+    let two_abc = wfc_mul(2, abc)
+    let sum = wfc_add(wfc_add(ab, ac), bc)
+    wfc_sub(sum, two_abc)
+
+let majority5(a, b, c, d, e) =
+    let count = a + b + c + d + e
+    (count >= 3 ? 1 : 0)
+
+let encode3_r1(b) = b
+let encode3_r2(b) = b
+let encode3_r3(b) = b
+
+let decode3(r1, r2, r3) = majority3(r1, r2, r3)
+
+let verify_majority() =
+    let pass = 1
+    if majority3(0, 0, 0) != 0
+        pass = 0
+    if majority3(0, 0, 1) != 0
+        pass = 0
+    if majority3(0, 1, 0) != 0
+        pass = 0
+    if majority3(0, 1, 1) != 1
+        pass = 0
+    if majority3(1, 0, 0) != 0
+        pass = 0
+    if majority3(1, 0, 1) != 1
+        pass = 0
+    if majority3(1, 1, 0) != 1
+        pass = 0
+    if majority3(1, 1, 1) != 1
+        pass = 0
+    pass
+
+let verify_no_error() =
+    let pass = 1
+    let r1 = encode3_r1(0)
+    let r2 = encode3_r2(0)
+    let r3 = encode3_r3(0)
+    if decode3(r1, r2, r3) != 0
+        pass = 0
+
+    let s1 = encode3_r1(1)
+    let s2 = encode3_r2(1)
+    let s3 = encode3_r3(1)
+    if decode3(s1, s2, s3) != 1
+        pass = 0
+    pass
+
+let verify_correct_1_error() =
+    let pass = 1
+
+    if decode3(0, 1, 1) != 1
+        pass = 0
+
+    if decode3(1, 0, 1) != 1
+        pass = 0
+
+    if decode3(1, 1, 0) != 1
+        pass = 0
+
+    if decode3(1, 0, 0) != 0
+        pass = 0
+
+    if decode3(0, 1, 0) != 0
+        pass = 0
+
+    if decode3(0, 0, 1) != 0
+        pass = 0
+    pass
+
+let verify_cannot_correct_2_errors() =
+    let pass = 1
+
+    if decode3(0, 0, 1) != 0
+        pass = 0
+
+    if decode3(1, 1, 0) != 1
+        pass = 0
+    pass
+
+let verify_5_redundancy_2_errors() =
+    let pass = 1
+
+    if majority5(1, 1, 1, 1, 1) != 1
+        pass = 0
+
+    if majority5(0, 1, 1, 1, 1) != 1
+        pass = 0
+    if majority5(1, 0, 1, 1, 1) != 1
+        pass = 0
+    if majority5(1, 1, 1, 1, 0) != 1
+        pass = 0
+
+    if majority5(0, 0, 1, 1, 1) != 1
+        pass = 0
+    if majority5(0, 1, 0, 1, 1) != 1
+        pass = 0
+    if majority5(1, 0, 0, 1, 1) != 1
+        pass = 0
+    if majority5(1, 1, 0, 0, 1) != 1
+        pass = 0
+    if majority5(1, 1, 1, 0, 0) != 1
+        pass = 0
+
+    if majority5(1, 1, 0, 0, 0) != 0
+        pass = 0
+    if majority5(1, 0, 1, 0, 0) != 0
+        pass = 0
+    if majority5(0, 1, 1, 0, 0) != 0
+        pass = 0
+    if majority5(0, 0, 1, 1, 0) != 0
+        pass = 0
+    if majority5(0, 0, 0, 1, 1) != 0
+        pass = 0
+    pass
+
+let verify_self_healing_nand() =
+    let pass = 1
+
+    let nand_result = nand_gate(1, 1)
+    let encoded_r1 = nand_result
+    let encoded_r2 = nand_result
+    let encoded_r3 = nand_result
+    let perturbed_r1 = wfc_sub(1, encoded_r1)
+    let healed = decode3(perturbed_r1, encoded_r2, encoded_r3)
+    if healed != 0
+        pass = 0
+
+    let nand_00 = nand_gate(0, 0)
+    let perturbed = wfc_sub(1, nand_00)
+    let healed2 = decode3(perturbed, nand_00, nand_00)
+    if healed2 != 1
+        pass = 0
+    pass
+
+let main() =
+    let result = 0
+    if verify_majority() == 1
+        result = result + 1
+    if verify_no_error() == 1
+        result = result + 1
+    if verify_correct_1_error() == 1
+        result = result + 1
+    if verify_cannot_correct_2_errors() == 1
+        result = result + 1
+    if verify_5_redundancy_2_errors() == 1
+        result = result + 1
+    if verify_self_healing_nand() == 1
+        result = result + 1
+    result

@@ -1,0 +1,142 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let FIT_ATOM_POLES = [2, 10, 18, 36, 54, 86, 118, 168]
+let FIT_ATOM_RESIDUES = [2, 8, 8, 18, 18, 32, 32, 50]
+
+let psi_fit_atom(Z) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(Z), gf_norm(FIT_ATOM_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(FIT_ATOM_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let FIT_BO_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let FIT_BO_RESIDUES = [10, 30, 60, 100, 150, 200, 250, 300]
+
+let psi_fit_bo(BO) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(BO), gf_norm(FIT_BO_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(FIT_BO_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let FIT_POL_POLES = [0, 50, 100, 150, 200, 250, 300, 350]
+let FIT_POL_RESIDUES = [0, 50, 100, 150, 200, 250, 300, 350]
+
+let psi_fit_pol(dEN_x100) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(dEN_x100), gf_norm(FIT_POL_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(FIT_POL_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let FIT_DE_BASE = 100
+let FIT_DE_SCALE = 100
+
+let fit_bond_energy(Z1, Z2, BO, dEN_x100) =
+    let e1 = psi_fit_atom(Z1)
+    let e2 = psi_fit_atom(Z2)
+    let atom_term = gf_div(gf_mul(e1, e2), FIT_DE_SCALE)
+    let bo_term = psi_fit_bo(BO)
+    let pol_term = psi_fit_pol(dEN_x100)
+    gf_add(gf_add(gf_add(FIT_DE_BASE, atom_term), bo_term), pol_term)
+
+let FIT_RE_BASE = 50
+let FIT_RE_PERIOD_FACTOR = 30
+
+let fit_atom_radius_contrib(Z) =
+    let period = 1
+    if Z > 2
+        period = 2
+    if Z > 10
+        period = 3
+    if Z > 18
+        period = 4
+    if Z > 36
+        period = 5
+    if Z > 54
+        period = 6
+    if Z > 86
+        period = 7
+    gf_mul(period, FIT_RE_PERIOD_FACTOR)
+
+let fit_bond_length(Z1, Z2, BO, dEN_x100) =
+    let r1 = fit_atom_radius_contrib(Z1)
+    let r2 = fit_atom_radius_contrib(Z2)
+    let bo_short = psi_fit_bo(BO)
+    let pol_short = psi_fit_pol(dEN_x100)
+    let base_sum = gf_add(gf_add(FIT_RE_BASE, r1), r2)
+    gf_sub(gf_sub(base_sum, bo_short), pol_short)
+
+let FIT_MU_SCALE = 100
+
+let fit_dipole_moment(Z1, Z2, BO, dEN_x100) =
+    if dEN_x100 == 0
+        0
+    let pol = psi_fit_pol(dEN_x100)
+    let R = fit_bond_length(Z1, Z2, BO, dEN_x100)
+    gf_div(gf_mul(pol, R), FIT_MU_SCALE)
+
+let FIT_IE_BASE = 500
+let FIT_IE_SCALE = 1
+
+let fit_ionization_energy(Z) =
+    let psi = psi_fit_atom(Z)
+    let norm_sq = gf_mul(psi, psi)
+    gf_add(FIT_IE_BASE, gf_mul(norm_sq, FIT_IE_SCALE))
+
+let FIT_RADIUS_BASE = 30
+let FIT_RADIUS_PERIOD = 50
+
+let fit_atomic_radius(Z) =
+    let period = 1
+    if Z > 2
+        period = 2
+    if Z > 10
+        period = 3
+    if Z > 18
+        period = 4
+    if Z > 36
+        period = 5
+    if Z > 54
+        period = 6
+    if Z > 86
+        period = 7
+    let psi = psi_fit_atom(Z)
+    let period_term = gf_mul(FIT_RADIUS_PERIOD, gf_sub(period, 1))
+    gf_sub(gf_add(FIT_RADIUS_BASE, period_term), psi)
+
+let fit_global_response(Z, BO, dEN_x100) =
+    let e1 = psi_fit_atom(Z)
+    let e2 = psi_fit_bo(BO)
+    let e3 = psi_fit_pol(dEN_x100)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+
+let fit_badger_product(Z1, Z2, BO, dEN_x100) =
+    let D = fit_bond_energy(Z1, Z2, BO, dEN_x100)
+    let R = fit_bond_length(Z1, Z2, BO, dEN_x100)
+    gf_mul(D, R)
+
+let fit_pauling_excess(dEN_x100) =
+    let pol = psi_fit_pol(dEN_x100)
+    gf_mul(pol, pol)
+
+let fit_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = psi_fit_atom(7)
+    let ok = 0
+    if result != 0
+        ok = 1
+    ok

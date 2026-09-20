@@ -1,0 +1,205 @@
+let RR_P = 65537
+
+let RR_STRATEGY_CROSS     = 1
+let RR_STRATEGY_PAIRWISE  = 2
+let RR_STRATEGY_LISTWISE  = 3
+let RR_STRATEGY_BRAGG     = 4
+
+let RR_SCALE = 1024
+let RR_MAX_CANDIDATES = 100
+
+let rr_candidate_new(doc_id, initial_score, features) =
+    [doc_id, initial_score, features, 0]
+
+let rr_cand_id(c)        = c[0]
+let rr_cand_init(c)      = c[1]
+let rr_cand_features(c)  = c[2]
+let rr_cand_final(c)     = c[3]
+
+let rr_cand_set_final(c, s) =
+    c[3] = s
+    c
+
+let rr_cross_encode(query_features, candidate, w_q, w_d, w_c) =
+    let doc_feats = rr_cand_features(candidate)
+    let score = 0
+    let i = 0
+    let nq = len(query_features)
+    for i < nq
+        score = score + query_features[i] * w_q / RR_SCALE
+        i = i + 1
+    i = 0
+    let nd = len(doc_feats)
+    for i < nd
+        score = score + doc_feats[i] * w_d / RR_SCALE
+        i = i + 1
+    i = 0
+    let nc = nq
+    if nd < nc
+        nc = nd
+    for i < nc
+        let cross = query_features[i] * doc_feats[i] / RR_SCALE
+        score = score + cross * w_c / RR_SCALE
+        i = i + 1
+    score
+
+let rr_pairwise_compare(a, b, threshold) =
+    let sa = rr_cand_final(a)
+    let sb = rr_cand_final(b)
+    let diff = sa - sb
+    if diff < 0
+        diff = -diff
+    if diff > threshold
+        if rr_cand_final(a) > rr_cand_final(b)
+            -1
+        else
+            1
+    else
+        if rr_cand_init(a) > rr_cand_init(b)
+            -1
+        else
+            if rr_cand_init(a) < rr_cand_init(b)
+                1
+            else
+                0
+
+let rr_listwise_adjust(candidates, target_total) =
+    let total = 0
+    let i = 0
+    let n = len(candidates)
+    for i < n
+        total = total + rr_cand_final(candidates[i])
+        i = i + 1
+    let scale = 0
+    if total > 0
+        scale = target_total * RR_SCALE / total
+    i = 0
+    let result = []
+    for i < n
+        let c = candidates[i]
+        let new_final = rr_cand_final(c) * scale / RR_SCALE
+        c = rr_cand_set_final(c, new_final)
+        result.push(c)
+        i = i + 1
+    result
+
+let rr_margin_score(candidate, negatives) =
+    let cs = rr_cand_final(candidate)
+    let max_neg = 0
+    let i = 0
+    let n = len(negatives)
+    for i < n
+        let ns = rr_cand_final(negatives[i])
+        if ns > max_neg
+            max_neg = ns
+        i = i + 1
+    cs - max_neg
+
+let rr_rerank(candidates, query_features, w_q, w_d, w_c) =
+    let i = 0
+    let n = len(candidates)
+    for i < n
+        let c = candidates[i]
+        let score = rr_cross_encode(query_features, c, w_q, w_d, w_c)
+        c = rr_cand_set_final(c, score)
+        candidates[i] = c
+        i = i + 1
+    i = 0
+    for i < n - 1
+        let j = i + 1
+        for j < n
+            if rr_cand_final(candidates[j]) > rr_cand_final(candidates[i])
+                let tmp = candidates[i]
+                candidates[i] = candidates[j]
+                candidates[j] = tmp
+            j = j + 1
+        i = i + 1
+    candidates
+
+let rr_bragg_rerank(candidates, query_features, w_q, w_d, w_c) =
+    let sorted1 = rr_rerank(candidates, query_features, w_q, w_d, w_c)
+    let c2 = []
+    let i = 0
+    let n = len(sorted1)
+    for i < n
+        c2.push(rr_candidate_new(rr_cand_id(sorted1[i]), rr_cand_init(sorted1[i]), rr_cand_features(sorted1[i])))
+        i = i + 1
+    let sorted2 = rr_rerank(c2, query_features, w_q, w_d, w_c)
+    let pass = 1
+    if len(sorted1) != len(sorted2)
+        pass = 0
+    else
+        i = 0
+        let m = len(sorted1)
+        for i < m
+            if rr_cand_id(sorted1[i]) != rr_cand_id(sorted2[i])
+                pass = 0
+            i = i + 1
+    pass
+
+let rr_self_test() =
+    let query = [100, 200, 300]
+    let c1 = rr_candidate_new(1, 500, [50, 100, 150])
+    let score = rr_cross_encode(query, c1, 512, 512, 1024)
+    let t_cross = 0
+    if score > 0
+        t_cross = 1
+
+    let candidates = [
+        rr_candidate_new(1, 100, [10, 20, 30]),
+        rr_candidate_new(2, 200, [50, 100, 150]),
+        rr_candidate_new(3, 50, [5, 10, 15])
+    ]
+    let sorted = rr_rerank(candidates, query, 512, 512, 1024)
+    let t_rerank = 0
+    if rr_cand_id(sorted[0]) == 2
+        t_rerank = 1
+
+    let a = rr_candidate_new(1, 500, [10, 20])
+    a = rr_cand_set_final(a, 800)
+    let b = rr_candidate_new(2, 600, [5, 10])
+    b = rr_cand_set_final(b, 700)
+    let cmp = rr_pairwise_compare(a, b, 50)
+    let t_pair = 0
+    if cmp == -1
+        t_pair = 1
+
+    let pos = rr_candidate_new(1, 500, [10])
+    pos = rr_cand_set_final(pos, 800)
+    let negs = [
+        rr_candidate_new(2, 100, [5]),
+        rr_candidate_new(3, 200, [3])
+    ]
+    negs[0] = rr_cand_set_final(negs[0], 300)
+    negs[1] = rr_cand_set_final(negs[1], 500)
+    let margin = rr_margin_score(pos, negs)
+    let t_margin = 0
+    if margin == 300
+        t_margin = 1
+
+    let list_cands = [
+        rr_candidate_new(1, 0, [1]),
+        rr_candidate_new(2, 0, [1])
+    ]
+    list_cands[0] = rr_cand_set_final(list_cands[0], 500)
+    list_cands[1] = rr_cand_set_final(list_cands[1], 500)
+    let adjusted = rr_listwise_adjust(list_cands, 1000)
+    let t_list = 0
+    let total = rr_cand_final(adjusted[0]) + rr_cand_final(adjusted[1])
+    if total == 1000
+        t_list = 1
+
+    let bragg_cands = [
+        rr_candidate_new(1, 100, [10, 20, 30]),
+        rr_candidate_new(2, 200, [50, 100, 150]),
+        rr_candidate_new(3, 50, [5, 10, 15])
+    ]
+    let bragg = rr_bragg_rerank(bragg_cands, query, 512, 512, 1024)
+    let t_bragg = 0
+    if bragg == 1
+        t_bragg = 1
+
+    [t_cross, t_rerank, t_pair, t_margin, t_list, t_bragg]
+
+let rr_default_engine() =
+    [RR_STRATEGY_CROSS, 512, 512, 1024]

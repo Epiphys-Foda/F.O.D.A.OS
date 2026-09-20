@@ -1,0 +1,107 @@
+let trit_encode_impl(v, acc) =
+    if v != 0
+      let rem = v - (v / 3) * 3
+      if rem == 2
+        let carry = v / 3 + 1
+        trit_encode_impl(carry, acc.push(-1))
+      else
+          0
+      if rem == 3
+        trit_encode_impl(v / 3 + 1, acc.push(0))
+      else
+        trit_encode_impl(v / 3, acc.push(rem))
+    else
+        acc
+
+let trit_encode(v) =
+    (v == 0 ? [0] : trit_encode_impl(v, []))
+
+let trit_decode_impl(trits, idx, acc, place) =
+    if idx < len(trits)
+      trit_decode_impl(trits, idx + 1, acc + trits[idx] * place, place * 3)
+    else
+        acc
+
+let trit_decode(trits) = trit_decode_impl(trits, 0, 0, 1)
+
+let trit_roundtrip(v) = trit_decode(trit_encode(v)) == v
+
+let trit_digits_impl(v, acc) =
+    if v > 0
+        trit_digits_impl(v / 3, acc + 1)
+    else
+        acc
+
+let trit_digits_needed(v) =
+    let a = (v < 0 ? 0 - v : v)
+    trit_digits_impl(a, 0)
+
+let bin_digits_impl(v, acc) =
+    if v > 0
+        bin_digits_impl(v / 2, acc + 1)
+    else
+        acc
+
+let bin_digits_needed(v) =
+    let a = (v < 0 ? 0 - v : v)
+    bin_digits_impl(a, 0)
+
+let trit_density_win(v) = trit_digits_needed(v) <= bin_digits_needed(v)
+
+let trit_density_ratio(v) =
+    let td = trit_digits_needed(v)
+    let bd = bin_digits_needed(v)
+    (td > 0 ? bd * 100 / td : 0)
+
+let trit_margin(t) =
+    (t < 0 ? 0 - t : t)
+
+let trit_weakest_impl(trits, idx, best) =
+    if idx < len(trits)
+      let m = trit_margin(trits[idx])
+      if m < best
+          trit_weakest_impl(trits, idx + 1, m)
+      else
+          trit_weakest_impl(trits, idx + 1, best)
+    else
+        best
+
+let trit_weakest(trits) = trit_weakest_impl(trits, 0, 99)
+
+let trit_has_zero_impl(trits, idx) =
+    if idx < len(trits)
+      if trits[idx] == 0
+          true
+      else
+          trit_has_zero_impl(trits, idx + 1)
+    else
+        false
+
+let trit_has_zero(trits) = trit_has_zero_impl(trits, 0)
+
+let trit_convolve_impl(a, b, k, i, acc) =
+    if i < len(a)
+        let j = k - i
+        let term = if j >= 0
+            if j < len(b)
+                a[i] * b[j]
+            else
+                0
+        else
+            0
+        trit_convolve_impl(a, b, k, i + 1, acc + term)
+    else
+        acc
+let trit_convolve_k(a, b, k) = trit_convolve_impl(a, b, k, 0, 0)
+
+let trit_convolve_impl2(a, b, k, acc) =
+    let total = len(a) + len(b) - 1
+    if k < total
+      trit_convolve_impl2(a, b, k + 1, acc.push(trit_convolve_k(a, b, k)))
+    else
+        acc
+
+let trit_convolve(a, b) = trit_convolve_impl2(a, b, 0, [])
+
+let trit_summary() =
+    { base: str_concat(str_concat("balanced ternary ", chr(123)), "-1, 0, +1}"), density: "radix economy: 3 ≈ e (three states optimal)", physics: "vortex ternary: +1 pos / 0 ground / -1 neg (topological charge conservation symmetry)", ntt: "GF(65537) Fermat prime supports radix-3 NTT", buffer: "0 buffer zone = fault-tolerance margin (ground-state isolation)" }

@@ -1,0 +1,731 @@
+let XT_LI = 1
+let XT_ADD = 2
+let XT_SUB = 3
+let XT_MUL = 4
+let XT_DIV = 5
+let XT_MOD = 6
+let XT_AND = 7
+let XT_OR = 8
+let XT_XOR = 9
+let XT_SLL = 10
+let XT_SRL = 11
+let XT_SRA = 12
+let XT_ADDI = 13
+let XT_LW = 14
+let XT_STW = 15
+let XT_BEQ = 16
+let XT_BNE = 17
+let XT_BLT = 18
+let XT_BGE = 19
+let XT_B = 20
+let XT_CALL0 = 21
+let XT_RET = 22
+let XT_CMP = 23
+let XT_MOV = 24
+let XT_NEG = 25
+
+let XT_A0 = 0
+let XT_A1 = 1
+let XT_A2 = 2
+let XT_A3 = 3
+let XT_A4 = 4
+let XT_A5 = 5
+let XT_A6 = 6
+let XT_A7 = 7
+let XT_A8 = 8
+let XT_A9 = 9
+let XT_A10 = 10
+let XT_A11 = 11
+let XT_A12 = 12
+let XT_A13 = 13
+let XT_A14 = 14
+let XT_A15 = 15
+let XT_ZERO = XT_A0
+let XT_V0 = XT_A2
+let XT_A0_ARG = XT_A2
+let XT_A1_ARG = XT_A3
+let XT_A2_ARG = XT_A4
+let XT_T0 = XT_A8
+let XT_T1 = XT_A9
+let XT_T2 = XT_A10
+let XT_T3 = XT_A11
+let XT_SP = XT_A1
+let XT_RA = XT_A0
+let XT_L0 = 16
+let XT_L1 = 17
+let XT_L2 = 18
+let XT_L3 = 19
+let XT_L4 = 20
+let XT_L5 = 21
+let XT_L6 = 22
+let XT_L7 = 23
+let XT_L8 = 24
+let XT_L9 = 25
+let XT_L10 = 26
+let XT_L11 = 27
+let XT_L12 = 28
+let XT_L13 = 29
+let XT_L14 = 30
+let XT_L15 = 31
+
+let xt_new_reg() =
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+let xt_set_arr(arr, idx, val) =
+    let n = len(arr)
+    let front = arr.slice(0, idx)
+    let back = arr.slice(idx + 1, n)
+    [front, [val], back].flat()
+
+let xt_asr(v, count) =
+    let r = v
+    let i = 0
+    for i < count
+      r = (r < 0 ? (r - 1) / 2 : r / 2)
+      i = i + 1
+    r
+
+let xt_lsr(v, count) =
+    let u = v
+    if u < 0
+      u = u + 9223372036854775808
+    else
+      0
+    let i = 0
+    for i < count
+      u = u / 2
+      i = i + 1
+    u
+
+let xt_bit_and(a, b) =
+    let result = 0
+    let bit = 1
+    let aa = a
+    let bb = b
+    let i = 0
+    for i < 32
+      let la_a = aa - (aa / 2) * 2
+      let la_b = bb - (bb / 2) * 2
+      if (la_a == 1) && (la_b == 1)
+        result = result + bit
+      else
+        0
+      aa = (aa < 0 ? (aa - 1) / 2 : aa / 2)
+      bb = (bb < 0 ? (bb - 1) / 2 : bb / 2)
+      bit = bit * 2
+      i = i + 1
+    result
+
+let xt_bit_or(a, b) =
+    let result = 0
+    let bit = 1
+    let aa = a
+    let bb = b
+    let i = 0
+    for i < 32
+      let la_a = aa - (aa / 2) * 2
+      let la_b = bb - (bb / 2) * 2
+      if (la_a == 1) || (la_b == 1)
+        result = result + bit
+      else
+        0
+      aa = (aa < 0 ? (aa - 1) / 2 : aa / 2)
+      bb = (bb < 0 ? (bb - 1) / 2 : bb / 2)
+      bit = bit * 2
+      i = i + 1
+    result
+
+let xt_bit_xor(a, b) =
+    let result = 0
+    let bit = 1
+    let aa = a
+    let bb = b
+    let i = 0
+    for i < 32
+      let la_a = aa - (aa / 2) * 2
+      let la_b = bb - (bb / 2) * 2
+      if la_a != la_b
+        result = result + bit
+      else
+        0
+      aa = (aa < 0 ? (aa - 1) / 2 : aa / 2)
+      bb = (bb < 0 ? (bb - 1) / 2 : bb / 2)
+      bit = bit * 2
+      i = i + 1
+    result
+
+let xtensa_exec(code, arg) =
+    let reg = xt_new_reg()
+    let mem = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    reg = xt_set_arr(reg, XT_A0_ARG, arg)
+    reg = xt_set_arr(reg, XT_SP, 4096)
+    let pc = 0
+    let done = 0
+    for done == 0
+      if pc < len(code)
+        let insn = code[pc]
+        let op = insn[0]
+        let rd = insn[1]
+        let rn = insn[2]
+        let rm = insn[3]
+        let imm = insn[4]
+        let next = pc + 1
+        if op == XT_LI
+          reg = xt_set_arr(reg, rd, imm)
+        else
+          0
+        if op == XT_ADD
+          reg = xt_set_arr(reg, rd, reg[rn] + reg[rm])
+        else
+          0
+        if op == XT_SUB
+          reg = xt_set_arr(reg, rd, reg[rn] - reg[rm])
+        else
+          0
+        if op == XT_MUL
+          reg = xt_set_arr(reg, rd, reg[rn] * reg[rm])
+        else
+          0
+        if op == XT_DIV
+          reg = xt_set_arr(reg, rd, (reg[rm] == 0 ? 0 : reg[rn] / reg[rm]))
+        else
+          0
+        if op == XT_MOD
+          reg = xt_set_arr(reg, rd, (reg[rm] == 0 ? 0 : reg[rn] - (reg[rn] / reg[rm]) * reg[rm]))
+        else
+          0
+        if op == XT_AND
+          reg = xt_set_arr(reg, rd, xt_bit_and(reg[rn], reg[rm]))
+        else
+          0
+        if op == XT_OR
+          reg = xt_set_arr(reg, rd, xt_bit_or(reg[rn], reg[rm]))
+        else
+          0
+        if op == XT_XOR
+          reg = xt_set_arr(reg, rd, xt_bit_xor(reg[rn], reg[rm]))
+        else
+          0
+        if op == XT_SLL
+          reg = xt_set_arr(reg, rd, reg[rn] * (1 << reg[rm]))
+        else
+          0
+        if op == XT_SRL
+          reg = xt_set_arr(reg, rd, xt_lsr(reg[rn], reg[rm]))
+        else
+          0
+        if op == XT_SRA
+          reg = xt_set_arr(reg, rd, xt_asr(reg[rn], reg[rm]))
+        else
+          0
+        if op == XT_ADDI
+          reg = xt_set_arr(reg, rd, reg[rn] + imm)
+        else
+          0
+        if op == XT_LW
+          let addr = reg[rn] + imm
+          let m2 = if addr < len(mem)
+            mem
+          else
+            let m = mem
+            let i = len(mem)
+            for i <= addr
+              m = m.push(0)
+              i = i + 1
+            m
+          reg = xt_set_arr(reg, rd, m2[addr])
+        else
+          0
+        if op == XT_STW
+          let addr = rn + imm
+          let m2 = if addr < len(mem)
+            mem
+          else
+            let m = mem
+            let i = len(mem)
+            for i <= addr
+              m = m.push(0)
+              i = i + 1
+            m
+          mem = xt_set_arr(m2, addr, reg[rd])
+        else
+          0
+        if op == XT_BEQ
+          if reg[rn] == reg[rm]
+            next = pc + imm
+          else
+            0
+        else
+          0
+        if op == XT_BNE
+          if reg[rn] != reg[rm]
+            next = pc + imm
+          else
+            0
+        else
+          0
+        if op == XT_BLT
+          if reg[rn] < reg[rm]
+            next = pc + imm
+          else
+            0
+        else
+          0
+        if op == XT_BGE
+          if reg[rn] >= reg[rm]
+            next = pc + imm
+          else
+            0
+        else
+          0
+        if op == XT_B
+          next = pc + imm
+        else
+          0
+        if op == XT_CALL0
+          reg = xt_set_arr(reg, XT_RA, next)
+          next = imm
+        else
+          0
+        if op == XT_RET
+          next = reg[XT_RA]
+        else
+          0
+        if op == XT_CMP
+          reg = xt_set_arr(reg, rd, (reg[rn] < reg[rm] ? 1 : 0))
+        else
+          0
+        if op == XT_MOV
+          reg = xt_set_arr(reg, rd, reg[rn])
+        else
+          0
+        if op == XT_NEG
+          reg = xt_set_arr(reg, rd, 0 - reg[rn])
+        else
+          0
+        pc = next
+      else
+        done = 1
+    reg[XT_V0]
+
+let xt_alloc_slot(ctx, name) =
+    let slots = ctx[1]
+    let nslots = ctx[2]
+    let reg = XT_L0 + nslots
+    let new_slots = slots.push([name, reg])
+    [ctx[0], new_slots, nslots + 1, ctx[3], ctx[4]]
+
+let xt_lookup_slot(ctx, name) =
+    let slots = ctx[1]
+    let reg = XT_ZERO
+    let found = 0
+    let i = 0
+    for i < len(slots)
+      if (found == 0) && (slots[i][0] == name)
+        reg = slots[i][1]
+        found = 1
+      else
+        0
+      i = i + 1
+    reg
+
+let xt_compile_expr(ast, ctx) =
+    let tag = ast[0]
+    if tag == "lit"
+      ctx[0] = ctx[0].push([XT_LI, XT_V0, 0, 0, ast[1]])
+    else
+      0
+    if tag == "var"
+      let r = xt_lookup_slot(ctx, ast[1])
+      ctx[0] = ctx[0].push([XT_MOV, XT_V0, r, 0, 0])
+    else
+      0
+    if tag == "binop"
+      let op_name = ast[1]
+      let left = ast[2]
+      let right = ast[3]
+      xt_compile_expr(left, ctx)
+      ctx[0] = ctx[0].push([XT_MOV, XT_T0, XT_V0, 0, 0])
+      xt_compile_expr(right, ctx)
+      ctx[0] = ctx[0].push([XT_MOV, XT_T1, XT_V0, 0, 0])
+      if op_name == "+"
+        ctx[0] = ctx[0].push([XT_ADD, XT_V0, XT_T0, XT_T1, 0])
+      else
+        0
+      if op_name == "-"
+        ctx[0] = ctx[0].push([XT_SUB, XT_V0, XT_T0, XT_T1, 0])
+      else
+        0
+      if op_name == "*"
+        ctx[0] = ctx[0].push([XT_MUL, XT_V0, XT_T0, XT_T1, 0])
+      else
+        0
+      if op_name == "/"
+        ctx[0] = ctx[0].push([XT_DIV, XT_V0, XT_T0, XT_T1, 0])
+      else
+        0
+      if op_name == "%"
+        ctx[0] = ctx[0].push([XT_MOD, XT_V0, XT_T0, XT_T1, 0])
+      else
+        0
+      if op_name == "&"
+        ctx[0] = ctx[0].push([XT_AND, XT_V0, XT_T0, XT_T1, 0])
+      else
+        0
+      if op_name == "|"
+        ctx[0] = ctx[0].push([XT_OR, XT_V0, XT_T0, XT_T1, 0])
+      else
+        0
+      if op_name == "^"
+        ctx[0] = ctx[0].push([XT_XOR, XT_V0, XT_T0, XT_T1, 0])
+      else
+        0
+      if op_name == "<<"
+        ctx[0] = ctx[0].push([XT_SLL, XT_V0, XT_T0, XT_T1, 0])
+      else
+        0
+      if op_name == ">>"
+        ctx[0] = ctx[0].push([XT_SRA, XT_V0, XT_T0, XT_T1, 0])
+      else
+        0
+      if op_name == "<"
+        ctx[0] = ctx[0].push([XT_CMP, XT_V0, XT_T0, XT_T1, 0])
+      else
+        0
+      if op_name == ">"
+        ctx[0] = ctx[0].push([XT_CMP, XT_V0, XT_T1, XT_T0, 0])
+      else
+        0
+      if op_name == "<="
+        ctx[0] = ctx[0].push([XT_CMP, XT_V0, XT_T0, XT_T1, 0])
+        ctx[0] = ctx[0].push([XT_CMP, XT_T1, XT_T0, XT_T1, 0])
+        ctx[0] = ctx[0].push([XT_BEQ, XT_V0, XT_T1, 0, 2])
+        ctx[0] = ctx[0].push([XT_LI, XT_V0, 0, 0, 1])
+      else
+        0
+      if op_name == ">="
+        ctx[0] = ctx[0].push([XT_CMP, XT_V0, XT_T1, XT_T0, 0])
+        ctx[0] = ctx[0].push([XT_CMP, XT_T1, XT_T0, XT_T1, 0])
+        ctx[0] = ctx[0].push([XT_BEQ, XT_V0, XT_T1, 0, 2])
+        ctx[0] = ctx[0].push([XT_LI, XT_V0, 0, 0, 1])
+      else
+        0
+      if op_name == "=="
+        ctx[0] = ctx[0].push([XT_SUB, XT_V0, XT_T0, XT_T1, 0])
+        ctx[0] = ctx[0].push([XT_LI, XT_T1, 0, 0, 1])
+        ctx[0] = ctx[0].push([XT_BEQ, XT_V0, XT_ZERO, 0, 2])
+        ctx[0] = ctx[0].push([XT_LI, XT_T1, 0, 0, 0])
+        ctx[0] = ctx[0].push([XT_MOV, XT_V0, XT_T1, 0, 0])
+      else
+        0
+      if op_name == "!="
+        ctx[0] = ctx[0].push([XT_SUB, XT_V0, XT_T0, XT_T1, 0])
+        ctx[0] = ctx[0].push([XT_LI, XT_T1, 0, 0, 0])
+        ctx[0] = ctx[0].push([XT_BEQ, XT_V0, XT_ZERO, 0, 2])
+        ctx[0] = ctx[0].push([XT_LI, XT_T1, 0, 0, 1])
+        ctx[0] = ctx[0].push([XT_MOV, XT_V0, XT_T1, 0, 0])
+      else
+        0
+    else
+      0
+    if tag == "call"
+      let fn_name = ast[1]
+      let args = ast[2]
+      let i = 0
+      for i < len(args)
+        xt_compile_expr(args[i], ctx)
+        let arg_reg = if i == 0
+          XT_A0_ARG
+        else
+          if i == 1
+            XT_A1_ARG
+          else
+            XT_A2_ARG
+        ctx[0] = ctx[0].push([XT_MOV, arg_reg, XT_V0, 0, 0])
+        i = i + 1
+      let call_pos = len(ctx[0])
+      ctx[0] = ctx[0].push([XT_CALL0, 0, 0, 0, 0])
+      ctx[4] = ctx[4].push([call_pos, fn_name])
+      ctx[0] = ctx[0].push([XT_MOV, XT_V0, XT_V0, 0, 0])
+    else
+      0
+    ctx
+
+let xt_compile_stmt(ast, ctx) =
+    let tag = ast[0]
+    if tag == "lit"
+      xt_compile_expr(ast, ctx)
+    else
+      0
+    if tag == "var"
+      xt_compile_expr(ast, ctx)
+    else
+      0
+    if tag == "binop"
+      xt_compile_expr(ast, ctx)
+    else
+      0
+    if tag == "call"
+      xt_compile_expr(ast, ctx)
+    else
+      0
+    if tag == "let"
+      let var_name = ast[1]
+      let val = ast[2]
+      xt_compile_expr(val, ctx)
+      ctx = xt_alloc_slot(ctx, var_name)
+      let r = xt_lookup_slot(ctx, var_name)
+      ctx[0] = ctx[0].push([XT_MOV, r, XT_V0, 0, 0])
+    else
+      0
+    if tag == "assign"
+      let var_name = ast[1]
+      let val = ast[2]
+      xt_compile_expr(val, ctx)
+      let r = xt_lookup_slot(ctx, var_name)
+      ctx[0] = ctx[0].push([XT_MOV, r, XT_V0, 0, 0])
+    else
+      0
+    if tag == "if"
+      let cond = ast[1]
+      let then_body = ast[2]
+      let else_body = ast[3]
+      xt_compile_expr(cond, ctx)
+      let beq_pos = len(ctx[0])
+      ctx[0] = ctx[0].push([XT_BEQ, XT_V0, XT_ZERO, 0, 0])
+      xt_compile_stmt(then_body, ctx)
+      let b_pos = len(ctx[0])
+      ctx[0] = ctx[0].push([XT_B, 0, 0, 0, 0])
+      let else_start = len(ctx[0])
+      ctx[0] = xt_set_arr(ctx[0], beq_pos, [XT_BEQ, XT_V0, XT_ZERO, 0, else_start - beq_pos])
+      if else_body[0] != "null"
+        xt_compile_stmt(else_body, ctx)
+      else
+        0
+      let else_end = len(ctx[0])
+      ctx[0] = xt_set_arr(ctx[0], b_pos, [XT_B, 0, 0, 0, else_end - b_pos])
+    else
+      0
+    if tag == "for"
+      let var_name = ast[1]
+      let count_expr = ast[2]
+      let body = ast[3]
+      xt_compile_expr(count_expr, ctx)
+      ctx = xt_alloc_slot(ctx, var_name)
+      let loop_var = xt_lookup_slot(ctx, var_name)
+      ctx[0] = ctx[0].push([XT_LI, loop_var, 0, 0, 0])
+      let loop_start = len(ctx[0])
+      ctx[0] = ctx[0].push([XT_BGE, loop_var, XT_V0, 0, 0])
+      let bge_pos = len(ctx[0]) - 1
+      xt_compile_stmt(body, ctx)
+      ctx[0] = ctx[0].push([XT_ADDI, loop_var, loop_var, 0, 1])
+      ctx[0] = ctx[0].push([XT_B, 0, 0, 0, loop_start - len(ctx[0]) - 1])
+      let loop_end = len(ctx[0])
+      ctx[0] = xt_set_arr(ctx[0], bge_pos, [XT_BGE, loop_var, XT_V0, 0, loop_end - bge_pos])
+    else
+      0
+    if tag == "return"
+      let val = ast[1]
+      xt_compile_expr(val, ctx)
+      ctx[0] = ctx[0].push([XT_RET, 0, 0, 0, 0])
+    else
+      0
+    if tag == "seq"
+      let stmts = ast.slice(1, len(ast))
+      let i = 0
+      for i < len(stmts)
+        xt_compile_stmt(stmts[i], ctx)
+        i = i + 1
+    else
+      0
+    ctx
+
+let xt_compile_fn(ast, ctx) =
+    let fn_name = ast[1]
+    let params = ast[2]
+    let body = ast[3]
+    let fn_offset = len(ctx[0])
+    ctx[3] = ctx[3].push([fn_name, fn_offset])
+    let saved_slots = ctx[1]
+    let saved_nslots = ctx[2]
+    ctx[1] = []
+    ctx[2] = 0
+    let i = 0
+    for i < len(params)
+      ctx = xt_alloc_slot(ctx, params[i])
+      let r = xt_lookup_slot(ctx, params[i])
+      let arg_reg = if i == 0
+        XT_A0_ARG
+      else
+        if i == 1
+          XT_A1_ARG
+        else
+          XT_A2_ARG
+      ctx[0] = ctx[0].push([XT_MOV, r, arg_reg, 0, 0])
+      i = i + 1
+    xt_compile_stmt(body, ctx)
+    ctx[0] = ctx[0].push([XT_RET, 0, 0, 0, 0])
+    ctx[1] = saved_slots
+    ctx[2] = saved_nslots
+    ctx
+
+let xtensa_compile(ast) =
+    let code = []
+    let ctx = [code, [], 0, [], []]
+    let stmts = if ast[0] == "seq"
+      ast.slice(1, len(ast))
+    else
+      [ast]
+    let user_fns = []
+    let other_stmts = []
+    let i = 0
+    for i < len(stmts)
+      if stmts[i][0] == "fn"
+        user_fns = user_fns.push(stmts[i])
+      else
+        other_stmts = other_stmts.push(stmts[i])
+      i = i + 1
+    let j = 0
+    for j < len(other_stmts)
+      xt_compile_stmt(other_stmts[j], ctx)
+      j = j + 1
+    ctx[0] = ctx[0].push([XT_LI, XT_V0, 0, 0, 0])
+    ctx[0] = ctx[0].push([XT_RET, 0, 0, 0, 0])
+    let k = 0
+    for k < len(user_fns)
+      xt_compile_fn(user_fns[k], ctx)
+      k = k + 1
+    let m = 0
+    for m < len(ctx[4])
+      let patch = ctx[4][m]
+      let call_pos = patch[0]
+      let fn_name = patch[1]
+      let n = 0
+      let found = 0
+      for n < len(ctx[3])
+        if (found == 0) && (ctx[3][n][0] == fn_name)
+          ctx[0] = xt_set_arr(ctx[0], call_pos, [XT_CALL0, 0, 0, 0, ctx[3][n][1]])
+          found = 1
+        else
+          0
+        n = n + 1
+      m = m + 1
+    ctx[0]
+
+let xt_test_add() =
+    let ast = ["seq", ["let", "a", ["binop", "+", ["lit", 3], ["lit", 4]]]]
+    let code = xtensa_compile(ast)
+    xtensa_exec(code, 0)
+
+let xt_test_sub() =
+    let ast = ["seq", ["let", "a", ["binop", "-", ["lit", 10], ["lit", 3]]]]
+    let code = xtensa_compile(ast)
+    xtensa_exec(code, 0)
+
+let xt_test_mul() =
+    let ast = ["seq", ["let", "a", ["binop", "*", ["lit", 6], ["lit", 7]]]]
+    let code = xtensa_compile(ast)
+    xtensa_exec(code, 0)
+
+let xt_test_div() =
+    let ast = ["seq", ["let", "a", ["binop", "/", ["lit", 84], ["lit", 2]]]]
+    let code = xtensa_compile(ast)
+    xtensa_exec(code, 0)
+
+let xt_test_mod() =
+    let ast = ["seq", ["let", "a", ["binop", "%", ["lit", 10], ["lit", 3]]]]
+    let code = xtensa_compile(ast)
+    xtensa_exec(code, 0)
+
+let xt_test_var_ref() =
+    let ast = ["seq", ["let", "x", ["lit", 7]], ["let", "a", ["binop", "+", ["var", "x"], ["lit", 4]]]]
+    let code = xtensa_compile(ast)
+    xtensa_exec(code, 0)
+
+let xt_test_chain() =
+    let ast = ["seq", ["let", "x", ["lit", 2]], ["let", "y", ["binop", "+", ["var", "x"], ["lit", 1]]], ["let", "a", ["binop", "+", ["var", "y"], ["lit", 2]]]]
+    let code = xtensa_compile(ast)
+    xtensa_exec(code, 0)
+
+let xt_test_if_true() =
+    let ast = ["seq", ["let", "x", ["lit", 1]], ["if", ["binop", "<", ["var", "x"], ["lit", 2]], ["assign", "x", ["lit", 10]], ["assign", "x", ["lit", 20]]]]
+    let code = xtensa_compile(ast)
+    xtensa_exec(code, 0)
+
+let xt_test_if_false() =
+    let ast = ["seq", ["let", "x", ["lit", 5]], ["if", ["binop", "<", ["var", "x"], ["lit", 2]], ["assign", "x", ["lit", 10]], ["assign", "x", ["lit", 20]]]]
+    let code = xtensa_compile(ast)
+    xtensa_exec(code, 0)
+
+let xt_test_for_loop() =
+    let ast = ["seq", ["let", "s", ["lit", 0]], ["for", "i", ["lit", 5], ["assign", "s", ["binop", "+", ["var", "s"], ["var", "i"]]]]]
+    let code = xtensa_compile(ast)
+    xtensa_exec(code, 0)
+
+let xt_test_for_loop_10() =
+    let ast = ["seq", ["let", "s", ["lit", 0]], ["for", "i", ["lit", 10], ["assign", "s", ["binop", "+", ["var", "s"], ["var", "i"]]]]]
+    let code = xtensa_compile(ast)
+    xtensa_exec(code, 0)
+
+let xt_test_fn_call() =
+    let ast = ["seq", ["fn", "double", ["x"], ["binop", "*", ["var", "x"], ["lit", 2]]], ["let", "r", ["call", "double", [["lit", 21]]]]]
+    let code = xtensa_compile(ast)
+    xtensa_exec(code, 0)
+
+let xt_test_fn_add() =
+    let ast = ["seq", ["fn", "add", ["a", "b"], ["binop", "+", ["var", "a"], ["var", "b"]]], ["let", "r", ["call", "add", [["lit", 17], ["lit", 25]]]]]
+    let code = xtensa_compile(ast)
+    xtensa_exec(code, 0)
+
+let xt_test_nested_fn() =
+    let ast = ["seq", ["fn", "sq", ["x"], ["binop", "*", ["var", "x"], ["var", "x"]]], ["let", "r", ["call", "sq", [["lit", 7]]]]]
+    let code = xtensa_compile(ast)
+    xtensa_exec(code, 0)
+
+let xt_test_negative() =
+    let ast = ["seq", ["let", "a", ["binop", "-", ["lit", 0], ["lit", 5]]]]
+    let code = xtensa_compile(ast)
+    xtensa_exec(code, 0)
+
+let xt_test_bitwise() =
+    let ast = ["seq", ["let", "a", ["binop", "&", ["lit", 12], ["lit", 10]]]]
+    let code = xtensa_compile(ast)
+    xtensa_exec(code, 0)
+
+let xt_test_shift() =
+    let ast = ["seq", ["let", "a", ["binop", "<<", ["lit", 1], ["lit", 4]]]]
+    let code = xtensa_compile(ast)
+    xtensa_exec(code, 0)
+
+let xt_run_all_tests() =
+    let results = []
+    results = results.push(["add", xt_test_add(), 7])
+    results = results.push(["sub", xt_test_sub(), 7])
+    results = results.push(["mul", xt_test_mul(), 42])
+    results = results.push(["div", xt_test_div(), 42])
+    results = results.push(["mod", xt_test_mod(), 1])
+    results = results.push(["var_ref", xt_test_var_ref(), 11])
+    results = results.push(["chain", xt_test_chain(), 5])
+    results = results.push(["if_true", xt_test_if_true(), 10])
+    results = results.push(["if_false", xt_test_if_false(), 20])
+    results = results.push(["for_loop", xt_test_for_loop(), 10])
+    results = results.push(["for_loop_10", xt_test_for_loop_10(), 45])
+    results = results.push(["fn_call", xt_test_fn_call(), 42])
+    results = results.push(["fn_add", xt_test_fn_add(), 42])
+    results = results.push(["nested_fn", xt_test_nested_fn(), 49])
+    results = results.push(["negative", xt_test_negative(), -5])
+    results = results.push(["bitwise", xt_test_bitwise(), 8])
+    results = results.push(["shift", xt_test_shift(), 16])
+    let pass = 0
+    let fail = 0
+    let i = 0
+    for i < len(results)
+      let name = results[i][0]
+      let got = results[i][1]
+      let want = results[i][2]
+      if got == want
+        pass = pass + 1
+      else
+        fail = fail + 1
+      i = i + 1
+    [pass, fail, results]

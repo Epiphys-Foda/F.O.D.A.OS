@@ -1,0 +1,33 @@
+import "ck.ψ"
+let bad = [0]
+
+let h_direct = 3935
+let h1 = 1105
+let h2 = 2830
+let dz1 = h1 + h2 - h_direct
+bad[0] = bad[0] + ck(dz1, 0, 0)
+bad[0] = bad[0] + ck(h_direct, 3930, 3940)
+bad[0] = bad[0] + ck(h1, 1100, 1110)
+
+let h_rev = 0 - 3935
+let dz2 = h_rev + h_direct
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let elev = 30
+let up_a = 10
+let up_b = 20
+let dz3 = up_a + up_b - elev
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+if 1840 < 1838
+    bad[0] = bad[0] + 1
+if 1840 > 1842
+    bad[0] = bad[0] + 1
+if 1919 < 1917
+    bad[0] = bad[0] + 1
+if 1919 > 1921
+    bad[0] = bad[0] + 1
+if 1919 < 1840
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

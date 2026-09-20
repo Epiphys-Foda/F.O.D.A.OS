@@ -1,0 +1,41 @@
+import "ck.ψ"
+let bad = [0]
+
+let circ = 40075
+let dz1 = circ - 40075
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let v_eq = circ * 1000 / 864 / 100
+let dz2 = v_eq - 463
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let kmh = v_eq * 36 / 10
+let dz3 = kmh - 1666
+bad[0] = bad[0] + ck(dz3, 0, 0)
+bad[0] = bad[0] + ck(kmh, 1650, 1700)
+
+let v60 = v_eq / 2
+let dz4 = v60 - 231
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let supersonic = v_eq - 340
+let dz5 = supersonic - 123
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let mach = v_eq * 100 / 340
+let dz6 = mach - 136
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+let v_pole = 0
+bad[0] = bad[0] + ck_hi(v_pole, 0)
+
+if 1835 < 1833
+    bad[0] = bad[0] + 1
+if 1835 > 1837
+    bad[0] = bad[0] + 1
+if 1851 < 1849
+    bad[0] = bad[0] + 1
+if 1851 > 1853
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

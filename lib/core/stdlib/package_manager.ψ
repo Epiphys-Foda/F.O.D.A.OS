@@ -1,0 +1,134 @@
+let pkg_make(name, version, deps, path) =
+    let pkg = arr_new_n(4)
+    pkg[0] = name
+    pkg[1] = version
+    pkg[2] = deps
+    pkg[3] = path
+    pkg
+
+let semver_parse(s) =
+    let v = arr_new_n(3)
+    v[0] = 0
+    v[1] = 0
+    v[2] = 0
+    let i = 0
+    let part = 0
+    let val = 0
+    for i < s.len()
+        let c = s[i]
+        if c == 46
+            v[part] = val
+            val = 0
+            part = part + 1
+        else
+            0
+        if c >= 48 && c <= 57
+            val = val * 10 + (c - 48)
+        i = i + 1
+    if part <= 2
+        v[part] = val
+    v
+
+let semver_compare(a, b) =
+    if a[0] != b[0]
+        (a[0] < b[0] ? -1 : 1)
+    else
+            0
+    if a[1] != b[1]
+        (a[1] < b[1] ? -1 : 1)
+    else
+            0
+    if a[2] != b[2]
+        (a[2] < b[2] ? -1 : 1)
+    else
+            0
+        0
+
+let semver_eq(a, b) =
+    (semver_compare(a, b) == 0 ? 1 : 0)
+
+let dep_graph_create() = arr_new()
+
+let dep_graph_add(graph, pkg) = arr_push(graph, pkg)
+
+let dep_topo_sort(graph) =
+    let n = graph.len()
+    let visited = arr_new_n(n)
+    let i = 0
+    for i < n
+        visited[i] = 0
+        i = i + 1
+    let result = arr_new()
+    let visit(node_idx) =
+        if visited[node_idx] == 0
+            visited[node_idx] = 1
+            let pkg = graph[node_idx]
+            let deps = pkg[2]
+            let d = 0
+            for d < deps.len()
+                let dep_name = deps[d][0]
+                let j = 0
+                for j < n
+                    if graph[j][0] == dep_name
+                        visit(j)
+                        j = n
+                    j = j + 1
+                d = d + 1
+            result = arr_push(result, pkg)
+    let i = 0
+    for i < n
+        visit(i)
+        i = i + 1
+    result
+
+let lock_generate(graph) =
+    let sorted = dep_topo_sort(graph)
+    let lock = arr_new()
+    let i = 0
+    for i < sorted.len()
+        let pkg = sorted[i]
+        let entry = arr_new_n(3)
+        entry[0] = pkg[0]
+        entry[1] = pkg[1]
+        entry[2] = pkg[3]
+        lock = arr_push(lock, entry)
+        i = i + 1
+    lock
+
+let registry_create() = arr_new()
+
+let registry_add(reg, pkg) = arr_push(reg, pkg)
+
+let registry_lookup(reg, name) =
+    let i = 0
+    for i < reg.len()
+        if reg[i][0] == name
+            return reg[i]
+        i = i + 1
+    0
+
+let registry_latest(reg, name) =
+    let best = 0
+    let found = 0
+    let i = 0
+    for i < reg.len()
+        if reg[i][0] == name
+            if found == 0
+                best = i
+                found = 1
+            else
+                if semver_compare(reg[i][1], reg[best][1]) > 0
+                    best = i
+        i = i + 1
+    (found == 1 ? reg[best] : 0)
+
+let install_plan(reg, requirements) =
+    let graph = dep_graph_create()
+    let i = 0
+    for i < requirements.len()
+        let req = requirements[i]
+        let pkg = registry_lookup(reg, req[0])
+        if pkg != 0
+            dep_graph_add(graph, pkg)
+        i = i + 1
+    dep_topo_sort(graph)

@@ -1,0 +1,26 @@
+import "ck.ψ"
+let bad = [0]
+
+let b_a = 28296
+let b_be8 = 56499
+let b_c12 = 92162
+let b_o16 = 127619
+
+let q2a = b_be8 - 2 * b_a
+let aq2a =
+    if q2a < 0
+        0 - q2a
+    else
+        q2a
+bad[0] = bad[0] + ck(aq2a, 50, 200)
+
+let q3a = b_c12 - 3 * b_a
+bad[0] = bad[0] + ck_lo(q3a, 7000)
+
+let res = 7654 - q3a
+bad[0] = bad[0] + ck(res, 100, 600)
+
+let qao = b_o16 - b_c12 - b_a
+bad[0] = bad[0] + ck_lo(qao, 7000)
+
+arr_get(arr_new_n(1), bad[0])

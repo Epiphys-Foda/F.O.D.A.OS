@@ -1,0 +1,346 @@
+let Q_CONSISTENCY_ONE = 0
+let Q_CONSISTENCY_QUORUM = 1
+let Q_CONSISTENCY_ALL = 2
+
+let q_replica_new(node_id, value, vclock, ts) =
+    [node_id, value, vclock, ts, 0]
+
+let q_r_node(r) = r[0]
+let q_r_value(r) = r[1]
+let q_r_vclock(r) = r[2]
+let q_r_ts(r) = r[3]
+let q_r_status(r) = r[4]
+
+let q_r_set_value(r, v) = [r[0], v, r[2], r[3], r[4]]
+let q_r_set_vclock(r, v) = [r[0], r[1], v, r[3], r[4]]
+let q_r_set_ts(r, v) = [r[0], r[1], r[2], v, r[4]]
+let q_r_set_status(r, v) = [r[0], r[1], r[2], r[3], v]
+
+let q_rs_new(key, n_replicas, w, r, primary) =
+    [key, [], n_replicas, w, r, primary, {}]
+
+let q_rs_key(rs) = rs[0]
+let q_rs_reps(rs) = rs[1]
+let q_rs_N(rs) = rs[2]
+let q_rs_W(rs) = rs[3]
+let q_rs_R(rs) = rs[4]
+let q_rs_primary(rs) = rs[5]
+let q_rs_hh(rs) = rs[6]
+
+let q_rs_set_reps(rs, v) = [rs[0], v, rs[2], rs[3], rs[4], rs[5], rs[6]]
+let q_rs_set_hh(rs, v) = [rs[0], rs[1], rs[2], rs[3], rs[4], rs[5], v]
+
+let q_rs_add_replica(rs, replica) =
+    let reps = q_rs_reps(rs)
+    reps.push(replica)
+    q_rs_set_reps(rs, reps)
+
+let q_vclock_new() = {}
+
+let q_vclock_increment(vclock, node_id) =
+    let v = vclock[node_id]
+    if v == 0
+        v = 0
+    vclock[node_id] = v + 1
+    vclock
+
+let q_vclock_compare(a, b) =
+    let keys_a = keys_of(a)
+    let keys_b = keys_of(b)
+    let all_keys = {}
+    let i = 0
+    let n = len(keys_a)
+    for i < n
+        all_keys[keys_a[i]] = 1
+        i = i + 1
+    i = 0
+    n = len(keys_b)
+    for i < n
+        all_keys[keys_b[i]] = 1
+        i = i + 1
+    let a_greater = 0
+    let b_greater = 0
+    let keys = keys_of(all_keys)
+    i = 0
+    n = len(keys)
+    for i < n
+        let k = keys[i]
+        let av = a[k]
+        let bv = b[k]
+        if av == 0
+            av = 0
+        if bv == 0
+            bv = 0
+        if av > bv
+            a_greater = 1
+        else
+            0
+        if bv > av
+            b_greater = 1
+        i = i + 1
+    if a_greater == 0 && b_greater == 0
+        0
+    else
+        0
+    if a_greater == 1 && b_greater == 0
+        1
+    else
+        0
+    if b_greater == 1 && a_greater == 0
+        -1
+    else
+        2
+
+let q_write_quorum(rs, value, vclock, ts, consistency, primary_node) =
+    let reps = q_rs_reps(rs)
+    let N = q_rs_N(rs)
+    let W = 1
+    if consistency == Q_CONSISTENCY_ONE
+        W = 1
+    else
+        0
+    if consistency == Q_CONSISTENCY_QUORUM
+        W = (N / 2) + 1
+    else
+        0
+    if consistency == Q_CONSISTENCY_ALL
+        W = N
+    let written = 0
+    let i = 0
+    let n = len(reps)
+    for i < n
+        let r = reps[i]
+        r = q_r_set_value(r, value)
+        let new_vclock = q_r_vclock(r)
+        new_vclock = q_vclock_increment(new_vclock, q_r_node(r))
+        r = q_r_set_vclock(r, new_vclock)
+        r = q_r_set_ts(r, ts)
+        reps[i] = r
+        written = written + 1
+        i = i + 1
+    rs = q_rs_set_reps(rs, reps)
+    [rs, written, W]
+
+let q_read_quorum(rs, consistency) =
+    let reps = q_rs_reps(rs)
+    let N = q_rs_N(rs)
+    let R = 1
+    if consistency == Q_CONSISTENCY_ONE
+        R = 1
+    else
+        0
+    if consistency == Q_CONSISTENCY_QUORUM
+        R = (N / 2) + 1
+    else
+        0
+    if consistency == Q_CONSISTENCY_ALL
+        R = N
+    let latest = 0
+    let latest_ts = 0
+    let i = 0
+    let n = R
+    if n > len(reps)
+        n = len(reps)
+    for i < n
+        let r = reps[i]
+        if q_r_ts(r) > latest_ts
+            latest_ts = q_r_ts(r)
+            latest = r
+        i = i + 1
+    let repair_count = 0
+    if latest != 0
+        i = 0
+        n = len(reps)
+        for i < n
+            let r = reps[i]
+            if q_r_ts(r) < latest_ts
+                r = q_r_set_value(r, q_r_value(latest))
+                r = q_r_set_vclock(r, q_r_vclock(latest))
+                r = q_r_set_ts(r, latest_ts)
+                reps[i] = r
+                repair_count = repair_count + 1
+            i = i + 1
+        rs = q_rs_set_reps(rs, reps)
+    [rs, q_r_value(latest), repair_count]
+
+let q_add_hinted(rs, down_node, write_op) =
+    let hh = q_rs_hh(rs)
+    let lst = hh[down_node]
+    if lst == 0
+        lst = []
+    lst.push(write_op)
+    hh[down_node] = lst
+    q_rs_set_hh(rs, hh)
+
+let q_deliver_hinted(rs, recovered_node, ts) =
+    let hh = q_rs_hh(rs)
+    let pending = hh[recovered_node]
+    let delivered = 0
+    if pending != 0
+        let reps = q_rs_reps(rs)
+        let i = 0
+        let n = len(reps)
+        for i < n
+            let r = reps[i]
+            if q_r_node(r) == recovered_node
+                let j = 0
+                let m = len(pending)
+                for j < m
+                    let op = pending[j]
+                    r = q_r_set_value(r, op[0])
+                    let new_vc = q_r_vclock(r)
+                    new_vc = q_vclock_increment(new_vc, recovered_node)
+                    r = q_r_set_vclock(r, new_vc)
+                    r = q_r_set_ts(r, ts)
+                    j = j + 1
+                reps[i] = r
+                i = n
+            i = i + 1
+        rs = q_rs_set_reps(rs, reps)
+        hh[recovered_node] = []
+        rs = q_rs_set_hh(rs, hh)
+        delivered = len(pending)
+    [rs, delivered]
+
+let q_service_new() = [{}, 0, 0, 0, 0]
+
+let qs_rss(s) = s[0]
+let qs_w(s) = s[1]
+let qs_r(s) = s[2]
+let qs_reps(s) = s[3]
+let qs_hh(s) = s[4]
+
+let qs_set_rss(s, v) = [v, s[1], s[2], s[3], s[4]]
+let qs_set_w(s, v) = [s[0], v, s[2], s[3], s[4]]
+let qs_set_r(s, v) = [s[0], s[1], v, s[3], s[4]]
+let qs_set_reps(s, v) = [s[0], s[1], s[2], v, s[4]]
+let qs_set_hh(s, v) = [s[0], s[1], s[2], s[3], v]
+
+let qs_register_rs(s, rs) =
+    let rss = qs_rss(s)
+    rss[q_rs_key(rs)] = rs
+    qs_set_rss(s, rss)
+
+let qs_write(s, key, value, ts, consistency, primary_node) =
+    let rss = qs_rss(s)
+    let rs = rss[key]
+    if rs == 0
+        [s, 0, 0]
+    else
+        let vclock = q_vclock_new()
+        let r = q_write_quorum(rs, value, vclock, ts, consistency, primary_node)
+        rs = r[0]
+        rss[key] = rs
+        s = qs_set_rss(s, rss)
+        s = qs_set_w(s, qs_w(s) + r[1])
+        [s, r[1], r[2]]
+
+let qs_read(s, key, consistency) =
+    let rss = qs_rss(s)
+    let rs = rss[key]
+    if rs == 0
+        [s, 0, 0]
+    else
+        let r = q_read_quorum(rs, consistency)
+        rs = r[0]
+        rss[key] = rs
+        s = qs_set_rss(s, rss)
+        s = qs_set_r(s, qs_r(s) + 1)
+        s = qs_set_reps(s, qs_reps(s) + r[2])
+        [s, r[1], r[2]]
+
+let qs_bragg_check(s) =
+    let w = qs_w(s)
+    let r = qs_r(s)
+    let repairs = qs_reps(s)
+    let hh = qs_hh(s)
+    if w >= 0 && r >= 0 && repairs >= 0 && hh >= 0
+        1
+    else
+        0
+
+let q_test_basic() =
+    let s = q_service_new()
+    let ok1 = 1
+    if qs_w(s) != 0
+        ok1 = 0
+
+    let rs = q_rs_new("key1", 3, 2, 2, "node1")
+    rs = q_rs_add_replica(rs, q_replica_new("node1", 0, q_vclock_new(), 0))
+    rs = q_rs_add_replica(rs, q_replica_new("node2", 0, q_vclock_new(), 0))
+    rs = q_rs_add_replica(rs, q_replica_new("node3", 0, q_vclock_new(), 0))
+    s = qs_register_rs(s, rs)
+
+    let ok2 = 1
+    if qs_rss(s)["key1"] == 0
+        ok2 = 0
+
+    let wr = qs_write(s, "key1", 42, 1000, Q_CONSISTENCY_QUORUM, "node1")
+    s = wr[0]
+    let ok3 = 1
+    if wr[1] != 3
+        ok3 = 0
+    if wr[2] != 2
+        ok3 = 0
+
+    let rr = qs_read(s, "key1", Q_CONSISTENCY_QUORUM)
+    s = rr[0]
+    let ok4 = 1
+    if rr[1] != 42
+        ok4 = 0
+
+    let wr2 = qs_write(s, "key1", 100, 2000, Q_CONSISTENCY_QUORUM, "node1")
+    s = wr2[0]
+
+    let rr2 = qs_read(s, "key1", Q_CONSISTENCY_QUORUM)
+    s = rr2[0]
+    let ok5 = 1
+    if rr2[1] != 100
+        ok5 = 0
+
+    let rss = qs_rss(s)
+    let rs2 = rss["key1"]
+    rs2 = q_add_hinted(rs2, "node2", [200, 3000])
+    rss["key1"] = rs2
+    s = qs_set_rss(s, rss)
+    let ok6 = 1
+    if q_rs_hh(rs2)["node2"] == 0
+        ok6 = 0
+
+    rss = qs_rss(s)
+    rs2 = rss["key1"]
+    let dh = q_deliver_hinted(rs2, "node2", 4000)
+    rs2 = dh[0]
+    rss["key1"] = rs2
+    s = qs_set_rss(s, rss)
+    let ok7 = 1
+    if dh[1] != 1
+        ok7 = 0
+
+    let vc1 = q_vclock_new()
+    vc1 = q_vclock_increment(vc1, "a")
+    vc1 = q_vclock_increment(vc1, "a")
+    let vc2 = q_vclock_new()
+    vc2 = q_vclock_increment(vc2, "a")
+    vc2 = q_vclock_increment(vc2, "b")
+    let ok8 = 1
+    if q_vclock_compare(vc1, vc2) != 2
+        ok8 = 0
+    if q_vclock_compare(vc1, vc1) != 0
+        ok8 = 0
+
+    let ok9 = 1
+    if qs_bragg_check(s) != 1
+        ok9 = 0
+
+    ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7 * ok8 * ok9
+
+let q_test_self() =
+        let ok = q_test_basic()
+        if ok == 1
+            print("quorum: ALL PASS")
+        else
+            print("quorum: FAIL")
+        ok
+
+    q_test_self()

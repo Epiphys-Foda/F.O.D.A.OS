@@ -1,0 +1,58 @@
+let ast_to_op(ast_type) =
+    let result = 0
+    if ast_type == 0
+        result = OP_OBSERVE()
+    else
+        0
+    if ast_type == 1
+        result = OP_OBSERVE()
+    else
+        0
+    if ast_type == 2
+        result = OP_COMPILE()
+    else
+        0
+    if ast_type == 3
+        result = OP_COMPILE()
+    else
+        0
+    if ast_type == 4
+        result = OP_SELF_VERIFY()
+    else
+        0
+    if ast_type == 5
+        result = OP_GALOIS()
+    else
+        0
+    if ast_type == 6
+        result = OP_HOMOLOGY()
+    else
+        0
+    if ast_type == 7
+        result = OP_COMPILE()
+    else
+        0
+    if ast_type == 8
+        result = OP_META_OBSERVE()
+    else
+        0
+    if ast_type == 9
+        result = OP_OBSERVE()
+    else
+        0
+    if ast_type == 10
+        result = OP_HOMOLOGY()
+    else
+        0
+    if ast_type == 11
+        result = OP_COMPILE()
+    else
+        0
+    if ast_type == 12
+        result = OP_OBSERVE()
+    else
+        0
+    if ast_type == 13
+        result = OP_GALOIS()
+    result
+

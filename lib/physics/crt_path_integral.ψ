@@ -1,0 +1,146 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let garner(x1, x2, q1, q2) =
+    let t = (x2 + q2 - x1) % q2
+    let k = mulmod(t, invmod(q1 % q2, q2), q2)
+    let x = x1 + q1 * k
+    x
+
+let matmul(a, b) =
+    let r = arr_new_n(4)
+    r[0] = a[0] * b[0] + a[1] * b[2]
+    r[1] = a[0] * b[1] + a[1] * b[3]
+    r[2] = a[2] * b[0] + a[3] * b[2]
+    r[3] = a[2] * b[1] + a[3] * b[3]
+    r
+
+let matT(a) =
+    let r = arr_new_n(4)
+    r[0] = a[0]
+    r[1] = a[2]
+    r[2] = a[1]
+    r[3] = a[3]
+    r
+
+let main() =
+    print(111)
+    let q1 = 163
+    let q2 = 197
+    print(q1 * q2)
+    let X0 = 15000
+    let r1 = X0 % q1
+    let r2 = X0 % q2
+    print(r1)
+    print(r2)
+    let Xr = garner(r1, r2, q1, q2)
+    print(Xr)
+    let rns_ok = 0
+    if Xr == X0
+        rns_ok = 1
+    print(rns_ok)
+
+    print(222)
+    print(2 * 9 * 9)
+    print(2 * 10 * 10)
+    let x1 = mulmod(113, invmod(125, 163), 163)
+    print(x1)
+    let n_spur = mulmod(x1, 5, 163)
+    print(5)
+    print(n_spur)
+    let inv5 = invmod(5, 163)
+    print(mulmod(161, inv5, 163))
+    let oob = 0
+    if 125 > 9
+        oob = 1
+    print(oob)
+    print(2 * 125 * 125)
+    print(2 * 113 * 113)
+    let x2 = mulmod(113, invmod(125, 197), 197)
+    print(x2)
+    let X = garner(x1, x2, q1, q2)
+    print(X)
+    print(mulmod(X, 125, 32111))
+    let recon_ok = 0
+    if mulmod(X, 125, 32111) == 113
+        recon_ok = 1
+    print(recon_ok)
+
+    print(333)
+    let c = 2040
+    let U = arr_new_n(4)
+    U[0] = c
+    U[1] = 0 - c
+    U[2] = c
+    U[3] = c
+    print(U[1])
+    let U2 = matmul(U, U)
+    print(U2[0])
+    print(U2[1])
+    print(U2[2])
+    print(U2[3])
+    let U4 = matmul(U2, U2)
+    print(U4[0])
+    print(U4[1])
+    print(U4[3])
+    let U8 = matmul(U4, U4)
+    print(U8[0])
+    print(U8[3])
+    let Uo = matmul(U, matT(U))
+    print(Uo[0])
+    print(Uo[1])
+    print(Uo[3])
+    let v0 = 1
+    let v1 = 0
+    let t = 0
+    for t < 8
+        let nv0 = U[0] * v0 + U[1] * v1
+        let nv1 = U[2] * v0 + U[3] * v1
+        v0 = nv0
+        v1 = nv1
+        if t == 1
+            print(v0)
+            print(v1)
+        if t == 3
+            print(v0)
+            print(v1)
+        t = t + 1
+    print(v0)
+    print(v1)
+
+    print(444)
+    let u = 3
+    let v = 5
+    let tt = 0
+    for tt < 10
+        let nu = c * u + (0 - c) * v
+        let nv = c * u + c * v
+        u = nu
+        v = nv
+        tt = tt + 1
+    print(u)
+    print(v)
+    print(u * u + v * v)
+    let cells = arr_new_n(4)
+    cells[0] = 11
+    cells[1] = 22
+    cells[2] = 33
+    cells[3] = 44
+    let L0 = 11 + 22 + 33 + 44
+    let sh = 0
+    for sh < 7
+        let c3 = cells[3]
+        let c0 = cells[0]
+        let c1 = cells[1]
+        let c2 = cells[2]
+        cells[0] = c3
+        cells[1] = c0
+        cells[2] = c1
+        cells[3] = c2
+        sh = sh + 1
+    let L7 = cells[0] + cells[1] + cells[2] + cells[3]
+    print(L0)
+    print(L7)
+    print(cells[0])
+    print(cells[1])
+
+    8

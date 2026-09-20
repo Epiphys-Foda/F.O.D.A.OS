@@ -1,0 +1,570 @@
+import "../stdlib/gf65537.ψ"
+import "domain_list.ψ"
+
+let token_encode_gf(token_type, token_value) =
+    gf_add(gf_mul(token_type, 256), token_value)
+
+let token_type_gf(token) =
+    gf_div(token, 256)
+
+let token_value_gf(token) =
+    token % 256
+
+let lexer_gf(T, q0, source) =
+    lexer_rec_gf(T, q0, source, 0, [])
+
+let lexer_rec_gf(T, q, source, i, tokens) =
+        if i >= len(source)
+            tokens
+        else
+            let c = char_encode_gf(source[i])
+            let q_next = gf_mul(T[c], q)
+            let is_accept = (q_next % 256 == 0) ? 1 : 0
+            if is_accept == 1
+                let tok = token_encode_gf(q_next, i)
+                lexer_rec_gf(T, q0, source, i + 1, append(tokens, tok))
+            else
+                lexer_rec_gf(T, q_next, source, i + 1, tokens)
+
+let char_encode_gf(c) =
+    c
+
+let ast_node_gf(node_type, child_index) =
+    gf_add(gf_mul(node_type, 65537), child_index)
+
+let ll1_parse_gf(parse_table, grammar, tokens) =
+    ll1_parse_rec_gf(parse_table, grammar, tokens, 0, [0], 0, [])
+
+let ll1_parse_rec_gf(table, grammar, tokens, pos, stack, node_id, ast) =
+        if len(stack) == 0
+            ast
+        else
+            if pos >= len(tokens)
+                ast
+            else
+                let top = stack[len(stack) - 1]
+                let tok = tokens[pos]
+                let action = table[top][tok]
+                if action == 0
+                    ast
+                else
+                    if action < 1000
+                        let new_stack = push_gf(stack, tok)
+                        ll1_parse_rec_gf(table, grammar, tokens, pos + 1, new_stack, node_id, ast)
+                    else
+                        let prod = grammar[action]
+                        let pop_count = prod[0]
+                        let lhs = prod[1]
+                        let new_stack = pop_n_gf(stack, pop_count)
+                        let new_stack2 = push_gf(new_stack, lhs)
+                        let new_ast = append(ast, ast_node_gf(lhs, node_id))
+                        ll1_parse_rec_gf(table, grammar, tokens, pos, new_stack2, node_id + 1, new_ast)
+
+let lr1_parse_gf(action_table, goto_table, tokens) =
+    lr1_parse_rec_gf(action_table, goto_table, tokens, 0, [0], 0, [])
+
+let lr1_parse_rec_gf(action, goto, tokens, pos, stack, node_id, ast) =
+        if pos >= len(tokens)
+            ast
+        else
+            let state = stack[len(stack) - 1]
+            let tok = tokens[pos]
+            let act = action[state][tok]
+            if act == 0
+                ast
+            else
+                if act < 10000
+                    let new_stack = push_gf(push_gf(stack, tok), act)
+                    lr1_parse_rec_gf(action, goto, tokens, pos + 1, new_stack, node_id, ast)
+                    if act == 99999
+                        ast
+                    else
+                        let prod_id = act - 10000
+                        let prod = production_gf(prod_id)
+                        let pop_count = prod[0]
+                        let lhs = prod[1]
+                        let new_stack = pop_n_gf(stack, 2 * pop_count)
+                        let prev_state = new_stack[len(new_stack) - 1]
+                        let next_state = goto[prev_state][lhs]
+                        let new_stack2 = push_gf(push_gf(new_stack, lhs), next_state)
+                        let new_ast = append(ast, ast_node_gf(lhs, node_id))
+                        lr1_parse_rec_gf(action, goto, tokens, pos, new_stack2, node_id + 1, new_ast)
+
+let production_gf(prod_id) =
+    [2, prod_id]
+
+let type_encode_gf(type_id) =
+    type_id
+
+let type_check_gf(ast, type_env) =
+    type_check_rec_gf(ast, type_env, 0, 1)
+
+let type_check_rec_gf(ast, env, i, ok) =
+        if i >= len(ast) || ok == 0
+            ok
+        else
+            let node = ast[i]
+            let node_type = ast_node_type_gf(node)
+            let type_ok = type_check_node_gf(node, node_type, env)
+            type_check_rec_gf(ast, env, i + 1, gf_mul(ok, type_ok))
+
+let type_check_node_gf(node, node_type, env) =
+    let expected = env[node_type]
+    (node_type == expected) ? 1 : 0
+
+let subtype_gf(t1, t2) =
+    (t2 % t1 == 0) ? 1 : 0
+
+let type_compose_gf(t1, t2) =
+    gf_mul(t1, t2)
+
+let scope_lookup_gf(env, name) =
+    env[name]
+
+let scope_bind_gf(env, name, value) =
+    env[name] = value
+    env
+
+let ir_encode_gf(op, arg1, arg2, result) =
+    gf_add(gf_add(gf_add(
+        gf_mul(op, gf_mul(65537, gf_mul(65537, 65537))),
+        gf_mul(arg1, gf_mul(65537, 65537))),
+        gf_mul(arg2, 65537)),
+        result)
+
+let ir_gen_gf(ast) =
+    ir_gen_rec_gf(ast, 0, [], 0)
+
+let ir_gen_rec_gf(ast, i, ir, temp_counter) =
+        if i >= len(ast)
+            ir
+        else
+            let node = ast[i]
+            let node_type = ast_node_type_gf(node)
+            let (new_ir, new_temp) = ir_gen_node_gf(node, node_type, ir, temp_counter)
+            ir_gen_rec_gf(ast, i + 1, new_ir, new_temp)
+
+let ir_gen_node_gf(node, node_type, ir, temp) =
+    let op = node_type
+    let arg1 = temp
+    let arg2 = temp + 1
+    let result = temp + 2
+    let new_ir = append(ir, ir_encode_gf(op, arg1, arg2, result))
+    [new_ir, temp + 3]
+
+let ssa_var_gf(name, version) =
+    gf_add(gf_mul(name, 65537), version)
+
+let phi_function_gf(vars) =
+    phi_rec_gf(vars, 0, 0)
+
+let phi_rec_gf(vars, i, acc) =
+        if i >= len(vars)
+            acc
+        else
+            phi_rec_gf(vars, i + 1, gf_add(acc, vars[i]))
+
+let ssa_construct_gf(cfg) =
+    let dom_tree = dominator_tree_gf(cfg)
+    let dom_frontier = dominance_frontier_gf(cfg, dom_tree)
+    let cfg_phi = insert_phi_gf(cfg, dom_frontier)
+    let cfg_ssa = rename_variables_gf(cfg_phi)
+    cfg_ssa
+
+let dominator_tree_gf(cfg) =
+    dom_tree_rec_gf(cfg, 0, [])
+
+let dom_tree_rec_gf(cfg, i, tree) =
+        if i >= len(cfg)
+            tree
+        else
+            let idom = compute_idom_gf(cfg, i)
+            dom_tree_rec_gf(cfg, i + 1, append(tree, idom))
+
+let compute_idom_gf(cfg, i) =
+    i / 2
+
+let dominance_frontier_gf(cfg, dom_tree) =
+    dom_frontier_rec_gf(cfg, dom_tree, 0, [])
+
+let dom_frontier_rec_gf(cfg, dom_tree, i, df) =
+        if i >= len(cfg)
+            df
+        else
+            dom_frontier_rec_gf(cfg, dom_tree, i + 1, append(df, i))
+
+let insert_phi_gf(cfg, dom_frontier) =
+    cfg
+
+let rename_variables_gf(cfg) =
+    cfg
+
+let constant_fold_gf(op, a, b) =
+        if op == 1
+            gf_add(a, b)
+        else
+            if op == 2
+                gf_sub(a, b)
+                if op == 3
+                    gf_mul(a, b)
+                    if op == 4
+                        gf_div(a, b)
+let dead_code_elim_gf(cfg, live) =
+    dce_rec_gf(cfg, live, 0, [])
+
+let dce_rec_gf(cfg, live, i, new_cfg) =
+        if i >= len(cfg)
+            new_cfg
+        else
+            let inst = cfg[i]
+            let is_live = is_live_gf(inst, live)
+            if is_live == 1
+                dce_rec_gf(cfg, live, i + 1, append(new_cfg, inst))
+            else
+                dce_rec_gf(cfg, live, i + 1, new_cfg)
+
+let is_live_gf(inst, live) =
+    let result = inst % 65537
+    (live[result] == 1) ? 1 : 0
+
+let cse_gf(ir) =
+    cse_rec_gf(ir, {}, 0, [])
+
+let cse_rec_gf(ir, value_table, i, new_ir) =
+        if i >= len(ir)
+            new_ir
+        else
+            let inst = ir[i]
+            let value = value_number_gf(inst)
+            if value_table[value] != 0
+                let replacement = value_table[value]
+                cse_rec_gf(ir, value_table, i + 1, append(new_ir, replacement))
+            else
+                let new_table = value_table
+                new_table[value] = inst
+                cse_rec_gf(ir, new_table, i + 1, append(new_ir, inst))
+
+let value_number_gf(inst) =
+    inst
+
+let licm_gf(loop, body) =
+    let invariants = licm_detect_gf(loop, body, 0, [])
+    licm_hoist_gf(body, invariants)
+
+let licm_detect_gf(loop, body, i, invariants) =
+        if i >= len(body)
+            invariants
+        else
+            let inst = body[i]
+            let is_invariant = licm_check_gf(inst, loop)
+            if is_invariant == 1
+                licm_detect_gf(loop, body, i + 1, append(invariants, inst))
+            else
+                licm_detect_gf(loop, body, i + 1, invariants)
+
+let licm_check_gf(inst, loop) =
+    1
+
+let licm_hoist_gf(body, invariants) =
+    body
+
+let strength_reduce_gf(inst) =
+        let op = ir_op_gf(inst)
+        let arg2 = ir_arg2_gf(inst)
+        if op == 3 && is_power_of_2_gf(arg2) == 1
+            let k = log2_gf(arg2)
+            ir_set_op_gf(inst, 5)
+            ir_set_arg2_gf(inst, k)
+        else
+            inst
+
+let is_power_of_2_gf(n) =
+    (n > 0 && (n & (n - 1)) == 0) ? 1 : 0
+
+let log2_gf(n) =
+    log2_rec_gf(n, 0)
+
+let log2_rec_gf(n, k) =
+        if n <= 1
+            k
+        else
+            log2_rec_gf(n >> 1, k + 1)
+
+let register_alloc_gf(interference_graph, num_regs) =
+    graph_color_gf(interference_graph, num_regs, 0, [])
+
+let graph_color_gf(graph, k, node, coloring) =
+        if node >= len(graph)
+            coloring
+        else
+            let color = find_color_gf(graph, k, node, coloring, 0)
+            if color < 0
+                []
+            else
+                graph_color_gf(graph, k, node + 1, append(coloring, color))
+
+let find_color_gf(graph, k, node, coloring, c) =
+        if c >= k
+            -1
+        else
+            if color_ok_gf(graph, node, c, coloring) == 1
+                c
+            else
+                find_color_gf(graph, k, node, coloring, c + 1)
+
+let color_ok_gf(graph, node, c, coloring) =
+    color_ok_rec_gf(graph, node, c, coloring, 0, 1)
+
+let color_ok_rec_gf(graph, node, c, coloring, i, ok) =
+        if i >= node || ok == 0
+            ok
+        else
+            if graph[node][i] == 1
+                if coloring[i] == c
+                    color_ok_rec_gf(graph, node, c, coloring, i + 1, 0)
+                else
+                    color_ok_rec_gf(graph, node, c, coloring, i + 1, ok)
+            else
+                color_ok_rec_gf(graph, node, c, coloring, i + 1, ok)
+
+let linear_scan_alloc_gf(intervals, num_regs) =
+    let sorted = sort_intervals_gf(intervals)
+    linear_scan_rec_gf(sorted, num_regs, 0, [], [])
+
+let linear_scan_rec_gf(intervals, num_regs, i, active, alloc) =
+        if i >= len(intervals)
+            alloc
+        else
+            let interval = intervals[i]
+            let new_active = expire_old_gf(active, interval, 0, [])
+            if len(new_active) < num_regs
+                let reg = len(new_active)
+                linear_scan_rec_gf(intervals, num_regs, i + 1, append(new_active, interval), append(alloc, reg))
+            else
+                linear_scan_rec_gf(intervals, num_regs, i + 1, new_active, append(alloc, -1))
+
+let expire_old_gf(active, interval, i, new_active) =
+        if i >= len(active)
+            new_active
+        else
+            if active[i][1] < interval[0]
+                expire_old_gf(active, interval, i + 1, new_active)
+            else
+                expire_old_gf(active, interval, i + 1, append(new_active, active[i]))
+
+let sort_intervals_gf(intervals) =
+    intervals
+
+let dataflow_gf(cfg, transfer, meet, init) =
+    dataflow_iter_gf(cfg, transfer, meet, init, 0, init)
+
+let dataflow_iter_gf(cfg, transfer, meet, init, iter, solution) =
+        if iter >= 65537
+            solution
+        else
+            let new_sol = dataflow_round_gf(cfg, transfer, meet, solution, 0, solution)
+            if dataflow_eq_gf(new_sol, solution) == 1
+                solution
+            else
+                dataflow_iter_gf(cfg, transfer, meet, init, iter + 1, new_sol)
+
+let dataflow_transfer_apply(transfer, i, in_val) =
+    in_val
+let dataflow_round_gf(cfg, transfer, meet, solution, i, new_sol) =
+        if i >= len(cfg)
+            new_sol
+        else
+            let in_val = dataflow_meet_gf(cfg, meet, solution, i)
+            let out_val = dataflow_transfer_apply(transfer, i, in_val)
+            let updated = dataflow_set_gf(new_sol, i, out_val)
+            dataflow_round_gf(cfg, transfer, meet, solution, i + 1, updated)
+
+let dataflow_meet_gf(cfg, meet, solution, i) =
+    solution[i]
+
+let dataflow_set_gf(solution, i, val) =
+    solution[i] = val
+    solution
+
+let dataflow_eq_gf(s1, s2) =
+    dataflow_eq_rec_gf(s1, s2, 0, 1)
+
+let dataflow_eq_rec_gf(s1, s2, i, eq) =
+        if i >= len(s1) || eq == 0
+            eq
+        else
+            dataflow_eq_rec_gf(s1, s2, i + 1, (s1[i] == s2[i]) ? eq : 0)
+
+let pointer_encode_gf(addr) =
+    addr % 65537
+
+let alias_analysis_gf(pointers) =
+    alias_rec_gf(pointers, 0, {})
+
+let alias_rec_gf(pointers, i, alias_set) =
+        if i >= len(pointers)
+            alias_set
+        else
+            let p = pointers[i]
+            let target = points_to_gf(p)
+            let new_set = alias_set
+            new_set[p] = target
+            alias_rec_gf(pointers, i + 1, new_set)
+
+let points_to_gf(p) =
+    p
+
+let may_alias_gf(p1, p2, alias_set) =
+    (alias_set[p1] == alias_set[p2]) ? 1 : 0
+
+let must_alias_gf(p1, p2, alias_set) =
+    (alias_set[p1] == alias_set[p2]) ? 1 : 0
+
+let abstract_interp_gf(program) =
+    concrete_interp_gf(program)
+
+let concrete_interp_gf(program) =
+    concrete_interp_rec_gf(program, 0, {}, 0)
+
+let concrete_interp_rec_gf(program, pc, env, step) =
+        if pc >= len(program) || step >= 65537
+            env
+        else
+            let inst = program[pc]
+            let (new_pc, new_env) = exec_inst_gf(inst, pc, env)
+            concrete_interp_rec_gf(program, new_pc, new_env, step + 1)
+
+let exec_inst_gf(inst, pc, env) =
+    [pc + 1, env]
+
+let instruction_select_gf(ir_tree) =
+    inst_select_rec_gf(ir_tree, 0, [])
+
+let inst_select_rec_gf(ir_tree, i, instructions) =
+        if i >= len(ir_tree)
+            instructions
+        else
+            let node = ir_tree[i]
+            let inst = match_pattern_gf(node)
+            inst_select_rec_gf(ir_tree, i + 1, append(instructions, inst))
+
+let match_pattern_gf(node) =
+    node
+
+let instruction_schedule_gf(instructions, dep_graph) =
+    schedule_rec_gf(instructions, dep_graph, 0, [], [])
+
+let schedule_rec_gf(instructions, dep_graph, i, scheduled, order) =
+        if i >= len(instructions)
+            order
+        else
+            let ready = deps_satisfied_gf(instructions[i], dep_graph, scheduled)
+            if ready == 1
+                schedule_rec_gf(instructions, dep_graph, i + 1, append(scheduled, i), append(order, instructions[i]))
+            else
+                schedule_rec_gf(instructions, dep_graph, i + 1, scheduled, order)
+
+let deps_satisfied_gf(inst, dep_graph, scheduled) =
+    deps_satisfied_rec_gf(dep_graph[inst], scheduled, 0, 1)
+
+let deps_satisfied_rec_gf(deps, scheduled, i, ok) =
+        if i >= len(deps) || ok == 0
+            ok
+        else
+            let is_scheduled = contains_gf(scheduled, deps[i])
+            deps_satisfied_rec_gf(deps, scheduled, i + 1, gf_mul(ok, is_scheduled))
+
+let compile_gf(source) =
+    let tokens = lexer_gf(lex_table, 0, source)
+    let ast = lr1_parse_gf(action_table, goto_table, tokens)
+    let type_ok = type_check_gf(ast, type_env)
+    let ir = ir_gen_gf(ast)
+    let ssa = ssa_construct_gf(ir)
+    let opt = optimize_gf(ssa)
+    let allocated = register_alloc_gf(interference_graph, num_regs)
+    let target = instruction_select_gf(opt)
+    let scheduled = instruction_schedule_gf(target, dep_graph)
+    scheduled
+
+let optimize_gf(ir) =
+    let folded = optimize_pass_gf(ir, "const_fold")
+    let dce = optimize_pass_gf(folded, "dce")
+    let cse = optimize_pass_gf(dce, "cse")
+    let licm = optimize_pass_gf(cse, "licm")
+    let reduced = optimize_pass_gf(licm, "strength_reduce")
+    reduced
+
+let optimize_pass_gf(ir, pass_name) =
+        if pass_name == "const_fold"
+            optimize_const_fold_rec_gf(ir, 0, [])
+        else
+            if pass_name == "dce"
+                dead_code_elim_gf(ir, live_set)
+                if pass_name == "cse"
+                    cse_gf(ir)
+                    if pass_name == "licm"
+                        licm_gf(loop, ir)
+                        if pass_name == "strength_reduce"
+                            optimize_strength_rec_gf(ir, 0, [])
+                        else
+                            ir
+
+let optimize_const_fold_rec_gf(ir, i, new_ir) =
+        if i >= len(ir)
+            new_ir
+        else
+            let inst = ir[i]
+            let op = ir_op_gf(inst)
+            let arg1 = ir_arg1_gf(inst)
+            let arg2 = ir_arg2_gf(inst)
+            if is_constant_gf(arg1) == 1 && is_constant_gf(arg2) == 1
+                let folded = constant_fold_gf(op, arg1, arg2)
+                optimize_const_fold_rec_gf(ir, i + 1, append(new_ir, folded))
+            else
+                optimize_const_fold_rec_gf(ir, i + 1, append(new_ir, inst))
+
+let optimize_strength_rec_gf(ir, i, new_ir) =
+        if i >= len(ir)
+            new_ir
+        else
+            let reduced = strength_reduce_gf(ir[i])
+            optimize_strength_rec_gf(ir, i + 1, append(new_ir, reduced))
+
+let ast_node_type_gf(node) =
+    gf_div(node, 65537)
+
+let ir_op_gf(inst) =
+    gf_div(inst, gf_mul(65537, gf_mul(65537, 65537)))
+
+let ir_arg1_gf(inst) =
+    let rem = inst % gf_mul(65537, gf_mul(65537, 65537))
+    gf_div(rem, gf_mul(65537, 65537))
+
+let ir_arg2_gf(inst) =
+    let rem = inst % gf_mul(65537, gf_mul(65537, 65537))
+    let rem2 = rem % gf_mul(65537, 65537)
+    gf_div(rem2, 65537)
+
+let ir_set_op_gf(inst, op) =
+    inst
+
+let ir_set_arg2_gf(inst, arg2) =
+    inst
+
+let is_constant_gf(val) =
+    1
+
+let pop_n_gf(stack, n) =
+    pop_n_rec_gf(stack, n, 0)
+
+let pop_n_rec_gf(stack, n, i) =
+        if i >= n
+            stack
+        else
+            let s = pop_gf(stack)
+            pop_n_rec_gf(s, n, i + 1)
+
+let pop_gf(stack) =
+    stack[len(stack) - 1] = -1
+    stack
+

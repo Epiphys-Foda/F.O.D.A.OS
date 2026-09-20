@@ -1,0 +1,278 @@
+let col_rgb(r, g, b) =
+    let c = arr_new()
+    c = arr_push(c, r)
+    c = arr_push(c, g)
+    c = arr_push(c, b)
+    c
+
+let col_r(c) = c[0]
+let col_g(c) = c[1]
+let col_b(c) = c[2]
+
+let col_rgb_to_hsv(c) =
+    let r = c[0]
+    let g = c[1]
+    let b = c[2]
+    let max_val = r
+    if g > max_val
+        max_val = g
+    if b > max_val
+        max_val = b
+    let min_val = r
+    if g < min_val
+        min_val = g
+    if b < min_val
+        min_val = b
+    let delta = max_val - min_val
+    let v = max_val * 100 / 255
+    let s = 0
+    if max_val > 0
+        s = delta * 100 / max_val
+    let h = 0
+    if delta > 0
+        if max_val == r
+            h = (g - b) * 60 / delta
+        else
+            if max_val == g
+                h = (b - r) * 60 / delta + 120
+            else
+                h = (r - g) * 60 / delta + 240
+    if h < 0
+        h = h + 360
+    let result = arr_new()
+    result = arr_push(result, h)
+    result = arr_push(result, s)
+    result = arr_push(result, v)
+    result
+
+let col_hsv_to_rgb(h, s, v) =
+    let c = v * s / 100
+    let x = c * (60 - (h % 120 - 60)) / 60
+    if x < 0
+        x = 0 - x
+    let m = v - c
+    let r = 0
+    let g = 0
+    let b = 0
+    if h < 60
+        r = c
+        g = x
+        b = 0
+    else
+        0
+    if h < 120
+        r = x
+        g = c
+        b = 0
+    else
+        0
+    if h < 180
+        r = 0
+        g = c
+        b = x
+    else
+        0
+    if h < 240
+        r = 0
+        g = x
+        b = c
+    else
+        0
+    if h < 300
+        r = x
+        g = 0
+        b = c
+    else
+        r = c
+        g = 0
+        b = x
+    col_rgb((r + m) * 255 / 100, (g + m) * 255 / 100, (b + m) * 255 / 100)
+
+let col_luminance(c) =
+    (299 * c[0] + 587 * c[1] + 114 * c[2]) / 1000
+
+let col_is_dark(c) =
+    col_luminance(c) < 128
+
+let col_is_light(c) =
+    col_luminance(c) >= 128
+
+let col_blend(a, b, t) =
+    let r = a[0] + (b[0] - a[0]) * t / 100
+    let g = a[1] + (b[1] - a[1]) * t / 100
+    let bl = a[2] + (b[2] - a[2]) * t / 100
+    col_rgb(r, g, bl)
+
+let col_invert(c) =
+    col_rgb(255 - c[0], 255 - c[1], 255 - c[2])
+
+let col_grayscale(c) =
+    let lum = col_luminance(c)
+    col_rgb(lum, lum, lum)
+
+let col_complementary(c) = col_invert(c)
+
+let col_analogous(c) =
+    let hsv = col_rgb_to_hsv(c)
+    let h = hsv[0]
+    let s = hsv[1]
+    let v = hsv[2]
+    let h1 = h + 30
+    if h1 >= 360
+        h1 = h1 - 360
+    let h2 = h - 30
+    if h2 < 0
+        h2 = h2 + 360
+    let result = arr_new()
+    result = arr_push(result, col_hsv_to_rgb(h1, s, v))
+    result = arr_push(result, c)
+    result = arr_push(result, col_hsv_to_rgb(h2, s, v))
+    result
+
+let col_triadic(c) =
+    let hsv = col_rgb_to_hsv(c)
+    let h = hsv[0]
+    let s = hsv[1]
+    let v = hsv[2]
+    let h1 = h + 120
+    if h1 >= 360
+        h1 = h1 - 360
+    let h2 = h + 240
+    if h2 >= 360
+        h2 = h2 - 360
+    let result = arr_new()
+    result = arr_push(result, c)
+    result = arr_push(result, col_hsv_to_rgb(h1, s, v))
+    result = arr_push(result, col_hsv_to_rgb(h2, s, v))
+    result
+
+let col_brighten(c, amount) =
+    let r = c[0] + amount
+    let g = c[1] + amount
+    let b = c[2] + amount
+    if r > 255
+        r = 255
+    if g > 255
+        g = 255
+    if b > 255
+        b = 255
+    if r < 0
+        r = 0
+    if g < 0
+        g = 0
+    if b < 0
+        b = 0
+    col_rgb(r, g, b)
+
+let col_darken(c, amount) = col_brighten(c, 0 - amount)
+
+let col_saturate(c, amount) =
+    let hsv = col_rgb_to_hsv(c)
+    let s = hsv[1] + amount
+    if s > 100
+        s = 100
+    if s < 0
+        s = 0
+    col_hsv_to_rgb(hsv[0], s, hsv[2])
+
+let col_desaturate(c, amount) = col_saturate(c, 0 - amount)
+
+let col_distance(a, b) =
+    let dr = a[0] - b[0]
+    let dg = a[1] - b[1]
+    let db = a[2] - b[2]
+    dr * dr + dg * dg + db * db
+
+let col_equals(a, b) =
+    a[0] == b[0] && a[1] == b[1] && a[2] == b[2]
+
+let col_to_hex(c) =
+    let hexchars = "0123456789ABCDEF"
+    "#" + hexchars[c[0] / 16] + hexchars[c[0] % 16] + hexchars[c[1] / 16] + hexchars[c[1] % 16] + hexchars[c[2] / 16] + hexchars[c[2] % 16]
+
+let col_from_hex(s) =
+    let r = 0
+    let g = 0
+    let b = 0
+    let i = 1
+    (s[0] == 35 ? (i = 1) : (i = 0))
+    let j = 0
+    for j < 6
+        let c = s[i + j]
+        let val = 0
+        if c >= 48 && c <= 57
+            val = c - 48
+        else
+            0
+        if c >= 65 && c <= 70
+            val = c - 55
+        else
+            0
+        if c >= 97 && c <= 102
+            val = c - 87
+        if j == 0
+            r = val * 16
+        else
+            0
+        if j == 1
+            r = r + val
+        else
+            0
+        if j == 2
+            g = val * 16
+        else
+            0
+        if j == 3
+            g = g + val
+        else
+            0
+        if j == 4
+            b = val * 16
+        else
+            b = b + val
+        j = j + 1
+    col_rgb(r, g, b)
+
+let col_palette(base, n) =
+    let hsv = col_rgb_to_hsv(base)
+    let h = hsv[0]
+    let s = hsv[1]
+    let v = hsv[2]
+    let result = arr_new()
+    let i = 0
+    for i < n
+        let new_h = h + i * 360 / n
+        if new_h >= 360
+            new_h = new_h - 360
+        result = arr_push(result, col_hsv_to_rgb(new_h, s, v))
+        i = i + 1
+    result
+
+let col_gradient(a, b, n) =
+    let result = arr_new()
+    let i = 0
+    for i < n
+        result = arr_push(result, col_blend(a, b, i * 100 / (n - 1)))
+        i = i + 1
+    result
+
+let col_black() = col_rgb(0, 0, 0)
+let col_white() = col_rgb(255, 255, 255)
+let col_red() = col_rgb(255, 0, 0)
+let col_green() = col_rgb(0, 255, 0)
+let col_blue() = col_rgb(0, 0, 255)
+let col_yellow() = col_rgb(255, 255, 0)
+let col_cyan() = col_rgb(0, 255, 255)
+let col_magenta() = col_rgb(255, 0, 255)
+let col_gray() = col_rgb(128, 128, 128)
+let col_orange() = col_rgb(255, 165, 7)
+
+let main() =
+    let c = col_rgb(255, 0, 0)
+    let hsv = col_rgb_to_hsv(c)
+    print(hsv[0])
+    print(hsv[1])
+    print(hsv[2])
+    print(col_luminance(c))
+    print(col_to_hex(c))
+    0

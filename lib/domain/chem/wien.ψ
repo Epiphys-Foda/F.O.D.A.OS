@@ -1,0 +1,24 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+let e4 = 10000
+
+let lSun4 = small_div(2898 * e4, 5772)
+bad[0] = bad[0] + ck(lSun4, 4800, 5200)
+
+let lBody = small_div(2898 * e4, 310)
+bad[0] = bad[0] + ck(lBody, 90000, 97000)
+
+let lCmb = small_div(2898 * e4, 2725)
+bad[0] = bad[0] + ck(lCmb, 10000, 11200)
+
+let tRatio = small_div(5772 * 1000, 2725)
+bad[0] = bad[0] + ck(tRatio, 2000, 2250)
+
+let wlSun = small_div(5021 * 5772, 10000)
+let wlBody = small_div(93484 * 310, 10000)
+bad[0] = bad[0] + ck(wlSun, 2890, 2910)
+bad[0] = bad[0] + ck(wlBody, 2890, 2910)
+
+arr_get(arr_new_n(1), bad[0])

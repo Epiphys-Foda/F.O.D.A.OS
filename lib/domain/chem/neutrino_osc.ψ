@@ -1,0 +1,22 @@
+import "ck.ψ"
+let bad = [0]
+
+let flux = 636
+bad[0] = bad[0] + ck(flux, 600, 670)
+
+let rCl = 30
+bad[0] = bad[0] + ck(rCl, 26, 34)
+
+let rGa = 57
+bad[0] = bad[0] + ck(rGa, 50, 60)
+
+let rNC = 89
+bad[0] = bad[0] + ck(rNC, 85, 95)
+
+bad[0] = bad[0] + ck_lo(rNC, rGa)
+bad[0] = bad[0] + ck_lo(rGa, rCl)
+
+let dm2 = 74
+bad[0] = bad[0] + ck(dm2, 70, 79)
+
+arr_get(arr_new_n(1), bad[0])

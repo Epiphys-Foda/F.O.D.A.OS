@@ -1,0 +1,37 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let n_air = 100
+let n_w = 133
+let n_d = 242
+bad[0] = bad[0] + ck(n_w, 130, 136)
+bad[0] = bad[0] + ck(n_d, 238, 246)
+
+let sin_tc = small_div(100 * 100, n_w)
+bad[0] = bad[0] + ck(sin_tc, 70, 80)
+
+let tc_w = 48
+bad[0] = bad[0] + ck(tc_w, 47, 50)
+
+let sin_tcd = small_div(100 * 100, n_d)
+bad[0] = bad[0] + ck(sin_tcd, 38, 44)
+
+bad[0] = bad[0] + ck_lo(tc_w, 25)
+
+let sin45 = 71
+let sin_t2 = small_div(sin45 * 100, n_w)
+bad[0] = bad[0] + ck(sin_t2, 48, 58)
+
+let t2 = 32
+bad[0] = bad[0] + ck(t2, 30, 34)
+
+bad[0] = bad[0] + ck_hi(t2, 45)
+
+if 1621 < 1619
+    bad[0] = bad[0] + 1
+if 1621 > 1623
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

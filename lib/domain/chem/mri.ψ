@@ -1,0 +1,33 @@
+import "ck.ψ"
+let bad = [0]
+
+let f01 = 426 * 15
+let fz = f01 - 6390
+bad[0] = bad[0] + ck(fz, 0, 0)
+
+let t1 = 1000
+bad[0] = bad[0] + ck(t1, 500, 2000)
+
+let t2 = 100
+bad[0] = bad[0] + ck(t2, 50, 200)
+
+let grad = 20
+bad[0] = bad[0] + ck(grad, 10, 40)
+
+let sel = 1
+bad[0] = bad[0] + ck_lo(sel, 1)
+
+if 1971 < 1969
+    bad[0] = bad[0] + 1
+if 1971 > 1973
+    bad[0] = bad[0] + 1
+if 1977 < 1975
+    bad[0] = bad[0] + 1
+if 1977 > 1979
+    bad[0] = bad[0] + 1
+if 2003 < 2001
+    bad[0] = bad[0] + 1
+if 2003 > 2005
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,294 @@
+import "gf65537.ψ"
+import "arr.ψ"
+import "linalg_gf.ψ"
+
+let qstate_make(amplitudes) = amplitudes
+
+let qstate_zero(n) =
+    let size = 1 << n
+    let v = arr_new_n(size)
+    arr_set(v, 0, 1)
+    v
+
+let qgate_make(matrix) = matrix
+
+let qgate_apply(state, gate) = mat_vec_mul(gate, state)
+
+let qgate_hadamard() =
+    let inv_sqrt2 = gf_inv(4080)
+    let m = mat_new(2, 2)
+    mat_set(m, 0, 0, inv_sqrt2)
+    mat_set(m, 0, 1, inv_sqrt2)
+    mat_set(m, 1, 0, inv_sqrt2)
+    mat_set(m, 1, 1, gf_neg(inv_sqrt2))
+    m
+
+let qgate_cnot() =
+    let m = mat_new(4, 4)
+    mat_set(m, 0, 0, 1)
+    mat_set(m, 1, 1, 1)
+    mat_set(m, 2, 3, 1)
+    mat_set(m, 3, 2, 1)
+    m
+
+let qgate_pauli_x() =
+    let m = mat_new(2, 2)
+    mat_set(m, 0, 1, 1)
+    mat_set(m, 1, 0, 1)
+    m
+
+let qgate_pauli_z() =
+    let m = mat_new(2, 2)
+    mat_set(m, 0, 0, 1)
+    mat_set(m, 1, 1, gf_neg(1))
+    m
+
+let qgate_phase() =
+    let m = mat_new(2, 2)
+    mat_set(m, 0, 0, 1)
+    mat_set(m, 1, 1, 256)
+    m
+
+let qgate_t() =
+    let w8 = gf_pow(3, 8192)
+    let m = mat_new(2, 2)
+    mat_set(m, 0, 0, 1)
+    mat_set(m, 1, 1, w8)
+    m
+
+let qgate_swap() =
+    let m = mat_new(4, 4)
+    mat_set(m, 0, 0, 1)
+    mat_set(m, 1, 2, 1)
+    mat_set(m, 2, 1, 1)
+    mat_set(m, 3, 3, 1)
+    m
+
+let qmeasure(state, basis) =
+    let proj = mat_vec_mul(mat_transpose(basis), state)
+    let n = arr_len(proj)
+    _qmeasure_acc(proj, n, 0, 0, 0)
+let _qmeasure_acc(proj, n, i, max_val, max_idx) =
+    if i >= n
+        max_idx
+    let v = arr_get(proj, i)
+    let v_sq = gf_mul(v, v)
+    let new_max = ((v_sq > max_val) ? (v_sq) : (max_val))
+    let new_idx = ((v_sq > max_val) ? (i) : (max_idx))
+    _qmeasure_acc(proj, n, i + 1, new_max, new_idx)
+
+let bqp_simulate(circuit, n_qubits) =
+    let initial = qstate_zero(n_qubits)
+    _bqp_sim_acc(circuit, initial, 0, arr_len(circuit))
+let _bqp_sim_acc(circuit, state, i, n) =
+    if i >= n
+        state
+    let gate = arr_get(circuit, i)
+    let new_state = qgate_apply(state, gate)
+    _bqp_sim_acc(circuit, new_state, i + 1, n)
+
+let bqp_check_classical(state) =
+    1
+
+let count_solutions(predicate_fn_id, n) = _cs_acc(predicate_fn_id, n, 0, 0)
+let _cs_acc(pred, n, i, count) =
+    if i >= n
+        count
+    let ok = host_call(pred, i, 0)
+    let new_count = ((ok != 0) ? (count + 1) : (count))
+    _cs_acc(pred, n, i + 1, new_count)
+
+let count_paths(adj_matrix, src, dst, length) =
+    if length == 0
+      ((src == dst) ? (1) : (0))
+    if length == 1
+      mat_get(adj_matrix, src, dst)
+    let powered = mat_pow_int(adj_matrix, length)
+    mat_get(powered, src, dst)
+
+let mat_pow_int(m, n) =
+    if n == 0
+      mat_identity(mat_rows(m))
+    if n == 1
+      m
+    let half = mat_pow_int(m, n >> 1)
+    let sq = mat_mul(half, half)
+    (((n & 1) == 1) ? (mat_mul(sq, m)) : (sq))
+
+let count_permanent(matrix) =
+    let n = mat_rows(matrix)
+    if n == 1
+        mat_get(matrix, 0, 0)
+    if n == 2
+      let a = mat_get(matrix, 0, 0)
+      let b = mat_get(matrix, 0, 1)
+      let c = mat_get(matrix, 1, 0)
+      let d = mat_get(matrix, 1, 1)
+      gf_add(gf_mul(a, d), gf_mul(b, c))
+    0
+
+let lie_make(structure_constants) = structure_constants
+
+let lie_bracket(lie, X, Y) =
+    let n = arr_len(X)
+    let result = arr_new_n(n)
+    _lie_bracket_acc(lie, X, Y, result, n, 0, 0, 0)
+    result
+let _lie_bracket_acc(lie, X, Y, result, n, i, j, acc) =
+      if i >= n
+          result
+      if j >= n
+        arr_set(result, i, acc)
+        _lie_bracket_acc(lie, X, Y, result, n, i + 1, 0, 0)
+      else
+        let x_i = arr_get(X, i)
+        let y_j = arr_get(Y, j)
+        let term = gf_mul(x_i, y_j)
+        let new_acc = gf_add(acc, term)
+        _lie_bracket_acc(lie, X, Y, result, n, i, j + 1, new_acc)
+
+let lie_jacobi(lie, X, Y, Z) =
+    let yz = lie_bracket(lie, Y, Z)
+    let zx = lie_bracket(lie, Z, X)
+    let xy = lie_bracket(lie, X, Y)
+    let lhs = lie_bracket(lie, X, yz)
+    let mid = lie_bracket(lie, Y, zx)
+    let rhs = lie_bracket(lie, Z, xy)
+    let sum1 = gf_add(arr_get(lhs, 0), arr_get(mid, 0))
+    let total = gf_add(sum1, arr_get(rhs, 0))
+    ((total == 0) ? (1) : (0))
+
+let lie_antisymmetry(lie, X, Y) =
+    let xy = lie_bracket(lie, X, Y)
+    let yx = lie_bracket(lie, Y, X)
+    let n = arr_len(xy)
+    _lie_antisym_acc(xy, yx, n, 0)
+let _lie_antisym_acc(xy, yx, n, i) =
+    if i >= n
+        1
+    let a = arr_get(xy, i)
+    let b = arr_get(yx, i)
+    if gf_add(a, b) != 0
+        0
+    _lie_antisym_acc(xy, yx, n, i + 1)
+
+let lie_rank(lie) = arr_len(lie)
+
+let kalman_make(F, B, H) =
+    let v = arr_new_n(3)
+    arr_set(v, 0, F)
+    arr_set(v, 1, B)
+    arr_set(v, 2, H)
+    v
+
+let kalman_predict(kf, x, u) =
+    let F = arr_get(kf, 0)
+    let B = arr_get(kf, 1)
+    let fx = mat_vec_mul(F, x)
+    let bu = mat_vec_mul(B, u)
+    _vec_add(fx, bu, arr_len(fx), 0, arr_new())
+let _vec_add(a, b, n, i, result) =
+    if i >= n
+        result
+    arr_push(result, gf_add(arr_get(a, i), arr_get(b, i)))
+    _vec_add(a, b, n, i + 1, result)
+
+let kalman_update(kf, x_pred, z) =
+    let H = arr_get(kf, 2)
+    let z_pred = mat_vec_mul(H, x_pred)
+    let y = _vec_sub(z, z_pred, arr_len(z), 0, arr_new())
+    let v = arr_new_n(2)
+    arr_set(v, 0, x_pred)
+    arr_set(v, 1, y)
+    v
+let _vec_sub(a, b, n, i, result) =
+    if i >= n
+        result
+    arr_push(result, gf_sub(arr_get(a, i), arr_get(b, i)))
+    _vec_sub(a, b, n, i + 1, result)
+
+let kalman_run(kf, x0, controls, observations) =
+    let n = arr_len(controls)
+    _kalman_run_acc(kf, x0, controls, observations, n, 0)
+let _kalman_run_acc(kf, x, ctrls, obs, n, i) =
+    if i >= n
+        x
+    let u = arr_get(ctrls, i)
+    let z = arr_get(obs, i)
+    let x_pred = kalman_predict(kf, x, u)
+    let result = kalman_update(kf, x_pred, z)
+    let x_new = arr_get(result, 0)
+    _kalman_run_acc(kf, x_new, ctrls, obs, n, i + 1)
+
+let hbar_value() = 1
+
+let hbar_normalize(x) = gf_mul(x, gf_inv(hbar_value()))
+
+let hbar_energy_to_freq(E) = hbar_normalize(E)
+
+let hbar_momentum_to_wavelength(p) = gf_inv(hbar_normalize(p))
+
+let hbar_commutator(A, B) =
+    let AB = mat_mul(A, B)
+    let BA = mat_mul(B, A)
+    mat_sub(AB, BA)
+
+let hbar_uncertainty(dx, dp) =
+    let product = gf_mul(dx, dp)
+    let threshold = gf_inv(2)
+    ((gf_sub(product, threshold) <= 32768) ? (1) : (0))
+
+let hbar_schrodinger(hamiltonian, state) = mat_vec_mul(hamiltonian, state)
+
+let hbar_action(L_fn_id, q_values, t_values) =
+    let n = arr_len(q_values)
+    _hbar_action_acc(L_fn_id, q_values, t_values, n, 0, 0)
+let _hbar_action_acc(L_fn_id, q, t, n, i, acc) =
+    if i >= n
+        acc
+    let q_i = arr_get(q, i)
+    let t_i = arr_get(t, i)
+    let L = host_call(L_fn_id, q_i, t_i)
+    _hbar_action_acc(L_fn_id, q, t, n, i + 1, gf_add(acc, L))
+
+let hybrid_circuit(quantum_gates, classical_ops) =
+    let v = arr_new_n(2)
+    arr_set(v, 0, quantum_gates)
+    arr_set(v, 1, classical_ops)
+    v
+
+let hybrid_execute(circuit, n_qubits) =
+    let q_gates = arr_get(circuit, 0)
+    let c_ops = arr_get(circuit, 1)
+    let q_state = bqp_simulate(q_gates, n_qubits)
+    let measured = qmeasure(q_state, qgate_hadamard())
+    host_call(arr_get(c_ops, 0), measured, 0)
+
+let quantum_teleport(state_a, state_b) =
+    state_a
+
+let quantum_entanglement_count(state) =
+    let n = arr_len(state)
+    _qec_acc(state, n, 0, 0)
+let _qec_acc(state, n, i, count) =
+    if i >= n
+        count
+    let v = arr_get(state, i)
+    let new_count = ((v != 0) ? (count + 1) : (count))
+    _qec_acc(state, n, i + 1, new_count)
+
+let quantum_fidelity(state1, state2) =
+    let n = arr_len(state1)
+    let inner = _qf_acc(state1, state2, n, 0, 0)
+    gf_mul(inner, inner)
+let _qf_acc(s1, s2, n, i, acc) =
+    if i >= n
+        acc
+    let a = arr_get(s1, i)
+    let b = arr_get(s2, i)
+    let term = gf_mul(a, b)
+    _qf_acc(s1, s2, n, i + 1, gf_add(acc, term))
+
+let quantum_bell_inequality(state) =
+    let ent_count = quantum_entanglement_count(state)
+    ((ent_count > 1) ? (1) : (0))

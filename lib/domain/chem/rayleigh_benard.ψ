@@ -1,0 +1,36 @@
+import "ck.ψ"
+let bad = [0]
+
+let rc = 1708
+bad[0] = bad[0] + ck(rc, 1650, 1750)
+
+let dtmk = rc * 14 * 10 / (98 * 21)
+bad[0] = bad[0] + ck(dtmk, 100, 130)
+
+let asp = 2
+let dasp = asp - 2
+bad[0] = bad[0] + ck(dasp, 0, 0)
+
+let nunu = 126
+bad[0] = bad[0] + ck(nunu, 120, 130)
+
+let ram = 10
+bad[0] = bad[0] + ck(ram, 5, 50)
+
+let on = 1
+bad[0] = bad[0] + ck_lo(on, 1)
+
+if 1900 < 1898
+    bad[0] = bad[0] + 1
+if 1900 > 1902
+    bad[0] = bad[0] + 1
+if 1916 < 1914
+    bad[0] = bad[0] + 1
+if 1916 > 1918
+    bad[0] = bad[0] + 1
+if 1961 < 1959
+    bad[0] = bad[0] + 1
+if 1961 > 1963
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

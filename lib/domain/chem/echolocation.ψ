@@ -1,0 +1,35 @@
+import "ck.ψ"
+let bad = [0]
+
+let rg = 34300 * 5 / 2000
+bad[0] = bad[0] + ck(rg, 80, 90)
+
+let pct = 2 * 100 / 50
+bad[0] = bad[0] + ck(pct, 4, 4)
+
+let dfz = 1660
+bad[0] = bad[0] + ck(dfz, 1500, 1800)
+
+let bw = 70
+bad[0] = bad[0] + ck(bw, 60, 80)
+
+let buzz = 100
+bad[0] = bad[0] + ck(buzz, 80, 150)
+
+let jit = 10
+bad[0] = bad[0] + ck(jit, 5, 50)
+
+if 1944 < 1942
+    bad[0] = bad[0] + 1
+if 1944 > 1946
+    bad[0] = bad[0] + 1
+if 1958 < 1956
+    bad[0] = bad[0] + 1
+if 1958 > 1960
+    bad[0] = bad[0] + 1
+if 1979 < 1977
+    bad[0] = bad[0] + 1
+if 1979 > 1981
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

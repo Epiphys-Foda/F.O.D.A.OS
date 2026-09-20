@@ -1,0 +1,40 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let c_rom = small_div(300000, 1320)
+bad[0] = bad[0] + ck(c_rom, 200, 260)
+
+let c_bra = small_div(3 * 10000, 10)
+bad[0] = bad[0] + ck(c_bra, 2800, 3200)
+
+let c_mod = 299792
+if c_mod != 299792
+    bad[0] = bad[0] + 1
+
+if c_rom * 1000 > c_mod
+    bad[0] = bad[0] + 1
+if c_bra * 100 < c_mod / 1000
+    bad[0] = bad[0] + 1
+
+let t_moon = small_div(76800, 3000)
+bad[0] = bad[0] + ck(t_moon, 23, 27)
+
+let t_sun = small_div(1496, 3)
+bad[0] = bad[0] + ck(t_sun, 490, 510)
+
+if 1676 < 1674
+    bad[0] = bad[0] + 1
+if 1676 > 1678
+    bad[0] = bad[0] + 1
+if 1725 < 1723
+    bad[0] = bad[0] + 1
+if 1725 > 1727
+    bad[0] = bad[0] + 1
+if 1983 < 1981
+    bad[0] = bad[0] + 1
+if 1983 > 1985
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

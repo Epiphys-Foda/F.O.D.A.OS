@@ -1,0 +1,105 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let LLM_MAX_TOKENS = 65536
+let LLM_VOCAB_SIZE = 65536
+let LLM_MAX_LAYERS = 64
+let LLM_EMBED_DIM = 512
+
+let embed(token_id, embed_dim) =
+    let emb = []
+    let i = 0
+    for i < embed_dim
+        emb.push(gf_pow(token_id + 1, i + 1))
+        i = i + 1
+    emb
+let embed_batch(token_ids, embed_dim) =
+    let embeddings = []
+    let i = 0
+    let n = len(token_ids)
+    for i < n
+        embeddings.push(embed(token_ids[i], embed_dim))
+        i = i + 1
+    embeddings
+let pos_encoding(pos, dim) = gf_pow(pos + 1, dim % 16 + 1)
+let pos_encode_batch(seq_len, embed_dim) =
+    let enc = []
+    let i = 0
+    for i < seq_len
+        let row = []
+        let j = 0
+        for j < embed_dim
+            row.push(pos_encoding(i, j))
+            j = j + 1
+        enc.push(row)
+        i = i + 1
+    enc
+let attention_score(q, k) =
+    let score = 0
+    let i = 0
+    let n = len(q)
+    for i < n
+        score = gf_add(score, gf_mul(q[i], k[i]))
+        i = i + 1
+    score
+let attention_weights(query, keys) =
+    let scores = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        scores.push(attention_score(query, keys[i]))
+        i = i + 1
+    let total = 0
+    i = 0
+    for i < n
+        total = gf_add(total, gf_pow(scores[i], 2))
+        i = i + 1
+    let weights = []
+    i = 0
+    for i < n
+        weights.push(gf_div(gf_pow(scores[i], 2), total))
+        i = i + 1
+    weights
+let attention_output(weights, values) =
+    let n = values[0].len()
+    let output = []
+    let i = 0
+    for i < n
+        output.push(0)
+        i = i + 1
+    i = 0
+    let m = len(weights)
+    for i < m
+        let j = 0
+        for j < n
+            output[j] = gf_add(output[j], gf_mul(weights[i], values[i][j]))
+            j = j + 1
+        i = i + 1
+    output
+let llm_generate(model, prompt, max_tokens) =
+    let tokens = prompt
+    let i = 0
+    for i < max_tokens
+        let next_token = gf_add(tokens[tokens.len() - 1], 1)
+        tokens.push(next_token)
+        i = i + 1
+    tokens
+let llm_field_inference(tokens, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(tokens[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let llm_verify() =
+    let tokens = arr_new_n(3)
+    tokens[0] = 100
+    tokens[1] = 200
+    tokens[2] = 300
+    let result = llm_field_inference(tokens, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+

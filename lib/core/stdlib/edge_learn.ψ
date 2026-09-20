@@ -1,0 +1,62 @@
+import "reservoir.ψ"
+
+let el_learn_sample_impl(states, weights, lr, idx, acc) =
+    let r = if idx < len(weights)
+      let s = (idx < len(states) ? states[idx] : 0)
+      el_learn_sample_impl(states, weights, lr, idx + 1, acc.push(hebbian_update(weights[idx], s, lr)))
+    else
+      acc
+    r
+
+let el_learn_sample(states, weights, lr) = el_learn_sample_impl(states, weights, lr, 0, [])
+
+let el_readout(states, weights) = reservoir_readout(states, weights)
+
+let el_learn_batch_impl(samples, weights, lr, idx, acc) =
+    let n = len(samples)
+    let r = if idx < n
+      el_learn_batch_impl(samples, weights, lr, idx + 1, el_learn_sample(samples[idx], acc, lr))
+    else
+      acc
+    r
+
+let el_learn_batch(samples, weights, lr) = el_learn_batch_impl(samples, weights, lr, 0, weights)
+
+let el_train_impl(samples, weights, lr, rounds, idx, first, acc) =
+    let r = if idx < rounds
+      let new_w = el_learn_batch(samples, acc, lr)
+      el_train_impl(samples, weights, lr, rounds, idx + 1, first, new_w)
+    else
+      acc
+    r
+
+let el_train(samples, weights, lr, rounds) =
+    let first = el_readout(samples[0], weights)
+    let final_w = el_train_impl(samples, weights, lr, rounds, 0, first, weights)
+    let final = el_readout(samples[0], final_w)
+    [first, final, rounds, final >= first]
+
+let el_converges(samples, weights, lr, rounds) =
+    let r = el_train(samples, weights, lr, rounds)
+    r[3]
+
+let el_dfl(samples, weights, lr, rounds) =
+    let a = el_train(samples, weights, lr, rounds)
+    let b = el_train(samples, weights, lr, rounds)
+    a[0] == b[0] && a[1] == b[1]
+
+let el_forget(mem, delta, alpha, beta) = gate_apply(mem, delta, alpha, beta)
+
+let el_forget_round_impl(states, weights, lr, alpha, idx, acc) =
+    let r = if idx < len(weights)
+      let s = (idx < len(states) ? states[idx] : 0)
+      let w2 = gate_apply(weights[idx], s, alpha, lr)
+      el_forget_round_impl(states, weights, lr, alpha, idx + 1, acc.push(w2))
+    else
+      acc
+    r
+
+let el_forget_round(states, weights, lr, alpha) = el_forget_round_impl(states, weights, lr, alpha, 0, [])
+
+let el_summary() =
+    { theory: "Edge online learning (backprop-free)", learn: "Hebbian increment w' = w + lr*s (vortex pinning)", forget: "Gated forgetting w' = a*w + b*s (synaptic decay)", session: "Sample stream absorbed round by round, weights evolve in place", edge: "One sample at a time, no full-data replay" }

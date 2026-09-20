@@ -1,0 +1,332 @@
+import "../domain_field.ψ"
+let rg_node_new(id, label, properties, vector, ts) =
+    [id, label, properties, vector, ts]
+
+let rg_n_id(n) = n[0]
+let rg_n_label(n) = n[1]
+let rg_n_props(n) = n[2]
+let rg_n_vec(n) = n[3]
+let rg_n_ts(n) = n[4]
+
+let rg_n_get_prop(n, key) = rg_n_props(n)[key]
+
+let rg_edge_new(from_id, to_id, label, properties, weight) =
+    [from_id, to_id, label, properties, weight]
+
+let rg_e_from(e) = e[0]
+let rg_e_to(e) = e[1]
+let rg_e_label(e) = e[2]
+let rg_e_props(e) = e[3]
+let rg_e_weight(e) = e[4]
+
+let rg_new() = [{}, {}, {}, 1, 0]
+
+let rg_nodes(g) = g[0]
+let rg_out(g) = g[1]
+let rg_in(g) = g[2]
+let rg_next(g) = g[3]
+let rg_edges(g) = g[4]
+
+let rg_set_nodes(g, v) = [v, g[1], g[2], g[3], g[4]]
+let rg_set_out(g, v) = [g[0], v, g[2], g[3], g[4]]
+let rg_set_in(g, v) = [g[0], g[1], v, g[3], g[4]]
+let rg_set_next(g, v) = [g[0], g[1], g[2], v, g[4]]
+let rg_set_edges(g, v) = [g[0], g[1], g[2], g[3], v]
+
+let rg_add_node(g, label, properties, vector, ts) =
+    let id = rg_next(g)
+    g = rg_set_next(g, id + 1)
+    let node = rg_node_new(id, label, properties, vector, ts)
+    let nodes = rg_nodes(g)
+    nodes[id] = node
+    g = rg_set_nodes(g, nodes)
+    [g, id]
+
+let rg_add_edge(g, from_id, to_id, label, properties, weight) =
+    let edge = rg_edge_new(from_id, to_id, label, properties, weight)
+    let out_e = rg_out(g)
+    let lst = out_e[from_id]
+    if lst == 0
+        lst = []
+    lst.push(edge)
+    out_e[from_id] = lst
+    g = rg_set_out(g, out_e)
+    let in_e = rg_in(g)
+    lst = in_e[to_id]
+    if lst == 0
+        lst = []
+    lst.push(edge)
+    in_e[to_id] = lst
+    g = rg_set_in(g, in_e)
+    g = rg_set_edges(g, rg_edges(g) + 1)
+    g
+
+let rg_bfs(g, start_id, max_hops) =
+    let visited = {}
+    visited[start_id] = 1
+    let current = [start_id]
+    let result = [start_id]
+    let hop = 0
+    for hop < max_hops && len(current) > 0
+        let next_level = []
+        let i = 0
+        let n = len(current)
+        for i < n
+            let cur = current[i]
+            let out_e = rg_out(g)
+            let edges = out_e[cur]
+            if edges != 0
+                let j = 0
+                let m = len(edges)
+                for j < m
+                    let to_id = rg_e_to(edges[j])
+                    if visited[to_id] == 0
+                        visited[to_id] = 1
+                        next_level.push(to_id)
+                        result.push(to_id)
+                    j = j + 1
+            i = i + 1
+        current = next_level
+        hop = hop + 1
+    result
+
+let rg_dfs(g, start_id, max_hops) =
+    let visited = {}
+    let stack = [[start_id, 0]]
+    let result = []
+    for len(stack) > 0
+        let item = stack[len(stack) - 1]
+        stack = arr_take(stack, len(stack) - 1)
+        let node_id = item[0]
+        let depth = item[1]
+        if visited[node_id] == 0
+            visited[node_id] = 1
+            result.push(node_id)
+            if depth < max_hops
+                let out_e = rg_out(g)
+                let edges = out_e[node_id]
+                if edges != 0
+                    let j = 0
+                    let m = len(edges)
+                    for j < m
+                        let to_id = rg_e_to(edges[j])
+                        stack.push([to_id, depth + 1])
+                        j = j + 1
+    result
+
+let rg_extract_subgraph(g, start_ids, max_hops) =
+    let result = []
+    let visited = {}
+    let queue = []
+    let i = 0
+    let n = len(start_ids)
+    for i < n
+        let sid = start_ids[i]
+        if visited[sid] == 0
+            visited[sid] = 1
+            queue.push([sid, 0])
+            result.push(sid)
+        i = i + 1
+    for len(queue) > 0
+        let item = queue[0]
+        queue = arr_drop(queue, 1)
+        let node_id = item[0]
+        let depth = item[1]
+        if depth < max_hops
+            let out_e = rg_out(g)
+            let edges = out_e[node_id]
+            if edges != 0
+                let j = 0
+                let m = len(edges)
+                for j < m
+                    let to_id = rg_e_to(edges[j])
+                    if visited[to_id] == 0
+                        visited[to_id] = 1
+                        result.push(to_id)
+                        queue.push([to_id, depth + 1])
+                    j = j + 1
+    result
+
+let rg_find_path(g, from_id, to_id, max_hops) =
+    if from_id == to_id
+        [from_id]
+    else
+        let visited = {}
+        visited[from_id] = 1
+        let queue = [[from_id, [from_id]]]
+        let found = 0
+        let path = []
+        for len(queue) > 0 && found == 0
+            let item = queue[0]
+            queue = arr_drop(queue, 1)
+            let node_id = item[0]
+            let cur_path = item[1]
+            if len(cur_path) - 1 < max_hops
+                let out_e = rg_out(g)
+                let edges = out_e[node_id]
+                if edges != 0
+                    let j = 0
+                    let m = len(edges)
+                    for j < m && found == 0
+                        let to_ = rg_e_to(edges[j])
+                        if to_ == to_id
+                            found = 1
+                            path = cur_path
+                            path.push(to_)
+                        else
+                            0
+                        if visited[to_] == 0
+                            visited[to_] = 1
+                            let new_path = []
+                            let k = 0
+                            let p = len(cur_path)
+                            for k < p
+                                new_path.push(cur_path[k])
+                                k = k + 1
+                            new_path.push(to_)
+                            queue.push([to_, new_path])
+                        j = j + 1
+        path
+
+let rg_hybrid_search(g, query_vec, k, hops) =
+    let nodes = rg_nodes(g)
+    let keys = keys_of(nodes)
+    let scored = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let node = nodes[keys[i]]
+        let vec = rg_n_vec(node)
+        if vec != 0
+            let d = 0
+            let j = 0
+            let m = len(query_vec)
+            for j < m
+                d = d + query_vec[j] * vec[j]
+                j = j + 1
+            scored.push([d, rg_n_id(node)])
+        i = i + 1
+    let seeds = []
+    let j = 0
+    for j < k && j < len(scored)
+        let max_idx = j
+        let m = j + 1
+        for m < len(scored)
+            if scored[m][0] > scored[max_idx][0]
+                max_idx = m
+            m = m + 1
+        let tmp = scored[j]
+        scored[j] = scored[max_idx]
+        scored[max_idx] = tmp
+        seeds.push(scored[j][1])
+        j = j + 1
+    let expanded = rg_extract_subgraph(g, seeds, hops)
+    let seen = {}
+    let result = []
+    let x = 0
+    let y = len(expanded)
+    for x < y
+        let nid = expanded[x]
+        if seen[nid] == 0
+            seen[nid] = 1
+            result.push(nid)
+        x = x + 1
+    result
+
+let rg_bragg_check(g) =
+    let nodes = rg_nodes(g)
+    let out_e = rg_out(g)
+    let in_e = rg_in(g)
+    let out_count = 0
+    let in_count = 0
+    let keys1 = keys_of(out_e)
+    let i = 0
+    let n = len(keys1)
+    for i < n
+        let lst = out_e[keys1[i]]
+        if lst != 0
+            out_count = out_count + len(lst)
+        i = i + 1
+    let keys2 = keys_of(in_e)
+    i = 0
+    n = len(keys2)
+    for i < n
+        let lst = in_e[keys2[i]]
+        if lst != 0
+            in_count = in_count + len(lst)
+        i = i + 1
+    if out_count == in_count && out_count == rg_edges(g)
+        1
+    else
+        0
+
+let rg_test_basic() =
+    let g = rg_new()
+    let ok1 = 1
+    if rg_next(g) != 1
+        ok1 = 0
+
+    let r1 = rg_add_node(g, "person", {name: "alice"}, [1, 2, 3], 100)
+    g = r1[0]
+    let id1 = r1[1]
+    let r2 = rg_add_node(g, "person", {name: "bob"}, [4, 5, 6], 200)
+    g = r2[0]
+    let id2 = r2[1]
+    let r3 = rg_add_node(g, "person", {name: "carol"}, [2, 3, 4], 300)
+    g = r3[0]
+    let id3 = r3[1]
+
+    let ok2 = 1
+    if id1 != 1 || id2 != 2 || id3 != 3
+        ok2 = 0
+
+    g = rg_add_edge(g, id1, id2, "knows", {}, 1)
+    g = rg_add_edge(g, id2, id3, "knows", {}, 1)
+    let ok3 = 1
+    if rg_edges(g) != 2
+        ok3 = 0
+
+    let bfs = rg_bfs(g, id1, 2)
+    let ok4 = 1
+    if len(bfs) != 3
+        ok4 = 0
+
+    let bfs1 = rg_bfs(g, id1, 1)
+    let ok5 = 1
+    if len(bfs1) != 2
+        ok5 = 0
+
+    let path = rg_find_path(g, id1, id3, 5)
+    let ok6 = 1
+    if len(path) != 3
+        ok6 = 0
+    else
+        0
+    if path[0] != id1 || path[2] != id3
+        ok6 = 0
+
+    let sub = rg_extract_subgraph(g, [id1], 2)
+    let ok7 = 1
+    if len(sub) != 3
+        ok7 = 0
+
+    let hybrid = rg_hybrid_search(g, [1, 2, 3], 2, 1)
+    let ok8 = 1
+    if len(hybrid) == 0
+        ok8 = 0
+
+    let ok9 = 1
+    if rg_bragg_check(g) != 1
+        ok9 = 0
+
+    ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7 * ok8 * ok9
+
+let rg_test_self() =
+        let ok = rg_test_basic()
+        if ok == 1
+            print("retrieval_graph: ALL PASS")
+        else
+            print("retrieval_graph: FAIL")
+        ok
+
+    rg_test_self()

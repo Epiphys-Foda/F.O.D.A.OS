@@ -1,0 +1,414 @@
+import "../stdlib/gf65537.ψ"
+import "domain_list.ψ"
+
+let activation_gf(x) =
+    gf_pow(3, x)
+
+let relu_gf(x) =
+    (x > 0) ? x : 0
+
+let tanh_gf(x) =
+    let gx = gf_pow(3, x)
+    let gx_inv = gf_div(1, gx)
+    let num = gf_sub(gx, gx_inv)
+    let den = gf_add(gx, gx_inv)
+    gf_div(num, den)
+
+let gelu_gf(x) =
+    let x_sq = gf_mul(x, x)
+    let half_x_sq = gf_div(x_sq, 2)
+    gf_mul(x, gf_pow(3, half_x_sq))
+
+let linear_layer_gf(W, x, b) =
+    let Wx = mat_vec_mul_gf(W, x)
+    vec_add_gf(Wx, b)
+
+let dense_layer_gf(W, x, b) =
+    let z = linear_layer_gf(W, x, b)
+    vec_activation_gf(z)
+
+let vec_activation_gf(v) =
+    vec_activation_rec_gf(v, 0, [])
+
+let vec_activation_rec_gf(v, i, result) =
+        if i >= len(v)
+            result
+        else
+            vec_activation_rec_gf(v, i + 1, append(result, activation_gf(v[i])))
+
+let neural_network_gf(layers, x) =
+    nn_forward_rec_gf(layers, x, 0)
+
+let nn_forward_rec_gf(layers, x, i) =
+        if i >= len(layers)
+            x
+        else
+            let layer = layers[i]
+            let W = layer[0]
+            let b = layer[1]
+            let h = dense_layer_gf(W, x, b)
+            nn_forward_rec_gf(layers, h, i + 1)
+
+let mse_gf(y, y_hat) =
+    mse_rec_gf(y, y_hat, 0, 0)
+
+let mse_rec_gf(y, y_hat, i, acc) =
+        if i >= len(y)
+            acc
+        else
+            let diff = gf_sub(y[i], y_hat[i])
+            let sq = gf_mul(diff, diff)
+            mse_rec_gf(y, y_hat, i + 1, gf_add(acc, sq))
+
+let cross_entropy_gf(y, y_hat) =
+    ce_rec_gf(y, y_hat, 0, 0)
+
+let ce_rec_gf(y, y_hat, i, acc) =
+        if i >= len(y)
+            acc
+        else
+            let one_minus = gf_sub(1, y_hat[i])
+            let term = gf_mul(y[i], one_minus)
+            ce_rec_gf(y, y_hat, i + 1, gf_add(acc, term))
+
+let finite_diff_grad_gf(loss_fn, theta) =
+    let L_theta = loss_fn(theta)
+    let L_theta_plus_1 = loss_fn(gf_add(theta, 1))
+    gf_sub(L_theta_plus_1, L_theta)
+
+let optimize_gf(loss_fn) =
+    optimize_search_gf(loss_fn, 0, 65537, 0)
+
+let optimize_search_gf(loss_fn, theta, best_loss, best_theta) =
+        if theta >= 65537
+            best_theta
+        else
+            let loss = loss_fn(theta)
+            if loss < best_loss
+                optimize_search_gf(loss_fn, theta + 1, loss, theta)
+            else
+                optimize_search_gf(loss_fn, theta + 1, best_loss, best_theta)
+
+let optimize_multi_gf(loss_fn, params, n) =
+    optimize_multi_rec_gf(loss_fn, params, n, 0, 65537, params)
+
+let optimize_multi_rec_gf(loss_fn, params, n, i, best_loss, best_params) =
+        if i >= n
+            best_params
+        else
+            let new_params = optimize_1d_gf(loss_fn, params, i, 0, 65537, params)
+            let new_loss = loss_fn(new_params)
+            if new_loss < best_loss
+                optimize_multi_rec_gf(loss_fn, new_params, n, i + 1, new_loss, new_params)
+            else
+                optimize_multi_rec_gf(loss_fn, params, n, i + 1, best_loss, best_params)
+
+let optimize_1d_gf(loss_fn, params, i, theta, best_loss, best_params) =
+        if theta >= 65537
+            best_params
+        else
+            let test_params = params
+            let test_params = vec_set_gf(test_params, i, theta)
+            let loss = loss_fn(test_params)
+            if loss < best_loss
+                optimize_1d_gf(loss_fn, params, i, theta + 1, loss, test_params)
+            else
+                optimize_1d_gf(loss_fn, params, i, theta + 1, best_loss, best_params)
+
+let backprop_gf(network, x, y, loss_fn) =
+    backprop_rec_gf(network, x, y, loss_fn, 0, network)
+
+let backprop_rec_gf(network, x, y, loss_fn, layer_i, gradients) =
+        if layer_i >= len(network)
+            gradients
+        else
+            let layer = network[layer_i]
+            let W = layer[0]
+            let grad_W = backprop_layer_gf(network, x, y, loss_fn, layer_i, W)
+            let new_gradients = gradients
+            let new_gradients = vec_set_gf(new_gradients, layer_i, grad_W)
+            backprop_rec_gf(network, x, y, loss_fn, layer_i + 1, new_gradients)
+
+let backprop_layer_gf(network, x, y, loss_fn, layer_i, W) =
+    backprop_layer_rec_gf(network, x, y, loss_fn, layer_i, W, 0, 0, [])
+
+let backprop_layer_rec_gf(network, x, y, loss_fn, layer_i, W, i, j, grad_W) =
+        if i >= len(W)
+            grad_W
+        else
+            if j >= len(W[i])
+                backprop_layer_rec_gf(network, x, y, loss_fn, layer_i, W, i + 1, 0, grad_W)
+            else
+                let W_plus = W
+                let W_plus = vec_set_gf(W_plus, i, gf_add(W[i][j], 1))
+                let network_plus = network
+                let network_plus = vec_set_gf(network_plus, layer_i, W_plus)
+                let L = loss_fn(nn_forward_gf(network, x), y)
+                let L_plus = loss_fn(nn_forward_gf(network_plus, x), y)
+                let grad = gf_sub(L_plus, L)
+                backprop_layer_rec_gf(network, x, y, loss_fn, layer_i, W, i, j + 1, append(grad_W, grad))
+
+let softmax_gf(x) =
+    let exps = vec_pow_gf(x)
+    let total = vec_sum_gf(exps)
+    vec_div_scalar_gf(exps, total)
+
+let vec_pow_gf(v) =
+    vec_pow_rec_gf(v, 0, [])
+
+let vec_pow_rec_gf(v, i, result) =
+        if i >= len(v)
+            result
+        else
+            vec_pow_rec_gf(v, i + 1, append(result, gf_pow(3, v[i])))
+
+let dropout_gf(x, mask) =
+    dropout_rec_gf(x, mask, 0, [])
+
+let dropout_rec_gf(x, mask, i, result) =
+        if i >= len(x)
+            result
+        else
+            let val = gf_mul(x[i], mask[i])
+            dropout_rec_gf(x, mask, i + 1, append(result, val))
+
+let batchnorm_gf(x, gamma, beta) =
+    let mu = vec_mean_gf(x)
+    let sigma = vec_std_gf(x, mu)
+    let sigma_inv = gf_div(1, sigma)
+    batchnorm_rec_gf(x, mu, sigma_inv, gamma, beta, 0, [])
+
+let batchnorm_rec_gf(x, mu, sigma_inv, gamma, beta, i, result) =
+        if i >= len(x)
+            result
+        else
+            let normalized = gf_mul(gf_sub(x[i], mu), sigma_inv)
+            let scaled = gf_add(gf_mul(gamma, normalized), beta)
+            batchnorm_rec_gf(x, mu, sigma_inv, gamma, beta, i + 1, append(result, scaled))
+
+let vec_mean_gf(v) =
+    let total = vec_sum_gf(v)
+    gf_div(total, len(v))
+
+let vec_std_gf(v, mu) =
+    let variance = vec_var_gf(v, mu)
+    gf_sqrt_gf(variance)
+
+let vec_var_gf(v, mu) =
+    vec_var_rec_gf(v, mu, 0, 0)
+
+let vec_var_rec_gf(v, mu, i, acc) =
+        if i >= len(v)
+            gf_div(acc, len(v))
+        else
+            let diff = gf_sub(v[i], mu)
+            vec_var_rec_gf(v, mu, i + 1, gf_add(acc, gf_mul(diff, diff)))
+
+let gf_sqrt_gf(x) =
+    gf_pow(x, 32769)
+
+let sgd_gf(theta, grad) =
+    gf_sub(theta, grad)
+
+let adam_gf(theta, grad, m, v, t) =
+    let new_m = gf_add(m, grad)
+    let new_v = gf_add(v, gf_mul(grad, grad))
+    let sqrt_v = gf_sqrt_gf(new_v)
+    let update = gf_div(new_m, sqrt_v)
+    let new_theta = gf_sub(theta, update)
+    [new_theta, new_m, new_v]
+
+let conv_gf(kernel, input) =
+    let kernel_ntt = ntt_gf(kernel)
+    let input_ntt = ntt_gf(input)
+    let product = vec_mul_pointwise_gf(kernel_ntt, input_ntt)
+    intt_gf(product)
+
+let intt_gf(v) =
+    let omega_inv = gf_div(1, 4096)
+    let n_inv = gf_div(1, len(v))
+    let result = ntt_rec_gf(v, omega_inv, 0, [])
+    vec_mul_scalar_gf(result, n_inv)
+
+let vec_mul_pointwise_gf(v1, v2) =
+    vec_mul_pointwise_rec_gf(v1, v2, 0, [])
+
+let vec_mul_pointwise_rec_gf(v1, v2, i, result) =
+        if i >= len(v1)
+            result
+        else
+            vec_mul_pointwise_rec_gf(v1, v2, i + 1, append(result, gf_mul(v1[i], v2[i])))
+
+let vec_mul_scalar_gf(v, s) =
+    vec_mul_scalar_rec_gf(v, s, 0, [])
+
+let vec_mul_scalar_rec_gf(v, s, i, result) =
+        if i >= len(v)
+            result
+        else
+            vec_mul_scalar_rec_gf(v, s, i + 1, append(result, gf_mul(v[i], s)))
+
+let max_pool_gf(x, pool_size) =
+    max_pool_rec_gf(x, pool_size, 0, [])
+
+let max_pool_rec_gf(x, pool_size, i, result) =
+        if i >= len(x)
+            result
+        else
+            let pool = slice_gf(x, i, i + pool_size)
+            let max_val = vec_max_gf(pool)
+            max_pool_rec_gf(x, pool_size, i + pool_size, append(result, max_val))
+
+let vec_max_gf(v) =
+    vec_max_rec_gf(v, 1, 0)
+
+let vec_max_rec_gf(v, i, best) =
+        if i >= len(v)
+            best
+        else
+            if v[i] > best
+                vec_max_rec_gf(v, i + 1, v[i])
+            else
+                vec_max_rec_gf(v, i + 1, best)
+
+let slice_gf(v, start, end) =
+    slice_rec_gf(v, start, end, start, [])
+
+let slice_rec_gf(v, start, end, i, result) =
+        if i >= end
+            result
+        else
+            slice_rec_gf(v, start, end, i + 1, append(result, v[i]))
+
+let attention_gf(Q, K, V) =
+    let scores = mat_mul_gf(Q, transpose_gf(K))
+    let attention_weights = softmax_gf_mat_gf(scores)
+    mat_mul_gf(attention_weights, V)
+
+let softmax_gf_mat_gf(M) =
+    softmax_mat_rec_gf(M, 0, [])
+
+let softmax_mat_rec_gf(M, i, result) =
+        if i >= len(M)
+            result
+        else
+            softmax_mat_rec_gf(M, i + 1, append(result, softmax_gf(M[i])))
+
+let positional_encoding_gf(pos, dim) =
+    pe_rec_gf(pos, dim, 0, [])
+
+let pe_rec_gf(pos, dim, i, result) =
+        if i >= dim
+            result
+        else
+            let pe = gf_pow(3, gf_mul(pos, i))
+            pe_rec_gf(pos, dim, i + 1, append(result, pe))
+
+let transformer_gf(layers, x) =
+    transformer_rec_gf(layers, x, 0)
+
+let transformer_rec_gf(layers, x, i) =
+        if i >= len(layers)
+            x
+        else
+            let layer = layers[i]
+            let attn = attention_gf(x, x, x)
+            let added = vec_add_gf(x, attn)
+            let normed = batchnorm_gf(added, 1, 0)
+            let ffn = dense_layer_gf(layer[0], normed, layer[1])
+            transformer_rec_gf(layers, ffn, i + 1)
+
+let q_learning_gf(Q, s, a, r, s_next, gamma) =
+    let max_q_next = max_q_gf(Q, s_next)
+    let td_target = gf_add(r, max_q_next)
+    let td_error = gf_sub(td_target, Q[s][a])
+    gf_add(Q[s][a], td_error)
+
+let max_q_gf(Q, s) =
+    max_q_rec_gf(Q, s, 0, 0)
+
+let max_q_rec_gf(Q, s, a, best) =
+        if a >= len(Q[s])
+            best
+        else
+            if Q[s][a] > best
+                max_q_rec_gf(Q, s, a + 1, Q[s][a])
+            else
+                max_q_rec_gf(Q, s, a + 1, best)
+
+let policy_gf(Q, s) =
+    argmax_q_gf(Q, s, 0, 0, 0)
+
+let argmax_q_gf(Q, s, a, best_a, best_q) =
+        if a >= len(Q[s])
+            best_a
+        else
+            if Q[s][a] > best_q
+                argmax_q_gf(Q, s, a + 1, a, Q[s][a])
+            else
+                argmax_q_gf(Q, s, a + 1, best_a, best_q)
+
+let gan_discriminator_gf(D, x) =
+    nn_forward_gf(D, x)
+
+let gan_generator_gf(G, z) =
+    nn_forward_gf(G, z)
+
+let gan_loss_gf(D, G, real, z) =
+    let d_real = gan_discriminator_gf(D, real)
+    let fake = gan_generator_gf(G, z)
+    let d_fake = gan_discriminator_gf(D, fake)
+    let one_minus_d_fake = gf_sub(1, d_fake)
+    gf_add(d_real, one_minus_d_fake)
+
+let vae_encode_gf(encoder, x) =
+    nn_forward_gf(encoder, x)
+
+let vae_decode_gf(decoder, z) =
+    nn_forward_gf(decoder, z)
+
+let vae_loss_gf(encoder, decoder, x) =
+    let z = vae_encode_gf(encoder, x)
+    let x_recon = vae_decode_gf(decoder, z)
+    let recon_loss = mse_gf(x, x_recon)
+    let reg_loss = vec_sum_gf(z)
+    gf_add(recon_loss, reg_loss)
+
+let diffusion_forward_gf(x, t) =
+    let alpha_t = gf_pow(3, gf_sub(0, t))
+    let one_minus_alpha = gf_sub(1, alpha_t)
+    let noise = t
+    gf_add(gf_mul(alpha_t, x), gf_mul(one_minus_alpha, noise))
+
+let diffusion_reverse_gf(model, x_t, t) =
+    nn_forward_gf(model, [x_t, t])
+
+let l1_reg_gf(weights) =
+    l1_reg_rec_gf(weights, 0, 0)
+
+let l1_reg_rec_gf(weights, i, acc) =
+        if i >= len(weights)
+            acc
+        else
+            let abs_w = (weights[i] > 32768) ? gf_sub(0, weights[i]) : weights[i]
+            l1_reg_rec_gf(weights, i + 1, gf_add(acc, abs_w))
+
+let l2_reg_gf(weights) =
+    l2_reg_rec_gf(weights, 0, 0)
+
+let l2_reg_rec_gf(weights, i, acc) =
+        if i >= len(weights)
+            acc
+        else
+            l2_reg_rec_gf(weights, i + 1, gf_add(acc, gf_mul(weights[i], weights[i])))
+
+let early_stopping_gf(val_loss, best_loss, patience, count) =
+        if val_loss < best_loss
+            [0, val_loss, 0]
+        else
+            let new_count = count + 1
+            if new_count >= patience
+                [1, best_loss, new_count]
+            else
+                [0, best_loss, new_count]
+

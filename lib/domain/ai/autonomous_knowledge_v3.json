@@ -1,0 +1,442 @@
+{
+  "rounds": 30,
+  "files_explored": 1042,
+  "laws": [
+    {
+      "round": 1,
+      "batch_files": 34,
+      "L_feat": 231,
+      "L_name": 125,
+      "verify_train_f": 1.0,
+      "verify_train_n": 1.0,
+      "predict_f": 0.0,
+      "predict_n": 0.0,
+      "compress_f": 0.5,
+      "compress_n": 0.502,
+      "timestamp": "2026-09-04T09:24:07.341617"
+    },
+    {
+      "round": 2,
+      "batch_files": 34,
+      "L_feat": 231,
+      "L_name": 115,
+      "verify_train_f": 1.0,
+      "verify_train_n": 1.0,
+      "predict_f": 0.0,
+      "predict_n": 0.0,
+      "compress_f": 0.5,
+      "compress_n": 0.5,
+      "timestamp": "2026-09-04T09:24:07.480843"
+    },
+    {
+      "round": 3,
+      "batch_files": 34,
+      "L_feat": 231,
+      "L_name": 108,
+      "verify_train_f": 1.0,
+      "verify_train_n": 1.0,
+      "predict_f": 0.0,
+      "predict_n": 0.0,
+      "compress_f": 0.5,
+      "compress_n": 0.5,
+      "timestamp": "2026-09-04T09:24:07.608397"
+    },
+    {
+      "round": 4,
+      "batch_files": 34,
+      "L_feat": 231,
+      "L_name": 121,
+      "verify_train_f": 1.0,
+      "verify_train_n": 1.0,
+      "predict_f": 0.0,
+      "predict_n": 0.0,
+      "compress_f": 0.5,
+      "compress_n": 0.5,
+      "timestamp": "2026-09-04T09:24:07.752997"
+    },
+    {
+      "round": 5,
+      "batch_files": 34,
+      "L_feat": 231,
+      "L_name": 122,
+      "verify_train_f": 1.0,
+      "verify_train_n": 1.0,
+      "predict_f": 0.0,
+      "predict_n": 0.0,
+      "compress_f": 0.5,
+      "compress_n": 0.5,
+      "timestamp": "2026-09-04T09:24:07.898859"
+    },
+    {
+      "round": 6,
+      "batch_files": 34,
+      "L_feat": 231,
+      "L_name": 112,
+      "verify_train_f": 1.0,
+      "verify_train_n": 1.0,
+      "predict_f": 0.0,
+      "predict_n": 0.0,
+      "compress_f": 0.5,
+      "compress_n": 0.5,
+      "timestamp": "2026-09-04T09:24:08.024812"
+    },
+    {
+      "round": 7,
+      "batch_files": 34,
+      "L_feat": 231,
+      "L_name": 116,
+      "verify_train_f": 1.0,
+      "verify_train_n": 1.0,
+      "predict_f": 0.0,
+      "predict_n": 0.0,
+      "compress_f": 0.5,
+      "compress_n": 0.5,
+      "timestamp": "2026-09-04T09:24:08.151584"
+    },
+    {
+      "round": 8,
+      "batch_files": 34,
+      "L_feat": 231,
+      "L_name": 124,
+      "verify_train_f": 1.0,
+      "verify_train_n": 1.0,
+      "predict_f": 0.0,
+      "predict_n": 0.0,
+      "compress_f": 0.5,
+      "compress_n": 0.5,
+      "timestamp": "2026-09-04T09:24:08.287355"
+    },
+    {
+      "round": 9,
+      "batch_files": 34,
+      "L_feat": 231,
+      "L_name": 111,
+      "verify_train_f": 1.0,
+      "verify_train_n": 1.0,
+      "predict_f": 0.0,
+      "predict_n": 0.0,
+      "compress_f": 0.5,
+      "compress_n": 0.502,
+      "timestamp": "2026-09-04T09:24:08.429074"
+    },
+    {
+      "round": 10,
+      "batch_files": 34,
+      "L_feat": 231,
+      "L_name": 115,
+      "verify_train_f": 1.0,
+      "verify_train_n": 1.0,
+      "predict_f": 0.0,
+      "predict_n": 0.0,
+      "compress_f": 0.5,
+      "compress_n": 0.5,
+      "timestamp": "2026-09-04T09:24:08.566573"
+    },
+    {
+      "round": 11,
+      "batch_files": 34,
+      "L_feat": 231,
+      "L_name": 120,
+      "verify_train_f": 1.0,
+      "verify_train_n": 1.0,
+      "predict_f": 0.0,
+      "predict_n": 0.0,
+      "compress_f": 0.5,
+      "compress_n": 0.5,
+      "timestamp": "2026-09-04T09:24:08.698807"
+    },
+    {
+      "round": 12,
+      "batch_files": 34,
+      "L_feat": 231,
+      "L_name": 116,
+      "verify_train_f": 1.0,
+      "verify_train_n": 1.0,
+      "predict_f": 0.0,
+      "predict_n": 0.0,
+      "compress_f": 0.5,
+      "compress_n": 0.5,
+      "timestamp": "2026-09-04T09:24:08.829394"
+    },
+    {
+      "round": 13,
+      "batch_files": 34,
+      "L_feat": 231,
+      "L_name": 112,
+      "verify_train_f": 1.0,
+      "verify_train_n": 1.0,
+      "predict_f": 0.0,
+      "predict_n": 0.0,
+      "compress_f": 0.5,
+      "compress_n": 0.5,
+      "timestamp": "2026-09-04T09:24:08.968948"
+    },
+    {
+      "round": 14,
+      "batch_files": 34,
+      "L_feat": 231,
+      "L_name": 114,
+      "verify_train_f": 1.0,
+      "verify_train_n": 1.0,
+      "predict_f": 0.0,
+      "predict_n": 0.0,
+      "compress_f": 0.5,
+      "compress_n": 0.5,
+      "timestamp": "2026-09-04T09:24:09.094559"
+    },
+    {
+      "round": 15,
+      "batch_files": 34,
+      "L_feat": 231,
+      "L_name": 120,
+      "verify_train_f": 1.0,
+      "verify_train_n": 1.0,
+      "predict_f": 0.0,
+      "predict_n": 0.0,
+      "compress_f": 0.5,
+      "compress_n": 0.502,
+      "timestamp": "2026-09-04T09:24:09.222445"
+    },
+    {
+      "round": 16,
+      "batch_files": 34,
+      "L_feat": 231,
+      "L_name": 119,
+      "verify_train_f": 1.0,
+      "verify_train_n": 1.0,
+      "predict_f": 0.0,
+      "predict_n": 0.0,
+      "compress_f": 0.5,
+      "compress_n": 0.5,
+      "timestamp": "2026-09-04T09:24:09.364366"
+    },
+    {
+      "round": 17,
+      "batch_files": 34,
+      "L_feat": 231,
+      "L_name": 122,
+      "verify_train_f": 1.0,
+      "verify_train_n": 1.0,
+      "predict_f": 0.0,
+      "predict_n": 0.0,
+      "compress_f": 0.5,
+      "compress_n": 0.5,
+      "timestamp": "2026-09-04T09:24:09.509004"
+    },
+    {
+      "round": 18,
+      "batch_files": 34,
+      "L_feat": 231,
+      "L_name": 130,
+      "verify_train_f": 1.0,
+      "verify_train_n": 1.0,
+      "predict_f": 0.0,
+      "predict_n": 0.0,
+      "compress_f": 0.5,
+      "compress_n": 0.5,
+      "timestamp": "2026-09-04T09:24:09.645608"
+    },
+    {
+      "round": 19,
+      "batch_files": 34,
+      "L_feat": 231,
+      "L_name": 120,
+      "verify_train_f": 1.0,
+      "verify_train_n": 1.0,
+      "predict_f": 0.0,
+      "predict_n": 0.0,
+      "compress_f": 0.5,
+      "compress_n": 0.502,
+      "timestamp": "2026-09-04T09:24:09.779317"
+    },
+    {
+      "round": 20,
+      "batch_files": 34,
+      "L_feat": 231,
+      "L_name": 113,
+      "verify_train_f": 1.0,
+      "verify_train_n": 1.0,
+      "predict_f": 0.0,
+      "predict_n": 0.0,
+      "compress_f": 0.5,
+      "compress_n": 0.502,
+      "timestamp": "2026-09-04T09:24:09.905431"
+    },
+    {
+      "round": 21,
+      "batch_files": 34,
+      "L_feat": 231,
+      "L_name": 118,
+      "verify_train_f": 1.0,
+      "verify_train_n": 1.0,
+      "predict_f": 0.0,
+      "predict_n": 0.0,
+      "compress_f": 0.5,
+      "compress_n": 0.5,
+      "timestamp": "2026-09-04T09:24:10.051982"
+    },
+    {
+      "round": 22,
+      "batch_files": 34,
+      "L_feat": 231,
+      "L_name": 128,
+      "verify_train_f": 1.0,
+      "verify_train_n": 1.0,
+      "predict_f": 0.0,
+      "predict_n": 0.0,
+      "compress_f": 0.5,
+      "compress_n": 0.5,
+      "timestamp": "2026-09-04T09:24:10.197197"
+    },
+    {
+      "round": 23,
+      "batch_files": 34,
+      "L_feat": 231,
+      "L_name": 118,
+      "verify_train_f": 1.0,
+      "verify_train_n": 1.0,
+      "predict_f": 0.0,
+      "predict_n": 0.0,
+      "compress_f": 0.5,
+      "compress_n": 0.5,
+      "timestamp": "2026-09-04T09:24:10.327331"
+    },
+    {
+      "round": 24,
+      "batch_files": 34,
+      "L_feat": 231,
+      "L_name": 123,
+      "verify_train_f": 1.0,
+      "verify_train_n": 1.0,
+      "predict_f": 0.0,
+      "predict_n": 0.0,
+      "compress_f": 0.5,
+      "compress_n": 0.5,
+      "timestamp": "2026-09-04T09:24:10.472517"
+    },
+    {
+      "round": 25,
+      "batch_files": 34,
+      "L_feat": 231,
+      "L_name": 119,
+      "verify_train_f": 1.0,
+      "verify_train_n": 1.0,
+      "predict_f": 0.0,
+      "predict_n": 0.0,
+      "compress_f": 0.5,
+      "compress_n": 0.5,
+      "timestamp": "2026-09-04T09:24:10.608518"
+    },
+    {
+      "round": 26,
+      "batch_files": 34,
+      "L_feat": 231,
+      "L_name": 123,
+      "verify_train_f": 1.0,
+      "verify_train_n": 1.0,
+      "predict_f": 0.0,
+      "predict_n": 0.0,
+      "compress_f": 0.5,
+      "compress_n": 0.502,
+      "timestamp": "2026-09-04T09:24:10.746160"
+    },
+    {
+      "round": 27,
+      "batch_files": 34,
+      "L_feat": 231,
+      "L_name": 124,
+      "verify_train_f": 1.0,
+      "verify_train_n": 1.0,
+      "predict_f": 0.0,
+      "predict_n": 0.0,
+      "compress_f": 0.5,
+      "compress_n": 0.502,
+      "timestamp": "2026-09-04T09:24:10.887958"
+    },
+    {
+      "round": 28,
+      "batch_files": 34,
+      "L_feat": 231,
+      "L_name": 124,
+      "verify_train_f": 1.0,
+      "verify_train_n": 1.0,
+      "predict_f": 0.0,
+      "predict_n": 0.0,
+      "compress_f": 0.5,
+      "compress_n": 0.502,
+      "timestamp": "2026-09-04T09:24:11.075834"
+    },
+    {
+      "round": 29,
+      "batch_files": 34,
+      "L_feat": 231,
+      "L_name": 128,
+      "verify_train_f": 1.0,
+      "verify_train_n": 1.0,
+      "predict_f": 0.0,
+      "predict_n": 0.0,
+      "compress_f": 0.5,
+      "compress_n": 0.5,
+      "timestamp": "2026-09-04T09:24:11.242147"
+    },
+    {
+      "round": 30,
+      "batch_files": 34,
+      "L_feat": 231,
+      "L_name": 124,
+      "verify_train_f": 1.0,
+      "verify_train_n": 1.0,
+      "predict_f": 0.0,
+      "predict_n": 0.0,
+      "compress_f": 0.5,
+      "compress_n": 0.5,
+      "timestamp": "2026-09-04T09:24:11.399357"
+    }
+  ],
+  "law_distribution": {
+    "231": 30
+  },
+  "top_curious_files": [
+    [
+      "lib\\domain\\infra\\super_arch.ψ",
+      660
+    ],
+    [
+      "lib\\physics\\unified_four_forces.ψ",
+      548
+    ],
+    [
+      "lib\\domain\\storage\\snapshot.ψ",
+      472
+    ],
+    [
+      "lib\\domain\\search\\bm25.ψ",
+      453
+    ],
+    [
+      "lib\\compiler\\bootstrap\\meta_eval_v15.ψ",
+      412
+    ],
+    [
+      "lib\\domain\\robot\\render3d.ψ",
+      400
+    ],
+    [
+      "lib\\core\\domain\\optimization.ψ",
+      389
+    ],
+    [
+      "lib\\domain\\kernel\\syscall.ψ",
+      372
+    ],
+    [
+      "lib\\compiler\\unified.ψ",
+      351
+    ],
+    [
+      "lib\\domain\\db\\tx.ψ",
+      328
+    ]
+  ],
+  "timestamp": "2026-09-04T09:24:11.450373"
+}

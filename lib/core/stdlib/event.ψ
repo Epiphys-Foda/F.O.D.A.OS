@@ -1,0 +1,151 @@
+let evt_create() =
+    let emitter = arr_new()
+    emitter = arr_push(emitter, arr_new())
+    emitter = arr_push(emitter, arr_new())
+    emitter
+
+let evt_on(emitter, event_type, callback_id) =
+    let listeners = emitter[0]
+    let listener = arr_new()
+    listener = arr_push(listener, event_type)
+    listener = arr_push(listener, callback_id)
+    listeners = arr_push(listeners, listener)
+    emitter[0] = listeners
+    emitter
+
+let evt_once(emitter, event_type, callback_id) =
+    let once_listeners = emitter[1]
+    let listener = arr_new()
+    listener = arr_push(listener, event_type)
+    listener = arr_push(listener, callback_id)
+    once_listeners = arr_push(once_listeners, listener)
+    emitter[1] = once_listeners
+    emitter
+
+let evt_emit(emitter, event_type) =
+    let callbacks = arr_new()
+    let listeners = emitter[0]
+    let n = listeners.len()
+    let i = 0
+    for i < n
+        let listener = listeners[i]
+        if listener[0] == event_type
+            callbacks = arr_push(callbacks, listener[1])
+        i = i + 1
+    let once_listeners = emitter[1]
+    let m = once_listeners.len()
+    let new_once = arr_new()
+    i = 0
+    for i < m
+        let listener = once_listeners[i]
+        if listener[0] == event_type
+            callbacks = arr_push(callbacks, listener[1])
+        else
+            new_once = arr_push(new_once, listener)
+        i = i + 1
+    emitter[1] = new_once
+    callbacks
+
+let evt_off(emitter, event_type, callback_id) =
+    let listeners = emitter[0]
+    let new_listeners = arr_new()
+    let n = listeners.len()
+    let i = 0
+    for i < n
+        let listener = listeners[i]
+        if listener[0] != event_type || listener[1] != callback_id
+            new_listeners = arr_push(new_listeners, listener)
+        i = i + 1
+    emitter[0] = new_listeners
+    emitter
+
+let evt_remove_all(emitter, event_type) =
+    let listeners = emitter[0]
+    let new_listeners = arr_new()
+    let n = listeners.len()
+    let i = 0
+    for i < n
+        let listener = listeners[i]
+        if listener[0] != event_type
+            new_listeners = arr_push(new_listeners, listener)
+        i = i + 1
+    emitter[0] = new_listeners
+    emitter
+
+let evt_listener_count(emitter, event_type) =
+    let count = 0
+    let listeners = emitter[0]
+    let n = listeners.len()
+    let i = 0
+    for i < n
+        let listener = listeners[i]
+        if listener[0] == event_type
+            count = count + 1
+        i = i + 1
+    let once_listeners = emitter[1]
+    let m = once_listeners.len()
+    i = 0
+    for i < m
+        let listener = once_listeners[i]
+        if listener[0] == event_type
+            count = count + 1
+        i = i + 1
+    count
+
+let evt_queue_create() = arr_new()
+
+let evt_queue_push(queue, event_type, data) =
+    let event = arr_new()
+    event = arr_push(event, event_type)
+    event = arr_push(event, data)
+    arr_push(queue, event)
+
+let evt_queue_pop(queue) =
+    let n = queue.len()
+    if n == 0
+        return arr_new()
+    let event = queue[0]
+    let new_queue = arr_new()
+    let i = 1
+    for i < n
+        new_queue = arr_push(new_queue, queue[i])
+        i = i + 1
+    event
+
+let evt_queue_is_empty(queue) =
+    queue.len() == 0
+
+let evt_filter(events, event_type) =
+    let result = arr_new()
+    let n = events.len()
+    let i = 0
+    for i < n
+        let event = events[i]
+        if event[0] == event_type
+            result = arr_push(result, event)
+        i = i + 1
+    result
+
+let evt_map(events, transform_id) =
+    let result = arr_new()
+    let n = events.len()
+    let i = 0
+    for i < n
+        let event = events[i]
+        let new_event = arr_new()
+        new_event = arr_push(new_event, event[0])
+        new_event = arr_push(new_event, event[1] * transform_id)
+        result = arr_push(result, new_event)
+        i = i + 1
+    result
+
+let main() =
+    let emitter = evt_create()
+    emitter = evt_on(emitter, 1, 100)
+    emitter = evt_on(emitter, 1, 200)
+    emitter = evt_once(emitter, 2, 300)
+    let callbacks = evt_emit(emitter, 1)
+    print(callbacks[0])
+    print(callbacks[1])
+    print(evt_listener_count(emitter, 1))
+    0

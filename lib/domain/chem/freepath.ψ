@@ -1,0 +1,33 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let b = small_div(269 * 4160, 1000)
+bad[0] = bad[0] + ck(b, 1080, 1160)
+
+let c = small_div(b * 1414, 1000)
+bad[0] = bad[0] + ck(c, 1540, 1620)
+
+let lam = small_div(100000, c)
+bad[0] = bad[0] + ck(lam, 58, 68)
+
+let z = small_div(4700, lam)
+bad[0] = bad[0] + ck(z, 70, 80)
+
+let lam1 = small_div(lam * 101325, 1000)
+bad[0] = bad[0] + ck(lam1, 6000, 6800)
+
+let gap = 5000
+bad[0] = bad[0] + ck_lo(lam1, gap)
+
+if 1858 < 1856
+    bad[0] = bad[0] + 1
+if 1858 > 1860
+    bad[0] = bad[0] + 1
+if 1865 < 1863
+    bad[0] = bad[0] + 1
+if 1865 > 1867
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

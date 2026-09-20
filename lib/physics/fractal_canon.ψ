@@ -1,0 +1,256 @@
+import "sh_a9f96f3ee7.ψ"
+import "../core/stdlib/arr.ψ"
+import "../core/stdlib/gf65537.ψ"
+import "bootstrap_residue.ψ"
+
+let P = 65537
+
+let gf_euler(a) = gf_pow(a, (P - 1) / 2)
+
+let unode(z, r) = [z, r]
+let unode2(z, r, c0, c1) = [z, r, c0, c1]
+let uz(n) = n[0]
+let ur(n) = n[1]
+let uc(n, i) = n[i + 2]
+
+let unify_add(a, b) =
+    if uz(a) == 0
+        (uz(b) == 0 ? unode(0, (ur(a) + ur(b)) % P) : 0)
+    unode2(2, 43, a, b)
+
+let unify_mul(a, b) =
+    if uz(a) == 0
+        (uz(b) == 0 ? unode(0, ur(a) * ur(b) % P) : 0)
+    unode2(2, 42, a, b)
+
+let unify_evolve(n) =
+    if uz(n) == 0
+        unode(0, ur(n) + 1)
+    if uz(n) == 2
+        unode2(2, ur(n), unify_evolve(uc(n, 0)), unify_evolve(uc(n, 1)))
+    n
+
+let unify_norm(n) =
+    if uz(n) == 2
+        let op = ur(n)
+        if op == 43
+            unify_add(uc(n, 0), uc(n, 1))
+        if op == 42
+            unify_mul(uc(n, 0), uc(n, 1))
+    n
+
+let unify_collapse(n) =
+    let z = uz(n)
+    if z == 0
+        ur(n)
+    if z == 2
+        let op = ur(n)
+        let l = unify_collapse(uc(n, 0))
+        let r = unify_collapse(uc(n, 1))
+        if op == 43
+            (l + r) % P
+        if op == 45
+            (l - r + P) % P
+        if op == 42
+            l * r % P
+        if op == 47
+            gf_div(l, r)
+    0
+
+let poly_eval(p, x) =
+    let acc = 0
+    let xpow = 1
+    let i = 0
+    for i < len(p)
+        acc = (acc + p[i] * xpow) % P
+        xpow = xpow * x % P
+        i = i + 1
+    acc
+
+let poly_mul(a, b) =
+    let out = []
+    let i = 0
+    for i < len(a) + len(b) - 1
+        out = arr_push(out, 0)
+        i = i + 1
+    let ia = 0
+    for ia < len(a)
+        let ib = 0
+        for ib < len(b)
+            let old = out[ia + ib]
+            out[ia + ib] = (old + a[ia] * b[ib]) % P
+            ib = ib + 1
+        ia = ia + 1
+    out
+
+let poly_equal_at(a, b) =
+    let ok = 1
+    let x = 0
+    for x < 12
+        if poly_eval(a, x) != poly_eval(b, x)
+            ok = 0
+        x = x + 1
+    ok
+
+let dprime_at(z1, z2, x) = (2 * x % P + P - (z1 + z2) % P) % P
+
+let cover_up(n1, n0, z1, z2) =
+    let nz1 = (n1 * z1 % P + n0) % P
+    let nz2 = (n1 * z2 % P + n0) % P
+    [gf_div(nz1, dprime_at(z1, z2, z1)), gf_div(nz2, dprime_at(z1, z2, z2))]
+
+let cover_up_verify() =
+    let ok = 0
+    let cs = cover_up(3, 5, 1, 2)
+    let a1 = cs[0]
+    let a2 = cs[1]
+    if (a1 + 8) % P == 0
+        ok = ok + 1
+    if a2 == 11
+        ok = ok + 1
+    let x = 3
+    let pass = 1
+    for x < 8
+        let lhs = gf_div((3 * x % P + 5) % P, (x - 1 + P) % P * ((x - 2 + P) % P) % P)
+        let rhs = (gf_div(a1, (x - 1 + P) % P) + gf_div(a2, (x - 2 + P) % P)) % P
+        if lhs != rhs
+            pass = 0
+        x = x + 1
+    if pass == 1
+        ok = ok + 1
+    ok
+
+let recur_eval(c1, c0, a0, a1, n) =
+    if n == 0
+        a0
+    let x = a0
+    let y = a1
+    let i = 2
+    for i <= n
+        let z = (c1 * y % P + c0 * x % P) % P
+        x = y
+        y = z
+        i = i + 1
+    y
+
+let loops_are_poles_verify() =
+    let ok = 0
+    let lhs = poly_mul([1, P - 2], [1, P - 3])
+    if poly_equal_at(lhs, [1, P - 5, 6]) == 1
+        ok = ok + 1
+
+    let cs = cover_up_gf(1, 5, 2, 3)
+    let aa = cs[0]
+    let bb = cs[1]
+    if (aa + 2) % P == 0
+        ok = ok + 1
+    if bb == 3
+        ok = ok + 1
+
+    let pass = 1
+    let n = 0
+    for n <= 8
+        let iter = recur_eval(5, P - 6, 1, 5, n)
+        let closed = ((P - 2) * gf_pow(2, n) % P + 3 * gf_pow(3, n) % P) % P
+        if iter != closed
+            pass = 0
+        n = n + 1
+    if pass == 1
+        ok = ok + 1
+
+    let pass2 = 1
+    let x = 4
+    for x < 9
+        let l = gf_div(1, (1 + P - 2 * x % P) % P * ((1 + P - 3 * x % P) % P) % P)
+        let r = (gf_div(P - 2, (1 + P - 2 * x % P) % P) + gf_div(3, (1 + P - 3 * x % P) % P)) % P
+        if l != r
+            pass2 = 0
+        x = x + 1
+    if pass2 == 1
+        ok = ok + 1
+
+    ok
+
+let cover_up_gf(a0, a1, l1, l2) =
+    let d = (l1 + P - l2) % P
+    let a = gf_div((a1 + P - l2 * a0 % P) % P, d)
+    let b = gf_div((l1 * a0 % P + P - a1) % P, d)
+    [a, b]
+
+let splitting_criterion_verify() =
+    let ok = 0
+    if gf_euler(5) == P - 1
+        ok = ok + 1
+    if gf_euler(8) == 1
+        ok = ok + 1
+    if gf_euler(1) == 1
+        ok = ok + 1
+    ok
+
+let sm_pow(base, exp, m) =
+    let r = 1
+    let b = base % m
+    let e = exp
+    for e > 0
+        if e % 2 == 1
+            r = (r * b) % m
+        b = (b * b) % m
+        e = e / 2
+    r
+
+let domain_dependent_verify() =
+    let ok = 0
+    if 131071 % 65536 == 65535
+        ok = ok + 1
+    if 131071 % 4 == 3
+        ok = ok + 1
+    if 131071 % 5 == 1
+        ok = ok + 1
+    if sm_pow(5, 5, 11) == 1
+        ok = ok + 1
+    let s5 = sm_pow(5, 3, 11)
+    if s5 == 4
+        ok = ok + 1
+    if s5 * s5 % 11 == 5
+        ok = ok + 1
+    if gf_euler(5) == P - 1
+        ok = ok + 1
+    ok
+
+let six_ops_verify() =
+    let ok = 0
+    if ur(unify_add(unode(0, 7), unode(0, 5))) == 12
+        ok = ok + 1
+    if ur(unify_mul(unode(0, 7), unode(0, 5))) == 35
+        ok = ok + 1
+    if ur(unify_evolve(unode(0, 5))) == 6
+        ok = ok + 1
+    let folded = unify_norm(unode2(2, 42, unify_norm(unode2(2, 43, unode(0, 3), unode(0, 4))), unode(0, 5)))
+    if unify_collapse(folded) == 35
+        ok = ok + 1
+    if unify_collapse(unode2(2, 47, unode(0, 20), unode(0, 4))) == 5
+        ok = ok + 1
+    ok
+
+let fractal_canon_verify() =
+    let ok = 0
+    let total = 0
+
+    total = total + 1
+    ok = ok + (six_ops_verify() / 5)
+
+    total = total + 1
+    ok = ok + (cover_up_verify() / 3)
+
+    total = total + 1
+    ok = ok + (loops_are_poles_verify() / 5)
+
+    total = total + 1
+    ok = ok + (splitting_criterion_verify() / 3)
+
+    total = total + 1
+    ok = ok + (domain_dependent_verify() / 7)
+
+    ok * 10000 + total
+
+let main() = fractal_canon_verify()

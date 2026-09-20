@@ -1,0 +1,67 @@
+import "../stdlib/gf65537.ψ"
+
+let market_equilibrium_gf(supply_func, demand_func, n_prices) =
+    for price in 0..n_prices
+        let supply = supply_func(price)
+        let demand = demand_func(price)
+        if supply == demand
+            price
+    gf_neg(1)
+
+let option_price_gf(S, K, r, T) =
+    let discount = gf_pow(gf_inv(r), T)
+    gf_sub(S, gf_mul(K, discount))
+
+let futures_price_gf(S, r, T) =
+    gf_mul(S, gf_pow(r, T))
+
+let var_gf(losses, alpha, n_losses) =
+    let sorted = losses
+    let index = gf_mul(alpha, n_losses)
+    sorted[index]
+
+let expected_shortfall_gf(losses, var_threshold) =
+    let total = 0
+    let count = 0
+    for i in 0..len(losses)
+        if losses[i] > var_threshold
+            total = gf_add(total, losses[i])
+            count = count + 1
+    gf_div(total, count)
+
+let utility_gf(x) =
+    x
+
+let cobb_douglas_utility_gf(x, y, alpha, beta) =
+    gf_mul(gf_pow(x, alpha), gf_pow(y, beta))
+
+let cobb_douglas_production_gf(A, K, L, alpha, beta) =
+    gf_mul(gf_mul(A, gf_pow(K, alpha)), gf_pow(L, beta))
+
+let solow_growth_gf(k, s, n, delta, production_func) =
+    let investment = gf_mul(s, production_func(k))
+    let depreciation = gf_mul(gf_add(n, delta), k)
+    gf_sub(investment, depreciation)
+
+let portfolio_optimization_gf(returns, n_assets, target_return) =
+    let best_weights = [0] * n_assets
+    let best_risk = gf_pow(65537, 2)
+    for w in 0..65537
+        let portfolio_return = gf_mul(w, returns[0])
+        if portfolio_return == target_return
+            let risk = gf_mul(w, w)
+            if risk < best_risk
+                best_risk = risk
+                best_weights = [w]
+    [best_weights, best_risk]
+
+let taylor_rule_gf(r_star, inflation, inflation_target, output_gap) =
+    let inflation_gap = gf_sub(inflation, inflation_target)
+    gf_add(gf_add(gf_add(r_star, inflation), inflation_gap), output_gap)
+
+let ppp_exchange_rate_gf(price_domestic, price_foreign) =
+    gf_div(price_domestic, price_foreign)
+
+let interest_rate_parity_gf(S0, r1, r2, T) =
+    gf_mul(S0, gf_pow(gf_div(r1, r2), T))
+

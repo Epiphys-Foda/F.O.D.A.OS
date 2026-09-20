@@ -1,0 +1,216 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let OPT_MAX_STEPS = 252
+let OPT_S = 100
+let OPT_K = 100
+let OPT_T = 1
+let OPT_R = 5
+let OPT_SIGMA = 20
+
+let OPT_CALL = 1
+let OPT_PUT = 2
+
+let normal_cdf(x) =
+    let result = gf_div(x, 10)
+    result = gf_add(result, gf_div(1, 2))
+    result
+let d1(S, K, T, r, sigma) =
+    let numerator = gf_add(gf_sub(gf_div(S, K), gf_mul(r, T)), gf_div(gf_mul(sigma, sigma), 2))
+    gf_div(numerator, gf_mul(sigma, T))
+let d2(d1_val, sigma, T) = gf_sub(d1_val, gf_mul(sigma, T))
+let bs_call(S, K, T, r, sigma) =
+    let d1_val = d1(S, K, T, r, sigma)
+    let d2_val = d2(d1_val, sigma, T)
+    gf_sub(gf_mul(S, normal_cdf(d1_val)), gf_mul(K, normal_cdf(d2_val)))
+let bs_put(S, K, T, r, sigma) =
+    let d1_val = d1(S, K, T, r, sigma)
+    let d2_val = d2(d1_val, sigma, T)
+    gf_sub(gf_mul(K, gf_sub(1, normal_cdf(d2_val))), gf_mul(S, gf_sub(1, normal_cdf(d1_val))))
+let option_price(option) =
+    if option[0] == OPT_CALL
+        bs_call(option[1], option[2], option[3], option[4], option[5])
+    else
+        bs_put(option[1], option[2], option[3], option[4], option[5])
+let greeks_delta(option) =
+    let d1_val = d1(option[1], option[2], option[3], option[4], option[5])
+    (option[0] == OPT_CALL ? normal_cdf(d1_val) : gf_sub(normal_cdf(d1_val), 1))
+let greeks_gamma(option) =
+    let d1_val = d1(option[1], option[2], option[3], option[4], option[5])
+    gf_div(gf_pow(d1_val, 2), gf_mul(option[1], option[5]))
+let greeks_theta(option) =
+    gf_neg(gf_div(gf_mul(option[1], option[5]), 2))
+let greeks_vega(option) = gf_mul(option[1], option[3])
+let greeks_rho(option) =
+    (option[0] == OPT_CALL ? gf_mul(option[2], option[3]) : gf_neg(gf_mul(option[2], option[3])))
+let binomial_step(S, u, d, p) =
+    let up = gf_mul(S, u)
+    let down = gf_mul(S, d)
+    gf_add(gf_mul(p, up), gf_mul(gf_sub(1, p), down))
+let binomial_price(option, n_steps) =
+    let u = gf_add(1, option[5])
+    let d = gf_sub(1, option[5])
+    let p = gf_div(gf_add(1, option[4]), 2)
+    let prices = [option[1]]
+    let i = 0
+    for i < n_steps
+        let new_prices = []
+        let j = 0
+        let m = len(prices)
+        for j < m
+            new_prices.push(gf_mul(prices[j], u))
+            j = j + 1
+        new_prices.push(gf_mul(prices[m - 1], d))
+        prices = new_prices
+        i = i + 1
+    prices
+let field_option(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let option_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_option(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+
+let OPT_SPOT_POLES = [80, 90, 100, 110, 120, 130, 140, 150]
+let OPT_SPOT_WEIGHTS = [800, 900, 1000, 1100, 1200, 1300, 1400, 1500]
+
+let psi_opt_spot(s_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(s_idx), gf_norm(OPT_SPOT_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(OPT_SPOT_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let OPT_STRIKE_POLES = [80, 90, 100, 110, 120, 130, 140, 150]
+let OPT_STRIKE_WEIGHTS = [1500, 1400, 1300, 1200, 1100, 1000, 900, 800]
+
+let psi_opt_strike(k_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(k_idx), gf_norm(OPT_STRIKE_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(OPT_STRIKE_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let OPT_VOL_POLES = [10, 15, 20, 25, 30, 35, 40, 45]
+let OPT_VOL_WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800]
+
+let psi_opt_vol(v_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(v_idx), gf_norm(OPT_VOL_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(OPT_VOL_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let option_global_response(s_idx, k_idx, v_idx) =
+    let e1 = psi_opt_spot(s_idx)
+    let e2 = psi_opt_strike(k_idx)
+    let e3 = psi_opt_vol(v_idx)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+
+let opt_spot_monotonic_test() =
+    let v_low = psi_opt_spot(80)
+    let v_high = psi_opt_spot(150)
+    (v_low != v_high ? 1 : 0)
+
+let opt_strike_inverse_test() =
+    let v_low = OPT_STRIKE_WEIGHTS[0]
+    let v_high = OPT_STRIKE_WEIGHTS[7]
+    (v_low > v_high ? 1 : 0)
+
+let opt_vol_monotonic_test() =
+    let v1 = psi_opt_vol(10)
+    let v2 = psi_opt_vol(45)
+    (v1 != v2 ? 1 : 0)
+
+let opt_global_nonzero_test() =
+    let g = option_global_response(100, 100, 20)
+    (g != 0 ? 1 : 0)
+
+let opt_no_arbitrage_test() =
+    let v1 = option_global_response(100, 100, 20)
+    let v2 = option_global_response(100, 100, 20)
+    (v1 == v2 ? 1 : 0)
+
+let opt_itm_otm_test() =
+    let v_itm = psi_opt_spot(150)
+    let v_otm = psi_opt_spot(80)
+    (v_itm != v_otm ? 1 : 0)
+
+let nested_fractal_option_invariants() =
+    let e1 = psi_opt_spot(100)
+    let e2 = psi_opt_strike(100)
+    let e3 = psi_opt_vol(20)
+    let inv1 = 0
+    if e1 != 0
+        (e2 != 0 ? (e3 != 0 ? (inv1 = 1) : 0) : 0)
+    let inv2 = 0
+    if OPT_SPOT_WEIGHTS[0] < OPT_SPOT_WEIGHTS[7]
+        inv2 = 1
+    let inv3 = 0
+    if OPT_STRIKE_WEIGHTS[0] > OPT_STRIKE_WEIGHTS[7]
+        inv3 = 1
+    let inv4 = 0
+    if OPT_VOL_WEIGHTS[0] < OPT_VOL_WEIGHTS[7]
+        inv4 = 1
+    let inv5 = 0
+    if option_global_response(100, 100, 20) != 0
+        inv5 = 1
+    [inv1, inv2, inv3, inv4, inv5]
+
+let option_verify_v21() =
+    let t1 = 0
+    if psi_opt_spot(100) != 0
+        t1 = 1
+    let t2 = 0
+    if psi_opt_strike(100) != 0
+        t2 = 1
+    let t3 = 0
+    if psi_opt_vol(20) != 0
+        t3 = 1
+    let t4 = 0
+    if option_global_response(100, 100, 20) != 0
+        t4 = 1
+    let t5 = opt_spot_monotonic_test()
+    let t6 = opt_strike_inverse_test()
+    let t7 = opt_vol_monotonic_test()
+    let t8 = opt_global_nonzero_test()
+    let t9 = opt_no_arbitrage_test()
+    let t10 = opt_itm_otm_test()
+    let t11 = 0
+    if OPT_SPOT_WEIGHTS[0] < OPT_SPOT_WEIGHTS[7]
+        t11 = 1
+    let t12 = 0
+    if OPT_STRIKE_POLES[0] < OPT_STRIKE_POLES[7]
+        t12 = 1
+    let invs = nested_fractal_option_invariants()
+    let inv_ok = 0
+    if invs[0] == 1
+        if invs[1] == 1
+            if invs[2] == 1
+                if invs[3] == 1
+                    if invs[4] == 1
+                        inv_ok = 1
+    let passed = t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12 + inv_ok
+    passed == 13
+

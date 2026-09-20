@@ -1,0 +1,146 @@
+let log2_approx(x) =
+    if x <= 0
+        -999999
+    else
+        0
+    if x == 1
+        0
+    else
+        let result = 0
+        let val = x
+        for val >= 2
+            val = val / 2
+            result = result + 1
+        let t = val - 1
+        let ln2 = 693147
+        let scale = 1000000
+        let t_scaled = t * scale
+        let series = t_scaled
+        let t2 = t_scaled * t_scaled / scale
+        series = series - t2 / 2
+        let t3 = t2 * t_scaled / scale
+        series = series + t3 / 3
+        let t4 = t3 * t_scaled / scale
+        series = series - t4 / 4
+        result * scale + series * scale / ln2
+
+let shannon_entropy(probs) =
+    let entropy = 0
+    let scale = 1000
+    let i = 0
+    for i < probs.len()
+        let p = probs[i]
+        if p > 0
+            let log_p = log2_approx(p)
+            entropy = entropy - p * log_p / scale
+        i = i + 1
+    entropy
+
+let kl_divergence(p, q) =
+    let result = 0
+    let scale = 1000
+    let i = 0
+    for i < p.len()
+        if p[i] > 0 && q[i] > 0
+            let log_ratio = log2_approx(p[i] * scale / q[i])
+            result = result + p[i] * log_ratio / scale
+        i = i + 1
+    result
+
+let cross_entropy(p, q) =
+    let result = 0
+    let scale = 1000
+    let i = 0
+    for i < p.len()
+        if q[i] > 0
+            let log_q = log2_approx(q[i])
+            result = result - p[i] * log_q / scale
+        i = i + 1
+    result
+
+let mutual_information(joint) =
+    let rows = joint.len()
+    let result = 0
+    let scale = 1000
+    let px = []
+    let py = []
+    let i = 0
+    for i < rows
+        let row_sum = 0
+        let j = 0
+        for j < joint[i].len()
+            row_sum = row_sum + joint[i][j]
+            j = j + 1
+        px = arr_concat(px, [row_sum])
+        i = i + 1
+    let hx = shannon_entropy(px)
+    let cols = joint[0].len()
+    let j = 0
+    for j < cols
+        let col_sum = 0
+        let i = 0
+        for i < rows
+            col_sum = col_sum + joint[i][j]
+            i = i + 1
+        py = arr_concat(py, [col_sum])
+        j = j + 1
+    let hy = shannon_entropy(py)
+    let hxy = 0
+    let i = 0
+    for i < rows
+        let j = 0
+        for j < joint[i].len()
+            if joint[i][j] > 0
+                let log_p = log2_approx(joint[i][j])
+                hxy = hxy - joint[i][j] * log_p / scale
+            j = j + 1
+        i = i + 1
+    hx + hy - hxy
+
+let conditional_entropy(joint) =
+    let rows = joint.len()
+    let scale = 1000
+    let px = []
+    let i = 0
+    for i < rows
+        let row_sum = 0
+        let j = 0
+        for j < joint[i].len()
+            row_sum = row_sum + joint[i][j]
+            j = j + 1
+        px = arr_concat(px, [row_sum])
+        i = i + 1
+    let hx = shannon_entropy(px)
+    let hxy = 0
+    let i = 0
+    for i < rows
+        let j = 0
+        for j < joint[i].len()
+            if joint[i][j] > 0
+                let log_p = log2_approx(joint[i][j])
+                hxy = hxy - joint[i][j] * log_p / scale
+            j = j + 1
+        i = i + 1
+    hxy - hx
+
+let binary_entropy(p) =
+    if p == 0 || p == 1000
+        0
+    else
+        let scale = 1000
+        let term1 = p * log2_approx(p) / scale
+        let q = scale - p
+        let term2 = q * log2_approx(q) / scale
+        -(term1 + term2)
+
+let main() =
+    let probs = [250, 250, 250, 250]
+    let h = shannon_entropy(probs)
+    print(h)
+    let hb = binary_entropy(500)
+    print(hb)
+    let p = [500, 500]
+    let q = [300, 700]
+    let kl = kl_divergence(p, q)
+    print(kl)
+    0

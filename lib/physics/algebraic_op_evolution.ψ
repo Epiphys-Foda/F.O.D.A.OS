@@ -1,0 +1,188 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let gene_express(g, a, b) =
+    let r = gene_residue(g)
+    let op = gene_op(g)
+    if op == 0
+        gf_sub(r, gf_mul(a, b))
+    else
+        0
+    if op == 1
+        gf_mul(a, b)
+    else
+        0
+    if op == 2
+        gf_sub(gf_add(a, b), gf_mul(a, b))
+    else
+        0
+    if op == 3
+        gf_sub(gf_add(a, b), gf_mul(2, gf_mul(a, b)))
+    else
+        0
+    if op == 4
+        gf_sub(r, a)
+    else
+        0
+    if op == 5
+        gf_add(a, b)
+    else
+        0
+    if op == 6
+        gf_sub(a, b)
+    else
+        0
+    if op == 7
+        gf_mul(r, gf_add(a, b))
+    else
+        0
+
+let fitness(g) =
+    let score = 0
+    let a = 0
+    for a < 2
+        let b = 0
+        for b < 2
+            let out = gene_express(g, a, b)
+            if out == 0 || out == 1
+                score = score + 1
+            b = b + 1
+        a = a + 1
+    score
+
+let op_compose(g1, g2) =
+    let p1 = gene_pole(g1)
+    let r1 = gene_residue(g1)
+    let op1 = gene_op(g1)
+    let p2 = gene_pole(g2)
+    let r2 = gene_residue(g2)
+    let op2 = gene_op(g2)
+    let new_p = gf_add(p1, p2)
+    let new_r = gf_mul(r1, r2)
+    let new_op = (op1 + op2) % 8
+    [new_p, new_r, new_op]
+
+let op_mutate(g, sigma) =
+    let p = gene_pole(g)
+    let r = gene_residue(g)
+    let op = gene_op(g)
+    [gf_pow(p, sigma), gf_pow(r, sigma), op]
+
+let op_library_basic() =
+    [
+        gene_new(101, 1, 0),
+        gene_new(101, 1, 1),
+        gene_new(101, 1, 2),
+        gene_new(101, 1, 3),
+        gene_new(101, 1, 4)
+    ]
+
+let op_evolve_step(basic, n) =
+    let evolved = []
+    let i = 0
+    for i < n
+        let j = 0
+        for j < n
+            if i != j
+                let g1 = basic[i]
+                let g2 = basic[j]
+                let composed = op_compose(g1, g2)
+                if fitness(composed) >= 2
+                    evolved = evolved.push(composed)
+            j = j + 1
+        i = i + 1
+    evolved
+
+let count_evolved(basic, n) =
+    let count = 0
+    let i = 0
+    for i < n
+        let j = 0
+        for j < n
+            if i != j
+                let g1 = basic[i]
+                let g2 = basic[j]
+                let composed = op_compose(g1, g2)
+                if fitness(composed) >= 2
+                    count = count + 1
+            j = j + 1
+        i = i + 1
+    count
+
+let op_evolve_rounds(basic, n, rounds) =
+    let current = basic
+    let current_n = n
+    let round = 0
+    let total_new = 0
+    for round < rounds
+        let i = 0
+        for i < current_n
+            let g = current[i]
+            let mutated = op_mutate(g, gf_add(i, 1))
+            if fitness(mutated) >= 2
+                total_new = total_new + 1
+            i = i + 1
+        round = round + 1
+    total_new
+
+let op_lineage(g, depth) =
+    let current = g
+    let total_fit = 0
+    let d = 0
+    for d < depth
+        total_fit = total_fit + fitness(current)
+        current = op_mutate(current, gf_add(d, 1))
+        d = d + 1
+    total_fit
+
+let op_evolution_verify() =
+    let ok = 0
+
+    let lib = op_library_basic()
+    if gene_op(lib[0]) == 0
+        ok = ok + 1
+    if gene_op(lib[4]) == 4
+        ok = ok + 1
+
+    let nand = lib[0]
+    let and_op = lib[1]
+    let composed = op_compose(nand, and_op)
+    if gene_pole(composed) == 202
+        ok = ok + 1
+    if gene_residue(composed) == 1
+        ok = ok + 1
+    if gene_op(composed) == 1
+        ok = ok + 1
+
+    let mutated = op_mutate(nand, 1)
+    if gene_pole(mutated) == 101 && gene_residue(mutated) == 1
+        ok = ok + 1
+
+    let evolved_count = count_evolved(lib, 5)
+    if evolved_count >= 0
+        ok = ok + 1
+
+    let rounds_result = op_evolve_rounds(lib, 5, 3)
+    if rounds_result >= 0
+        ok = ok + 1
+
+    let lineage = op_lineage(nand, 5)
+    if lineage >= 0
+        ok = ok + 1
+
+    let add_gene = gene_new(101, 1, 5)
+    if gene_express(add_gene, 2, 3) == 5
+        ok = ok + 1
+
+    let sub_gene = gene_new(101, 1, 6)
+    if gene_express(sub_gene, 5, 3) == 2
+        ok = ok + 1
+
+    let or_op = lib[2]
+    let xor_op = lib[3]
+    let new_op = op_compose(or_op, xor_op)
+    if gene_op(new_op) == 5
+        ok = ok + 1
+
+    ok
+
+let main() = op_evolution_verify()

@@ -1,0 +1,320 @@
+import "../domain_field.ψ"
+let version_new(maj, minr, pat) = [maj, minr, pat]
+
+let version_major(v) = v[0]
+let version_minor(v) = v[1]
+let version_patch(v) = v[2]
+
+let version_compat(required, actual) =
+    if version_major(required) != version_major(actual)
+        0
+    else
+        0
+    if version_minor(actual) < version_minor(required)
+        0
+    else
+        1
+
+let version_hash(v) =
+    (version_major(v) * 65537 + version_minor(v)) * 65537 + version_patch(v)
+
+let impdesc_new(mod_, field, kind, ver) = [mod_, field, kind, ver]
+let impdesc_module(i) = i[0]
+let impdesc_field(i) = i[1]
+let impdesc_kind(i) = i[2]
+let impdesc_version(i) = i[3]
+
+let expdesc_new(field, kind, idx, ver) = [field, kind, idx, ver]
+let expdesc_field(e) = e[0]
+let expdesc_kind(e) = e[1]
+let expdesc_idx(e) = e[2]
+let expdesc_version(e) = e[3]
+
+let WM_KIND_FUNC = 0
+let WM_KIND_MEM = 1
+let WM_KIND_TABLE = 2
+let WM_KIND_GLOBAL = 3
+
+let wm_module_new(name, version) =
+    [name, version, [], [], [], 0, 0, 0]
+
+let wm_mod_name(m) = m[0]
+let wm_mod_version(m) = m[1]
+let wm_mod_imports(m) = m[2]
+let wm_mod_exports(m) = m[3]
+let wm_mod_deps(m) = m[4]
+let wm_mod_size(m) = m[5]
+let wm_mod_hash(m) = m[6]
+let wm_mod_status(m) = m[7]
+
+let wm_mod_set_imports(m, v) = [m[0], m[1], v, m[3], m[4], m[5], m[6], m[7]]
+let wm_mod_set_exports(m, v) = [m[0], m[1], m[2], v, m[4], m[5], m[6], m[7]]
+let wm_mod_set_deps(m, v) = [m[0], m[1], m[2], m[3], v, m[5], m[6], m[7]]
+let wm_mod_set_size(m, v) = [m[0], m[1], m[2], m[3], m[4], v, m[6], m[7]]
+let wm_mod_set_hash(m, v) = [m[0], m[1], m[2], m[3], m[4], m[5], v, m[7]]
+let wm_mod_set_status(m, v) = [m[0], m[1], m[2], m[3], m[4], m[5], m[6], v]
+
+let wm_mod_add_import(m, imp) =
+    let imps = wm_mod_imports(m)
+    imps.push(imp)
+    wm_mod_set_imports(m, imps)
+
+let wm_mod_add_export(m, exp) =
+    let exps = wm_mod_exports(m)
+    exps.push(exp)
+    wm_mod_set_exports(m, exps)
+
+let wm_mod_add_dep(m, dep_name) =
+    let deps = wm_mod_deps(m)
+    deps.push(dep_name)
+    wm_mod_set_deps(m, deps)
+
+let linker_new() = [{}, {}, {}, 0, 0, 0]
+
+let lk_funcs(l) = l[0]
+let lk_mems(l) = l[1]
+let lk_resolved(l) = l[2]
+let lk_unresolved(l) = l[3]
+let lk_total(l) = l[4]
+let lk_count(l) = l[5]
+
+let lk_set_funcs(l, v) = [v, l[1], l[2], l[3], l[4], l[5]]
+let lk_set_mems(l, v) = [l[0], v, l[2], l[3], l[4], l[5]]
+let lk_set_resolved(l, v) = [l[0], l[1], v, l[3], l[4], l[5]]
+let lk_set_unresolved(l, v) = [l[0], l[1], l[2], v, l[4], l[5]]
+let lk_set_total(l, v) = [l[0], l[1], l[2], l[3], v, l[5]]
+let lk_set_count(l, v) = [l[0], l[1], l[2], l[3], l[4], v]
+
+let linker_define_host_func(linker, mod_name, field_name, fn_ptr) =
+    let funcs = lk_funcs(linker)
+    let key = mod_name + ":" + field_name
+    funcs[key] = fn_ptr
+    linker = lk_set_funcs(linker, funcs)
+    linker
+
+let linker_define_host_mem(linker, mod_name, field_name, mem_ptr) =
+    let mems = lk_mems(linker)
+    let key = mod_name + ":" + field_name
+    mems[key] = mem_ptr
+    linker = lk_set_mems(linker, mems)
+    linker
+
+let linker_resolve_one(linker, imp) =
+    let mod_name = impdesc_module(imp)
+    let field_name = impdesc_field(imp)
+    let kind = impdesc_kind(imp)
+    let key = mod_name + ":" + field_name
+    let resolved = lk_resolved(linker)
+    let found = 0
+    if kind == WM_KIND_FUNC
+        let funcs = lk_funcs(linker)
+        found = funcs[key]
+    else
+        0
+    if kind == WM_KIND_MEM
+        let mems = lk_mems(linker)
+        found = mems[key]
+    if found != 0
+        resolved[key] = found
+        linker = lk_set_resolved(linker, resolved)
+    else
+        linker = lk_set_unresolved(linker, lk_unresolved(linker) + 1)
+    linker = lk_set_total(linker, lk_total(linker) + 1)
+    linker
+
+let linker_link_module(linker, mod_) =
+    let imports = wm_mod_imports(mod_)
+    let i = 0
+    let n = len(imports)
+    for i < n
+        linker = linker_resolve_one(linker, imports[i])
+        i = i + 1
+    linker = lk_set_count(linker, lk_count(linker) + 1)
+    linker
+
+let linker_bragg_check(linker) =
+    let unresolved = lk_unresolved(linker)
+    if unresolved == 0
+        1
+    else
+        0
+
+let wm_registry_new() = [{}, [], {}, {}, 0, 0]
+
+let reg_modules(r) = r[0]
+let reg_load_order(r) = r[1]
+let reg_dependents(r) = r[2]
+let reg_linkers(r) = r[3]
+let reg_insts(r) = r[4]
+let reg_size(r) = r[5]
+
+let reg_set_modules(r, v) = [v, r[1], r[2], r[3], r[4], r[5]]
+let reg_set_load_order(r, v) = [r[0], v, r[2], r[3], r[4], r[5]]
+let reg_set_dependents(r, v) = [r[0], r[1], v, r[3], r[4], r[5]]
+let reg_set_linkers(r, v) = [r[0], r[1], r[2], v, r[4], r[5]]
+let reg_set_insts(r, v) = [r[0], r[1], r[2], r[3], v, r[5]]
+let reg_set_size(r, v) = [r[0], r[1], r[2], r[3], r[4], v]
+
+let registry_register(reg, mod_) =
+    let name = wm_mod_name(mod_)
+    let mods = reg_modules(reg)
+    mods[name] = mod_
+    reg = reg_set_modules(reg, mods)
+    let deps = wm_mod_deps(mod_)
+    let dependents = reg_dependents(reg)
+    let i = 0
+    let n = len(deps)
+    for i < n
+        let dep_name = deps[i]
+        let list = dependents[dep_name]
+        if list == 0
+            list = []
+        list.push(name)
+        dependents[dep_name] = list
+        i = i + 1
+    reg = reg_set_dependents(reg, dependents)
+    reg = reg_set_size(reg, reg_size(reg) + wm_mod_size(mod_))
+    reg
+
+let registry_topo_sort(reg) =
+    let mods = reg_modules(reg)
+    let keys = keys_of(mods)
+    let n = len(keys)
+    let in_degree = {}
+    let i = 0
+    for i < n
+        let k = keys[i]
+        let m = mods[k]
+        let deps = wm_mod_deps(m)
+        in_degree[k] = len(deps)
+        i = i + 1
+    let queue = []
+    let q_order = []
+    i = 0
+    for i < n
+        let k = keys[i]
+        if in_degree[k] == 0
+            queue.push(k)
+        i = i + 1
+    for len(queue) > 0
+        let cur = queue[0]
+        queue = arr_drop(queue, 1)
+        q_order.push(cur)
+        let dependents = reg_dependents(reg)
+        let downstream = dependents[cur]
+        if downstream != 0
+            let j = 0
+            let m = len(downstream)
+            for j < m
+                let d = downstream[j]
+                in_degree[d] = in_degree[d] - 1
+                if in_degree[d] == 0
+                    queue.push(d)
+                j = j + 1
+    reg = reg_set_load_order(reg, q_order)
+    reg
+
+let registry_has_cycle(reg) =
+    let mods = reg_modules(reg)
+    let total = len(keys_of(mods))
+    let sorted = reg_load_order(reg)
+    let sorted_len = len(sorted)
+    if sorted_len < total
+        1
+    else
+        0
+
+let registry_instantiate(reg, name, linker) =
+    let mods = reg_modules(reg)
+    let mod_ = mods[name]
+    if mod_ == 0
+        [reg, 0]
+    else
+        linker = linker_link_module(linker, mod_)
+        let bragg = linker_bragg_check(linker)
+        if bragg == 0
+            [reg, 0]
+        else
+            mod_ = wm_mod_set_status(mod_, 3)
+            mods[name] = mod_
+            reg = reg_set_modules(reg, mods)
+            let linkers = reg_linkers(reg)
+            linkers[name] = linker
+            reg = reg_set_linkers(reg, linkers)
+            reg = reg_set_insts(reg, reg_insts(reg) + 1)
+            [reg, 1]
+
+let wm_test_linker() =
+    let v_b = version_new(1, 0, 0)
+    let v_a = version_new(1, 0, 0)
+    let mod_b = wm_module_new("B", v_b)
+    let exp_b = expdesc_new("func1", WM_KIND_FUNC, 0, v_b)
+    mod_b = wm_mod_add_export(mod_b, exp_b)
+    let mod_a = wm_module_new("A", v_a)
+    let imp_a = impdesc_new("B", "func1", WM_KIND_FUNC, v_a)
+    mod_a = wm_mod_add_import(mod_a, imp_a)
+    mod_a = wm_mod_add_dep(mod_a, "B")
+
+    let reg = wm_registry_new()
+    reg = registry_register(reg, mod_b)
+    reg = registry_register(reg, mod_a)
+    reg = registry_topo_sort(reg)
+
+    let ok1 = 1
+    if registry_has_cycle(reg) == 1
+        ok1 = 0
+
+    let linker = linker_new()
+    linker = linker_define_host_func(linker, "B", "func1", 42)
+
+    let result = registry_instantiate(reg, "A", linker)
+    let inst_ok = result[1]
+
+    let ok2 = 1
+    if inst_ok != 1
+        ok2 = 0
+
+    let ok3 = 1
+    if reg_insts(reg) != 1
+        ok3 = 0
+
+    let ok4 = 1
+    if linker_bragg_check(linker) != 1
+        ok4 = 0
+
+    let ok5 = 1
+    let sorted = reg_load_order(reg)
+    if len(sorted) != 2
+        ok5 = 0
+    else
+        0
+    if sorted[0] != "B"
+        ok5 = 0
+    else
+        0
+    if sorted[1] != "A"
+        ok5 = 0
+
+    let ok6 = 1
+    if version_compat(version_new(1, 0, 0), version_new(1, 2, 3)) != 1
+        ok6 = 0
+    if version_compat(version_new(2, 0, 0), version_new(1, 2, 3)) != 0
+        ok6 = 0
+    if version_compat(version_new(1, 5, 0), version_new(1, 2, 3)) != 0
+        ok6 = 0
+
+    let ok7 = 1
+    if reg_size(reg) != 0
+        ok7 = 0
+
+    ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7
+
+let wm_test_self() =
+        let ok = wm_test_linker()
+        if ok == 1
+            print("wasm_module: ALL PASS")
+        else
+            print("wasm_module: FAIL")
+        ok
+
+    wm_test_self()

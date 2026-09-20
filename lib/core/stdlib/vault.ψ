@@ -1,0 +1,139 @@
+import "opt.ψ"
+
+let vt_keystream(seed, n) =
+    let x = seed
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < n
+        x = (5 * x + 3) % 65537
+        out = out.push(x)
+        i = i + 1
+      else
+        done = true
+    out
+
+let vt_encrypt(data, seed) =
+    let ks = vt_keystream(seed, len(data))
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(data)
+        out = out.push((data[i] + ks[i]) % 65537)
+        i = i + 1
+      else
+        done = true
+    out
+
+let vt_decrypt(enc, seed) =
+    let ks = vt_keystream(seed, len(enc))
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(enc)
+        let v = enc[i] - ks[i]
+        if v < 0
+          out = out.push(v + 65537)
+        else
+          out = out.push(v)
+        i = i + 1
+      else
+        done = true
+    out
+
+let vt_pack(data, key, owner) =
+    let enc = vt_encrypt(data, key)
+    let mac = opt_num_hash(enc)
+    let fp = (opt_num_hash(enc) + owner * 1009) % 65537
+    [enc, mac, fp]
+
+let vt_unpack(pkg, key, owner) =
+    let enc = pkg[0]
+    let mac = pkg[1]
+    let fp = pkg[2]
+    let mac2 = opt_num_hash(enc)
+    let fp2 = (opt_num_hash(enc) + owner * 1009) % 65537
+    if mac == mac2 && fp == fp2
+      vt_decrypt(enc, key)
+    else
+      []
+
+let vt_token(owner, device, days) =
+    let sig = (opt_num_hash([owner, device]) + days * 7) % 65537
+    [sig, owner, device, days]
+
+let vt_verify_token(tok, device) =
+    let sig = (opt_num_hash([tok[1], tok[2]]) + tok[3] * 7) % 65537
+    tok[0] == sig && tok[2] == device && tok[3] > 0
+
+let vt_obfuscate(v) = (v + 12345) % 65537
+let vt_deobfuscate(o) =
+    let r = o - 12345
+    if r < 0
+      r + 65537
+    else
+      r
+
+let vt_verify() =
+    let results = []
+    let data = [100, 200, 300, 400, 500]
+    let pkg = vt_pack(data, 7, 42)
+    let rx = vt_unpack(pkg, 7, 42)
+    let round = true
+    let i = 0
+    let done = false
+    for !done
+      if i < 5
+        if rx[i] != data[i]
+          round = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(round)
+    let rx_bad = vt_unpack(pkg, 8, 42)
+    let bad_key = true
+    let j = 0
+    let jdone = false
+    for !jdone
+      if j < len(rx_bad)
+        if rx_bad[j] == data[j]
+          bad_key = false
+        else
+          0
+        j = j + 1
+      else
+        jdone = true
+    results = results.push(bad_key)
+    let tampered = [[pkg[0][0] + 1, pkg[0][1], pkg[0][2], pkg[0][3], pkg[0][4]], pkg[1], pkg[2]]
+    let rx_t = vt_unpack(tampered, 7, 42)
+    results = results.push(len(rx_t) == 0)
+    let rx_o = vt_unpack(pkg, 7, 43)
+    results = results.push(len(rx_o) == 0)
+    let tok = vt_token(42, 1001, 30)
+    results = results.push(vt_verify_token(tok, 1001))
+    results = results.push(!vt_verify_token(tok, 9999))
+    let tok0 = vt_token(42, 1001, 0)
+    results = results.push(!vt_verify_token(tok0, 1001))
+    let ob = vt_obfuscate(65530)
+    results = results.push(vt_deobfuscate(ob) == 65530)
+    results = results.push(pkg[0][0] != data[0])
+    let total = true
+    let k = 0
+    let done2 = false
+    for !done2
+      if k < len(results)
+        let v = results[k]
+        if v == false
+          total = false
+        else
+          0
+        k = k + 1
+      else
+        done2 = true
+    results = results.push(total)
+    results

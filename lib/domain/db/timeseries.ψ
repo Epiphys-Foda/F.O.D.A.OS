@@ -1,0 +1,287 @@
+import "../../compiler/bootstrap/str_ops.ψ"
+
+import "../domain_field.ψ"
+
+let ts_point_new(measurement, tags, fields, timestamp) =
+    [measurement, tags, fields, timestamp]
+
+let ts_pt_meas(p) = p[0]
+let ts_pt_tags(p) = p[1]
+let ts_pt_fields(p) = p[2]
+let ts_pt_ts(p) = p[3]
+
+let ts_pt_field(p, name) =
+    ts_pt_fields(p)[name]
+
+let ts_pt_tag(p, name) =
+    ts_pt_tags(p)[name]
+
+let ts_series_key(measurement, tags) =
+    let keys = keys_of(tags)
+    let s = measurement + ","
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let k = keys[i]
+        s = s + k + "=" + tags[k] + ","
+        i = i + 1
+    s
+
+let ts_engine_new() =
+    [{}, 0, 0]
+
+let ts_engine_series(e) = e[0]
+let ts_engine_retention(e) = e[1]
+let ts_engine_size(e) = e[2]
+
+let ts_engine_set_retention(e, ms) =
+    e[1] = ms
+    e
+
+let ts_engine_write(e, measurement, tags, fields, ts) =
+    let series = ts_series_key(measurement, tags)
+    let series_map = ts_engine_series(e)
+    let pts = series_map[series]
+    if pts == 0
+        pts = []
+    pts.push([ts, fields])
+    series_map[series] = pts
+    e[0] = series_map
+    e[2] = e[2] + 1
+    e
+
+let ts_engine_write_batch(e, points) =
+    let i = 0
+    let n = len(points)
+    for i < n
+        let p = points[i]
+        e = ts_engine_write(e, ts_pt_meas(p), ts_pt_tags(p), ts_pt_fields(p), ts_pt_ts(p))
+        i = i + 1
+    e
+
+let ts_engine_query_series(e, measurement, tags, start_ts, end_ts) =
+    let series = ts_series_key(measurement, tags)
+    let series_map = ts_engine_series(e)
+    let pts = series_map[series]
+    let result = []
+    if pts == 0
+        result
+    else
+        let i = 0
+        let n = len(pts)
+        for i < n
+            let pt = pts[i]
+            let t = pt[0]
+            if t >= start_ts
+                if t <= end_ts
+                    result.push(pt)
+            i = i + 1
+        result
+
+let ts_engine_query_meas(e, measurement, tag_filter, start_ts, end_ts) =
+    let series_map = ts_engine_series(e)
+    let keys = keys_of(series_map)
+    let result = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let k = keys[i]
+        if str_starts_with(k, measurement + ",") == 1
+            let matches = 1
+            if tag_filter != ""
+                if contains(k, tag_filter) == 0
+                    matches = 0
+            if matches == 1
+                let pts = series_map[k]
+                let j = 0
+                let m = len(pts)
+                for j < m
+                    let pt = pts[j]
+                    let t = pt[0]
+                    if t >= start_ts
+                        if t <= end_ts
+                            result.push([k, pt[0], pt[1]])
+                    j = j + 1
+        i = i + 1
+    result
+
+let ts_group_by_time(points, interval, agg_fn) =
+    let buckets = {}
+    let i = 0
+    let n = len(points)
+    for i < n
+        let pt = points[i]
+        let ts = pt[0]
+        let bucket = (ts / interval) * interval
+        let b = buckets[bucket]
+        if b == 0
+            b = []
+        b.push(pt[1])
+        buckets[bucket] = b
+        i = i + 1
+    let result = []
+    let keys = keys_of(buckets)
+    i = 0
+    let nk = len(keys)
+    for i < nk
+        let k = keys[i]
+        let vals = buckets[k]
+        let agg = agg_fn(vals)
+        result.push([k, agg])
+        i = i + 1
+    result
+
+let ts_agg_mean(vals, field_name) =
+    let sum = 0
+    let cnt = 0
+    let i = 0
+    let n = len(vals)
+    for i < n
+        let v = vals[i][field_name]
+        if v != 0
+            sum = sum + v
+            cnt = cnt + 1
+        i = i + 1
+    if cnt == 0
+        0
+    else
+        sum / cnt
+
+let ts_agg_max(vals, field_name) =
+    let m = 0
+    let i = 0
+    let n = len(vals)
+    for i < n
+        let v = vals[i][field_name]
+        if v != 0
+            if v > m
+                m = v
+        i = i + 1
+    m
+
+let ts_agg_min(vals, field_name) =
+    let m = 0
+    let first = 1
+    let i = 0
+    let n = len(vals)
+    for i < n
+        let v = vals[i][field_name]
+        if v != 0
+            if first == 1
+                m = v
+                first = 0
+            else
+                0
+            if v < m
+                m = v
+        i = i + 1
+    m
+
+let ts_agg_sum(vals, field_name) =
+    let s = 0
+    let i = 0
+    let n = len(vals)
+    for i < n
+        let v = vals[i][field_name]
+        if v != 0
+            s = s + v
+        i = i + 1
+    s
+
+let ts_agg_count(vals, field_name) =
+    let c = 0
+    let i = 0
+    let n = len(vals)
+    for i < n
+        let v = vals[i][field_name]
+        if v != 0
+            c = c + 1
+        i = i + 1
+    c
+
+let ts_downsample(e, measurement, tags, interval, agg_fn) =
+    let pts = ts_engine_query_series(e, measurement, tags, 0, 65535)
+    if len(pts) == 0
+        e
+    else
+        let aggregated = ts_group_by_time(pts, interval, agg_fn)
+        let series = ts_series_key(measurement, tags)
+        let series_map = ts_engine_series(e)
+        series_map[series] = aggregated
+        e[0] = series_map
+        e
+
+let ts_apply_retention(e, current_ts) =
+    let retention = ts_engine_retention(e)
+    if retention == 0
+        e
+    else
+        let cutoff = current_ts - retention
+        let series_map = ts_engine_series(e)
+        let keys = keys_of(series_map)
+        let i = 0
+        let n = len(keys)
+        for i < n
+            let k = keys[i]
+            let pts = series_map[k]
+            if pts != 0
+                let kept = []
+                let j = 0
+                let m = len(pts)
+                for j < m
+                    if pts[j][0] >= cutoff
+                        kept.push(pts[j])
+                    j = j + 1
+                series_map[k] = kept
+            i = i + 1
+        e[0] = series_map
+        e
+
+let ts_cq_new(name, measurement, tags, interval, agg_fn, into_measurement) =
+    [name, measurement, tags, interval, agg_fn, into_measurement]
+
+let ts_cq_name(cq) = cq[0]
+let ts_cq_meas(cq) = cq[1]
+let ts_cq_tags(cq) = cq[2]
+let ts_cq_interval(cq) = cq[3]
+let ts_cq_agg(cq) = cq[4]
+let ts_cq_into(cq) = cq[5]
+
+let ts_cq_run(e, cq, current_ts) =
+    let interval = ts_cq_interval(cq)
+    let start = current_ts - interval
+    let end = current_ts
+    let pts = ts_engine_query_series(e, ts_cq_meas(cq), ts_cq_tags(cq), start, end)
+    if len(pts) == 0
+        e
+    else
+        let buckets = ts_group_by_time(pts, interval, ts_cq_agg(cq))
+        let i = 0
+        let n = len(buckets)
+        for i < n
+            let b = buckets[i]
+            e = ts_engine_write(e, ts_cq_into(cq), ts_cq_tags(cq), b[1], b[0])
+            i = i + 1
+        e
+
+let ts_export_prometheus(e) =
+    let series_map = ts_engine_series(e)
+    let keys = keys_of(series_map)
+    let out = ""
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let k = keys[i]
+        let pts = series_map[k]
+        if pts != 0
+            let last = pts[len(pts) - 1]
+            let fields = last[1]
+            let fkeys = keys_of(fields)
+            let j = 0
+            let m = len(fkeys)
+            for j < m
+                let fname = fkeys[j]
+                out = out + k + "_" + fname + " " + fields[fname] + " " + last[0] + "\n"
+                j = j + 1
+        i = i + 1
+    out

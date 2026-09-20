@@ -1,0 +1,51 @@
+import "qof_domains.ψ"
+
+let qg_binding(idx) = str_concat("@group(0) @binding(", str_concat(str(idx), str_concat(") let<storage, read> shapes: array<vec4u>;", "\n")))
+let qg_color_binding(idx) = str_concat("@group(0) @binding(", str_concat(str(idx), str_concat(") let<storage, read> colors: array<u32>;", "\n")))
+let qg_px_binding(idx) = str_concat("@group(0) @binding(", str_concat(str(idx), str_concat(") let<storage, read_write> px: array<u32>;", "\n")))
+let qg_compute_attr() = "@compute @workgroup_size(16, 16)\n"
+
+let qg_main_head() = str_concat(str_concat("fn main(@builtin(global_invocation_id) gid: vec3u) ", chr(123)), "\n  let x = i32(gid.x); let y = i32(gid.y);\n  let cr = 1311u; let cg = 1835u; let cb = 2621u;\n")
+
+let qg_loop_head(n) = str_concat("  for (let i = 0u; i < ", str_concat(str(n), str_concat("u; i++) ", str_concat(chr(123), "\n    let r = shapes[i];\n"))))
+
+let qg_loop_body() = "    let d = max(r.xy - vec2u(u32(x), u32(y)), vec2u(u32(x), u32(y)) - r.zw);\n    let cov = min(max(d.x, d.y), 65535u);\n    let inv_cov = 65535u - cov;\n    let col = colors[i];\n    cr = (cr * inv_cov + ((col >> 16) & 255u) * cov) / 65535u;\n    cg = (cg * inv_cov + ((col >> 8) & 255u) * cov) / 65535u;\n    cb = (cb * inv_cov + (col & 255u) * cov) / 65535u;\n"
+
+let qg_loop_tail() = "  }\n"
+let qg_px_write() = "  px[y * 1920 + x] = (cr << 24) | (cg << 16) | (cb << 8) | 255u;\n"
+let qg_main_tail() = "}\n"
+
+let qg_dag_to_wgsl(dag) =
+    let n = dag.node_count
+    let b0 = qg_binding(0)
+    let b1 = qg_color_binding(1)
+    let b2 = qg_px_binding(2)
+    let head = str_concat(b0, str_concat(b1, str_concat(b2, qg_compute_attr())))
+    let body = str_concat(qg_main_head(), str_concat(qg_loop_head(n), str_concat(qg_loop_body(), qg_loop_tail())))
+    let shader_body = str_concat(body, qg_px_write())
+    str_concat(head, str_concat(shader_body, qg_main_tail()))
+
+let qg_render_shader() =
+    let render = domain_template(DOMAIN_RENDER)
+    qg_dag_to_wgsl(render)
+
+let qg_ai_shader() =
+    let ai = domain_template(DOMAIN_AI)
+    qg_dag_to_wgsl(ai)
+
+let qg_has(shader, needle) = shader.contains(needle)
+
+let qg_count_occ(shader, needle) =
+    let parts = shader.split(needle)
+    (len(parts) > 0 ? len(parts) - 1 : 0)
+
+let qg_stats(shader) = [
+      len(shader),
+      qg_count_occ(shader, "@compute"),
+      qg_count_occ(shader, "fn main"),
+      qg_count_occ(shader, "@binding("),
+      qg_count_occ(shader, "@workgroup_size")
+    ]
+
+let qg_summary() =
+    { backend: "WebGPU WGSL u32 compute shader", pipeline: "DAG → WGSL → device.createShaderModule → compute pass", bindings: "0 shapes (vec4u) / 1 colors (u32) / 2 px (u32)", parallel: "@workgroup_size(16,16) — CGRA PE array analogy", target: "Cauchy-residue u32 integer rendering (zero f32)" }

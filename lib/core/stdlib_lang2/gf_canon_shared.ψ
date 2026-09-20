@@ -1,0 +1,6 @@
+let gf_canon(x) =
+    let r = x % 65537
+    if r < 0
+        r + 65537
+    else
+        r

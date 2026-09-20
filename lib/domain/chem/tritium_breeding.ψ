@@ -1,0 +1,25 @@
+import "ck.ψ"
+let bad = [0]
+
+let tHalf = 123
+bad[0] = bad[0] + ck(tHalf, 120, 130)
+
+let sigma = 940
+bad[0] = bad[0] + ck(sigma, 900, 980)
+
+let li6 = 75
+bad[0] = bad[0] + ck(li6, 70, 80)
+
+let tbr = 105
+bad[0] = bad[0] + ck(tbr, 105, 120)
+
+let beMult = 2
+bad[0] = bad[0] + ck_lo(beMult, 2)
+
+let stock = 50
+bad[0] = bad[0] + ck(stock, 40, 60)
+
+let decayRate = 56
+bad[0] = bad[0] + ck(decayRate, 50, 60)
+
+arr_get(arr_new_n(1), bad[0])

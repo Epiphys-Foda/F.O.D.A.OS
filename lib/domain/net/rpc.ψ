@@ -1,0 +1,75 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let RPC_MAX_SERVICES = 256
+let RPC_TIMEOUT = 5000
+
+let rpc_request_create(id, service, method, args) = [id, service, method, args]
+let rpc_response_create(id, status, result) = [id, status, result]
+let rpc_request_serialize(req) =
+    let buf = [req[0], req[1], req[2]]
+    let args = req[3]
+    let i = 0
+    let n = len(args)
+    for i < n
+        buf.push(args[i])
+        i = i + 1
+    buf
+let rpc_response_deserialize(buf) =
+    (len(buf) >= 3 ? [buf[0], buf[1], buf.slice(2)] : [0, 0, []])
+let service_create(id, name) = [id, name, [], 0]
+let service_add_method(svc, method_id) =
+    let methods = svc[2]
+    methods.push(method_id)
+    [svc[0], svc[1], methods, svc[3]]
+let service_register(registry, svc) =
+    registry[svc[0]] = svc
+    registry
+let service_lookup(registry, service_id) =
+    registry[service_id]
+let rpc_call(registry, service_id, method_id, args) =
+    let svc = service_lookup(registry, service_id)
+    if svc == 0
+        [0, 0, []]
+    let methods = svc[2]
+    let found = 0
+    let i = 0
+    let n = len(methods)
+    for i < n
+        if methods[i] == method_id
+            found = 1
+        i = i + 1
+    (found == 1 ? [1, 1, args] : [1, 0, []])
+let lb_round_robin(servers, last) =
+    let n = len(servers)
+    (n > 0 ? (last + 1) % n : 0)
+let lb_least_loaded(servers) =
+    let best = 0
+    let best_load = 999999
+    let i = 0
+    let n = len(servers)
+    for i < n
+        let load = servers[i]
+        if load < best_load
+            best = i
+        best_load = load
+        i = i + 1
+    best
+let rpc_field_serialize(args, n, poles, residues) =
+    let i = 0
+    for i < n
+        poles[i] = 127 + i * 1000
+        residues[i] = args[i]
+        i = i + 1
+
+let rpc_verify() =
+    let req = rpc_request_create(1, 100, 200, arr_new_n(2))
+    let buf = rpc_request_serialize(req)
+    let svc = service_create(100, 300)
+    let svc2 = service_add_method(svc, 200)
+    let registry = arr_new_n(256)
+    let reg = service_register(registry, svc2)
+    let resp = rpc_call(reg, 100, 200, arr_new_n(2))
+    let ok = 0
+    (resp[0] == 1 && resp[1] == 1 ? (ok = 1) : (ok = 0))
+    ok
+

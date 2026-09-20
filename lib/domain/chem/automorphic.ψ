@@ -1,0 +1,66 @@
+import "ck.ψ"
+let bad = [0]
+
+let s1 = 6 * 6
+let dz1 = s1 - 36
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let t1 = 36 - 6
+let d1 = t1 / 10
+let dz2 = d1 - 3
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let s2 = 25 * 25
+let dz3 = s2 - 625
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let t2 = 625 - 25
+let d2 = t2 / 100
+let dz4 = d2 - 6
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let s3 = 76 * 76
+let dz5 = s3 - 5776
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let t3 = 5776 - 76
+let d3 = t3 / 100
+let dz6 = d3 - 57
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+let s4 = 9376 * 9376
+let dz7 = s4 - 87909376
+bad[0] = bad[0] + ck(dz7, 0, 0)
+
+let t4 = 87909376 - 9376
+let m4 = 1000 * 10
+let d4 = t4 / m4
+let dz8 = d4 - 8790
+bad[0] = bad[0] + ck(dz8, 0, 0)
+
+let t5 = 25 - 5
+let d5 = t5 / 10
+let dz9 = d5 - 2
+bad[0] = bad[0] + ck(dz9, 0, 0)
+
+let dz10 = 5 + 6 - 11
+bad[0] = bad[0] + ck(dz10, 0, 0)
+
+let dz11 = 25 + 76 - 101
+bad[0] = bad[0] + ck(dz11, 0, 0)
+
+let dz12 = 625 + 9376 - 10001
+bad[0] = bad[0] + ck(dz12, 0, 0)
+
+let t7 = 49 - 7
+let d7 = t7 / 10
+let e7 = d7 * 10
+let dz13 = e7 - 40
+bad[0] = bad[0] + ck(dz13, 0, 0)
+
+if 1801 < 1799
+    bad[0] = bad[0] + 1
+if 1801 > 1803
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

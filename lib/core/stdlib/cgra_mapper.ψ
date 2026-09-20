@@ -1,0 +1,254 @@
+import "qqbc.ψ"
+let CGRA_DEFAULT_FIFO_DEPTH = 4
+
+let cgra_create() =
+    { pe_array: [], interconnect: [], pe_count: 0, fifo_count: 0, grid_w: 0, grid_h: 0 }
+
+let cgra_pe_role(opcode) =
+    if opcode == 16
+        "source"
+    else
+      if opcode == 17
+          "sink"
+      else
+        "compute"
+
+let dag_to_cgra(dag) =
+    let pe_array = []
+    let interconnect = []
+    let fifo_count = 0
+
+    let i = 0
+    let n_done = false
+    for !n_done
+      if i < dag.node_count
+        let node = dag.nodes[i]
+        let pe =
+          { pe_id: node.node_id, pe_type: node.pe_type, opcode: node.opcode, in_fifos: [], out_fifos: [], role: cgra_pe_role(node.opcode) }
+        pe_array = pe_array.push(pe)
+        i = i + 1
+      else
+        n_done = true
+        0
+      0
+
+    let j = 0
+    let e_done = false
+    for !e_done
+      if j < dag.edge_count
+        let e = dag.edges[j]
+        let fifo =
+          { fifo_id: j, src_pe: e.src_node, src_port: e.src_port, dst_pe: e.dst_node, dst_port: e.dst_port, depth: CGRA_DEFAULT_FIFO_DEPTH }
+        interconnect = interconnect.push(fifo)
+        fifo_count = fifo_count + 1
+        let pe_arr2 = pe_array
+        let src_pe = pe_arr2[e.src_node]
+        let new_out = src_pe.out_fifos
+        new_out = new_out.push(j)
+        let src_pe2 =
+          { pe_id: src_pe.pe_id, pe_type: src_pe.pe_type, opcode: src_pe.opcode, in_fifos: src_pe.in_fifos, out_fifos: new_out, role: src_pe.role }
+        pe_arr2 = arr_set(pe_arr2, e.src_node, src_pe2)
+        let pe_arr3 = pe_arr2
+        let dst_pe = pe_arr3[e.dst_node]
+        let new_in = dst_pe.in_fifos
+        new_in = new_in.push(j)
+        let dst_pe2 =
+          { pe_id: dst_pe.pe_id, pe_type: dst_pe.pe_type, opcode: dst_pe.opcode, in_fifos: new_in, out_fifos: dst_pe.out_fifos, role: dst_pe.role }
+        pe_arr3 = arr_set(pe_arr3, e.dst_node, dst_pe2)
+        pe_array = pe_arr3
+        j = j + 1
+      else
+        e_done = true
+        0
+      0
+
+    let gw = dag.node_count
+    let gh = 1
+
+      { pe_array: pe_array, interconnect: interconnect, pe_count: dag.node_count, fifo_count: fifo_count, grid_w: gw, grid_h: gh }
+
+let cgra_pe_count(config) = config.pe_count
+
+let cgra_fifo_count(config) = config.fifo_count
+
+let cgra_get_pe(config, pe_id) =
+    if pe_id < 0
+      null
+    else
+      if pe_id < config.pe_count
+        config.pe_array[pe_id]
+      else
+        null
+
+let cgra_grid_size(config) = [config.grid_w, config.grid_h]
+
+let cgra_pe_type_dist(config) =
+    let dist = [0, 0, 0, 0, 0, 0, 0]
+    let i = 0
+    let done = false
+    for !done
+      if i < config.pe_count
+        let pe = config.pe_array[i]
+        let idx = (pe.pe_type <= 5 ? pe.pe_type - 1 : (pe.pe_type == 16 ? 5 : 6))
+        let old = dist[idx]
+        dist = arr_set(dist, idx, old + 1)
+        i = i + 1
+      else
+        done = true
+    dist
+
+let CGRA_MAGIC = [67, 71, 82, 65]
+let CGRA_VERSION = 1
+
+let cgra_serialize(config) =
+    let out = CGRA_MAGIC
+    out = out.push(CGRA_VERSION)
+    let pc = config.pe_count
+    out = out.push(pc - (pc / 256) * 256)
+    out = out.push(pc / 256)
+    let fc = config.fifo_count
+    out = out.push(fc - (fc / 256) * 256)
+    out = out.push(fc / 256)
+    out = out.push(config.grid_w + config.grid_h * 16)
+    let i = 0
+    let p_done = false
+    for !p_done
+      if i < config.pe_count
+        let pe = config.pe_array[i]
+        let role_byte = (pe.role == "source" ? 0 : (pe.role == "compute" ? 1 : 2))
+        out = out.push(pe.pe_id)
+        out = out.push(pe.pe_type)
+        out = out.push(pe.opcode)
+        out = out.push(role_byte)
+        i = i + 1
+      else
+        p_done = true
+        0
+      0
+    let j = 0
+    let f_done = false
+    for !f_done
+      if j < config.fifo_count
+        let f = config.interconnect[j]
+        out = out.push(f.fifo_id)
+        out = out.push(f.src_pe)
+        out = out.push(f.src_port)
+        out = out.push(f.dst_pe)
+        out = out.push(f.dst_port)
+        out = out.push(f.depth)
+        j = j + 1
+      else
+        f_done = true
+    out
+
+let cgra_summary(config) =
+    let dist = cgra_pe_type_dist(config)
+      { pe_count: config.pe_count, fifo_count: config.fifo_count, grid_w: config.grid_w, grid_h: config.grid_h, pe_gfmul: dist[0], pe_clifford: dist[1], pe_ntt: dist[2], pe_born: dist[3], pe_hebbian: dist[4], pe_token: dist[5], pe_emit: dist[6] }
+
+let cgra_dump_pe(config) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < config.pe_count
+        let pe = config.pe_array[i]
+        let row = [pe.pe_id, pe.pe_type, pe.opcode, pe.role]
+        out = out.push(row)
+        i = i + 1
+      else
+        done = true
+    out
+
+let cgra_dump_fifo(config) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < config.fifo_count
+        let f = config.interconnect[i]
+        let row = [f.fifo_id, f.src_pe, f.src_port, f.dst_pe, f.dst_port, f.depth]
+        out = out.push(row)
+        i = i + 1
+      else
+        done = true
+    out
+
+let cgra_simulate(config, qqbc) =
+    let token_values = []
+    let pc = 0
+    let t_done = false
+    for !t_done
+      if pc < len(qqbc)
+        let op = qqbc[pc]
+        pc = pc + 1
+        if op == 16
+          let v = qqbc[pc]
+          pc = pc + 1
+          token_values = token_values.push(v)
+        else
+            0
+      else
+        t_done = true
+        0
+      0
+
+    let pe_outputs = []
+    let k = 0
+    let init_done = false
+    for !init_done
+      if k < config.pe_count
+        pe_outputs = pe_outputs.push(0)
+        k = k + 1
+      else
+        init_done = true
+        0
+      0
+
+    let token_idx = 0
+    let i = 0
+    let p_done = false
+    let result = 0
+    for !p_done
+      if i < config.pe_count
+        let pe = config.pe_array[i]
+        if pe.role == "source"
+          if token_idx < len(token_values)
+            let v = token_values[token_idx]
+            pe_outputs = arr_set(pe_outputs, pe.pe_id, v)
+            token_idx = token_idx + 1
+          else
+              0
+        else
+          0
+        if pe.role == "compute"
+          let args = []
+          let j = 0
+          let a_done = false
+          for !a_done
+            if j < pe.len(in_fifos)
+              let fifo_id = pe.in_fifos[j]
+              let fifo = config.interconnect[fifo_id]
+              let src_val = pe_outputs[fifo.src_pe]
+              args = args.push(src_val)
+              j = j + 1
+            else
+              a_done = true
+              0
+            0
+          let res = qq_eval(pe.opcode, args)
+          pe_outputs = arr_set(pe_outputs, pe.pe_id, res)
+        else
+          0
+        if pe.role == "sink"
+          if pe.len(in_fifos) >= 1
+            let fifo_id = pe.in_fifos[0]
+            let fifo = config.interconnect[fifo_id]
+            result = pe_outputs[fifo.src_pe]
+          else
+              0
+        else
+          0
+        i = i + 1
+      else
+        p_done = true
+    result

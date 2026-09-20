@@ -1,0 +1,599 @@
+import "smart_num.ψ"
+import "bigint_crt.ψ"
+import "../core/stdlib/predicates.ψ"
+
+let zof(x, y) =
+    let result = 0
+    let xi = x
+    let yi = y
+    let bit_pos = 0
+    for xi > 0 || yi > 0
+        let xb = xi - (xi / 2) * 2
+        let yb = yi - (yi / 2) * 2
+        let pow_x = 1
+        let px = 0
+        for px < bit_pos * 2
+            pow_x = pow_x * 2
+            px = px + 1
+        let pow_y = pow_x * 2
+        result = result + xb * pow_x + yb * pow_y
+        xi = xi / 2
+        yi = yi / 2
+        bit_pos = bit_pos + 1
+    result
+
+let idiv(a, b) =
+    if b == 0
+        0
+    else
+        a / b
+
+let ord(c) = c
+
+let chr(n) = [n]
+
+let slice(arr, start, end) =
+    let result = []
+    let i = start
+    for i < end && i < len(arr)
+        result.push(arr[i])
+        i = i + 1
+    result
+
+let concat(a, b) =
+    let result = []
+    let i = 0
+    for i < len(a)
+        result.push(a[i])
+        i = i + 1
+    let j = 0
+    for j < len(b)
+        result.push(b[j])
+        j = j + 1
+    result
+
+let reverse(arr) =
+    let n = len(arr)
+    let result = []
+    let i = n - 1
+    for i >= 0
+        result.push(arr[i])
+        i = i - 1
+    result
+
+let sort(arr) =
+    let n = len(arr)
+    let result = []
+    let work = []
+    let i = 0
+    for i < n
+        work.push(arr[i])
+        i = i + 1
+    for len(work) > 0
+        let min_val = work[0]
+        let j = 1
+        for j < len(work)
+            if work[j] < min_val
+                min_val = work[j]
+            j = j + 1
+        result.push(min_val)
+        let new_work = []
+        let found = 0
+        let k = 0
+        for k < len(work)
+            if work[k] == min_val && found == 0
+                found = 1
+            else
+                new_work.push(work[k])
+            k = k + 1
+        work = new_work
+    result
+
+let legendre(a, p) =
+    let amod = a - (a / p) * p
+    if amod == 0
+        0
+    else
+        let exp = (p - 1) / 2
+        let result = 1
+        let base = amod
+        let e = exp
+        for e > 0
+            if e - (e / 2) * 2 == 1
+                result = (result * base) - ((result * base) / p) * p
+            base = (base * base) - ((base * base) / p) * p
+            e = e / 2
+        if result == 1
+            1
+        else
+            0 - 1
+
+let tonelli(a, p) =
+    let amod = a - (a / p) * p
+    if amod == 0
+        0
+    else
+        0
+    if p == 2
+        amod
+    else
+        let ls = legendre(a, p)
+        if ls != 1
+            0
+        else
+            let q = p - 1
+            let s = 0
+            for q - (q / 2) * 2 == 0
+                q = q / 2
+                s = s + 1
+            let z = 2
+            for legendre(z, p) != 0 - 1
+                z = z + 1
+            let m = s
+            let c = z
+            let ce = q
+            for ce > 0
+                c = (c * c) - ((c * c) / p) * p
+                ce = ce - 1
+            let t = amod
+            let te = q
+            for te > 0
+                t = (t * t) - ((t * t) / p) * p
+                te = te - 1
+            let r = amod
+            let re = (q + 1) / 2
+            for re > 0
+                r = (r * amod) - ((r * amod) / p) * p
+                re = re - 1
+            for t != 1
+                let i = 0
+                let temp = t
+                for temp != 1
+                    temp = (temp * temp) - ((temp * temp) / p) * p
+                    i = i + 1
+                let b = c
+                let j = 0
+                for j < m - i - 1
+                    b = (b * b) - ((b * b) / p) * p
+                    j = j + 1
+                r = (r * b) - ((r * b) / p) * p
+                let bt = (b * b) - ((b * b) / p) * p
+                t = (t * bt) - ((t * bt) / p) * p
+                c = bt
+                m = i
+            r
+
+let crt_pair(r0, r1, p0, p1) =
+    let t = r1 - r0
+    let tmod = t - (t / p1) * p1
+    if tmod < 0
+        tmod = tmod + p1
+    let p0mod = p0 - (p0 / p1) * p1
+    let inv = 1
+    let base = p0mod
+    let e = p1 - 2
+    for e > 0
+        if e - (e / 2) * 2 == 1
+            inv = (inv * base) - ((inv * base) / p1) * p1
+        base = (base * base) - ((base * base) / p1) * p1
+        e = e / 2
+    let k = (tmod * inv) - ((tmod * inv) / p1) * p1
+    r0 + p0 * k
+
+let min(a, b) =
+    (a < b ? a : b)
+
+let max(a, b) =
+    (a > b ? a : b)
+
+let clamp(v, lo, hi) =
+    if v < lo
+        lo
+    else
+        0
+    if v > hi
+        hi
+    else
+        v
+
+let poly_eval(coeffs, x) =
+    let n = len(coeffs)
+    let result = 0
+    let i = n - 1
+    for i >= 0
+        result = result * x + coeffs[i]
+        i = i - 1
+    result
+
+let poly_eval_sn(coeffs, x) =
+    let n = len(coeffs)
+    let result = sn_zero()
+    let i = n - 1
+    for i >= 0
+        result = sn_add(sn_mul(result, x), coeffs[i])
+        i = i - 1
+    result
+
+let quadratic_roots(a, b, c) =
+    let disc = b * b - 4 * a * c
+    if disc < 0
+        [sn_zero(), sn_zero()]
+    else
+        0
+    if disc == 0
+        let r = sn_div(sn_int(0 - b), sn_int(2 * a))
+        [r, r]
+    else
+        let sqrt_disc = sn_isqrt(sn_int(disc))
+        let r1 = sn_div(sn_add(sn_int(0 - b), sqrt_disc), sn_int(2 * a))
+        let r2 = sn_div(sn_sub(sn_int(0 - b), sqrt_disc), sn_int(2 * a))
+        [r1, r2]
+
+let prime_list(n) =
+    if n < 2
+        []
+    else
+        let marks = []
+        let i = 0
+        for i <= n
+            marks.push(0)
+            i = i + 1
+        let j = 2
+        for j * j <= n
+            if marks[j] == 0
+                let k = j * j
+                for k <= n
+                    marks[k] = 1
+                    k = k + j
+            j = j + 1
+        let primes = []
+        let m = 2
+        for m <= n
+            if marks[m] == 0
+                primes.push(m)
+            m = m + 1
+        primes
+
+let mod_pow(base, exp, m) =
+    let result = 1
+    let b = base - (base / m) * m
+    let e = exp
+    for e > 0
+        if e - (e / 2) * 2 == 1
+            result = (result * b) - ((result * b) / m) * m
+        b = (b * b) - ((b * b) / m) * m
+        e = e / 2
+    result
+
+let mod_inv(a, m) =
+    let old_r = a - (a / m) * m
+    let r = m
+    let old_s = 1
+    let s = 0
+    for r != 0
+        let q = old_r / r
+        let temp_r = old_r - q * r
+        old_r = r
+        r = temp_r
+        let temp_s = old_s - q * s
+        old_s = s
+        s = temp_s
+    if old_r == 1
+        let inv = old_s - (old_s / m) * m
+        if inv < 0
+            inv + m
+        else
+            inv
+    else
+        0
+
+let str_find(haystack, needle) =
+    let hn = len(haystack)
+    let nn = len(needle)
+    if nn == 0
+        0
+    else
+        0
+    if nn > hn
+        0 - 1
+    else
+        let found = 0 - 1
+        let i = 0
+        for i <= hn - nn && found < 0
+            let match_ = 1
+            let j = 0
+            for j < nn && match_ == 1
+                if haystack[i + j] != needle[j]
+                    match_ = 0
+                j = j + 1
+            if match_ == 1
+                found = i
+            i = i + 1
+        found
+
+let str_sub(s, start, end) =
+    let result = []
+    let i = start
+    for i < end && i < len(s)
+        result.push(s[i])
+        i = i + 1
+    result
+
+let str_eq(a, b) =
+    let na = len(a)
+    let nb = len(b)
+    if na != nb
+        0
+    else
+        let eq = 1
+        let i = 0
+        for i < na && eq == 1
+            if a[i] != b[i]
+                eq = 0
+            i = i + 1
+        eq
+
+let str_len(s) = len(s)
+
+let str_cat(a, b) = concat(a, b)
+
+let range(start, end) =
+    let result = []
+    let i = start
+    for i < end
+        result.push(i)
+        i = i + 1
+    result
+
+let range_step(start, end, step) =
+    let result = []
+    let i = start
+    if step > 0
+        for i < end
+            result.push(i)
+            i = i + step
+    else
+        0
+    if step < 0
+        for i > end
+            result.push(i)
+            i = i + step
+    result
+
+let amm_sqrt(a, p) =
+    tonelli(a, p)
+
+let amm_kth_root(a, k, p) =
+    let amod = a - (a / p) * p
+    if amod == 0
+        0
+    else
+        let pm1 = p - 1
+        let g = k
+        let h = pm1
+        for h != 0
+            let t = g - (g / h) * h
+            g = h
+            h = t
+        if g == 1
+            let e = mod_inv(k, pm1)
+            if e < 0
+                e = e + pm1
+            mod_pow(amod, e, p)
+        else
+            if k == 2
+                tonelli(amod, p)
+            else
+                0
+
+let amm_all_roots(a, k, p) =
+    let r = amm_kth_root(a, k, p)
+    if r == 0
+        []
+    else
+        let roots = []
+        roots.push(r)
+        if k == 2
+            if r != p - r
+                roots.push(p - r)
+        roots
+
+let zcode(v) =
+    if len(v) == 3
+        v[0]
+    else
+        0
+
+let match_str(value, patterns, results, default_val) =
+    let n = len(patterns)
+    let i = 0
+    let found = 0
+    let result = default_val
+    for i < n && found == 0
+        if str_eq(value, patterns[i])
+            result = results[i]
+            found = 1
+        i = i + 1
+    result
+
+let match_int(value, patterns, results, default_val) =
+    let n = len(patterns)
+    let i = 0
+    let found = 0
+    let result = default_val
+    for i < n && found == 0
+        if value == patterns[i]
+            result = results[i]
+            found = 1
+        i = i + 1
+    result
+
+let factorial_tc(n) =
+    let result = 1
+    let i = n
+    for i > 1
+        result = result * i
+        i = i - 1
+    result
+
+let fibonacci_tc(n) =
+    if n == 0
+        0
+    else
+        0
+    if n == 1
+        1
+    else
+        let prev = 0
+        let curr = 1
+        let i = 2
+        for i <= n
+            let next = prev + curr
+            prev = curr
+            curr = next
+            i = i + 1
+        curr
+
+let builtin_ext_test() =
+    print_str("=== builtin_ext test ===")
+
+    print_str("zof(3, 5) = 39:")
+    print(zof(3, 5))
+
+    print_str("idiv(17, 5) = 3:")
+    print(idiv(17, 5))
+
+    print_str("ord('A') = 65:")
+    print(ord(65))
+
+    let arr = [10, 20, 30, 40, 50]
+    let sl = slice(arr, 1, 4)
+    print_str("slice([10,20,30,40,50], 1, 4) = [20,30,40]:")
+    print(sl[0])
+    print(sl[1])
+    print(sl[2])
+
+    let c = concat([1, 2], [3, 4])
+    print_str("concat([1,2],[3,4]) = [1,2,3,4]:")
+    print(c[0])
+    print(c[1])
+    print(c[2])
+    print(c[3])
+
+    let rv = reverse([1, 2, 3, 4, 5])
+    print_str("reverse([1,2,3,4,5]) = [5,4,3,2,1]:")
+    print(rv[0])
+    print(rv[4])
+
+    let st = sort([5, 3, 1, 4, 2])
+    print_str("sort([5,3,1,4,2]) = [1,2,3,4,5]:")
+    print(st[0])
+    print(st[1])
+    print(st[2])
+    print(st[3])
+    print(st[4])
+
+    print_str("legendre(2, 7) = 1:")
+    print(legendre(2, 7))
+
+    print_str("legendre(3, 7) = -1:")
+    let ls3 = legendre(3, 7)
+    if ls3 > 0
+        print_str("1")
+    else
+        0
+    if ls3 < 0
+        print_str("-1")
+    else
+        print_str("0")
+
+    print_str("tonelli(2, 7) = 3 || 4:")
+    print(tonelli(2, 7))
+
+    print_str("tonelli(4, 7) = 2:")
+    print(tonelli(4, 7))
+
+    print_str("crt_pair(2, 3, 3, 5) = 8:")
+    print(crt_pair(2, 3, 3, 5))
+
+    print_str("min(3, 7) = 3:")
+    print(min(3, 7))
+    print_str("max(3, 7) = 7:")
+    print(max(3, 7))
+    print_str("clamp(15, 0, 10) = 10:")
+    print(clamp(15, 0, 10))
+    print_str("sign(-5) = -1:")
+    let sv = sign(0 - 5)
+    if sv > 0
+        print_str("1")
+    else
+        0
+    if sv < 0
+        print_str("-1")
+    else
+        print_str("0")
+
+    print_str("poly [1,3,2] at x=2 = 15:")
+    print(poly_eval([1, 3, 2], 2))
+
+    let roots = quadratic_roots(1, 0 - 5, 6)
+    print_str("x^2-5x+6=0 roots = 2, 3:")
+    sn_print(roots[0])
+    sn_print(roots[1])
+
+    print_str("is_prime(97) = 1:")
+    print(is_prime(97))
+    print_str("is_prime(100) = 0:")
+    print(is_prime(100))
+
+    print_str("2^10 mod 1000 = 24:")
+    print(mod_pow(2, 10, 1000))
+
+    print_str("inv(3, 7) = 5:")
+    print(mod_inv(3, 7))
+
+    print_str("str_find('hello', 'lo') = 3:")
+    print(str_find([104, 101, 108, 108, 111], [108, 111]))
+
+    let ss = str_sub([104, 101, 108, 108, 111], 1, 4)
+    print_str("str_sub('hello', 1, 4) = 'ell':")
+    print(ss[0])
+    print(ss[1])
+    print(ss[2])
+
+    let r = range(1, 5)
+    print_str("range(1, 5) = [1,2,3,4]:")
+    print(r[0])
+    print(r[1])
+    print(r[2])
+    print(r[3])
+
+    let roots = amm_all_roots(2, 2, 7)
+    print_str("sqrt(2) mod 7 roots:")
+    print(roots[0])
+    print(roots[1])
+
+    let zv = zcode([0, [1, 1, 1, 1], 0])
+    print_str("zcode(sn_int(1)) = 0:")
+    print(zv)
+
+    let pat = [[104, 105], [98, 121, 101]]
+    let res = [1, 2]
+    let mv = match_str([104, 105], pat, res, 0)
+    print_str("match 'hi' → 1:")
+    print(mv)
+
+    let ipat = [1, 2, 3]
+    let ires = [10, 20, 30]
+    let imv = match_int(2, ipat, ires, 0)
+    print_str("match 2 → 20:")
+    print(imv)
+
+    print_str("factorial_tc(10) = 3628800:")
+    print(factorial_tc(10))
+
+    print_str("fibonacci_tc(15) = 610:")
+    print(fibonacci_tc(15))
+
+    print_str("=== builtin_ext done ===")
+    1

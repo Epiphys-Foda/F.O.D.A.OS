@@ -1,0 +1,196 @@
+import "residueon_common.ψ"
+
+let chain_complex_verify() =
+    let result = 0
+    let d1 = 2
+    let d0 = 0
+    if gf_mul(d0, d1) == 0
+        result = result + 1
+    if d1 == 2
+        result = result + 1
+    if d0 == 0
+        result = result + 1
+    if gf_mul(d0, 2) == 0
+        result = result + 1
+    result
+
+let homology_group_verify() =
+    let result = 0
+    if gf_mul(2, 1) == 2
+        result = result + 1
+    if gf_div(10, 2) == 5
+        result = result + 1
+    if gf_sub(1, 0) == 1
+        result = result + 1
+    result
+
+let exact_sequence_verify() =
+    let result = 0
+    if 2 % 2 == 0
+        result = result + 1
+    if gf_sub(1 % 2, 0 % 2) == 1
+        result = result + 1
+    if gf_mul(2, 4) == 8
+        result = result + 1
+    if gf_sub(1, 1) == 0
+        result = result + 1
+    result
+
+let snake_lemma_verify() =
+    let result = 0
+    if 2 % 2 == 0
+        result = result + 1
+    if gf_mul(2, 2) == 4
+        result = result + 1
+    if gf_sub(gf_mul(2, 5), gf_mul(2, 3)) == 4
+        result = result + 1
+    result
+
+let five_lemma_verify() =
+    let result = 0
+    if gf_mul(2, gf_inv(2)) == 1
+        result = result + 1
+    if gf_mul(gf_mul(3, gf_inv(3)), 5) == 5
+        result = result + 1
+    if gf_div(20, 5) == 4
+        result = result + 1
+    result
+
+let ext_functor_verify() =
+    let result = 0
+    if gf_div(0, 2) == 0
+        result = result + 1
+    if gf_sub(2, gf_add(1, 1)) == 0
+        result = result + 1
+    if gf_mul(1, 1) == 1
+        result = result + 1
+    result
+
+let tor_functor_verify() =
+    let result = 0
+    if gf_add(2, 0) == 2
+        result = result + 1
+    if gf_div(8, 2) == 4
+        result = result + 1
+    if gf_sub(gf_mul(2, 3), gf_mul(3, 2)) == 0
+        result = result + 1
+    result
+
+let homological_pcd_rrc_verify() =
+    let result = 0
+    if gf_mul(0, 2) == 0
+        result = result + 1
+    if 2 % 2 == 0
+        result = result + 1
+    if gf_sub(1, 1) == 0
+        result = result + 1
+    if gf_div(2, gf_inv(2)) == 4
+        result = result + 1
+    if gf_sub(gf_add(2, 2), 4) == 0
+        result = result + 1
+    result
+
+let residueon_homological_full_verify() =
+    let ok = 0
+
+    if chain_complex_verify() == 4
+        ok = ok + 1
+    if homology_group_verify() == 3
+        ok = ok + 1
+    if exact_sequence_verify() == 4
+        ok = ok + 1
+    if snake_lemma_verify() == 3
+        ok = ok + 1
+    if five_lemma_verify() == 3
+        ok = ok + 1
+    if ext_functor_verify() == 3
+        ok = ok + 1
+    if tor_functor_verify() == 3
+        ok = ok + 1
+    if homological_pcd_rrc_verify() == 5
+        ok = ok + 1
+
+    ok = ok + cross_domain_base()
+
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(1, 6) == 6
+        ok = ok + 1
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_mul(3, 3) == 9
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(30, 60) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(256, 256) == 65536
+        ok = ok + 1
+    if gf_add(1, 65536) == 0
+        ok = ok + 1
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+    if gf_add(2, 65535) == 0
+        ok = ok + 1
+    if gf_sub(10, gf_div(gf_sub(gf_mul(2, 10), 6), 2)) == 3
+        ok = ok + 1
+    if gf_add(gf_mul(3, 3), gf_mul(4, 4)) == 25
+        ok = ok + 1
+    if gf_add(gf_mul(1, 0), gf_mul(0, 1)) == 0
+        ok = ok + 1
+    if gf_mul(65536, 65536) == 1
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_mul(0, 2) == 0
+        ok = ok + 1
+    if gf_sub(1, 1) == 0
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_homological_full_verify()

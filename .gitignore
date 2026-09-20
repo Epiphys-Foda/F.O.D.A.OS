@@ -1,0 +1,7 @@
+# build/run artifacts
+*.log
+__pycache__/
+*.bak
+
+# local experiment residue (underscore prefix = never committed)
+_*

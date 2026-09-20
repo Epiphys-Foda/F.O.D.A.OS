@@ -1,0 +1,39 @@
+import "ck.ψ"
+let bad = [0]
+
+let vth = 10
+bad[0] = bad[0] + ck(vth, 9, 13)
+
+let ton = 90
+let toff = 0
+bad[0] = bad[0] + ck_hi(toff, 0)
+let dst = ton - 90
+bad[0] = bad[0] + ck(dst, 0, 0)
+let contrast = 1000
+bad[0] = bad[0] + ck_lo(contrast, 500)
+
+let siso = 0
+let snem = 5
+let sxtal = 10
+bad[0] = bad[0] + ck_hi(siso, 0)
+bad[0] = bad[0] + ck_hi(snem, sxtal)
+let siso2 = snem - snem
+bad[0] = bad[0] + ck(siso2, 0, 0)
+
+let np = 3840 * 2160
+let dnpx = np - 8294400
+bad[0] = bad[0] + ck(dnpx, 0, 0)
+let np3 = np * 3
+let dn3 = np3 - 24883200
+bad[0] = bad[0] + ck(dn3, 0, 0)
+
+if 1888 < 1886
+    bad[0] = bad[0] + 1
+if 1888 > 1890
+    bad[0] = bad[0] + 1
+if 1971 < 1969
+    bad[0] = bad[0] + 1
+if 1971 > 1973
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

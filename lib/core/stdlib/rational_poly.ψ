@@ -1,0 +1,138 @@
+let rational_new(num, den) =
+    [num, den]
+
+let rational_eval(r, x) =
+    let num = r[0]
+    let den = r[1]
+    let num_val = 0
+    let power = 1
+    let i = 0
+    for i < num.len()
+        num_val = num_val + num[i] * power
+        power = power * x
+        i = i + 1
+    let den_val = 0
+    let power = 1
+    let i = 0
+    for i < den.len()
+        den_val = den_val + den[i] * power
+        power = power * x
+        i = i + 1
+    if den_val == 0
+        999999999
+    else
+        num_val / den_val
+
+let poly_add(a, b) =
+    let len_a = a.len()
+    let len_b = b.len()
+    let max_len = (len_a > len_b ? len_a : len_b)
+    let result = []
+    let i = 0
+    for i < max_len
+        let va = (i < len_a ? a[i] : 0)
+        let vb = (i < len_b ? b[i] : 0)
+        result = arr_concat(result, [va + vb])
+        i = i + 1
+    result
+
+let poly_mul(a, b) =
+    let result = []
+    let i = 0
+    for i < a.len() + b.len() - 1
+        result = arr_concat(result, [0])
+        i = i + 1
+    let i = 0
+    for i < a.len()
+        let j = 0
+        for j < b.len()
+            result[i + j] = result[i + j] + a[i] * b[j]
+            j = j + 1
+        i = i + 1
+    result
+
+let poly_scale(a, s) =
+    let result = []
+    let i = 0
+    for i < a.len()
+        result = arr_concat(result, [a[i] * s])
+        i = i + 1
+    result
+
+let rational_add(r1, r2) =
+    let num = poly_add(poly_mul(r1[0], r2[1]), poly_mul(r2[0], r1[1]))
+    let den = poly_mul(r1[1], r2[1])
+    [num, den]
+
+let rational_sub(r1, r2) =
+    let num = poly_add(poly_mul(r1[0], r2[1]), poly_scale(poly_mul(r2[0], r1[1]), -1))
+    let den = poly_mul(r1[1], r2[1])
+    [num, den]
+
+let rational_mul(r1, r2) =
+    [poly_mul(r1[0], r2[0]), poly_mul(r1[1], r2[1])]
+
+let rational_div(r1, r2) =
+    [poly_mul(r1[0], r2[1]), poly_mul(r1[1], r2[0])]
+
+let pade_approximant(taylor_coeffs, m, n) =
+    if m == 1 && n == 1
+        let a0 = taylor_coeffs[0]
+        let a1 = (taylor_coeffs.len() > 1 ? taylor_coeffs[1] : 0)
+        let a2 = (taylor_coeffs.len() > 2 ? taylor_coeffs[2] : 0)
+        if a0 == 0
+            [[0, 0], [1, 0]]
+        else
+            let q1 = -a2 / a1
+            let p1 = a1 + a0 * q1
+            [[a0, p1], [1, q1]]
+    else
+        0
+    if m == 2 && n == 1
+        let a0 = taylor_coeffs[0]
+        let a1 = (taylor_coeffs.len() > 1 ? taylor_coeffs[1] : 0)
+        let a2 = (taylor_coeffs.len() > 2 ? taylor_coeffs[2] : 0)
+        let a3 = (taylor_coeffs.len() > 3 ? taylor_coeffs[3] : 0)
+        if a2 == 0
+            [[a0, a1, a2], [1, 0]]
+        else
+            let q1 = -a3 / a2
+            let p1 = a1 + a0 * q1
+            let p2 = a2 + a1 * q1
+            [[a0, p1, p2], [1, q1]]
+    else
+        [taylor_coeffs, [1]]
+
+let poly_eval(p, x) =
+    let result = 0
+    let power = 1
+    let i = 0
+    for i < p.len()
+        result = result + p[i] * power
+        power = power * x
+        i = i + 1
+    result
+
+let poly_derivative(p) =
+    if p.len() <= 1
+        [0]
+    else
+        let result = []
+        let i = 1
+        for i < p.len()
+            result = arr_concat(result, [p[i] * i])
+            i = i + 1
+        result
+
+let main() =
+    let r1 = rational_new([1, 1], [1, -1])
+    let r2 = rational_new([1, -1], [1, 1])
+    let v1 = rational_eval(r1, 2)
+    print(v1)
+    let sum_r = rational_add(r1, r2)
+    print(sum_r)
+    let prod_r = rational_mul(r1, r2)
+    print(prod_r)
+    let pade = pade_approximant([1, 1, 500, 167], 1, 1)
+    print(pade)
+    0

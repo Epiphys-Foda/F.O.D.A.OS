@@ -1,0 +1,28 @@
+import "ck.ψ"
+let bad = [0]
+
+let mloss = (36 + 29 - 62) * 10
+bad[0] = bad[0] + ck(mloss, 25, 35)
+
+let eGw = 54
+bad[0] = bad[0] + ck(eGw, 30, 70)
+
+let chirp = 65 * 35
+if chirp > 250 * 10
+    bad[0] = bad[0] + 1
+if 250 * 10 > 75 * 35
+    bad[0] = bad[0] + 1
+
+let dur = 2
+bad[0] = bad[0] + ck(dur, 1, 5)
+
+let disp = 4
+bad[0] = bad[0] + ck(disp, 2, 8)
+
+let pGw = 268
+bad[0] = bad[0] + ck(pGw, 50, 500)
+
+let dist = 13
+bad[0] = bad[0] + ck(dist, 10, 15)
+
+arr_get(arr_new_n(1), bad[0])

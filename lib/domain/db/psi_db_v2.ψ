@@ -1,0 +1,2964 @@
+let true RK_P1 = 65537
+let true RK_P2 = 131071
+let true RK_CAP = 64
+let true RK_HCAP = 256
+
+let true RK_EQ = 0
+let true RK_NEQ = 1
+let true RK_LT = 2
+let true RK_GT = 3
+let true RK_LE = 4
+let true RK_GE = 5
+
+let true RK_OP_PUT = 1
+let true LV_VIRGIN = 3
+let true RK_OP_DEL = 2
+
+let rk_mulmod(a, b, p) =
+    let r = 0
+    let x = a % p
+    let y = b
+    for y > 0
+        if y % 2 == 1
+            r = (r + x) % p
+        x = (x + x) % p
+        y = y / 2
+    r
+
+let rk_powmod(base, exp, p) =
+    let r = 1
+    let b = base % p
+    let e = exp
+    for e > 0
+        if e % 2 == 1
+            r = rk_mulmod(r, b, p)
+        b = rk_mulmod(b, b, p)
+        e = e / 2
+    r
+
+let rk_inv(a, p) = rk_powmod(a, p - 2, p)
+
+let rk_norm(a, p) =
+    if a < 0
+        (a % p + p) % p
+    else
+        a % p
+
+let rk_arrfill(n, v) =
+    let out = []
+    let i = 0
+    for i < n
+        out = arr_push(out, v)
+        i = i + 1
+    out
+
+let rk_new() =
+    let out = []
+    out = arr_push(out, RK_CAP)
+    out = arr_push(out, 0)
+    out = arr_push(out, 0)
+    out = arr_push(out, 1)
+    out = arr_push(out, 1)
+    let zeros = rk_arrfill(RK_CAP, 0)
+    let virgins = rk_arrfill(RK_CAP, LV_VIRGIN)
+    out = arr_push(out, rk_copy(zeros))
+    out = arr_push(out, rk_copy(zeros))
+    out = arr_push(out, rk_copy(zeros))
+    out = arr_push(out, rk_copy(virgins))
+    out = arr_push(out, rk_copy(zeros))
+    let j = 0
+    for j < 5
+        out = arr_push(out, [])
+        j = j + 1
+    let k = 0
+    for k < 5
+        out = arr_push(out, [])
+        k = k + 1
+    out
+
+let rk_count(db) = db[1]
+let rk_seq(db) = db[2]
+
+let rk_slot(db, key) = (rk_mulmod(rk_norm(key, RK_P1), 7919, RK_P1) + 12345) % db[0]
+
+let rk_find(db, key) =
+    let cap = db[0]
+    let zk = db[5]
+    let lv = db[8]
+    let s = rk_slot(db, key)
+    let i = 0
+    let found = 0
+    let idx = 0 - 1
+    let done = 0
+    for done == 0
+        let j = (s + i) % cap
+        if lv[j] == LV_VIRGIN
+            done = 1
+        else
+            if zk[j] == key
+                if lv[j] == 1
+                    found = 1
+                    idx = j
+                done = 1
+            else
+                i = i + 1
+                if i >= cap
+                    done = 1
+    [found, idx]
+
+let rk_wal_add(db, op, key, val, ver) =
+    db[2] = db[2] + 1
+    let wal = db[13]
+    wal = arr_push(wal, db[2])
+    wal = arr_push(wal, op)
+    wal = arr_push(wal, key)
+    wal = arr_push(wal, val)
+    wal = arr_push(wal, ver)
+    db[13] = wal
+    db
+
+let rk_putv_grown(db, key, val, ver) =
+    db = rk_expand(db, db[0] * 2)
+    let cap2 = db[0]
+    let zk2 = db[5]
+    let rk2 = db[6]
+    let nk2 = db[7]
+    let lv2 = db[8]
+    let ds2 = db[9]
+    let s2 = rk_slot(db, key)
+    let i2 = 0
+    let j2 = 0 - 1
+    for i2 < cap2
+        let u2 = (s2 + i2) % cap2
+        if lv2[u2] == LV_VIRGIN
+            j2 = u2
+            i2 = cap2
+        else
+            i2 = i2 + 1
+    if j2 >= 0
+        zk2[j2] = key
+        rk2[j2] = val
+        nk2[j2] = ver
+        lv2[j2] = 1
+        ds2[j2] = db[2] + 1
+        db[1] = db[1] + 1
+        db[5] = zk2
+        db[6] = rk2
+        db[7] = nk2
+        db[8] = lv2
+        db[9] = ds2
+    db
+
+let rk_putv(db, key, val, ver) =
+    let cap = db[0]
+    let zk = db[5]
+    let rk = db[6]
+    let nk = db[7]
+    let lv = db[8]
+    let ds = db[9]
+    let fr = rk_find(db, key)
+    if fr[0] == 1
+        let i = fr[1]
+        if len(db[10]) < RK_HCAP
+            let hk = db[10]
+            let hv = db[11]
+            let hn = db[12]
+            hk = arr_push(hk, key)
+            hv = arr_push(hv, rk[i])
+            hn = arr_push(hn, nk[i])
+            db[10] = hk
+            db[11] = hv
+            db[12] = hn
+        rk[i] = val
+        nk[i] = ver
+        ds[i] = db[2] + 1
+        db[6] = rk
+        db[7] = nk
+        db[9] = ds
+        rk_wal_add(db, RK_OP_PUT, key, val, ver)
+    else
+        let s = rk_slot(db, key)
+        let i = 0
+        let j = 0 - 1
+        let free = 0 - 1
+        let done = 0
+        for done == 0
+            let t = (s + i) % cap
+            if lv[t] == LV_VIRGIN
+                if free < 0
+                    free = t
+                done = 1
+            else
+                if zk[t] == key
+                    j = t
+                    done = 1
+                else
+                    if lv[t] == 0
+                        if free < 0
+                            free = t
+                    i = i + 1
+                    if i >= cap
+                        done = 1
+        if j < 0
+            j = free
+        if j < 0
+            db = rk_putv_grown(db, key, val, ver)
+        else
+            zk[j] = key
+            rk[j] = val
+            nk[j] = ver
+            lv[j] = 1
+            ds[j] = db[2] + 1
+            db[1] = db[1] + 1
+            db[5] = zk
+            db[6] = rk
+            db[7] = nk
+            db[8] = lv
+            db[9] = ds
+            db = rk_wal_add(db, RK_OP_PUT, key, val, ver)
+        db
+
+let rk_put(db, key, val) =
+    let fr = rk_find(db, key)
+    let ver = 1
+    if fr[0] == 1
+        ver = db[7][fr[1]] + 1
+    rk_putv(db, key, val, ver)
+
+let rk_del(db, key) =
+    let fr = rk_find(db, key)
+    let ver = 0
+    if fr[0] == 1
+        ver = db[7][fr[1]]
+        if len(db[10]) < RK_HCAP
+            let hk = db[10]
+            let hv = db[11]
+            let hn = db[12]
+            hk = arr_push(hk, key)
+            hv = arr_push(hv, db[6][fr[1]])
+            hn = arr_push(hn, ver)
+            db[10] = hk
+            db[11] = hv
+            db[12] = hn
+        db[8][fr[1]] = 0
+        db[9][fr[1]] = db[2] + 1
+        db[1] = db[1] - 1
+    rk_wal_add(db, RK_OP_DEL, key, 0, ver)
+
+let rk_get(db, key) =
+    let fr = rk_find(db, key)
+    if fr[0] == 1
+        [1, db[6][fr[1]]]
+    else
+        [0, 0]
+
+let rk_as_of(db, key, t) =
+    let found = 0
+    let best = 0
+    let bestn = 0
+    let hk = db[10]
+    let hv = db[11]
+    let hn = db[12]
+    let i = 0
+    for i < len(hk)
+        if hk[i] == key
+            if hn[i] <= t
+                if hn[i] > bestn
+                    bestn = hn[i]
+                    best = hv[i]
+                    found = 1
+        i = i + 1
+    let fr = rk_find(db, key)
+    if fr[0] == 1
+        if db[7][fr[1]] <= t
+            if db[7][fr[1]] > bestn
+                bestn = db[7][fr[1]]
+                best = db[6][fr[1]]
+                found = 1
+    [found, best]
+
+let rk_field(db, z0) =
+    let acc = 0
+    let zk = db[5]
+    let rk = db[6]
+    let lv = db[8]
+    let i = 0
+    for i < db[0]
+        if lv[i] == 1
+            let d = rk_norm(z0 - zk[i], RK_P1)
+            if d != 0
+                acc = (acc + rk_mulmod(rk[i], rk_inv(d, RK_P1), RK_P1)) % RK_P1
+        i = i + 1
+    acc
+
+let rk_scan(db, pred, arg) =
+    let cnt = 0
+    let sum = 0
+    let rk = db[6]
+    let lv = db[8]
+    let i = 0
+    for i < db[0]
+        if lv[i] == 1
+            let take = 0
+            if pred == RK_EQ
+                if rk[i] == arg
+                    take = 1
+            if pred == RK_NEQ
+                if rk[i] != arg
+                    take = 1
+            if pred == RK_LT
+                if rk[i] < arg
+                    take = 1
+            if pred == RK_GT
+                if rk[i] > arg
+                    take = 1
+            if pred == RK_LE
+                if rk[i] <= arg
+                    take = 1
+            if pred == RK_GE
+                if rk[i] >= arg
+                    take = 1
+            if take == 1
+                cnt = cnt + 1
+                sum = (sum + rk[i]) % RK_P1
+        i = i + 1
+    [cnt, sum]
+
+let rk_agg(db) =
+    let cnt = 0
+    let sum = 0
+    let mn = 0
+    let mx = 0
+    let first = 1
+    let rk = db[6]
+    let lv = db[8]
+    let i = 0
+    for i < db[0]
+        if lv[i] == 1
+            let v = rk[i]
+            cnt = cnt + 1
+            sum = (sum + v) % RK_P1
+            if first == 1
+                mn = v
+                mx = v
+                first = 0
+            else
+                if v < mn
+                    mn = v
+                if v > mx
+                    mx = v
+        i = i + 1
+    [cnt, sum, mn, mx]
+
+let rk_moment2(db) =
+    let acc = 0
+    let rk = db[6]
+    let lv = db[8]
+    let i = 0
+    for i < db[0]
+        if lv[i] == 1
+            acc = (acc + rk_mulmod(rk[i], rk[i], RK_P1)) % RK_P1
+        i = i + 1
+    acc
+
+let rk_fingerprint(db) =
+    let f1 = 0
+    let f2 = 0
+    let zk = db[5]
+    let rk = db[6]
+    let nk = db[7]
+    let lv = db[8]
+    let i = 0
+    for i < db[0]
+        if lv[i] == 1
+            let d1 = (rk_mulmod(zk[i], 1009, RK_P1) + rk_mulmod(rk[i], 31, RK_P1) + rk_mulmod(nk[i], 7, RK_P1)) % RK_P1
+            f1 = (f1 + d1) % RK_P1
+            let d2 = (rk_mulmod(zk[i], 1009, RK_P2) + rk_mulmod(rk[i], 31, RK_P2) + rk_mulmod(nk[i], 7, RK_P2)) % RK_P2
+            f2 = (f2 + d2) % RK_P2
+        i = i + 1
+    [f1, f2]
+
+let rk_commit(db) =
+    let fp = rk_fingerprint(db)
+    db[3] = fp[0]
+    db[4] = fp[1]
+    let fr = db[14]
+    fr = arr_push(fr, db[2])
+    fr = arr_push(fr, db[1])
+    fr = arr_push(fr, fp[0])
+    fr = arr_push(fr, fp[1])
+    db[14] = fr
+    db
+
+let rk_verify(db) =
+    let fr = db[14]
+    let n = len(fr)
+    if n < 4
+        0
+    else
+        let fp = rk_fingerprint(db)
+        if fr[n - 2] == fp[0]
+            if fr[n - 1] == fp[1]
+                1
+            else
+                0
+        else
+            0
+
+let rk_deltas(db, since) =
+    let out = []
+    let wal = db[13]
+    let i = 0
+    for i < len(wal)
+        if wal[i] > since
+            out = arr_push(out, wal[i + 2])
+            out = arr_push(out, wal[i + 3])
+            out = arr_push(out, wal[i + 4])
+            out = arr_push(out, wal[i + 1])
+        i = i + 5
+    out
+
+let rk_apply(db, deltas) =
+    let i = 0
+    for i < len(deltas)
+        let key = deltas[i]
+        let val = deltas[i + 1]
+        let ver = deltas[i + 2]
+        let op = deltas[i + 3]
+        if op == RK_OP_PUT
+            db = rk_putv(db, key, val, ver)
+        else
+            db = rk_del(db, key)
+        i = i + 4
+    db
+
+let rk_copy(arr) =
+    let out = []
+    let i = 0
+    for i < len(arr)
+        out = arr_push(out, arr[i])
+        i = i + 1
+    out
+
+let rk_fork(db) =
+    [db[0], db[1], db[2], db[3], db[4],
+     rk_copy(db[5]), rk_copy(db[6]), rk_copy(db[7]), rk_copy(db[8]), rk_copy(db[9]),
+     rk_copy(db[10]), rk_copy(db[11]), rk_copy(db[12]), rk_copy(db[13]), rk_copy(db[14])]
+
+let rk_merge(a, b) =
+    let m = rk_fork(a)
+    let zk = b[5]
+    let rk = b[6]
+    let nk = b[7]
+    let lv = b[8]
+    let i = 0
+    for i < b[0]
+        if lv[i] == 1
+            let key = zk[i]
+            let val = rk[i]
+            let ver = nk[i]
+            let fr = rk_find(m, key)
+            if fr[0] == 0
+                m = rk_putv(m, key, val, ver)
+            else
+                let mi = fr[1]
+                if ver > m[7][mi]
+                    m = rk_putv(m, key, val, ver)
+                else
+                    if ver == m[7][mi]
+                        if val > m[6][mi]
+                            m = rk_putv(m, key, val, ver)
+        i = i + 1
+    m
+
+let rk_same_state(a, b) =
+    let fa = rk_fingerprint(a)
+    let fb = rk_fingerprint(b)
+    if a[1] == b[1]
+        if fa[0] == fb[0]
+            if fa[1] == fb[1]
+                1
+            else
+                0
+        else
+            0
+    else
+        0
+
+let rk_same_content(a, b) =
+    let fa1 = 0
+    let fa2 = 0
+    let zk = a[5]
+    let rk = a[6]
+    let lv = a[8]
+    let i = 0
+    for i < a[0]
+        if lv[i] == 1
+            fa1 = (fa1 + rk_mulmod(zk[i], 1009, RK_P1) + rk_mulmod(rk[i], 31, RK_P1)) % RK_P1
+            fa2 = (fa2 + rk_mulmod(zk[i], 1009, RK_P2) + rk_mulmod(rk[i], 31, RK_P2)) % RK_P2
+        i = i + 1
+    let fb1 = 0
+    let fb2 = 0
+    let zk2 = b[5]
+    let rk2 = b[6]
+    let lv2 = b[8]
+    let j = 0
+    for j < b[0]
+        if lv2[j] == 1
+            fb1 = (fb1 + rk_mulmod(zk2[j], 1009, RK_P1) + rk_mulmod(rk2[j], 31, RK_P1)) % RK_P1
+            fb2 = (fb2 + rk_mulmod(zk2[j], 1009, RK_P2) + rk_mulmod(rk2[j], 31, RK_P2)) % RK_P2
+        j = j + 1
+    if a[1] == b[1]
+        if fa1 == fb1
+            if fa2 == fb2
+                1
+            else
+                0
+        else
+            0
+    else
+        0
+
+let rk_wal_replay(wal) =
+    let db = rk_new()
+    let i = 0
+    for i < len(wal)
+        let op = wal[i + 1]
+        let key = wal[i + 2]
+        let val = wal[i + 3]
+        let ver = wal[i + 4]
+        if op == RK_OP_PUT
+            db = rk_putv(db, key, val, ver)
+        else
+            db = rk_del(db, key)
+        i = i + 5
+    db
+
+let rk_stats(db) = [db[1], len(db[10]), len(db[13]) / 5, db[2]]
+
+let rk_expand(db, newcap) =
+    let cap = db[0]
+    let zk = db[5]
+    let rk = db[6]
+    let nk = db[7]
+    let lv = db[8]
+    let ds = db[9]
+    let zk2 = rk_arrfill(newcap, 0)
+    let rk2 = rk_arrfill(newcap, 0)
+    let nk2 = rk_arrfill(newcap, 0)
+    let lv2 = rk_arrfill(newcap, LV_VIRGIN)
+    let ds2 = rk_arrfill(newcap, 0)
+    let i = 0
+    for i < cap
+        if lv[i] == 1
+            let key = zk[i]
+            let s = (rk_mulmod(rk_norm(key, RK_P1), 7919, RK_P1) + 12345) % newcap
+            let t = 0
+            let done = 0
+            for done == 0
+                let u = (s + t) % newcap
+                if lv2[u] == LV_VIRGIN
+                    zk2[u] = key
+                    rk2[u] = rk[i]
+                    nk2[u] = nk[i]
+                    lv2[u] = 1
+                    ds2[u] = ds[i]
+                    done = 1
+                else
+                    t = t + 1
+                    if t >= newcap
+                        done = 1
+        i = i + 1
+    db[0] = newcap
+    db[5] = zk2
+    db[6] = rk2
+    db[7] = nk2
+    db[8] = lv2
+    db[9] = ds2
+    db
+
+let true RK_SNAP_MAGIC = 999983
+
+let rk_snapshot(db) =
+    let out = []
+    out = arr_push(out, RK_SNAP_MAGIC)
+    out = arr_push(out, db[0])
+    out = arr_push(out, db[1])
+    out = arr_push(out, db[2])
+    out = arr_push(out, 0)
+    out = arr_push(out, 0)
+    out = arr_push(out, 0)
+    let fp0 = rk_fingerprint(db)
+    out = arr_push(out, fp0[0])
+    out = arr_push(out, fp0[1])
+    let cap = db[0]
+    let zk = db[5]
+    let rk = db[6]
+    let nk = db[7]
+    let lv = db[8]
+    let nslot = 0
+    let i = 0
+    for i < cap
+        if zk[i] != 0
+            let z = zk[i]
+            let v = rk[i]
+            let n = nk[i]
+            let l = lv[i]
+            out = arr_push(out, z)
+            out = arr_push(out, v)
+            out = arr_push(out, n)
+            out = arr_push(out, l)
+            nslot = nslot + 1
+        i = i + 1
+    out[4] = nslot
+    let hk = db[10]
+    let hv = db[11]
+    let hn = db[12]
+    let nh = len(hk)
+    out[5] = nh
+    let h = 0
+    for h < nh
+        let hz = hk[h]
+        let hvv = hv[h]
+        let hnn = hn[h]
+        out = arr_push(out, hz)
+        out = arr_push(out, hvv)
+        out = arr_push(out, hnn)
+        h = h + 1
+    let wal = db[13]
+    let nw = len(wal) / 5
+    out[6] = nw
+    let w = 0
+    for w < nw
+        let b = w * 5
+        let e0 = wal[b]
+        let e1 = wal[b + 1]
+        let e2 = wal[b + 2]
+        let e3 = wal[b + 3]
+        let e4 = wal[b + 4]
+        out = arr_push(out, e0)
+        out = arr_push(out, e1)
+        out = arr_push(out, e2)
+        out = arr_push(out, e3)
+        out = arr_push(out, e4)
+        w = w + 1
+    out
+
+let rk_restore(snap) =
+    let db = rk_new()
+    if snap[0] != RK_SNAP_MAGIC
+        db
+    else
+        let nslot = snap[4]
+        let nh = snap[5]
+        let nw = snap[6]
+        let base_h = 9 + nslot * 4
+        let base_w = base_h + nh * 3
+        let wal = []
+        let w = 0
+        for w < nw
+            let b3 = base_w + w * 5
+            let e0 = snap[b3]
+            let e1 = snap[b3 + 1]
+            let e2 = snap[b3 + 2]
+            let e3 = snap[b3 + 3]
+            let e4 = snap[b3 + 4]
+            wal = arr_push(wal, e0)
+            wal = arr_push(wal, e1)
+            wal = arr_push(wal, e2)
+            wal = arr_push(wal, e3)
+            wal = arr_push(wal, e4)
+            w = w + 1
+        let rp = rk_wal_replay(wal)
+        let cap0 = snap[1]
+        if cap0 > rp[0]
+            rk_expand(rp, cap0)
+        let p = 0
+        for p < nslot
+            let b = 9 + p * 4
+            let z = snap[b]
+            let v = snap[b + 1]
+            let n = snap[b + 2]
+            let l = snap[b + 3]
+            let fr = rk_find(rp, z)
+            let need = 1
+            if fr[0] == 1
+                if rp[6][fr[1]] == v
+                    if rp[7][fr[1]] == n
+                        need = 0
+            if need == 1
+                rp = rk_putv(rp, z, v, n)
+            if l == 0
+                rp = rk_tomb(rp, z)
+            p = p + 1
+        let h = 0
+        for h < nh
+            let b2 = base_h + h * 3
+            let hz = snap[b2]
+            let hvv = snap[b2 + 1]
+            let hnn = snap[b2 + 2]
+            let hk = rp[10]
+            let hv2 = rp[11]
+            let hn2 = rp[12]
+            hk = arr_push(hk, hz)
+            hv2 = arr_push(hv2, hvv)
+            hn2 = arr_push(hn2, hnn)
+            rp[10] = hk
+            rp[11] = hv2
+            rp[12] = hn2
+            h = h + 1
+        let f1 = snap[7]
+        let f2 = snap[8]
+        rp[3] = f1
+        rp[4] = f2
+        let fp = rk_fingerprint(rp)
+        if fp[0] == f1
+            if fp[1] == f2
+                let fr = rp[14]
+                fr = arr_push(fr, rp[2])
+                fr = arr_push(fr, rp[1])
+                fr = arr_push(fr, f1)
+                fr = arr_push(fr, f2)
+                rp[14] = fr
+        rp
+
+let rk_restore_ok(db) = rk_verify(db)
+
+let rk_index_build(db) =
+    let ix = rk_new()
+    let i = 0
+    for i < db[0]
+        if db[8][i] == 1
+            let v = db[6][i]
+            let k = db[5][i]
+            ix = rk_put(ix, v, k)
+        i = i + 1
+    ix
+
+let rk_index_lookup(db, ix, val) =
+    let e = rk_get(ix, val)
+    if e[0] == 1
+        let row = rk_get(db, e[1])
+        if row[0] == 1
+            if row[1] == val
+                [1, e[1]]
+            else
+                [0, 0]
+        else
+            [0, 0]
+    else
+        [0, 0]
+
+let rk_chk(arr) =
+    let acc = 0
+    let i = 0
+    for i < len(arr)
+        acc = (rk_mulmod(acc, 3, RK_P1) + arr[i]) % RK_P1
+        i = i + 1
+    acc
+
+let rk_tomb(db, key) =
+    let fr = rk_find(db, key)
+    if fr[0] == 1
+        db[8][fr[1]] = 0
+        db[1] = db[1] - 1
+    db
+
+let rk_export(db) =
+    let out = []
+    let cap = db[0]
+    let zk = db[5]
+    let rk = db[6]
+    let nk = db[7]
+    let lv = db[8]
+    let i = 0
+    for i < cap
+        if zk[i] != 0
+            let z = zk[i]
+            let v = rk[i]
+            let n = nk[i]
+            let l = lv[i]
+            out = arr_push(out, z)
+            out = arr_push(out, v)
+            out = arr_push(out, n)
+            out = arr_push(out, l)
+        i = i + 1
+    let hk = db[10]
+    let hv = db[11]
+    let hn = db[12]
+    let h = 0
+    for h < len(hk)
+        let hz = hk[h]
+        let hvv = hv[h]
+        let hnn = hn[h]
+        out = arr_push(out, hz)
+        out = arr_push(out, hvv)
+        out = arr_push(out, hnn)
+        h = h + 1
+    let out2 = arr_push([], len(out))
+    out2 = arr_push(out2, rk_chk(out))
+    let nslot = 0
+    let i3 = 0
+    for i3 < cap
+        if zk[i3] != 0
+            nslot = nslot + 1
+        i3 = i3 + 1
+    out2 = arr_push(out2, nslot)
+    let i2 = 0
+    for i2 < len(out)
+        let e = out[i2]
+        out2 = arr_push(out2, e)
+        i2 = i2 + 1
+    out2
+
+let rk_import(flat) =
+    let n = flat[0]
+    let chk = flat[1]
+    let nslots = flat[2]
+    let body = []
+    let i = 0
+    for i < n
+        body = arr_push(body, flat[i + 3])
+        i = i + 1
+    let ok = 1
+    if rk_chk(body) != chk
+        ok = 0
+    if len(flat) != n + 3
+        ok = 0
+    if ok == 0
+        let bad = rk_new()
+        let res = []
+        res = arr_push(res, 0)
+        res = arr_push(res, bad)
+        res
+    else
+        let db = rk_new()
+        let j = 0
+        for j < nslots
+            let z = body[j * 4]
+            let v = body[j * 4 + 1]
+            let n2 = body[j * 4 + 2]
+            let l = body[j * 4 + 3]
+            db = rk_putv(db, z, v, n2)
+            if l == 0
+                db = rk_tomb(db, z)
+            j = j + 1
+        let base = nslots * 4
+        let h = base
+        for h + 2 < n
+            let hz = body[h]
+            let hvv = body[h + 1]
+            let hnn = body[h + 2]
+            let hk = db[10]
+            let hv2 = db[11]
+            let hn2 = db[12]
+            hk = arr_push(hk, hz)
+            hv2 = arr_push(hv2, hvv)
+            hn2 = arr_push(hn2, hnn)
+            db[10] = hk
+            db[11] = hv2
+            db[12] = hn2
+            h = h + 3
+        [1, db]
+
+let rk_nest_store(parent, base, child) =
+    let flat = rk_export(child)
+    let i = 0
+    for i < len(flat)
+        let e = flat[i]
+        parent = rk_put(parent, base + i, e)
+        i = i + 1
+    [parent, len(flat)]
+
+let rk_nest_load(parent, base, n) =
+    let flat = []
+    let i = 0
+    for i < n
+        let e = rk_get(parent, base + i)
+        let ev = e[1]
+        if e[0] == 1
+            flat = arr_push(flat, ev)
+        else
+            flat = arr_push(flat, 0)
+        i = i + 1
+    rk_import(flat)
+
+let rk_gc(db, horizon) =
+    let wal = db[13]
+    let out = []
+    let i = 0
+    for i < len(wal)
+        let s = wal[i]
+        if s >= horizon
+            let e1 = wal[i + 1]
+            let e2 = wal[i + 2]
+            let e3 = wal[i + 3]
+            let e4 = wal[i + 4]
+            out = arr_push(out, s)
+            out = arr_push(out, e1)
+            out = arr_push(out, e2)
+            out = arr_push(out, e3)
+            out = arr_push(out, e4)
+        i = i + 5
+    db[13] = out
+    let hk = db[10]
+    let hv = db[11]
+    let hn = db[12]
+    let hk2 = []
+    let hv2 = []
+    let hn2 = []
+    let h = 0
+    for h < len(hk)
+        let vz = hk[h]
+        let vv = hv[h]
+        let vn = hn[h]
+        if vn >= horizon
+            hk2 = arr_push(hk2, vz)
+            hv2 = arr_push(hv2, vv)
+            hn2 = arr_push(hn2, vn)
+        h = h + 1
+    db[10] = hk2
+    db[11] = hv2
+    db[12] = hn2
+    db
+
+let rk_recover(snap, db) =
+    let rec = rk_restore(snap)
+    let tail = rk_deltas(db, rk_seq(rec))
+    rec = rk_apply(rec, tail)
+    rec
+
+let rk_knn(db, z0, k) =
+    let out = []
+    let cap = db[0]
+    let zk = db[5]
+    let rk = db[6]
+    let lv = db[8]
+    let pool = []
+    let n = 0
+    let i = 0
+    for i < cap
+        if lv[i] == 1
+            let z = zk[i]
+            let v = rk[i]
+            let d0 = z - z0
+            if d0 < 0
+                d0 = 0 - d0
+            pool = arr_push(pool, d0)
+            pool = arr_push(pool, z)
+            pool = arr_push(pool, v)
+            n = n + 1
+        i = i + 1
+    let taken = rk_arrfill(n, 0)
+    let c = 0
+    for c < k
+        let best = 0 - 1
+        let bd = 0
+        let t = 0
+        for t < n
+            if taken[t] == 0
+                let d1 = pool[t * 3]
+                if best < 0
+                    best = t
+                    bd = d1
+                else
+                    if d1 < bd
+                        best = t
+                        bd = d1
+            t = t + 1
+        if best >= 0
+            taken[best] = 1
+            let bz = pool[best * 3 + 1]
+            let bv = pool[best * 3 + 2]
+            out = arr_push(out, bz)
+            out = arr_push(out, bv)
+        c = c + 1
+    out
+
+let rk_range(db, klo, khi) =
+    let out = []
+    let cap = db[0]
+    let zk = db[5]
+    let rk = db[6]
+    let lv = db[8]
+    let i = 0
+    for i < cap
+        if lv[i] == 1
+            let z = zk[i]
+            if z >= klo
+                if z <= khi
+                    let v = rk[i]
+                    out = arr_push(out, z)
+                    out = arr_push(out, v)
+        i = i + 1
+    out
+
+let rk_match(v, pred, arg) =
+    let take = 0
+    if pred == RK_EQ
+        if v == arg
+            take = 1
+    if pred == RK_NEQ
+        if v != arg
+            take = 1
+    if pred == RK_LT
+        if v < arg
+            take = 1
+    if pred == RK_GT
+        if v > arg
+            take = 1
+    if pred == RK_LE
+        if v <= arg
+            take = 1
+    if pred == RK_GE
+        if v >= arg
+            take = 1
+    take
+
+let rk_materialize(db, pred, arg) =
+    let view = rk_new()
+    let cap = db[0]
+    let zk = db[5]
+    let rk = db[6]
+    let lv = db[8]
+    let i = 0
+    for i < cap
+        if lv[i] == 1
+            let z = zk[i]
+            let v = rk[i]
+            if rk_match(v, pred, arg) == 1
+                view = rk_put(view, z, v)
+        i = i + 1
+    view
+
+let rk_prefix_build(db) =
+    let zs = []
+    let rs = []
+    let cap = db[0]
+    let zk = db[5]
+    let rk = db[6]
+    let lv = db[8]
+    let i = 0
+    for i < cap
+        if lv[i] == 1
+            zs = arr_push(zs, zk[i])
+            rs = arr_push(rs, rk[i])
+        i = i + 1
+    let n2 = len(zs)
+    let ai = 0
+    for ai < n2
+        let bi = 0
+        for bi < n2 - 1
+            if zs[bi] > zs[bi + 1]
+                let tz = zs[bi]
+                let tv = rs[bi]
+                zs[bi] = zs[bi + 1]
+                rs[bi] = rs[bi + 1]
+                zs[bi + 1] = tz
+                rs[bi + 1] = tv
+            bi = bi + 1
+        ai = ai + 1
+    let pc = [0]
+    let ps = [0]
+    let j = 0
+    for j < len(zs)
+        pc = arr_push(pc, pc[j] + 1)
+        ps = arr_push(ps, (ps[j] + rs[j]) % RK_P1)
+        j = j + 1
+    [zs, pc, ps]
+
+let rk_lb(zs, x) =
+    let lo = 0
+    let hi = len(zs)
+    for lo < hi
+        let mid = (lo + hi) / 2
+        if zs[mid] < x
+            lo = mid + 1
+        else
+            hi = mid
+    lo
+
+let rk_range_agg_fast(prefix, klo, khi) =
+    let zs = prefix[0]
+    let pc = prefix[1]
+    let ps = prefix[2]
+    let lb = rk_lb(zs, klo)
+    let ub = rk_lb(zs, khi + 1)
+    let cnt = pc[ub] - pc[lb]
+    let sum = (ps[ub] - ps[lb] + RK_P1) % RK_P1
+    [cnt, sum]
+
+let rk_purge(db, key) =
+    let fr = rk_find(db, key)
+    if fr[0] == 1
+        let i = fr[1]
+        let zk = db[5]
+        let rk2 = db[6]
+        let nk = db[7]
+        let lv = db[8]
+        let ds = db[9]
+        zk[i] = 0
+        rk2[i] = 0
+        nk[i] = 0
+        lv[i] = LV_VIRGIN
+        ds[i] = 0
+        db[5] = zk
+        db[6] = rk2
+        db[7] = nk
+        db[8] = lv
+        db[9] = ds
+        db[1] = db[1] - 1
+    db
+
+let rk_view_refresh(view, db, pred, arg, since) =
+    let wal = db[13]
+    let i = 0
+    for i < len(wal)
+        if wal[i] > since
+            let op = wal[i + 1]
+            let key = wal[i + 2]
+            let val = wal[i + 3]
+            let matched = rk_match(val, pred, arg)
+            let inview = rk_find(view, key)
+            if op == RK_OP_PUT
+                if matched == 1
+                    view = rk_put(view, key, val)
+            if op == RK_OP_PUT
+                if matched == 0
+                    if inview[0] == 1
+                        view = rk_del(view, key)
+            if op == RK_OP_DEL
+                if inview[0] == 1
+                    view = rk_del(view, key)
+        i = i + 5
+    view
+
+let rk_trig_fire(defs, audit, key, val) =
+    let i = 0
+    for i < len(defs)
+        let pred = defs[i]
+        let arg = defs[i + 1]
+        if rk_match(val, pred, arg) == 1
+            audit = rk_put(audit, key, val)
+        i = i + 2
+    audit
+
+let rk_field_p(db, z0, p) =
+    let acc = 0
+    let cap = db[0]
+    let zk = db[5]
+    let rk = db[6]
+    let lv = db[8]
+    let i = 0
+    for i < cap
+        if lv[i] == 1
+            let d = rk_norm(z0 - zk[i], p)
+            if d != 0
+                acc = (acc + rk_mulmod(rk[i], rk_inv(d, p), p)) % p
+        i = i + 1
+    acc
+
+let rk_tick(db) =
+    db[2] = db[2] + 1
+    db
+
+let rk_lease_grant(lz, db, key, ttl) =
+    let expiry = db[2] + ttl
+    lz = rk_put(lz, key, expiry)
+    lz
+
+let rk_lease_sweep(db, lz) =
+    let due = []
+    let i = 0
+    for i < lz[0]
+        if lz[8][i] == 1
+            if lz[6][i] <= db[2]
+                due = arr_push(due, lz[5][i])
+        i = i + 1
+    let j = 0
+    for j < len(due)
+        let k = due[j]
+        db = rk_del(db, k)
+        lz = rk_purge(lz, k)
+        j = j + 1
+    [db, lz]
+
+let rk_sub_register(subs, sid, since) =
+    subs = rk_put(subs, sid, since)
+    subs
+
+let rk_sub_commit(subs, sid, seq) =
+    subs = rk_put(subs, sid, seq)
+    subs
+
+let rk_attach(cat, name, child) =
+    let base = 10000 + name * 2000
+    let sr = rk_nest_store(cat, base, child)
+    cat = sr[0]
+    cat = rk_put(cat, name, base)
+    cat
+
+let rk_open(cat, name) =
+    let b = rk_get(cat, name)
+    let out = []
+    if b[0] == 0
+        let bad = rk_new()
+        out = arr_push(out, 0)
+        out = arr_push(out, bad)
+    else
+        let hdr = rk_get(cat, b[1])
+        let child = rk_nest_load(cat, b[1], hdr[1] + 3)
+        out = arr_push(out, child[0])
+        out = arr_push(out, child[1])
+    out
+
+let rk_detach(cat, name) =
+    cat = rk_purge(cat, name)
+    cat
+
+let rk_resonance_c(db, z0, rad, thr) =
+    let out = []
+    let cap = db[0]
+    let zk = db[5]
+    let rk = db[6]
+    let lv = db[8]
+    let p = RK_P1
+    let i = 0
+    for i < cap
+        if lv[i] == 1
+            let z = zk[i]
+            let v = rk[i]
+            let d0 = z - z0
+            if d0 < 0
+                d0 = 0 - d0
+            let dc = p - d0
+            if dc < d0
+                d0 = dc
+            if d0 > 0
+                if d0 <= rad
+                    let c = v / d0
+                    if c >= thr
+                        out = arr_push(out, z)
+                        out = arr_push(out, v)
+                        out = arr_push(out, c)
+        i = i + 1
+    let n = len(out) / 3
+    let a0 = 0
+    for a0 < n
+        let b2 = 0
+        for b2 < n - 1
+            let c1 = out[b2 * 3 + 2]
+            let c2 = out[b2 * 3 + 5]
+            if c2 > c1
+                let t0 = out[b2 * 3]
+                let t1 = out[b2 * 3 + 1]
+                let t2 = out[b2 * 3 + 2]
+                out[b2 * 3] = out[b2 * 3 + 3]
+                out[b2 * 3 + 1] = out[b2 * 3 + 4]
+                out[b2 * 3 + 2] = out[b2 * 3 + 5]
+                out[b2 * 3 + 3] = t0
+                out[b2 * 3 + 4] = t1
+                out[b2 * 3 + 5] = t2
+            b2 = b2 + 1
+        a0 = a0 + 1
+    out
+
+let rk_sig(db, z0) =
+    let v1 = rk_field_p(db, z0, RK_P1)
+    let v2 = rk_field_p(db, z0, RK_P2)
+    let out = []
+    out = arr_push(out, v1)
+    out = arr_push(out, v2)
+    out
+
+let rk_arr_eq(a, b) =
+    let ok = 1
+    if len(a) != len(b)
+        ok = 0
+    let i = 0
+    for i < len(a)
+        if ok == 1
+            if a[i] != b[i]
+                ok = 0
+        i = i + 1
+    ok
+
+let rk_snapdiff(sa, sb) =
+    let out = [len(sa), len(sb)]
+    let n1 = len(sa)
+    let n2 = len(sb)
+    let lim = n1
+    if n2 < lim
+        lim = n2
+    let i = 0
+    for i < lim
+        if sa[i] != sb[i]
+            out = arr_push(out, i)
+            out = arr_push(out, sa[i])
+            out = arr_push(out, sb[i])
+        i = i + 1
+    let j = lim
+    for j < n2
+        out = arr_push(out, j)
+        out = arr_push(out, 0)
+        out = arr_push(out, sb[j])
+        j = j + 1
+    out
+
+let rk_snappatch(sa, diff) =
+    let out = rk_copy(sa)
+    let i = 2
+    for i < len(diff)
+        let idx = diff[i]
+        let nv = diff[i + 2]
+        if idx < len(out)
+            out[idx] = nv
+        else
+            out = arr_push(out, nv)
+        i = i + 3
+    let target = diff[1]
+    if len(out) > target
+        out = arr_take(out, target)
+    out    out
+
+let rk_deltas_between(db, since, until) =
+    let out = []
+    let wal = db[13]
+    let i = 0
+    for i < len(wal)
+        if wal[i] > since
+            if wal[i] <= until
+                let k = wal[i + 2]
+                let v = wal[i + 3]
+                let ver = wal[i + 4]
+                let op = wal[i + 1]
+                out = arr_push(out, k)
+                out = arr_push(out, v)
+                out = arr_push(out, ver)
+                out = arr_push(out, op)
+        i = i + 5
+    out
+
+let rk_chain_init(sa) = [sa]
+
+let rk_chain_push(chain, sb) =
+    let k = len(chain) - 1
+    let last = rk_chain_fold(chain, k)
+    let d = rk_snapdiff(last, sb)
+    chain = arr_push(chain, d)
+    chain
+
+let rk_chain_fold(chain, k) =
+    let s0 = chain[0]
+    let cur = rk_copy(s0)
+    let i = 1
+    for i <= k
+        let d = chain[i]
+        cur = rk_snappatch(cur, d)
+        i = i + 1
+    cur
+
+let rk_txn(db, kv, ck, cp, ca) =
+    let cand = rk_fork(db)
+    let i = 0
+    for i < len(kv)
+        let k = kv[i]
+        let v = kv[i + 1]
+        cand = rk_put(cand, k, v)
+        i = i + 2
+    let ok = 1
+    let j = 0
+    for j < len(ck)
+        let row = rk_get(cand, ck[j])
+        let rv = row[1]
+        if rk_match(rv, cp[j], ca[j]) == 0
+            ok = 0
+        j = j + 1
+    let out = []
+    out = arr_push(out, ok)
+    if ok == 1
+        out = arr_push(out, cand)
+    else
+        out = arr_push(out, db)
+    out
+
+let rk_dag_ready(edges, tasks, done) =
+    let ready = []
+    let ek = edges[5]
+    let i = 0
+    for i < len(tasks)
+        let t = tasks[i]
+        let ok = 1
+        let j = 0
+        for j < len(ek)
+            let et = ek[j] / 8192
+            let ed = ek[j] % 8192
+            if et == t
+                let dd = rk_get(done, ed)
+                if dd[0] == 0
+                    ok = 0
+            j = j + 1
+        let already = rk_get(done, t)
+        if already[0] == 1
+            ok = 0
+        if ok == 1
+            ready = arr_push(ready, t)
+        i = i + 1
+    ready
+
+let rk_dag_complete(done, tasks) =
+    let i = 0
+    for i < len(tasks)
+        done = rk_put(done, tasks[i], 1)
+        i = i + 1
+    done
+
+let rk_inverted_build(pairs) =
+    let tcnt = rk_new()
+    let cap = pairs[0]
+    let pk = pairs[5]
+    let plv = pairs[8]
+    let i = 0
+    for i < cap
+        if plv[i] == 1
+            let k = pk[i]
+            let t = k / 4096
+            let c = rk_get(tcnt, t)
+            tcnt = rk_put(tcnt, t, c[1] + 1)
+        i = i + 1
+    let cur = rk_new()
+    let inv = rk_new()
+    let i2 = 0
+    for i2 < cap
+        if plv[i2] == 1
+            let k = pk[i2]
+            let t = k / 4096
+            let d = k % 4096
+            let c = rk_get(tcnt, t)
+            let u = rk_get(cur, t)
+            let rank = u[1]
+            inv = rk_put(inv, t * 128 + rank, d)
+            cur = rk_put(cur, t, rank + 1)
+        i2 = i2 + 1
+    let kt = rk_copy_keys(tcnt)
+    let i3 = 0
+    for i3 < len(kt)
+        inv = rk_put(inv, kt[i3], rk_get(tcnt, kt[i3])[1])
+        i3 = i3 + 1
+    inv
+
+let rk_copy_keys(db) =
+    let out = []
+    let cap = db[0]
+    let zk = db[5]
+    let lv = db[8]
+    let i = 0
+    for i < cap
+        if lv[i] == 1
+            out = arr_push(out, zk[i])
+        i = i + 1
+    out
+
+let rk_search(inv, term) =
+    let c = rk_get(inv, term)
+    let n = c[1]
+    let out = []
+    let i = 0
+    for i < n
+        let e = rk_get(inv, term * 128 + i)
+        let ev = e[1]
+        if e[0] == 1
+            out = arr_push(out, ev)
+        i = i + 1
+    out
+
+let rk_graph_relate(edges, src, dst, label) =
+    edges = rk_put(edges, src * 8192 + dst, label)
+    edges
+
+let rk_graph_hops(edges, src, hops) =
+    let out = []
+    let visited = []
+    let frontier = [src]
+    let ek = edges[5]
+    let ev = edges[6]
+    let elv = edges[8]
+    let cap = edges[0]
+    let d = 0
+    for d < hops
+        let next = []
+        let fi = 0
+        for fi < len(frontier)
+            let node = frontier[fi]
+            let j = 0
+            for j < cap
+                if elv[j] == 1
+                    let lo = node * 8192
+                    let dst = 0
+                    let hit = 0
+                    if ek[j] >= lo
+                        if ek[j] < lo + 8192
+                            dst = ek[j] - lo
+                            hit = 1
+                    if hit == 1
+                        let seen = 0
+                        let vi = 0
+                        for vi < len(visited)
+                            if visited[vi] == dst
+                                seen = 1
+                            vi = vi + 1
+                        if seen == 0
+                            visited = arr_push(visited, dst)
+                            next = arr_push(next, dst)
+                            out = arr_push(out, dst)
+                            out = arr_push(out, d + 1)
+                j = j + 1
+            fi = fi + 1
+        frontier = next
+        d = d + 1
+    let np = len(out) / 2
+    let p1 = 0
+    for p1 < np
+        let q1 = 0
+        for q1 < np - 1
+            let d1 = out[q1 * 2 + 1]
+            let d2 = out[q1 * 2 + 3]
+            let n1 = out[q1 * 2]
+            let n2 = out[q1 * 2 + 2]
+            let sw = 0
+            if d2 < d1
+                sw = 1
+            if d2 == d1
+                if n2 < n1
+                    sw = 1
+            if sw == 1
+                out[q1 * 2] = n2
+                out[q1 * 2 + 1] = d2
+                out[q1 * 2 + 2] = n1
+                out[q1 * 2 + 3] = d1
+            q1 = q1 + 1
+        p1 = p1 + 1
+    out
+
+let rk_call(state, reg, rid, key, arg) =
+    let act = rk_get(reg, rid)
+    let a = act[1]
+    let out = []
+    if a == 1
+        let c = rk_get(state, key)
+        state = rk_put(state, key, c[1] + arg)
+    if a == 2
+        state = rk_put(state, key, arg)
+    if a == 3
+        state = rk_put(state, key, arg)
+    state = rk_put(state, 90000 + rid, rk_seq(state) + 1)
+    out = arr_push(out, state)
+    out
+
+let rk_put_ix(db, ix, key, val) =
+    let old = rk_get(db, key)
+    if old[0] == 1
+        let ov = old[1]
+        let ok = ov * 4096 + key
+        let fr = rk_find(ix, ok)
+        if fr[0] == 1
+            let zk = ix[5]
+            let rk2 = ix[6]
+            let nk = ix[7]
+            let lv = ix[8]
+            let ds = ix[9]
+            zk[fr[1]] = 0
+            rk2[fr[1]] = 0
+            nk[fr[1]] = 0
+            lv[fr[1]] = 0
+            ds[fr[1]] = 0
+            ix[5] = zk
+            ix[6] = rk2
+            ix[7] = nk
+            ix[8] = lv
+            ix[9] = ds
+            ix[1] = ix[1] - 1
+    let nk2 = val * 4096 + key
+    ix = rk_put(ix, nk2, 1)
+    db = rk_put(db, key, val)
+    [db, ix]
+
+let rk_del_ix(db, ix, key) =
+    let old = rk_get(db, key)
+    if old[0] == 1
+        let ov = old[1]
+        let ok = ov * 4096 + key
+        let fr = rk_find(ix, ok)
+        if fr[0] == 1
+            let zk = ix[5]
+            let rk2 = ix[6]
+            let nk = ix[7]
+            let lv = ix[8]
+            let ds = ix[9]
+            zk[fr[1]] = 0
+            rk2[fr[1]] = 0
+            nk[fr[1]] = 0
+            lv[fr[1]] = 0
+            ds[fr[1]] = 0
+            ix[5] = zk
+            ix[6] = rk2
+            ix[7] = nk
+            ix[8] = lv
+            ix[9] = ds
+            ix[1] = ix[1] - 1
+    db = rk_del(db, key)
+    [db, ix]
+
+let rk_join(a, b) =
+    let out = []
+    let capa = a[0]
+    let za = a[5]
+    let va = a[6]
+    let la = a[8]
+    let capb = b[0]
+    let zb = b[5]
+    let vb = b[6]
+    let lb = b[8]
+    let i = 0
+    for i < capa
+        if la[i] == 1
+            let x = va[i]
+            let j = 0
+            for j < capb
+                if lb[j] == 1
+                    if zb[j] == x
+                        out = arr_push(out, za[i])
+                        out = arr_push(out, x)
+                        out = arr_push(out, zb[j])
+                        out = arr_push(out, vb[j])
+                j = j + 1
+        i = i + 1
+    let nr = len(out) / 4
+    let r1 = 0
+    for r1 < nr
+        let r2 = 0
+        for r2 < nr - 1
+            let k1 = out[r2 * 4]
+            let k2 = out[r2 * 4 + 4]
+            if k2 < k1
+                let t0 = out[r2 * 4]
+                let t1 = out[r2 * 4 + 1]
+                let t2 = out[r2 * 4 + 2]
+                let t3 = out[r2 * 4 + 3]
+                out[r2 * 4] = out[r2 * 4 + 4]
+                out[r2 * 4 + 1] = out[r2 * 4 + 5]
+                out[r2 * 4 + 2] = out[r2 * 4 + 6]
+                out[r2 * 4 + 3] = out[r2 * 4 + 7]
+                out[r2 * 4 + 4] = t0
+                out[r2 * 4 + 5] = t1
+                out[r2 * 4 + 6] = t2
+                out[r2 * 4 + 7] = t3
+            r2 = r2 + 1
+        r1 = r1 + 1
+    out
+
+let rk_orderby(db) =
+    let pfx = rk_prefix_build(db)
+    let zs = pfx[0]
+    let out = []
+    let i = 0
+    for i < len(zs)
+        let z = zs[i]
+        let g = rk_get(db, z)
+        out = arr_push(out, z)
+        out = arr_push(out, g[1])
+        i = i + 1
+    out
+
+let rk_group_count(db) =
+    let tcnt = rk_new()
+    let cap = db[0]
+    let rk = db[6]
+    let lv = db[8]
+    let i = 0
+    for i < cap
+        if lv[i] == 1
+            let v = rk[i]
+            let c = rk_get(tcnt, v)
+            tcnt = rk_put(tcnt, v, c[1] + 1)
+        i = i + 1
+    let out = []
+    let j = 0
+    for j < tcnt[0]
+        if tcnt[8][j] == 1
+            out = arr_push(out, tcnt[5][j])
+            out = arr_push(out, tcnt[6][j])
+        j = j + 1
+    out
+
+let rk_exists(db, key) =
+    let fr = rk_find(db, key)
+    fr[0]
+
+let rk_keys(db) =
+    let out = []
+    let cap = db[0]
+    let zk = db[5]
+    let lv = db[8]
+    let i = 0
+    for i < cap
+        if lv[i] == 1
+            out = arr_push(out, zk[i])
+        i = i + 1
+    out
+
+let rk_values(db) =
+    let out = []
+    let cap = db[0]
+    let rk = db[6]
+    let lv = db[8]
+    let i = 0
+    for i < cap
+        if lv[i] == 1
+            out = arr_push(out, rk[i])
+        i = i + 1
+    i = 0
+    out
+
+let rk_mem(db) =
+    let cap = db[0]
+    let nh = len(db[10])
+    let nw = len(db[13]) / 5
+    let nf = len(db[14]) / 4
+    let total = 5 + cap * 5 + nh * 3 + nw * 5 + nf * 4
+    [db[1], db[10] != 0, nh, nw, total]
+
+let rk_audit_full(db) =
+    let issues = 0
+    let cap = db[0]
+    let zk = db[5]
+    let rk = db[6]
+    let nk = db[7]
+    let lv = db[8]
+    let cnt = db[1]
+    let live = 0
+    let tomb = 0
+    let i = 0
+    for i < cap
+        if lv[i] == 1
+            live = live + 1
+        if lv[i] == 0
+            if zk[i] != 0
+                tomb = tomb + 1
+        i = i + 1
+    if live != cnt
+        issues = issues + 1
+    let hk = db[10]
+    let h = 0
+    for h < len(hk)
+        h = h + 1
+    let wal = db[13]
+    if len(wal) % 5 != 0
+        issues = issues + 1
+    let fr = db[14]
+    if len(fr) % 4 != 0
+        issues = issues + 1
+    issues
+
+let rk_gcounter_new(nreplicas) =
+    let out = []
+    let i = 0
+    for i < nreplicas
+        out = arr_push(out, 0)
+        i = i + 1
+    out
+
+let rk_gcounter_inc(g, rid, amount) =
+    g[rid] = g[rid] + amount
+    g
+
+let rk_gcounter_value(g) =
+    let sum = 0
+    let i = 0
+    for i < len(g)
+        sum = sum + g[i]
+        i = i + 1
+    sum
+
+let rk_gcounter_merge(ga, gb) =
+    let n = len(ga)
+    if len(gb) > n
+        n = len(gb)
+    let out = []
+    let i = 0
+    for i < n
+        let a = 0
+        if i < len(ga)
+            a = ga[i]
+        let b = 0
+        if i < len(gb)
+            b = gb[i]
+        if a > b
+            out = arr_push(out, a)
+        else
+            out = arr_push(out, b)
+        i = i + 1
+    out
+
+let rk_pncounter_new(nreplicas) =
+    let p = rk_gcounter_new(nreplicas)
+    let n = rk_gcounter_new(nreplicas)
+    [p, n]
+
+let rk_pncounter_inc(pnc, rid, amount) =
+    let p = pnc[0]
+    p[rid] = p[rid] + amount
+    pnc[0] = p
+    pnc
+
+let rk_pncounter_dec(pnc, rid, amount) =
+    let n = pnc[1]
+    n[rid] = n[rid] + amount
+    pnc[1] = n
+    pnc
+
+let rk_pncounter_value(pnc) =
+    let pv = rk_gcounter_value(pnc[0])
+    let nv = rk_gcounter_value(pnc[1])
+    pv - nv
+
+let rk_pncounter_merge(a, b) =
+    let pm = rk_gcounter_merge(a[0], b[0])
+    let nm = rk_gcounter_merge(a[1], b[1])
+    [pm, nm]
+
+let rk_lwwset_add(s, key, ts) =
+    let out = []
+    let found = 0
+    let i = 0
+    for i < len(s)
+        let k = s[i]
+        let t = s[i + 1]
+        if k == key
+            found = 1
+            if ts > t
+                out = arr_push(out, key)
+                out = arr_push(out, ts)
+            else
+                out = arr_push(out, key)
+                out = arr_push(out, t)
+        else
+            out = arr_push(out, k)
+            out = arr_push(out, t)
+        i = i + 2
+    if found == 0
+        out = arr_push(out, key)
+        out = arr_push(out, ts)
+    out
+
+let rk_lwwset_remove(s, key, ts) =
+    let out = []
+    let found = 0
+    let i = 0
+    for i < len(s)
+        let k = s[i]
+        let t = s[i + 1]
+        if k == key
+            found = 1
+            if ts > t
+                out = arr_push(out, key)
+                out = arr_push(out, ts)
+            else
+                out = arr_push(out, key)
+                out = arr_push(out, t)
+        else
+            out = arr_push(out, k)
+            out = arr_push(out, t)
+        i = i + 2
+    if found == 0
+        out = arr_push(out, key)
+        out = arr_push(out, ts)
+    out
+
+let rk_lwwset_contains(s, key) =
+    let i = 0
+    let found = 0
+    for i < len(s)
+        if s[i] == key
+            if s[i + 1] > 0
+                found = 1
+        i = i + 2
+    found
+
+let rk_lwwset_merge(sa, sb) =
+    let out = []
+    let i = 0
+    for i < len(sa)
+        let k = sa[i]
+        let t = sa[i + 1]
+        let j = 0
+        let best_t = 0
+        let found_in_b = 0
+        for j < len(sb)
+            if sb[j] == k
+                found_in_b = 1
+                if sb[j + 1] > best_t
+                    best_t = sb[j + 1]
+            j = j + 2
+        if found_in_b == 0
+            out = arr_push(out, k)
+            out = arr_push(out, t)
+        else
+            if t > best_t
+                out = arr_push(out, k)
+                out = arr_push(out, t)
+            else
+                out = arr_push(out, k)
+                out = arr_push(out, best_t)
+        i = i + 2
+    let j2 = 0
+    for j2 < len(sb)
+        let k2 = sb[j2]
+        let exists_in_a = 0
+        let i2 = 0
+        for i2 < len(out)
+            if out[i2] == k2
+                exists_in_a = 1
+            i2 = i2 + 1
+        if exists_in_a == 0
+            out = arr_push(out, k2)
+            out = arr_push(out, sb[j2 + 1])
+        j2 = j2 + 1
+    out
+
+let rk_incr(db, key, amount) =
+    let g = rk_get(db, key)
+    db = rk_put(db, key, g[1] + amount)
+    db
+
+let rk_batch_put(db, kv) =
+    let i = 0
+    for i < len(kv)
+        let k = kv[i]
+        let v = kv[i + 1]
+        db = rk_put(db, k, v)
+        i = i + 2
+    db
+
+let rk_del_range(db, lo, hi) =
+    let cap = db[0]
+    let zk = db[5]
+    let rk = db[6]
+    let nk = db[7]
+    let lv = db[8]
+    let ds = db[9]
+    let cnt = db[1]
+    let i = 0
+    for i < cap
+        if lv[i] == 1
+            let z = zk[i]
+            if z >= lo
+                if z <= hi
+                    lv[i] = 0
+                    cnt = cnt - 1
+        i = i + 1
+    db[1] = cnt
+    db[8] = lv
+    db
+
+let rk_count_range(db, lo, hi) =
+    let cnt = 0
+    let cap = db[0]
+    let zk = db[5]
+    let lv = db[8]
+    let i = 0
+    for i < cap
+        if lv[i] == 1
+            let z = zk[i]
+            if z >= lo
+                if z <= hi
+                    cnt = cnt + 1
+        i = i + 1
+    cnt
+
+let rk_hist_digest(db) =
+    let hk = db[10]
+    let hv = db[11]
+    let hn = db[12]
+    let a1 = 0
+    let a2 = 0
+    let i = 0
+    for i < len(hk)
+        a1 = (a1 + rk_mulmod(hk[i], 1009, RK_P1) + rk_mulmod(hv[i], 31, RK_P1) + rk_mulmod(hn[i], 7, RK_P1)) % RK_P1
+        a2 = (a2 + rk_mulmod(hk[i], 1009, RK_P2) + rk_mulmod(hv[i], 31, RK_P2) + rk_mulmod(hn[i], 7, RK_P2)) % RK_P2
+        i = i + 1
+    [a1, a2]
+
+let rk_csv(db) =
+    let out = [999983]
+    out = arr_push(out, db[2])
+    out = arr_push(out, db[1])
+    let fp = rk_fingerprint(db)
+    out = arr_push(out, fp[0])
+    out = arr_push(out, fp[1])
+    let hd = rk_hist_digest(db)
+    out = arr_push(out, hd[0])
+    out = arr_push(out, hd[1])
+    let livez = []
+    let zk = db[5]
+    let rk = db[6]
+    let nk = db[7]
+    let lv = db[8]
+    let i = 0
+    for i < db[0]
+        if lv[i] == 1
+            livez = arr_push(livez, zk[i])
+            livez = arr_push(livez, rk[i])
+            livez = arr_push(livez, nk[i])
+        i = i + 1
+    out = arr_push(out, len(livez) / 3)
+    out = arr_push(out, len(db[10]))
+    out = arr_push(out, len(db[13]))
+    let j = 0
+    for j < len(livez)
+        out = arr_push(out, livez[j])
+        j = j + 1
+    let hk = db[10]
+    let hv = db[11]
+    let hn = db[12]
+    let k = 0
+    for k < len(hk)
+        out = arr_push(out, hk[k])
+        out = arr_push(out, hv[k])
+        out = arr_push(out, hn[k])
+        k = k + 1
+    let wal = db[13]
+    let w = 0
+    for w < len(wal)
+        out = arr_push(out, wal[w])
+        w = w + 1
+    out
+
+let rk_parse_csv(csv) =
+    csv
+
+let rk_ints_csv(ints) =
+    ints
+
+let rk_load_csv(csv) =
+    if csv[0] != 999983
+        rk_new()
+    else
+        let nl = csv[7]
+        let nh = csv[8]
+        let nw = csv[9]
+        let wal = []
+        let wb = 10 + nl * 3 + nh * 3
+        let w = 0
+        for w < nw
+            wal = arr_push(wal, csv[wb + w])
+            w = w + 1
+        let db2 = rk_wal_replay(wal)
+        db2[2] = csv[1]
+        let hk = []
+        let hv = []
+        let hn = []
+        let hb = 10 + nl * 3
+        let h = 0
+        for h < nh
+            hk = arr_push(hk, csv[hb + h * 3])
+            hv = arr_push(hv, csv[hb + h * 3 + 1])
+            hn = arr_push(hn, csv[hb + h * 3 + 2])
+            h = h + 1
+        db2[10] = hk
+        db2[11] = hv
+        db2[12] = hn
+        let fp = rk_fingerprint(db2)
+        let ok = 1
+        if fp[0] != csv[3]
+            ok = 0
+        if fp[1] != csv[4]
+            ok = 0
+        let hd = rk_hist_digest(db2)
+        if hd[0] != csv[5]
+            ok = 0
+        if hd[1] != csv[6]
+            ok = 0
+        if ok == 1
+            db2[14] = arr_push(db2[14], csv[1])
+            db2[14] = arr_push(db2[14], csv[2])
+            db2[14] = arr_push(db2[14], csv[3])
+            db2[14] = arr_push(db2[14], csv[4])
+        else
+            db2[14] = arr_push(db2[14], csv[1])
+            db2[14] = arr_push(db2[14], csv[2])
+            db2[14] = arr_push(db2[14], csv[3] + 1)
+            db2[14] = arr_push(db2[14], csv[4])
+        db2
+
+let rk_save_disk(db, path) =
+    let csv = rk_csv(db)
+    write_file(path, csv)
+
+let rk_resonance(db, z0, rad, thr) =
+    let out = []
+    let cap = db[0]
+    let zk = db[5]
+    let rk = db[6]
+    let lv = db[8]
+    let i = 0
+    for i < cap
+        if lv[i] == 1
+            let z = zk[i]
+            let v = rk[i]
+            let d0 = z - z0
+            if d0 < 0
+                d0 = 0 - d0
+            if d0 > 0
+                if d0 <= rad
+                    let c = v / d0
+                    if c >= thr
+                        out = arr_push(out, z)
+                        out = arr_push(out, v)
+                        out = arr_push(out, c)
+        i = i + 1
+    let n = len(out) / 3
+    let a0 = 0
+    for a0 < n
+        let b2 = 0
+        for b2 < n - 1
+            let c1 = out[b2 * 3 + 2]
+            let c2 = out[b2 * 3 + 5]
+            if c2 > c1
+                let t0 = out[b2 * 3]
+                let t1 = out[b2 * 3 + 1]
+                let t2 = out[b2 * 3 + 2]
+                out[b2 * 3] = out[b2 * 3 + 3]
+                out[b2 * 3 + 1] = out[b2 * 3 + 4]
+                out[b2 * 3 + 2] = out[b2 * 3 + 5]
+                out[b2 * 3 + 3] = t0
+                out[b2 * 3 + 4] = t1
+                out[b2 * 3 + 5] = t2
+            b2 = b2 + 1
+        a0 = a0 + 1
+    out
+
+let rk_tx2pc(pa, pb, kva, kvb, cons) =
+    let fa = rk_fork(pa)
+    let fb = rk_fork(pb)
+    let i = 0
+    for i < len(kva)
+        fa = rk_put(fa, kva[i], kva[i + 1])
+        i = i + 2
+    let j = 0
+    for j < len(kvb)
+        fb = rk_put(fb, kvb[j], kvb[j + 1])
+        j = j + 2
+    let ok = 1
+    let k = 0
+    for k < len(cons)
+        let sel = cons[k]
+        let key = cons[k + 1]
+        let pred = cons[k + 2]
+        let arg = cons[k + 3]
+        let row = rk_get(fa, key)
+        if sel == 2
+            row = rk_get(fb, key)
+        if rk_match(row[1], pred, arg) == 0
+            ok = 0
+        k = k + 4
+    if ok == 1
+        [1, fa, fb]
+    else
+        [0, pa, pb]
+
+let rk_frame_chain(db) =
+    let fr = db[14]
+    let chain = rk_new()
+    let n = len(fr)
+    let i = 0
+    for i + 3 < n
+        let seq = fr[i]
+        let packed = fr[i + 2] * RK_P2 + fr[i + 3]
+        chain = rk_put(chain, seq, packed)
+        i = i + 4
+    [chain, i / 4]
+
+let rk_frame_audit(db, chain) =
+    let fr = db[14]
+    let n = len(fr)
+    let m = n / 4
+    let ok = 1
+    if chain[1] != m
+        ok = 0
+    let i = 0
+    for i + 3 < n
+        let seq = fr[i]
+        let packed = fr[i + 2] * RK_P2 + fr[i + 3]
+        let row = rk_get(chain, seq)
+        if row[0] == 0
+            ok = 0
+        else
+            if row[1] != packed
+                ok = 0
+        i = i + 4
+    ok
+
+let rk_lease_try_lock(lz, db, key, ttl) =
+    let cur = rk_get(lz, key)
+    if cur[0] == 1
+        if cur[1] > db[2]
+            [0, lz]
+        else
+            [1, rk_put(lz, key, db[2] + ttl)]
+    else
+        [1, rk_put(lz, key, db[2] + ttl)]
+
+let rk_resonance_p(db, z0, rad, thr, p) =
+    let out = []
+    let cap = db[0]
+    let zk = db[5]
+    let rk = db[6]
+    let lv = db[8]
+    let i = 0
+    for i < cap
+        if lv[i] == 1
+            let z = zk[i]
+            let v = rk[i]
+            let d0 = z - z0
+            if d0 < 0
+                d0 = 0 - d0
+            if d0 > 0
+                if d0 <= rad
+                    let dn = rk_norm(d0, p)
+                    if dn > 0
+                        let c = rk_mulmod(v, rk_inv(dn, p), p)
+                        if c >= thr
+                            out = arr_push(out, z)
+                            out = arr_push(out, v)
+                            out = arr_push(out, c)
+        i = i + 1
+    let n = len(out) / 3
+    let a0 = 0
+    for a0 < n
+        let b2 = 0
+        for b2 < n - 1
+            let c1 = out[b2 * 3 + 2]
+            let c2 = out[b2 * 3 + 5]
+            if c2 > c1
+                let t0 = out[b2 * 3]
+                let t1 = out[b2 * 3 + 1]
+                let t2 = out[b2 * 3 + 2]
+                out[b2 * 3] = out[b2 * 3 + 3]
+                out[b2 * 3 + 1] = out[b2 * 3 + 4]
+                out[b2 * 3 + 2] = out[b2 * 3 + 5]
+                out[b2 * 3 + 3] = t0
+                out[b2 * 3 + 4] = t1
+                out[b2 * 3 + 5] = t2
+            b2 = b2 + 1
+        a0 = a0 + 1
+    out
+
+let rk_resonance_x(db, z0, rad, thr1, thr2) =
+    let r1 = rk_resonance_p(db, z0, rad, thr1, RK_P1)
+    let r2 = rk_resonance_p(db, z0, rad, thr2, RK_P2)
+    let out = []
+    let i = 0
+    for i < len(r1)
+        let z = r1[i]
+        let v = r1[i + 1]
+        let c1 = r1[i + 2]
+        let j = 0
+        let f = 0 - 1
+        for j < len(r2)
+            if r2[j] == z
+                f = j
+                j = len(r2)
+            else
+                j = j + 3
+        if f >= 0
+            out = arr_push(out, z)
+            out = arr_push(out, v)
+            out = arr_push(out, c1)
+            out = arr_push(out, r2[f + 2])
+        i = i + 3
+    let m = len(out) / 4
+    let a0 = 0
+    for a0 < m
+        let b2 = 0
+        for b2 < m - 1
+            if out[b2 * 4 + 4] < out[b2 * 4]
+                let t0 = out[b2 * 4]
+                let t1 = out[b2 * 4 + 1]
+                let t2 = out[b2 * 4 + 2]
+                let t3 = out[b2 * 4 + 3]
+                out[b2 * 4] = out[b2 * 4 + 4]
+                out[b2 * 4 + 1] = out[b2 * 4 + 5]
+                out[b2 * 4 + 2] = out[b2 * 4 + 6]
+                out[b2 * 4 + 3] = out[b2 * 4 + 7]
+                out[b2 * 4 + 4] = t0
+                out[b2 * 4 + 5] = t1
+                out[b2 * 4 + 6] = t2
+                out[b2 * 4 + 7] = t3
+            b2 = b2 + 1
+        a0 = a0 + 1
+    out
+
+let rk_knn_c(db, z0, k) =
+    let out = []
+    let cap = db[0]
+    let zk = db[5]
+    let lv = db[8]
+    let i = 0
+    for i < cap
+        if lv[i] == 1
+            let z = zk[i]
+            let d0 = z - z0
+            if d0 < 0
+                d0 = 0 - d0
+            out = arr_push(out, z)
+            out = arr_push(out, d0)
+        i = i + 1
+    let n = len(out) / 2
+    let a0 = 0
+    for a0 < n
+        let b2 = 0
+        for b2 < n - 1
+            let d1 = out[b2 * 2 + 1]
+            let d2 = out[b2 * 2 + 3]
+            let z1 = out[b2 * 2]
+            let z2 = out[b2 * 2 + 2]
+            let sw = 0
+            if d2 < d1
+                sw = 1
+            if d2 == d1
+                if z2 < z1
+                    sw = 1
+            if sw == 1
+                out[b2 * 2] = z2
+                out[b2 * 2 + 1] = d2
+                out[b2 * 2 + 2] = z1
+                out[b2 * 2 + 3] = d1
+            b2 = b2 + 1
+        a0 = a0 + 1
+    if k < n
+        let cut = []
+        let j = 0
+        for j < k * 2
+            cut = arr_push(cut, out[j])
+            j = j + 1
+        cut
+    else
+        out
+
+let rk_search_cert(db, z0, rad, k, thr2) =
+    let rx = rk_resonance_x(db, z0, rad, 0, thr2)
+    let m = len(rx) / 4
+    let a0 = 0
+    for a0 < m
+        let b2 = 0
+        for b2 < m - 1
+            let s1 = rx[b2 * 4 + 2]
+            let s2 = rx[b2 * 4 + 6]
+            if s2 > s1
+                let t0 = rx[b2 * 4]
+                let t1 = rx[b2 * 4 + 1]
+                let t2 = rx[b2 * 4 + 2]
+                let t3 = rx[b2 * 4 + 3]
+                rx[b2 * 4] = rx[b2 * 4 + 4]
+                rx[b2 * 4 + 1] = rx[b2 * 4 + 5]
+                rx[b2 * 4 + 2] = rx[b2 * 4 + 6]
+                rx[b2 * 4 + 3] = rx[b2 * 4 + 7]
+                rx[b2 * 4 + 4] = t0
+                rx[b2 * 4 + 5] = t1
+                rx[b2 * 4 + 6] = t2
+                rx[b2 * 4 + 7] = t3
+            b2 = b2 + 1
+        a0 = a0 + 1
+    if k < m
+        let cut = []
+        let j = 0
+        for j < k * 4
+            cut = arr_push(cut, rx[j])
+            j = j + 1
+        cut
+    else
+        rx
+
+let rk_search_page(db, z0, rad, thr1, thr2, off, lim) =
+    let rx = rk_resonance_x(db, z0, rad, thr1, thr2)
+    let out = []
+    let i = off * 4
+    let end4 = (off + lim) * 4
+    if end4 > len(rx)
+        end4 = len(rx)
+    for i < end4
+        out = arr_push(out, rx[i])
+        i = i + 1
+    out
+
+let true RK_P3 = 524287
+
+let rk_domain_bind(cat, name, p) =
+    cat = rk_put(cat, name, p)
+    cat
+
+let rk_domain_of(cat, name) =
+    rk_get(cat, name)
+
+let rk_resonance_dom(db, cat, name, z0, rad, thr) =
+    let row = rk_get(cat, name)
+    if row[0] == 0
+        []
+    else
+        rk_resonance_p(db, z0, rad, thr, row[1])
+
+let rk_fed2(a, b, z0, rad, thr1, thr2) =
+    let ra = rk_resonance_x(a, z0, rad, thr1, thr2)
+    let rb = rk_resonance_x(b, z0, rad, thr1, thr2)
+    let out = []
+    let i = 0
+    for i < len(ra)
+        out = arr_push(out, ra[i])
+        i = i + 1
+    let j = 0
+    for j < len(rb)
+        out = arr_push(out, rb[j])
+        j = j + 1
+    let n = len(out) / 4
+    let a0 = 0
+    for a0 < n
+        let b2 = 0
+        for b2 < n - 1
+            let sw = 0
+            if out[b2 * 4 + 4] < out[b2 * 4]
+                sw = 1
+            if sw == 1
+                let t0 = out[b2 * 4]
+                let t1 = out[b2 * 4 + 1]
+                let t2 = out[b2 * 4 + 2]
+                let t3 = out[b2 * 4 + 3]
+                out[b2 * 4] = out[b2 * 4 + 4]
+                out[b2 * 4 + 1] = out[b2 * 4 + 5]
+                out[b2 * 4 + 2] = out[b2 * 4 + 6]
+                out[b2 * 4 + 3] = out[b2 * 4 + 7]
+                out[b2 * 4 + 4] = t0
+                out[b2 * 4 + 5] = t1
+                out[b2 * 4 + 6] = t2
+                out[b2 * 4 + 7] = t3
+            b2 = b2 + 1
+        a0 = a0 + 1
+    let ded = []
+    let lastz = 0 - 1
+    let r = 0
+    for r < n
+        let z = out[r * 4]
+        if z != lastz
+            ded = arr_push(ded, out[r * 4])
+            ded = arr_push(ded, out[r * 4 + 1])
+            ded = arr_push(ded, out[r * 4 + 2])
+            ded = arr_push(ded, out[r * 4 + 3])
+            lastz = z
+        r = r + 1
+    ded
+
+let rk_audit_new() =
+    [65536, 131070]
+
+let rk_audit_digest(h1, h2, kind, key, val) =
+    let n1 = (rk_mulmod(h1, 1009, RK_P1) + rk_mulmod(kind, 31, RK_P1) + rk_mulmod(key, 7, RK_P1) + rk_mulmod(val, 3, RK_P1)) % RK_P1
+    let n2 = (rk_mulmod(h2, 1009, RK_P2) + rk_mulmod(kind, 31, RK_P2) + rk_mulmod(key, 7, RK_P2) + rk_mulmod(val, 3, RK_P2)) % RK_P2
+    [n1, n2]
+
+let rk_audit_append(stream, kind, key, val) =
+    let n = len(stream)
+    let nh = rk_audit_digest(stream[n - 2], stream[n - 1], kind, key, val)
+    let out = arr_push(stream, kind)
+    out = arr_push(out, key)
+    out = arr_push(out, val)
+    out = arr_push(out, nh[0])
+    out = arr_push(out, nh[1])
+    out
+
+let rk_audit_verify(stream) =
+    let h1 = stream[0]
+    let h2 = stream[1]
+    let ok = 1
+    let i = 2
+    for i + 4 < len(stream) + 1
+        let ekind = stream[i]
+        let ekey = stream[i + 1]
+        let eval = stream[i + 2]
+        let eh1 = stream[i + 3]
+        let eh2 = stream[i + 4]
+        let nh = rk_audit_digest(h1, h2, ekind, ekey, eval)
+        if nh[0] != eh1
+            ok = 0
+        if nh[1] != eh2
+            ok = 0
+        h1 = eh1
+        h2 = eh2
+        i = i + 5
+    ok
+
+let rk_audit_len(stream) =
+    (len(stream) - 2) / 5
+
+let rk_fed2p(a, b, z0, rad, thr1, thr2) =
+    let rows = rk_fed2(a, b, z0, rad, thr1, thr2)
+    let uni = rk_new()
+    let i = 0
+    for i < len(rows)
+        uni = rk_put(uni, rows[i], rows[i + 1])
+        i = i + 4
+    uni
+
+let true RK_AUDIT_KEY = 424242
+
+let rk_audit_seal(db, stream) =
+    let n = len(stream)
+    let packed = stream[n - 2] * RK_P2 + stream[n - 1]
+    db = rk_put(db, RK_AUDIT_KEY, packed)
+    db
+
+let rk_audit_cross(db, stream) =
+    let row = rk_get(db, RK_AUDIT_KEY)
+    if row[0] == 0
+        0
+    else
+        let n = len(stream)
+        let packed = stream[n - 2] * RK_P2 + stream[n - 1]
+        if row[1] == packed
+            1
+        else
+            0
+
+let rk_txn_occ(db, base_seq, kv, ck, cp, ca) =
+    if db[2] != base_seq
+        [0, db]
+    else
+        rk_txn(db, kv, ck, cp, ca)
+
+let rk_readrepair(r1, r2, r3) =
+    let m12 = rk_merge(r1, r2)
+    let m = rk_merge(m12, r3)
+    [m, m, m]
+
+let rk_quorum_read(r1, r2, r3, key) =
+    let g1 = rk_get(r1, key)
+    let g2 = rk_get(r2, key)
+    let g3 = rk_get(r3, key)
+    let bver = 0
+    let bval = 0
+    let bfound = 0
+    if g1[0] == 1
+        bver = r1[7][rk_find(r1, key)[1]]
+        bval = g1[1]
+        bfound = 1
+    if g2[0] == 1
+        let v2 = r2[7][rk_find(r2, key)[1]]
+        if bfound == 0
+            bver = v2
+            bval = g2[1]
+            bfound = 1
+        else
+            if v2 > bver
+                bver = v2
+                bval = g2[1]
+    if g3[0] == 1
+        let v3 = r3[7][rk_find(r3, key)[1]]
+        if bfound == 0
+            bver = v3
+            bval = g3[1]
+            bfound = 1
+        else
+            if v3 > bver
+                bver = v3
+                bval = g3[1]
+    [bfound, bval]
+
+let rk_scan_page(db, after, lim) =
+    let pfx = rk_prefix_build(db)
+    let zs = pfx[0]
+    let rs = pfx[1]
+    let n = len(zs)
+    let lo = 0
+    let hi = n
+    for lo < hi
+        let mid = (lo + hi) / 2
+        if zs[mid] <= after
+            lo = mid + 1
+        else
+            hi = mid
+    let out = []
+    let i = lo
+    let cnt = 0
+    for i < n
+        if cnt >= lim
+            i = n
+        else
+            out = arr_push(out, zs[i])
+            out = arr_push(out, rs[i])
+            cnt = cnt + 1
+        i = i + 1
+    out
+
+let rk_put_unique(db, ix, key, val) =
+    let lo = val * 4096
+    let probe = rk_scan_page(ix, lo - 1, 1)
+    let free = 1
+    if len(probe) == 2
+        if probe[0] <= lo + 4095
+            free = 0
+    if free == 0
+        [0, db, ix]
+    else
+        let r = rk_put_ix(db, ix, key, val)
+        [1, r[0], r[1]]
+
+let rk_put_fk(db, parent, key, val) =
+    let ref = rk_get(parent, val)
+    if ref[0] == 1
+        db = rk_put(db, key, val)
+        [1, db]
+    else
+        [0, db]
+
+let true QP_RANGE = 1
+let true QP_MATCH = 2
+let true QP_NEAR = 3
+let true QP_LIMIT = 4
+let true QP_OFFSET = 5
+
+let rk_rows_sortz(rows) =
+    let n = len(rows) / 2
+    let a0 = 0
+    for a0 < n
+        let b2 = 0
+        for b2 < n - 1
+            let sw = 0
+            if rows[b2 * 2 + 2] < rows[b2 * 2]
+                sw = 1
+            if sw == 1
+                let tz = rows[b2 * 2]
+                let tv = rows[b2 * 2 + 1]
+                rows[b2 * 2] = rows[b2 * 2 + 2]
+                rows[b2 * 2 + 1] = rows[b2 * 2 + 3]
+                rows[b2 * 2 + 2] = tz
+                rows[b2 * 2 + 3] = tv
+            b2 = b2 + 1
+        a0 = a0 + 1
+    rows
+
+let rk_rows_filter(rows, pred, arg) =
+    let out = []
+    let i = 0
+    for i < len(rows)
+        if rk_match(rows[i + 1], pred, arg) == 1
+            out = arr_push(out, rows[i])
+            out = arr_push(out, rows[i + 1])
+        i = i + 2
+    out
+
+let rk_rows_near(rows, z0, rad) =
+    let out = []
+    let i = 0
+    for i < len(rows)
+        let d0 = rows[i] - z0
+        if d0 < 0
+            d0 = 0 - d0
+        if d0 <= rad
+            out = arr_push(out, rows[i])
+            out = arr_push(out, rows[i + 1])
+        i = i + 2
+    out
+
+let rk_rows_limit(rows, k) =
+    let m = len(rows) / 2
+    let lim = k
+    if lim > m
+        lim = m
+    let out = []
+    let i = 0
+    for i < lim * 2
+        out = arr_push(out, rows[i])
+        out = arr_push(out, rows[i + 1])
+        i = i + 2
+    out
+
+let rk_rows_offset(rows, n) =
+    let out = []
+    let i = n * 2
+    for i < len(rows)
+        out = arr_push(out, rows[i])
+        out = arr_push(out, rows[i + 1])
+        i = i + 2
+    out
+
+let rk_query(db, plan) =
+    let rows = []
+    let nseg = len(plan) / 3
+    let s = 0
+    for s < nseg
+        let op = plan[s * 3]
+        let x = plan[s * 3 + 1]
+        let y = plan[s * 3 + 2]
+        let known = 0
+        if op == QP_RANGE
+            known = 1
+            rows = rk_range(db, x, y)
+            rows = rk_rows_sortz(rows)
+        if op == QP_MATCH
+            known = 1
+            rows = rk_rows_filter(rows, x, y)
+        if op == QP_NEAR
+            known = 1
+            rows = rk_rows_near(rows, x, y)
+        if op == QP_LIMIT
+            known = 1
+            rows = rk_rows_limit(rows, x)
+        if op == QP_OFFSET
+            known = 1
+            rows = rk_rows_offset(rows, x)
+        if op == QP_VSORT_DESC
+            known = 1
+            rows = rk_rows_vsort_desc(rows)
+        if op == QP_VEQ
+            known = 1
+            rows = rk_rows_veq(rows, x)
+        if op == QP_UNIQUE
+            known = 1
+            rows = rk_rows_unique(rows)
+        if known == 0
+            rows = []
+        s = s + 1
+    rows
+
+let rk_plan_store(cat, planId, plan) =
+    let base = 100000 + planId * 100
+    let i = 0
+    for i < len(plan)
+        cat = rk_put(cat, base + i, plan[i])
+        i = i + 1
+    cat = rk_put(cat, planId, base)
+    cat = rk_put(cat, 50000 + planId, len(plan))
+    cat
+
+let rk_plan_load(cat, planId) =
+    let b = rk_get(cat, planId)
+    let ln = rk_get(cat, 50000 + planId)
+    if b[0] == 0
+        []
+    else
+        let plan = []
+        let i = 0
+        for i < ln[1]
+            let e = rk_get(cat, b[1] + i)
+            plan = arr_push(plan, e[1])
+            i = i + 1
+        plan
+
+let rk_query_stored(db, cat, planId) =
+    let plan = rk_plan_load(cat, planId)
+    rk_query(db, plan)
+
+let rk_plan_opt(plan) =
+    let out = []
+    let n = len(plan) / 3
+    let i = 0
+    for i < n
+        let op = plan[i * 3]
+        let x = plan[i * 3 + 1]
+        let y = plan[i * 3 + 2]
+        let take = 1
+        if op == QP_OFFSET
+            if x == 0
+                take = 0
+        if take == 1
+            out = arr_push(out, op)
+            out = arr_push(out, x)
+            out = arr_push(out, y)
+        i = i + 1
+    let fin = []
+    let m = len(out) / 3
+    let j = 0
+    for j < m
+        let op = out[j * 3]
+        let x = out[j * 3 + 1]
+        let y = out[j * 3 + 2]
+        let merged = 0
+        let ln = len(fin)
+        if j > 0
+            if ln >= 3
+                if fin[ln - 3] == op
+                    merged = 1
+                    if op == QP_OFFSET
+                        fin[ln - 2] = fin[ln - 2] + x
+                    if op == QP_LIMIT
+                        if x < fin[ln - 2]
+                            fin[ln - 2] = x
+                    if op == QP_RANGE
+                        if x > fin[ln - 2]
+                            fin[ln - 2] = x
+                        if y < fin[ln - 1]
+                            fin[ln - 1] = y
+        if merged == 0
+            fin = arr_push(fin, op)
+            fin = arr_push(fin, x)
+            fin = arr_push(fin, y)
+        j = j + 1
+    fin
+
+let true QP_VSORT_DESC = 6
+let true QP_VEQ = 7
+let true QP_UNIQUE = 8
+
+let rk_rows_vsort_desc(rows) =
+    let n = len(rows) / 2
+    let a0 = 0
+    for a0 < n
+        let b2 = 0
+        for b2 < n - 1
+            let sw = 0
+            if rows[b2 * 2 + 1] < rows[b2 * 2 + 3]
+                sw = 1
+            if sw == 1
+                let tz = rows[b2 * 2]
+                let tv = rows[b2 * 2 + 1]
+                rows[b2 * 2] = rows[b2 * 2 + 2]
+                rows[b2 * 2 + 1] = rows[b2 * 2 + 3]
+                rows[b2 * 2 + 2] = tz
+                rows[b2 * 2 + 3] = tv
+            b2 = b2 + 1
+        a0 = a0 + 1
+    rows
+
+let rk_rows_veq(rows, val) =
+    let out = []
+    let i = 0
+    for i < len(rows)
+        if rows[i + 1] == val
+            out = arr_push(out, rows[i])
+            out = arr_push(out, rows[i + 1])
+        i = i + 2
+    out
+
+let rk_rows_unique(rows) =
+    let out = []
+    let seen = rk_new()
+    let i = 0
+    for i < len(rows)
+        let v = rows[i + 1]
+        if rk_exists(seen, v) == 0
+            seen = rk_put(seen, v, 1)
+            out = arr_push(out, rows[i])
+            out = arr_push(out, rows[i + 1])
+        i = i + 2
+    out
+
+let true LWE_N = 8
+let true LWE_DELTA = 65
+
+let lwe_keygen(seed) =
+    let s = []
+    let sd = seed
+    let i = 0
+    for i < LWE_N
+        sd = (sd * 1103515245 + 12345) % 2147483648
+        s = arr_push(s, (sd / 65536) % 3)
+        i = i + 1
+    s
+
+let lwe_enc(s, m, seed) =
+    let out = []
+    let sd = seed
+    let acc = 0
+    let i = 0
+    for i < LWE_N
+        sd = (sd * 1103515245 + 12345) % 2147483648
+        let ai = sd % 65537
+        out = arr_push(out, ai)
+        acc = (acc + ai * s[i]) % 65537
+        i = i + 1
+    sd = (sd * 1103515245 + 12345) % 2147483648
+    let e = sd % 2
+    out = arr_push(out, (acc + m * LWE_DELTA + e) % 65537)
+    out
+
+let lwe_dec(s, ct) =
+    let acc = 0
+    let i = 0
+    for i < LWE_N
+        acc = (acc + ct[i] * s[i]) % 65537
+        i = i + 1
+    let v = (ct[LWE_N] - acc + 65537) % 65537
+    (v + 32) / 65
+
+let lwe_add(ct1, ct2) =
+    let out = []
+    let i = 0
+    for i < len(ct1)
+        out = arr_push(out, (ct1[i] + ct2[i]) % 65537)
+        i = i + 1
+    out
+
+let bc_pack(db) =
+    let fp = rk_fingerprint(db)
+    let fr = db[14]
+    let nn = len(fr)
+    let chainTop = 0
+    if nn >= 4
+        chainTop = fr[nn - 4] * 65537 + fr[nn - 3]
+    let hk = db[10]
+    let hv = db[11]
+    let cnt = len(hk)
+    let htop = 0
+    if cnt > 0
+        htop = hk[cnt - 1] * 65537 + hv[cnt - 1]
+    [fp[0], chainTop, htop]
+
+let rk_col_read(db, klo, khi) =
+    let zk = db[5]
+    let rk = db[6]
+    let lv = db[8]
+    let cap = db[0]
+    let out = []
+    let i = 0
+    for i < cap
+        if lv[i] == 1
+            let z = zk[i]
+            if z >= klo
+                if z <= khi
+                    out = arr_push(out, z)
+                    out = arr_push(out, rk[i])
+        i = i + 1
+    out
+
+let rk_col_vals(db, klo, khi) =
+    let zk = db[5]
+    let rk = db[6]
+    let lv = db[8]
+    let cap = db[0]
+    let out = []
+    let i = 0
+    for i < cap
+        if lv[i] == 1
+            let z = zk[i]
+            if z >= klo
+                if z <= khi
+                    out = arr_push(out, rk[i])
+        i = i + 1
+    out
+
+let ts_key(layer, ttype, index) =
+    layer * 1000000 + ttype * 10000 + index
+
+let ts_read_layer(pool, layer, ttype) =
+    let base = layer * 1000000 + ttype * 10000
+    let vals = []
+    let cap = pool[0]
+    let i = 0
+    for i < cap
+        if pool[8][i] == 1
+            let z = pool[5][i]
+            if z >= base
+                if z < base + 10000
+                    vals = arr_push(vals, pool[6][i])
+        i = i + 1
+    vals
+

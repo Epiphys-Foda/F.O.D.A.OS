@@ -1,0 +1,24 @@
+import "ck.ψ"
+let bad = [0]
+
+let re100 = 19732700 / (137 * 511)
+bad[0] = bad[0] + ck(re100, 280, 284)
+
+let sig6 = 83776 * re100 * re100 / 100
+bad[0] = bad[0] + ck(sig6, 66000000, 67100000)
+
+let NUML = 3 * 6674 * 1989 * 16726 * 299792
+let REL2 = re100 * re100
+let K = 2 * REL2 * 1000000000000
+if 122 * K > NUML * 100
+    bad[0] = bad[0] + 1
+if NUML * 100 > 129 * K
+    bad[0] = bad[0] + 1
+
+let r4 = NUML / (2 * REL2 * 3828 * 10000)
+bad[0] = bad[0] + ck(r4, 31000, 34000)
+
+let lhs = 300 * 3828 * 10000 * 2 * REL2
+bad[0] = bad[0] + ck_hi(lhs, NUML)
+
+arr_get(arr_new_n(1), bad[0])

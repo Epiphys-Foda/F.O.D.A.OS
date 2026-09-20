@@ -1,0 +1,1586 @@
+let rf_db_mulmod(a, b, p) =
+    let r = 0
+    let x = a % p
+    let y = b
+    let done = false
+    for !done
+      if y > 0
+        if y % 2 == 1
+          r = (r + x) % p
+        else
+          0
+        x = (x + x) % p
+        y = y / 2
+      else
+        done = true
+    r
+
+let rf_db_mul(a, b) = rf_db_mulmod(a, b, 65537)
+
+let rf_db_mod_pow(a, b, p) =
+    let base = a
+    let exp = b
+    let acc = 1
+    let done = false
+    for !done
+      if exp > 0
+        if exp % 2 == 1
+          acc = rf_db_mulmod(acc, base, p)
+        else
+          0
+        base = rf_db_mulmod(base, base, p)
+        exp = exp / 2
+      else
+        done = true
+    acc
+
+let rf_db_inv(z) = rf_db_mod_pow(z, 65535, 65537)
+
+let rf_db_z(x, y) = (x + rf_db_mul(y, 65281)) % 65537
+
+let rf_db_field(db, x, y) =
+    let acc = 0
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(db)
+        let xk = db[i]
+        let yk = db[i + 1]
+        let rk = db[i + 2]
+        let zk = rf_db_z(xk, yk)
+        let z = rf_db_z(x, y)
+        let dz = (z - zk) % 65537
+        let dz_p = (dz < 0 ? dz + 65537 : dz)
+        if dz_p != 0
+          let term = rf_db_mul(rk, rf_db_inv(dz_p))
+          let s = acc + term
+          if s >= 65537
+            acc = s - 65537
+          else
+            acc = s
+        i = i + 3
+      else
+        done = true
+    acc
+
+let rf_db_create() = []
+
+let rf_db_count(db) = len(db) / 3
+
+let rf_db_is_empty(db) = len(db) == 0
+
+let rf_db_insert(db, zx, zy, r) =
+    let i = 0
+    let hit_idx = -1
+    let done = false
+    for !done
+      if i + 2 < len(db)
+        if db[i] == zx && db[i + 1] == zy
+          hit_idx = i + 2
+          done = true
+        else
+          i = i + 3
+      else
+        done = true
+    if hit_idx >= 0
+      rf_db_set(db, hit_idx, (db[hit_idx] + r) % 65537)
+    else
+      rf_db_append3(db, zx, zy, r)
+
+let rf_db_probe(db, x, y) = rf_db_field(db, x, y)
+
+let rf_db_set(db, idx, val) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(db)
+        if i == idx
+          out = out.push(val)
+        else
+          out = out.push(db[i])
+        i = i + 1
+      else
+        done = true
+    out
+
+let rf_db_append3(db, a, b, c) =
+    let t1 = db.push(a)
+    let t2 = t1.push(b)
+    t2.push(c)
+
+let rf_db_in_rect(px, py, cx, cy, w, h) =
+    (px > cx - w / 2) && (px < cx + w / 2) && (py > cy - h / 2) && (py < cy + h / 2)
+
+let rf_db_residue_sum(db, cx, cy, w, h) =
+    let sum = 0
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(db)
+        let xk = db[i]
+        let yk = db[i + 1]
+        let rk = db[i + 2]
+        if rf_db_in_rect(xk, yk, cx, cy, w, h)
+          let s = sum + rk
+          if s >= 65537
+            sum = s - 65537
+          else
+            sum = s
+        else
+          0
+        i = i + 3
+      else
+        done = true
+    sum
+
+let rf_db_count_poles_in(db, cx, cy, w, h) =
+    let count = 0
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(db)
+        let xk = db[i]
+        let yk = db[i + 1]
+        if rf_db_in_rect(xk, yk, cx, cy, w, h)
+          count = count + 1
+        else
+          0
+        i = i + 3
+      else
+        done = true
+    count
+
+let rf_db_select(db, cx, cy, w, h) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(db)
+        let xk = db[i]
+        let yk = db[i + 1]
+        let rk = db[i + 2]
+        if rf_db_in_rect(xk, yk, cx, cy, w, h)
+          out = out.push(xk)
+          out = out.push(yk)
+          out = out.push(rk)
+        else
+          0
+        i = i + 3
+      else
+        done = true
+    out
+
+let rf_db_join(db1, db2) =
+    let out = []
+    let i = 0
+    let done1 = false
+    for !done1
+      if i + 2 < len(db1)
+        let zx = db1[i]
+        let zy = db1[i + 1]
+        let r1 = db1[i + 2]
+        let j = 0
+        let found_r2 = 0
+        let has_match = false
+        let done2 = false
+        for !done2
+          if j + 2 < len(db2)
+            if db2[j] == zx && db2[j + 1] == zy
+              found_r2 = db2[j + 2]
+              has_match = true
+              done2 = true
+            else
+              j = j + 3
+          else
+            done2 = true
+        if has_match
+          out = out.push(zx)
+          out = out.push(zy)
+          out = out.push((r1 + found_r2) % 65537)
+        else
+          0
+        i = i + 3
+      else
+        done1 = true
+    out
+
+let rf_db_forget(db, zx, zy) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(db)
+        if db[i] == zx && db[i + 1] == zy
+        else
+          out = out.push(db[i])
+          out = out.push(db[i + 1])
+          out = out.push(db[i + 2])
+          0
+        i = i + 3
+      else
+        done = true
+    out
+
+let rf_db_contract_1() =
+    let db = rf_db_create()
+    let db1 = rf_db_insert(db, 0, 0, 5)
+    let db2 = rf_db_insert(db1, 10, 0, 3)
+    let db3 = rf_db_insert(db2, 20, 0, 7)
+    rf_db_count(db3) == 3
+
+let rf_db_contract_2() =
+    let db = rf_db_create()
+    let db1 = rf_db_insert(db, 0, 0, 5)
+    let db2 = rf_db_insert(db1, 0, 0, 3)
+    (rf_db_count(db2) == 1) && (rf_db_residue_sum(db2, 0, 0, 20, 20) == 8)
+
+let rf_db_contract_3() =
+    let db = rf_db_create()
+    let probe_val = rf_db_probe(db, 5, 5)
+    let residue = rf_db_residue_sum(db, 0, 0, 100, 100)
+    let count = rf_db_count(db)
+    (probe_val == 0) && (residue == 0) && (count == 0)
+
+let rf_db_contract_select() =
+    let db = rf_db_create()
+    let db1 = rf_db_insert(db, 0, 0, 1)
+    let db2 = rf_db_insert(db1, 10, 0, 2)
+    let db3 = rf_db_insert(db2, 100, 0, 3)
+    let sel = rf_db_select(db3, 5, 0, 20, 20)
+    let sel_far = rf_db_select(db3, 100, 0, 10, 10)
+    let sel_empty = rf_db_select(db3, 500, 500, 10, 10)
+    (rf_db_count(sel) == 2) && (rf_db_count(sel_far) == 1) && (rf_db_count(sel_empty) == 0)
+
+let rf_db_contract_join() =
+    let db1 = rf_db_create()
+    let db1a = rf_db_insert(db1, 0, 0, 5)
+    let db1b = rf_db_insert(db1a, 10, 0, 3)
+    let db2 = rf_db_create()
+    let db2a = rf_db_insert(db2, 0, 0, 7)
+    let db2b = rf_db_insert(db2a, 20, 0, 9)
+    let joined = rf_db_join(db1b, db2b)
+    (rf_db_count(joined) == 1) && (rf_db_residue_sum(joined, 0, 0, 20, 20) == 12)
+
+let rf_db_contract_homotopy() =
+    let db = rf_db_create()
+    let db1 = rf_db_insert(db, 0, 0, 1)
+    let db2 = rf_db_insert(db1, 4, 4, 2)
+    let r1 = rf_db_residue_sum(db2, 0, 0, 12, 12)
+    let r2 = rf_db_residue_sum(db2, 0, 0, 20, 20)
+    let r3 = rf_db_residue_sum(db2, 0, 0, 100, 100)
+    (r1 == r2) && (r2 == r3) && (r1 == 3)
+
+let rf_db_contract_additivity() =
+    let db = rf_db_create()
+    let db1 = rf_db_insert(db, 0, 0, 1)
+    let db2 = rf_db_insert(db1, 10, 0, 2)
+    let db3 = rf_db_insert(db2, 20, 0, 3)
+    let r_big = rf_db_residue_sum(db3, 10, 0, 40, 10)
+    let r_s1 = rf_db_residue_sum(db3, 0, 0, 4, 4)
+    let r_s2 = rf_db_residue_sum(db3, 10, 0, 4, 4)
+    let r_s3 = rf_db_residue_sum(db3, 20, 0, 4, 4)
+    r_big == (r_s1 + r_s2 + r_s3)
+
+let rf_db_contract_probe() =
+    let db = rf_db_create()
+    let db1 = rf_db_insert(db, 3, 4, 7)
+    let probe_val = rf_db_probe(db1, 10, 5)
+    probe_val != 0
+
+let rf_db_contract_forget() =
+    let db = rf_db_create()
+    let db1 = rf_db_insert(db, 0, 0, 5)
+    let db2 = rf_db_insert(db1, 10, 0, 3)
+    let db3 = rf_db_forget(db2, 0, 0)
+    (rf_db_count(db3) == 1) && (rf_db_residue_sum(db3, 0, 0, 100, 100) == 3)
+
+let rf_db_contract_forget_idem() =
+    let db = rf_db_create()
+    let db1 = rf_db_insert(db, 0, 0, 5)
+    let db2 = rf_db_forget(db1, 100, 100)
+    rf_db_count(db2) == 1
+
+let rf_db_gf_to_le4(gf) =
+    let b0 = gf % 256
+    let b1 = (gf / 256) % 256
+    let b2 = (gf / 65536) % 256
+    [b0, b1, b2, 0]
+
+let rf_db_le4_to_gf(bytes, off) =
+    let b0 = bytes[off]
+    let b1 = bytes[off + 1]
+    let b2 = bytes[off + 2]
+    b0 + b1 * 256 + b2 * 65536
+
+let rf_db_checksum(db) =
+    let acc = 0
+    let i = 0
+    let done = false
+    for !done
+      if i < len(db)
+        let s = acc + db[i]
+        if s >= 65537
+          acc = s - 65537
+        else
+          acc = s
+        i = i + 1
+      else
+        done = true
+    acc
+
+let rf_db_to_bytes(db) =
+    let n_poles = rf_db_count(db)
+    let out = [80, 83, 73, 68]
+    out = out.push(n_poles % 256)
+    out = out.push((n_poles / 256) % 256)
+    out = out.push((n_poles / 65536) % 256)
+    out = out.push(0)
+    let i = 0
+    let done1 = false
+    for !done1
+      if i < len(db)
+        let bs = rf_db_gf_to_le4(db[i])
+        out = out.push(bs[0])
+        out = out.push(bs[1])
+        out = out.push(bs[2])
+        out = out.push(bs[3])
+        i = i + 1
+      else
+        done1 = true
+    let cksum = rf_db_checksum(db)
+    let cs = rf_db_gf_to_le4(cksum)
+    out = out.push(cs[0])
+    out = out.push(cs[1])
+    out = out.push(cs[2])
+    out = out.push(cs[3])
+    out
+
+let rf_db_from_bytes(bytes) =
+    let m0 = bytes[0]
+    let m1 = bytes[1]
+    let m2 = bytes[2]
+    let m3 = bytes[3]
+    let magic_ok = (m0 == 80) && (m1 == 83) && (m2 == 73) && (m3 == 68)
+    if !magic_ok
+      []
+    else
+      let n_poles = rf_db_le4_to_gf(bytes, 4)
+      let db = []
+      let i = 0
+      let off = 8
+      let done1 = false
+      for !done1
+        if i < n_poles * 3
+          let gf = rf_db_le4_to_gf(bytes, off)
+          db = db.push(gf)
+          off = off + 4
+          i = i + 1
+        else
+          done1 = true
+      let stored_cksum = rf_db_le4_to_gf(bytes, off)
+      let actual_cksum = rf_db_checksum(db)
+      if stored_cksum != actual_cksum
+        []
+      else
+        db
+
+let rf_db_equal(db1, db2) =
+    let n1 = len(db1)
+    let n2 = len(db2)
+    if n1 != n2
+      false
+    else
+      let ok = true
+      let i = 0
+      let done = false
+      for !done
+        if i < n1
+          if db1[i] != db2[i]
+            ok = false
+            done = true
+          else
+            i = i + 1
+        else
+          done = true
+      ok
+
+let rf_db_wal_create() =
+    let w = []
+    w = w.push(80)
+    w = w.push(83)
+    w = w.push(87)
+    w = w.push(76)
+    w
+
+let rf_db_wal_append(wal, op, zx, zy, r) =
+    let bs_op = rf_db_gf_to_le4(op)
+    let bs_zx = rf_db_gf_to_le4(zx)
+    let bs_zy = rf_db_gf_to_le4(zy)
+    let bs_r = rf_db_gf_to_le4(r)
+    let w = wal
+    w = w.push(bs_op[0])
+    w = w.push(bs_op[1])
+    w = w.push(bs_op[2])
+    w = w.push(bs_op[3])
+    w = w.push(bs_zx[0])
+    w = w.push(bs_zx[1])
+    w = w.push(bs_zx[2])
+    w = w.push(bs_zx[3])
+    w = w.push(bs_zy[0])
+    w = w.push(bs_zy[1])
+    w = w.push(bs_zy[2])
+    w = w.push(bs_zy[3])
+    w = w.push(bs_r[0])
+    w = w.push(bs_r[1])
+    w = w.push(bs_r[2])
+    w = w.push(bs_r[3])
+    w
+
+let rf_db_wal_apply(db, op, zx, zy, r) =
+    if op == 1
+      rf_db_insert(db, zx, zy, r)
+    else
+      if op == 2
+        rf_db_forget(db, zx, zy)
+      else
+        db
+
+let rf_db_wal_replay(wal) =
+    let m0 = wal[0]
+    let m1 = wal[1]
+    let m2 = wal[2]
+    let m3 = wal[3]
+    let magic_ok = (m0 == 80) && (m1 == 83) && (m2 == 87) && (m3 == 76)
+    if !magic_ok
+      []
+    else
+      let db = rf_db_create()
+      let off = 4
+      let done = false
+      for !done
+        if off + 16 <= len(wal)
+          let op = rf_db_le4_to_gf(wal, off)
+          let zx = rf_db_le4_to_gf(wal, off + 4)
+          let zy = rf_db_le4_to_gf(wal, off + 8)
+          let r = rf_db_le4_to_gf(wal, off + 12)
+          db = rf_db_wal_apply(db, op, zx, zy, r)
+          off = off + 16
+        else
+          done = true
+      db
+
+let rf_db_load_bytes(path) =
+    let n = host_call(2, path, 0)
+    let bytes = []
+    let i = 0
+    let done = false
+    for !done
+      if i < n
+        bytes = bytes.push(host_call(4, i, 0))
+        i = i + 1
+      else
+        done = true
+    bytes
+
+let rf_db_save(db, path) =
+    let bytes = rf_db_to_bytes(db)
+    host_call(101, path, bytes)
+
+let rf_db_load(path) =
+    let bytes = rf_db_load_bytes(path)
+    rf_db_from_bytes(bytes)
+
+let rf_db_wal_save(wal, path) = host_call(101, path, wal)
+
+let rf_db_wal_load(path) = rf_db_load_bytes(path)
+
+let rf_db_restore(snap_db, wal) =
+    let m0 = wal[0]
+    let m1 = wal[1]
+    let m2 = wal[2]
+    let m3 = wal[3]
+    let magic_ok = (m0 == 80) && (m1 == 83) && (m2 == 87) && (m3 == 76)
+    let out_db = snap_db
+    let off = 4
+    let done = false
+    if magic_ok
+      for !done
+        if off + 16 <= len(wal)
+          let op = rf_db_le4_to_gf(wal, off)
+          let zx = rf_db_le4_to_gf(wal, off + 4)
+          let zy = rf_db_le4_to_gf(wal, off + 8)
+          let r = rf_db_le4_to_gf(wal, off + 12)
+          out_db = rf_db_wal_apply(out_db, op, zx, zy, r)
+          off = off + 16
+        else
+          done = true
+    else
+      0
+    out_db
+
+let rf_db_contract_serialize_roundtrip() =
+    let db0 = rf_db_create()
+    let db1 = rf_db_insert(db0, 0, 0, 5)
+    let db2 = rf_db_insert(db1, 10, 0, 3)
+    let db3 = rf_db_insert(db2, 0, 0, 2)
+    let bytes = rf_db_to_bytes(db3)
+    let db_restored = rf_db_from_bytes(bytes)
+    rf_db_equal(db3, db_restored)
+
+let rf_db_contract_checksum_detect() =
+    let db0 = rf_db_create()
+    let db1 = rf_db_insert(db0, 100, 200, 50)
+    let db2 = rf_db_insert(db1, 300, 400, 75)
+    let cksum_orig = rf_db_checksum(db2)
+    let db_corrupt = rf_db_set(db2, 2, 51)
+    let cksum_corrupt = rf_db_checksum(db_corrupt)
+    cksum_orig != cksum_corrupt
+
+let rf_db_contract_wal_replay() =
+    let db_direct0 = rf_db_create()
+    let db_direct1 = rf_db_insert(db_direct0, 1, 2, 10)
+    let db_direct2 = rf_db_insert(db_direct1, 3, 4, 20)
+    let db_direct3 = rf_db_forget(db_direct2, 1, 2)
+    let wal0 = rf_db_wal_create()
+    let wal1 = rf_db_wal_append(wal0, 1, 1, 2, 10)
+    let wal2 = rf_db_wal_append(wal1, 1, 3, 4, 20)
+    let wal3 = rf_db_wal_append(wal2, 2, 1, 2, 0)
+    let db_replayed = rf_db_wal_replay(wal3)
+    rf_db_equal(db_direct3, db_replayed)
+
+let rf_db_contract_snapshot_restore() =
+    let db_init0 = rf_db_create()
+    let db_init1 = rf_db_insert(db_init0, 5, 5, 100)
+    let db_init2 = rf_db_insert(db_init1, 10, 10, 200)
+    let snap_bytes = rf_db_to_bytes(db_init2)
+    let snap_db = rf_db_from_bytes(snap_bytes)
+    let wal0 = rf_db_wal_create()
+    let wal1 = rf_db_wal_append(wal0, 1, 20, 20, 50)
+    let wal2 = rf_db_wal_append(wal1, 2, 5, 5, 0)
+    let db_restored = rf_db_restore(snap_db, wal2)
+    let expected0 = rf_db_create()
+    let expected1 = rf_db_insert(expected0, 5, 5, 100)
+    let expected2 = rf_db_insert(expected1, 10, 10, 200)
+    let expected3 = rf_db_insert(expected2, 20, 20, 50)
+    let expected4 = rf_db_forget(expected3, 5, 5)
+    rf_db_equal(db_restored, expected4)
+
+let rf_db_half_inv = 32769
+
+let rf_db_window(db, k) =
+    let n_poles = rf_db_count(db)
+    let take = (k < n_poles ? k : n_poles)
+    let start = (n_poles - take) * 3
+    let out = []
+    let i = start
+    let done = false
+    for !done
+      if i < len(db)
+        out = out.push(db[i])
+        i = i + 1
+      else
+        done = true
+    out
+
+let rf_db_hot_poles(db, threshold) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(db)
+        let rk = db[i + 2]
+        if rk >= threshold
+          out = out.push(db[i])
+          out = out.push(db[i + 1])
+          out = out.push(rk)
+        else
+          0
+        i = i + 3
+      else
+        done = true
+    out
+
+let rf_db_carve(db, zx, zy, delta) = rf_db_insert(db, zx, zy, delta)
+
+let rf_db_decay(db, factor) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(db)
+        let zx = db[i]
+        let zy = db[i + 1]
+        let rk = db[i + 2]
+        let new_r = rf_db_mul(rk, factor)
+        out = out.push(zx)
+        out = out.push(zy)
+        out = out.push(new_r)
+        i = i + 3
+      else
+        done = true
+    out
+
+let rf_db_auto_forget(db, threshold) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(db)
+        let rk = db[i + 2]
+        if rk >= threshold
+          out = out.push(db[i])
+          out = out.push(db[i + 1])
+          out = out.push(rk)
+        else
+          0
+        i = i + 3
+      else
+        done = true
+    out
+
+let rf_db_invert_residue(probe_val, z, zk) =
+    let dz = (z - zk) % 65537
+    let dz_p = (dz < 0 ? dz + 65537 : dz)
+    rf_db_mul(probe_val, dz_p)
+
+let rf_db_learn(db, query_x, query_y, reward) = rf_db_carve(db, query_x, query_y, reward)
+
+let rf_db_contract_carve_enhance() =
+    let db0 = rf_db_create()
+    let db1 = rf_db_insert(db0, 5, 5, 10)
+    let db2 = rf_db_carve(db1, 5, 5, 20)
+    (rf_db_count(db2) == 1) && (db2[2] == 30)
+
+let rf_db_contract_decay_half() =
+    let db0 = rf_db_create()
+    let db1 = rf_db_insert(db0, 0, 0, 100)
+    let db2 = rf_db_insert(db1, 10, 0, 200)
+    let db3 = rf_db_decay(db2, rf_db_half_inv)
+    let r0 = db3[2]
+    let r1 = db3[5]
+    (r0 == 50) && (r1 == 100)
+
+let rf_db_contract_window_limit() =
+    let db0 = rf_db_create()
+    let db1 = rf_db_insert(db0, 1, 0, 10)
+    let db2 = rf_db_insert(db1, 2, 0, 20)
+    let db3 = rf_db_insert(db2, 3, 0, 30)
+    let db4 = rf_db_insert(db3, 4, 0, 40)
+    let win = rf_db_window(db4, 2)
+    rf_db_count(win) == 2
+
+let rf_db_contract_auto_forget() =
+    let db0 = rf_db_create()
+    let db1 = rf_db_insert(db0, 1, 0, 5)
+    let db2 = rf_db_insert(db1, 2, 0, 50)
+    let db3 = rf_db_insert(db2, 3, 0, 3)
+    let db4 = rf_db_auto_forget(db3, 10)
+    (rf_db_count(db4) == 1) && (rf_db_residue_sum(db4, 0, 0, 100, 100) == 50)
+
+let rf_db_arr_set(arr, idx, val) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(arr)
+        if i == idx
+          out = out.push(val)
+        else
+          out = out.push(arr[i])
+        i = i + 1
+      else
+        done = true
+    out
+
+let rf_db_shard(db, k) =
+    let shards = []
+    let i = 0
+    let done0 = false
+    for !done0
+      if i < k
+        shards = shards.push([])
+        i = i + 1
+      else
+        done0 = true
+    let j = 0
+    let done1 = false
+    for !done1
+      if j + 2 < len(db)
+        let shard_idx = (j / 3) % k
+        let target = shards[shard_idx]
+        let t1 = target.push(db[j])
+        let t2 = t1.push(db[j + 1])
+        let t3 = t2.push(db[j + 2])
+        shards = rf_db_arr_set(shards, shard_idx, t3)
+        j = j + 3
+      else
+        done1 = true
+    shards
+
+let rf_db_unshard(shards) =
+    let out = []
+    let round = 0
+    let done_outer = false
+    for !done_outer
+      let found = false
+      let s = 0
+      let done_s = false
+      for !done_s
+        if s < len(shards)
+          let shard = shards[s]
+          let base = round * 3
+          if base + 2 < len(shard)
+            out = out.push(shard[base])
+            out = out.push(shard[base + 1])
+            out = out.push(shard[base + 2])
+            found = true
+          else
+            0
+          s = s + 1
+        else
+          done_s = true
+      if !found
+        done_outer = true
+      else
+        round = round + 1
+    out
+
+let rf_db_replicate(db, n) =
+    let reps = []
+    let i = 0
+    let done = false
+    for !done
+      if i < n
+        reps = reps.push(db)
+        i = i + 1
+      else
+        done = true
+    reps
+
+let rf_db_recover(replicas) =
+    let i = 0
+    let done = false
+    let result = []
+    for !done
+      if i < len(replicas)
+        let r = replicas[i]
+        if len(r) > 0
+          result = r
+          done = true
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    result
+
+let rf_db_psi_msg_field_frame = 7
+let rf_db_psi_msg_delta_field = 8
+
+let rf_db_to_frame(db) =
+    let payload = rf_db_to_bytes(db)
+    let plen = len(payload)
+    let b0 = rf_db_psi_msg_field_frame * 32
+    let b2 = plen % 256
+    let b3 = plen / 256
+    let frame = []
+    frame = frame.push(b0)
+    frame = frame.push(0)
+    frame = frame.push(b2)
+    frame = frame.push(b3)
+    let i = 0
+    let done = false
+    for !done
+      if i < plen
+        frame = frame.push(payload[i])
+        i = i + 1
+      else
+        done = true
+    frame
+
+let rf_db_from_frame(frame) =
+    let b0 = frame[0]
+    let msg_type = b0 / 32
+    let plen = frame[2] + frame[3] * 256
+    let payload = []
+    let i = 0
+    let done = false
+    for !done
+      if i < plen
+        payload = payload.push(frame[4 + i])
+        i = i + 1
+      else
+        done = true
+    if msg_type == rf_db_psi_msg_field_frame
+      rf_db_from_bytes(payload)
+    else
+      rf_db_create()
+
+let rf_db_delta_frame(old_db, new_db) =
+    let delta_poles = []
+    let i = 0
+    let done0 = false
+    for !done0
+      if i + 2 < len(new_db)
+        let zx = new_db[i]
+        let zy = new_db[i + 1]
+        let r_new = new_db[i + 2]
+        let r_old = 0
+        let found = false
+        let j = 0
+        let done1 = false
+        for !done1
+          if j + 2 < len(old_db)
+            if old_db[j] == zx && old_db[j + 1] == zy
+              r_old = old_db[j + 2]
+              found = true
+              done1 = true
+            else
+              j = j + 3
+          else
+            done1 = true
+        if !found || r_old != r_new
+          delta_poles = delta_poles.push(zx)
+          delta_poles = delta_poles.push(zy)
+          delta_poles = delta_poles.push(r_new)
+        else
+          0
+        i = i + 3
+      else
+        done0 = true
+    let payload = rf_db_to_bytes(delta_poles)
+    let plen = len(payload)
+    let b0 = rf_db_psi_msg_delta_field * 32
+    let b2 = plen % 256
+    let b3 = plen / 256
+    let frame = []
+    frame = frame.push(b0)
+    frame = frame.push(0)
+    frame = frame.push(b2)
+    frame = frame.push(b3)
+    let k = 0
+    let done2 = false
+    for !done2
+      if k < plen
+        frame = frame.push(payload[k])
+        k = k + 1
+      else
+        done2 = true
+    frame
+
+let rf_db_apply_delta(old_db, frame) =
+    let b0 = frame[0]
+    let msg_type = b0 / 32
+    let plen = frame[2] + frame[3] * 256
+    let payload = []
+    let i = 0
+    let done = false
+    for !done
+      if i < plen
+        payload = payload.push(frame[4 + i])
+        i = i + 1
+      else
+        done = true
+    if msg_type == rf_db_psi_msg_delta_field
+      let delta_db = rf_db_from_bytes(payload)
+      let out = old_db
+      let j = 0
+      let done2 = false
+      for !done2
+        if j + 2 < len(delta_db)
+          out = rf_db_insert(out, delta_db[j], delta_db[j + 1], delta_db[j + 2])
+          j = j + 3
+        else
+          done2 = true
+      out
+    else
+      old_db
+
+let rf_db_contract_shard_roundtrip() =
+    let db = rf_db_create()
+    let db1 = rf_db_insert(db, 1, 0, 10)
+    let db2 = rf_db_insert(db1, 2, 0, 20)
+    let db3 = rf_db_insert(db2, 3, 0, 30)
+    let db4 = rf_db_insert(db3, 4, 0, 40)
+    let shards = rf_db_shard(db4, 2)
+    let recombined = rf_db_unshard(shards)
+    rf_db_equal(recombined, db4)
+
+let rf_db_contract_replicate_count() =
+    let db = rf_db_create()
+    let db1 = rf_db_insert(db, 0, 0, 5)
+    let reps = rf_db_replicate(db1, 3)
+    let all_equal = rf_db_equal(reps[0], reps[1]) && rf_db_equal(reps[1], reps[2]) && rf_db_equal(reps[0], db1)
+    (len(reps) == 3) && all_equal
+
+let rf_db_contract_field_frame_roundtrip() =
+    let db = rf_db_create()
+    let db1 = rf_db_insert(db, 7, 11, 77)
+    let db2 = rf_db_insert(db1, 13, 17, 91)
+    let frame = rf_db_to_frame(db2)
+    let decoded = rf_db_from_frame(frame)
+    rf_db_equal(decoded, db2)
+
+let rf_db_contract_delta_apply() =
+    let old_db = rf_db_create()
+    let old1 = rf_db_insert(old_db, 0, 0, 5)
+    let old2 = rf_db_insert(old1, 10, 0, 3)
+    let new_db = rf_db_create()
+    let new1 = rf_db_insert(new_db, 0, 0, 5)
+    let new2 = rf_db_insert(new1, 10, 0, 3)
+    let new3 = rf_db_insert(new2, 20, 0, 7)
+    let frame = rf_db_delta_frame(old2, new3)
+    let applied = rf_db_apply_delta(old2, frame)
+    rf_db_equal(applied, new3)
+
+let rf_db_render_values(db, w, h, cx, cy) =
+    let out = []
+    let y = 0
+    let done_y = false
+    for !done_y
+      if y < h
+        let x = 0
+        let done_x = false
+        for !done_x
+          if x < w
+            let px = cx - w / 2 + x
+            let py = cy - h / 2 + y
+            out = out.push(rf_db_field(db, px, py))
+            x = x + 1
+          else
+            done_x = true
+        y = y + 1
+      else
+        done_y = true
+    out
+
+let rf_db_render_ascii(db, w, h, cx, cy) =
+    let out = []
+    let chars = [32, 46, 58, 45, 61, 43, 42, 35, 37, 64, 64, 64, 64, 64, 64, 64]
+    let y = 0
+    let done_y = false
+    for !done_y
+      if y < h
+        let x = 0
+        let done_x = false
+        for !done_x
+          if x < w
+            let px = cx - w / 2 + x
+            let py = cy - h / 2 + y
+            let val = rf_db_field(db, px, py) % 16
+            let val_p = (val < 0 ? val + 16 : val)
+            out = out.push(chars[val_p])
+            x = x + 1
+          else
+            done_x = true
+        out = out.push(10)
+        y = y + 1
+      else
+        done_y = true
+    out
+
+let rf_db_parity_vector(db, n) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < n
+        let eval_x = i + 1
+        out = out.push(rf_db_field(db, eval_x, 0))
+        i = i + 1
+      else
+        done = true
+    out
+
+let rf_db_parity_verify(db, n, expected) =
+    let actual = rf_db_parity_vector(db, n)
+    let i = 0
+    let ok = true
+    let done = false
+    for !done
+      if i < n
+        if actual[i] != expected[i]
+          ok = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    ok
+
+let rf_db_render_3d_values(db, w, h, d, cx, cy, cz) =
+    let out = []
+    let z = 0
+    let done_z = false
+    for !done_z
+      if z < d
+        let y = 0
+        let done_y = false
+        for !done_y
+          if y < h
+            let x = 0
+            let done_x = false
+            for !done_x
+              if x < w
+                let px = cx - w / 2 + x + cz - d / 2 + z
+                let py = cy - h / 2 + y
+                out = out.push(rf_db_field(db, px, py))
+                x = x + 1
+              else
+                done_x = true
+            y = y + 1
+          else
+            done_y = true
+        z = z + 1
+      else
+        done_z = true
+    out
+
+let rf_db_contract_render_grid() =
+    let db = rf_db_create()
+    let db1 = rf_db_insert(db, 5, 5, 10)
+    let vals = rf_db_render_values(db1, 4, 4, 5, 5)
+    len(vals) == 16
+
+let rf_db_contract_parity_dfl() =
+    let db = rf_db_create()
+    let db1 = rf_db_insert(db, 3, 0, 7)
+    let p1 = rf_db_parity_vector(db1, 3)
+    let p2 = rf_db_parity_vector(db1, 3)
+    (len(p1) == 3) && (p1[0] == p2[0]) && (p1[1] == p2[1]) && (p1[2] == p2[2])
+
+let rf_db_contract_parity_detect() =
+    let db = rf_db_create()
+    let db1 = rf_db_insert(db, 5, 5, 10)
+    let expected = rf_db_parity_vector(db1, 3)
+    let ok_before = rf_db_parity_verify(db1, 3, expected)
+    let db_corrupt = rf_db_set(db1, 2, 20)
+    let ok_after = rf_db_parity_verify(db_corrupt, 3, expected)
+    ok_before && !ok_after
+
+let rf_db_contract_render_3d() =
+    let db = rf_db_create()
+    let db1 = rf_db_insert(db, 5, 5, 10)
+    let voxels = rf_db_render_3d_values(db1, 3, 3, 3, 5, 5, 0)
+    len(voxels) == 27
+
+let rf_db_verify() =
+    let results = []
+    results = results.push(rf_db_contract_1())
+    results = results.push(rf_db_contract_2())
+    results = results.push(rf_db_contract_3())
+    results = results.push(rf_db_contract_select())
+    results = results.push(rf_db_contract_join())
+    results = results.push(rf_db_contract_homotopy())
+    results = results.push(rf_db_contract_additivity())
+    results = results.push(rf_db_contract_probe())
+    results = results.push(rf_db_contract_forget())
+    results = results.push(rf_db_contract_forget_idem())
+    results = results.push(rf_db_contract_serialize_roundtrip())
+    results = results.push(rf_db_contract_checksum_detect())
+    results = results.push(rf_db_contract_wal_replay())
+    results = results.push(rf_db_contract_snapshot_restore())
+    results = results.push(rf_db_contract_carve_enhance())
+    results = results.push(rf_db_contract_decay_half())
+    results = results.push(rf_db_contract_window_limit())
+    results = results.push(rf_db_contract_auto_forget())
+    results = results.push(rf_db_contract_shard_roundtrip())
+    results = results.push(rf_db_contract_replicate_count())
+    results = results.push(rf_db_contract_field_frame_roundtrip())
+    results = results.push(rf_db_contract_delta_apply())
+    results = results.push(rf_db_contract_render_grid())
+    results = results.push(rf_db_contract_parity_dfl())
+    results = results.push(rf_db_contract_parity_detect())
+    results = results.push(rf_db_contract_render_3d())
+    results = results.push(rf_db_contract_born_weight())
+    results = results.push(rf_db_contract_born_collapse())
+    results = results.push(rf_db_contract_bragg_symmetric())
+    results = results.push(rf_db_contract_dfl_localize())
+    results = results.push(rf_db_contract_scale_inverse())
+    results = results.push(rf_db_contract_lod_coarsen())
+    results = results.push(rf_db_contract_cgl_detect())
+    results = results.push(rf_db_contract_measure_collapse())
+    results = results.push(rf_db_contract_weak_measure())
+    let total = true
+    let i = 0
+    let done = false
+    for !done
+      if i < len(results)
+        if results[i] == false
+          total = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(total)
+    results
+
+let rf_db_demo() =
+    let db = rf_db_create()
+    let db1 = rf_db_insert(db, 0, 0, 5)
+    let db2 = rf_db_insert(db1, 10, 0, 3)
+    let db3 = rf_db_insert(db2, 0, 0, 2)
+    let probe_val = rf_db_probe(db3, 5, 0)
+    let residue = rf_db_residue_sum(db3, 5, 0, 20, 20)
+    let sel = rf_db_select(db3, 0, 0, 5, 5)
+    [
+      rf_db_count(db3),
+      rf_db_residue_sum(db3, 0, 0, 100, 100),
+      rf_db_count(sel),
+      rf_db_residue_sum(sel, 0, 0, 5, 5),
+      probe_val != 0,
+      residue == 10
+    ]
+
+let rf_db_born_weight(db, k) =
+    let idx = k * 3 + 2
+    let rk = db[idx]
+    rf_db_mul(rk, rk)
+
+let rf_db_born_total(db) =
+    let acc = 0
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(db)
+        let rk = db[i + 2]
+        let w = rf_db_mul(rk, rk)
+        let s = acc + w
+        if s >= 65537
+          acc = s - 65537
+        else
+          acc = s
+        i = i + 3
+      else
+        done = true
+    acc
+
+let rf_db_born_collapse(db) =
+    let n = rf_db_count(db)
+    if n == 0
+    else
+      0
+    let best_idx = 0
+    let best_w = 0
+    let i = 0
+    let done = false
+    for !done
+      if i < n
+        let w = rf_db_born_weight(db, i)
+        if w > best_w
+          best_w = w
+          best_idx = i
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    let base = best_idx * 3
+    [db[base], db[base + 1], db[base + 2]]
+
+let rf_db_born_rank(db) =
+    let n = rf_db_count(db)
+    let idx = []
+    let i = 0
+    let done0 = false
+    for !done0
+      if i < n
+        idx = idx.push(i)
+        i = i + 1
+      else
+        done0 = true
+    let j = 0
+    let done1 = false
+    for !done1
+      if j < n - 1
+        let max_idx = j
+        let k = j + 1
+        let done2 = false
+        for !done2
+          if k < n
+            let wj = rf_db_born_weight(db, idx[max_idx])
+            let wk = rf_db_born_weight(db, idx[k])
+            if wk > wj
+              max_idx = k
+            else
+              0
+            k = k + 1
+          else
+            done2 = true
+        if max_idx != j
+          let tmp = idx[j]
+          let a = rf_db_arr_set(idx, j, idx[max_idx])
+          idx = rf_db_arr_set(a, max_idx, tmp)
+        else
+          0
+        j = j + 1
+      else
+        done1 = true
+    idx
+
+let rf_db_bragg_D1(db, x, y) = rf_db_field(db, x, y)
+
+let rf_db_bragg_R1(db, x, y) = rf_db_field(db, 0 - x, 0 - y)
+
+let rf_db_bragg_verify(db, x, y) =
+    let d1 = rf_db_bragg_D1(db, x, y)
+    let r1 = rf_db_bragg_R1(db, x, y)
+    let d1_sq = rf_db_mul(d1, d1)
+    let r1_sq = rf_db_mul(r1, r1)
+    d1_sq == r1_sq
+
+let rf_db_bragg_firewall(db, x, y) =
+    if rf_db_bragg_verify(db, x, y)
+    else
+      1
+
+let rf_db_dfl_distance_sq(db, k, x, y) =
+    let base = k * 3
+    let dx = (db[base] - x) % 65537
+    let dy = (db[base + 1] - y) % 65537
+    let dx_p = (dx < 0 ? dx + 65537 : dx)
+    let dy_p = (dy < 0 ? dy + 65537 : dy)
+    (rf_db_mul(dx_p, dx_p) + rf_db_mul(dy_p, dy_p)) % 65537
+
+let rf_db_dfl_localize(db, x, y) =
+    let n = rf_db_count(db)
+    if n == 0
+    else
+      0
+    let best_idx = 0
+    let best_d = rf_db_dfl_distance_sq(db, 0, x, y)
+    let i = 1
+    let done = false
+    for !done
+      if i < n
+        let d = rf_db_dfl_distance_sq(db, i, x, y)
+        if d < best_d
+          best_d = d
+          best_idx = i
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    let base = best_idx * 3
+    [db[base], db[base + 1], db[base + 2]]
+
+let rf_db_dfl_interfere(db, z1x, z1y, z2x, z2y) =
+    let psi1 = rf_db_field(db, z1x, z1y)
+    let psi2 = rf_db_field(db, z2x, z2y)
+    let cross = rf_db_mul(2, rf_db_mul(psi1, psi2))
+    let sq1 = rf_db_mul(psi1, psi1)
+    let sq2 = rf_db_mul(psi2, psi2)
+    (sq1 + sq2 + cross) % 65537
+
+let rf_db_dfl_superpose(db1, db2) = rf_db_join(db1, db2)
+
+let rf_db_scale(db, s) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(db)
+        let zx = rf_db_mul(db[i], s)
+        let zy = rf_db_mul(db[i + 1], s)
+        let r = db[i + 2]
+        out = out.push(zx)
+        out = out.push(zy)
+        out = out.push(r)
+        i = i + 3
+      else
+        done = true
+    out
+
+let rf_db_compress(db, threshold) =
+    let out = []
+    let used = []
+    let i = 0
+    let done_i = false
+    for !done_i
+      if i + 2 < len(db)
+        used = used.push(0)
+        i = i + 3
+      else
+        done_i = true
+    let j = 0
+    let done_j = false
+    for !done_j
+      if j + 2 < len(db)
+        if used[j / 3] == 0
+          let cx = db[j]
+          let cy = db[j + 1]
+          let cr = db[j + 2]
+          let sum_x = cx
+          let sum_y = cy
+          let sum_r = cr
+          let cnt = 1
+          let k = j + 3
+          let done_k = false
+          for !done_k
+            if k + 2 < len(db)
+              if used[k / 3] == 0
+                let dx = (db[k] - cx) % 65537
+                let dy = (db[k + 1] - cy) % 65537
+                let dx_p = (dx < 0 ? dx + 65537 : dx)
+                let dy_p = (dy < 0 ? dy + 65537 : dy)
+                let dist = (rf_db_mul(dx_p, dx_p) + rf_db_mul(dy_p, dy_p)) % 65537
+                if dist < threshold
+                  sum_x = (sum_x + db[k]) % 65537
+                  sum_y = (sum_y + db[k + 1]) % 65537
+                  sum_r = (sum_r + db[k + 2]) % 65537
+                  cnt = cnt + 1
+                  used = rf_db_arr_set(used, k / 3, 1)
+                else
+                    0
+              else
+                0
+              k = k + 3
+            else
+              done_k = true
+          out = out.push(sum_x)
+          out = out.push(sum_y)
+          out = out.push(sum_r)
+          used = rf_db_arr_set(used, j / 3, 1)
+        else
+          0
+        j = j + 3
+      else
+        done_j = true
+    out
+
+let rf_db_pow2(level) =
+    let result = 1
+    let i = 0
+    let done = false
+    for !done
+      if i < level
+        result = result * 2
+        i = i + 1
+      else
+        done = true
+    result
+
+let rf_db_lod(db, level) =
+    if level == 0
+    else
+      0
+    let step = rf_db_pow2(level)
+    let grid = []
+    let residues = []
+    let counts = []
+    let i = 0
+    let done0 = false
+    for !done0
+      if i + 2 < len(db)
+        let qx = db[i] / step
+        let qy = db[i + 1] / step
+        let found = false
+        let j = 0
+        let done1 = false
+        for !done1
+          if j < len(grid) / 2
+            if grid[j * 2] == qx && grid[j * 2 + 1] == qy
+              let old_r = residues[j]
+              residues = rf_db_arr_set(residues, j, (old_r + db[i + 2]) % 65537)
+              let old_c = counts[j]
+              counts = rf_db_arr_set(counts, j, old_c + 1)
+              found = true
+              done1 = true
+            else
+              0
+            j = j + 1
+          else
+            done1 = true
+        if !found
+          grid = grid.push(qx)
+          grid = grid.push(qy)
+          residues = residues.push(db[i + 2])
+          counts = counts.push(1)
+        else
+          0
+        i = i + 3
+      else
+        done0 = true
+    let out = []
+    let m = 0
+    let done2 = false
+    for !done2
+      if m < len(grid) / 2
+        out = out.push(grid[m * 2])
+        out = out.push(grid[m * 2 + 1])
+        out = out.push(residues[m])
+        m = m + 1
+      else
+        done2 = true
+    out
+
+let rf_db_session(db, session_id) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(db)
+        let zx = (db[i] + session_id) % 65537
+        let zy = db[i + 1]
+        let r = db[i + 2]
+        out = out.push(zx)
+        out = out.push(zy)
+        out = out.push(r)
+        i = i + 3
+      else
+        done = true
+    out
+
+let rf_db_unify_scale(db, s, level, sid) =
+    let scaled = rf_db_scale(db, s)
+    let sessioned = rf_db_session(scaled, sid)
+    rf_db_lod(sessioned, level)
+
+let rf_db_cgl_detect(seq) =
+    let n = len(seq)
+    if n < 4
+    else
+      0
+    let tortoise = seq[0]
+    let hare = seq[1]
+    let found = false
+    let i = 0
+    let done = false
+    for !done
+      if i < n - 1
+        tortoise = seq[i]
+        if i * 2 + 1 < n
+          hare = seq[i * 2 + 1]
+          if tortoise == hare && i > 0
+            found = true
+            done = true
+          else
+              0
+        else
+          done = true
+        i = i + 1
+      else
+        done = true
+    found
+
+let rf_db_cgl_break(seq) =
+    let out = []
+    let i = 0
+    let done0 = false
+    for !done0
+      if i < len(seq)
+        let v = seq[i]
+        let seen = false
+        let j = 0
+        let done1 = false
+        for !done1
+          if j < len(out)
+            if out[j] == v
+              seen = true
+              done1 = true
+            else
+              0
+            j = j + 1
+          else
+            done1 = true
+        if !seen
+          out = out.push(v)
+        else
+          0
+        i = i + 1
+      else
+        done0 = true
+    out
+
+let rf_db_cgl_report(seq) =
+    let has_cycle = rf_db_cgl_detect(seq)
+    let broken = rf_db_cgl_break(seq)
+    let n = len(seq)
+    let m = len(broken)
+    let head = if has_cycle
+      "CGL: cycle=TRUE"
+    else
+      "CGL: cycle=FALSE"
+    head + " len=" + str(n) + " unique=" + str(m)
+
+let rf_db_eigenstates(db) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(db)
+        let state = [db[i], db[i + 1], db[i + 2]]
+        out = out.push(state)
+        i = i + 3
+      else
+        done = true
+    out
+
+let rf_db_measure(db, x, y) =
+    let val = rf_db_field(db, x, y)
+    let collapsed = rf_db_born_collapse(db)
+    let n = len(collapsed)
+    if n == 0
+    else
+      0
+    [val, collapsed]
+
+let rf_db_weak_measure(db, x, y) = rf_db_field(db, x, y)
+
+let rf_db_superpose_collapse(db, x, y) = rf_db_field(db, x, y)
+
+let rf_db_contract_born_weight() =
+    let db = rf_db_insert(rf_db_insert(rf_db_create(), 0, 0, 5), 10, 0, 3)
+    let w0 = rf_db_born_weight(db, 0)
+    let w1 = rf_db_born_weight(db, 1)
+    let total = rf_db_born_total(db)
+    (w0 == 25) && (w1 == 9) && (total == 34)
+
+let rf_db_contract_born_collapse() =
+    let db = rf_db_insert(rf_db_insert(rf_db_create(), 0, 0, 5), 10, 0, 3)
+    let collapsed = rf_db_born_collapse(db)
+    (collapsed[0] == 0) && (collapsed[1] == 0) && (collapsed[2] == 5)
+
+let rf_db_contract_bragg_symmetric() =
+    let db = rf_db_insert(rf_db_insert(rf_db_create(), 5, 0, 10), 65532, 0, 10)
+    rf_db_bragg_verify(db, 1, 0)
+
+let rf_db_contract_dfl_localize() =
+    let db = rf_db_insert(rf_db_insert(rf_db_create(), 1, 0, 10), 100, 0, 20)
+    let loc = rf_db_dfl_localize(db, 2, 0)
+    (loc[0] == 1) && (loc[1] == 0) && (loc[2] == 10)
+
+let rf_db_contract_scale_inverse() =
+    let db = rf_db_insert(rf_db_insert(rf_db_create(), 10, 20, 30), 40, 50, 60)
+    let scaled = rf_db_scale(db, 2)
+    let restored = rf_db_scale(scaled, rf_db_inv(2))
+    (restored[0] == 10) && (restored[3] == 40)
+
+let rf_db_contract_lod_coarsen() =
+    let db = rf_db_insert(rf_db_insert(rf_db_create(), 2, 0, 10), 3, 0, 20)
+    let lod0 = rf_db_lod(db, 0)
+    let lod1 = rf_db_lod(db, 1)
+    (rf_db_count(lod0) == 2) && (rf_db_count(lod1) == 1)
+
+let rf_db_contract_cgl_detect() =
+    let cyclic = [1, 2, 3, 1, 2, 3, 1, 2, 3]
+    let acyclic = [1, 2, 3, 4, 5]
+    let detected = rf_db_cgl_detect(cyclic)
+    let not_detected = rf_db_cgl_detect(acyclic)
+    detected && !not_detected
+
+let rf_db_contract_measure_collapse() =
+    let db = rf_db_insert(rf_db_insert(rf_db_create(), 0, 0, 5), 10, 0, 3)
+    let result = rf_db_measure(db, 1, 0)
+    let val = result[0]
+    let collapsed = result[1]
+    (val != 0) && (rf_db_count(collapsed) == 1)
+
+let rf_db_contract_weak_measure() =
+    let db = rf_db_insert(rf_db_create(), 5, 5, 10)
+    let v1 = rf_db_weak_measure(db, 10, 0)
+    let v2 = rf_db_weak_measure(db, 10, 0)
+    (v1 == v2) && (rf_db_count(db) == 1)

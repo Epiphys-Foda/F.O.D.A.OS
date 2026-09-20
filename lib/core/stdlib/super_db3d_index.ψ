@@ -1,0 +1,110 @@
+import "super_db.ψ"
+let rf_db3i_build(db3, cells) =
+    let index = [cells]
+    let c = 0
+    let cdone = false
+    for !cdone
+      if c < cells * cells * cells
+        index = index.push(0)
+        c = c + 1
+      else
+        cdone = true
+        0
+    let cell_size = 65537 / cells
+    let i = 0
+    let done = false
+    for !done
+      if i + 3 < len(db3)
+        let cx = db3[i] / cell_size
+        let cy = db3[i + 1] / cell_size
+        let cz = db3[i + 2] / cell_size
+        let cid = (cx * cells + cy) * cells + cz
+        let len_pos = 1 + cid
+        let cur = index[len_pos]
+        index = rf_db_arr_set(index, len_pos, cur + 1)
+        index = index.push(i / 4)
+        i = i + 4
+      else
+        done = true
+    index
+
+let rf_db3i_bucket(index, x, y, z) =
+    let cells = index[0]
+    let cell_size = 65537 / cells
+    let cx = x / cell_size
+    let cy = y / cell_size
+    let cz = z / cell_size
+    (cx * cells + cy) * cells + cz
+
+let rf_db3i_select(db3, index, cx, cy, cz, w, h, d) =
+    let sum = 0
+    let i = 0
+    let done = false
+    for !done
+      if i + 3 < len(db3)
+        let xk = db3[i]
+        let yk = db3[i + 1]
+        let zk = db3[i + 2]
+        let rk = db3[i + 3]
+        if xk > cx - w / 2 && xk < cx + w / 2 && yk > cy - h / 2 && yk < cy + h / 2 && zk > cz - d / 2 && zk < cz + d / 2
+          let s = sum + rk
+          (s >= 65537 ? (sum = s - 65537) : (sum = s))
+        else
+              0
+        i = i + 4
+      else
+            0
+        done = true
+    sum
+
+let rf_db3i_nearest(db3, x, y, z) =
+    let best_d2 = 2147483000
+    let best_pole = 0
+    let i = 0
+    let done = false
+    for !done
+      if i + 3 < len(db3)
+        let dx = x - db3[i]
+        let dy = y - db3[i + 1]
+        let dz = z - db3[i + 2]
+        let ax = (dx < 0 ? 0 - dx : dx)
+        let ay = (dy < 0 ? 0 - dy : dy)
+        let az = (dz < 0 ? 0 - dz : dz)
+        let dx2 = (ax > 26457 ? 700000000 : ax * ax)
+        let dy2 = (ay > 26457 ? 700000000 : ay * ay)
+        let dz2 = (az > 26457 ? 700000000 : az * az)
+        let d2 = dx2 + dy2 + dz2
+        if d2 < best_d2
+          best_d2 = d2
+          best_pole = i / 4
+        else
+          0
+        i = i + 4
+      else
+        done = true
+    [best_pole, best_d2]
+
+let rf_db3i_count(index) =
+    let cells = index[0]
+    let buckets = cells * cells * cells
+    [buckets, len(index) - 1 - buckets]
+
+let rf_db3i_verify(db3, index, x, y, z) =
+    let b1 = rf_db3i_bucket(index, x, y, z)
+    let b2 = rf_db3i_bucket(index, x, y, z)
+    [b1, b2]
+
+let rf_db3i_test() =
+    let db3 = [0, 0, 0, 100, 10, 10, 10, 50]
+    let idx = rf_db3i_build(db3, 4)
+    let t1 = idx[0] == 4
+    let bk = rf_db3i_bucket(idx, 0, 0, 0)
+    let t2 = bk >= 0 && bk < 64
+    let t3 = rf_db3i_select(db3, idx, 0, 0, 0, 10, 10, 10) == 100
+    let near = rf_db3i_nearest(db3, 1, 1, 1)
+    let t4 = near[0] == 0
+    let cnt = rf_db3i_count(idx)
+    let t5 = cnt[0] == 64 && cnt[1] == 2
+    let vf = rf_db3i_verify(db3, idx, 5, 5, 5)
+    let t6 = vf[0] == vf[1]
+    t1 && t2 && t3 && t4 && t5 && t6

@@ -1,0 +1,68 @@
+let P = 65537
+let P2 = 131071
+
+import "../core/stdlib_lang2/gf_canon_shared.ψ"
+import "sh_d39d441e28.ψ"
+let law_gene(L, c1) = rp_make(L, c1, 1)
+
+import "../core/stdlib_lang2/bm_canon.ψ"
+let bm_scan(s, n, T, C) = bm_discover(s, n, T, C)
+
+let bm_predict(C, L, s, n) =
+    let acc = 0
+    let k = 1
+    for k < L + 1
+        acc = gf_add(acc, gf_mul(C[k], s[n - k]))
+        k = k + 1
+    gf_sub(0, acc)
+
+import "sh_ee308d734f.ψ"
+import "sh_bffc56f968.ψ"
+let harm2_eval(nn, tt, nq, out2) =
+    let q1 = nn[0] * nn[0]
+    let q2 = nn[1] * nn[1]
+    let qq = nq * nq
+    let dq = q1 - q2
+    out2[0] = tt[0] * dq * qq + (tt[1] - tt[0]) * q2 * (q1 - qq)
+    out2[1] = dq * qq
+    0
+
+let hash3(t1, t2, t3) =
+    let h = ((t1 * 257 + t2) % P * 257 + t3) % P
+    let isz = 0
+    if h == 0
+        isz = 1
+    h + isz
+
+let f_known(F, cnt, id) =
+    let found = 0
+    let i = 0
+    for i < cnt
+        let eq = 0
+        if F[i] == id
+            eq = 1
+        found = found + eq
+        i = i + 1
+    found
+
+let chain_commit(arr, n, chk_prev) =
+    let acc = chk_prev
+    let w = 1
+    let i = 0
+    for i < n
+        acc = gf_add(acc, gf_mul(arr[i], w))
+        w = gf_mul(w, 3)
+        i = i + 1
+    acc
+
+let rrns_chain(arr, n, mod_val) =
+    let acc = 1
+    let w = 1
+    let i = 0
+    for i < n
+        acc = (acc + (arr[i] % mod_val) * w) % mod_val
+        w = w * 3 % mod_val
+        i = i + 1
+    acc
+
+import "sh_0fe08dee05.ψ"

@@ -1,0 +1,11 @@
+{
+  "generation": 4,
+  "timestamp": "2026-09-05T04:39:27.014062",
+  "topic": "residue_distribution",
+  "gap_rounds": 43,
+  "queries": [
+    "residue theorem moments",
+    "power sum recurrence"
+  ],
+  "instruction": "Proxy: fetch knowledge for these queries (Wikipedia/search), write [{title, text, keyword}] list into web_results.json"
+}

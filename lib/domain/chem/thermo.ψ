@@ -1,0 +1,229 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let tmul(a0, b0) =
+    let r = 0
+    let a = a0
+    let b = b0
+    for b > 0
+        if b % 2 == 1
+            r = r + a
+        a = a + a
+        b = b / 2
+    r
+
+let WATER_T_MELT = 273
+let WATER_T_BOIL = 373
+let WATER_T_CRIT = 647
+let WATER_DS_MELT = 22
+let WATER_DS_BOIL = 109
+
+let thermo_field(T, poles, residues, n) =
+    let val = 0
+    let k = 0
+    for k < n
+        let d = T - poles[k]
+        if d == 0
+            val = gf_add(val, residues[k])
+        else
+            val = gf_add(val, gf_mul(residues[k], gf_inv(gf_norm(d))))
+        k = k + 1
+    val
+
+let WATER_POLES = [273, 373, 647]
+let WATER_RESIDUES = [22, 109, 0]
+
+let water_thermo_field(T) = thermo_field(T, WATER_POLES, WATER_RESIDUES, 3)
+
+let water_cp_x100(T) =
+    let val = 0
+    let k = 0
+    for k < 3
+        let d = T - WATER_POLES[k]
+        if d != 0
+            let dd = gf_mul(gf_norm(d), gf_norm(d))
+            val = gf_add(val, gf_mul(WATER_RESIDUES[k], gf_inv(dd)))
+        k = k + 1
+    gf_mod(val, 5000) + 7500
+
+let phase_of(T) =
+    if T < 273
+        0
+    else
+        0
+    if T < 373
+        1
+    else
+        0
+    if T < 647
+        2
+    else
+        3
+
+let phase_name(p) =
+    if p == 0
+        "Solid"
+    else
+        0
+    if p == 1
+        "Liquid"
+    else
+        0
+    if p == 2
+        "Gas"
+    else
+        "Supercritical"
+
+let VAPOR_PRESSURE_T = [273, 283, 293, 303, 313, 323, 333, 343, 353, 363, 373]
+let VAPOR_PRESSURE_P = [6, 12, 23, 42, 73, 123, 199, 311, 473, 699, 1013]
+
+let vapor_pressure_x10(T) =
+    if T <= 273
+        6
+    else
+        0
+    if T >= 373
+        1013
+    else
+        let i = 0
+        for i < 10 && VAPOR_PRESSURE_T[i + 1] < T
+            i = i + 1
+        let t0 = VAPOR_PRESSURE_T[i]
+        let t1 = VAPOR_PRESSURE_T[i + 1]
+        let p0 = VAPOR_PRESSURE_P[i]
+        let p1 = VAPOR_PRESSURE_P[i + 1]
+        p0 + tmul(p1 - p0, T - t0) / (t1 - t0)
+
+let mix_entropy_x100(x_x1000) =
+    if x_x1000 <= 0 || x_x1000 >= 1000
+        0
+    else
+        tmul(2304, tmul(x_x1000, 1000 - x_x1000)) / 1000000
+
+let ideal_gas_pressure_x100(n, T, V) =
+    tmul(tmul(831, n), T) / V
+
+let thermo_verify() =
+    let t1 = WATER_T_MELT == 273
+    let t2 = WATER_T_BOIL == 373
+    let t3 = WATER_DS_BOIL > WATER_DS_MELT
+    let t4 = phase_of(300) == 1
+    let t5 = phase_of(200) == 0
+    let t6 = phase_of(500) == 2
+    let t7 = phase_of(700) == 3
+    let t8 = vapor_pressure_x10(373) == 1013
+    let t9 = vapor_pressure_x10(273) == 6
+    let t10 = vapor_pressure_x10(323) > vapor_pressure_x10(298)
+    let s50 = mix_entropy_x100(500)
+    let s25 = mix_entropy_x100(250)
+    let t11 = s50 > s25
+    let p = ideal_gas_pressure_x100(1, 273, 22)
+    let t12 = p > 10000 && p < 11000
+    let passed = t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12
+    passed == 12
+
+let VAPOR_POLES_T = [273, 283, 293, 303, 313, 323, 333, 373]
+let VAPOR_ENTHALPIES = [2530, 2510, 2490, 2470, 2450, 2420, 2390, 2260]
+
+let psi_vapor(T) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(T), gf_norm(VAPOR_POLES_T[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(VAPOR_ENTHALPIES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let MIX_POLES_X = [0, 250, 500, 750, 1000]
+let MIX_WEIGHTS = [0, 576, 576, 576, 0]
+
+let psi_mix_entropy(x_x1000) =
+    let val = 0
+    let k = 0
+    for k < 5
+        let diff = gf_sub(gf_norm(x_x1000), gf_norm(MIX_POLES_X[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(MIX_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let thermo_global_response(T, x_x1000) =
+    let e1 = water_thermo_field(T)
+    let e2 = psi_vapor(T)
+    let e3 = psi_mix_entropy(x_x1000)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+
+let clausius_clapeyron_test(T) =
+    let v_low = psi_vapor(T - 10)
+    let v_high = psi_vapor(T + 10)
+    (v_high != v_low ? 1 : 0)
+
+let boltzmann_symmetry_test(x_x1000) =
+    let v1 = psi_mix_entropy(x_x1000)
+    let v2 = psi_mix_entropy(1000 - x_x1000)
+    (v1 == v2 ? 1 : 0)
+
+let nested_fractal_thermo_invariants() =
+    let e1 = water_thermo_field(300)
+    let e2 = psi_vapor(300)
+    let e3 = psi_mix_entropy(500)
+    let inv1 = 0
+    if e1 != 0
+        if e2 != 0
+            if e3 != 0
+                inv1 = 1
+    let inv2 = 0
+    if VAPOR_POLES_T[0] < VAPOR_POLES_T[1]
+        if VAPOR_POLES_T[1] < VAPOR_POLES_T[7]
+            inv2 = 1
+    let inv3 = 0
+    if VAPOR_ENTHALPIES[0] > VAPOR_ENTHALPIES[7]
+        inv3 = 1
+    let inv4 = boltzmann_symmetry_test(250)
+    let inv5 = clausius_clapeyron_test(300)
+    [inv1, inv2, inv3, inv4, inv5]
+
+let thermo_verify_v19() =
+    let t1 = 0
+    if water_thermo_field(300) != 0
+        t1 = 1
+    let t2 = 0
+    if psi_vapor(300) != 0
+        t2 = 1
+    let t3 = 0
+    if psi_mix_entropy(500) != 0
+        t3 = 1
+    let t4 = clausius_clapeyron_test(300)
+    let t5 = boltzmann_symmetry_test(250)
+    let t6 = 0
+    if VAPOR_POLES_T[0] == 273
+        t6 = 1
+    let t7 = 0
+    if VAPOR_POLES_T[7] == 373
+        t7 = 1
+    let t8 = 0
+    if VAPOR_ENTHALPIES[0] == 2530
+        t8 = 1
+    let mono_h = 1
+    let k = 1
+    for k < 8
+        if VAPOR_ENTHALPIES[k] > VAPOR_ENTHALPIES[k - 1]
+            mono_h = 0
+        k = k + 1
+    let t9 = mono_h
+    let t10 = 0
+    if len(MIX_POLES_X) == 5
+        t10 = 1
+    let t11 = 0
+    if psi_mix_entropy(500) != 0
+        t11 = 1
+    let invs = nested_fractal_thermo_invariants()
+    let t12 = 0
+    if invs[0] == 1
+        if invs[1] == 1
+            if invs[2] == 1
+                if invs[3] == 1
+                    if invs[4] == 1
+                        t12 = 1
+    let passed = t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12
+    passed == 12

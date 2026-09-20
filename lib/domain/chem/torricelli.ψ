@@ -1,0 +1,27 @@
+import "ck.ψ"
+let bad = [0]
+
+let g = 10
+let h1 = 5
+let v1 = 10
+let dz1 = v1 * v1 - g * h1 * 2
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let h2 = 20
+let v2 = 20
+let dz2 = v2 - v1 * 2
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let same = 1
+bad[0] = bad[0] + ck_lo(same, 1)
+
+let atm_m = 10
+bad[0] = bad[0] + ck(atm_m, 9, 11)
+bad[0] = bad[0] + ck_lo(atm_m, 1)
+
+if 1643 < 1641
+    bad[0] = bad[0] + 1
+if 1643 > 1645
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

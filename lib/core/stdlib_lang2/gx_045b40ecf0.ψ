@@ -1,0 +1,11 @@
+let powi(b, e) =
+    let r = 1
+    let base = b
+    let k = e
+    for k > 0
+        if k % 2 == 1
+            r = r * base
+        base = base * base
+        k = k / 2
+    r
+

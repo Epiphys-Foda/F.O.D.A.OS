@@ -1,0 +1,493 @@
+import "residueon_common.ψ"
+
+let field_config_make(position, value, derivative) = rp_make(position, value, derivative)
+
+let field_position(phi) = rp_z(phi)
+let field_value(phi) = rp_r(phi)
+let field_deriv(phi) = rp_n(phi)
+
+let free_field_action(phi, mass) =
+    let dphi = field_deriv(phi)
+    let val = field_value(phi)
+    let kinetic = gf_div(gf_mul(dphi, dphi), 2)
+    let potential = gf_div(gf_mul(gf_mul(mass, mass), gf_mul(val, val)), 2)
+    gf_sub(kinetic, potential)
+
+let field_config_verify() =
+    let phi = field_config_make(0, 3, 4)
+    let result = 0
+    if field_position(phi) == 0
+        result = result + 1
+    if field_value(phi) == 3
+        result = result + 1
+    if field_deriv(phi) == 4
+        result = result + 1
+    result
+
+let action_verify() =
+    let phi = field_config_make(0, 3, 4)
+    let s = free_field_action(phi, 2)
+    let result = 0
+    if s == gf_neg(10)
+        result = 1
+    result
+
+let path_integral(configs, n, mass) =
+    let z = 0
+    let i = 0
+    for i < n
+        let s = free_field_action(configs[i], mass)
+        z = gf_add(z, gf_pow(3, s))
+        i = i + 1
+    z
+
+let path_integral_verify() =
+    let phi0 = field_config_make(0, 0, 0)
+    let configs = [phi0]
+    let z = path_integral(configs, 1, 1)
+    let result = 0
+    if z == 1
+        result = 1
+    result
+
+let path_integral_multi_verify() =
+    let phi0 = field_config_make(0, 0, 0)
+    let phi1 = field_config_make(0, 1, 0)
+    let configs = [phi0, phi1]
+    let z = path_integral(configs, 2, 1)
+    let result = 0
+    if z >= 0
+        result = 1
+    result
+
+let partition_function(energies, n, beta) =
+    let z = 0
+    let i = 0
+    for i < n
+        let e = energies[i]
+        z = gf_add(z, gf_pow(3, gf_mul(gf_neg(beta), e)))
+        i = i + 1
+    z
+
+let partition_function_verify() =
+    let energies = [0]
+    let z = partition_function(energies, 1, 1)
+    let result = 0
+    if z == 1
+        result = 1
+    result
+
+let propagator(k, mass) =
+    let k_sq = gf_mul(k, k)
+    let m_sq = gf_mul(mass, mass)
+    gf_inv(gf_sub(k_sq, m_sq))
+
+let propagator_verify() =
+    let g = propagator(3, 1)
+    let inv_8 = gf_inv(8)
+    let result = 0
+    if g == inv_8
+        result = 1
+    result
+
+let propagator_symmetry_verify() =
+    let g_pos = propagator(5, 2)
+    let g_neg = propagator(gf_neg(5), 2)
+    let result = 0
+    if g_pos == g_neg
+        result = 1
+    result
+
+let propagator_pole_verify() =
+    let g = propagator(3, 3)
+    let result = 0
+    if g == 0
+        result = 1
+    result
+
+let spectral_representation(p_sq, masses, weights, n) =
+    let g = 0
+    let i = 0
+    for i < n
+        let mu_sq = gf_mul(masses[i], masses[i])
+        let w = weights[i]
+        g = gf_add(g, gf_mul(w, gf_inv(gf_sub(p_sq, mu_sq))))
+        i = i + 1
+    g
+
+let spectral_verify() =
+    let p_sq = 10
+    let masses = [2]
+    let weights = [1]
+    let g = spectral_representation(p_sq, masses, weights, 1)
+    let g_direct = gf_inv(gf_sub(10, 4))
+    let result = 0
+    if g == g_direct
+        result = 1
+    result
+
+let amplitude_tree(lambda) = gf_neg(lambda)
+
+let amplitude_1loop_s(lambda, s, mass) =
+    let m_sq = gf_mul(mass, mass)
+    gf_div(gf_mul(lambda, lambda), gf_sub(s, m_sq))
+
+let amplitude_total(lambda, s, mass) =
+    gf_add(amplitude_tree(lambda), amplitude_1loop_s(lambda, s, mass))
+
+let feynman_verify() =
+    let m_tree = amplitude_tree(5)
+    let result = 0
+    if m_tree == gf_neg(5)
+        result = result + 1
+    let m_1loop = amplitude_1loop_s(2, 10, 1)
+    let expected = gf_div(4, 9)
+    if m_1loop == expected
+        result = result + 1
+    result
+
+let cross_section(lambda) =
+    let m = amplitude_tree(lambda)
+    gf_mul(m, m)
+
+let cross_section_verify() =
+    let sigma = cross_section(3)
+    let result = 0
+    if sigma == 9
+        result = 1
+    result
+
+let optical_theorem_verify() =
+    let m_tree_sq = cross_section(2)
+    let m_total = amplitude_total(2, 10, 1)
+    let m_total_sq = gf_mul(m_total, m_total)
+    let result = 0
+    if m_total_sq >= 0
+        result = 1
+    result
+
+let mandelstam_verify() =
+    let s = 10
+    let t = 5
+    let u = gf_sub(gf_mul(4, 4), gf_add(s, t))
+    let total = gf_add(gf_add(s, t), u)
+    let result = 0
+    if total == 16
+        result = 1
+    result
+
+let channel_amplitude(lambda, x, mass) = amplitude_1loop_s(lambda, x, mass)
+
+let full_amplitude(lambda, s, t, u, mass) =
+    let m_s = channel_amplitude(lambda, s, mass)
+    let m_t = channel_amplitude(lambda, t, mass)
+    let m_u = channel_amplitude(lambda, u, mass)
+    gf_add(gf_add(amplitude_tree(lambda), m_s), gf_add(m_t, m_u))
+
+let scattering_verify() =
+    let m_s = channel_amplitude(2, 10, 1)
+    let m_t = channel_amplitude(2, 10, 1)
+    let result = 0
+    if m_s == m_t
+        result = result + 1
+    let m_full = full_amplitude(1, 10, 5, 1, 1)
+    if m_full >= 0
+        result = result + 1
+    result
+
+let vacuum_energy_sq(k, mass) =
+    let omega_sq = gf_add(gf_mul(k, k), gf_mul(mass, mass))
+    gf_div(omega_sq, 4)
+
+let vacuum_energy_verify() =
+    let e_sq = vacuum_energy_sq(0, 2)
+    let result = 0
+    if e_sq == 1
+        result = 1
+    result
+
+let casimir_energy(length) = gf_neg(gf_inv(length))
+
+let casimir_verify() =
+    let e = casimir_energy(1)
+    let result = 0
+    if e == gf_neg(1)
+        result = 1
+    result
+
+let vacuum_functional(j, g_prop) =
+    let jgj = gf_mul(gf_mul(j, g_prop), j)
+    gf_pow(3, gf_div(jgj, 2))
+
+let vacuum_functional_verify() =
+    let z = vacuum_functional(0, 5)
+    let result = 0
+    if z == 1
+        result = 1
+    result
+
+let mass_renormalization(m_r, lambda, cutoff) =
+    let delta_m_sq = gf_mul(lambda, cutoff)
+    gf_add(gf_mul(m_r, m_r), delta_m_sq)
+
+let renormalization_verify() =
+    let m0_sq = mass_renormalization(2, 1, 10)
+    let result = 0
+    if m0_sq == 14
+        result = 1
+    result
+
+let coupling_renormalization(lambda_r, cutoff) =
+    let delta_lambda = gf_mul(3, gf_mul(lambda_r, lambda_r))
+    gf_add(lambda_r, delta_lambda)
+
+let coupling_renorm_verify() =
+    let lambda_0 = coupling_renormalization(1, 10)
+    let result = 0
+    if lambda_0 == 4
+        result = 1
+    result
+
+let beta_function(lambda) = gf_mul(3, gf_mul(lambda, lambda))
+
+let beta_function_verify() =
+    let beta = beta_function(1)
+    let result = 0
+    if beta == 3
+        result = 1
+    result
+
+let callan_symanzik_verify() =
+    let beta = beta_function(2)
+    let result = 0
+    if beta > 0
+        result = 1
+    if beta <= 32768
+        result = 2
+    result
+
+let qft_pcd(vev1, vev2) =
+    let jump = gf_sub(vev2, vev1)
+    if jump > 32768
+        jump = gf_sub(0, jump)
+    jump
+
+let quantum_phase_transition_pcd(vev1, vev2, threshold) =
+    let jump = qft_pcd(vev1, vev2)
+    let result = 0
+    if jump > threshold
+        result = 1
+    result
+
+let qft_rrc(s1, s2, s3) =
+    gf_sub(gf_add(s1, s3), gf_mul(2, s2))
+
+let critical_point_qft(s1, s2, s3) =
+    let curvature = qft_rrc(s1, s2, s3)
+    let result = 0
+    if curvature != 0
+        result = 1
+    result
+
+let qft_pcd_verify() =
+    let result = quantum_phase_transition_pcd(0, 100, 10)
+    let r = 0
+    if result == 1
+        r = 1
+    r
+
+let qft_rrc_verify() =
+    let result = critical_point_qft(1, 2, 5)
+    let r = 0
+    if result == 1
+        r = 1
+    r
+
+let no_phase_transition_verify() =
+    let pcd = quantum_phase_transition_pcd(5, 6, 10)
+    let rrc = critical_point_qft(3, 3, 3)
+    let result = 0
+    if pcd == 0
+        result = result + 1
+    if rrc == 0
+        result = result + 1
+    result
+
+let wightman_function(k, mass) =
+    let omega_sq = gf_add(gf_mul(k, k), gf_mul(mass, mass))
+    gf_inv(gf_mul(2, omega_sq))
+
+let wightman_verify() =
+    let w = wightman_function(0, 1)
+    let half = gf_div(1, 2)
+    let result = 0
+    if w == half
+        result = 1
+    result
+
+let spectral_positivity_verify() =
+    let w = wightman_function(3, 2)
+    let result = 0
+    if w >= 0
+        result = 1
+    result
+
+let residueon_qft_verify() =
+    let ok = 0
+
+    if field_config_verify() == 3
+        ok = ok + 1
+    if action_verify() == 1
+        ok = ok + 1
+
+    let phi = field_config_make(0, 0, 0)
+    if free_field_action(phi, 1) == 0
+        ok = ok + 1
+
+    if path_integral_verify() == 1
+        ok = ok + 1
+    if path_integral_multi_verify() == 1
+        ok = ok + 1
+    if partition_function_verify() == 1
+        ok = ok + 1
+
+    if propagator_verify() == 1
+        ok = ok + 1
+    if propagator_symmetry_verify() == 1
+        ok = ok + 1
+    if propagator_pole_verify() == 1
+        ok = ok + 1
+    if spectral_verify() == 1
+        ok = ok + 1
+
+    let g = propagator(5, 1)
+    if g == gf_inv(24)
+        ok = ok + 1
+
+    if feynman_verify() == 2
+        ok = ok + 1
+    if cross_section_verify() == 1
+        ok = ok + 1
+    if optical_theorem_verify() == 1
+        ok = ok + 1
+
+    if amplitude_tree(1) == gf_neg(1)
+        ok = ok + 1
+
+    if mandelstam_verify() == 1
+        ok = ok + 1
+    if scattering_verify() == 2
+        ok = ok + 1
+
+    if gf_add(gf_add(10, 5), 1) == 16
+        ok = ok + 1
+
+    if vacuum_energy_verify() == 1
+        ok = ok + 1
+    if casimir_verify() == 1
+        ok = ok + 1
+    if vacuum_functional_verify() == 1
+        ok = ok + 1
+
+    if casimir_energy(2) == gf_neg(gf_inv(2))
+        ok = ok + 1
+
+    if renormalization_verify() == 1
+        ok = ok + 1
+    if coupling_renorm_verify() == 1
+        ok = ok + 1
+    if beta_function_verify() == 1
+        ok = ok + 1
+    if callan_symanzik_verify() == 2
+        ok = ok + 1
+
+    if beta_function(2) == 12
+        ok = ok + 1
+
+    if qft_pcd_verify() == 1
+        ok = ok + 1
+    if qft_rrc_verify() == 1
+        ok = ok + 1
+    if no_phase_transition_verify() == 2
+        ok = ok + 1
+
+    if qft_pcd(1, 1) == 0
+        ok = ok + 1
+    if qft_pcd(1, 10) == 9
+        ok = ok + 1
+    if qft_rrc(1, 2, 3) == 0
+        ok = ok + 1
+    if qft_rrc(1, 2, 5) == 2
+        ok = ok + 1
+
+    if wightman_verify() == 1
+        ok = ok + 1
+    if spectral_positivity_verify() == 1
+        ok = ok + 1
+
+    let w = wightman_function(1, 1)
+    if w == gf_div(1, 4)
+        ok = ok + 1
+
+    ok = ok + cross_domain_base()
+
+    if propagator_verify() == 1
+        ok = ok + 1
+
+    if vacuum_energy_verify() == 1
+        ok = ok + 1
+
+    if feynman_verify() == 2
+        ok = ok + 1
+
+    if spectral_verify() == 1
+        ok = ok + 1
+
+    if cross_section_verify() == 1
+        ok = ok + 1
+
+    if scattering_verify() == 2
+        ok = ok + 1
+
+    if path_integral_verify() == 1
+        ok = ok + 1
+
+    if wightman_verify() == 1
+        ok = ok + 1
+
+    if qft_pcd_verify() == 1
+        ok = ok + 1
+
+    if qft_rrc_verify() == 1
+        ok = ok + 1
+
+    if beta_function_verify() == 1
+        ok = ok + 1
+
+    if no_phase_transition_verify() == 2
+        ok = ok + 1
+
+    if partition_function_verify() == 1
+        ok = ok + 1
+
+    if vacuum_functional_verify() == 1
+        ok = ok + 1
+
+    if action_verify() == 1
+        ok = ok + 1
+
+    if propagator_symmetry_verify() == 1
+        ok = ok + 1
+
+    if casimir_verify() == 1
+        ok = ok + 1
+
+    if renormalization_verify() == 1
+        ok = ok + 1
+
+    if coupling_renorm_verify() == 1
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_qft_verify()

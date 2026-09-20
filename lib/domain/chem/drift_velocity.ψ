@@ -1,0 +1,18 @@
+import "ck.ψ"
+let bad = [0]
+
+let v_drift = 73
+bad[0] = bad[0] + ck(v_drift, 65, 85)
+
+let field_delay = 3
+bad[0] = bad[0] + ck(field_delay, 2, 5)
+
+let paradox = 1
+bad[0] = bad[0] + ck_lo(paradox, 1)
+
+if 1897 < 1895
+    bad[0] = bad[0] + 1
+if 1897 > 1899
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

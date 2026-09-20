@@ -1,0 +1,85 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let FLUID_SIM_MAX_PARTICLES = 8192
+let FLUID_SIM_GRID_SIZE = 64
+
+let sph_create(n_particles) =
+    let particles = []
+    let i = 0
+    for i < n_particles
+        particles.push([i % 64, i / 64, 0, 0, 0, 0, 0, 0, 1])
+        i = i + 1
+    [particles, n_particles, 4, 1000]
+let sph_kernel(r, h) =
+    (r < h ? gf_div(gf_sub(gf_pow(h, 2), gf_pow(r, 2)), gf_pow(h, 3)) : 0)
+let sph_density(state, idx) =
+    let particles = state[0]
+    let h = state[2]
+    let pi = particles[idx]
+    let density = 0
+    let i = 0
+    let n = state[1]
+    for i < n
+        let pj = particles[i]
+        let dx = gf_sub(pi[0], pj[0])
+        let dy = gf_sub(pi[1], pj[1])
+        let dz = gf_sub(pi[2], pj[2])
+        let r = gf_sqrt(gf_add(gf_add(gf_mul(dx, dx), gf_mul(dy, dy)), gf_mul(dz, dz)))
+        density = gf_add(density, gf_mul(pj[8], sph_kernel(r, h)))
+        i = i + 1
+    density
+let sph_pressure(state, idx) =
+    let particles = state[0]
+    let pi = particles[idx]
+    let rest_density = state[3]
+    gf_sub(pi[6], rest_density)
+let sph_step(state, dt) =
+    let particles = state[0]
+    let new_particles = []
+    let i = 0
+    let n = state[1]
+    for i < n
+        let p = particles[i]
+        let density = sph_density(state, i)
+        let pressure = sph_pressure(state, i)
+        let new_p = [p[0], p[1], p[2], p[3], p[4], p[5], density, pressure, p[8]]
+        new_particles.push(new_p)
+        i = i + 1
+    [new_particles, n, state[2], state[3]]
+let lbm_create(grid_size) =
+    let f = []
+    let i = 0
+    for i < grid_size * grid_size * 9
+        f.push(0)
+        i = i + 1
+    [f, grid_size, 9]
+let lbm_step(lbm) =
+    let f = lbm[0]
+    let n = lbm[1]
+    let new_f = []
+    let i = 0
+    let total = n * n * 9
+    for i < total
+        new_f.push(f[i])
+        i = i + 1
+    [new_f, n, lbm[2]]
+let field_fluid_sim(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let fluid_sim_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_fluid_sim(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+

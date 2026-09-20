@@ -1,0 +1,245 @@
+import "machcode_emitter.ψ"
+import "../../compiler/bootstrap/str_ops.ψ"
+import "fs.ψ"
+
+let wrap_u32(v) =
+    (v < 0 ? v + 4294967296 : v)
+
+let lex_seg_00_prologue() = [
+      72, 49, 192,
+      72, 141, 21,
+      byte0(256), byte1(256), byte2(256), byte3(256)
+    ]
+
+let lex_seg_01_loop_head() = [
+      15, 182, 10,
+      132, 201,
+      15, 132,
+      byte0(244), byte1(244), byte2(244), byte3(244)
+    ]
+
+let lex_seg_02_skip_space() = [
+      128, 249, 32,
+      15, 132,
+      byte0(227), byte1(227), byte2(227), byte3(227)
+    ]
+
+let lex_seg_03_skip_tab() = [
+      128, 249, 9,
+      15, 132,
+      byte0(218), byte1(218), byte2(218), byte3(218)
+    ]
+
+let lex_seg_04_skip_lf() = [
+      128, 249, 10,
+      15, 132,
+      byte0(209), byte1(209), byte2(209), byte3(209)
+    ]
+
+let lex_seg_05_skip_cr() = [
+      128, 249, 13,
+      15, 132,
+      byte0(200), byte1(200), byte2(200), byte3(200)
+    ]
+
+let lex_seg_06_dig_lo() = [
+      128, 249, 48,
+      15, 130,
+      byte0(54), byte1(54), byte2(54), byte3(54)
+    ]
+
+let lex_seg_07_dig_hi() = [
+      128, 249, 57,
+      15, 135,
+      byte0(45), byte1(45), byte2(45), byte3(45)
+    ]
+
+let lex_seg_08_digit_loop_head() = [
+      15, 182, 10,
+      132, 201,
+      15, 132,
+      byte0(26), byte1(26), byte2(26), byte3(26)
+    ]
+
+let lex_seg_09_digit_cmp_lo() = [
+      128, 249, 48,
+      15, 130,
+      byte0(17), byte1(17), byte2(17), byte3(17)
+    ]
+
+let lex_seg_10_digit_cmp_hi() = [
+      128, 249, 57,
+      15, 135,
+      byte0(8), byte1(8), byte2(8), byte3(8)
+    ]
+
+let lex_seg_11_digit_inc_jmp() = [
+      72, 255, 194,
+      233,
+      byte0(wrap_u32(-37)), byte1(wrap_u32(-37)),
+      byte2(wrap_u32(-37)), byte3(wrap_u32(-37))
+    ]
+
+let lex_seg_12_digit_done() = [
+      72, 255, 192,
+      233,
+      byte0(wrap_u32(-110)), byte1(wrap_u32(-110)),
+      byte2(wrap_u32(-110)), byte3(wrap_u32(-110))
+    ]
+
+let lex_seg_13_not_dig_a() = [
+      128, 249, 65,
+      15, 130,
+      byte0(117), byte1(117), byte2(117), byte3(117)
+    ]
+
+let lex_seg_14_alpha_Z() = [
+      128, 249, 90,
+      15, 134,
+      byte0(18), byte1(18), byte2(18), byte3(18)
+    ]
+
+let lex_seg_15_alpha_a() = [
+      128, 249, 97,
+      15, 130,
+      byte0(99), byte1(99), byte2(99), byte3(99)
+    ]
+
+let lex_seg_16_alpha_z() = [
+      128, 249, 122,
+      15, 135,
+      byte0(90), byte1(90), byte2(90), byte3(90)
+    ]
+
+let lex_seg_17_alpha_loop_head() = [
+      15, 182, 10,
+      132, 201,
+      15, 132,
+      byte0(71), byte1(71), byte2(71), byte3(71)
+    ]
+
+let lex_seg_18_alpha_cmp_0() = [
+      128, 249, 48,
+      15, 130,
+      byte0(62), byte1(62), byte2(62), byte3(62)
+    ]
+
+let lex_seg_19_alpha_cmp_9() = [
+      128, 249, 57,
+      15, 134,
+      byte0(36), byte1(36), byte2(36), byte3(36)
+    ]
+
+let lex_seg_20_alpha_cmp_A() = [
+      128, 249, 65,
+      15, 130,
+      byte0(44), byte1(44), byte2(44), byte3(44)
+    ]
+
+let lex_seg_21_alpha_cmp_Z() = [
+      128, 249, 90,
+      15, 134,
+      byte0(18), byte1(18), byte2(18), byte3(18)
+    ]
+
+let lex_seg_22_alpha_cmp_a() = [
+      128, 249, 97,
+      15, 130,
+      byte0(26), byte1(26), byte2(26), byte3(26)
+    ]
+
+let lex_seg_23_alpha_cmp_z() = [
+      128, 249, 122,
+      15, 135,
+      byte0(8), byte1(8), byte2(8), byte3(8)
+    ]
+
+let lex_seg_24_alpha_cont() = [
+      72, 255, 194,
+      233,
+      byte0(wrap_u32(-73)), byte1(wrap_u32(-73)),
+      byte2(wrap_u32(-73)), byte3(wrap_u32(-73))
+    ]
+
+let lex_seg_25_alpha_under() = [
+      128, 249, 95,
+      15, 132,
+      byte0(wrap_u32(-17)), byte1(wrap_u32(-17)),
+      byte2(wrap_u32(-17)), byte3(wrap_u32(-17))
+    ]
+
+let lex_seg_26_alpha_done() = [
+      72, 255, 192,
+      233,
+      byte0(wrap_u32(-236)), byte1(wrap_u32(-236)),
+      byte2(wrap_u32(-236)), byte3(wrap_u32(-236))
+    ]
+
+let lex_seg_27_not_alpha() = [
+      72, 255, 192,
+      72, 255, 194,
+      233,
+      byte0(wrap_u32(-247)), byte1(wrap_u32(-247)),
+      byte2(wrap_u32(-247)), byte3(wrap_u32(-247))
+    ]
+
+let lex_seg_28_skip() = [
+      72, 255, 194,
+      233,
+      byte0(wrap_u32(-255)), byte1(wrap_u32(-255)),
+      byte2(wrap_u32(-255)), byte3(wrap_u32(-255))
+    ]
+
+let lex_seg_29_done() = [195]
+
+let build_lexer_code_a() = [
+      lex_seg_00_prologue(),
+      lex_seg_01_loop_head(),
+      lex_seg_02_skip_space(),
+      lex_seg_03_skip_tab(),
+      lex_seg_04_skip_lf(),
+      lex_seg_05_skip_cr(),
+      lex_seg_06_dig_lo(),
+      lex_seg_07_dig_hi(),
+      lex_seg_08_digit_loop_head(),
+      lex_seg_09_digit_cmp_lo(),
+      lex_seg_10_digit_cmp_hi(),
+      lex_seg_11_digit_inc_jmp(),
+      lex_seg_12_digit_done(),
+      lex_seg_13_not_dig_a(),
+      lex_seg_14_alpha_Z()
+    ].flat()
+
+let build_lexer_code_b() = [
+      lex_seg_15_alpha_a(),
+      lex_seg_16_alpha_z(),
+      lex_seg_17_alpha_loop_head(),
+      lex_seg_18_alpha_cmp_0(),
+      lex_seg_19_alpha_cmp_9(),
+      lex_seg_20_alpha_cmp_A(),
+      lex_seg_21_alpha_cmp_Z(),
+      lex_seg_22_alpha_cmp_a(),
+      lex_seg_23_alpha_cmp_z(),
+      lex_seg_24_alpha_cont(),
+      lex_seg_25_alpha_under(),
+      lex_seg_26_alpha_done(),
+      lex_seg_27_not_alpha(),
+      lex_seg_28_skip(),
+      lex_seg_29_done()
+    ].flat()
+
+let build_lexer_code() = [build_lexer_code_a(), build_lexer_code_b()].flat()
+
+let save_lexer_arc(input_str, path) =
+    let code = build_lexer_code()
+    let bytes = str_bytes(input_str)
+    let terminated = bytes.push(0)
+    let full_code = [code, terminated].flat()
+    arc_save(full_code, 0, path)
+
+let run_lexer(input_str) =
+    let code = build_lexer_code()
+    let bytes = str_bytes(input_str)
+    let terminated = bytes.push(0)
+    let full_code = [code, terminated].flat()
+    arc_exec(full_code, 0, 0)

@@ -1,0 +1,92 @@
+let ls_expr_rules() = [
+      ["expr", "op_expr"],
+      ["expr", "param"],
+      ["expr", "dag_ref"],
+      ["expr", "literal"],
+      ["expr", "call"],
+      ["op_expr", "⊙ | ◦ | ≋ | ↡ | ∆"],
+      ["call", "fn_name(args)"],
+      ["dag_ref", "@node_id"]
+    ]
+
+let ls_type_rules() = [
+      ["⊙", "(M_n×m, M_m×k) → M_n×k"],
+      ["◦", "(Cl(p,q), Cl(p,q)) → Cl(p,q)"],
+      ["≋", "(V_n) → V_n"],
+      ["↡", "(V_n, S) → V_n"],
+      ["∆", "(V_n) → V_n"]
+    ]
+
+let ls_opt_rules() = [
+      ["⊙(A, I) → A", "identity elimination"],
+      ["↡(↡(x,S1),S2) → ↡(x,S1∩S2)", "projection fusion"],
+      ["∆(const) → 0", "constant-differential elimination"],
+      ["≋(≋(x)) → x", "inverse-transform elimination"],
+      ["◦(A, A⁻¹) → I", "inverse elimination"]
+    ]
+
+let ls_has_rule(tbl, key) =
+    let found = false
+    let i = 0
+    let done = false
+    for !done
+      if i < len(tbl)
+        let row = tbl[i]
+        if row[0] == key
+          found = true
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    found
+
+let ls_type_of(op) =
+    let result = ""
+    let i = 0
+    let done = false
+    for !done
+      if i < len(ls_type_rules())
+        let row = ls_type_rules()[i]
+        if row[0] == op
+          result = row[1]
+          done = true
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    result
+
+let ls_verify() =
+    let results = []
+    let er = ls_expr_rules()
+    results = results.push(len(er) == 8)
+    results = results.push(ls_has_rule(er, "expr"))
+    results = results.push(ls_has_rule(er, "op_expr"))
+    results = results.push(ls_has_rule(er, "call"))
+    let tr = ls_type_rules()
+    results = results.push(len(tr) == 5)
+    results = results.push(ls_has_rule(tr, "⊙") && ls_has_rule(tr, "◦") && ls_has_rule(tr, "≋") && ls_has_rule(tr, "↡") && ls_has_rule(tr, "∆"))
+    results = results.push(ls_type_of("⊙") == "(M_n×m, M_m×k) → M_n×k")
+    results = results.push(ls_type_of("∆") == "(V_n) → V_n")
+    let or_ = ls_opt_rules()
+    results = results.push(len(or_) == 5)
+    results = results.push(ls_has_rule(or_, "⊙(A, I) → A"))
+    results = results.push(ls_has_rule(or_, "∆(const) → 0"))
+    results = results.push(true)
+    let total = true
+    let i = 0
+    let done = false
+    for !done
+      if i < len(results)
+        let v = results[i]
+        if v == false
+          total = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(total)
+    results

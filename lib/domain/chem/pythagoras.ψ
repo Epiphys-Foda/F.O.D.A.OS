@@ -1,0 +1,39 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let a1 = 3 * 3
+let b1 = 4 * 4
+let c1 = a1 + b1
+if c1 != 25
+    bad[0] = bad[0] + 1
+
+let a2 = 5 * 5
+let b2 = 12 * 12
+let c2 = a2 + b2
+if c2 != 169
+    bad[0] = bad[0] + 1
+
+let a3 = 8 * 8
+let b3 = 15 * 15
+let c3 = a3 + b3
+if c3 != 289
+    bad[0] = bad[0] + 1
+
+let sq2 = isqrt(200000)
+bad[0] = bad[0] + ck(sq2, 440, 450)
+
+let dx = 3
+let dy = 4
+let dd = dx * dx + dy * dy
+let dist = isqrt(dd)
+if dist != 5
+    bad[0] = bad[0] + 1
+
+if 500 < 498
+    bad[0] = bad[0] + 1
+if 500 > 502
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

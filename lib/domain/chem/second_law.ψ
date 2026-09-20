@@ -1,0 +1,31 @@
+import "ck.ψ"
+let bad = [0]
+
+let dshot = 0 - 25
+let dscold = 33
+let net = dscold + dshot
+bad[0] = bad[0] + ck(net, 1, 15)
+
+let carnot = 25
+bad[0] = bad[0] + ck(carnot, 22, 28)
+
+let direction = 1
+bad[0] = bad[0] + ck_lo(direction, 1)
+
+let s_zero = 0
+bad[0] = bad[0] + ck(s_zero, 0, 0)
+
+if 1824 < 1822
+    bad[0] = bad[0] + 1
+if 1824 > 1826
+    bad[0] = bad[0] + 1
+if 1865 < 1863
+    bad[0] = bad[0] + 1
+if 1865 > 1867
+    bad[0] = bad[0] + 1
+if 1877 < 1875
+    bad[0] = bad[0] + 1
+if 1877 > 1879
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

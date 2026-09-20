@@ -1,0 +1,179 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let ternary_and(a, b) =
+    (a < b ? a : b)
+
+let ternary_or(a, b) =
+    (a > b ? a : b)
+
+let ternary_not(a) = 2 - a
+
+let ternary_xor(a, b) = (a + b) % 3
+
+let ternary_xnor(a, b) = 2 - ((a + b) % 3)
+
+let verify_ternary_and() =
+    let pass = 1
+    if ternary_and(0, 0) != 0
+        pass = 0
+    if ternary_and(0, 1) != 0
+        pass = 0
+    if ternary_and(0, 2) != 0
+        pass = 0
+    if ternary_and(1, 0) != 0
+        pass = 0
+    if ternary_and(1, 1) != 1
+        pass = 0
+    if ternary_and(1, 2) != 1
+        pass = 0
+    if ternary_and(2, 0) != 0
+        pass = 0
+    if ternary_and(2, 1) != 1
+        pass = 0
+    if ternary_and(2, 2) != 2
+        pass = 0
+    pass
+
+let verify_ternary_or() =
+    let pass = 1
+    if ternary_or(0, 0) != 0
+        pass = 0
+    if ternary_or(0, 1) != 1
+        pass = 0
+    if ternary_or(0, 2) != 2
+        pass = 0
+    if ternary_or(1, 0) != 1
+        pass = 0
+    if ternary_or(1, 1) != 1
+        pass = 0
+    if ternary_or(1, 2) != 2
+        pass = 0
+    if ternary_or(2, 0) != 2
+        pass = 0
+    if ternary_or(2, 1) != 2
+        pass = 0
+    if ternary_or(2, 2) != 2
+        pass = 0
+    pass
+
+let verify_ternary_not() =
+    let pass = 1
+    if ternary_not(0) != 2
+        pass = 0
+    if ternary_not(1) != 1
+        pass = 0
+    if ternary_not(2) != 0
+        pass = 0
+    if ternary_not(ternary_not(0)) != 0
+        pass = 0
+    if ternary_not(ternary_not(1)) != 1
+        pass = 0
+    if ternary_not(ternary_not(2)) != 2
+        pass = 0
+    pass
+
+let verify_ternary_xor() =
+    let pass = 1
+    if ternary_xor(0, 0) != 0
+        pass = 0
+    if ternary_xor(0, 1) != 1
+        pass = 0
+    if ternary_xor(0, 2) != 2
+        pass = 0
+    if ternary_xor(1, 0) != 1
+        pass = 0
+    if ternary_xor(1, 1) != 2
+        pass = 0
+    if ternary_xor(1, 2) != 0
+        pass = 0
+    if ternary_xor(2, 0) != 2
+        pass = 0
+    if ternary_xor(2, 1) != 0
+        pass = 0
+    if ternary_xor(2, 2) != 1
+        pass = 0
+    pass
+
+let verify_de_morgan() =
+    let pass = 1
+    let a = 0
+    let b = 1
+
+    if ternary_not(ternary_and(0, 1)) != ternary_or(ternary_not(0), ternary_not(1))
+        pass = 0
+
+    if ternary_not(ternary_and(1, 2)) != ternary_or(ternary_not(1), ternary_not(2))
+        pass = 0
+
+    if ternary_not(ternary_or(0, 1)) != ternary_and(ternary_not(0), ternary_not(1))
+        pass = 0
+
+    if ternary_not(ternary_or(1, 2)) != ternary_and(ternary_not(1), ternary_not(2))
+        pass = 0
+
+    pass
+
+let ternary_half_adder_sum(a, b) = (a + b) % 3
+let ternary_half_adder_carry(a, b) = (a + b) / 3
+
+let verify_ternary_half_adder() =
+    let pass = 1
+    if ternary_half_adder_sum(0, 0) != 0
+        pass = 0
+    if ternary_half_adder_carry(0, 0) != 0
+        pass = 0
+    if ternary_half_adder_sum(0, 1) != 1
+        pass = 0
+    if ternary_half_adder_carry(0, 1) != 0
+        pass = 0
+    if ternary_half_adder_sum(1, 1) != 2
+        pass = 0
+    if ternary_half_adder_carry(1, 1) != 0
+        pass = 0
+    if ternary_half_adder_sum(1, 2) != 0
+        pass = 0
+    if ternary_half_adder_carry(1, 2) != 1
+        pass = 0
+    if ternary_half_adder_sum(2, 2) != 1
+        pass = 0
+    if ternary_half_adder_carry(2, 2) != 1
+        pass = 0
+    pass
+
+let verify_ternary_capacity() =
+    let pass = 1
+
+    let count = 0
+    let a = 0
+    for a < 3
+        let b = 0
+        for b < 3
+            let encoded = a * 3 + b
+            let dec_a = encoded / 3
+            let dec_b = encoded % 3
+            if dec_a == a
+                if dec_b == b
+                    count = count + 1
+            b = b + 1
+        a = a + 1
+    if count != 9
+        pass = 0
+    pass
+
+let main() =
+    let result = 0
+    if verify_ternary_and() == 1
+        result = result + 1
+    if verify_ternary_or() == 1
+        result = result + 1
+    if verify_ternary_not() == 1
+        result = result + 1
+    if verify_ternary_xor() == 1
+        result = result + 1
+    if verify_de_morgan() == 1
+        result = result + 1
+    if verify_ternary_half_adder() == 1
+        result = result + 1
+    if verify_ternary_capacity() == 1
+        result = result + 1
+    result

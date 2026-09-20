@@ -1,0 +1,45 @@
+import "ck.ψ"
+let bad = [0]
+
+let m1 = 3
+let m2 = 1
+let x1 = 0
+let x2 = 4
+let cm = 1
+let dz1 = cm * (m1 + m2) - m1 * x1 - m2 * x2
+bad[0] = bad[0] + ck(dz1, 0, 0)
+let dist1 = cm - x1
+let dist2 = x2 - cm
+bad[0] = bad[0] + ck_hi(dist1, dist2)
+
+let child = 30
+let d_child = 2
+let adult = 60
+let d_adult = 1
+let dz2 = child * d_child - adult * d_adult
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let bar = 224
+bad[0] = bad[0] + ck(bar, 220, 228)
+let cm_peak = 204
+bad[0] = bad[0] + ck(cm_peak, 195, 215)
+bad[0] = bad[0] + ck_hi(cm_peak, bar)
+
+let r_earth = 6371
+bad[0] = bad[0] + ck(r_earth, 6300, 6400)
+let bary = 4671
+bad[0] = bad[0] + ck(bary, 4600, 4750)
+bad[0] = bad[0] + ck_hi(bary, r_earth)
+
+if 1687 < 1685
+    bad[0] = bad[0] + 1
+if 1687 > 1689
+    bad[0] = bad[0] + 1
+if 1968 < 1966
+    bad[0] = bad[0] + 1
+if 1968 > 1970
+    bad[0] = bad[0] + 1
+if 1968 < 1687
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

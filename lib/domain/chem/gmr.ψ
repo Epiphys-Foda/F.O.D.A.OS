@@ -1,0 +1,38 @@
+import "ck.ψ"
+let bad = [0]
+
+let ch = 2
+bad[0] = bad[0] + ck_lo(ch, 2)
+let w = 1
+let s = 3
+bad[0] = bad[0] + ck_hi(w, s)
+
+let r1 = w + w
+let r2 = s + s
+let rp = 2 * r1 * r2 / (r1 + r2)
+bad[0] = bad[0] + ck(rp, 3, 3)
+
+let r3 = w + s
+let r4 = s + w
+let dsym = r3 - r4
+bad[0] = bad[0] + ck(dsym, 0, 0)
+let rap = 2 * r3 * r4 / (r3 + r4)
+bad[0] = bad[0] + ck(rap, 4, 4)
+
+let gmr = (rap - rp) * 100 / rp
+bad[0] = bad[0] + ck(gmr, 28, 38)
+let real = 15
+bad[0] = bad[0] + ck(real, 10, 20)
+
+let states = 2
+bad[0] = bad[0] + ck_lo(states, 2)
+if 1988 < 1986
+    bad[0] = bad[0] + 1
+if 1988 > 1990
+    bad[0] = bad[0] + 1
+if 2007 < 2005
+    bad[0] = bad[0] + 1
+if 2007 > 2009
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,392 @@
+let IAM_OAUTH_CODE_TTL = 600000
+let IAM_OAUTH_ACCESS_TTL = 3600000
+let IAM_OAUTH_REFRESH_TTL = 2592000000
+
+let IAM_OAUTH_GRANT_AUTH_CODE = 0
+let IAM_OAUTH_GRANT_CLIENT_CREDS = 1
+let IAM_OAUTH_GRANT_REFRESH = 2
+
+let IAM_OAUTH_CLIENT_CONFIDENTIAL = 0
+let IAM_OAUTH_CLIENT_PUBLIC = 1
+
+let iam_client_new(id, name, ctype) =
+    [id, 0, name, [], [], [], ctype, 1]
+
+let iam_client_id(c) = c[0]
+let iam_client_secret(c) = c[1]
+let iam_client_name(c) = c[2]
+let iam_client_redirects(c) = c[3]
+let iam_client_grants(c) = c[4]
+let iam_client_scopes(c) = c[5]
+let iam_client_type(c) = c[6]
+let iam_client_enabled(c) = c[7]
+
+let iam_client_set_secret(c, h) = [c[0], h, c[2], c[3], c[4], c[5], c[6], c[7]]
+let iam_client_add_redirect(c, uri) =
+    let r = c[3]
+    r.push(uri)
+    [c[0], c[1], c[2], r, c[4], c[5], c[6], c[7]]
+let iam_client_add_grant(c, g) =
+    let gr = c[4]
+    gr.push(g)
+    [c[0], c[1], c[2], c[3], gr, c[5], c[6], c[7]]
+let iam_client_add_scope(c, s) =
+    let sc = c[5]
+    sc.push(s)
+    [c[0], c[1], c[2], c[3], c[4], sc, c[6], c[7]]
+let iam_client_set_enabled(c, e) = [c[0], c[1], c[2], c[3], c[4], c[5], c[6], e]
+
+let iam_oauth_hash(input) =
+    let h = 5381
+    let i = 0
+    let n = len(input)
+    for i < n
+        h = (h * 33 + input[i]) % 65537
+        i = i + 1
+    h
+
+let iam_oauth_hash_secret(client_id, secret) =
+    let salt = iam_oauth_hash(client_id)
+    let h = salt
+    let i = 0
+    let n = len(secret)
+    let round = 0
+    for round < 256
+        i = 0
+        for i < n
+            h = (h * 31 + secret[i]) % 65537
+            i = i + 1
+        h = (h * 7 + salt) % 65537
+        round = round + 1
+    h
+
+let iam_oauth_pkce_challenge(verifier) =
+    let h = 5381
+    let i = 0
+    let n = len(verifier)
+    for i < n
+        h = (h * 33 + verifier[i]) % 65537
+        i = i + 1
+    h = (h * 65537 + 1) % 65537
+    h
+
+let IAM_OAUTH_TOKEN_ACCESS = 0
+let IAM_OAUTH_TOKEN_REFRESH = 1
+
+let iam_token_new(tid, cid, uid, scopes, iat, exp, t) =
+    [tid, cid, uid, scopes, iat, exp, 0, t]
+
+let iam_token_id(t) = t[0]
+let iam_token_client(t) = t[1]
+let iam_token_user(t) = t[2]
+let iam_token_scopes(t) = t[3]
+let iam_token_iat(t) = t[4]
+let iam_token_exp(t) = t[5]
+let iam_token_revoked(t) = t[6]
+let iam_token_type(t) = t[7]
+
+let iam_token_set_revoked(t, r) = [t[0], t[1], t[2], t[3], t[4], t[5], r, t[7]]
+
+let iam_token_valid(t, now_ms) =
+    if t == 0
+        0
+    else
+        if iam_token_revoked(t) == 1
+            0
+        else
+            if now_ms >= iam_token_exp(t)
+                0
+            else
+                1
+
+let iam_authcode_new(code, cid, uid, ruri, scopes, iat, exp, chal) =
+    [code, cid, uid, ruri, scopes, iat, exp, chal, 0]
+
+let iam_ac_code(c) = c[0]
+let iam_ac_client(c) = c[1]
+let iam_ac_user(c) = c[2]
+let iam_ac_redirect(c) = c[3]
+let iam_ac_scopes(c) = c[4]
+let iam_ac_iat(c) = c[5]
+let iam_ac_exp(c) = c[6]
+let iam_ac_pkce(c) = c[7]
+let iam_ac_used(c) = c[8]
+let iam_ac_set_used(c, u) = [c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], u]
+
+let iam_oauth_store_new() = [{}, {}, {}, {}, 1, 1]
+
+let iam_os_clients(s) = s[0]
+let iam_os_codes(s) = s[1]
+let iam_os_access(s) = s[2]
+let iam_os_refresh(s) = s[3]
+let iam_os_next_tid(s) = s[4]
+let iam_os_next_code(s) = s[5]
+
+let iam_os_set_clients(s, c) = [c, s[1], s[2], s[3], s[4], s[5]]
+let iam_os_set_codes(s, c) = [s[0], c, s[2], s[3], s[4], s[5]]
+let iam_os_set_access(s, a) = [s[0], s[1], a, s[3], s[4], s[5]]
+let iam_os_set_refresh(s, r) = [s[0], s[1], s[2], r, s[4], s[5]]
+let iam_os_set_next_tid(s, n) = [s[0], s[1], s[2], s[3], n, s[5]]
+let iam_os_set_next_code(s, n) = [s[0], s[1], s[2], s[3], s[4], n]
+
+let iam_os_register_client(s, id, name, ctype, secret) =
+    let c = iam_client_new(id, name, ctype)
+    if ctype == IAM_OAUTH_CLIENT_CONFIDENTIAL
+        c = iam_client_set_secret(c, iam_oauth_hash_secret(id, secret))
+    let clients = iam_os_clients(s)
+    clients[id] = c
+    iam_os_set_clients(s, clients)
+
+let iam_os_validate_client(s, id, secret) =
+    let clients = iam_os_clients(s)
+    let c = clients[id]
+    if c == 0
+        0
+    else
+        if iam_client_enabled(c) == 0
+            0
+        else
+            if iam_client_type(c) == IAM_OAUTH_CLIENT_PUBLIC
+                1
+            else
+                let expected = iam_client_secret(c)
+                let actual = iam_oauth_hash_secret(id, secret)
+                (expected == actual ? 1 : 0)
+
+let iam_os_check_redirect(s, id, uri) =
+    let clients = iam_os_clients(s)
+    let c = clients[id]
+    if c == 0
+        0
+    else
+        let reds = iam_client_redirects(c)
+        let i = 0
+        let n = len(reds)
+        let ok = 0
+        for i < n
+            if reds[i] == uri
+                ok = 1
+                i = n
+            i = i + 1
+        ok
+
+let iam_os_issue_code(s, cid, uid, ruri, scopes, now_ms, pkce_verifier) =
+    let clients = iam_os_clients(s)
+    let c = clients[cid]
+    if c == 0
+        [s, 0]
+    else
+        if iam_os_check_redirect(s, cid, ruri) == 0
+            [s, 0]
+        else
+            let code_id = iam_os_next_code(s)
+            let code_hash = iam_oauth_hash(cid + "_" + uid + "_" + code_id + "_" + now_ms)
+            let challenge = 0
+            if pkce_verifier != 0
+                challenge = iam_oauth_pkce_challenge(pkce_verifier)
+            let ac = iam_authcode_new(code_hash, cid, uid, ruri, scopes, now_ms, now_ms + IAM_OAUTH_CODE_TTL, challenge)
+            let codes = iam_os_codes(s)
+            codes[code_hash] = ac
+            let s2 = iam_os_set_codes(s, codes)
+            s2 = iam_os_set_next_code(s2, code_id + 1)
+            [s2, code_hash]
+
+let iam_os_exchange_code(s, cid, secret, code, ruri, now_ms, pkce_verifier) =
+    let codes = iam_os_codes(s)
+    let ac = codes[code]
+    if ac == 0
+        [s, 0, 0]
+    else
+        if iam_ac_client(ac) != cid
+            [s, 0, 0]
+        else
+            if iam_ac_redirect(ac) != ruri
+                [s, 0, 0]
+            else
+                if now_ms >= iam_ac_exp(ac)
+                    [s, 0, 0]
+                else
+                    if iam_ac_used(ac) == 1
+                        [s, 0, 0]
+                    else
+                        if iam_os_validate_client(s, cid, secret) == 0
+                            [s, 0, 0]
+                        else
+                            if iam_ac_pkce(ac) != 0
+                                if pkce_verifier == 0
+                                    [s, 0, 0]
+                                else
+                                    let chal = iam_oauth_pkce_challenge(pkce_verifier)
+                                    if chal != iam_ac_pkce(ac)
+                                        [s, 0, 0]
+                            ac = iam_ac_set_used(ac, 1)
+                            codes[code] = ac
+                            let s2 = iam_os_set_codes(s, codes)
+                            let tid = iam_os_next_tid(s2)
+                            let at = iam_token_new(tid, cid, iam_ac_user(ac), iam_ac_scopes(ac), now_ms, now_ms + IAM_OAUTH_ACCESS_TTL, IAM_OAUTH_TOKEN_ACCESS)
+                            let rt = iam_token_new(tid + 1, cid, iam_ac_user(ac), iam_ac_scopes(ac), now_ms, now_ms + IAM_OAUTH_REFRESH_TTL, IAM_OAUTH_TOKEN_REFRESH)
+                            let access = iam_os_access(s2)
+                            access[tid] = at
+                            let refresh = iam_os_refresh(s2)
+                            refresh[tid + 1] = rt
+                            s2 = iam_os_set_access(s2, access)
+                            s2 = iam_os_set_refresh(s2, refresh)
+                            s2 = iam_os_set_next_tid(s2, tid + 2)
+                            [s2, tid, tid + 1]
+
+let iam_os_client_credentials(s, cid, secret, scopes, now_ms) =
+    if iam_os_validate_client(s, cid, secret) == 0
+        [s, 0]
+    else
+        let clients = iam_os_clients(s)
+        let c = clients[cid]
+        if iam_client_type(c) != IAM_OAUTH_CLIENT_CONFIDENTIAL
+            [s, 0]
+        else
+            let tid = iam_os_next_tid(s)
+            let at = iam_token_new(tid, cid, 0, scopes, now_ms, now_ms + IAM_OAUTH_ACCESS_TTL, IAM_OAUTH_TOKEN_ACCESS)
+            let access = iam_os_access(s)
+            access[tid] = at
+            let s2 = iam_os_set_access(s, access)
+            s2 = iam_os_set_next_tid(s2, tid + 1)
+            [s2, tid]
+
+let iam_os_refresh_token(s, rt_id, cid, secret, now_ms) =
+    let refresh = iam_os_refresh(s)
+    let rt = refresh[rt_id]
+    if iam_token_valid(rt, now_ms) == 0
+        [s, 0]
+    else
+        if iam_token_client(rt) != cid
+            [s, 0]
+        else
+            if iam_os_validate_client(s, cid, secret) == 0
+                [s, 0]
+            else
+                rt = iam_token_set_revoked(rt, 1)
+                refresh[rt_id] = rt
+                let s2 = iam_os_set_refresh(s, refresh)
+                let tid = iam_os_next_tid(s2)
+                let at = iam_token_new(tid, cid, iam_token_user(rt), iam_token_scopes(rt), now_ms, now_ms + IAM_OAUTH_ACCESS_TTL, IAM_OAUTH_TOKEN_ACCESS)
+                let nrt = iam_token_new(tid + 1, cid, iam_token_user(rt), iam_token_scopes(rt), now_ms, now_ms + IAM_OAUTH_REFRESH_TTL, IAM_OAUTH_TOKEN_REFRESH)
+                let access = iam_os_access(s2)
+                access[tid] = at
+                refresh = iam_os_refresh(s2)
+                refresh[tid + 1] = nrt
+                s2 = iam_os_set_access(s2, access)
+                s2 = iam_os_set_refresh(s2, refresh)
+                s2 = iam_os_set_next_tid(s2, tid + 2)
+                [s2, tid]
+
+let iam_os_validate_access(s, tid, now_ms) =
+    let access = iam_os_access(s)
+    let t = access[tid]
+    if iam_token_valid(t, now_ms) == 1
+        [1, iam_token_client(t), iam_token_user(t), iam_token_scopes(t)]
+    else
+        [0, 0, 0, []]
+
+let iam_os_revoke_access(s, tid) =
+    let access = iam_os_access(s)
+    let t = access[tid]
+    if t == 0
+        s
+    else
+        t = iam_token_set_revoked(t, 1)
+        access[tid] = t
+        iam_os_set_access(s, access)
+
+let iam_os_revoke_refresh(s, rt_id) =
+    let refresh = iam_os_refresh(s)
+    let t = refresh[rt_id]
+    if t == 0
+        s
+    else
+        t = iam_token_set_revoked(t, 1)
+        refresh[rt_id] = t
+        iam_os_set_refresh(s, refresh)
+
+let iam_bragg_verify_token_roundtrip(s, tid, now_ms) =
+    let res = iam_os_validate_access(s, tid, now_ms)
+    if res[0] == 1
+        (res[1] != 0 ? 1 : 0)
+    else
+            0
+        0
+
+let iam_bragg_verify_code_one_time(s, code, cid, secret, ruri, now_ms, pkce) =
+    let r1 = iam_os_exchange_code(s, cid, secret, code, ruri, now_ms, pkce)
+    if r1[1] == 0
+        0
+    else
+        let s2 = r1[0]
+        let r2 = iam_os_exchange_code(s2, cid, secret, code, ruri, now_ms, pkce)
+        (r2[1] == 0 ? 1 : 0)
+
+let iam_oauth2_self_test() =
+    let results = []
+    let s = iam_oauth_store_new()
+
+    s = iam_os_register_client(s, "client1", "Test App", IAM_OAUTH_CLIENT_CONFIDENTIAL, "s3cret")
+    let clients = iam_os_clients(s)
+    let c = clients["client1"]
+    results.push(c != 0)
+    results.push(iam_client_type(c) == IAM_OAUTH_CLIENT_CONFIDENTIAL)
+
+    results.push(iam_os_validate_client(s, "client1", "s3cret") == 1)
+    results.push(iam_os_validate_client(s, "client1", "wrong") == 0)
+
+    let c2 = iam_client_add_redirect(c, "https://app.example.com/cb")
+    clients["client1"] = c2
+    s = iam_os_set_clients(s, clients)
+    results.push(iam_os_check_redirect(s, "client1", "https://app.example.com/cb") == 1)
+    results.push(iam_os_check_redirect(s, "client1", "https://evil.com/cb") == 0)
+
+    let cr = iam_os_client_credentials(s, "client1", "s3cret", ["read"], 1000000)
+    s = cr[0]
+    results.push(cr[1] != 0)
+    let tid = cr[1]
+    let res = iam_os_validate_access(s, tid, 1000000)
+    results.push(res[0] == 1)
+    results.push(res[1] == "client1")
+
+    res = iam_os_validate_access(s, tid, 1000000 + IAM_OAUTH_ACCESS_TTL + 1)
+    results.push(res[0] == 0)
+
+    let ir = iam_os_issue_code(s, "client1", 1, "https://app.example.com/cb", ["read", "write"], 2000000, 0)
+    s = ir[0]
+    let code = ir[1]
+    results.push(code != 0)
+
+    let er = iam_os_exchange_code(s, "client1", "s3cret", code, "https://app.example.com/cb", 2000000, 0)
+    s = er[0]
+    results.push(er[1] != 0)
+    results.push(er[2] != 0)
+
+    let er2 = iam_os_exchange_code(s, "client1", "s3cret", code, "https://app.example.com/cb", 2000000, 0)
+    results.push(er2[1] == 0)
+
+    let rt_id = er[2]
+    let rr = iam_os_refresh_token(s, rt_id, "client1", "s3cret", 3000000)
+    s = rr[0]
+    results.push(rr[1] != 0)
+    let rr2 = iam_os_refresh_token(s, rt_id, "client1", "s3cret", 3000000)
+    results.push(rr2[1] == 0)
+
+    let new_tid = rr[1]
+    s = iam_os_revoke_access(s, new_tid)
+    res = iam_os_validate_access(s, new_tid, 3000000)
+    results.push(res[0] == 0)
+
+    let pkce_ir = iam_os_issue_code(s, "client1", 2, "https://app.example.com/cb", ["read"], 4000000, "verifier123")
+    s = pkce_ir[0]
+    let pkce_code = pkce_ir[1]
+    let pkce_er = iam_os_exchange_code(s, "client1", "s3cret", pkce_code, "https://app.example.com/cb", 4000000, "wrong")
+    results.push(pkce_er[1] == 0)
+    pkce_er = iam_os_exchange_code(s, "client1", "s3cret", pkce_code, "https://app.example.com/cb", 4000000, "verifier123")
+    s = pkce_er[0]
+    results.push(pkce_er[1] != 0)
+
+    results
+
+let iam_oauth2_default_store() = iam_oauth_store_new()

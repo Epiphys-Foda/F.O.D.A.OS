@@ -1,0 +1,454 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let R3D_FOV = 60
+let R3D_NEAR = 1
+let R3D_FAR = 1000
+let R3D_W = 1920
+let R3D_H = 1080
+
+let vec3_create(x, y, z) = [x, y, z]
+let vec3_add(a, b) = [gf_add(a[0], b[0]), gf_add(a[1], b[1]), gf_add(a[2], b[2])]
+let vec3_sub(a, b) = [gf_sub(a[0], b[0]), gf_sub(a[1], b[1]), gf_sub(a[2], b[2])]
+let vec3_scale(a, s) = [gf_mul(a[0], s), gf_mul(a[1], s), gf_mul(a[2], s)]
+let vec3_dot(a, b) = gf_add(gf_add(gf_mul(a[0], b[0]), gf_mul(a[1], b[1])), gf_mul(a[2], b[2]))
+let vec3_cross(a, b) = [
+    gf_sub(gf_mul(a[1], b[2]), gf_mul(a[2], b[1])),
+    gf_sub(gf_mul(a[2], b[0]), gf_mul(a[0], b[2])),
+    gf_sub(gf_mul(a[0], b[1]), gf_mul(a[1], b[0]))
+]
+let vec3_length(a) = gf_sqrt(gf_add(gf_add(gf_mul(a[0], a[0]), gf_mul(a[1], a[1])), gf_mul(a[2], a[2])))
+let vec3_normalize(a) =
+    let len = vec3_length(a)
+    (len == 0 ? [0, 0, 0] : [gf_div(a[0], len), gf_div(a[1], len), gf_div(a[2], len)])
+let vec3_neg(a) = [gf_neg(a[0]), gf_neg(a[1]), gf_neg(a[2])]
+
+let mat4_identity() =
+    let m = []
+    let i = 0
+    for i < 16
+        m.push(0)
+        i = i + 1
+    m.set(0, 1)
+    m.set(5, 1)
+    m.set(10, 1)
+    m.set(15, 1)
+    m
+let mat4_zero() =
+    let m = []
+    let i = 0
+    for i < 16
+        m.push(0)
+        i = i + 1
+    m
+let mat4_translate(x, y, z) =
+    let m = mat4_identity()
+    m.set(3, x)
+    m.set(7, y)
+    m.set(11, z)
+    m
+let mat4_scale(sx, sy, sz) =
+    let m = mat4_identity()
+    m.set(0, sx)
+    m.set(5, sy)
+    m.set(10, sz)
+    m
+let mat4_rotate_x(angle) =
+    let m = mat4_identity()
+    let cos_a = gf_pow(angle, 0)
+    let sin_a = gf_pow(angle, 1)
+    m.set(5, cos_a)
+    m.set(6, gf_neg(sin_a))
+    m.set(9, sin_a)
+    m.set(10, cos_a)
+    m
+let mat4_rotate_y(angle) =
+    let m = mat4_identity()
+    let cos_a = gf_pow(angle, 0)
+    let sin_a = gf_pow(angle, 1)
+    m.set(0, cos_a)
+    m.set(2, sin_a)
+    m.set(8, gf_neg(sin_a))
+    m.set(10, cos_a)
+    m
+let mat4_rotate_z(angle) =
+    let m = mat4_identity()
+    let cos_a = gf_pow(angle, 0)
+    let sin_a = gf_pow(angle, 1)
+    m.set(0, cos_a)
+    m.set(1, gf_neg(sin_a))
+    m.set(4, sin_a)
+    m.set(5, cos_a)
+    m
+let mat4_multiply(a, b) =
+    let result = mat4_zero()
+    let i = 0
+    for i < 4
+        let j = 0
+        for j < 4
+            let sum = 0
+            let k = 0
+            for k < 4
+                sum = gf_add(sum, gf_mul(a[i * 4 + k], b[k * 4 + j]))
+                k = k + 1
+            result[i * 4 + j] = sum
+            j = j + 1
+        i = i + 1
+    result
+let mat4_transform_point(mat, vec) =
+    let x = gf_add(gf_add(gf_add(gf_mul(mat[0], vec[0]), gf_mul(mat[1], vec[1])), gf_mul(mat[2], vec[2])), mat[3])
+    let y = gf_add(gf_add(gf_add(gf_mul(mat[4], vec[0]), gf_mul(mat[5], vec[1])), gf_mul(mat[6], vec[2])), mat[7])
+    let z = gf_add(gf_add(gf_add(gf_mul(mat[8], vec[0]), gf_mul(mat[9], vec[1])), gf_mul(mat[10], vec[2])), mat[11])
+    let w = gf_add(gf_add(gf_add(gf_mul(mat[12], vec[0]), gf_mul(mat[13], vec[1])), gf_mul(mat[14], vec[2])), mat[15])
+    [x, y, z, w]
+let mat4_transform_dir(mat, vec) =
+    let x = gf_add(gf_add(gf_mul(mat[0], vec[0]), gf_mul(mat[1], vec[1])), gf_mul(mat[2], vec[2]))
+    let y = gf_add(gf_add(gf_mul(mat[4], vec[0]), gf_mul(mat[5], vec[1])), gf_mul(mat[6], vec[2]))
+    let z = gf_add(gf_add(gf_mul(mat[8], vec[0]), gf_mul(mat[9], vec[1])), gf_mul(mat[10], vec[2]))
+    [x, y, z]
+let mat4_transpose(m) =
+    let t = mat4_zero()
+    let i = 0
+    for i < 4
+        let j = 0
+        for j < 4
+            t[j * 4 + i] = m[i * 4 + j]
+            j = j + 1
+        i = i + 1
+    t
+
+let camera_lookat(eye, target, up) =
+    let f = vec3_normalize(vec3_sub(target, eye))
+    let s = vec3_normalize(vec3_cross(f, up))
+    let u = vec3_cross(s, f)
+    let m = mat4_identity()
+    m.set(0, s[0])
+    m.set(1, s[1])
+    m.set(2, s[2])
+    m.set(3, gf_neg(vec3_dot(s, eye)))
+    m.set(4, u[0])
+    m.set(5, u[1])
+    m.set(6, u[2])
+    m.set(7, gf_neg(vec3_dot(u, eye)))
+    m.set(8, gf_neg(f[0]))
+    m.set(9, gf_neg(f[1]))
+    m.set(10, gf_neg(f[2]))
+    m.set(11, vec3_dot(f, eye))
+    m
+
+let mat4_perspective(fov, aspect, near, far) =
+    let f = gf_div(1, gf_pow(fov, 1))
+    let m = mat4_zero()
+    m[0] = gf_div(f, aspect)
+    m[5] = f
+    m[10] = gf_div(gf_add(far, near), gf_sub(far, near))
+    m[11] = gf_div(gf_mul(gf_mul(2, far), near), gf_sub(far, near))
+    m[14] = gf_neg(1)
+    m
+
+let mat4_ortho(left, right, bottom, top, near, far) =
+    let m = mat4_zero()
+    m[0] = gf_div(2, gf_sub(right, left))
+    m[5] = gf_div(2, gf_sub(top, bottom))
+    m[10] = gf_div(gf_neg(2), gf_sub(far, near))
+    m[3] = gf_neg(gf_div(gf_add(right, left), gf_sub(right, left)))
+    m[7] = gf_neg(gf_div(gf_add(top, bottom), gf_sub(top, bottom)))
+    m[11] = gf_neg(gf_div(gf_add(far, near), gf_sub(far, near)))
+    m[15] = 1
+    m
+
+let viewport_transform(ndc_x, ndc_y, width, height) =
+    let sx = gf_add(gf_mul(gf_add(ndc_x, 1), gf_div(width, 2)), 0)
+    let sy = gf_add(gf_mul(gf_sub(1, ndc_y), gf_div(height, 2)), 0)
+    [sx, sy]
+
+let quat_create(w, x, y, z) = [w, x, y, z]
+let quat_mul(a, b) = [
+    gf_sub(gf_sub(gf_sub(gf_mul(a[0], b[0]), gf_mul(a[1], b[1])), gf_mul(a[2], b[2])), gf_mul(a[3], b[3])),
+    gf_add(gf_add(gf_sub(gf_mul(a[0], b[1]), gf_mul(a[1], b[0])), gf_mul(a[2], b[3])), gf_mul(a[3], b[2])),
+    gf_add(gf_sub(gf_add(gf_mul(a[0], b[2]), gf_mul(a[1], b[3])), gf_mul(a[2], b[0])), gf_mul(a[3], b[1])),
+    gf_add(gf_add(gf_sub(gf_mul(a[0], b[3]), gf_mul(a[1], b[2])), gf_mul(a[2], b[1])), gf_mul(a[3], b[0]))
+]
+let quat_normalize(q) =
+    let norm = gf_sqrt(gf_add(gf_add(gf_add(gf_mul(q[0], q[0]), gf_mul(q[1], q[1])), gf_mul(q[2], q[2])), gf_mul(q[3], q[3])))
+    (norm == 0 ? [1, 0, 0, 0] : [gf_div(q[0], norm), gf_div(q[1], norm), gf_div(q[2], norm), gf_div(q[3], norm)])
+let quat_to_mat4(q) =
+    let w = q[0]
+    let x = q[1]
+    let y = q[2]
+    let z = q[3]
+    let m = mat4_identity()
+    m[0] = gf_sub(gf_sub(gf_mul(w, w), gf_mul(x, x)), gf_sub(gf_mul(y, y), gf_mul(z, z)))
+    m[1] = gf_mul(2, gf_sub(gf_mul(x, y), gf_mul(w, z)))
+    m[2] = gf_mul(2, gf_add(gf_mul(x, z), gf_mul(w, y)))
+    m[4] = gf_mul(2, gf_add(gf_mul(x, y), gf_mul(w, z)))
+    m[5] = gf_sub(gf_add(gf_sub(gf_mul(w, w), gf_mul(x, x)), gf_mul(y, y)), gf_mul(z, z))
+    m[6] = gf_mul(2, gf_sub(gf_mul(y, z), gf_mul(w, x)))
+    m[8] = gf_mul(2, gf_sub(gf_mul(x, z), gf_mul(w, y)))
+    m[9] = gf_mul(2, gf_add(gf_mul(y, z), gf_mul(w, x)))
+    m[10] = gf_sub(gf_sub(gf_add(gf_mul(w, w), gf_mul(x, x)), gf_mul(y, y)), gf_mul(z, z))
+    m
+let quat_from_axis_angle(axis, angle) =
+    let half = gf_div(angle, 2)
+    let s = gf_pow(half, 1)
+    [gf_pow(half, 0), gf_mul(s, axis[0]), gf_mul(s, axis[1]), gf_mul(s, axis[2])]
+
+let light_diffuse(normal, light_dir, intensity) =
+    let d = vec3_dot(normal, light_dir)
+    (d < 0 ? 0 : gf_mul(d, intensity))
+let light_specular(normal, light_dir, view_dir, shininess) =
+    let ndotl = vec3_dot(normal, light_dir)
+    if ndotl < 0
+        0
+    let reflect = vec3_sub(vec3_scale(normal, gf_mul(2, ndotl)), light_dir)
+    let rdotv = vec3_dot(reflect, view_dir)
+    (rdotv < 0 ? 0 : gf_pow(rdotv, shininess))
+let light_ambient(ka, intensity) = gf_mul(ka, intensity)
+let light_phong(normal, light_dir, view_dir, ka, kd, ks, shininess, intensity) =
+    let a = light_ambient(ka, intensity)
+    let d = gf_mul(kd, light_diffuse(normal, light_dir, intensity))
+    let s = gf_mul(ks, light_specular(normal, light_dir, view_dir, shininess))
+    gf_add(gf_add(a, d), s)
+
+let tri_normal(v0, v1, v2) =
+    let edge1 = vec3_sub(v1, v0)
+    let edge2 = vec3_sub(v2, v0)
+    vec3_normalize(vec3_cross(edge1, edge2))
+
+let barycentric(px, py, v0, v1, v2) =
+    let x0 = v0[0]
+    let y0 = v0[1]
+    let x1 = v1[0]
+    let y1 = v1[1]
+    let x2 = v2[0]
+    let y2 = v2[1]
+    let denom = gf_add(gf_sub(gf_mul(gf_sub(y1, y2), gf_sub(x0, x2)), gf_mul(gf_sub(x1, x2), gf_sub(y0, y2))), 0)
+    if denom == 0
+        [0, 0, 0]
+    else
+        let a = gf_div(gf_add(gf_mul(gf_sub(y1, y2), gf_sub(px, x2)), gf_mul(gf_sub(x2, x1), gf_sub(py, y2))), denom)
+        let b = gf_div(gf_add(gf_mul(gf_sub(y2, y0), gf_sub(px, x2)), gf_mul(gf_sub(x0, x2), gf_sub(py, y2))), denom)
+        let c = gf_sub(gf_sub(1, a), b)
+        [a, b, c]
+
+let zbuffer_create(w, h) =
+    let zbuf = []
+    let n = gf_mul(w, h)
+    let i = 0
+    for i < n
+        zbuf.push(R3D_FAR)
+        i = i + 1
+    [w, h, zbuf]
+let zbuffer_test(zbuf, x, y, z) =
+    let w = zbuf[0]
+    let h = zbuf[1]
+    if x < 0
+        0
+    if x >= w
+        0
+    if y < 0
+        0
+    if y >= h
+        0
+    let idx = gf_add(gf_mul(y, w), x)
+    let old = zbuf[2][idx]
+    if z < old
+        zbuf[2][idx] = z
+        1
+    else
+        0
+
+let rasterize_triangle(fb, zbuf, v0, v1, v2, color) =
+    let w = fb[0]
+    let h = fb[1]
+    let pixels = fb[2]
+    let min_x = v0[0]
+    if v1[0] < min_x
+        min_x = v1[0]
+    if v2[0] < min_x
+        min_x = v2[0]
+    let max_x = v0[0]
+    if v1[0] > max_x
+        max_x = v1[0]
+    if v2[0] > max_x
+        max_x = v2[0]
+    let min_y = v0[1]
+    if v1[1] < min_y
+        min_y = v1[1]
+    if v2[1] < min_y
+        min_y = v2[1]
+    let max_y = v0[1]
+    if v1[1] > max_y
+        max_y = v1[1]
+    if v2[1] > max_y
+        max_y = v2[1]
+    if min_x < 0
+        min_x = 0
+    if min_y < 0
+        min_y = 0
+    if max_x >= w
+        max_x = gf_sub(w, 1)
+    if max_y >= h
+        max_y = gf_sub(h, 1)
+    let px = min_x
+    for px <= max_x
+        let py = min_y
+        for py <= max_y
+            let bc = barycentric(px, py, v0, v1, v2)
+            let a = bc[0]
+            let b = bc[1]
+            let c = bc[2]
+            if a >= 0
+                if b >= 0
+                    if c >= 0
+                        let z = gf_add(gf_add(gf_mul(a, v0[2]), gf_mul(b, v1[2])), gf_mul(c, v2[2]))
+                        if zbuffer_test(zbuf, px, py, z) == 1
+                            let idx = gf_add(gf_mul(py, w), px)
+                            pixels[idx] = color
+            py = py + 1
+        px = px + 1
+
+let mesh_create(verts, tris) = [verts, tris]
+let mesh_transform(mesh, mat) =
+    let verts = mesh[0]
+    let tris = mesh[1]
+    let out_verts = []
+    let i = 0
+    let nv = verts.length
+    for i < nv
+        let v = verts[i]
+        let tv = mat4_transform_point(mat, v)
+        out_verts.push([tv[0], tv[1], tv[2]])
+        i = i + 1
+    [out_verts, tris]
+
+let render_mesh(fb, zbuf, mesh, model, view, proj, light_dir, light_intensity, width, height) =
+    let verts = mesh[0]
+    let tris = mesh[1]
+    let mv = mat4_multiply(view, model)
+    let mvp = mat4_multiply(proj, mv)
+    let screen_verts = []
+    let i = 0
+    let nv = verts.length
+    for i < nv
+        let v = verts[i]
+        let clip = mat4_transform_point(mvp, v)
+        let w_clip = clip[3]
+        let ndc_x = 0
+        let ndc_y = 0
+        let ndc_z = 0
+        if w_clip != 0
+            ndc_x = gf_div(clip[0], w_clip)
+            ndc_y = gf_div(clip[1], w_clip)
+            ndc_z = gf_div(clip[2], w_clip)
+        let vp = viewport_transform(ndc_x, ndc_y, width, height)
+        screen_verts.push([vp[0], vp[1], ndc_z])
+        i = i + 1
+    let nt = tris.length
+    let j = 0
+    for j < nt
+        let tri = tris[j]
+        let i0 = tri[0]
+        let i1 = tri[1]
+        let i2 = tri[2]
+        let sv0 = screen_verts[i0]
+        let sv1 = screen_verts[i1]
+        let sv2 = screen_verts[i2]
+        let wv0 = verts[i0]
+        let wv1 = verts[i1]
+        let wv2 = verts[i2]
+        let normal = tri_normal(wv0, wv1, wv2)
+        let lit = light_diffuse(normal, light_dir, light_intensity)
+        let color = gf_add(100, lit)
+        rasterize_triangle(fb, zbuf, sv0, sv1, sv2, color)
+        j = j + 1
+
+let mesh_cube(size) =
+    let s = gf_div(size, 2)
+    let verts = [
+        [gf_neg(s), gf_neg(s), gf_neg(s)],
+        [s, gf_neg(s), gf_neg(s)],
+        [s, s, gf_neg(s)],
+        [gf_neg(s), s, gf_neg(s)],
+        [gf_neg(s), gf_neg(s), s],
+        [s, gf_neg(s), s],
+        [s, s, s],
+        [gf_neg(s), s, s]
+    ]
+    let tris = [
+        [0, 1, 2], [0, 2, 3],
+        [4, 5, 6], [4, 6, 7],
+        [0, 3, 7], [0, 7, 4],
+        [1, 2, 6], [1, 6, 5],
+        [0, 1, 5], [0, 5, 4],
+        [3, 2, 6], [3, 6, 7]
+    ]
+    [verts, tris]
+let mesh_quad(size) =
+    let s = gf_div(size, 2)
+    let verts = [
+        [gf_neg(s), gf_neg(s), 0],
+        [s, gf_neg(s), 0],
+        [s, s, 0],
+        [gf_neg(s), s, 0]
+    ]
+    let tris = [[0, 1, 2], [0, 2, 3]]
+    [verts, tris]
+
+let project_ortho(vec, width, height) =
+    let x = gf_add(gf_div(vec[0], width), gf_div(1, 2))
+    let y = gf_add(gf_div(vec[1], height), gf_div(1, 2))
+    [x, y]
+let project_perspective(vec, fov, aspect) =
+    let z = vec[2]
+    if z == 0
+        [0, 0]
+    let x = gf_div(vec[0], z)
+    let y = gf_div(vec[1], z)
+    [x, y]
+
+let scene_create(camera, objects, lights) = [camera, objects, lights]
+let scene_add_object(scene, obj) =
+    let cam = scene[0]
+    let objs = scene[1]
+    let lts = scene[2]
+    objs.push(obj)
+    [cam, objs, lts]
+let scene_render(fb, zbuf, scene, width, height) =
+    let camera = scene[0]
+    let objects = scene[1]
+    let lights = scene[2]
+    let view = camera_lookat(camera[0], camera[1], [0, 1, 0])
+    let proj = mat4_perspective(R3D_FOV, gf_div(width, height), R3D_NEAR, R3D_FAR)
+    let light_dir = [0, 0, 1]
+    let light_intensity = 200
+    if lights.length > 0
+        light_dir = lights[0][0]
+        light_intensity = lights[0][1]
+    let i = 0
+    let n = objects.length
+    for i < n
+        let obj = objects[i]
+        let mesh = obj[0]
+        let model = obj[1]
+        render_mesh(fb, zbuf, mesh, model, view, proj, light_dir, light_intensity, width, height)
+        i = i + 1
+
+let field_render3d(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let render3d_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_render3d(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok

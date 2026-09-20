@@ -1,0 +1,5 @@
+let path = host_call(3, 0, 0)
+let n = host_call(2, path, 0)
+let b0 = host_call(4, 0, 0)
+host_call(1, n, 0)
+b0

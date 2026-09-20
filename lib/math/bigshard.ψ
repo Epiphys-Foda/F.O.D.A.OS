@@ -1,0 +1,153 @@
+import "../domain/domain_field.ψ"
+
+import "bigint.ψ"
+import "../core/stdlib_lang2/gf_base.ψ"
+
+let bi_shard(big, shard_size) =
+    let result = []
+    let total = len(big)
+    let i = 0
+    for i < total
+        let chunk = []
+        let j = 0
+        for j < shard_size && i + j < total
+            chunk.push(big[i + j])
+            j = j + 1
+        if len(chunk) == 0
+            chunk.push(0)
+        result.push(chunk)
+        i = i + shard_size
+    if len(result) == 0
+        result.push([0])
+    result
+
+let bi_unshard(shards, shard_size) =
+    let result = []
+    let ns = len(shards)
+    let s = 0
+    for s < ns
+        let chunk = shards[s]
+        let lc = len(chunk)
+        let j = 0
+        for j < lc
+            result.push(chunk[j])
+            j = j + 1
+        s = s + 1
+    if len(result) == 0
+        result.push(0)
+    result
+
+let bi_shift_left(big, n) =
+    if bi_is_zero(big)
+        [0]
+    else
+        let result = []
+        let i = 0
+        for i < n
+            result.push(0)
+            i = i + 1
+        let lb = len(big)
+        let j = 0
+        for j < lb
+            result.push(big[j])
+            j = j + 1
+        result
+
+let bi_mul_sharded(a, b, shard_size) =
+    if bi_is_zero(a)
+        [0]
+    else
+        0
+    if bi_is_zero(b)
+        [0]
+    else
+        let shards_a = bi_shard(a, shard_size)
+        let shards_b = bi_shard(b, shard_size)
+        let na = len(shards_a)
+        let nb = len(shards_b)
+        let result = [0]
+        let ia = 0
+        for ia < na
+            let ib = 0
+            for ib < nb
+                let pa = shards_a[ia]
+                let pb = shards_b[ib]
+                if !bi_is_zero(pa) && !bi_is_zero(pb)
+                    let partial = bi_mul(pa, pb)
+                    let shifted = bi_shift_left(partial, (ia + ib) * shard_size)
+                    result = bi_add(result, shifted)
+                ib = ib + 1
+            ia = ia + 1
+        result
+
+let bi_add_sharded(a, b, shard_size) =
+    let shards_a = bi_shard(a, shard_size)
+    let shards_b = bi_shard(b, shard_size)
+    let na = len(shards_a)
+    let nb = len(shards_b)
+    let max_ns = na
+    if nb > max_ns
+        max_ns = nb
+    let result = [0]
+    let i = 0
+    for i < max_ns
+        let sa = (i < na ? shards_a[i] : [0])
+        let sb = (i < nb ? shards_b[i] : [0])
+        let chunk_sum = bi_add(sa, sb)
+        let shifted = bi_shift_left(chunk_sum, i * shard_size)
+        result = bi_add(result, shifted)
+        i = i + 1
+    result
+
+let bi_shard_count(big, shard_size) =
+    let total = len(big)
+    let count = total / shard_size
+    if total - count * shard_size > 0
+        count + 1
+    else
+        count
+
+let bi_shard_test() =
+    print_str("=== bigshard test ===")
+    let a = bi_from_int(123456789)
+    let shards = bi_shard(a, 1)
+    print_str("shard count (size=1):")
+    print(len(shards))
+    let a_back = bi_unshard(shards, 1)
+    print_str("unshard roundtrip:")
+    print(bi_to_int(a_back))
+    let x = bi_from_int(12345)
+    let y = bi_from_int(6789)
+    let reg_mul = bi_mul(x, y)
+    let shard_mul = bi_mul_sharded(x, y, 1)
+    print_str("regular mul:")
+    print(bi_to_int(reg_mul))
+    print_str("sharded mul:")
+    print(bi_to_int(shard_mul))
+    let big1 = bi_from_int(1000000000)
+    let big2 = bi_from_int(2000000000)
+    let reg_big = bi_mul(big1, big2)
+    let shard_big = bi_mul_sharded(big1, big2, 2)
+    print_str("regular 1e9*2e9:")
+    print_str(bi_to_str(reg_big))
+    print_str("sharded 1e9*2e9:")
+    print_str(bi_to_str(shard_big))
+    let reg_add = bi_add(x, y)
+    let shard_add = bi_add_sharded(x, y, 1)
+    print_str("regular add:")
+    print(bi_to_int(reg_add))
+    print_str("sharded add:")
+    print(bi_to_int(shard_add))
+    let huge = bi_from_int(999999999)
+    let huge_sq_reg = bi_mul(huge, huge)
+    let huge_sq_shard = bi_mul_sharded(huge, huge, 3)
+    print_str("regular 999999999^2:")
+    print_str(bi_to_str(huge_sq_reg))
+    print_str("sharded 999999999^2:")
+    print_str(bi_to_str(huge_sq_shard))
+    print_str("=== bigshard test done ===")
+    1
+
+let kleene_verify(t1, t2) = domain_kleene_verify(t1, t2)
+
+let pcd_divergence(u, n) = domain_pcd_divergence(u, n)

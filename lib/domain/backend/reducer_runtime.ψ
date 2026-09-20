@@ -1,0 +1,306 @@
+let rr_reducer_new(name, time_budget) =
+    [name, [], {}, time_budget, 3, 100, [], [], 0, 0]
+
+let rr_name(r) = r[0]
+let rr_params(r) = r[1]
+let rr_access(r) = r[2]
+let rr_budget(r) = r[3]
+let rr_retry_max(r) = r[4]
+let rr_backoff(r) = r[5]
+let rr_pre_hooks(r) = r[6]
+let rr_post_hooks(r) = r[7]
+let rr_calls(r) = r[8]
+let rr_fails(r) = r[9]
+
+let rr_set_params(r, v) = [r[0], v, r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9]]
+let rr_set_access(r, v) = [r[0], r[1], v, r[3], r[4], r[5], r[6], r[7], r[8], r[9]]
+let rr_set_budget(r, v) = [r[0], r[1], r[2], v, r[4], r[5], r[6], r[7], r[8], r[9]]
+let rr_set_pre_hooks(r, v) = [r[0], r[1], r[2], r[3], r[4], r[5], v, r[7], r[8], r[9]]
+let rr_set_post_hooks(r, v) = [r[0], r[1], r[2], r[3], r[4], r[5], r[6], v, r[8], r[9]]
+let rr_set_calls(r, v) = [r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], v, r[9]]
+let rr_set_fails(r, v) = [r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], v]
+
+let rr_grant_access(r, table, mode) =
+    let access = rr_access(r)
+    access[table] = mode
+    rr_set_access(r, access)
+
+let rr_add_pre_hook(r, hook) =
+    let hooks = rr_pre_hooks(r)
+    hooks.push(hook)
+    rr_set_pre_hooks(r, hooks)
+
+let rr_add_post_hook(r, hook) =
+    let hooks = rr_post_hooks(r)
+    hooks.push(hook)
+    rr_set_post_hooks(r, hooks)
+
+let RR_PHASE_DISPATCH = 0
+let RR_PHASE_PRE = 1
+let RR_PHASE_EXEC = 2
+let RR_PHASE_POST = 3
+let RR_PHASE_COMMIT = 4
+let RR_PHASE_ABORT = 5
+
+let rr_ctx_new(ctx_id, reducer_name, args, caller_id, timestamp, idem_key) =
+    [ctx_id, reducer_name, args, idem_key, caller_id, timestamp, 0, RR_PHASE_DISPATCH, 0, [], 0, 0]
+
+let rr_ctx_id(c) = c[0]
+let rr_ctx_reducer(c) = c[1]
+let rr_ctx_args(c) = c[2]
+let rr_ctx_idem(c) = c[3]
+let rr_ctx_caller(c) = c[4]
+let rr_ctx_ts(c) = c[5]
+let rr_ctx_retry(c) = c[6]
+let rr_ctx_phase(c) = c[7]
+let rr_ctx_gas(c) = c[8]
+let rr_ctx_effects(c) = c[9]
+let rr_ctx_result(c) = c[10]
+let rr_ctx_error(c) = c[11]
+
+let rr_ctx_set_phase(c, p) = [c[0], c[1], c[2], c[3], c[4], c[5], c[6], p, c[8], c[9], c[10], c[11]]
+let rr_ctx_set_gas(c, g) = [c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], g, c[9], c[10], c[11]]
+let rr_ctx_set_effects(c, e) = [c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], e, c[10], c[11]]
+let rr_ctx_set_result(c, r) = [c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], r, c[11]]
+let rr_ctx_set_error(c, e) = [c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], c[10], e]
+let rr_ctx_inc_retry(c) = [c[0], c[1], c[2], c[3], c[4], c[5], c[6] + 1, c[7], c[8], c[9], c[10], c[11]]
+
+let rr_ctx_record_effect(c, op, table, key, value) =
+    let effects = rr_ctx_effects(c)
+    effects.push([op, table, key, value])
+    rr_ctx_set_effects(c, effects)
+
+let idem_store_new(ttl) = [{}, ttl, 0]
+
+let is_seen(s) = s[0]
+let is_ttl(s) = s[1]
+let is_total(s) = s[2]
+
+let is_set_seen(s, k, ctx_id) =
+    let seen = is_seen(s)
+    seen[k] = ctx_id
+    [seen, s[1], s[2] + 1]
+
+let is_check(s, k) =
+    let seen = is_seen(s)
+    let v = seen[k]
+    if v == 0
+        0
+    else
+        1
+
+let runtime_new() =
+    [{}, idem_store_new(3600), {}, [], 1, 0, 0, 0]
+
+let rt_reducers(r) = r[0]
+let rt_idem(r) = r[1]
+let rt_pending(r) = r[2]
+let rt_completed(r) = r[3]
+let rt_next_id(r) = r[4]
+let rt_dispatched(r) = r[5]
+let rt_committed(r) = r[6]
+let rt_aborted(r) = r[7]
+
+let rt_set_reducers(r, v) = [v, r[1], r[2], r[3], r[4], r[5], r[6], r[7]]
+let rt_set_idem(r, v) = [r[0], v, r[2], r[3], r[4], r[5], r[6], r[7]]
+let rt_set_pending(r, v) = [r[0], r[1], v, r[3], r[4], r[5], r[6], r[7]]
+let rt_set_completed(r, v) = [r[0], r[1], r[2], v, r[4], r[5], r[6], r[7]]
+let rt_set_next_id(r, v) = [r[0], r[1], r[2], r[3], v, r[5], r[6], r[7]]
+let rt_set_dispatched(r, v) = [r[0], r[1], r[2], r[3], r[4], v, r[6], r[7]]
+let rt_set_committed(r, v) = [r[0], r[1], r[2], r[3], r[4], r[5], v, r[7]]
+let rt_set_aborted(r, v) = [r[0], r[1], r[2], r[3], r[4], r[5], r[6], v]
+
+let runtime_register(rt, reducer) =
+    let name = rr_name(reducer)
+    let reducers = rt_reducers(rt)
+    reducers[name] = reducer
+    rt_set_reducers(rt, reducers)
+
+let runtime_dispatch(rt, reducer_name, args, caller_id, timestamp, idem_key) =
+    let reducers = rt_reducers(rt)
+    let reducer = reducers[reducer_name]
+    if reducer == 0
+        [rt, 0, 0]
+    else
+        if idem_key != 0
+            let idem = rt_idem(rt)
+            if is_check(idem, idem_key) == 1
+                [rt, 0, 2]
+            else
+                0
+            let ctx_id = rt_next_id(rt)
+            rt = rt_set_next_id(rt, ctx_id + 1)
+            let ctx = rr_ctx_new(ctx_id, reducer_name, args, caller_id, timestamp, idem_key)
+            let pending = rt_pending(rt)
+            pending[ctx_id] = ctx
+            rt = rt_set_pending(rt, pending)
+            rt = rt_set_dispatched(rt, rt_dispatched(rt) + 1)
+            [rt, ctx_id, 1]
+
+let runtime_execute_phase(rt, ctx_id, execute_fn) =
+    let pending = rt_pending(rt)
+    let ctx = pending[ctx_id]
+    if ctx == 0
+        [rt, 0]
+    else
+        let reducers = rt_reducers(rt)
+        let reducer = reducers[rr_ctx_reducer(ctx)]
+        ctx = rr_ctx_set_phase(ctx, RR_PHASE_PRE)
+        let pre_hooks = rr_pre_hooks(reducer)
+        let i = 0
+        let n = len(pre_hooks)
+        for i < n
+            ctx = rr_ctx_set_gas(ctx, rr_ctx_gas(ctx) + 1)
+            i = i + 1
+        ctx = rr_ctx_set_phase(ctx, RR_PHASE_EXEC)
+        ctx = rr_ctx_set_result(ctx, execute_fn)
+        ctx = rr_ctx_set_gas(ctx, rr_ctx_gas(ctx) + rr_budget(reducer) / 10)
+        ctx = rr_ctx_set_phase(ctx, RR_PHASE_POST)
+        let post_hooks = rr_post_hooks(reducer)
+        i = 0
+        n = len(post_hooks)
+        for i < n
+            ctx = rr_ctx_set_gas(ctx, rr_ctx_gas(ctx) + 1)
+            i = i + 1
+        pending[ctx_id] = ctx
+        rt = rt_set_pending(rt, pending)
+        [rt, 1]
+
+let runtime_commit(rt, ctx_id) =
+    let pending = rt_pending(rt)
+    let ctx = pending[ctx_id]
+    if ctx == 0
+        [rt, 0]
+    else
+        ctx = rr_ctx_set_phase(ctx, RR_PHASE_COMMIT)
+        let idem_key = rr_ctx_idem(ctx)
+        if idem_key != 0
+            let idem = rt_idem(rt)
+            idem = is_set_seen(idem, idem_key, ctx_id)
+            rt = rt_set_idem(rt, idem)
+        let completed = rt_completed(rt)
+        completed.push(ctx)
+        rt = rt_set_completed(rt, completed)
+        pending[ctx_id] = 0
+        rt = rt_set_pending(rt, pending)
+        rt = rt_set_committed(rt, rt_committed(rt) + 1)
+        [rt, 1]
+
+let runtime_abort(rt, ctx_id, error) =
+    let pending = rt_pending(rt)
+    let ctx = pending[ctx_id]
+    if ctx == 0
+        [rt, 0]
+    else
+        ctx = rr_ctx_set_phase(ctx, RR_PHASE_ABORT)
+        ctx = rr_ctx_set_error(ctx, error)
+        let completed = rt_completed(rt)
+        completed.push(ctx)
+        rt = rt_set_completed(rt, completed)
+        pending[ctx_id] = 0
+        rt = rt_set_pending(rt, pending)
+        rt = rt_set_aborted(rt, rt_aborted(rt) + 1)
+        let reducers = rt_reducers(rt)
+        let reducer = reducers[rr_ctx_reducer(ctx)]
+        if reducer != 0
+            reducer = rr_set_fails(reducer, rr_fails(reducer) + 1)
+            reducers[rr_ctx_reducer(ctx)] = reducer
+            rt = rt_set_reducers(rt, reducers)
+        [rt, 1]
+
+let runtime_retry(rt, ctx_id) =
+    let pending = rt_pending(rt)
+    let ctx = pending[ctx_id]
+    if ctx == 0
+        [rt, 0]
+    else
+        let reducers = rt_reducers(rt)
+        let reducer = reducers[rr_ctx_reducer(ctx)]
+        if reducer == 0
+            [rt, 0]
+        else
+            let retry = rr_ctx_retry(ctx)
+            let max_retry = rr_retry_max(reducer)
+            if retry >= max_retry
+                [rt, 0]
+            else
+                ctx = rr_ctx_inc_retry(ctx)
+                ctx = rr_ctx_set_phase(ctx, RR_PHASE_DISPATCH)
+                ctx = rr_ctx_set_error(ctx, 0)
+                ctx = rr_ctx_set_gas(ctx, 0)
+                ctx = rr_ctx_set_effects(ctx, [])
+                pending[ctx_id] = ctx
+                rt = rt_set_pending(rt, pending)
+                [rt, 1]
+
+let runtime_bragg_check(rt) =
+    let dispatched = rt_dispatched(rt)
+    let committed = rt_committed(rt)
+    let aborted = rt_aborted(rt)
+    if dispatched == committed + aborted
+        1
+    else
+        0
+
+let rr_test_basic() =
+    let rt = runtime_new()
+    let r1 = rr_reducer_new("add_user", 1000)
+    r1 = rr_grant_access(r1, "users", "write")
+    r1 = rr_add_pre_hook(r1, "auth_check")
+    r1 = rr_add_post_hook(r1, "audit_log")
+    rt = runtime_register(rt, r1)
+
+    let ok1 = 1
+    if rt_dispatched(rt) != 0
+        ok1 = 0
+
+    let result = runtime_dispatch(rt, "add_user", ["alice", 30], "client1", 1000, 0)
+    rt = result[0]
+    let ctx_id = result[1]
+    let ok2 = 1
+    if ctx_id == 0
+        ok2 = 0
+    if rt_dispatched(rt) != 1
+        ok2 = 0
+
+    let exec_result = runtime_execute_phase(rt, ctx_id, 42)
+    rt = exec_result[0]
+    let ok3 = 1
+    if exec_result[1] != 1
+        ok3 = 0
+
+    let commit_result = runtime_commit(rt, ctx_id)
+    rt = commit_result[0]
+    let ok4 = 1
+    if commit_result[1] != 1
+        ok4 = 0
+    if rt_committed(rt) != 1
+        ok4 = 0
+
+    let ok5 = 1
+    if runtime_bragg_check(rt) != 1
+        ok5 = 0
+
+    let result2 = runtime_dispatch(rt, "add_user", ["bob", 25], "client2", 2000, "idem-1")
+    rt = result2[0]
+    let ok6 = 1
+    if result2[2] != 1
+        ok6 = 0
+
+    let result3 = runtime_dispatch(rt, "add_user", ["bob-again", 25], "client3", 3000, "idem-1")
+    rt = result3[0]
+    let ok7 = 1
+    if result3[2] != 2
+        ok7 = 0
+
+    ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7
+
+let rr_test_self() =
+        let ok = rr_test_basic()
+        if ok == 1
+            print("reducer_runtime: ALL PASS")
+        else
+            print("reducer_runtime: FAIL")
+        ok
+
+    rr_test_self()

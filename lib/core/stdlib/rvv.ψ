@@ -1,0 +1,743 @@
+let RV_LI = 1
+let RV_ADD = 2
+let RV_SUB = 3
+let RV_MUL = 4
+let RV_DIV = 5
+let RV_MOD = 6
+let RV_AND = 7
+let RV_OR = 8
+let RV_XOR = 9
+let RV_SLL = 10
+let RV_SRL = 11
+let RV_SRA = 12
+let RV_ADDI = 13
+let RV_LW = 14
+let RV_SW = 15
+let RV_BEQ = 16
+let RV_BNE = 17
+let RV_BLT = 18
+let RV_BGE = 19
+let RV_B = 20
+let RV_CALL = 21
+let RV_RET = 22
+let RV_CMP = 23
+let RV_MOV = 24
+let RV_NEG = 25
+
+let RV_V0 = 0
+let RV_V1 = 1
+let RV_V2 = 2
+let RV_V3 = 3
+let RV_V4 = 4
+let RV_V5 = 5
+let RV_V6 = 6
+let RV_V7 = 7
+let RV_V8 = 8
+let RV_V9 = 9
+let RV_V10 = 10
+let RV_V11 = 11
+let RV_V12 = 12
+let RV_V13 = 13
+let RV_V14 = 14
+let RV_V15 = 15
+let RV_V16 = 16
+let RV_V17 = 17
+let RV_V18 = 18
+let RV_V19 = 19
+let RV_V20 = 20
+let RV_V21 = 21
+let RV_V22 = 22
+let RV_V23 = 23
+let RV_V24 = 24
+let RV_V25 = 25
+let RV_V26 = 26
+let RV_V27 = 27
+let RV_V28 = 28
+let RV_V29 = 29
+let RV_V30 = 30
+let RV_V31 = 31
+let RV_ZERO = RV_V0
+let RV_RET = RV_V10
+let RV_A0 = RV_V11
+let RV_A1 = RV_V12
+let RV_A2 = RV_V13
+let RV_T0 = RV_V14
+let RV_T1 = RV_V15
+let RV_T2 = RV_V16
+let RV_T3 = RV_V17
+let RV_SP = RV_V18
+let RV_RA = RV_V19
+let RV_L0 = 20
+let RV_L1 = 21
+let RV_L2 = 22
+let RV_L3 = 23
+let RV_L4 = 24
+let RV_L5 = 25
+let RV_L6 = 26
+let RV_L7 = 27
+let RV_L8 = 28
+let RV_L9 = 29
+let RV_L10 = 30
+let RV_L11 = 31
+
+let rv_new_reg() =
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+let rv_set_arr(arr, idx, val) =
+    let n = len(arr)
+    let front = arr.slice(0, idx)
+    let back = arr.slice(idx + 1, n)
+    [front, [val], back].flat()
+
+let rv_asr(v, count) =
+    let r = v
+    let i = 0
+    for i < count
+      r = (r < 0 ? (r - 1) / 2 : r / 2)
+      i = i + 1
+    r
+
+let rv_lsr(v, count) =
+    let u = v
+    if u < 0
+      u = u + 9223372036854775808
+    else
+      0
+    let i = 0
+    for i < count
+      u = u / 2
+      i = i + 1
+    u
+
+let rv_bit_and(a, b) =
+    let result = 0
+    let bit = 1
+    let aa = a
+    let bb = b
+    let i = 0
+    for i < 32
+      let la_a = aa - (aa / 2) * 2
+      let la_b = bb - (bb / 2) * 2
+      if (la_a == 1) && (la_b == 1)
+        result = result + bit
+      else
+        0
+      aa = (aa < 0 ? (aa - 1) / 2 : aa / 2)
+      bb = (bb < 0 ? (bb - 1) / 2 : bb / 2)
+      bit = bit * 2
+      i = i + 1
+    result
+
+let rv_bit_or(a, b) =
+    let result = 0
+    let bit = 1
+    let aa = a
+    let bb = b
+    let i = 0
+    for i < 32
+      let la_a = aa - (aa / 2) * 2
+      let la_b = bb - (bb / 2) * 2
+      if (la_a == 1) || (la_b == 1)
+        result = result + bit
+      else
+        0
+      aa = (aa < 0 ? (aa - 1) / 2 : aa / 2)
+      bb = (bb < 0 ? (bb - 1) / 2 : bb / 2)
+      bit = bit * 2
+      i = i + 1
+    result
+
+let rv_bit_xor(a, b) =
+    let result = 0
+    let bit = 1
+    let aa = a
+    let bb = b
+    let i = 0
+    for i < 32
+      let la_a = aa - (aa / 2) * 2
+      let la_b = bb - (bb / 2) * 2
+      if la_a != la_b
+        result = result + bit
+      else
+        0
+      aa = (aa < 0 ? (aa - 1) / 2 : aa / 2)
+      bb = (bb < 0 ? (bb - 1) / 2 : bb / 2)
+      bit = bit * 2
+      i = i + 1
+    result
+
+let rvv_exec(code, arg) =
+    let reg = rv_new_reg()
+    let mem = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    reg = rv_set_arr(reg, RV_A0, arg)
+    reg = rv_set_arr(reg, RV_SP, 4096)
+    let pc = 0
+    let done = 0
+    for done == 0
+      if pc < len(code)
+        let insn = code[pc]
+        let op = insn[0]
+        let rd = insn[1]
+        let rn = insn[2]
+        let rm = insn[3]
+        let imm = insn[4]
+        let next = pc + 1
+        if op == RV_LI
+          reg = rv_set_arr(reg, rd, imm)
+        else
+          0
+        if op == RV_ADD
+          reg = rv_set_arr(reg, rd, reg[rn] + reg[rm])
+        else
+          0
+        if op == RV_SUB
+          reg = rv_set_arr(reg, rd, reg[rn] - reg[rm])
+        else
+          0
+        if op == RV_MUL
+          reg = rv_set_arr(reg, rd, reg[rn] * reg[rm])
+        else
+          0
+        if op == RV_DIV
+          reg = rv_set_arr(reg, rd, (reg[rm] == 0 ? 0 : reg[rn] / reg[rm]))
+        else
+          0
+        if op == RV_MOD
+          reg = rv_set_arr(reg, rd, (reg[rm] == 0 ? 0 : reg[rn] - (reg[rn] / reg[rm]) * reg[rm]))
+        else
+          0
+        if op == RV_AND
+          reg = rv_set_arr(reg, rd, rv_bit_and(reg[rn], reg[rm]))
+        else
+          0
+        if op == RV_OR
+          reg = rv_set_arr(reg, rd, rv_bit_or(reg[rn], reg[rm]))
+        else
+          0
+        if op == RV_XOR
+          reg = rv_set_arr(reg, rd, rv_bit_xor(reg[rn], reg[rm]))
+        else
+          0
+        if op == RV_SLL
+          reg = rv_set_arr(reg, rd, reg[rn] * (1 << reg[rm]))
+        else
+          0
+        if op == RV_SRL
+          reg = rv_set_arr(reg, rd, rv_lsr(reg[rn], reg[rm]))
+        else
+          0
+        if op == RV_SRA
+          reg = rv_set_arr(reg, rd, rv_asr(reg[rn], reg[rm]))
+        else
+          0
+        if op == RV_ADDI
+          reg = rv_set_arr(reg, rd, reg[rn] + imm)
+        else
+          0
+        if op == RV_LW
+          let addr = reg[rn] + imm
+          let m2 = if addr < len(mem)
+            mem
+          else
+            let m = mem
+            let i = len(mem)
+            for i <= addr
+              m = m.push(0)
+              i = i + 1
+            m
+          reg = rv_set_arr(reg, rd, m2[addr])
+        else
+          0
+        if op == RV_SW
+          let addr = rn + imm
+          let m2 = if addr < len(mem)
+            mem
+          else
+            let m = mem
+            let i = len(mem)
+            for i <= addr
+              m = m.push(0)
+              i = i + 1
+            m
+          mem = rv_set_arr(m2, addr, reg[rd])
+        else
+          0
+        if op == RV_BEQ
+          if reg[rn] == reg[rm]
+            next = pc + imm
+          else
+            0
+        else
+          0
+        if op == RV_BNE
+          if reg[rn] != reg[rm]
+            next = pc + imm
+          else
+            0
+        else
+          0
+        if op == RV_BLT
+          if reg[rn] < reg[rm]
+            next = pc + imm
+          else
+            0
+        else
+          0
+        if op == RV_BGE
+          if reg[rn] >= reg[rm]
+            next = pc + imm
+          else
+            0
+        else
+          0
+        if op == RV_B
+          next = pc + imm
+        else
+          0
+        if op == RV_CALL
+          reg = rv_set_arr(reg, RV_RA, next)
+          next = imm
+        else
+          0
+        if op == RV_RET
+          next = reg[RV_RA]
+        else
+          0
+        if op == RV_CMP
+          reg = rv_set_arr(reg, rd, (reg[rn] < reg[rm] ? 1 : 0))
+        else
+          0
+        if op == RV_MOV
+          reg = rv_set_arr(reg, rd, reg[rn])
+        else
+          0
+        if op == RV_NEG
+          reg = rv_set_arr(reg, rd, 0 - reg[rn])
+        else
+          0
+        pc = next
+      else
+        done = 1
+    reg[RV_RET]
+
+let rv_alloc_slot(ctx, name) =
+    let slots = ctx[1]
+    let nslots = ctx[2]
+    let reg = RV_L0 + nslots
+    let new_slots = slots.push([name, reg])
+    [ctx[0], new_slots, nslots + 1, ctx[3], ctx[4]]
+
+let rv_lookup_slot(ctx, name) =
+    let slots = ctx[1]
+    let reg = RV_ZERO
+    let found = 0
+    let i = 0
+    for i < len(slots)
+      if (found == 0) && (slots[i][0] == name)
+        reg = slots[i][1]
+        found = 1
+      else
+        0
+      i = i + 1
+    reg
+
+let rv_compile_expr(ast, ctx) =
+    let tag = ast[0]
+    if tag == "lit"
+      ctx[0] = ctx[0].push([RV_LI, RV_RET, 0, 0, ast[1]])
+    else
+      0
+    if tag == "var"
+      let r = rv_lookup_slot(ctx, ast[1])
+      ctx[0] = ctx[0].push([RV_MOV, RV_RET, r, 0, 0])
+    else
+      0
+    if tag == "binop"
+      let op_name = ast[1]
+      let left = ast[2]
+      let right = ast[3]
+      rv_compile_expr(left, ctx)
+      ctx[0] = ctx[0].push([RV_MOV, RV_T0, RV_RET, 0, 0])
+      rv_compile_expr(right, ctx)
+      ctx[0] = ctx[0].push([RV_MOV, RV_T1, RV_RET, 0, 0])
+      if op_name == "+"
+        ctx[0] = ctx[0].push([RV_ADD, RV_RET, RV_T0, RV_T1, 0])
+      else
+        0
+      if op_name == "-"
+        ctx[0] = ctx[0].push([RV_SUB, RV_RET, RV_T0, RV_T1, 0])
+      else
+        0
+      if op_name == "*"
+        ctx[0] = ctx[0].push([RV_MUL, RV_RET, RV_T0, RV_T1, 0])
+      else
+        0
+      if op_name == "/"
+        ctx[0] = ctx[0].push([RV_DIV, RV_RET, RV_T0, RV_T1, 0])
+      else
+        0
+      if op_name == "%"
+        ctx[0] = ctx[0].push([RV_MOD, RV_RET, RV_T0, RV_T1, 0])
+      else
+        0
+      if op_name == "&"
+        ctx[0] = ctx[0].push([RV_AND, RV_RET, RV_T0, RV_T1, 0])
+      else
+        0
+      if op_name == "|"
+        ctx[0] = ctx[0].push([RV_OR, RV_RET, RV_T0, RV_T1, 0])
+      else
+        0
+      if op_name == "^"
+        ctx[0] = ctx[0].push([RV_XOR, RV_RET, RV_T0, RV_T1, 0])
+      else
+        0
+      if op_name == "<<"
+        ctx[0] = ctx[0].push([RV_SLL, RV_RET, RV_T0, RV_T1, 0])
+      else
+        0
+      if op_name == ">>"
+        ctx[0] = ctx[0].push([RV_SRA, RV_RET, RV_T0, RV_T1, 0])
+      else
+        0
+      if op_name == "<"
+        ctx[0] = ctx[0].push([RV_CMP, RV_RET, RV_T0, RV_T1, 0])
+      else
+        0
+      if op_name == ">"
+        ctx[0] = ctx[0].push([RV_CMP, RV_RET, RV_T1, RV_T0, 0])
+      else
+        0
+      if op_name == "<="
+        ctx[0] = ctx[0].push([RV_CMP, RV_RET, RV_T0, RV_T1, 0])
+        ctx[0] = ctx[0].push([RV_CMP, RV_T1, RV_T0, RV_T1, 0])
+        ctx[0] = ctx[0].push([RV_BEQ, RV_RET, RV_T1, 0, 2])
+        ctx[0] = ctx[0].push([RV_LI, RV_RET, 0, 0, 1])
+      else
+        0
+      if op_name == ">="
+        ctx[0] = ctx[0].push([RV_CMP, RV_RET, RV_T1, RV_T0, 0])
+        ctx[0] = ctx[0].push([RV_CMP, RV_T1, RV_T0, RV_T1, 0])
+        ctx[0] = ctx[0].push([RV_BEQ, RV_RET, RV_T1, 0, 2])
+        ctx[0] = ctx[0].push([RV_LI, RV_RET, 0, 0, 1])
+      else
+        0
+      if op_name == "=="
+        ctx[0] = ctx[0].push([RV_SUB, RV_RET, RV_T0, RV_T1, 0])
+        ctx[0] = ctx[0].push([RV_LI, RV_T1, 0, 0, 1])
+        ctx[0] = ctx[0].push([RV_BEQ, RV_RET, RV_ZERO, 0, 2])
+        ctx[0] = ctx[0].push([RV_LI, RV_T1, 0, 0, 0])
+        ctx[0] = ctx[0].push([RV_MOV, RV_RET, RV_T1, 0, 0])
+      else
+        0
+      if op_name == "!="
+        ctx[0] = ctx[0].push([RV_SUB, RV_RET, RV_T0, RV_T1, 0])
+        ctx[0] = ctx[0].push([RV_LI, RV_T1, 0, 0, 0])
+        ctx[0] = ctx[0].push([RV_BEQ, RV_RET, RV_ZERO, 0, 2])
+        ctx[0] = ctx[0].push([RV_LI, RV_T1, 0, 0, 1])
+        ctx[0] = ctx[0].push([RV_MOV, RV_RET, RV_T1, 0, 0])
+      else
+        0
+    else
+      0
+    if tag == "call"
+      let fn_name = ast[1]
+      let args = ast[2]
+      let i = 0
+      for i < len(args)
+        rv_compile_expr(args[i], ctx)
+        let arg_reg = if i == 0
+          RV_A0
+        else
+          if i == 1
+            RV_A1
+          else
+            RV_A2
+        ctx[0] = ctx[0].push([RV_MOV, arg_reg, RV_RET, 0, 0])
+        i = i + 1
+      let call_pos = len(ctx[0])
+      ctx[0] = ctx[0].push([RV_CALL, 0, 0, 0, 0])
+      ctx[4] = ctx[4].push([call_pos, fn_name])
+      ctx[0] = ctx[0].push([RV_MOV, RV_RET, RV_RET, 0, 0])
+    else
+      0
+    ctx
+
+let rv_compile_stmt(ast, ctx) =
+    let tag = ast[0]
+    if tag == "lit"
+      rv_compile_expr(ast, ctx)
+    else
+      0
+    if tag == "var"
+      rv_compile_expr(ast, ctx)
+    else
+      0
+    if tag == "binop"
+      rv_compile_expr(ast, ctx)
+    else
+      0
+    if tag == "call"
+      rv_compile_expr(ast, ctx)
+    else
+      0
+    if tag == "let"
+      let var_name = ast[1]
+      let val = ast[2]
+      rv_compile_expr(val, ctx)
+      ctx = rv_alloc_slot(ctx, var_name)
+      let r = rv_lookup_slot(ctx, var_name)
+      ctx[0] = ctx[0].push([RV_MOV, r, RV_RET, 0, 0])
+    else
+      0
+    if tag == "assign"
+      let var_name = ast[1]
+      let val = ast[2]
+      rv_compile_expr(val, ctx)
+      let r = rv_lookup_slot(ctx, var_name)
+      ctx[0] = ctx[0].push([RV_MOV, r, RV_RET, 0, 0])
+    else
+      0
+    if tag == "if"
+      let cond = ast[1]
+      let then_body = ast[2]
+      let else_body = ast[3]
+      rv_compile_expr(cond, ctx)
+      let beq_pos = len(ctx[0])
+      ctx[0] = ctx[0].push([RV_BEQ, RV_RET, RV_ZERO, 0, 0])
+      rv_compile_stmt(then_body, ctx)
+      let b_pos = len(ctx[0])
+      ctx[0] = ctx[0].push([RV_B, 0, 0, 0, 0])
+      let else_start = len(ctx[0])
+      ctx[0] = rv_set_arr(ctx[0], beq_pos, [RV_BEQ, RV_RET, RV_ZERO, 0, else_start - beq_pos])
+      if else_body[0] != "null"
+        rv_compile_stmt(else_body, ctx)
+      else
+        0
+      let else_end = len(ctx[0])
+      ctx[0] = rv_set_arr(ctx[0], b_pos, [RV_B, 0, 0, 0, else_end - b_pos])
+    else
+      0
+    if tag == "for"
+      let var_name = ast[1]
+      let count_expr = ast[2]
+      let body = ast[3]
+      rv_compile_expr(count_expr, ctx)
+      ctx = rv_alloc_slot(ctx, var_name)
+      let loop_var = rv_lookup_slot(ctx, var_name)
+      ctx[0] = ctx[0].push([RV_LI, loop_var, 0, 0, 0])
+      let loop_start = len(ctx[0])
+      ctx[0] = ctx[0].push([RV_BGE, loop_var, RV_RET, 0, 0])
+      let bge_pos = len(ctx[0]) - 1
+      rv_compile_stmt(body, ctx)
+      ctx[0] = ctx[0].push([RV_ADDI, loop_var, loop_var, 0, 1])
+      ctx[0] = ctx[0].push([RV_B, 0, 0, 0, loop_start - len(ctx[0]) - 1])
+      let loop_end = len(ctx[0])
+      ctx[0] = rv_set_arr(ctx[0], bge_pos, [RV_BGE, loop_var, RV_RET, 0, loop_end - bge_pos])
+    else
+      0
+    if tag == "return"
+      let val = ast[1]
+      rv_compile_expr(val, ctx)
+      ctx[0] = ctx[0].push([RV_RET, 0, 0, 0, 0])
+    else
+      0
+    if tag == "seq"
+      let stmts = ast.slice(1, len(ast))
+      let i = 0
+      for i < len(stmts)
+        rv_compile_stmt(stmts[i], ctx)
+        i = i + 1
+    else
+      0
+    ctx
+
+let rv_compile_fn(ast, ctx) =
+    let fn_name = ast[1]
+    let params = ast[2]
+    let body = ast[3]
+    let fn_offset = len(ctx[0])
+    ctx[3] = ctx[3].push([fn_name, fn_offset])
+    let saved_slots = ctx[1]
+    let saved_nslots = ctx[2]
+    ctx[1] = []
+    ctx[2] = 0
+    let i = 0
+    for i < len(params)
+      ctx = rv_alloc_slot(ctx, params[i])
+      let r = rv_lookup_slot(ctx, params[i])
+      let arg_reg = if i == 0
+        RV_A0
+      else
+        if i == 1
+          RV_A1
+        else
+          RV_A2
+      ctx[0] = ctx[0].push([RV_MOV, r, arg_reg, 0, 0])
+      i = i + 1
+    rv_compile_stmt(body, ctx)
+    ctx[0] = ctx[0].push([RV_RET, 0, 0, 0, 0])
+    ctx[1] = saved_slots
+    ctx[2] = saved_nslots
+    ctx
+
+let rvv_compile(ast) =
+    let code = []
+    let ctx = [code, [], 0, [], []]
+    let stmts = if ast[0] == "seq"
+      ast.slice(1, len(ast))
+    else
+      [ast]
+    let user_fns = []
+    let other_stmts = []
+    let i = 0
+    for i < len(stmts)
+      if stmts[i][0] == "fn"
+        user_fns = user_fns.push(stmts[i])
+      else
+        other_stmts = other_stmts.push(stmts[i])
+      i = i + 1
+    let j = 0
+    for j < len(other_stmts)
+      rv_compile_stmt(other_stmts[j], ctx)
+      j = j + 1
+    ctx[0] = ctx[0].push([RV_LI, RV_RET, 0, 0, 0])
+    ctx[0] = ctx[0].push([RV_RET, 0, 0, 0, 0])
+    let k = 0
+    for k < len(user_fns)
+      rv_compile_fn(user_fns[k], ctx)
+      k = k + 1
+    let m = 0
+    for m < len(ctx[4])
+      let patch = ctx[4][m]
+      let call_pos = patch[0]
+      let fn_name = patch[1]
+      let n = 0
+      let found = 0
+      for n < len(ctx[3])
+        if (found == 0) && (ctx[3][n][0] == fn_name)
+          ctx[0] = rv_set_arr(ctx[0], call_pos, [RV_CALL, 0, 0, 0, ctx[3][n][1]])
+          found = 1
+        else
+          0
+        n = n + 1
+      m = m + 1
+    ctx[0]
+
+let rv_test_add() =
+    let ast = ["seq", ["let", "a", ["binop", "+", ["lit", 3], ["lit", 4]]]]
+    let code = rvv_compile(ast)
+    rvv_exec(code, 0)
+
+let rv_test_sub() =
+    let ast = ["seq", ["let", "a", ["binop", "-", ["lit", 10], ["lit", 3]]]]
+    let code = rvv_compile(ast)
+    rvv_exec(code, 0)
+
+let rv_test_mul() =
+    let ast = ["seq", ["let", "a", ["binop", "*", ["lit", 6], ["lit", 7]]]]
+    let code = rvv_compile(ast)
+    rvv_exec(code, 0)
+
+let rv_test_div() =
+    let ast = ["seq", ["let", "a", ["binop", "/", ["lit", 84], ["lit", 2]]]]
+    let code = rvv_compile(ast)
+    rvv_exec(code, 0)
+
+let rv_test_mod() =
+    let ast = ["seq", ["let", "a", ["binop", "%", ["lit", 10], ["lit", 3]]]]
+    let code = rvv_compile(ast)
+    rvv_exec(code, 0)
+
+let rv_test_var_ref() =
+    let ast = ["seq", ["let", "x", ["lit", 7]], ["let", "a", ["binop", "+", ["var", "x"], ["lit", 4]]]]
+    let code = rvv_compile(ast)
+    rvv_exec(code, 0)
+
+let rv_test_chain() =
+    let ast = ["seq", ["let", "x", ["lit", 2]], ["let", "y", ["binop", "+", ["var", "x"], ["lit", 1]]], ["let", "a", ["binop", "+", ["var", "y"], ["lit", 2]]]]
+    let code = rvv_compile(ast)
+    rvv_exec(code, 0)
+
+let rv_test_if_true() =
+    let ast = ["seq", ["let", "x", ["lit", 1]], ["if", ["binop", "<", ["var", "x"], ["lit", 2]], ["assign", "x", ["lit", 10]], ["assign", "x", ["lit", 20]]]]
+    let code = rvv_compile(ast)
+    rvv_exec(code, 0)
+
+let rv_test_if_false() =
+    let ast = ["seq", ["let", "x", ["lit", 5]], ["if", ["binop", "<", ["var", "x"], ["lit", 2]], ["assign", "x", ["lit", 10]], ["assign", "x", ["lit", 20]]]]
+    let code = rvv_compile(ast)
+    rvv_exec(code, 0)
+
+let rv_test_for_loop() =
+    let ast = ["seq", ["let", "s", ["lit", 0]], ["for", "i", ["lit", 5], ["assign", "s", ["binop", "+", ["var", "s"], ["var", "i"]]]]]
+    let code = rvv_compile(ast)
+    rvv_exec(code, 0)
+
+let rv_test_for_loop_10() =
+    let ast = ["seq", ["let", "s", ["lit", 0]], ["for", "i", ["lit", 10], ["assign", "s", ["binop", "+", ["var", "s"], ["var", "i"]]]]]
+    let code = rvv_compile(ast)
+    rvv_exec(code, 0)
+
+let rv_test_fn_call() =
+    let ast = ["seq", ["fn", "double", ["x"], ["binop", "*", ["var", "x"], ["lit", 2]]], ["let", "r", ["call", "double", [["lit", 21]]]]]
+    let code = rvv_compile(ast)
+    rvv_exec(code, 0)
+
+let rv_test_fn_add() =
+    let ast = ["seq", ["fn", "add", ["a", "b"], ["binop", "+", ["var", "a"], ["var", "b"]]], ["let", "r", ["call", "add", [["lit", 17], ["lit", 25]]]]]
+    let code = rvv_compile(ast)
+    rvv_exec(code, 0)
+
+let rv_test_nested_fn() =
+    let ast = ["seq", ["fn", "sq", ["x"], ["binop", "*", ["var", "x"], ["var", "x"]]], ["let", "r", ["call", "sq", [["lit", 7]]]]]
+    let code = rvv_compile(ast)
+    rvv_exec(code, 0)
+
+let rv_test_negative() =
+    let ast = ["seq", ["let", "a", ["binop", "-", ["lit", 0], ["lit", 5]]]]
+    let code = rvv_compile(ast)
+    rvv_exec(code, 0)
+
+let rv_test_bitwise() =
+    let ast = ["seq", ["let", "a", ["binop", "&", ["lit", 12], ["lit", 10]]]]
+    let code = rvv_compile(ast)
+    rvv_exec(code, 0)
+
+let rv_test_shift() =
+    let ast = ["seq", ["let", "a", ["binop", "<<", ["lit", 1], ["lit", 4]]]]
+    let code = rvv_compile(ast)
+    rvv_exec(code, 0)
+
+let rv_run_all_tests() =
+    let results = []
+    results = results.push(["add", rv_test_add(), 7])
+    results = results.push(["sub", rv_test_sub(), 7])
+    results = results.push(["mul", rv_test_mul(), 42])
+    results = results.push(["div", rv_test_div(), 42])
+    results = results.push(["mod", rv_test_mod(), 1])
+    results = results.push(["var_ref", rv_test_var_ref(), 11])
+    results = results.push(["chain", rv_test_chain(), 5])
+    results = results.push(["if_true", rv_test_if_true(), 10])
+    results = results.push(["if_false", rv_test_if_false(), 20])
+    results = results.push(["for_loop", rv_test_for_loop(), 10])
+    results = results.push(["for_loop_10", rv_test_for_loop_10(), 45])
+    results = results.push(["fn_call", rv_test_fn_call(), 42])
+    results = results.push(["fn_add", rv_test_fn_add(), 42])
+    results = results.push(["nested_fn", rv_test_nested_fn(), 49])
+    results = results.push(["negative", rv_test_negative(), -5])
+    results = results.push(["bitwise", rv_test_bitwise(), 8])
+    results = results.push(["shift", rv_test_shift(), 16])
+    let pass = 0
+    let fail = 0
+    let i = 0
+    for i < len(results)
+      let name = results[i][0]
+      let got = results[i][1]
+      let want = results[i][2]
+      if got == want
+        pass = pass + 1
+      else
+        fail = fail + 1
+      i = i + 1
+    [pass, fail, results]

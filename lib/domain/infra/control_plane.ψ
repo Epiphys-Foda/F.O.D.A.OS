@@ -1,0 +1,412 @@
+import "../domain_field.ψ"
+let CP_P = 65537
+
+let CP_ACTION_SET     = 1
+let CP_ACTION_DELETE  = 2
+let CP_ACTION_WATCH   = 3
+let CP_ACTION_POLICY  = 4
+let CP_ACTION_ROUTE   = 5
+
+let CP_INST_UP        = 1
+let CP_INST_DOWN      = 2
+let CP_INST_DEGRADED  = 3
+
+let cp_config_new() =
+    [{}, 0, {}]
+
+let cp_cs_data(c)      = c[0]
+let cp_cs_version(c)  = c[1]
+let cp_cs_watchers(c) = c[2]
+
+let cp_cs_set_data(c, d)     = [d, c[1], c[2]]
+let cp_cs_set_version(c, v)  = [c[0], v, c[2]]
+let cp_cs_set_watchers(c, w) = [c[0], c[1], w]
+
+let cp_cs_set(c, path, value) =
+    let data = cp_cs_data(c)
+    let old = data[path]
+    data[path] = value
+    let v = cp_cs_version(c) + 1
+    c = cp_cs_set_data(c, data)
+    c = cp_cs_set_version(c, v)
+    [c, old, v]
+
+let cp_cs_get(c, path) =
+    let data = cp_cs_data(c)
+    data[path]
+
+let cp_cs_delete(c, path) =
+    let data = cp_cs_data(c)
+    let old = data[path]
+    data[path] = 0
+    let v = cp_cs_version(c) + 1
+    c = cp_cs_set_data(c, data)
+    c = cp_cs_set_version(c, v)
+    [c, old, v]
+
+let cp_cs_watch(c, path_prefix, watcher_id) =
+    let watchers = cp_cs_watchers(c)
+    let lst = watchers[path_prefix]
+    if lst == 0
+        lst = []
+    lst.push(watcher_id)
+    watchers[path_prefix] = lst
+    cp_cs_set_watchers(c, watchers)
+
+let cp_policy_new(id, kind, rules, priority) =
+    [id, kind, rules, priority]
+
+let cp_pol_id(p)       = p[0]
+let cp_pol_type(p)     = p[1]
+let cp_pol_rules(p)    = p[2]
+let cp_pol_priority(p) = p[3]
+
+let cp_policy_engine_new() =
+    [{}, []]
+
+let cp_pe_policies(e)   = e[0]
+let cp_pe_decisions(e)  = e[1]
+
+let cp_pe_set_policies(e, p) = [p, e[1]]
+let cp_pe_set_decisions(e, d) = [e[0], d]
+
+let cp_pe_register(e, policy) =
+    let policies = cp_pe_policies(e)
+    policies[cp_pol_id(policy)] = policy
+    cp_pe_set_policies(e, policies)
+
+let cp_pe_evaluate(e, request) =
+    let policies = cp_pe_policies(e)
+    let keys = keys_of(policies)
+    let sorted = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        sorted.push(policies[keys[i]])
+        i = i + 1
+    let j = 0
+    for j < n
+        let k = j + 1
+        for k < n
+            if cp_pol_priority(sorted[k]) > cp_pol_priority(sorted[j])
+                let tmp = sorted[j]
+                sorted[j] = sorted[k]
+                sorted[k] = tmp
+            k = k + 1
+        j = j + 1
+    i = 0
+    let decision = 0
+    let matched = 0
+    for i < n
+        let p = sorted[i]
+        decision = 1
+        matched = cp_pol_id(p)
+        i = n
+    let decisions = cp_pe_decisions(e)
+    decisions.push([0, matched, request, decision])
+    e = cp_pe_set_decisions(e, decisions)
+    [e, decision, matched]
+
+let cp_instance_new(id, service_name, host, port, metadata) =
+    [id, service_name, host, port, CP_INST_UP, metadata, 0]
+
+let cp_inst_id(i)        = i[0]
+let cp_inst_svc(i)       = i[1]
+let cp_inst_host(i)      = i[2]
+let cp_inst_port(i)      = i[3]
+let cp_inst_status(i)    = i[4]
+let cp_inst_meta(i)      = i[5]
+let cp_inst_hb(i)        = i[6]
+
+let cp_inst_set_status(i, s) =
+    i[4] = s
+    i
+let cp_inst_set_hb(i, ts) =
+    i[6] = ts
+    i
+
+let cp_directory_new() =
+    [{}, {}]
+
+let cp_dir_instances(d)  = d[0]
+let cp_dir_services(d)   = d[1]
+
+let cp_dir_set_instances(d, m) = [m, d[1]]
+let cp_dir_set_services(d, m)  = [d[0], m]
+
+let cp_dir_register(d, instance) =
+    let instances = cp_dir_instances(d)
+    let iid = cp_inst_id(instance)
+    instances[iid] = instance
+    let services = cp_dir_services(d)
+    let sname = cp_inst_svc(instance)
+    let lst = services[sname]
+    if lst == 0
+        lst = []
+    let exists = 0
+    let i = 0
+    let n = len(lst)
+    for i < n
+        if lst[i] == iid
+            exists = 1
+        i = i + 1
+    if exists == 0
+        lst.push(iid)
+    services[sname] = lst
+    d = cp_dir_set_instances(d, instances)
+    cp_dir_set_services(d, services)
+
+let cp_dir_discover(d, service_name) =
+    let services = cp_dir_services(d)
+    let lst = services[service_name]
+    let result = []
+    if lst == 0
+        result
+    else
+        let instances = cp_dir_instances(d)
+        let i = 0
+        let n = len(lst)
+        for i < n
+            let inst = instances[lst[i]]
+            if inst != 0
+                if cp_inst_status(inst) == CP_INST_UP
+                    result.push(inst)
+            i = i + 1
+        result
+
+let cp_dir_heartbeat(d, instance_id, now_ts) =
+    let instances = cp_dir_instances(d)
+    let inst = instances[instance_id]
+    if inst == 0
+        d
+    else
+        inst = cp_inst_set_hb(inst, now_ts)
+        inst = cp_inst_set_status(inst, CP_INST_UP)
+        instances[instance_id] = inst
+        cp_dir_set_instances(d, instances)
+
+let cp_dir_mark_down(d, instance_id) =
+    let instances = cp_dir_instances(d)
+    let inst = instances[instance_id]
+    if inst == 0
+        d
+    else
+        inst = cp_inst_set_status(inst, CP_INST_DOWN)
+        instances[instance_id] = inst
+        cp_dir_set_instances(d, instances)
+
+let cp_route_new(path_prefix, service_name, methods, weight, canary) =
+    [path_prefix, service_name, methods, weight, canary]
+
+let cp_rt_path(r)     = r[0]
+let cp_rt_svc(r)       = r[1]
+let cp_rt_methods(r)  = r[2]
+let cp_rt_weight(r)   = r[3]
+let cp_rt_canary(r)   = r[4]
+
+let cp_routing_table_new() =
+    [{}, 0]
+
+let cp_rt_routes(rt)  = rt[0]
+let cp_rt_version(rt) = rt[1]
+
+let cp_rt_set_routes(rt, r)  = [r, rt[1]]
+let cp_rt_set_version(rt, v) = [rt[0], v]
+
+let cp_rt_add(rt, route) =
+    let routes = cp_rt_routes(rt)
+    routes[cp_rt_path(route)] = route
+    let v = cp_rt_version(rt) + 1
+    rt = cp_rt_set_routes(rt, routes)
+    cp_rt_set_version(rt, v)
+
+let cp_rt_match(rt, path) =
+    let routes = cp_rt_routes(rt)
+    let keys = keys_of(routes)
+    let best = 0
+    let best_len = 0
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let prefix = keys[i]
+        if len(path) >= len(prefix)
+            let match_ = 1
+            let j = 0
+            let pn = len(prefix)
+            for j < pn
+                if path[j] != prefix[j]
+                    match_ = 0
+                j = j + 1
+            if match_ == 1
+                if len(prefix) > best_len
+                    best = routes[prefix]
+                    best_len = len(prefix)
+        i = i + 1
+    best
+
+let cp_new() =
+    [cp_config_new(), cp_policy_engine_new(), cp_directory_new(), cp_routing_table_new(), [], [0, 0, 0, 0]]
+
+let cp_config(cp)    = cp[0]
+let cp_policy(cp)    = cp[1]
+let cp_directory(cp) = cp[2]
+let cp_routing(cp)   = cp[3]
+let cp_log(cp)       = cp[4]
+let cp_stats(cp)     = cp[5]
+
+let cp_set_config(cp, c)    = [c, cp[1], cp[2], cp[3], cp[4], cp[5]]
+let cp_set_policy(cp, p)    = [cp[0], p, cp[2], cp[3], cp[4], cp[5]]
+let cp_set_directory(cp, d) = [cp[0], cp[1], d, cp[3], cp[4], cp[5]]
+let cp_set_routing(cp, r)   = [cp[0], cp[1], cp[2], r, cp[4], cp[5]]
+let cp_set_log(cp, l)       = [cp[0], cp[1], cp[2], cp[3], l, cp[5]]
+let cp_set_stats(cp, s)     = [cp[0], cp[1], cp[2], cp[3], cp[4], s]
+
+let cp_stats_inc_config(cp) =
+    let st = cp_stats(cp)
+    st[0] = st[0] + 1
+    cp_set_stats(cp, st)
+let cp_stats_inc_policy(cp) =
+    let st = cp_stats(cp)
+    st[1] = st[1] + 1
+    cp_set_stats(cp, st)
+let cp_stats_inc_route(cp) =
+    let st = cp_stats(cp)
+    st[2] = st[2] + 1
+    cp_set_stats(cp, st)
+let cp_stats_inc_register(cp) =
+    let st = cp_stats(cp)
+    st[3] = st[3] + 1
+    cp_set_stats(cp, st)
+
+let cp_log_append(cp, ts, action, key, value) =
+    let log = cp_log(cp)
+    log.push([ts, action, key, value])
+    cp_set_log(cp, log)
+
+let cp_set_config_value(cp, path, value, ts) =
+    let cs = cp_config(cp)
+    let r = cp_cs_set(cs, path, value)
+    cs = r[0]
+    cp = cp_set_config(cp, cs)
+    cp = cp_stats_inc_config(cp)
+    cp = cp_log_append(cp, ts, CP_ACTION_SET, path, value)
+    cp
+
+let cp_register_policy(cp, policy, ts) =
+    let pe = cp_policy(cp)
+    pe = cp_pe_register(pe, policy)
+    cp = cp_set_policy(cp, pe)
+    cp = cp_stats_inc_policy(cp)
+    cp = cp_log_append(cp, ts, CP_ACTION_POLICY, cp_pol_id(policy), policy)
+    cp
+
+let cp_register_instance(cp, instance, ts) =
+    let dir = cp_directory(cp)
+    dir = cp_dir_register(dir, instance)
+    cp = cp_set_directory(cp, dir)
+    cp = cp_stats_inc_register(cp)
+    cp = cp_log_append(cp, ts, "register_instance", cp_inst_id(instance), cp_inst_svc(instance))
+    cp
+
+let cp_add_route(cp, route, ts) =
+    let rt = cp_routing(cp)
+    rt = cp_rt_add(rt, route)
+    cp = cp_set_routing(cp, rt)
+    cp = cp_stats_inc_route(cp)
+    cp = cp_log_append(cp, ts, CP_ACTION_ROUTE, cp_rt_path(route), cp_rt_svc(route))
+    cp
+
+let cp_decide(cp, path, method, request, ts) =
+    let rt = cp_routing(cp)
+    let route = cp_rt_match(rt, path)
+    if route == 0
+        [cp, 0, 0, []]
+    else
+        let pe = cp_policy(cp)
+        let eval = cp_pe_evaluate(pe, request)
+        pe = eval[0]
+        cp = cp_set_policy(cp, pe)
+        let decision = eval[1]
+        if decision == 0
+            [cp, route, 0, []]
+        else
+            let dir = cp_directory(cp)
+            let instances = cp_dir_discover(dir, cp_rt_svc(route))
+            [cp, route, decision, instances]
+
+let cp_bragg_check(cp) =
+    let log = cp_log(cp)
+    let config = cp_config(cp)
+    let replayed = {}
+    let i = 0
+    let n = len(log)
+    for i < n
+        let entry = log[i]
+        let action = entry[1]
+        let path = entry[2]
+        let value = entry[3]
+        if action == CP_ACTION_SET
+            replayed[path] = value
+        else
+            0
+        if action == CP_ACTION_DELETE
+            replayed[path] = 0
+        i = i + 1
+    let data = cp_cs_data(config)
+    let keys = keys_of(data)
+    let ok = 1
+    i = 0
+    n = len(keys)
+    for i < n
+        let path = keys[i]
+        let actual = data[path]
+        let expected = replayed[path]
+        if expected == 0
+            expected = 0
+        if actual != expected
+            ok = 0
+        i = i + 1
+    ok
+
+let cp_self_test() =
+    let cp = cp_new()
+    cp = cp_set_config_value(cp, "/app/db/timeout", 5000, 1000)
+    cp = cp_set_config_value(cp, "/app/db/retries", 3, 1001)
+    let t1 = 0
+    if cp_cs_version(cp_config(cp)) == 2
+        t1 = 1
+
+    let pol = cp_policy_new(1, "rbac", ["admin"], 10)
+    cp = cp_register_policy(cp, pol, 1002)
+    let t2 = 0
+    if len(cp_pe_policies(cp_policy(cp))) == 1
+        t2 = 1
+
+    let inst = cp_instance_new(1, "user-svc", "10.0.0.1", 8080, {})
+    cp = cp_register_instance(cp, inst, 1003)
+    let t3 = 0
+    let disc = cp_dir_discover(cp_directory(cp), "user-svc")
+    if len(disc) == 1
+        t3 = 1
+
+    let route = cp_route_new("/api/v1/users", "user-svc", ["GET"], 100, 0)
+    cp = cp_add_route(cp, route, 1004)
+    let t4 = 0
+    let matched = cp_rt_match(cp_routing(cp), "/api/v1/users/123")
+    if matched != 0
+        t4 = 1
+
+    let decision = cp_decide(cp, "/api/v1/users/123", "GET", {}, 1005)
+    cp = decision[0]
+    let t5 = 0
+    if decision[1] != 0
+        if decision[2] == 1
+            if len(decision[3]) == 1
+                t5 = 1
+
+    let bragg_ok = cp_bragg_check(cp)
+
+    [t1, t2, t3, t4, t5, bragg_ok]
+
+let cp_default_plane() =
+    cp_new()

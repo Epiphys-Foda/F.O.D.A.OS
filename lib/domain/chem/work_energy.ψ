@@ -1,0 +1,25 @@
+import "ck.ψ"
+let bad = [0]
+
+let m_kg = 1000
+let v_slow = 20
+let f_brake = 4000
+let d_slow = 50
+let dz1 = f_brake * d_slow - m_kg * v_slow * v_slow / 2
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let v_fast = 40
+let d_fast = 200
+let dz2 = d_fast - d_slow * 4
+bad[0] = bad[0] + ck(dz2, 0, 0)
+bad[0] = bad[0] + ck_lo(d_fast, d_slow)
+
+let dz3 = f_brake * d_fast - m_kg * v_fast * v_fast / 2
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+if 1687 < 1685
+    bad[0] = bad[0] + 1
+if 1687 > 1689
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,218 @@
+import "../stdlib/gf65537.ψ"
+
+let landauer_conductance(transmission) =
+    transmission
+
+let landauer_multi_channel(transmissions) =
+    let g = 0
+    for n in 0..len(transmissions)
+        g = gf_add(g, transmissions[n])
+    g
+
+let transmission_coefficient(t_amplitude) =
+    gf_mul(t_amplitude, t_amplitude)
+
+let landauer_buttiker_current(t_matrix, voltages, i) =
+    let n = len(voltages)
+    let current = 0
+    for j in 0..n
+        if j != i
+            let term = gf_sub(
+                gf_mul(t_matrix[j][i], voltages[j]),
+                gf_mul(t_matrix[i][j], voltages[i])
+            )
+            current = gf_add(current, term)
+    current
+
+let iqhe_conductance(filling_factor) =
+    filling_factor
+
+let fqhe_conductance(p, q) =
+    gf_div(p, q)
+
+let hall_resistance(filling_factor) =
+    gf_inv(filling_factor)
+
+let landau_level(n, omega_c) =
+    let inv2 = 32769
+    gf_mul(omega_c, gf_mul(gf_add(gf_mul(2, n), 1), inv2))
+
+let landau_degeneracy(flux_quanta) =
+    flux_quanta
+
+let filling_factor(n_electrons, n_flux) =
+    gf_div(n_electrons, n_flux)
+
+let hall_plateau(filling_factor) =
+    [iqhe_conductance(filling_factor), 0]
+
+let chern_number(berry_curvature, k_points) =
+    let inv_2pi = gf_inv(gf_mul(2, 52011))
+    let c = 0
+    for k in 0..len(k_points)
+        c = gf_add(c, berry_curvature[k])
+    gf_mul(inv_2pi, c)
+
+let z2_invariant(wilson_loop, k_points) =
+    let inv_pi = gf_inv(52011)
+    let phase = 0
+    for k in 0..len(k_points)
+        phase = gf_add(phase, wilson_loop[k])
+    let nu = gf_mul(inv_pi, phase)
+    nu % 2
+
+let is_topological_insulator(z2) =
+    (z2 == 1 ? 1 : 0)
+
+let edge_state_count(chern) =
+        if chern > 32768
+            gf_neg(chern)
+        else
+            chern
+
+let aharonov_bohm_phase(n_flux_quanta, phi_quantum) =
+    gf_mul(n_flux_quanta, phi_quantum)
+
+let aharonov_bohm_interference(n_flux_quanta, phi_quantum) =
+    let phi = aharonov_bohm_phase(n_flux_quanta, phi_quantum)
+    let cos_phi = gf_cos_transport(phi)
+    gf_div(gf_add(cos_phi, 1), 2)
+
+let gf_cos_transport(k) =
+    let gk = gf_pow(3, k)
+    let g_neg_k = gf_inv(gk)
+    gf_div(gf_add(gk, g_neg_k), 2)
+
+let ab_oscillation(phi_max, phi_step) =
+    let oscillation = [0] * (phi_max / phi_step)
+    let idx = 0
+    for phi in 0..phi_max
+        if phi % phi_step == 0
+            oscillation[idx] = aharonov_bohm_interference(1, phi)
+            idx = idx + 1
+    oscillation
+
+let berry_connection(psi_k, psi_k_next) =
+    let result = 0
+    for i in 0..len(psi_k)
+        result = gf_add(result, gf_mul(psi_k[i], psi_k_next[i]))
+    result
+
+let berry_phase(psi_path) =
+    let gamma = 0
+    let n = len(psi_path)
+    for k in 0..n
+        let k_next = (k + 1) % n
+        gamma = gf_add(gamma, berry_connection(psi_path[k], psi_path[k_next]))
+    gamma
+
+let berry_curvature(a_x, a_y, x, y) =
+    gf_sub(
+        gf_sub(gf_add(a_y[x + 1], a_x[y]), a_y[x]),
+        a_x[y + 1]
+    )
+
+let wilson_loop(berry_connections, k_points) =
+    let w = 1
+    for k in 0..len(k_points)
+        w = gf_mul(w, gf_pow(3, berry_connections[k]))
+    w
+
+let commutator(a, b) =
+    gf_sub(gf_mul(a, b), gf_mul(b, a))
+
+let matrix_commutator(a, b, i, j, n) =
+    let result = 0
+    for k in 0..n
+        let term = gf_sub(
+            gf_mul(a[i][k], b[k][j]),
+            gf_mul(b[i][k], a[k][j])
+        )
+        result = gf_add(result, term)
+    result
+
+let kubo_conductance(j_currents_t, j_currents_0, t_max) =
+    let sigma = 0
+    for t in 0..t_max
+        let comm = gf_sub(
+            gf_mul(j_currents_t[t], j_currents_0),
+            gf_mul(j_currents_0, j_currents_t[t])
+        )
+        sigma = gf_add(sigma, comm)
+    sigma
+
+let linear_response(a_t, b_0) =
+    commutator(a_t, b_0)
+
+let boltzmann_step(f, f0, velocity, tau, dt) =
+    let relaxation = gf_div(gf_sub(f, f0), tau)
+    gf_sub(f, gf_mul(relaxation, dt))
+
+let boltzmann_steady_state(f0) =
+    f0
+
+let boltzmann_conductivity(n_carriers, tau, mass) =
+    gf_div(gf_mul(n_carriers, tau), mass)
+
+let lorentz_number() =
+    let pi_sq = gf_mul(52011, 52011)
+    gf_div(pi_sq, 3)
+
+let wiedemann_franz_ratio(thermal_cond, electric_cond) =
+    gf_div(thermal_cond, electric_cond)
+
+let thermal_conductivity(electric_cond, temperature) =
+    let l = lorentz_number()
+    gf_mul(gf_mul(l, electric_cond), temperature)
+
+let chiral_edge_state(chirality, amplitude, position) =
+    [chirality, amplitude, position]
+
+let edge_state_propagate(state, t) =
+    let chirality = state[0]
+    let amplitude = state[1]
+    let position = state[2]
+    [chirality, amplitude, gf_add(position, gf_mul(chirality, t))]
+
+let edge_state_dispersion(chirality, velocity, k) =
+    gf_mul(gf_mul(chirality, velocity), k)
+
+let is_topologically_protected(chern) =
+    let abs_c = (chern > 32768 ? gf_neg(chern) : chern)
+    (abs_c > 0 ? 1 : 0)
+
+let spin_hall_conductance() =
+    gf_inv(gf_mul(8, 52011))
+
+let quantum_spin_hall(z2_invariant) =
+    z2_invariant
+
+let luttinger_parameter(k_forward, k_backward) =
+    gf_div(k_forward, k_backward)
+
+let luttinger_compressibility(k_param, velocity) =
+    gf_div(k_param, gf_mul(52011, velocity))
+
+let luttinger_correlation(k_param, k_f, x) =
+    let cos_term = gf_cos_transport(gf_mul(gf_mul(2, k_f), x))
+    let power_term = gf_inv(gf_pow(x, gf_mul(2, k_param)))
+    gf_mul(cos_term, power_term)
+
+let spin_charge_separation(v_charge, v_spin) =
+    [v_charge, v_spin]
+
+let scattering_matrix(t, r) =
+    [
+        [t, r],
+        [gf_neg(r), t]
+    ]
+
+let check_unitarity(t, r) =
+    gf_add(gf_mul(t, t), gf_mul(r, r))
+
+let scatter(scattering_mat, psi_in) =
+    let psi_out = [0, 0]
+    for i in 0..2
+        for j in 0..2
+            psi_out[i] = gf_add(psi_out[i], gf_mul(scattering_mat[i][j], psi_in[j]))
+    psi_out

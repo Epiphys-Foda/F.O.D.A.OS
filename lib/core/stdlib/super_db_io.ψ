@@ -1,0 +1,37 @@
+import "super_db.ψ"
+let rf_db_io_status(db) =
+    let count = 0
+    let sum = 0
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(db)
+        count = count + 1
+        let s = sum + db[i + 2]
+        (s >= 65537 ? (sum = s - 65537) : (sum = s))
+        i = i + 3
+      else
+            0
+        done = true
+    let f0 = rf_db_field(db, 0, 0)
+    [count, sum, f0]
+
+let rf_db_io_label_codes(db) =
+    let st = rf_db_io_status(db)
+    [st[0] % 256, st[0] / 256, st[1] % 256]
+
+let rf_db_io_progress_val(db, max) =
+    let st = rf_db_io_status(db)
+    st[0] * 1000 / max
+
+let rf_db_io_ascii(db, w, h, cx, cy) = rf_db_render_ascii(db, w, h, cx, cy)
+
+let rf_db_io_verify() =
+    let results = []
+    let st = rf_db_io_status([0, 0, 5, 10, 10, 7])
+    results = results.push(st[0] == 2 && st[1] == 12)
+    let codes = rf_db_io_label_codes([0, 0, 5])
+    results = results.push(codes[0] == 1 && codes[1] == 0 && codes[2] == 5)
+    results = results.push(rf_db_io_progress_val([0, 0, 5, 10, 10, 7], 10) == 200)
+    results = results.push(len(rf_db_io_ascii([0, 0, 5], 5, 5, 0, 0)) > 0)
+    results

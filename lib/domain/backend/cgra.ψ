@@ -1,0 +1,194 @@
+import "../../core/stdlib/gf65537.ψ"
+import "../../core/base/rt.ψ"
+
+let P = 65537
+
+let CGRA_N_PE = 64
+let CGRA_GRID_W = 8
+
+let PE_SOURCE = 0
+let PE_MAC = 1
+let PE_ALU = 2
+let PE_NTT = 3
+let PE_CMP = 4
+let PE_LAP = 5
+
+let op_to_pe_type(op_type) =
+    if op_type == 0
+        PE_SOURCE
+    else
+        0
+    if op_type == 1
+        PE_MAC
+    else
+        0
+    if op_type == 2
+        PE_ALU
+    else
+        0
+    if op_type == 3
+        PE_NTT
+    else
+        0
+    if op_type == 4
+        PE_CMP
+    else
+        0
+    if op_type == 5
+        PE_LAP
+    else
+        PE_SOURCE
+
+let pe_create(id) = [id, 0, [], 0]
+let pe_set_operation(pe, op) = [pe[0], op, pe[2], pe[3]]
+let pe_add_input(pe, input) =
+    let inputs = pe[2]
+    inputs.push(input)
+    [pe[0], pe[1], inputs, pe[3]]
+
+let cgra_create() =
+    let pes = []
+    let i = 0
+    for i < CGRA_N_PE
+        pes.push(pe_create(i))
+        i = i + 1
+    pes
+
+let field_to_cgra(ops_type, ops_data, n, pe_type, pe_data, pe_x, pe_y, fifo_src, fifo_dst) =
+    let i = 0
+    for i < n
+        pe_type[i] = op_to_pe_type(ops_type[i])
+        pe_data[i] = ops_data[i]
+        pe_x[i] = i % CGRA_GRID_W
+        pe_y[i] = i / CGRA_GRID_W
+        if i > 0
+            fifo_src[i] = i - 1
+            fifo_dst[i] = i
+        else
+            fifo_src[i] = 0
+            fifo_dst[i] = 0
+        i = i + 1
+
+let cgra_execute(pe_type, pe_data, n) =
+    let stack = arr_new_n(n)
+    let sp = 0
+    let i = 0
+    for i < n
+        let t = pe_type[i]
+        if t == PE_SOURCE
+            stack[sp] = pe_data[i]
+            sp = sp + 1
+        if t == PE_MAC
+            if sp >= 2
+                let b = stack[sp - 1]
+                let a = stack[sp - 2]
+                sp = sp - 2
+                stack[sp] = (a * b) % P
+                sp = sp + 1
+        if t == PE_ALU
+            if sp >= 2
+                let b = stack[sp - 1]
+                let a = stack[sp - 2]
+                sp = sp - 2
+                stack[sp] = (a + b) % P
+                sp = sp + 1
+        if t == PE_NTT
+            if sp >= 1
+                stack[sp - 1] = (stack[sp - 1] * 3) % P
+        if t == PE_CMP
+            if sp >= 1
+                let a = stack[sp - 1]
+                if a > 32768
+                    stack[sp - 1] = 0
+        if t == PE_LAP
+            if sp >= 1
+                stack[sp - 1] = (65535 * stack[sp - 1] + 2) % P
+        i = i + 1
+    (sp > 0 ? stack[sp - 1] : 0)
+
+import "../../core/stdlib_lang2/gf_pre_123_6.ψ"
+        if t == OP_DATA
+            stack[sp] = ops_data[i]
+            sp = sp + 1
+        if t == OP_GFMUL
+            if sp >= 2
+                let b = stack[sp - 1]
+                let a = stack[sp - 2]
+                sp = sp - 2
+                stack[sp] = (a * b) % P
+                sp = sp + 1
+        if t == OP_CLIFFORD
+            if sp >= 2
+                let b = stack[sp - 1]
+                let a = stack[sp - 2]
+                sp = sp - 2
+                stack[sp] = (a + b) % P
+                sp = sp + 1
+        if t == OP_NTT
+            if sp >= 1
+                stack[sp - 1] = (stack[sp - 1] * 3) % P
+        if t == OP_BORN
+            if sp >= 1
+                let a = stack[sp - 1]
+                if a > 32768
+                    stack[sp - 1] = 0
+        if t == OP_HEBBIAN
+            if sp >= 1
+                stack[sp - 1] = (65535 * stack[sp - 1] + 2) % P
+        i = i + 1
+    (sp > 0 ? stack[sp - 1] : 0)
+
+let bit_identical_verify(ops_type, ops_data, n) =
+    let field_result = field_execute(ops_type, ops_data, n)
+    let pe_type = arr_new_n(n)
+    let pe_data = arr_new_n(n)
+    let pe_x = arr_new_n(n)
+    let pe_y = arr_new_n(n)
+    let fifo_src = arr_new_n(n)
+    let fifo_dst = arr_new_n(n)
+    field_to_cgra(ops_type, ops_data, n, pe_type, pe_data, pe_x, pe_y, fifo_src, fifo_dst)
+    let cgra_result = cgra_execute(pe_type, pe_data, n)
+    let ok = 0
+    if field_result == cgra_result
+        ok = 1
+    let out = arr_new_n(3)
+    out[0] = field_result
+    out[1] = cgra_result
+    out[2] = ok
+    out
+
+let cgra_configure(cgra, config) =
+    let i = 0
+    let n = len(config)
+    for i < n && i < CGRA_N_PE
+        cgra[i] = pe_set_operation(cgra[i], config[i])
+        i = i + 1
+    cgra
+
+let cgra_route(src_pe, dst_pe, data) = [src_pe, dst_pe, data]
+
+let cgra_verify() =
+    let all_ok = 1
+    let test_idx = 0
+    for test_idx < 6
+        let nt = 3
+        let tt = arr_new_n(nt)
+        let td = arr_new_n(nt)
+        tt[0] = 0
+        tt[1] = 0
+        td[0] = test_idx + 1
+        td[1] = test_idx + 2
+        if test_idx < 2
+            tt[2] = 1
+        else
+            0
+        if test_idx < 4
+            tt[2] = 2
+        else
+            tt[2] = 1
+        td[2] = 0
+        let rt = bit_identical_verify(tt, td, nt)
+        if rt[2] == 0
+            all_ok = 0
+        test_idx = test_idx + 1
+    all_ok

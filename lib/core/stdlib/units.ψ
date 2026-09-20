@@ -1,0 +1,110 @@
+let meters_to_feet(m) =
+    m * 3281 / 1000
+
+let feet_to_meters(ft) =
+    ft * 3048 / 10000
+
+let km_to_miles(km) =
+    km * 6214 / 10000
+
+let miles_to_km(mi) =
+    mi * 1609 / 1000
+
+let kg_to_lbs(kg) =
+    kg * 2205 / 1000
+
+let lbs_to_kg(lbs) =
+    lbs * 4536 / 10000
+
+let celsius_to_fahrenheit(c) =
+    c * 9 / 5 + 32
+
+let fahrenheit_to_celsius(f) =
+    (f - 32) * 5 / 9
+
+let celsius_to_kelvin(c) =
+    c + 273
+
+let kelvin_to_celsius(k) =
+    k - 273
+
+let liters_to_gallons(l) =
+    l * 2642 / 10000
+
+let gallons_to_liters(g) =
+    g * 3785 / 1000
+
+let hectares_to_acres(ha) =
+    ha * 2471 / 1000
+
+let acres_to_hectares(ac) =
+    ac * 4047 / 10000
+
+let pascal_to_psi(pa) =
+    pa * 1450 / 10000
+
+let psi_to_pascal(psi) =
+    psi * 6895 / 1000
+
+let bar_to_pascal(bar) =
+    bar * 100000
+
+let pascal_to_bar(pa) =
+    pa / 100000
+
+let joule_to_calorie(j) =
+    j * 2390 / 10000
+
+let calorie_to_joule(cal) =
+    cal * 4184 / 1000
+
+let watt_to_horsepower(w) =
+    w * 1341 / 10000
+
+let horsepower_to_watt(hp) =
+    hp * 7457 / 1000
+
+let radian_to_degree(rad) =
+    rad * 180 * 1000 / 3141593
+
+let degree_to_radian(deg) =
+    deg * 3141593 / (180 * 1000)
+
+let hz_to_rpm(hz) =
+    hz * 60
+
+let rpm_to_hz(rpm) =
+    rpm / 60
+
+let byte_to_kib(bytes) =
+    bytes / 1024
+
+let kib_to_byte(kib) =
+    kib * 1024
+
+let byte_to_mib(bytes) =
+    bytes / 1048576
+
+let mib_to_byte(mib) =
+    mib * 1048576
+
+let speed_kmh_to_ms(kmh) =
+    kmh * 1000 / 3600
+
+let speed_ms_to_kmh(ms) =
+    ms * 3600 / 1000
+
+let area_circle(radius) =
+    3141593 * radius * radius / 1000000
+
+let volume_sphere(radius) =
+    4 * 3141593 * radius * radius * radius / 3000000
+
+let main() =
+    print(meters_to_feet(1000))
+    print(km_to_miles(100))
+    print(kg_to_lbs(10))
+    print(celsius_to_fahrenheit(100))
+    print(degree_to_radian(180))
+    print(area_circle(5))
+    0

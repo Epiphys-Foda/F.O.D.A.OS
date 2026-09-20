@@ -1,0 +1,117 @@
+import "numtheor.ψ"
+let dual_new(value, deriv) =
+    [value, deriv]
+
+let dual_from_real(x) =
+    [x, 0]
+
+let dual_from_var(x) =
+    [x, 1]
+
+let dual_add(a, b) =
+    [a[0] + b[0], a[1] + b[1]]
+
+let dual_sub(a, b) =
+    [a[0] - b[0], a[1] - b[1]]
+
+let dual_mul(a, b) =
+    [a[0] * b[0] / 1000, a[1] * b[0] / 1000 + a[0] * b[1] / 1000]
+
+let dual_div(a, b) =
+    if b[0] == 0
+        [0, 0]
+    else
+        let val = a[0] * 1000 / b[0]
+        let deriv = (a[1] * b[0] - a[0] * b[1]) * 1000 / (b[0] * b[0])
+        [val, deriv]
+
+let dual_neg(a) =
+    [-a[0], -a[1]]
+
+let dual_pow(a, n) =
+    if n == 0
+        [1000, 0]
+    else
+        0
+    if n == 1
+        a
+    else
+        let val = 1
+        let i = 0
+        for i < n
+            val = val * a[0] / 1000
+            i = i + 1
+        let val_n1 = 1
+        let i = 0
+        for i < n - 1
+            val_n1 = val_n1 * a[0] / 1000
+            i = i + 1
+        let deriv = n * val_n1 * a[1] / 1000
+        [val, deriv]
+
+let dual_sqrt(a) =
+    if a[0] <= 0
+        [0, 0]
+    else
+        let sq = isqrt(a[0])
+        let val = sq
+        let deriv = a[1] * 500 / sq
+        [val, deriv]
+
+let dual_exp(a) =
+    let exp_a = 1
+    let term = 1000
+    let i = 1
+    for i < 15
+        term = term * a[0] / (i * 1000)
+        exp_a = exp_a + term
+        i = i + 1
+    [exp_a, exp_a * a[1] / 1000]
+
+let dual_log(a) =
+    if a[0] <= 0
+        [0, 0]
+    else
+        let x = a[0]
+        let log_val = 0
+        for x > 1000
+            x = x / 2
+            log_val = log_val + 693
+        let val = log_val
+        let deriv = a[1] * 1000 / a[0]
+        [val, deriv]
+
+let dual_sin(a) =
+    let x = a[0]
+    let sin_x = x - x * x * x / 6000000
+    let cos_x = 1000 - x * x / 2000000
+    [sin_x, cos_x * a[1] / 1000]
+
+let dual_cos(a) =
+    let x = a[0]
+    let sin_x = x - x * x * x / 6000000
+    let cos_x = 1000 - x * x / 2000000
+    [cos_x, -sin_x * a[1] / 1000]
+
+let dual_tanh(a) =
+    let x = a[0]
+    let t = 2 * x / (2000 + 2 * x)
+    let val = t
+    let deriv = (1000 - t * t / 1000) * a[1] / 1000
+    [val, deriv]
+
+let auto_diff(f, x) =
+    let result = f(dual_from_var(x))
+    result[1]
+
+let main() =
+    let f1(d) = dual_pow(d, 2)
+    let df1 = auto_diff(f1, 3)
+    print(df1)
+    let f2(d) = dual_add(dual_pow(d, 3), dual_scale(dual_from_real(2), d))
+    let df2 = auto_diff(f2, 2)
+    print(df2)
+    0
+
+let dual_scale(a, b) =
+    dual_mul(a, b)

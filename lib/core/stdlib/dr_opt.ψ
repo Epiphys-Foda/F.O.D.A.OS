@@ -1,0 +1,798 @@
+import "psi_dataflow.ψ"
+import "dag_scheduler.ψ"
+import "pe_to_x86.ψ"
+let dro_arena_create(capacity) =
+    let active = []
+    let opcodes = []
+    let i = 0
+    let done = false
+    for !done
+      if i < capacity
+        active = active.push(0)
+        opcodes = opcodes.push(0)
+        i = i + 1
+      else
+        done = true
+    {active: active, opcodes: opcodes, capacity: capacity, used: 0}
+
+let dro_arena_alloc(arena, opcode) =
+    let new_active = arena.active
+    let new_op = arena.opcodes
+    let slot = 0
+    let found = false
+    let i = 0
+    let done = false
+    for !done
+      if i < arena.capacity
+        if !found
+          if arena.active[i] == 0
+            slot = i
+            found = true
+          else
+              0
+        else
+          0
+        i = i + 1
+      else
+        done = true
+        0
+      0
+    let act2 = []
+    let j = 0
+    let jdone = false
+    for !jdone
+      if j < arena.capacity
+        if j == slot
+          act2 = act2.push(1)
+        else
+          act2 = act2.push(arena.active[j])
+        j = j + 1
+      else
+        jdone = true
+    let op2 = []
+    let k = 0
+    let kdone = false
+    for !kdone
+      if k < arena.capacity
+        if k == slot
+          op2 = op2.push(opcode)
+        else
+          op2 = op2.push(arena.opcodes[k])
+        k = k + 1
+      else
+        kdone = true
+    [{active: act2, opcodes: op2, capacity: arena.capacity, used: arena.used + 1}, slot]
+
+let dro_arena_reset(arena) =
+    let active = []
+    let i = 0
+    let done = false
+    for !done
+      if i < arena.capacity
+        active = active.push(0)
+        i = i + 1
+      else
+        done = true
+    {active: active, opcodes: arena.opcodes, capacity: arena.capacity, used: 0}
+
+let dro_soa_opcodes(dag) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < dag.len(nodes)
+        let node = dag.nodes[i]
+        out = out.push(node.opcode)
+        i = i + 1
+      else
+        done = true
+    out
+
+let dro_soa_edge_counts(dag) =
+    let result = []
+    let i = 0
+    let n = dag.len(nodes)
+    let done = false
+    for !done
+      if i < n
+        result = result.push(0)
+        i = i + 1
+      else
+        done = true
+    let ei = 0
+    let en = dag.len(edges)
+    let edone = false
+    for !edone
+      if ei < en
+        let edge = dag.edges[ei]
+        let dst = edge.dst_node
+        let r2 = []
+        let j = 0
+        let jdone = false
+        for !jdone
+          if j < n
+            if j == dst
+              r2 = r2.push(result[j] + 1)
+            else
+              r2 = r2.push(result[j])
+            j = j + 1
+          else
+            jdone = true
+        result = r2
+        ei = ei + 1
+      else
+        edone = true
+    result
+
+let dro_soa_ready(edge_counts) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(edge_counts)
+        if edge_counts[i] == 0
+          out = out.push(i)
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    out
+
+let dro_fuse_rule(src_pe, dst_pe) =
+    let is_chain = src_pe == 1 && dst_pe == 2
+    let is_pair = src_pe == 2 && dst_pe == 1
+    let is_tree = src_pe == 3 && dst_pe == 3
+    is_chain || is_pair || is_tree
+
+let dro_fuse_pass(dag) =
+    let fuse_count = 0
+    let ei = 0
+    let done = false
+    for !done
+      if ei < dag.len(edges)
+        let edge = dag.edges[ei]
+        let src = dag.nodes[edge.src_node]
+        let dst = dag.nodes[edge.dst_node]
+        if dro_fuse_rule(src.pe_type, dst.pe_type)
+          fuse_count = fuse_count + 1
+        else
+          0
+        ei = ei + 1
+      else
+        done = true
+    [fuse_count, dag.node_count - fuse_count]
+
+let dro_shape_hash(dag) =
+    let h = 0
+    let i = 0
+    let done = false
+    for !done
+      if i < dag.len(nodes)
+        let node = dag.nodes[i]
+        h = (h * 31 + node.opcode) % 1000000007
+        i = i + 1
+      else
+        done = true
+    let ei = 0
+    let edone = false
+    for !edone
+      if ei < dag.len(edges)
+        let edge = dag.edges[ei]
+        h = (h * 7 + edge.src_node * 3 + edge.dst_node) % 1000000007
+        ei = ei + 1
+      else
+        edone = true
+    h
+
+let dro_cache_create() =
+    { hashes: [], schedules: [] }
+
+let dro_cache_lookup(cache, hash) =
+    let found = 0
+    let i = 0
+    let done = false
+    for !done
+      if i < len(cache.hashes)
+        if cache.hashes[i] == hash
+          found = 1
+          done = true
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    found
+
+let dro_cache_store(cache, hash) =
+    {hashes: cache.hashes.push(hash), schedules: cache.schedules.push(1)}
+
+let dro_verify() =
+    let results = []
+    let ar0 = dro_arena_create(4)
+    let a1 = dro_arena_alloc(ar0, 1)
+    let a2 = dro_arena_alloc(a1[0], 2)
+    let a3 = dro_arena_alloc(a2[0], 3)
+    results = results.push(a1[1] == 0 && a2[1] == 1 && a3[1] == 2)
+    results = results.push(a3[0].used == 3)
+    let ar_reset = dro_arena_reset(a3[0])
+    results = results.push(ar_reset.used == 0)
+    let re = dro_arena_alloc(ar_reset, 9)
+    results = results.push(re[1] == 0 && re[0].opcodes[0] == 9)
+    results = results.push(dro_fuse_rule(1, 2))
+    results = results.push(dro_fuse_rule(3, 3))
+    results = results.push(!dro_fuse_rule(4, 5))
+    results = results.push(true)
+    let total = true
+    let i = 0
+    let done = false
+    for !done
+      if i < len(results)
+        let v = results[i]
+        if v == false
+          total = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(total)
+    results
+
+let dro_adjacency_create(dag) =
+    let adj = []
+    let n = dag.len(nodes)
+    let i = 0
+    let done = false
+    for !done
+      if i < n
+        let row = []
+        let j = 0
+        let jdone = false
+        for !jdone
+          if j < n
+            row = row.push(0)
+            j = j + 1
+          else
+            jdone = true
+        adj = adj.push(row)
+        i = i + 1
+      else
+        done = true
+        0
+      0
+    let ei = 0
+    let edone = false
+    for !edone
+      if ei < dag.len(edges)
+        let edge = dag.edges[ei]
+        let s = edge.src_node
+        let d = edge.dst_node
+        let new_adj = []
+        let k = 0
+        let kdone = false
+        for !kdone
+          if k < n
+            if k == s
+              let row2 = []
+              let m = 0
+              let mdone = false
+              for !mdone
+                if m < n
+                  if m == d
+                    row2 = row2.push(1)
+                  else
+                    row2 = row2.push(adj[k][m])
+                  m = m + 1
+                else
+                  mdone = true
+              new_adj = new_adj.push(row2)
+            else
+              new_adj = new_adj.push(adj[k])
+            k = k + 1
+          else
+            kdone = true
+        adj = new_adj
+        ei = ei + 1
+      else
+        edone = true
+    adj
+
+let dro_has_edge(adj, src, dst) = adj[src][dst] == 1
+
+let dro_neighbors(adj, node) =
+    let out = []
+    let row = adj[node]
+    let i = 0
+    let done = false
+    for !done
+      if i < len(row)
+        if row[i] == 1
+          out = out.push(i)
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    out
+
+let dro_log_create() = []
+
+let dro_log_add_node(log, id, op) = log.push([0, id, op])
+let dro_log_add_edge(log, src, dst) = log.push([1, src, dst])
+let dro_log_param(log, node) = log.push([2, node, 0])
+
+let dro_log_version(log) = len(log)
+
+let dro_log_replay(log) =
+    let d = dag_create()
+    let i = 0
+    let done = false
+    for !done
+      if i < len(log)
+        let entry = log[i]
+        let t = entry[0]
+        if t == 0
+          d = dag_add_node(d, entry[2], entry[2])
+        else
+          0
+        if t == 1
+          d = dag_add_edge(d, entry[1], 0, entry[2], 0)
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    d
+
+let dro_sort_params(updates) =
+    let out = []
+    let rest = updates
+    let done = false
+    for !done
+      if len(rest) > 0
+        let min_idx = 0
+        let k = 1
+        let kdone = false
+        for !kdone
+          if k < len(rest)
+            if rest[k][0] < rest[min_idx][0]
+              min_idx = k
+            else
+              0
+            k = k + 1
+          else
+            kdone = true
+        let min_v = rest[min_idx]
+        out = out.push(min_v)
+        let r2 = []
+        let m = 0
+        let mdone = false
+        for !mdone
+          if m < len(rest)
+            if m != min_idx
+              r2 = r2.push(rest[m])
+            else
+              0
+            m = m + 1
+          else
+            mdone = true
+        rest = r2
+      else
+        done = true
+    out
+
+let dro_param_batch(updates) = dro_sort_params(updates)
+
+let dro_verify_p12() =
+    let results = []
+    let d1 = dag_create()
+    let d2 = dag_add_node(d1, 1, 1)
+    let d3 = dag_add_node(d2, 2, 2)
+    let d4 = dag_add_edge(d3, 0, 0, 1, 0)
+    let adj = dro_adjacency_create(d4)
+    results = results.push(dro_has_edge(adj, 0, 1))
+    results = results.push(!dro_has_edge(adj, 1, 0))
+    let nb = dro_neighbors(adj, 0)
+    results = results.push(len(nb) == 1 && nb[0] == 1)
+    let log0 = dro_log_create()
+    let log1 = dro_log_add_node(log0, 0, 1)
+    let log2 = dro_log_add_node(log1, 1, 2)
+    let log3 = dro_log_add_edge(log2, 0, 1)
+    results = results.push(dro_log_version(log3) == 3)
+    let replay = dro_log_replay(log3)
+    results = results.push(replay.len(nodes) == 2 && replay.len(edges) == 1)
+    let ups = [[5, 1], [2, 9], [8, 3], [1, 7]]
+    let sorted = dro_param_batch(ups)
+    results = results.push(sorted[0][0] == 1 && sorted[1][0] == 2 && sorted[2][0] == 5 && sorted[3][0] == 8)
+    let log4 = dro_log_add_edge(log3, 1, 0)
+    results = results.push(dro_log_version(log4) == 4)
+    let total = true
+    let i = 0
+    let done = false
+    for !done
+      if i < len(results)
+        let v = results[i]
+        if v == false
+          total = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(total)
+    results
+
+let dro_crit_nodes(dag) =
+    let depth = sched_depth_arr(dag)
+    let mx = 0
+    let i = 0
+    let done = false
+    for !done
+      if i < len(depth)
+        if depth[i] > mx
+          mx = depth[i]
+        else
+          0
+        i = i + 1
+      else
+        done = true
+        0
+      0
+    let tips = []
+    let j = 0
+    let jdone = false
+    for !jdone
+      if j < len(depth)
+        if depth[j] == mx
+          tips = tips.push(j)
+        else
+          0
+        j = j + 1
+      else
+        jdone = true
+        0
+      0
+    let crit = tips
+    let cur = tips
+    let cd = false
+    for !cd
+      if len(cur) > 0
+        let next = []
+        let k = 0
+        let kdone = false
+        for !kdone
+          if k < len(cur)
+            let node_id = cur[k]
+            let target_d = depth[node_id] - 1
+            let ei = 0
+            let edone = false
+            for !edone
+              if ei < dag.len(edges)
+                let edge = dag.edges[ei]
+                if edge.dst_node == node_id
+                  if depth[edge.src_node] == target_d
+                    next = next.push(edge.src_node)
+                  else
+                      0
+                else
+                  0
+                ei = ei + 1
+              else
+                edone = true
+            k = k + 1
+          else
+            kdone = true
+            0
+          0
+        let m = 0
+        let mdone = false
+        for !mdone
+          if m < len(next)
+            let dup = false
+            let n2 = 0
+            let n2done = false
+            for !n2done
+              if n2 < len(crit)
+                if crit[n2] == next[m]
+                  dup = true
+                else
+                  0
+                n2 = n2 + 1
+              else
+                n2done = true
+            if !dup
+              crit = crit.push(next[m])
+            else
+              0
+            m = m + 1
+          else
+            mdone = true
+        cur = next
+      else
+        cd = true
+    crit
+
+let dro_spec_mask(dag) =
+    let indeg = dro_soa_edge_counts(dag)
+    let masks = []
+    let n = dag.len(nodes)
+    let i = 0
+    let done = false
+    for !done
+      if i < n
+        masks = masks.push([])
+        i = i + 1
+      else
+        done = true
+        0
+      0
+    let ei = 0
+    let edone = false
+    for !edone
+      if ei < dag.len(edges)
+        let edge = dag.edges[ei]
+        let a = edge.src_node
+        let b = edge.dst_node
+        if indeg[b] == 1
+          let new_masks = []
+          let k = 0
+          let kdone = false
+          for !kdone
+            if k < n
+              if k == a
+                new_masks = new_masks.push(masks[k].push(b))
+              else
+                new_masks = new_masks.push(masks[k])
+              k = k + 1
+            else
+              kdone = true
+          0
+          masks = new_masks
+        else
+          0
+        ei = ei + 1
+      else
+        edone = true
+    masks
+
+let dro_ws_util(dag, workers) =
+    let depth = sched_depth_arr(dag)
+    let mx = sched_critical_path(dag)
+    let idle_total = 0
+    let layer = 1
+    let done = false
+    for !done
+      if layer <= mx
+        let layer_nodes = sched_layer_nodes(dag, depth, layer)
+        let width = len(layer_nodes)
+        let idle = workers > width ? workers - width : 0
+        idle_total = idle_total + idle
+        layer = layer + 1
+      else
+          done = true
+    [mx, idle_total]
+
+let dro_prefetch_plan(dag) =
+    let depth = sched_depth_arr(dag)
+    let mx = sched_critical_path(dag)
+    let plan = []
+    let layer = 1
+    let done = false
+    for !done
+      if layer <= mx
+        let layer_nodes = sched_layer_nodes(dag, depth, layer)
+        plan = plan.push(len(layer_nodes))
+        layer = layer + 1
+      else
+        done = true
+    plan
+
+let dro_verify_p3() =
+    let results = []
+    let d1 = dag_create()
+    let d2 = dag_add_node(d1, 1, 1)
+    let d3 = dag_add_node(d2, 2, 2)
+    let d4 = dag_add_node(d3, 3, 3)
+    let d5 = dag_add_node(d4, 4, 4)
+    let d6 = dag_add_edge(d5, 0, 0, 1, 0)
+    let d7 = dag_add_edge(d6, 1, 0, 2, 0)
+    let d8 = dag_add_edge(d7, 0, 0, 3, 0)
+    results = results.push(sched_critical_path(d8) == 3)
+    let crit = dro_crit_nodes(d8)
+    let has_chain = false
+    let i = 0
+    let done = false
+    for !done
+      if i < len(crit)
+        if crit[i] == 2
+          has_chain = true
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(has_chain)
+    let masks = dro_spec_mask(d8)
+    results = results.push(len(masks[0]) == 2 && masks[0][0] == 1 && masks[0][1] == 3)
+    results = results.push(len(masks[1]) == 1 && masks[1][0] == 2)
+    results = results.push(len(masks[3]) == 0)
+    let ws = dro_ws_util(d8, 2)
+    results = results.push(ws[0] == 3 && ws[1] == 2)
+    let plan = dro_prefetch_plan(d8)
+    results = results.push(len(plan) == 3 && plan[0] == 1 && plan[1] == 2 && plan[2] == 1)
+    let total = true
+    let j = 0
+    let done2 = false
+    for !done2
+      if j < len(results)
+        let v = results[j]
+        if v == false
+          total = false
+        else
+          0
+        j = j + 1
+      else
+        done2 = true
+    results = results.push(total)
+    results
+
+let dro_jit_plan(dag) =
+    let depth = sched_depth_arr(dag)
+    let mx = sched_critical_path(dag)
+    let total_ins = 0
+    let per_node = []
+    let layer = 1
+    let done = false
+    for !done
+      if layer <= mx
+        let layer_nodes = sched_layer_nodes(dag, depth, layer)
+        let li = 0
+        let ldone = false
+        for !ldone
+          if li < len(layer_nodes)
+            let node_id = layer_nodes[li]
+            let node = dag.nodes[node_id]
+            let ins = pe_op_to_x86(node.opcode)
+            total_ins = total_ins + len(ins)
+            per_node = per_node.push(len(ins))
+            li = li + 1
+          else
+            ldone = true
+        layer = layer + 1
+      else
+        done = true
+    [total_ins, per_node]
+
+let dro_persistent_wgsl(ops) =
+    let code = str_concat(str_concat(str_concat(str_concat(str_concat(str_concat("loop ", chr(123)), "\n  let task = task_queue.pop();\n  if (task == SENTINEL) "), chr(123)), " break; }\n  switch (task.opcode) "), chr(123)), "\n")
+    let i = 0
+    let done = false
+    for !done
+      if i < len(ops)
+        let line = "    case ".concat(str(ops[i][0])).concat(str_concat(str_concat(" ", chr(123)), " ")).concat(ops[i][1]).concat("; break; }\n")
+        code = code.concat(line)
+        i = i + 1
+      else
+        done = true
+    code.concat("  }\n  result_queue.push(task.result);\n}")
+let dro_persistent_wgsl_ops() = [[1, "exec_mul_add"], [2, "exec_gf_mul"], [3, "exec_butterfly"], [4, "exec_mask_select"], [5, "exec_sub_shift"]]
+
+let dro_prof_run(dag, costs) =
+    let depth = sched_depth_arr(dag)
+    let mx = sched_critical_path(dag)
+    let layer_costs = []
+    let layer = 1
+    let done = false
+    for !done
+      if layer <= mx
+        let layer_nodes = sched_layer_nodes(dag, depth, layer)
+        let sum = 0
+        let li = 0
+        let ldone = false
+        for !ldone
+          if li < len(layer_nodes)
+            sum = sum + costs[layer_nodes.get(li)]
+            li = li + 1
+          else
+            ldone = true
+        layer_costs = layer_costs.push(sum)
+        layer = layer + 1
+      else
+        done = true
+        0
+      0
+    let hot = 0
+    let hc = 0
+    let j = 0
+    let jdone = false
+    for !jdone
+      if j < len(layer_costs)
+        if layer_costs[j] > hc
+          hc = layer_costs[j]
+          hot = j
+        else
+          0
+        j = j + 1
+      else
+        jdone = true
+    [layer_costs, hot]
+
+let dro_frame_zc(dag) =
+    let frame = [dag.len(nodes)]
+    let i = 0
+    let done = false
+    for !done
+      if i < dag.len(nodes)
+        frame = frame.push(dag.nodes[i].opcode)
+        i = i + 1
+      else
+        done = true
+    let ei = 0
+    let edone = false
+    for !edone
+      if ei < dag.len(edges)
+        let edge = dag.edges[ei]
+        frame = frame.push(edge.src_node)
+        frame = frame.push(edge.dst_node)
+        ei = ei + 1
+      else
+        edone = true
+    frame
+
+let dro_frame_rebuild(frame) =
+    let d = dag_create()
+    let n = frame[0]
+    let i = 0
+    let done = false
+    for !done
+      if i < n
+        d = dag_add_node(d, frame[1 + i], frame[1 + i])
+        i = i + 1
+      else
+        done = true
+    let ei = 0
+    let base = 1 + n
+    let edone = false
+    for !edone
+      if ei < (len(frame) - 1 - n) / 2
+        d = dag_add_edge(d, frame[base + ei * 2], 0, frame[base + ei * 2 + 1], 0)
+        ei = ei + 1
+      else
+        edone = true
+    d
+
+let dro_verify_p4() =
+    let results = []
+    let d1 = dag_create()
+    let d2 = dag_add_node(d1, 1, 1)
+    let d3 = dag_add_node(d2, 2, 2)
+    let d4 = dag_add_edge(d3, 0, 0, 1, 0)
+    let jit = dro_jit_plan(d4)
+    results = results.push(jit[0] == len(pe_op_to_x86(1)) + len(pe_op_to_x86(2)))
+    results = results.push(len(jit[1]) == 2)
+    let wgsl = dro_persistent_wgsl(dro_persistent_wgsl_ops())
+    results = results.push(true)
+    let prof = dro_prof_run(d4, [10, 20])
+    results = results.push(len(prof[0]) == 2)
+    results = results.push(prof[1] == 1)
+    let frame = dro_frame_zc(d4)
+    results = results.push(len(frame) == 1 + 2 + 2)
+    let rebuilt = dro_frame_rebuild(frame)
+    results = results.push(rebuilt.len(nodes) == 2 && rebuilt.len(edges) == 1)
+    results = results.push(rebuilt.nodes[1].opcode == 2)
+    let total = true
+    let i = 0
+    let done = false
+    for !done
+      if i < len(results)
+        let v = results[i]
+        if v == false
+          total = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(total)
+    results

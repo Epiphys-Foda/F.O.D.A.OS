@@ -1,0 +1,39 @@
+import "ck.ψ"
+let bad = [0]
+
+let n1 = 10
+let tau1 = 1
+let tau2 = 4
+let sq_tau = 2
+let n2 = n1 / sq_tau
+let c1 = n1 * n1 * tau1
+let c2 = n2 * n2 * tau2
+let dkz = c1 - c2
+bad[0] = bad[0] + ck(dkz, 0, 0)
+
+let eps2 = 1
+let taurel = 10000 / (eps2 * eps2)
+bad[0] = bad[0] + ck(taurel, 5000, 20000)
+
+let polarity = 1
+bad[0] = bad[0] + ck_lo(polarity, 1)
+
+let znu = 2
+let half = znu / 2
+let dhalf = half - 1
+bad[0] = bad[0] + ck(dhalf, 0, 0)
+
+if 1976 < 1974
+    bad[0] = bad[0] + 1
+if 1976 > 1978
+    bad[0] = bad[0] + 1
+if 1985 < 1983
+    bad[0] = bad[0] + 1
+if 1985 > 1987
+    bad[0] = bad[0] + 1
+if 2013 < 2011
+    bad[0] = bad[0] + 1
+if 2013 > 2015
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

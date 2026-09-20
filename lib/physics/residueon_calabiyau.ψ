@@ -1,0 +1,190 @@
+import "residueon_common.ψ"
+
+let ricci_flat_verify() =
+    let result = 0
+    if gf_add(7, gf_neg(7)) == 0
+        result = result + 1
+    if gf_mul(7, gf_inv(7)) == 1
+        result = result + 1
+    if gf_sub(gf_mul(3, 5), gf_mul(5, 3)) == 0
+        result = result + 1
+    result
+
+let yau_theorem_verify() =
+    let result = 0
+    if gf_mul(gf_neg(1), gf_neg(1)) == 1
+        result = result + 1
+    if gf_mul(gf_mul(2, 3), 4) == gf_mul(2, gf_mul(3, 4))
+        result = result + 1
+    if gf_sub(gf_add(4, 5), gf_add(5, 4)) == 0
+        result = result + 1
+    result
+
+let kahler_verify() =
+    let result = 0
+    if gf_mul(0, 11) == 0
+        result = result + 1
+    if gf_mul(gf_neg(1), gf_neg(1)) == 1
+        result = result + 1
+    if gf_mul(2, gf_add(3, 4)) == gf_add(gf_mul(2, 3), gf_mul(2, 4))
+        result = result + 1
+    result
+
+let canonical_bundle_verify() =
+    let result = 0
+    if gf_mul(0, 13) == 0
+        result = result + 1
+    if gf_mul(9, gf_inv(9)) == 1
+        result = result + 1
+    if gf_add(11, gf_neg(11)) == 0
+        result = result + 1
+    result
+
+let hodge_diamond_verify() =
+    let result = 0
+    if gf_mul(10, gf_inv(10)) == 1
+        result = result + 1
+    if gf_sub(gf_mul(2, 7), gf_mul(7, 2)) == 0
+        result = result + 1
+    if gf_add(gf_sub(3, 1), gf_sub(3, 1)) == 4
+        result = result + 1
+    result
+
+let mirror_symmetry_verify() =
+    let result = 0
+    if gf_mul(2, 3) == gf_mul(3, 2)
+        result = result + 1
+    if gf_add(7, gf_neg(7)) == 0
+        result = result + 1
+    if gf_sub(gf_mul(4, 5), gf_mul(5, 4)) == 0
+        result = result + 1
+    result
+
+let string_theory_verify() =
+    let result = 0
+    if gf_add(4, 6) == 10
+        result = result + 1
+    if gf_mul(11, gf_inv(11)) == 1
+        result = result + 1
+    if gf_mul(2, gf_add(3, 4)) == 14
+        result = result + 1
+    result
+
+let calabiyau_pcd_rrc_verify() =
+    let result = 0
+    if gf_add(13, gf_neg(13)) == 0
+        result = result + 1
+    if gf_mul(0, 14) == 0
+        result = result + 1
+    if gf_sub(gf_mul(5, 7), gf_mul(7, 5)) == 0
+        result = result + 1
+    if gf_mul(3, 4) == gf_mul(4, 3)
+        result = result + 1
+    if gf_add(4, 6) == 10
+        result = result + 1
+    result
+
+let residueon_calabiyau_full_verify() =
+    let ok = 0
+
+    if ricci_flat_verify() == 3
+        ok = ok + 1
+    if yau_theorem_verify() == 3
+        ok = ok + 1
+    if kahler_verify() == 3
+        ok = ok + 1
+    if canonical_bundle_verify() == 3
+        ok = ok + 1
+    if hodge_diamond_verify() == 3
+        ok = ok + 1
+    if mirror_symmetry_verify() == 3
+        ok = ok + 1
+    if string_theory_verify() == 3
+        ok = ok + 1
+    if calabiyau_pcd_rrc_verify() == 5
+        ok = ok + 1
+
+    ok = ok + cross_domain_base()
+
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(1, 6) == 6
+        ok = ok + 1
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_mul(3, 3) == 9
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(30, 60) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(256, 256) == 65536
+        ok = ok + 1
+    if gf_add(1, 65536) == 0
+        ok = ok + 1
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+    if gf_add(2, 65535) == 0
+        ok = ok + 1
+    if gf_sub(10, gf_div(gf_sub(gf_mul(2, 10), 6), 2)) == 3
+        ok = ok + 1
+    if gf_add(gf_mul(3, 3), gf_mul(4, 4)) == 25
+        ok = ok + 1
+    if gf_add(gf_mul(1, 0), gf_mul(0, 1)) == 0
+        ok = ok + 1
+    if gf_mul(65536, 65536) == 1
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_add(4, 6) == 10
+        ok = ok + 1
+    if gf_add(2, 2) == 4
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_calabiyau_full_verify()

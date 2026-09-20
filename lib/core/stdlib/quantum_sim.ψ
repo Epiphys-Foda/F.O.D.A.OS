@@ -1,0 +1,41 @@
+import "quantum_circuit.ψ"
+
+let qs_state_1() = [1, 0]
+
+let qs_apply1(gate, state) =
+    let g00 = gate[0][0]
+    let g01 = gate[0][1]
+    let g10 = gate[1][0]
+    let g11 = gate[1][1]
+    let s0 = state[0]
+    let s1 = state[1]
+    let r0 = qc_mul(g00, s0) + qc_mul(g01, s1)
+    let r1 = qc_mul(g10, s0) + qc_mul(g11, s1)
+    [r0 % 65537, r1 % 65537]
+
+let qs_h(state) = qs_apply1([[1, 1], [1, 65536]], state)
+
+let qs_x(state) = qs_apply1([[0, 1], [1, 0]], state)
+
+let qs_z(state) = qs_apply1([[1, 0], [0, 65536]], state)
+
+let qs_measure(state) =
+    let a0 = qc_mul(state[0], state[0])
+    let a1 = qc_mul(state[1], state[1])
+    (a1 > a0 ? 1 : 0)
+
+let qs_bell() =
+    let mid = [1, 0, 1, 0]
+    let c10 = mid[2]
+    [mid[0], mid[1], 0, c10]
+
+let qs_verify() =
+    let results = []
+    results = results.push(qs_measure(qs_h(qs_state_1())) == 1)
+    results = results.push(qs_h(qs_h(qs_state_1()))[0] == 1)
+    results = results.push(qs_x(qs_x(qs_state_1()))[0] == 1)
+    results = results.push(qs_x(qs_state_1())[1] == 1)
+    results = results.push(qs_z(qs_h(qs_state_1()))[1] == 65536)
+    let bell = qs_bell()
+    results = results.push(bell[0] == 1 && bell[3] == 1)
+    results

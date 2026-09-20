@@ -1,0 +1,221 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let emul(a0, b0) =
+    let r = 0
+    let a = a0
+    let b = b0
+    let neg = 0
+    if b < 0
+        b = 0 - b
+        neg = 1
+    for b > 0
+        if b % 2 == 1
+            r = r + a
+        a = a + a
+        b = b / 2
+    (neg == 1 ? 0 - r : r)
+
+let E0_LI = -3045
+let E0_K = -2925
+let E0_NA = -2714
+let E0_AL = -1660
+let E0_ZN = -763
+let E0_FE = -409
+let E0_H = 0
+let E0_CU = 337
+let E0_AG = 799
+let E0_AU = 1680
+let E0_F2 = 2870
+
+let nernst_x1000(E0_x1000, n, Q_x1000) =
+    if Q_x1000 <= 0
+        E0_x1000
+    else
+        let ln_q_x1000 = emul(Q_x1000 - 1000, 2000) / (Q_x1000 + 1000)
+        E0_x1000 - emul(25700, ln_q_x1000) / emul(n, 1000)
+
+let cell_potential_x1000(E_cathode, E_anode) = E_cathode - E_anode
+
+let gibbs_x100(n, E_x1000) =
+    0 - emul(emul(n, 9649), E_x1000) / 1000
+
+let equilibrium_constant_x1000(n, E_x1000, T) =
+    let ln_k = emul(emul(n, E_x1000), 96485) / emul(8314, T)
+    let ln_k2 = emul(ln_k, ln_k) / 2000
+    1000 + ln_k + ln_k2
+
+let faraday_mass_x1000(M, I, t, n) =
+    if n == 0
+        0
+    else
+        emul(emul(M, I), t) / emul(n, 96)
+
+let kohlrausch_x100(Lambda0_x100, K, c_x1000) =
+    let sqrt_c = 0
+    if c_x1000 > 0
+        let lo = 0
+        let hi = c_x1000 + 1
+        for lo < hi - 1
+            let mid = (lo + hi) / 2
+            if emul(mid, mid) <= c_x1000
+                lo = mid
+            else
+                hi = mid
+        sqrt_c = lo
+    Lambda0_x100 - emul(K, sqrt_c)
+
+let electrochem_verify() =
+    let t1 = E0_H == 0
+    let t2 = E0_LI < E0_H && E0_H < E0_F2
+    let t3 = E0_CU > E0_ZN
+    let t4 = nernst_x1000(500, 2, 1000) == 500
+    let t5 = nernst_x1000(500, 2, 10000) < 500
+    let t6 = nernst_x1000(500, 2, 100) > 500
+    let ecell = cell_potential_x1000(E0_CU, E0_ZN)
+    let t7 = ecell == 1100
+    let dg = gibbs_x100(2, ecell)
+    let t8 = dg < 0
+    let k = equilibrium_constant_x1000(2, ecell, 298)
+    let t9 = k > 1000
+    let m1 = faraday_mass_x1000(96, 1, 100, 1)
+    let m2 = faraday_mass_x1000(96, 2, 100, 1)
+    let t10 = m2 == 2 * m1
+    let t11 = kohlrausch_x100(1000, 50, 0) == 1000
+    let t12 = kohlrausch_x100(1000, 50, 100) < 1000
+    let passed = t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12
+    passed == 12
+
+let E0_TABLE = [-3045, -2925, -2714, -1660, -763, -409, 0, 337, 799, 1680, 2870]
+let E0_LABELS = ["Li", "K", "Na", "Al", "Zn", "Fe", "H", "Cu", "Ag", "Au", "F2"]
+let ELEMENT_Z_FOR_E0 = [3, 19, 11, 13, 30, 26, 1, 29, 47, 79, 9]
+
+let psi_electrode(Z) =
+    let val = 0
+    let k = 0
+    for k < 11
+        let diff = gf_sub(gf_norm(Z), gf_norm(ELEMENT_Z_FOR_E0[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(gf_norm(E0_TABLE[k]), gf_inv(diff)))
+        k = k + 1
+    val
+
+let FARADAY_N_POLES = [1, 2, 3, 1, 2, 3, 1, 2]
+let FARADAY_WEIGHTS = [9649, 4824, 3216, 9649, 4824, 3216, 9649, 4824]
+
+let psi_faraday(n) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(n), gf_norm(FARADAY_N_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(FARADAY_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let KOHL_RAUSCH_C_POLES = [0, 100, 500, 1000, 5000, 10000, 50000, 100000]
+let MOLAR_CONDUCTIVITY = [13000, 12000, 11000, 10000, 8000, 6000, 3000, 1000]
+
+let psi_conductivity(c_x1000) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(c_x1000), gf_norm(KOHL_RAUSCH_C_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(MOLAR_CONDUCTIVITY[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let electrochem_global_response(Z, n, c_x1000) =
+    let e1 = psi_electrode(Z)
+    let e2 = psi_faraday(n)
+    let e3 = psi_conductivity(c_x1000)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+
+let nernst_monotonicity_test() =
+    let v_low_c = psi_conductivity(100)
+    let v_high_c = psi_conductivity(100000)
+    (v_low_c != v_high_c ? 1 : 0)
+
+let faraday_conservation_test() =
+    let v_n1 = psi_faraday(1)
+    let v_n2 = psi_faraday(2)
+    (v_n1 != v_n2 ? 1 : 0)
+
+let electrode_activity_test() =
+    let v_li = psi_electrode(3)
+    let v_h = psi_electrode(1)
+    let v_f = psi_electrode(9)
+    let inv = 0
+    if v_li != v_h
+        if v_h != v_f
+            inv = 1
+    inv
+
+let nested_fractal_electrochem_invariants() =
+    let e1 = psi_electrode(29)
+    let e2 = psi_faraday(2)
+    let e3 = psi_conductivity(1000)
+    let inv1 = 0
+    if e1 != 0
+        if e2 != 0
+            if e3 != 0
+                inv1 = 1
+    let inv2 = 0
+    if E0_TABLE[0] < E0_TABLE[4]
+        if E0_TABLE[4] < E0_TABLE[6]
+            if E0_TABLE[6] < E0_TABLE[7]
+                if E0_TABLE[7] < E0_TABLE[10]
+                    inv2 = 1
+    let inv3 = 0
+    if FARADAY_WEIGHTS[0] > FARADAY_WEIGHTS[1]
+        if FARADAY_WEIGHTS[1] > FARADAY_WEIGHTS[2]
+            inv3 = 1
+    let inv4 = 0
+    if MOLAR_CONDUCTIVITY[0] > MOLAR_CONDUCTIVITY[3]
+        if MOLAR_CONDUCTIVITY[3] > MOLAR_CONDUCTIVITY[7]
+            inv4 = 1
+    let inv5 = nernst_monotonicity_test()
+    [inv1, inv2, inv3, inv4, inv5]
+
+let electrochem_verify_v20() =
+    let t1 = 0
+    if psi_electrode(29) != 0
+        t1 = 1
+    let t2 = 0
+    if psi_faraday(2) != 0
+        t2 = 1
+    let t3 = 0
+    if psi_conductivity(1000) != 0
+        t3 = 1
+    let t4 = nernst_monotonicity_test()
+    let t5 = faraday_conservation_test()
+    let t6 = 0
+    if E0_TABLE[0] == -3045
+        t6 = 1
+    let t7 = 0
+    if E0_TABLE[6] == 0
+        t7 = 1
+    let t8 = 0
+    if E0_TABLE[10] == 2870
+        t8 = 1
+    let t9 = 0
+    if E0_TABLE[0] < E0_TABLE[4]
+        if E0_TABLE[4] < E0_TABLE[7]
+            if E0_TABLE[7] < E0_TABLE[10]
+                t9 = 1
+    let t10 = 0
+    if FARADAY_WEIGHTS[0] == 9649
+        t10 = 1
+    let t11 = 0
+    if MOLAR_CONDUCTIVITY[0] > MOLAR_CONDUCTIVITY[7]
+        t11 = 1
+    let invs = nested_fractal_electrochem_invariants()
+    let t12 = 0
+    if invs[0] == 1
+        if invs[1] == 1
+            if invs[2] == 1
+                if invs[3] == 1
+                    if invs[4] == 1
+                        t12 = 1
+    let passed = t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12
+    passed == 12

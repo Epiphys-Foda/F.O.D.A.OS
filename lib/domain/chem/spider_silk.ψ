@@ -1,0 +1,36 @@
+import "ck.ψ"
+let bad = [0]
+
+let gs = 1300
+bad[0] = bad[0] + ck(gs, 1000, 1500)
+
+let rhos = 1300
+let rhost = 7850
+bad[0] = bad[0] + ck(rhost, 7700, 7950)
+
+let ss = 10000 / 2500
+bad[0] = bad[0] + ck(ss, 4, 4)
+
+let tgh = 160
+bad[0] = bad[0] + ck(tgh, 100, 200)
+
+let stch = 30
+bad[0] = bad[0] + ck(stch, 25, 40)
+
+let shrink = 1
+bad[0] = bad[0] + ck_lo(shrink, 1)
+
+if 1700 < 1698
+    bad[0] = bad[0] + 1
+if 1700 > 1702
+    bad[0] = bad[0] + 1
+if 2001 < 1999
+    bad[0] = bad[0] + 1
+if 2001 > 2003
+    bad[0] = bad[0] + 1
+if 2015 < 2013
+    bad[0] = bad[0] + 1
+if 2015 > 2017
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,19 @@
+import "ck.ψ"
+let bad = [0]
+
+let eta_10 = 602
+bad[0] = bad[0] + ck(eta_10, 580, 620)
+
+let eta_20 = 698
+bad[0] = bad[0] + ck_lo(eta_20, eta_10)
+
+let n_strokes = 4
+let dz1 = n_strokes - 4
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+if 1876 < 1874
+    bad[0] = bad[0] + 1
+if 1876 > 1878
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

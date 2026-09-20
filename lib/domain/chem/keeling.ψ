@@ -1,0 +1,34 @@
+import "ck.ψ"
+let bad = [0]
+
+let rise = 421 - 315
+let dz1 = rise - 106
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let rate = rise * 100 / 65
+let dz2 = rate - 163
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let ratio = 421 * 100 / 280
+let dz3 = ratio - 150
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let dbl = 2 * 280
+let dz4 = dbl - 560
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let saw = 6
+let dz5 = saw - 6
+bad[0] = bad[0] + ck(dz5, 0, 0)
+bad[0] = bad[0] + ck(saw, 5, 7)
+
+let alt = 3397
+let dz6 = alt - 3397
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+if 1958 < 1956
+    bad[0] = bad[0] + 1
+if 1958 > 1960
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,434 @@
+import "../stdlib/gf65537.ψ"
+
+let phi_make(a, b) = [a, b]
+let phi_real(z) = z[0]
+let phi_imag(z) = z[1]
+
+let phi_zero() = [0, 0]
+let phi_one() = [1, 0]
+let phi_golden() = [0, 1]
+
+let phi_add(z1, z2) = [
+        gf_add(z1[0], z2[0]),
+        gf_add(z1[1], z2[1])
+    ]
+
+let phi_sub(z1, z2) = [
+        gf_sub(z1[0], z2[0]),
+        gf_sub(z1[1], z2[1])
+    ]
+
+let phi_mul(z1, z2) =
+    let a1 = z1[0]
+    let b1 = z1[1]
+    let a2 = z2[0]
+    let b2 = z2[1]
+    let real = gf_add(gf_mul(a1, a2), gf_mul(b1, b2))
+    let imag = gf_add(gf_add(gf_mul(a1, b2), gf_mul(a2, b1)), gf_mul(b1, b2))
+    [real, imag]
+
+let phi_neg(z) = [gf_neg(z[0]), gf_neg(z[1])]
+
+let phi_conj(z) = [gf_add(z[0], z[1]), gf_neg(z[1])]
+
+let phi_norm(z) =
+    let a = z[0]
+    let b = z[1]
+    gf_sub(gf_add(gf_mul(a, a), gf_mul(a, b)), gf_mul(b, b))
+
+let phi_inv(z) =
+    let n = phi_norm(z)
+    let inv_n = gf_inv(n)
+    let c = phi_conj(z)
+    [gf_mul(c[0], inv_n), gf_mul(c[1], inv_n)]
+
+let phi_div(z1, z2) = phi_mul(z1, phi_inv(z2))
+
+let phi_eq(z1, z2) =
+    z1[0] == z2[0] && z1[1] == z2[1]
+
+let phi_is_zero(z) =
+    z[0] == 0 && z[1] == 0
+
+let phi_pow(z, n) =
+    _phi_pow_loop(z, n, phi_one())
+let _phi_pow_loop(base, exp, acc) =
+    if exp == 0
+        acc
+    else
+        0
+    if exp == 1
+        phi_mul(acc, base)
+    else
+        let new_acc = (exp & 1 == 1) ? phi_mul(acc, base) : acc
+        _phi_pow_loop(phi_mul(base, base), exp >> 1, new_acc)
+
+let phi_sqrt(z) =
+    let a = z[0]
+    let b = z[1]
+    if b == 0
+        let leg = gf_legendre(a)
+        if leg == 1
+            [gf_sqrt(a), 0]
+        else
+            0
+        if a == 0
+            [0, 0]
+        else
+            _phi_sqrt_general(a, b)
+    else
+        _phi_sqrt_general(a, b)
+
+let _phi_sqrt_general(a, b) =
+    let disc = gf_sub(gf_add(gf_mul(a, a), gf_mul(a, b)), gf_mul(b, b))
+    let leg = gf_legendre(disc)
+    if leg == 1
+        let sqrt_disc = gf_sqrt(disc)
+        let five_inv = gf_inv(5)
+        let y_sq_1 = gf_mul(gf_add(gf_add(b, gf_mul(2, a)), gf_mul(2, sqrt_disc)), five_inv)
+        let leg1 = gf_legendre(y_sq_1)
+        if leg1 == 1
+            _phi_sqrt_build(a, b, gf_sqrt(y_sq_1))
+        else
+            0
+        if y_sq_1 == 0
+            _phi_sqrt_build(a, b, 0)
+        else
+            let y_sq_2 = gf_mul(gf_sub(gf_add(b, gf_mul(2, a)), gf_mul(2, sqrt_disc)), five_inv)
+            let leg2 = gf_legendre(y_sq_2)
+            if leg2 == 1
+                _phi_sqrt_build(a, b, gf_sqrt(y_sq_2))
+            else
+                0
+            if y_sq_2 == 0
+                _phi_sqrt_build(a, b, 0)
+            else
+                let y_sq_3 = gf_mul(gf_sub(gf_add(b, gf_mul(2, a)), gf_mul(2, gf_neg(sqrt_disc))), five_inv)
+                let leg3 = gf_legendre(y_sq_3)
+                if leg3 == 1
+                    _phi_sqrt_build(a, b, gf_sqrt(y_sq_3))
+                else
+                    [0, 0]
+    else
+        0
+    if disc == 0
+        let five_inv = gf_inv(5)
+        let y_sq = gf_mul(gf_add(b, gf_mul(2, a)), five_inv)
+        let leg_y = gf_legendre(y_sq)
+        if leg_y == 1
+            _phi_sqrt_build(a, b, gf_sqrt(y_sq))
+        else
+            [0, 0]
+    else
+        _phi_sqrt_search(a, b, 0)
+
+let _phi_sqrt_build(a, b, y) =
+        if y == 0
+            let leg = gf_legendre(a)
+            if leg == 1
+                [gf_sqrt(a), 0]
+            else
+                [0, 0]
+        else
+            let y_sq = gf_mul(y, y)
+            let x = gf_div(gf_sub(b, y_sq), gf_mul(2, y))
+            [x, y]
+
+let _phi_sqrt_search(a, b, y) =
+        if y >= 1000
+            [0, 0]
+        else
+            let y_sq = gf_mul(y, y)
+            let x_sq = gf_sub(a, y_sq)
+            let leg = gf_legendre(x_sq)
+            if leg == 1
+                let x = gf_sqrt(x_sq)
+                let check = gf_add(gf_mul(gf_mul(2, x), y), y_sq)
+                if check == b
+                    [x, y]
+                else
+                    let neg_x = gf_neg(x)
+                    let check2 = gf_add(gf_mul(gf_mul(2, neg_x), y), y_sq)
+                    if check2 == b
+                        [neg_x, y]
+                    else
+                        _phi_sqrt_search(a, b, y + 1)
+            else
+                _phi_sqrt_search(a, b, y + 1)
+
+let fusion_rules(a, b) =
+    if a == 0 && b == 0
+        [0]
+    else
+        0
+    if a == 0 && b == 1
+        [1]
+    else
+        0
+    if a == 1 && b == 0
+        [1]
+    else
+        [0, 1]
+
+let quantum_dim(label) =
+        if label == 0
+            phi_one()
+        else
+            phi_golden()
+
+let total_quantum_dim_sq() =
+    [2, 1]
+
+let total_quantum_dim() =
+    phi_sqrt(total_quantum_dim_sq())
+
+let zeta_10() =
+    gf_pow(3, 6553)
+
+let zeta_5() =
+    gf_pow(3, 13107)
+
+let r_matrix_eigenvalue_vacuum() =
+    gf_pow(zeta_10(), 6)
+
+let r_matrix_eigenvalue_tau() =
+    gf_pow(zeta_10(), 3)
+
+let topological_spin(label) =
+        if label == 0
+            1
+        else
+            gf_pow(zeta_10(), 4)
+
+let f_matrix() =
+    let phi_inv_val = phi_sub(phi_golden(), phi_one())
+    let sqrt_phi_inv = phi_sqrt(phi_inv_val)
+    [[phi_inv_val, sqrt_phi_inv],
+     [sqrt_phi_inv, phi_neg(phi_inv_val)]]
+
+let f_matrix_inv() =
+    let phi_inv_val = phi_sub(phi_golden(), phi_one())
+    let sqrt_phi_inv = phi_sqrt(phi_inv_val)
+    [[phi_inv_val, phi_neg(sqrt_phi_inv)],
+     [phi_neg(sqrt_phi_inv), phi_neg(phi_inv_val)]]
+
+let r_matrix() =
+    let r1 = r_matrix_eigenvalue_vacuum()
+    let r_tau = r_matrix_eigenvalue_tau()
+    [[[r1, 0], [0, 0]],
+     [[0, 0], [r_tau, 0]]]
+
+let braid_length(braid) =
+    len(braid)
+
+let braid_inverse(braid) =
+    _braid_inv_loop(braid, len(braid) - 1, [])
+let _braid_inv_loop(braid, i, acc) =
+        if i < 0
+            acc
+        else
+            let gen = braid[i]
+            let inv_gen = gf_neg(gen)
+            _braid_inv_loop(braid, i - 1, arr_concat(acc, [inv_gen]))
+
+let yang_baxter_check(i) =
+    let lhs = braid_to_matrix([i, i + 1, i])
+    let rhs = braid_to_matrix([i + 1, i, i + 1])
+    matrix_eq_2x2(lhs, rhs)
+
+let braid_sigma_1() =
+    let f = f_matrix()
+    let f_inv = f_matrix_inv()
+    let r1 = r_matrix_eigenvalue_vacuum()
+    let r_tau = r_matrix_eigenvalue_tau()
+    let r = [[phi_make(r1, 0), phi_zero()],
+             [phi_zero(), phi_make(r_tau, 0)]]
+    let rf = matrix_mul_2x2(r, f)
+    matrix_mul_2x2(f_inv, rf)
+
+let braid_sigma_2() =
+    let f = f_matrix()
+    let f_inv = f_matrix_inv()
+    let s1 = braid_sigma_1()
+    let s1_f_inv = matrix_mul_2x2(s1, f_inv)
+    matrix_mul_2x2(f, s1_f_inv)
+
+let braid_to_matrix(braid) =
+    _braid_to_mat_loop(braid, 0, identity_2x2())
+let _braid_to_mat_loop(braid, i, acc) =
+        if i >= len(braid)
+            acc
+        else
+            let gen = braid[i]
+            let abs_gen = (gen >= 0) ? gen : gf_neg(gen)
+            let mat = braid_sigma_1()
+            let inv_mat = matrix_inv_2x2(mat)
+            let step = (gen >= 0) ? mat : inv_mat
+            _braid_to_mat_loop(braid, i + 1, matrix_mul_2x2(acc, step))
+
+let identity_2x2() =
+    [[phi_one(), phi_zero()],
+     [phi_zero(), phi_one()]]
+
+let matrix_mul_2x2(m1, m2) =
+    let a = m1[0][0]
+    let b = m1[0][1]
+    let c = m1[1][0]
+    let d = m1[1][1]
+    let e = m2[0][0]
+    let f = m2[0][1]
+    let g = m2[1][0]
+    let h = m2[1][1]
+    [[phi_add(phi_mul(a, e), phi_mul(b, g)),
+      phi_add(phi_mul(a, f), phi_mul(b, h))],
+     [phi_add(phi_mul(c, e), phi_mul(d, g)),
+      phi_add(phi_mul(c, f), phi_mul(d, h))]]
+
+let matrix_det_2x2(m) =
+    let a = m[0][0]
+    let b = m[0][1]
+    let c = m[1][0]
+    let d = m[1][1]
+    phi_sub(phi_mul(a, d), phi_mul(b, c))
+
+let matrix_inv_2x2(m) =
+    let a = m[0][0]
+    let b = m[0][1]
+    let c = m[1][0]
+    let d = m[1][1]
+    let det = phi_sub(phi_mul(a, d), phi_mul(b, c))
+    let inv_det = phi_inv(det)
+    [[phi_mul(d, inv_det), phi_mul(phi_neg(b), inv_det)],
+     [phi_mul(phi_neg(c), inv_det), phi_mul(a, inv_det)]]
+
+let matrix_eq_2x2(m1, m2) =
+    phi_eq(m1[0][0], m2[0][0]) &&
+    phi_eq(m1[0][1], m2[0][1]) &&
+    phi_eq(m1[1][0], m2[1][0]) &&
+    phi_eq(m1[1][1], m2[1][1])
+
+let matrix_trace_2x2(m) =
+    phi_add(m[0][0], m[1][1])
+
+let kauffman_delta() =
+    let a = zeta_10()
+    let a_sq = gf_mul(a, a)
+    let a_inv_sq = gf_inv(a_sq)
+    gf_neg(gf_add(a_sq, a_inv_sq))
+
+let jones_unknot() =
+    1
+
+let jones_hopf_link() =
+    let a = zeta_10()
+    let a4 = gf_pow(a, 4)
+    let a_inv4 = gf_inv(a4)
+    gf_neg(gf_add(a4, a_inv4))
+
+let jones_trefoil() =
+    let a = zeta_10()
+    let a5 = gf_pow(a, 5)
+    let a_inv3 = gf_pow(gf_inv(a), 3)
+    let a_inv7 = gf_pow(gf_inv(a), 7)
+    gf_add(gf_neg(a5), gf_add(gf_neg(a_inv3), a_inv7))
+
+let jones_braid_closure(braid, n_strands) =
+    let mat = braid_to_matrix(braid)
+    let tr = matrix_trace_2x2(mat)
+    let delta = kauffman_delta()
+    let delta_pow = gf_pow(delta, n_strands - 1)
+    gf_mul(delta_pow, phi_real(tr))
+
+let topo_hadamard() =
+    let s1 = braid_sigma_1()
+    matrix_mul_2x2(matrix_mul_2x2(s1, s1), s1)
+
+let topo_cnot_phase() =
+    braid_to_matrix([1, -2, 1])
+
+let topo_protection_check(braid1, braid2) =
+        let v1 = jones_braid_closure(braid1, 2)
+        let v2 = jones_braid_closure(braid2, 2)
+        if v1 == v2
+            1
+        else
+            0
+
+let s_matrix() =
+    let d = total_quantum_dim()
+    let inv_d = phi_inv(d)
+    let phi_val = phi_golden()
+    let neg_one = phi_make(65536, 0)
+    [[phi_mul(phi_one(), inv_d), phi_mul(phi_val, inv_d)],
+     [phi_mul(phi_val, inv_d), phi_mul(neg_one, inv_d)]]
+
+let t_matrix() =
+    let theta_tau = gf_pow(zeta_10(), 4)
+    [[phi_one(), phi_zero()],
+     [phi_zero(), phi_make(theta_tau, 0)]]
+
+let modular_relation_check() =
+        let s = s_matrix()
+        let t = t_matrix()
+        let st = matrix_mul_2x2(s, t)
+        let st3 = matrix_mul_2x2(matrix_mul_2x2(st, st), st)
+        let s2 = matrix_mul_2x2(s, s)
+        let ratio = matrix_mul_2x2(st3, matrix_inv_2x2(s2))
+        let r00 = ratio[0][0]
+        let r11 = ratio[1][1]
+        let r01 = ratio[0][1]
+        let r10 = ratio[1][0]
+        if phi_is_zero(r01) && phi_is_zero(r10) && phi_eq(r00, r11)
+            1
+        else
+            0
+
+let verlinde_fusion(a, b, c) =
+    let s = s_matrix()
+    let s00 = s[0][0]
+    let s01 = s[0][1]
+    let s10 = s[1][0]
+    let s11 = s[1][1]
+    let term0 = phi_div(phi_mul(phi_mul(s[a][0], s[b][0]), phi_conj(s[c][0])), s00)
+    let term1 = phi_div(phi_mul(phi_mul(s[a][1], s[b][1]), phi_conj(s[c][1])), s01)
+    let result = phi_add(term0, term1)
+    phi_real(result)
+
+let fusion_tree_state(t1, t2, c) =
+    let channels = fusion_rules(t1, t2)
+    _contains_label(channels, c, 0)
+let _contains_label(channels, c, i) =
+    if i >= len(channels)
+        0
+    else
+        0
+    if channels[i] == c
+        1
+    else
+        _contains_label(channels, c, i + 1)
+
+let anyon_excitation_gap(label) =
+        if label == 0
+            0
+        else
+            1
+
+let quantum_dim_ratio() =
+    phi_golden()
+
+let quantum_dim_product_check() =
+        let d_tau = phi_golden()
+        let d_tau_sq = phi_mul(d_tau, d_tau)
+        let one_plus_phi = phi_add(phi_one(), phi_golden())
+        if phi_eq(d_tau_sq, one_plus_phi)
+            1
+        else
+            0
+
+let anyon_statistics_phase(a, b) =
+        if a == 0 || b == 0
+            1
+        else
+            let r1 = r_matrix_eigenvalue_vacuum()
+            let r_tau = r_matrix_eigenvalue_tau()
+            gf_div(gf_add(r1, r_tau), 2)

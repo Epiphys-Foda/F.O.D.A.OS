@@ -1,0 +1,113 @@
+import "../stdlib/gf65537.ψ"
+
+let _cauchy_eval_loop(poles, residues, n, z, i, acc) =
+      if i >= n
+        acc
+      else
+        let zk = poles[i]
+        let rk = residues[i]
+        if z == zk
+          _cauchy_eval_loop(poles, residues, n, z, i + 1, acc)
+        else
+          let diff = gf_sub(z, zk)
+          let inv_diff = gf_inv(diff)
+          let term = gf_mul(rk, inv_diff)
+          _cauchy_eval_loop(poles, residues, n, z, i + 1, gf_add(acc, term))
+let cauchy_eval(poles, residues, n, z) = _cauchy_eval_loop(poles, residues, n, z, 0, 0)
+
+let extract_residue(poles, residues, n, zk) =
+    _extract_residue_loop(poles, residues, n, zk, 0)
+let _extract_residue_loop(poles, residues, n, zk, i) =
+    if i >= n
+      0
+    else
+        0
+    if poles[i] == zk
+      residues[i]
+    else
+      _extract_residue_loop(poles, residues, n, zk, i + 1)
+
+let _amplitude_spectrum_loop(poles, residues, n, samples, n_samples, spectrum, i) =
+      if i >= n_samples
+        spectrum
+      else
+        let z = samples[i]
+        let psi = cauchy_eval(poles, residues, n, z)
+        let amp = gf_mul(psi, psi)
+        spectrum[i] = amp
+        _amplitude_spectrum_loop(poles, residues, n, samples, n_samples, spectrum, i + 1)
+let amplitude_spectrum(poles, residues, n, samples, n_samples) =
+    let spectrum = arr_new_n(n_samples)
+    _amplitude_spectrum_loop(poles, residues, n, samples, n_samples, spectrum, 0)
+    spectrum
+
+let _resonance_peaks_loop(spectrum, n, peaks, i, peak_count) =
+      if i >= n - 1
+        peaks
+      else
+        let prev = spectrum[i - 1]
+        let curr = spectrum[i]
+        let next = spectrum[i + 1]
+        if curr > prev
+          if curr > next
+            peaks[peak_count] = i
+            _resonance_peaks_loop(spectrum, n, peaks, i + 1, peak_count + 1)
+          else
+            _resonance_peaks_loop(spectrum, n, peaks, i + 1, peak_count)
+        else
+          _resonance_peaks_loop(spectrum, n, peaks, i + 1, peak_count)
+let resonance_peaks(spectrum, n) =
+      let peaks = arr_new_n(n)
+      if n < 3
+        peaks
+      else
+        _resonance_peaks_loop(spectrum, n, peaks, 1, 0)
+
+let resonance_frequencies(poles, n) =
+    let freqs = arr_new_n(n)
+    _resonance_freqs_loop(poles, n, freqs, 0)
+    freqs
+let _resonance_freqs_loop(poles, n, freqs, i) =
+      if i >= n
+        freqs
+      else
+        freqs[i] = poles[i]
+        _resonance_freqs_loop(poles, n, freqs, i + 1)
+
+let _resonance_strength_loop(residues, n, i, acc) =
+      if i >= n
+        acc
+      else
+        let r = residues[i]
+        let r2 = gf_mul(r, r)
+        _resonance_strength_loop(residues, n, i + 1, gf_add(acc, r2))
+let resonance_strength(residues, n) = _resonance_strength_loop(residues, n, 0, 0)
+
+let quality_factor(poles, residues, n, k) =
+      if k >= n
+        0
+      else
+        let rk = residues[k]
+        let zk = poles[k]
+        let strength = gf_mul(rk, rk)
+        if n > 1
+          let neighbor = (k == 0) ? poles[1] : poles[k - 1]
+          let spacing = gf_sub(zk, neighbor)
+          let inv_spacing = gf_inv(spacing)
+          gf_mul(strength, inv_spacing)
+        else
+          strength
+
+let test_resonance() =
+    let poles = arr_new_n(2)
+    poles[0] = 10
+    poles[1] = 20
+    let residues = arr_new_n(2)
+    residues[0] = 1
+    residues[1] = 1
+    let psi = cauchy_eval(poles, residues, 2, 15)
+    let r0 = extract_residue(poles, residues, 2, 10)
+    assert_eq(r0, 1)
+    let strength = resonance_strength(residues, 2)
+    assert_eq(strength, 2)
+    0

@@ -1,0 +1,303 @@
+let IAM_POLICY_ALLOW = 1
+let IAM_POLICY_DENY = 0
+let IAM_POLICY_DEFAULT = 0
+
+let IAM_PRINCIPAL_USER = 0
+let IAM_PRINCIPAL_ROLE = 1
+let IAM_PRINCIPAL_SERVICE = 2
+
+let IAM_COND_EQ = 0
+let IAM_COND_NE = 1
+let IAM_COND_LT = 2
+let IAM_COND_LE = 3
+let IAM_COND_GT = 4
+let IAM_COND_GE = 5
+let IAM_COND_IN = 6
+
+let iam_principal_new(t, id) = [t, id, {}]
+let iam_principal_type(p) = p[0]
+let iam_principal_id(p) = p[1]
+let iam_principal_attrs(p) = p[2]
+let iam_principal_set_attr(p, k, v) =
+    let a = p[2]
+    a[k] = v
+    [p[0], p[1], a]
+
+let iam_resource_new(path) = [path, {}]
+let iam_resource_path(r) = r[0]
+let iam_resource_attrs(r) = r[1]
+let iam_resource_set_attr(r, k, v) =
+    let a = r[1]
+    a[k] = v
+    [r[0], a]
+
+let iam_action_new(name) = [name]
+let iam_action_name(a) = a[0]
+
+let iam_cond_new(key, op, value) = [key, op, value]
+let iam_cond_key(c) = c[0]
+let iam_cond_op(c) = c[1]
+let iam_cond_value(c) = c[2]
+
+let iam_cond_eval(c, ctx) =
+    let key = iam_cond_key(c)
+    let actual = ctx[key]
+    if actual == 0
+        0
+    else
+        let op = iam_cond_op(c)
+        let expected = iam_cond_value(c)
+        if op == IAM_COND_EQ
+            (actual == expected ? 1 : 0)
+        else
+                0
+            if op == IAM_COND_NE
+                (actual != expected ? 1 : 0)
+            else
+                    0
+                if op == IAM_COND_LT
+                    (actual < expected ? 1 : 0)
+                else
+                        0
+                    if op == IAM_COND_LE
+                        (actual <= expected ? 1 : 0)
+                    else
+                            0
+                        if op == IAM_COND_GT
+                            (actual > expected ? 1 : 0)
+                        else
+                                0
+                            if op == IAM_COND_GE
+                                (actual >= expected ? 1 : 0)
+                            else
+                                    0
+                                if op == IAM_COND_IN
+                                    iam_cond_in_set(actual, expected)
+                                else
+                                    0
+
+let iam_cond_in_set(actual, set_arr) =
+    let i = 0
+    let n = len(set_arr)
+    let found = 0
+    for i < n
+        if set_arr[i] == actual
+            found = 1
+            i = n
+        i = i + 1
+    found
+
+let iam_cond_eval_all(conds, ctx) =
+    let i = 0
+    let n = len(conds)
+    let all_ok = 1
+    for i < n
+        if iam_cond_eval(conds[i], ctx) == 0
+            all_ok = 0
+            i = n
+        i = i + 1
+    all_ok
+
+let iam_policy_new(id, effect, pt, pid, rpat, apat, prio, desc) =
+    [id, effect, pt, pid, rpat, apat, [], prio, desc]
+
+let iam_policy_id(p) = p[0]
+let iam_policy_effect(p) = p[1]
+let iam_policy_ptype(p) = p[2]
+let iam_policy_pid(p) = p[3]
+let iam_policy_rpat(p) = p[4]
+let iam_policy_apat(p) = p[5]
+let iam_policy_conds(p) = p[6]
+let iam_policy_prio(p) = p[7]
+let iam_policy_desc(p) = p[8]
+
+let iam_policy_set_conds(p, c) = [p[0], p[1], p[2], p[3], p[4], p[5], c, p[7], p[8]]
+let iam_policy_add_cond(p, cond) =
+    let c = p[6]
+    c.push(cond)
+    iam_policy_set_conds(p, c)
+
+let iam_ps_new() = [{}, {}, 1, 0, 1]
+
+let iam_ps_policies(s) = s[0]
+let iam_ps_by_principal(s) = s[1]
+let iam_ps_next_id(s) = s[2]
+let iam_ps_total(s) = s[3]
+let iam_ps_version(s) = s[4]
+
+let iam_ps_set_policies(s, p) = [p, s[1], s[2], s[3], s[4]]
+let iam_ps_set_by_principal(s, b) = [s[0], b, s[2], s[3], s[4]]
+let iam_ps_set_next_id(s, n) = [s[0], s[1], n, s[3], s[4]]
+let iam_ps_set_total(s, t) = [s[0], s[1], s[2], t, s[4]]
+let iam_ps_set_version(s, v) = [s[0], s[1], s[2], s[3], v]
+
+let iam_ps_create(s, effect, pt, pid, rpat, apat, prio, desc) =
+    let id = iam_ps_next_id(s)
+    let p = iam_policy_new(id, effect, pt, pid, rpat, apat, prio, desc)
+    let pols = iam_ps_policies(s)
+    pols[id] = p
+    let s2 = iam_ps_set_policies(s, pols)
+    s2 = iam_ps_set_next_id(s2, id + 1)
+    s2 = iam_ps_set_total(s2, iam_ps_total(s2) + 1)
+    s2 = iam_ps_set_version(s2, iam_ps_version(s2) + 1)
+    let idx = iam_ps_by_principal(s2)
+    let list = idx[pid]
+    if list == 0
+        list = []
+    list.push(id)
+    idx[pid] = list
+    s2 = iam_ps_set_by_principal(s2, idx)
+    [s2, id]
+
+let iam_ps_delete(s, id) =
+    let pols = iam_ps_policies(s)
+    if pols[id] == 0
+        s
+    else
+        pols[id] = 0
+        let s2 = iam_ps_set_policies(s, pols)
+        s2 = iam_ps_set_total(s2, iam_ps_total(s2) - 1)
+        s2 = iam_ps_set_version(s2, iam_ps_version(s2) + 1)
+        s2
+
+let iam_match_pattern(pat, str) =
+    if pat == "*"
+        1
+    else
+        let pl = len(pat)
+        if pl == 0
+            0
+        else
+            let last = pat[pl - 1]
+            if last == 42
+                let prefix = ""
+                let i = 0
+                for i < pl - 1
+                    prefix = prefix + pat[i]
+                    i = i + 1
+                iam_str_starts_with(str, prefix)
+            else
+                (pat == str ? 1 : 0)
+
+let iam_str_starts_with(str, prefix) =
+    let sl = len(str)
+    let pl = len(prefix)
+    if pl > sl
+        0
+    else
+        let i = 0
+        let ok = 1
+        for i < pl
+            if str[i] != prefix[i]
+                ok = 0
+                i = pl
+            i = i + 1
+        ok
+
+let iam_ps_evaluate(s, principal, resource, action, ctx) =
+    let pols = iam_ps_policies(s)
+    let pt = iam_principal_type(principal)
+    let pid = iam_principal_id(principal)
+    let rpath = iam_resource_path(resource)
+    let aname = iam_action_name(action)
+
+    let matched_ids = []
+    let idx = iam_ps_by_principal(s)
+    let list = idx[pid]
+    if list != 0
+        let i = 0
+        let n = len(list)
+        for i < n
+            matched_ids.push(list[i])
+            i = i + 1
+    list = idx[0]
+    if list != 0
+        let i = 0
+        let n = len(list)
+        for i < n
+            matched_ids.push(list[i])
+            i = i + 1
+
+    let i = 0
+    let n = len(matched_ids)
+    for i < n
+        let p = pols[matched_ids[i]]
+        if p != 0
+            if iam_policy_effect(p) == IAM_POLICY_DENY
+                if iam_match_pattern(iam_policy_rpat(p), rpath) == 1
+                    if iam_match_pattern(iam_policy_apat(p), aname) == 1
+                        if iam_cond_eval_all(iam_policy_conds(p), ctx) == 1
+                            i = n
+                            return IAM_POLICY_DENY
+        i = i + 1
+    i = 0
+    for i < n
+        let p = pols[matched_ids[i]]
+        if p != 0
+            if iam_policy_effect(p) == IAM_POLICY_ALLOW
+                if iam_match_pattern(iam_policy_rpat(p), rpath) == 1
+                    if iam_match_pattern(iam_policy_apat(p), aname) == 1
+                        if iam_cond_eval_all(iam_policy_conds(p), ctx) == 1
+                            i = n
+                            return IAM_POLICY_ALLOW
+        i = i + 1
+    IAM_POLICY_DEFAULT
+
+let iam_bragg_verify_decision(s, principal, resource, action, ctx, expected) =
+    let actual = iam_ps_evaluate(s, principal, resource, action, ctx)
+    (actual == expected ? 1 : 0)
+
+let iam_bragg_verify_version(s, expected_v) =
+    (iam_ps_version(s) == expected_v ? 1 : 0)
+
+let iam_permission_self_test() =
+    let results = []
+
+    let s = iam_ps_new()
+    let cr = iam_ps_create(s, IAM_POLICY_ALLOW, IAM_PRINCIPAL_USER, 1, "docs/*", "read", 100, "user1 read docs")
+    s = cr[0]
+    results.push(cr[1] == 1)
+    results.push(iam_ps_total(s) == 1)
+
+    cr = iam_ps_create(s, IAM_POLICY_DENY, IAM_PRINCIPAL_USER, 1, "docs/secret", "read", 200, "deny secret")
+    s = cr[0]
+    results.push(iam_ps_total(s) == 2)
+
+    let p = iam_principal_new(IAM_PRINCIPAL_USER, 1)
+    let r = iam_resource_new("docs/foo")
+    let a = iam_action_new("read")
+    results.push(iam_ps_evaluate(s, p, r, a, {}) == IAM_POLICY_ALLOW)
+
+    r = iam_resource_new("docs/secret")
+    results.push(iam_ps_evaluate(s, p, r, a, {}) == IAM_POLICY_DENY)
+
+    r = iam_resource_new("secrets/x")
+    results.push(iam_ps_evaluate(s, p, r, a, {}) == IAM_POLICY_DEFAULT)
+
+    cr = iam_ps_create(s, IAM_POLICY_ALLOW, IAM_PRINCIPAL_USER, 0, "public/*", "read", 50, "public read")
+    s = cr[0]
+    let p2 = iam_principal_new(IAM_PRINCIPAL_USER, 999)
+    r = iam_resource_new("public/news")
+    results.push(iam_ps_evaluate(s, p2, r, a, {}) == IAM_POLICY_ALLOW)
+
+    cr = iam_ps_create(s, IAM_POLICY_ALLOW, IAM_PRINCIPAL_USER, 1, "vault/*", "read", 300, "vault time")
+    s = cr[0]
+    let pols = iam_ps_policies(s)
+    let pol = pols[cr[1]]
+    pol = iam_policy_add_cond(pol, iam_cond_new("time", IAM_COND_GE, 1000))
+    pol = iam_policy_add_cond(pol, iam_cond_new("time", IAM_COND_LE, 2000))
+    pols[cr[1]] = pol
+    s = iam_ps_set_policies(s, pols)
+
+    r = iam_resource_new("vault/gold")
+    let ctx_low = {time: 500}
+    let ctx_ok = {time: 1500}
+    results.push(iam_ps_evaluate(s, p, r, a, ctx_low) == IAM_POLICY_DEFAULT)
+    results.push(iam_ps_evaluate(s, p, r, a, ctx_ok) == IAM_POLICY_ALLOW)
+
+    results.push(iam_bragg_verify_decision(s, p, r, a, ctx_ok, IAM_POLICY_ALLOW))
+    results.push(iam_bragg_verify_version(s, iam_ps_version(s)))
+
+    results
+
+let iam_permission_default_store() = iam_ps_new()

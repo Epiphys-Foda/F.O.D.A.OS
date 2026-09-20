@@ -1,0 +1,140 @@
+let rx_cell(value) =
+    { val: value, deps: [], fns: [] }
+
+let rx_get(cell) = cell.val
+
+let rx_count_deps(cell) = cell.len(deps)
+
+let rx_link(source, target, f) =
+    let new_deps = source.deps.push(target)
+    let new_fns = source.fns.push(f)
+    { val: source.val, deps: new_deps, fns: new_fns }
+
+let rx_cell_tagged(value, tag) =
+    { val: value, tag: tag, deps: [], fns: [] }
+
+let rx_link_tagged(source, target, f) =
+    let new_deps = source.deps.push(target)
+    let new_fns = source.fns.push(f)
+    { val: source.val, tag: source.tag, deps: new_deps, fns: new_fns }
+
+let _rx_in_visited(visited, tag, i, n) =
+    if i >= n
+        0
+    else
+        0
+    if arr_get(visited, i) == tag
+        1
+    else
+        _rx_in_visited(visited, tag, i + 1, n)
+
+let _rx_mark_visited(visited, tag) = arr_push(visited, tag)
+
+let _rx_find_cell_by_tag(graph, tag, i, n) =
+    if i >= n
+        -1
+    else
+      let cell = arr_get(graph, i)
+      if cell.tag == tag
+          i
+      else
+          _rx_find_cell_by_tag(graph, tag, i + 1, n)
+
+let _rx_propagate_impl(graph, queue, visited, q_head, q_tail) =
+      if q_head >= q_tail
+        graph
+      else
+        let src_idx = arr_get(queue, q_head)
+        let src = arr_get(graph, src_idx)
+        let src_val = src.val
+        let src_deps = src.deps
+        let src_fns = src.fns
+        let n_deps = len(src_deps)
+        let result = _rx_process_deps(graph, queue, visited, q_head + 1, q_tail,
+                                        src_idx, src_val, src_deps, src_fns, 0, n_deps)
+        result
+
+    let _rx_process_deps(graph, queue, visited, q_head, q_tail,
+                        src_idx, src_val, deps, fns, i, n_deps) =
+      if i >= n_deps
+        _rx_propagate_impl(graph, queue, visited, q_head, q_tail)
+      else
+        let target = arr_get(deps, i)
+        let f_name = arr_get(fns, i)
+        let single_arr = arr_new()
+        single_arr.push(src_val)
+        let result_arr = host_call(78, single_arr, f_name)
+        let new_val = result_arr[0]
+        let tag = target.tag
+        let visited_n = len(visited)
+        let already = _rx_in_visited(visited, tag, 0, visited_n)
+        if already == 1
+          _rx_process_deps(graph, queue, visited, q_head, q_tail,
+                           src_idx, src_val, deps, fns, i + 1, n_deps)
+        else
+          let new_visited = _rx_mark_visited(visited, tag)
+          let graph_n = len(graph)
+          let t_idx = _rx_find_cell_by_tag(graph, tag, 0, graph_n)
+          if t_idx < 0
+            _rx_process_deps(graph, queue, new_visited, q_head, q_tail,
+                             src_idx, src_val, deps, fns, i + 1, n_deps)
+          else
+            let old_target = arr_get(graph, t_idx)
+            let new_target = { val: new_val, tag: tag, deps: old_target.deps, fns: old_target.fns }
+            let new_graph = arr_set(graph, t_idx, new_target)
+            let new_queue = arr_push(queue, t_idx)
+            _rx_process_deps(new_graph, new_queue, new_visited, q_head, q_tail + 1,
+                             src_idx, src_val, deps, fns, i + 1, n_deps)
+
+let rx_propagate(graph, source_tag, new_value) =
+      let n = len(graph)
+      let src_idx = _rx_find_cell_by_tag(graph, source_tag, 0, n)
+      if src_idx < 0
+        graph
+      else
+        let old_src = arr_get(graph, src_idx)
+        let new_src = { val: new_value, tag: source_tag, deps: old_src.deps, fns: old_src.fns }
+        let new_graph = arr_set(graph, src_idx, new_src)
+        let queue = arr_push(arr_new_n(0), src_idx)
+        let visited = arr_push(arr_new_n(0), source_tag)
+        _rx_propagate_impl(new_graph, queue, visited, 0, 1)
+
+let rx_graph_new() = []
+
+let rx_graph_add(graph, tag, value) =
+    let cell = rx_cell_tagged(value, tag)
+    arr_push(graph, cell)
+
+let _rx_link_impl(graph, source_tag, target_cell, f, i, n) =
+    if i >= n
+        graph
+    else
+      let cell = arr_get(graph, i)
+      if cell.tag == source_tag
+        let new_cell = rx_link_tagged(cell, target_cell, f)
+        arr_set(graph, i, new_cell)
+      else
+        _rx_link_impl(graph, source_tag, target_cell, f, i + 1, n)
+
+let rx_graph_link(graph, source_tag, target_tag, f) =
+      let n = len(graph)
+      let target_idx = _rx_find_cell_by_tag(graph, target_tag, 0, n)
+      if target_idx < 0
+        graph
+      else
+        let target_cell = arr_get(graph, target_idx)
+        _rx_link_impl(graph, source_tag, target_cell, f, 0, n)
+
+let rx_graph_set(graph, source_tag, new_value) = rx_propagate(graph, source_tag, new_value)
+
+let _rx_graph_get_impl(graph, tag, i, n) =
+    if i >= n
+        0
+    else
+      let cell = arr_get(graph, i)
+      if cell.tag == tag
+          cell.val
+      else
+          _rx_graph_get_impl(graph, tag, i + 1, n)
+
+let rx_graph_get(graph, tag) = _rx_graph_get_impl(graph, tag, 0, len(graph))

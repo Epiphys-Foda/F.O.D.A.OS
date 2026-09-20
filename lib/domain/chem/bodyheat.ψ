@@ -1,0 +1,41 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let eps = 97
+let sig = 567
+let area = 18
+bad[0] = bad[0] + ck(eps, 95, 99)
+
+let t_skin = 306
+bad[0] = bad[0] + ck(t_skin, 304, 308)
+
+let sq = small_div(t_skin * t_skin, 100)
+let t4 = small_div(sq * sq, 100)
+bad[0] = bad[0] + ck(t4, 8700, 8830)
+
+let st4 = small_div(sig * t4, 1000)
+bad[0] = bad[0] + ck(st4, 4900, 5040)
+
+let rad = small_div(eps * st4 * area, 1000)
+bad[0] = bad[0] + ck(rad, 8400, 8950)
+
+let sq2 = small_div(293 * 293, 100)
+let t4a = small_div(sq2 * sq2, 100)
+let sa = small_div(sig * t4a, 1000)
+let ab = small_div(eps * sa * area, 1000)
+bad[0] = bad[0] + ck(ab, 7000, 7600)
+
+let net = rad - ab
+bad[0] = bad[0] + ck(net, 1000, 1600)
+
+let met = 1000
+bad[0] = bad[0] + ck_lo(net, met)
+
+if 1879 < 1877
+    bad[0] = bad[0] + 1
+if 1879 > 1881
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,268 @@
+let X86_PUSH_RBX = [83]
+let X86_POP_RBX = [91]
+let X86_POP_R8 = [65, 88]
+let X86_POP_RDX = [90]
+let X86_MOV_RBX_R8 = [76, 137, 195]
+let X86_MOV_R9_RCX = [73, 137, 201]
+let X86_MOV_R10_RDX = [73, 137, 210]
+let X86_PUSH_RDI = [87]
+let X86_POP_RDI = [95]
+let X86_PUSH_RSI = [86]
+let X86_POP_RSI = [94]
+let X86_PUSH_RAX = [80]
+let X86_PUSH_RCX = [81]
+let X86_POP_RAX = [88]
+let X86_POP_RCX = [89]
+let X86_RET = [195]
+let X86_ADD_RAX_RCX = [72, 1, 200]
+let X86_SUB_RCX_RAX = [72, 41, 193]
+let X86_IMUL_RAX_RCX = [72, 15, 175, 193]
+let X86_AND_RAX_RCX = [72, 33, 200]
+let X86_OR_RAX_RCX = [72, 9, 200]
+let X86_XOR_RAX_RCX = [72, 49, 200]
+let X86_MOV_RDX_RAX = [72, 137, 194]
+let X86_CQO = [72, 153]
+let X86_IDIV_RCX = [72, 247, 249]
+let X86_MOV_R8_RAX = [73, 137, 192]
+let X86_MOV_RAX_RCX = [72, 137, 200]
+let X86_XOR_RDX_RDX = [72, 49, 210]
+let X86_XOR_RDX_RCX = [72, 49, 202]
+let X86_DIV_R8 = [73, 247, 240]
+let X86_TEST_RAX_RAX = [72, 133, 192]
+let X86_JMP_REL32 = [233]
+let X86_JZ_REL32 = [15, 132]
+let X86_CALL_RBX = [255, 211]
+let X86_PUSH_IMM32 = [104]
+let X86_CMP_RAX_RCX = [72, 57, 200]
+let X86_SETE_AL = [15, 148, 192]
+let X86_SETNE_AL = [15, 149, 192]
+let X86_SETL_AL = [15, 156, 192]
+let X86_SETG_AL = [15, 159, 192]
+let X86_SETLE_AL = [15, 158, 192]
+let X86_SETGE_AL = [15, 157, 192]
+let X86_MOVZX_RAX_AL = [72, 15, 182, 192]
+let X86_XOR_RAX_RAX = [72, 49, 192]
+let X86_PUSH_RDX = [82]
+let X86_MOV_R8_RCX = [73, 137, 200]
+let X86_ADD_RDX_RCX = [72, 1, 202]
+let X86_SUB_RAX_RCX = [72, 41, 200]
+let X86_OR_RAX_RDX = [72, 9, 208]
+let X86_AND_RAX_RDX = [72, 33, 208]
+let X86_PUSH_R9 = [65, 81]
+let X86_PUSH_R10 = [65, 82]
+let X86_PUSH_R11 = [65, 83]
+let X86_PUSH_R12 = [65, 84]
+let X86_PUSH_R13 = [65, 85]
+let X86_PUSH_R14 = [65, 86]
+let X86_PUSH_R15 = [65, 87]
+let X86_POP_R9 = [65, 89]
+let X86_POP_R10 = [65, 90]
+let X86_POP_R11 = [65, 91]
+let X86_POP_R12 = [65, 92]
+let X86_POP_R13 = [65, 93]
+let X86_POP_R14 = [65, 94]
+let X86_POP_R15 = [65, 95]
+
+let imm32_bytes(v) =
+    let u = v
+    let b0 = u - (u / 256) * 256
+    let u1 = u / 256
+    let b1 = u1 - (u1 / 256) * 256
+    let u2 = u1 / 256
+    let b2 = u2 - (u2 / 256) * 256
+    let b3 = u2 / 256
+    [b0, b1, b2, b3]
+
+let qbc_push_local(idx) =
+    if idx == 0
+      X86_PUSH_R9
+    else
+      if idx == 1
+        X86_PUSH_R10
+      else
+        if idx == 2
+          X86_PUSH_R11
+        else
+          if idx == 3
+            X86_PUSH_R12
+          else
+            if idx == 4
+              X86_PUSH_R13
+            else
+              if idx == 5
+                X86_PUSH_R14
+              else
+                X86_PUSH_R15
+
+let qbc_pop_local(idx) =
+    if idx == 0
+      X86_POP_R9
+    else
+      if idx == 1
+        X86_POP_R10
+      else
+        if idx == 2
+          X86_POP_R11
+        else
+          if idx == 3
+            X86_POP_R12
+          else
+            if idx == 4
+              X86_POP_R13
+            else
+              if idx == 5
+                X86_POP_R14
+              else
+                X86_POP_R15
+
+let rel32_bytes(v) =
+    let u = v
+    let b0 = u - (u / 256) * 256
+    let u1 = u / 256
+    let b1 = u1 - (u1 / 256) * 256
+    let u2 = u1 / 256
+    let b2 = u2 - (u2 / 256) * 256
+    let b3 = u2 / 256
+    [b0, b1, b2, b3]
+
+let aot_patch(x86_code, patch_pos, target) =
+    let tb = rel32_bytes(target)
+    [x86_code.slice(0, patch_pos), tb, x86_code.slice(patch_pos + 4, len(x86_code))].flat()
+
+let qbc_to_x86_64(qbc) =
+    let x86_code = [X86_PUSH_RBX, X86_PUSH_RDI, X86_PUSH_RSI, X86_MOV_RBX_R8, X86_MOV_R9_RCX, X86_MOV_R10_RDX].flat()
+    let pc = 0
+    let done = 0
+    let if_patches = []
+    let else_patches = []
+    for done == 0
+      let op = qbc[pc]
+      pc = pc + 1
+      if op == 65
+        let v = qbc[pc]
+        pc = pc + 1
+        x86_code = [x86_code, X86_PUSH_IMM32, imm32_bytes(v)].flat()
+      else
+        0
+      if op == 32
+        let idx = qbc[pc]
+        pc = pc + 1
+        x86_code = [x86_code, qbc_push_local(idx)].flat()
+      else
+        0
+      if op == 106
+        x86_code = [x86_code, [X86_POP_RAX, X86_POP_RCX, X86_ADD_RAX_RCX, X86_PUSH_RAX].flat()].flat()
+      else
+        0
+      if op == 107
+        x86_code = [x86_code, [X86_POP_RAX, X86_POP_RCX, X86_SUB_RCX_RAX, X86_PUSH_RCX].flat()].flat()
+      else
+        0
+      if op == 108
+        x86_code = [x86_code, [X86_POP_RAX, X86_POP_RCX, X86_IMUL_RAX_RCX, X86_PUSH_RAX].flat()].flat()
+      else
+        0
+      if op == 109
+        x86_code = [x86_code, [X86_POP_RCX, X86_POP_RAX, X86_CQO, X86_IDIV_RCX, X86_PUSH_RAX].flat()].flat()
+      else
+        0
+      if op == 111
+        x86_code = [x86_code, [X86_POP_RCX, X86_POP_RAX, X86_CQO, X86_IDIV_RCX, X86_PUSH_RDX].flat()].flat()
+      else
+        0
+      if op == 113
+        x86_code = [x86_code, [X86_POP_RAX, X86_POP_RCX, X86_AND_RAX_RCX, X86_PUSH_RAX].flat()].flat()
+      else
+        0
+      if op == 114
+        x86_code = [x86_code, [X86_POP_RAX, X86_POP_RCX, X86_OR_RAX_RCX, X86_PUSH_RAX].flat()].flat()
+      else
+        0
+      if op == 115
+        x86_code = [x86_code, [X86_POP_RAX, X86_POP_RCX, X86_XOR_RAX_RCX, X86_PUSH_RAX].flat()].flat()
+      else
+        0
+      if op == 70
+        x86_code = [x86_code, [X86_POP_RCX, X86_POP_RAX, X86_CMP_RAX_RCX, X86_SETE_AL, X86_MOVZX_RAX_AL, X86_PUSH_RAX].flat()].flat()
+      else
+        0
+      if op == 71
+        x86_code = [x86_code, [X86_POP_RCX, X86_POP_RAX, X86_CMP_RAX_RCX, X86_SETNE_AL, X86_MOVZX_RAX_AL, X86_PUSH_RAX].flat()].flat()
+      else
+        0
+      if op == 72
+        x86_code = [x86_code, [X86_POP_RCX, X86_POP_RAX, X86_CMP_RAX_RCX, X86_SETL_AL, X86_MOVZX_RAX_AL, X86_PUSH_RAX].flat()].flat()
+      else
+        0
+      if op == 74
+        x86_code = [x86_code, [X86_POP_RCX, X86_POP_RAX, X86_CMP_RAX_RCX, X86_SETG_AL, X86_MOVZX_RAX_AL, X86_PUSH_RAX].flat()].flat()
+      else
+        0
+      if op == 76
+        x86_code = [x86_code, [X86_POP_RCX, X86_POP_RAX, X86_CMP_RAX_RCX, X86_SETLE_AL, X86_MOVZX_RAX_AL, X86_PUSH_RAX].flat()].flat()
+      else
+        0
+      if op == 78
+        x86_code = [x86_code, [X86_POP_RCX, X86_POP_RAX, X86_CMP_RAX_RCX, X86_SETGE_AL, X86_MOVZX_RAX_AL, X86_PUSH_RAX].flat()].flat()
+      else
+        0
+      if op == 4
+        let seg = [X86_POP_RAX, X86_TEST_RAX_RAX, X86_JZ_REL32, 0, 0, 0, 0].flat()
+        x86_code = [x86_code, seg].flat()
+        if_patches = if_patches.push(len(x86_code) - 4)
+      else
+        0
+      if op == 5
+        let seg = [X86_JMP_REL32, 0, 0, 0, 0].flat()
+        x86_code = [x86_code, seg].flat()
+        let else_start = len(x86_code)
+        if len(if_patches) > 0
+          let patch_pos = if_patches[if_patches.len() - 1]
+          let target = else_start - (patch_pos + 4)
+          x86_code = aot_patch(x86_code, patch_pos, target)
+          if_patches = if_patches.slice(0, len(if_patches) - 1)
+        else
+          0
+        else_patches = else_patches.push(len(x86_code) - 4)
+      else
+        0
+      if op == 11
+        if len(else_patches) > 0
+          let patch_pos = else_patches[else_patches.len() - 1]
+          let target = len(x86_code) - (patch_pos + 4)
+          x86_code = aot_patch(x86_code, patch_pos, target)
+          else_patches = else_patches.slice(0, len(else_patches) - 1)
+        else
+            0
+      else
+        0
+      if op == 33
+        let idx = qbc[pc]
+        pc = pc + 1
+        x86_code = [x86_code, qbc_pop_local(idx)].flat()
+      else
+        0
+      if op == 26
+        x86_code = [x86_code, X86_POP_RAX].flat()
+      else
+        0
+      if op == 16
+        let seg = [X86_POP_R8, X86_POP_RDX, X86_POP_RCX, X86_CALL_RBX, X86_PUSH_RAX].flat()
+        x86_code = [x86_code, seg].flat()
+      else
+        0
+      if op == 145
+        x86_code = [x86_code, [X86_XOR_RAX_RAX, X86_PUSH_RAX].flat()].flat()
+      else
+        0
+      if op < 0 || op > 255
+        done = 1
+      else
+        0
+      if pc >= len(qbc)
+        done = 1
+      else
+        0
+      0
+    let seg = [X86_POP_RAX, X86_POP_RSI, X86_POP_RDI, X86_POP_RBX, X86_RET].flat()
+    [x86_code, seg].flat()

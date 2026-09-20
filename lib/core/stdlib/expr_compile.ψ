@@ -1,0 +1,76 @@
+import "machcode_emitter.ψ"
+
+let op_frag(op) =
+    if op == "add"
+      frag_add()
+    else
+      if op == "sub"
+        frag_sub()
+      else
+        if op == "mul"
+          frag_imul()
+        else
+          if op == "neg"
+            frag_neg()
+          else
+            if op == "eq"
+              frag_eq()
+            else
+              if op == "ne"
+                frag_ne()
+              else
+                if op == "lt"
+                  frag_lt()
+                else
+                  if op == "gt"
+                    frag_gt()
+                  else
+                    if op == "le"
+                      frag_le()
+                    else
+                      if op == "ge"
+                        frag_ge()
+                      else
+                        if op == "div"
+                          frag_idiv()
+                        else
+                          frag_add()
+
+let compile_leaf(e) =
+    if e[0] == "let"
+      if e[1] == "a"
+        frag_mov_arg1()
+      else
+        frag_mov_arg2()
+    else
+      [72, 184, byte0(e[1]), byte1(e[1]), byte2(e[1]), byte3(e[1]), byte4(e[1]), byte5(e[1]), byte6(e[1]), byte7(e[1])]
+
+let compile_and1(e) = [compile_leaf(e[1]), frag_test(), frag_jz(13), compile_leaf(e[2]), frag_test(), frag_setne_movzx()].flat()
+
+let compile_neg1(e) = [compile_leaf(e[1]), frag_neg()].flat()
+
+let is_leaf_desc(e) = len(e) == 2
+
+let compile_bin(e) =
+    if e[0] == "and"
+      compile_and1(e)
+    else
+      if e[0] == "neg"
+        compile_neg1(e)
+      else
+        let l = if is_leaf_desc(e[1])
+          compile_leaf(e[1])
+        else
+          compile_bin(e[1])
+        let r = if is_leaf_desc(e[2])
+          compile_leaf(e[2])
+        else
+          compile_bin(e[2])
+        emit_binary(l, r, op_frag(e[0]))
+
+let compile_level2(e) = emit_binary(compile_bin(e[1]), compile_bin(e[2]), op_frag(e[0]))
+
+let compile_expr2(e) = emit_expr_full(compile_level2(e))
+
+let compile_expr_auto(e) = emit_expr_full(compile_bin(e))
+let compile_expr1(e) = emit_expr_full(compile_bin(e))

@@ -1,0 +1,15 @@
+let gf_pow(base, exp) =
+    let b = gf_canon(base)
+    if b == 0
+        0
+    else
+        let r = 1
+        let e = exp % 65536
+        if e < 0
+            e = e + 65536
+        for e > 0
+            if e % 2 == 1
+                r = gf_canon(r * b)
+            b = gf_canon(b * b)
+            e = e / 2
+        r

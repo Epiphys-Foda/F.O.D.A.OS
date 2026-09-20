@@ -1,0 +1,89 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let SYS_CIRC_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let SYS_CIRC_RESIDUES = [750, 1200, 800, 700, 1600, 5000, 600, 50]
+
+let psi_sys_circ(param_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(param_idx), gf_norm(SYS_CIRC_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(SYS_CIRC_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let SYS_RESP_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let SYS_RESP_RESIDUES = [140, 5000, 46000, 35000, 23000, 58000, 60000, 950]
+
+let psi_sys_resp(param_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(param_idx), gf_norm(SYS_RESP_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(SYS_RESP_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let SYS_DIGEST_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let SYS_DIGEST_RESIDUES = [30, 120, 60, 10000, 20000, 6000, 15000, 80000]
+
+let psi_sys_digest(param_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(param_idx), gf_norm(SYS_DIGEST_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(SYS_DIGEST_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let SYS_NERV_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let SYS_NERV_RESIDUES = [1200, 600, 150, 10, 5, 500, 10, 10]
+
+let psi_sys_nerv(param_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(param_idx), gf_norm(SYS_NERV_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(SYS_NERV_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let SYS_CO_BASE = 5000
+let SYS_CO_SCALE = 100
+
+let sys_fit_cardiac_output(param_idx) =
+    let c_term = gf_div(psi_sys_circ(param_idx), SYS_CO_SCALE)
+    gf_add(SYS_CO_BASE, c_term)
+
+let SYS_VE_BASE = 6000
+let SYS_VE_SCALE = 100
+
+let sys_fit_minute_ventilation(param_idx) =
+    let r_term = gf_div(psi_sys_resp(param_idx), SYS_VE_SCALE)
+    gf_add(SYS_VE_BASE, r_term)
+
+let SYS_PERI_BASE = 30
+let SYS_PERI_SCALE = 100
+
+let sys_fit_peristalsis(param_idx) =
+    let d_term = gf_div(psi_sys_digest(param_idx), SYS_PERI_SCALE)
+    gf_add(SYS_PERI_BASE, d_term)
+
+let SYS_NCV_BASE = 1200
+let SYS_NCV_SCALE = 10
+
+let sys_fit_NCV(param_idx) =
+    let n_term = gf_div(psi_sys_nerv(param_idx), SYS_NCV_SCALE)
+    gf_add(SYS_NCV_BASE, n_term)
+
+let sys_global_response(circ_idx, resp_idx, digest_idx, nerv_idx) =
+    let e1 = psi_sys_circ(circ_idx)
+    let e2 = psi_sys_resp(resp_idx)
+    let e3 = psi_sys_digest(digest_idx)
+    let e4 = psi_sys_nerv(nerv_idx)
+    gf_add(gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3)), gf_mul(e4, e4))
+

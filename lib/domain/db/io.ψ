@@ -1,0 +1,111 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let PAGE_SIZE = 4096
+let MAX_PAGES = 16384
+let BUFFER_POOL_SIZE = 1024
+
+let bp_create() =
+    let pages = []
+    let i = 0
+    for i < BUFFER_POOL_SIZE
+        pages.push([0, [], 0, 0])
+        i = i + 1
+    [pages, 0, BUFFER_POOL_SIZE]
+let bp_get(pool, page_id) =
+    let pages = pool[0]
+    let i = 0
+    let n = pool[1]
+    for i < n
+        let pg = pages[i]
+        if pg[0] == page_id
+            pg
+        i = i + 1
+    [0, [], 0, 0]
+let bp_pin(pool, page_id) =
+    let pages = pool[0]
+    let i = 0
+    let n = pool[1]
+    for i < n
+        let pg = pages[i]
+        if pg[0] == page_id
+            pages[i] = [pg[0], pg[1], pg[2], 1]
+        1
+        i = i + 1
+    0
+let bp_unpin(pool, page_id) =
+    let pages = pool[0]
+    let i = 0
+    let n = pool[1]
+    for i < n
+        let pg = pages[i]
+        if pg[0] == page_id
+            pages[i] = [pg[0], pg[1], pg[2], 0]
+        1
+        i = i + 1
+    0
+let bp_flush(pool, page_id) =
+    let pages = pool[0]
+    let i = 0
+    let n = pool[1]
+    for i < n
+        let pg = pages[i]
+        if pg[0] == page_id && pg[2] == 1
+            pages[i] = [pg[0], pg[1], 0, pg[3]]
+        1
+        i = i + 1
+    0
+let bp_evict(pool) =
+    let pages = pool[0]
+    let i = 0
+    let n = pool[1]
+    for i < n
+        let pg = pages[i]
+        if pg[3] == 0
+            i
+        i = i + 1
+    0
+let record_write(page, offset, value) =
+    let data = page[1]
+    if offset < PAGE_SIZE
+        data[offset] = gf_norm(value)
+    [page[0], data, 1, page[3]]
+let record_read(page, offset) =
+    let data = page[1]
+    (offset < len(data) ? data[offset] : 0)
+let page_alloc(free_list) =
+    if len(free_list) > 0
+        let page_id = free_list[0]
+        let rest = []
+        let i = 1
+        let n = len(free_list)
+        for i < n
+            rest.push(free_list[i])
+            i = i + 1
+        [page_id, rest]
+    else
+        [0, free_list]
+let page_free(free_list, page_id) =
+    free_list.push(page_id)
+    free_list
+let io_field_encode_page(page_data, n, poles, residues) =
+    let i = 0
+    for i < n
+        poles[i] = 127 + i * 1000
+        residues[i] = page_data[i]
+        i = i + 1
+
+let io_field_decode_page(poles, residues, n, out_data) =
+    let i = 0
+    for i < n
+        out_data[i] = residues[i]
+        i = i + 1
+
+let io_verify() =
+    let pool = bp_create()
+    let pg = [1, arr_new_n(8), 0, 0]
+    let written = record_write(pg, 0, 42)
+    let val = record_read(written, 0)
+    let ok = 0
+    (val == 42 ? (ok = 1) : (ok = 0))
+    ok
+

@@ -1,0 +1,60 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let CLIMATE_MAX_CELLS = 65536
+let CLIMATE_SOLAR = 1361
+
+let climate_grid_create(nx, ny) =
+    let cells = []
+    let i = 0
+    for i < nx * ny
+        cells.push([288, 50, 1013, 400, 30])
+        i = i + 1
+    [cells, nx, ny, 1]
+let climate_step(grid) =
+    let cells = grid[0]
+    let nx = grid[1]
+    let ny = grid[2]
+    let new_cells = []
+    let i = 0
+    for i < nx
+        let j = 0
+        for j < ny
+            let idx = i * nx + j
+            let c = cells[idx]
+            let lat = gf_div(j, ny)
+            let solar = gf_mul(CLIMATE_SOLAR, gf_sub(1, gf_div(c[4], 100)))
+            solar = gf_mul(solar, gf_sub(1, gf_div(lat, 180)))
+            let greenhouse = gf_mul(c[3], 1)
+            let new_temp = gf_add(c[0], gf_sub(solar, greenhouse))
+            new_cells.push([new_temp, c[1], c[2], c[3], c[4]])
+            j = j + 1
+        i = i + 1
+    [new_cells, nx, ny, grid[3]]
+let carbon_cycle(co2, emission, absorption) =
+    gf_add(gf_sub(co2, absorption), emission)
+let ocean_current(temp_north, temp_south, salinity_north, salinity_south) =
+    let temp_diff = gf_sub(temp_north, temp_south)
+    let sal_diff = gf_sub(salinity_north, salinity_south)
+    gf_add(gf_mul(temp_diff, 10), gf_mul(sal_diff, 5))
+let albedo_feedback(temp, ice_threshold) =
+    (temp < ice_threshold ? 60 : 30)
+let field_climate(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let climate_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_climate(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+

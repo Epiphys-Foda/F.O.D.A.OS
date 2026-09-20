@@ -1,0 +1,262 @@
+let TR_P = 65537
+
+let TR_TIMING_BEFORE = 1
+let TR_TIMING_AFTER  = 2
+let TR_TIMING_INSTEAD = 3
+
+let TR_EVENT_INSERT = 1
+let TR_EVENT_UPDATE = 2
+let TR_EVENT_DELETE = 3
+let TR_EVENT_TRUNCATE = 4
+
+let TR_LEVEL_ROW     = 1
+let TR_LEVEL_STMT    = 2
+
+let TR_COND_EQ  = 1
+let TR_COND_NE  = 2
+let TR_COND_GT  = 3
+let TR_COND_LT  = 4
+let TR_COND_GE  = 5
+let TR_COND_LE  = 6
+
+let TR_ACTION_FUNC    = 1
+let TR_ACTION_CASCADE = 2
+let TR_ACTION_NOTIFY  = 3
+let TR_ACTION_REJECT  = 4
+
+let TR_MAX_TRIGGERS_PER_TABLE = 32
+let TR_MAX_CASCADE_DEPTH      = 8
+
+let tr_cond_new(col, op, val, use_new) =
+    [col, op, val, use_new]
+
+let tr_cond_col(c)     = c[0]
+let tr_cond_op(c)       = c[1]
+let tr_cond_val(c)      = c[2]
+let tr_cond_use_new(c)  = c[3]
+
+let tr_cond_eval(c, old_row, new_row) =
+    let use_new = tr_cond_use_new(c)
+    let row = old_row
+    if use_new == 1
+        row = new_row
+    let cell = row[tr_cond_col(c)]
+    let op = tr_cond_op(c)
+    let val = tr_cond_val(c)
+    let result = 0
+    if op == TR_COND_EQ
+        if cell == val
+            result = 1
+        else
+            0
+        if op == TR_COND_NE
+            if cell != val
+                result = 1
+            else
+                0
+            if op == TR_COND_GT
+                if cell > val
+                    result = 1
+                else
+                    0
+                if op == TR_COND_LT
+                    if cell < val
+                        result = 1
+                    else
+                        0
+                    if op == TR_COND_GE
+                        if cell >= val
+                            result = 1
+                        else
+                            0
+                        if op == TR_COND_LE
+                            if cell <= val
+                                result = 1
+    result
+
+let tr_action_new(atype, callback, target_table, target_op, payload) =
+    [atype, callback, target_table, target_op, payload]
+
+let tr_act_type(a)         = a[0]
+let tr_act_callback(a)     = a[1]
+let tr_act_target_table(a) = a[2]
+let tr_act_target_op(a)    = a[3]
+let tr_act_payload(a)      = a[4]
+
+let tr_trigger_new(tid, name, table_id, timing, event, level, conditions, action) =
+    [tid, name, table_id, timing, event, level, conditions, action, 1]
+
+let tr_tr_id(t)         = t[0]
+let tr_tr_name(t)       = t[1]
+let tr_tr_table(t)      = t[2]
+let tr_tr_timing(t)     = t[3]
+let tr_tr_event(t)      = t[4]
+let tr_tr_level(t)      = t[5]
+let tr_tr_conds(t)      = t[6]
+let tr_tr_action(t)     = t[7]
+let tr_tr_enabled(t)    = t[8]
+
+let tr_tr_set_enabled(t, e) =
+    t[8] = e
+    t
+
+let tr_tr_matches(t, table_id, timing, event, old_row, new_row) =
+    if tr_tr_enabled(t) == 0
+        0
+    else
+        if tr_tr_table(t) != table_id
+            0
+        else
+            if tr_tr_timing(t) != timing
+                0
+            else
+                if tr_tr_event(t) != event
+                    0
+                else
+                    let conds = tr_tr_conds(t)
+                    let n = len(conds)
+                    let pass = 1
+                    let i = 0
+                    for i < n
+                        if tr_cond_eval(conds[i], old_row, new_row) == 0
+                            pass = 0
+                            i = n
+                        i = i + 1
+                    pass
+
+let tr_registry_new() =
+    [{}, 1, []]
+
+let tr_reg_triggers(r) = r[0]
+let tr_reg_next(r)    = r[1]
+let tr_reg_log(r)     = r[2]
+
+let tr_reg_key(table_id, timing, event) =
+    table_id * 100 + timing * 10 + event
+
+let tr_reg_register(r, trigger) =
+    let triggers = tr_reg_triggers(r)
+    let key = tr_reg_key(tr_tr_table(trigger), tr_tr_timing(trigger), tr_tr_event(trigger))
+    let list = triggers[key]
+    if list == 0
+        list = []
+    list.push(trigger)
+    triggers[key] = list
+    [triggers, tr_reg_next(r) + 1, tr_reg_log(r)]
+
+let tr_reg_lookup(r, table_id, timing, event) =
+    let triggers = tr_reg_triggers(r)
+    let key = tr_reg_key(table_id, timing, event)
+    let list = triggers[key]
+    if list == 0
+        []
+    else
+        list
+
+let tr_exec_event(r, table_id, timing, event, old_row, new_row) =
+    let triggers = tr_reg_lookup(r, table_id, timing, event)
+    let n = len(triggers)
+    let actions = []
+    let log_entries = []
+    let i = 0
+    for i < n
+        let t = triggers[i]
+        if tr_tr_matches(t, table_id, timing, event, old_row, new_row) == 1
+            actions.push(tr_tr_action(t))
+            log_entries.push([tr_tr_id(t), tr_tr_name(t), 1])
+        else
+            log_entries.push([tr_tr_id(t), tr_tr_name(t), 0])
+        i = i + 1
+    [actions, log_entries]
+
+let tr_exec_cascade(r, action, depth) =
+    if depth > TR_MAX_CASCADE_DEPTH
+        []
+    else
+        if tr_act_type(action) == TR_ACTION_CASCADE
+            let cascaded = tr_exec_event(r, tr_act_target_table(action), TR_TIMING_BEFORE, tr_act_target_op(action), [], [tr_act_payload(action)])
+            cascaded[0]
+        else
+            []
+
+let tr_log_append(r, entry) =
+    let log = tr_reg_log(r)
+    log.push(entry)
+    [tr_reg_triggers(r), tr_reg_next(r), log]
+
+let tr_log_bragg_replay(r, table_id, timing, event, old_row, new_row) =
+    let exec1 = tr_exec_event(r, table_id, timing, event, old_row, new_row)
+    let actions1 = exec1[0]
+    let exec2 = tr_exec_event(r, table_id, timing, event, old_row, new_row)
+    let actions2 = exec2[0]
+    let pass = 1
+    if len(actions1) != len(actions2)
+        pass = 0
+    else
+        let i = 0
+        let n = len(actions1)
+        for i < n
+            if tr_act_type(actions1[i]) != tr_act_type(actions2[i])
+                pass = 0
+            if tr_act_callback(actions1[i]) != tr_act_callback(actions2[i])
+                pass = 0
+            i = i + 1
+    pass
+
+let tr_self_test() =
+    let c1 = tr_cond_new(0, TR_COND_EQ, 100, 1)
+    let old_row = [50]
+    let new_row = [100]
+    let t_cond = 0
+    if tr_cond_eval(c1, old_row, new_row) == 1
+        t_cond = 1
+
+    let c2 = tr_cond_new(0, TR_COND_GT, 200, 1)
+    let t_cond_fail = 0
+    if tr_cond_eval(c2, old_row, new_row) == 0
+        t_cond_fail = 1
+
+    let action = tr_action_new(TR_ACTION_FUNC, 999, 0, 0, [])
+    let t1 = tr_trigger_new(1, 100, 1, TR_TIMING_BEFORE, TR_EVENT_INSERT, TR_LEVEL_ROW, [c1], action)
+    let r = tr_registry_new()
+    r = tr_reg_register(r, t1)
+    let matched = tr_reg_lookup(r, 1, TR_TIMING_BEFORE, TR_EVENT_INSERT)
+    let t_match = 0
+    if len(matched) == 1
+        t_match = 1
+
+    let exec = tr_exec_event(r, 1, TR_TIMING_BEFORE, TR_EVENT_INSERT, old_row, new_row)
+    let actions = exec[0]
+    let t_exec = 0
+    if len(actions) == 1
+        if tr_act_callback(actions[0]) == 999
+            t_exec = 1
+
+    let new_row2 = [50]
+    let exec2 = tr_exec_event(r, 1, TR_TIMING_BEFORE, TR_EVENT_INSERT, old_row, new_row2)
+    let t_no_exec = 0
+    if len(exec2[0]) == 0
+        t_no_exec = 1
+
+    let t1_disabled = tr_tr_set_enabled(t1, 0)
+    let t_disabled = 0
+    if tr_tr_enabled(t1_disabled) == 0
+        t_disabled = 1
+
+    let action2 = tr_action_new(TR_ACTION_FUNC, 888, 0, 0, [])
+    let t2 = tr_trigger_new(2, 200, 1, TR_TIMING_BEFORE, TR_EVENT_INSERT, TR_LEVEL_ROW, [], action2)
+    r = tr_reg_register(r, t2)
+    let exec3 = tr_exec_event(r, 1, TR_TIMING_BEFORE, TR_EVENT_INSERT, old_row, new_row)
+    let t_multi = 0
+    if len(exec3[0]) == 2
+        t_multi = 1
+
+    let bragg = tr_log_bragg_replay(r, 1, TR_TIMING_BEFORE, TR_EVENT_INSERT, old_row, new_row)
+    let t_bragg = 0
+    if bragg == 1
+        t_bragg = 1
+
+    [t_cond, t_cond_fail, t_match, t_exec, t_no_exec, t_disabled, t_multi, t_bragg]
+
+let tr_default_registry() =
+    tr_registry_new()

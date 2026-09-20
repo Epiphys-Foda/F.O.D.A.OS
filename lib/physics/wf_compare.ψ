@@ -1,0 +1,76 @@
+let P = 65537
+let P2 = 131071
+
+import "../core/stdlib_lang2/gf_canon_shared.ψ"
+import "sh_d39d441e28.ψ"
+import "../core/stdlib_lang2/bm_canon.ψ"
+import "sh_ee308d734f.ψ"
+import "wf_brain.ψ"
+import "sh_bffc56f968.ψ"
+import "sh_0fe08dee05.ψ"
+let cmp_structure(L1, L2) =
+    let same = 0
+    if L1 == L2
+        same = 1
+    same
+
+let cmp_diff_count(s1, s2, n) =
+    let diff = 0
+    let i = 0
+    for i < n
+        let neq = 0
+        if s1[i] != s2[i]
+            neq = 1
+        diff = diff + neq
+        i = i + 1
+    diff
+
+let cmp_correlation(s1, s2, n, mean1, mean2) =
+    let cov = 0
+    let var1 = 0
+    let var2 = 0
+    let i = 0
+    for i < n
+        let d1 = gf_sub(s1[i], mean1)
+        let d2 = gf_sub(s2[i], mean2)
+        cov = gf_add(cov, gf_mul(d1, d2))
+        var1 = gf_add(var1, gf_mul(d1, d1))
+        var2 = gf_add(var2, gf_mul(d2, d2))
+        i = i + 1
+    let std_prod = gf_mul(wfc_gf_pow(var1, (P-1)/2), wfc_gf_pow(var2, (P-1)/2))
+    gf_div(cov, gf_add(std_prod, gf_mul(std_prod, 0)))
+
+let wfc_gf_pow(base, exp) =
+    let r = 1
+    let base2 = base % P
+    let e2 = exp
+    for e2 > 0
+        if e2 % 2 == 1
+            r = r * base2 % P
+        base2 = base2 * base2 % P
+        e2 = e2 / 2
+    r
+
+let cmp_common_prefix(s1, s2, n) =
+    let prefix = 0
+    let i = 0
+    for i < n
+        if s1[i] == s2[i]
+            prefix = prefix + 1
+        if s1[i] != s2[i]
+            i = n
+        i = i + 1
+    prefix
+
+let cmp_full(s1, s2, n) =
+    let diff = cmp_diff_count(s1, s2, n)
+    let prefix = cmp_common_prefix(s1, s2, n)
+    [diff, prefix]
+
+let calc_mean(s, n) =
+    let sum = 0
+    let i = 0
+    for i < n
+        sum = sum + s[i]
+        i = i + 1
+    sum / n

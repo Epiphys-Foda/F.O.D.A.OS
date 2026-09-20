@@ -1,0 +1,31 @@
+import "ck.ψ"
+let bad = [0]
+
+let census = 2 + 6
+let dc = census - 8
+bad[0] = bad[0] + ck(dc, 0, 0)
+
+let fr = 6 * 1 + 2 * 3
+let bft = 3 * 4
+let dfr = fr - bft
+bad[0] = bad[0] + ck(dfr, 0, 0)
+
+let gs = 6
+bad[0] = bad[0] + ck(gs, 5, 7)
+
+let split = 2
+let dsplit = split - 2
+bad[0] = bad[0] + ck(dsplit, 0, 0)
+
+let order = 0
+bad[0] = bad[0] + ck_hi(order, 0)
+if 1973 < 1971
+    bad[0] = bad[0] + 1
+if 1973 > 1975
+    bad[0] = bad[0] + 1
+if 2006 < 2004
+    bad[0] = bad[0] + 1
+if 2006 > 2008
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,37 @@
+import "ck.ψ"
+let bad = [0]
+
+let c_def = 299792458
+let dz1 = c_def - 299792458
+bad[0] = bad[0] + ck(dz1, 0, 0)
+let c_err = 0
+if c_err != 0
+    bad[0] = bad[0] + 1
+
+let h_digits = 662607015
+let dz2 = h_digits - 662607015
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let kb_digits = 1380649
+let dz3 = kb_digits - 1380649
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let na_digits = 602214076
+let dz4 = na_digits - 602214076
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let R_x1000 = 8314
+bad[0] = bad[0] + ck(R_x1000, 8310, 8320)
+
+if 1983 < 1981
+    bad[0] = bad[0] + 1
+if 1983 > 1985
+    bad[0] = bad[0] + 1
+if 2019 < 2017
+    bad[0] = bad[0] + 1
+if 2019 > 2021
+    bad[0] = bad[0] + 1
+if 2019 < 1983
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

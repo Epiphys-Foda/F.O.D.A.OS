@@ -1,0 +1,86 @@
+import "../stdlib/gf65537.ψ"
+
+let qpu_gate_compose(amp1, amp2) = gfmul(amp1, amp2)
+
+let _qpu_sqrt2_search(x) =
+    if x >= 65537
+      0
+    else
+        0
+    if (x * x) % 65537 == 2
+      x
+    else
+      _qpu_sqrt2_search(x + 1)
+let QPU_SQRT2 = _qpu_sqrt2_search(2)
+let QPU_H_AMP = gfinv(QPU_SQRT2)
+let QPU_I = 256
+let QPU_NEG_I = 65537 - 256
+
+let qpu_hadamard(amp) = gfmul(amp, QPU_H_AMP)
+
+let qpu_phase_s(amp, bit) =
+      if bit == 0
+        amp
+      else
+        gfmul(amp, QPU_I)
+
+let qpu_cnot(ctrl, target) =
+      if ctrl == 1
+        1 - target
+      else
+        target
+
+let qpu_qft2(amp0, amp1) =
+    let h = QPU_H_AMP
+    let out0 = gfmul(h, (amp0 + amp1) % 65537)
+    let out1 = gfmul(h, (amp0 + 65537 - amp1) % 65537)
+    let result = arr_new_n(2)
+    result[0] = out0
+    result[1] = out1
+    result
+
+let qpu_measure_prob(amp) = gfmul(amp, amp)
+
+let qpu_measure(amp, threshold) =
+      let prob = qpu_measure_prob(amp)
+      if prob > threshold
+        1
+      else
+        0
+
+let qpu_hebbian_update(theta, expectation, eta) =
+    let delta = gfmul(eta, expectation)
+    (theta + delta) % 65537
+
+let qpu_op(op_id, a, b, c, d) =
+    if op_id == 1
+      qpu_gate_compose(a, b)
+    else
+        0
+    if op_id == 2
+      qpu_hadamard(a)
+    else
+        0
+    if op_id == 3
+      let r = qpu_qft2(a, b)
+      r[0]
+    else
+        0
+    if op_id == 4
+      qpu_measure(a, b)
+    else
+        0
+    if op_id == 5
+      qpu_hebbian_update(a, b, c)
+    else
+      0
+
+let test_qpu() =
+    assert_eq(qpu_gate_compose(100, 200), gfmul(100, 200))
+    assert_eq(qpu_cnot(0, 1), 1)
+    assert_eq(qpu_cnot(1, 1), 0)
+    assert_eq(qpu_cnot(1, 0), 1)
+    assert_eq(qpu_measure_prob(0), 0)
+    assert_eq(qpu_phase_s(100, 0), 100)
+    assert_eq(qpu_phase_s(100, 1), gfmul(100, QPU_I))
+    0

@@ -1,0 +1,40 @@
+import "ck.ψ"
+let bad = [0]
+
+let fst = 20
+let uu = 10
+let dd = 1
+let fq = fst * uu / (dd * 10)
+let dfq = fq - 20
+bad[0] = bad[0] + ck(dfq, 0, 0)
+
+let re_hi = 300000
+let re_lo = 300
+let span = re_hi / re_lo
+bad[0] = bad[0] + ck(span, 1000, 1000)
+
+let hl = 281
+bad[0] = bad[0] + ck(hl, 270, 292)
+
+let v1 = 1
+let v2 = 0 - 1
+let vsum = v1 + v2
+bad[0] = bad[0] + ck(vsum, 0, 0)
+
+let f400 = 400
+bad[0] = bad[0] + ck(f400, 350, 450)
+
+if 1878 < 1876
+    bad[0] = bad[0] + 1
+if 1878 > 1880
+    bad[0] = bad[0] + 1
+if 1911 < 1909
+    bad[0] = bad[0] + 1
+if 1911 > 1913
+    bad[0] = bad[0] + 1
+if 1940 < 1938
+    bad[0] = bad[0] + 1
+if 1940 > 1942
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

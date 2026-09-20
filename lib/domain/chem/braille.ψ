@@ -1,0 +1,51 @@
+import "ck.ψ"
+let bad = [0]
+
+let sky = 2 * 2 * 2 * 2 * 2 * 2
+let dz1 = sky - 64
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let lA = 1
+let dz2 = lA - 1
+bad[0] = bad[0] + ck(dz2, 0, 0)
+let lB = 1 + 2
+let dz3 = lB - 3
+bad[0] = bad[0] + ck(dz3, 0, 0)
+let lC = 1 + 8
+let dz4 = lC - 9
+bad[0] = bad[0] + ck(dz4, 0, 0)
+let lJ = 2 + 8 + 16
+let dz5 = lJ - 26
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let budget = 2 * 2 * 2 * 2
+let dz6 = budget - 16
+bad[0] = bad[0] + ck(dz6, 0, 0)
+bad[0] = bad[0] + ck_lo(budget, 10)
+
+let numsign = 4 + 8 + 16 + 32
+let dz7 = numsign - 60
+bad[0] = bad[0] + ck(dz7, 0, 0)
+
+let reuse = 10
+let dz8 = reuse - 10
+bad[0] = bad[0] + ck(dz8, 0, 0)
+
+let uspan = 10303 - 10240
+let ublock = uspan + 1
+let dz9 = ublock - 64
+bad[0] = bad[0] + ck(dz9, 0, 0)
+
+let cell = 23
+bad[0] = bad[0] + ck(cell, 20, 25)
+
+if 1824 < 1822
+    bad[0] = bad[0] + 1
+if 1824 > 1826
+    bad[0] = bad[0] + 1
+if 1854 < 1852
+    bad[0] = bad[0] + 1
+if 1854 > 1856
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,211 @@
+let re_match_char(c, pattern) =
+    c == pattern
+
+let re_match_any(c) =
+    c != 10 && c != 13
+
+let re_match_class(c, class_str) =
+    let n = class_str.len()
+    let i = 0
+    let negate = 0
+    if n > 0 && class_str[0] == 94
+        negate = 1
+        i = 1
+    let found = 0
+    for i < n
+        if i + 2 < n && class_str[i + 1] == 45
+            if c >= class_str[i] && c <= class_str[i + 2]
+                found = 1
+            i = i + 3
+        else
+            if c == class_str[i]
+                found = 1
+            i = i + 1
+    (negate == 1 ? 1 - found : found)
+
+let re_match_here(text, pos, pattern, ppos) =
+    let tlen = text.len()
+    let plen = pattern.len()
+    if ppos >= plen
+        return pos
+    let pc = pattern[ppos]
+    if pc == 36
+        if pos == tlen
+            return pos
+        return 0 - 1
+    if ppos + 1 < plen && pattern[ppos + 1] == 42
+        return re_match_star(text, pos, pattern, ppos)
+    if ppos + 1 < plen && pattern[ppos + 1] == 43
+        if pos >= tlen
+            return 0 - 1
+        if pc == 46
+            if re_match_any(text[pos]) == 0
+                return 0 - 1
+            else if pc != text[pos]
+            return 0 - 1
+        return re_match_star(text, pos + 1, pattern, ppos)
+    if ppos + 1 < plen && pattern[ppos + 1] == 63
+        if pos < tlen
+            let match_ = 0
+            if pc == 46
+                match_ = re_match_any(text[pos])
+            else
+                0
+            if pc == text[pos]
+                match_ = 1
+            if match_ == 1
+                let r = re_match_here(text, pos + 1, pattern, ppos + 2)
+                if r >= 0
+                    return r
+        return re_match_here(text, pos, pattern, ppos + 2)
+    if pos >= tlen
+        return 0 - 1
+    if pc == 46
+        if re_match_any(text[pos]) == 0
+            return 0 - 1
+        else if pc != text[pos]
+        return 0 - 1
+    re_match_here(text, pos + 1, pattern, ppos + 1)
+
+let re_match_star(text, pos, pattern, ppos) =
+    let tlen = text.len()
+    let pc = pattern[ppos]
+    let current = pos
+    for current < tlen
+        let match_ = 0
+        if pc == 46
+            match_ = re_match_any(text[current])
+        else
+            0
+        if pc == text[current]
+            match_ = 1
+        if match_ == 0
+            current = tlen
+        else
+            current = current + 1
+    for current >= pos
+        let r = re_match_here(text, current, pattern, ppos + 2)
+        if r >= 0
+            return r
+        current = current - 1
+    0 - 1
+
+let re_match(text, pattern) =
+    let tlen = text.len()
+    let plen = pattern.len()
+    let ppos = 0
+    if plen > 0 && pattern[0] == 94
+        ppos = 1
+    let pos = 0
+    for pos <= tlen
+        let r = re_match_here(text, pos, pattern, ppos)
+        if r >= 0
+            return 1
+        pos = pos + 1
+    0
+
+let re_match_at(text, pos, pattern) =
+    let plen = pattern.len()
+    let ppos = 0
+    if plen > 0 && pattern[0] == 94
+        ppos = 1
+    let r = re_match_here(text, pos, pattern, ppos)
+    (r >= 0 ? 1 : 0)
+
+let re_find(text, pattern) =
+    let tlen = text.len()
+    let plen = pattern.len()
+    let ppos = 0
+    if plen > 0 && pattern[0] == 94
+        ppos = 1
+    let pos = 0
+    for pos <= tlen
+        let r = re_match_here(text, pos, pattern, ppos)
+        if r >= 0
+            return pos
+        pos = pos + 1
+    0 - 1
+
+let re_find_all(text, pattern) =
+    let positions = arr_new()
+    let tlen = text.len()
+    let plen = pattern.len()
+    let ppos = 0
+    if plen > 0 && pattern[0] == 94
+        ppos = 1
+    let pos = 0
+    for pos <= tlen
+        let r = re_match_here(text, pos, pattern, ppos)
+        if r >= 0
+            positions = arr_push(positions, pos)
+            (r > pos ? (pos = r) : (pos = pos + 1))
+        else
+                0
+            pos = pos + 1
+    positions
+
+let re_replace_first(text, pattern, replacement) =
+    let pos = re_find(text, pattern)
+    if pos < 0
+        return text
+    let plen = pattern.len()
+    let ppos = 0
+    if plen > 0 && pattern[0] == 94
+        ppos = 1
+    let end = re_match_here(text, pos, pattern, ppos)
+    let result = ""
+    let i = 0
+    for i < pos
+        result = result + text[i]
+        i = i + 1
+    result = result + replacement
+    i = end
+    for i < text.len()
+        result = result + text[i]
+        i = i + 1
+    result
+
+let re_count(text, pattern) =
+    let positions = re_find_all(text, pattern)
+    positions.len()
+
+let re_glob(text, pattern) =
+    let tlen = text.len()
+    let plen = pattern.len()
+    let dp = arr_new_n((tlen + 1) * (plen + 1))
+    let idx_0_0 = 0
+    dp[idx_0_0] = 1
+    let j = 1
+    for j <= plen
+        if pattern[j - 1] == 42
+            let idx = j
+            dp[idx] = dp[j - 1]
+        j = j + 1
+    let i = 1
+    for i <= tlen
+        j = 1
+        for j <= plen
+            let idx = i * (plen + 1) + j
+            if pattern[j - 1] == 42
+                let idx1 = i * (plen + 1) + j - 1
+                let idx2 = (i - 1) * (plen + 1) + j
+                if dp[idx1] == 1 || dp[idx2] == 1
+                    dp[idx] = 1
+                else if pattern[j - 1] == 63
+                let idx3 = (i - 1) * (plen + 1) + j - 1
+                dp[idx] = dp[idx3]
+            else
+                let idx4 = (i - 1) * (plen + 1) + j - 1
+                if text[i - 1] == pattern[j - 1]
+                    dp[idx] = dp[idx4]
+            j = j + 1
+        i = i + 1
+    dp[tlen * (plen + 1) + plen]
+
+let main() =
+    print(re_match("hello world", "world"))
+    print(re_match("hello world", "xyz"))
+    print(re_find("hello world", "world"))
+    print(re_count("aaa", "a"))
+    print(re_glob("test.ψ", "*.ψ"))
+    0

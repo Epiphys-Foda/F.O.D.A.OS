@@ -1,0 +1,42 @@
+let bad = [0]
+
+let pa_seq = [
+    113, 106, 67, 111, 100, 121, 70, 57, 77, 100,
+    121, 106, 151, 142, 121, 69, 121, 106, 70, 57,
+    151, 98, 57, 113, 113, 69, 83, 57, 114, 83,
+]
+
+let j = 0
+let nwin = [0]
+for j < 25
+    let jx = j * 1
+    let s = pa_seq[jx] + pa_seq[jx + 1] + pa_seq[jx + 2] + pa_seq[jx + 3] + pa_seq[jx + 4] + pa_seq[jx + 5]
+    nwin[0] = nwin[0] + 1
+    j = j + 1
+let dw = nwin[0] - 25
+bad[0] = bad[0] + dw * dw
+
+let helix_sum = 0
+let hk = 7
+for hk < 19
+    let hkx = hk * 1
+    helix_sum = helix_sum + pa_seq[hkx]
+    hk = hk + 1
+let dhs = helix_sum - 1241
+bad[0] = bad[0] + dhs * dhs
+
+let tot_pa = 0
+let j = 0
+for j < 30
+    let jx = j * 1
+    tot_pa = tot_pa + pa_seq[jx]
+    j = j + 1
+let dtot = tot_pa - 2924
+bad[0] = bad[0] + dtot * dtot
+
+let nnet = 114 - 151 + 131
+let dnet = nnet - 94
+bad[0] = bad[0] + dnet * dnet
+
+print(bad[0])
+arr_get(arr_new_n(1), bad[0])

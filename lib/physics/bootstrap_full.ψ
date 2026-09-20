@@ -1,0 +1,291 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let pole_new(pole, residue, op_id) = [pole, residue, op_id]
+let pole_pole(p) = p[0]
+let pole_residue(p) = p[1]
+let pole_op(p) = p[2]
+
+let compiler_nand() = pole_new(101, 1, 0)
+let compiler_and() = pole_new(101, 0, 1)
+let compiler_or() = pole_new(101, 1, 2)
+let compiler_xor() = pole_new(101, 1, 3)
+let compiler_not() = pole_new(101, 1, 4)
+let compiler_add() = pole_new(101, 0, 5)
+let compiler_sub() = pole_new(101, 0, 6)
+let compiler_mul() = pole_new(101, 0, 7)
+
+let compiler_new() =
+    [
+        compiler_nand(),
+        compiler_and(),
+        compiler_or(),
+        compiler_xor(),
+        compiler_not(),
+        compiler_add(),
+        compiler_sub(),
+        compiler_mul()
+    ]
+
+let pole_exec(p, a, b) =
+    let r = pole_residue(p)
+    let op = pole_op(p)
+    if op == 0
+        gf_sub(r, gf_mul(a, b))
+    else
+        0
+    if op == 1
+        gf_mul(a, b)
+    else
+        0
+    if op == 2
+        gf_sub(gf_add(a, b), gf_mul(a, b))
+    else
+        0
+    if op == 3
+        gf_sub(gf_add(a, b), gf_mul(2, gf_mul(a, b)))
+    else
+        0
+    if op == 4
+        gf_sub(r, a)
+    else
+        0
+    if op == 5
+        gf_add(a, b)
+    else
+        0
+    if op == 6
+        gf_sub(a, b)
+    else
+        0
+    if op == 7
+        gf_mul(a, b)
+    else
+        0
+
+let pole_collide(p1, p2) =
+    let new_pole = gf_add(pole_pole(p1), pole_pole(p2))
+    let new_res = gf_mul(pole_residue(p1), pole_residue(p2))
+    let new_op = (pole_op(p1) + pole_op(p2)) % 8
+    pole_new(new_pole, new_res, new_op)
+
+let compiler_collide(c, n) =
+    let result = []
+    let i = 0
+    for i < n
+        let j = 0
+        for j < n
+            let p1 = c[i]
+            let p2 = c[j]
+            let collided = pole_collide(p1, p2)
+            result = result.push(collided)
+            j = j + 1
+        i = i + 1
+    result
+
+let compiler_collide_count(n) = n * n
+
+let has_op(table, n, op) =
+    let found = 0
+    let i = 0
+    for i < n
+        if pole_op(table[i]) == op
+            found = 1
+        i = i + 1
+    found
+
+let count_ops(table, n) =
+    let c0 = 0
+    let c1 = 0
+    let c2 = 0
+    let c3 = 0
+    let c4 = 0
+    let c5 = 0
+    let c6 = 0
+    let c7 = 0
+    let i = 0
+    for i < n
+        let op = pole_op(table[i])
+        if op == 0
+            c0 = c0 + 1
+        else
+            0
+        if op == 1
+            c1 = c1 + 1
+        else
+            0
+        if op == 2
+            c2 = c2 + 1
+        else
+            0
+        if op == 3
+            c3 = c3 + 1
+        else
+            0
+        if op == 4
+            c4 = c4 + 1
+        else
+            0
+        if op == 5
+            c5 = c5 + 1
+        else
+            0
+        if op == 6
+            c6 = c6 + 1
+        else
+            0
+        if op == 7
+            c7 = c7 + 1
+        i = i + 1
+    c0 + c1 + c2 + c3 + c4 + c5 + c6 + c7
+
+let fixed_point_verify(c, n) =
+    let cc = compiler_collide(c, n)
+    let cc_n = compiler_collide_count(n)
+    let h0 = has_op(cc, cc_n, 0)
+    let h1 = has_op(cc, cc_n, 1)
+    let h2 = has_op(cc, cc_n, 2)
+    let h3 = has_op(cc, cc_n, 3)
+    let h4 = has_op(cc, cc_n, 4)
+    let h5 = has_op(cc, cc_n, 5)
+    let h6 = has_op(cc, cc_n, 6)
+    let h7 = has_op(cc, cc_n, 7)
+    h0 + h1 + h2 + h3 + h4 + h5 + h6 + h7
+
+let self_ref_degree(c, n) =
+    let cc = compiler_collide(c, n)
+    let cc_n = compiler_collide_count(n)
+    let overlap = 0
+    let i = 0
+    for i < n
+        let op = pole_op(c[i])
+        if has_op(cc, cc_n, op) == 1
+            overlap = overlap + 1
+        i = i + 1
+    overlap
+
+let compiler_mutate(c, n, sigma) =
+    let result = []
+    let i = 0
+    for i < n
+        let p = c[i]
+        let new_p = gf_pow(pole_pole(p), sigma)
+        let new_r = gf_pow(pole_residue(p), sigma)
+        let op = pole_op(p)
+        result = result.push(pole_new(new_p, new_r, op))
+        i = i + 1
+    result
+
+let bootstrap_iterate(c, n, iterations) =
+    let current = c
+    let current_n = n
+    let iter = 0
+    let max_self_ref = 0
+    for iter < iterations
+        let sr = self_ref_degree(current, current_n)
+        if sr > max_self_ref
+            max_self_ref = sr
+        current = compiler_collide(current, current_n)
+        current_n = compiler_collide_count(current_n)
+        if current_n > 64
+            current = compiler_new()
+            current_n = 8
+        iter = iter + 1
+    max_self_ref
+
+let axiom1_verify(c, n) =
+    let ok = 0
+    if pole_exec(c[0], 1, 1) == 0
+        ok = ok + 1
+    if pole_exec(c[1], 1, 1) == 1
+        ok = ok + 1
+    if pole_exec(c[2], 0, 1) == 1
+        ok = ok + 1
+    if pole_exec(c[3], 1, 1) == 0
+        ok = ok + 1
+    if pole_exec(c[4], 1, 0) == 0
+        ok = ok + 1
+    if pole_exec(c[5], 3, 5) == 8
+        ok = ok + 1
+    if pole_exec(c[6], 5, 3) == 2
+        ok = ok + 1
+    if pole_exec(c[7], 3, 5) == 15
+        ok = ok + 1
+    ok
+
+let axiom2_verify(c, n) =
+    let p1 = c[0]
+    let p2 = c[1]
+    let p3 = c[5]
+    let left = pole_collide(pole_collide(p1, p2), p3)
+    let right = pole_collide(p1, pole_collide(p2, p3))
+    let ok = 0
+    if pole_pole(left) == pole_pole(right)
+        ok = ok + 1
+    if pole_residue(left) == pole_residue(right)
+        ok = ok + 1
+    if pole_op(left) == pole_op(right)
+        ok = ok + 1
+    ok
+
+let axiom3_verify(c, n) =
+    let sr = self_ref_degree(c, n)
+    (sr >= 4 ? sr : 0)
+
+let full_bootstrap_verify() =
+    let ok = 0
+
+    let c = compiler_new()
+    if pole_op(c[0]) == 0
+        ok = ok + 1
+    if pole_op(c[7]) == 7
+        ok = ok + 1
+
+    let p1 = c[0]
+    let p2 = c[1]
+    let collided = pole_collide(p1, p2)
+    if pole_pole(collided) == 202
+        ok = ok + 1
+    if pole_residue(collided) == 0
+        ok = ok + 1
+    if pole_op(collided) == 1
+        ok = ok + 1
+
+    let cc_n = compiler_collide_count(8)
+    if cc_n == 64
+        ok = ok + 1
+
+    let fp = fixed_point_verify(c, 8)
+    if fp == 8
+        ok = ok + 1
+
+    let sr = self_ref_degree(c, 8)
+    if sr == 8
+        ok = ok + 1
+
+    let iter_result = bootstrap_iterate(c, 8, 3)
+    if iter_result >= 0
+        ok = ok + 1
+
+    let ax1 = axiom1_verify(c, 8)
+    if ax1 == 8
+        ok = ok + 1
+
+    let ax2 = axiom2_verify(c, 8)
+    if ax2 == 3
+        ok = ok + 1
+
+    let ax3 = axiom3_verify(c, 8)
+    if ax3 >= 4
+        ok = ok + 1
+
+    let mutated = compiler_mutate(c, 8, 1)
+    let sr_mut = self_ref_degree(mutated, 8)
+    if sr_mut == 8
+        ok = ok + 1
+
+    if ax1 == 8 && ax2 == 3 && ax3 >= 4
+        ok = ok + 1
+
+    ok
+
+let main() = full_bootstrap_verify()

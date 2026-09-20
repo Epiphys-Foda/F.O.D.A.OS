@@ -1,0 +1,51 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let two10 = 2 * 2 * 2 * 2 * 2 * 2 * 2 * 2 * 2 * 2
+if two10 != 1024
+    bad[0] = bad[0] + 1
+let lg2 = 301
+bad[0] = bad[0] + ck(lg2, 300, 305)
+
+let lg20 = 1000 + lg2
+bad[0] = bad[0] + ck(lg20, 1298, 1305)
+
+let pka = 61
+let ph = pka + lg20 / 100
+bad[0] = bad[0] + ck(ph, 73, 75)
+
+let hco3 = 240
+let co2 = 12
+bad[0] = bad[0] + ck(hco3, 220, 260)
+bad[0] = bad[0] + ck(co2, 11, 13)
+
+let ratio = small_div(hco3, co2)
+bad[0] = bad[0] + ck(ratio, 19, 21)
+
+bad[0] = bad[0] + ck_lo(ph, 70)
+
+let lo = 68
+let hi = 78
+bad[0] = bad[0] + ck(ph, lo, hi)
+
+let f54 = small_div(1000 * 251, 100)
+bad[0] = bad[0] + ck(f54, 2400, 2600)
+
+let pacific = 82
+let pnow = 81
+bad[0] = bad[0] + ck_hi(pnow, pacific)
+let ten01 = 126
+bad[0] = bad[0] + ck(ten01, 125, 130)
+
+if 1909 < 1907
+    bad[0] = bad[0] + 1
+if 1909 > 1911
+    bad[0] = bad[0] + 1
+if 1916 < 1914
+    bad[0] = bad[0] + 1
+if 1916 > 1918
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

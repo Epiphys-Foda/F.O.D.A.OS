@@ -1,0 +1,27 @@
+import "ck.ψ"
+let bad = [0]
+
+let w = 30
+let o = 70
+let asym = o - w
+bad[0] = bad[0] + ck(asym, 30, 50)
+
+let mirror_ok = 0
+bad[0] = bad[0] + ck_hi(mirror_ok, 0)
+
+let chir = 0 - 1
+bad[0] = bad[0] + ck_hi(chir, 0)
+
+let tp = 1
+bad[0] = bad[0] + ck_lo(tp, 1)
+
+if 1956 < 1954
+    bad[0] = bad[0] + 1
+if 1956 > 1958
+    bad[0] = bad[0] + 1
+if 1957 < 1955
+    bad[0] = bad[0] + 1
+if 1957 > 1959
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

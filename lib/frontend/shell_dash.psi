@@ -1,0 +1,13 @@
+import "t_dash_n35.psi"
+import "win_shell.ψ"
+
+win_open(320, 240)
+let st = init(320, 240)
+let run = 1
+for run == 1
+  let ev = win_poll(12)
+  let t = shell_step(st, ev)
+  frame(st)
+  if t == 9
+    run = 0
+0

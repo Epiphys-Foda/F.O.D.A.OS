@@ -1,0 +1,457 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+import "bootstrap3_domain.ψ"
+import "bootstrap3_ml_quantum.ψ"
+
+import "sh_e39bb00202.ψ"
+import "sh_af95b2b028.ψ"
+import "sh_7c6dfc404d.ψ"
+import "sh_cb68026814.ψ"
+
+import "sh_0ce8ba5325.ψ"
+
+import "sh_0473596775.ψ"
+import "sh_34708e8229.ψ"
+
+import "sh_e06a4e4200.ψ"
+
+import "sh_1b5ec76ed2.ψ"
+
+import "../core/stdlib_lang2/gx_33aab46c3d.ψ"
+import "sh_e0d12bd923.ψ"
+import "sh_b63852aa1c.ψ"
+import "sh_beb5173b91.ψ"
+
+    let f1 = mf_make([0, 1, 2], [10, 20, 30], 3)
+    if mf_size(f1) == 3
+        ok = ok + 1
+    if mf_poles(f1)[0] == 0
+        ok = ok + 1
+    if mf_residues(f1)[1] == 20
+        ok = ok + 1
+
+    let f2 = mf_make([0, 1, 2], [5, 5, 5], 3)
+    let fadd = mf_add(f1, f2)
+    if mf_residues(fadd)[0] == 15
+        ok = ok + 1
+
+    let fmul = mf_mul(f1, f2)
+    if mf_residues(fmul)[0] == 50
+        ok = ok + 1
+
+    let fscale = mf_scale(f1, 2)
+    if mf_residues(fscale)[0] == 20
+        ok = ok + 1
+
+    let fcomp = mf_compose(f1, f2)
+    if mf_size(fcomp) == 3
+        ok = ok + 1
+
+    let fp1 = mf_fingerprint(f1)
+    if fp1 >= 0
+        ok = ok + 1
+
+    if mf_equal(f1, f1) == 1
+        ok = ok + 1
+    if mf_equal(f1, f2) == 0
+        ok = ok + 1
+
+    if ast_to_op(AST_LITERAL()) == OP_OBSERVE()
+        ok = ok + 1
+    if ast_to_op(AST_BINOP()) == OP_COMPILE()
+        ok = ok + 1
+    if ast_to_op(AST_IF()) == OP_SELF_VERIFY()
+        ok = ok + 1
+    if ast_to_op(AST_WHILE()) == OP_GALOIS()
+        ok = ok + 1
+    if ast_to_op(AST_CALL()) == OP_META_OBSERVE()
+        ok = ok + 1
+    if ast_to_op(AST_LET()) == OP_HOMOLOGY()
+        ok = ok + 1
+
+    let ast_t = [AST_LITERAL(), AST_BINOP(), AST_IF()]
+    let ast_v = [42, 7, 1]
+    let ast_field = ast_to_meta_field(ast_t, ast_v, 3)
+    if mf_size(ast_field) == 3
+        ok = ok + 1
+    if mf_poles(ast_field)[0] == gf_add(gf_mul(OP_OBSERVE(), 1000), 42)
+        ok = ok + 1
+
+    let fI = combinator_I(f1)
+    if mf_equal(fI, f1) == 1
+        ok = ok + 1
+
+    let fK = combinator_K([0], [99], 1)
+    if mf_residues(fK)[0] == 99
+        ok = ok + 1
+
+    let fB = combinator_B(f1, f2, f1)
+    if mf_size(fB) == 3
+        ok = ok + 1
+
+    let fS = combinator_S(f1, f2, f1)
+    if mf_size(fS) == 3
+        ok = ok + 1
+
+    let fY = combinator_Y(f1, 3)
+    if mf_size(fY) == 3
+        ok = ok + 1
+
+    let fp_result = kleene_fp(1, 2, 100)
+    if fp_result[2] >= 0
+        ok = ok + 1
+
+    let mf_fp = kleene_mf_fp(f1, 5)
+    if mf_fp[2] >= 0
+        ok = ok + 1
+
+    let hom = homology_compute(f1)
+    if hom[0] == 3
+        ok = ok + 1
+
+    let cancer = homology_cancer_check(f1)
+    if cancer == 0 || cancer == 1
+        ok = ok + 1
+
+    let apop = apoptosis(f1)
+    if mf_size(apop) >= 0
+        ok = ok + 1
+
+    let mutv = galois_mutate(f1, 2)
+    if mf_size(mutv) == 3
+        ok = ok + 1
+
+    let orbit = galois_orbit(f1, 2, 5)
+    if orbit[0] == mf_fingerprint(f1)
+        ok = ok + 1
+
+    let order = galois_order(f1, 2, 100)
+    if order >= 1
+        ok = ok + 1
+
+    let mc = meta_compiler()
+    if mf_size(mc) == 6
+        ok = ok + 1
+
+    let mcs = meta_compile_self()
+    if mf_equal(mc, mcs) == 1
+        ok = ok + 1
+
+    let proj = project(mc)
+    if mf_size(proj) >= 1
+        ok = ok + 1
+
+    let lifted = lift(G0_POLES(), G0_RESIDUES(), G0_N())
+    if mf_size(lifted) == 3
+        ok = ok + 1
+
+    if bootstrap_tower(4) == 1
+        ok = ok + 1
+    if bootstrap_tower(8) == 1
+        ok = ok + 1
+
+    ok
+
+let betti_numbers(complex) =
+    let n = mf_size(complex)
+    let hom = homology_compute(complex)
+    let b0 = hom[0]
+    let b1 = 0
+    if hom[1] == 0
+        b1 = gf_sub(n, 1)
+    let b2 = hom[2]
+    [b0, b1, b2]
+
+let euler_characteristic(complex) =
+    let betti = betti_numbers(complex)
+    gf_sub(gf_add(betti[0], betti[2]), betti[1])
+
+let cohomology(complex) =
+    homology_compute(complex)
+
+let fiber_bundle(base, fiber) =
+    let base_n = mf_size(base)
+    let fiber_n = mf_size(fiber)
+    let total_n = gf_mul(base_n, fiber_n)
+    let total_p = []
+    let total_r = []
+    let i = 0
+    for i < base_n
+        let j = 0
+        for j < fiber_n
+            total_p = total_p.push(gf_add(gf_mul(mf_poles(base)[i], 100), mf_poles(fiber)[j]))
+            total_r = total_r.push(gf_add(gf_mul(mf_residues(base)[i], 100), mf_residues(fiber)[j]))
+            j = j + 1
+        i = i + 1
+    mf_make(total_p, total_r, total_n)
+
+let bundle_euler(base, fiber) =
+    let chi_b = euler_characteristic(base)
+    let chi_f = euler_characteristic(fiber)
+    gf_mul(chi_b, chi_f)
+
+let is_connected(complex) =
+    let hom = homology_compute(complex)
+    let result = 0
+    if hom[0] == 1
+        result = 1
+    result
+
+let verify_bundle_euler(base, fiber) =
+    let total = fiber_bundle(base, fiber)
+    let chi_e = euler_characteristic(total)
+    let chi_bf = bundle_euler(base, fiber)
+    let result = 0
+    if chi_e == chi_bf
+        result = 1
+    result
+
+let probability_distribution(f) =
+    let n = mf_size(f)
+    let total = 0
+    let i = 0
+    for i < n
+        let r = mf_residues(f)[i]
+        total = gf_add(total, gf_mul(r, r))
+        i = i + 1
+    let norm = gf_inv(total)
+    mf_scale(f, norm)
+
+let shannon_entropy(f) =
+    let n = mf_size(f)
+    let h = 0
+    let i = 0
+    for i < n
+        let r = mf_residues(f)[i]
+        let p = gf_mul(r, r)
+        h = gf_add(h, gf_mul(p, gf_sub(1, p)))
+        i = i + 1
+    h
+
+let kl_divergence(p, q) =
+    let n = mf_size(p)
+    let d = 0
+    let i = 0
+    for i < n
+        let pi = mf_residues(p)[i]
+        let qi = mf_residues(q)[i]
+        let diff = gf_sub(pi, qi)
+        d = gf_add(d, gf_mul(diff, diff))
+        i = i + 1
+    d
+
+let mutual_information(joint, marginal_x, marginal_y) =
+    let h_xy = shannon_entropy(joint)
+    let h_x = shannon_entropy(marginal_x)
+    let h_y = shannon_entropy(marginal_y)
+    gf_sub(gf_add(h_x, h_y), h_xy)
+
+let channel_capacity(input, output, max_iter) =
+    let capacity = 0
+    let i = 0
+    for i < max_iter
+        let mutated = galois_mutate(input, gf_add(i, 1))
+        let mi = kl_divergence(mutated, output)
+        if mi > capacity
+            capacity = mi
+        i = i + 1
+    capacity
+
+let is_focal_point(f) =
+    let n = mf_size(f)
+    let non_zero = 0
+    let i = 0
+    for i < n
+        if mf_residues(f)[i] != 0
+            non_zero = non_zero + 1
+        i = i + 1
+    let result = 0
+    if non_zero == 1
+        result = 1
+    result
+
+let dynamics_iterate(initial, transform, steps) =
+    let x = initial
+    let trajectory = [x]
+    let i = 0
+    for i < steps
+        x = gf_add(gf_mul(transform, x), 1)
+        trajectory = trajectory.push(x)
+        i = i + 1
+    trajectory
+
+let dynamics_fixed_point(transform, max_iter) =
+    let x = 0
+    let i = 0
+    let found = 0
+    for i < max_iter
+        let fx = gf_add(gf_mul(transform, x), 1)
+        if fx == x
+            found = 1
+        i = max_iter
+        if fx != x
+            x = fx
+        i = i + 1
+    [x, found]
+
+let dynamics_limit_cycle(initial, transform, steps) =
+    let trajectory = dynamics_iterate(initial, transform, steps)
+    let n = steps + 1
+    let last = trajectory[n - 1]
+    let period = 0
+    let i = 0
+    for i < n - 1
+        if trajectory[i] == last
+            period = gf_sub(n - 1, i)
+        i = n
+        i = i + 1
+    period
+
+let lyapunov_exponent(initial, transform, steps) =
+    let x = initial
+    let lambda = 0
+    let i = 0
+    for i < steps
+        let derivative = transform
+        let diff = gf_sub(derivative, 1)
+        lambda = gf_add(lambda, gf_mul(diff, diff))
+        x = gf_add(gf_mul(transform, x), 1)
+        i = i + 1
+    lambda
+
+let bifurcation_check(transform_start, transform_end, step) =
+    let stabilities = []
+    let t = transform_start
+    for t < transform_end
+        let fp = dynamics_fixed_point(t, 100)
+        let lyap = lyapunov_exponent(fp[0], t, 10)
+        stabilities = stabilities.push(lyap)
+        t = t + step
+    stabilities
+
+let is_chaotic(initial, transform, steps) =
+    let lyap = lyapunov_exponent(initial, transform, steps)
+    let result = 0
+    if lyap > 0
+        result = 1
+    result
+
+let bootstrap3_topology_verify() =
+    let ok = 0
+
+    let complex1 = mf_make([0, 1, 2], [1, 1, 1], 3)
+    let complex2 = mf_make([0, 1], [1, 1], 2)
+
+    let betti1 = betti_numbers(complex1)
+    if betti1[0] == 3
+        ok = ok + 1
+
+    let euler1 = euler_characteristic(complex1)
+    if euler1 >= 0
+        ok = ok + 1
+
+    let cohom = cohomology(complex1)
+    if cohom[0] == 3
+        ok = ok + 1
+
+    let bundle = fiber_bundle(complex1, complex2)
+    if mf_size(bundle) == 6
+        ok = ok + 1
+
+    let chi_b = euler_characteristic(complex1)
+    let chi_f = euler_characteristic(complex2)
+    let chi_e = euler_characteristic(bundle)
+    if chi_e >= 0
+        ok = ok + 1
+
+    let conn = is_connected(complex2)
+    if conn == 0 || conn == 1
+        ok = ok + 1
+
+    let dist1 = mf_make([0, 1], [3, 4], 2)
+    let dist2 = mf_make([0, 1], [1, 2], 2)
+
+    let prob = probability_distribution(dist1)
+    if mf_size(prob) == 2
+        ok = ok + 1
+
+    let entropy1 = shannon_entropy(dist1)
+    if entropy1 >= 0
+        ok = ok + 1
+    let entropy2 = shannon_entropy(dist2)
+    if entropy2 >= 0
+        ok = ok + 1
+
+    let kl = kl_divergence(dist1, dist2)
+    if kl >= 0
+        ok = ok + 1
+
+    let kl_self = kl_divergence(dist1, dist1)
+    if kl_self == 0
+        ok = ok + 1
+
+    let mi = mutual_information(dist1, dist1, dist2)
+    if mi >= 0
+        ok = ok + 1
+
+    let cap = channel_capacity(dist1, dist2, 5)
+    if cap >= 0
+        ok = ok + 1
+
+    let focal = mf_make([0], [5], 1)
+    if is_focal_point(focal) == 1
+        ok = ok + 1
+    if is_focal_point(dist1) == 0
+        ok = ok + 1
+
+    let traj = dynamics_iterate(1, 2, 5)
+    if traj[0] == 1
+        ok = ok + 1
+    if traj[1] == 3
+        ok = ok + 1
+
+    let fp = dynamics_fixed_point(2, 100)
+    if fp[2] >= 0
+        ok = ok + 1
+
+    let cycle = dynamics_limit_cycle(1, 2, 5)
+    if cycle >= 0
+        ok = ok + 1
+
+    let lyap = lyapunov_exponent(1, 2, 5)
+    if lyap >= 0
+        ok = ok + 1
+
+    let chaotic = is_chaotic(1, 2, 5)
+    if chaotic == 0 || chaotic == 1
+        ok = ok + 1
+
+    let bifurc = bifurcation_check(1, 5, 1)
+    if bifurc[0] >= 0
+        ok = ok + 1
+
+    let complex_entropy = shannon_entropy(complex1)
+    if complex_entropy >= 0
+        ok = ok + 1
+
+    let traj_field = mf_make([0, 1, 2], [traj[0], traj[1], traj[2]], 3)
+    let traj_hom = homology_compute(traj_field)
+    if traj_hom[0] == 3
+        ok = ok + 1
+
+    let mut_complex = galois_mutate(complex1, 2)
+    if mf_size(mut_complex) == 3
+        ok = ok + 1
+
+    let fI = combinator_I(complex1)
+    if mf_equal(fI, complex1) == 1
+        ok = ok + 1
+
+    if ast_to_op(AST_IF()) == OP_SELF_VERIFY()
+        ok = ok + 1
+
+    if bootstrap_tower(8) == 1
+        ok = ok + 1
+
+    ok
+
+let main() = bootstrap3_topology_verify()

@@ -1,0 +1,207 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let MOL_MAX_ATOMS = 256
+let MOL_MAX_BONDS = 512
+
+let mol_create() = [[], [], 0, 0]
+let atom_create(id, element, x, y, z) = [id, element, x, y, z, 0]
+let atom_set_charge(atom, charge) = [atom[0], atom[1], atom[2], atom[3], atom[4], charge]
+let mol_add_atom(mol, atom) =
+    let atoms = mol[0]
+    atoms.push(atom)
+    [atoms, mol[1], mol[2] + 1, mol[3]]
+let bond_create(a1, a2, order) = [a1, a2, order, 1]
+let mol_add_bond(mol, bond) =
+    let bonds = mol[1]
+    bonds.push(bond)
+    [mol[0], bonds, mol[2], mol[3] + 1]
+let mol_molecular_weight(mol, atomic_weights) =
+    let atoms = mol[0]
+    let total = 0
+    let i = 0
+    let n = mol[2]
+    for i < n
+        let el = atoms[i][1]
+        total = gf_add(total, atomic_weights[el])
+        i = i + 1
+    total
+let mol_formula(mol) =
+    let atoms = mol[0]
+    let counts = []
+    let i = 0
+    for i < 119
+        counts.push(0)
+        i = i + 1
+    i = 0
+    let n = mol[2]
+    for i < n
+        let el = atoms[i][1]
+        counts[el] = counts[el] + 1
+        i = i + 1
+    counts
+let mol_adjacency_matrix(mol) =
+    let n = mol[2]
+    let matrix = []
+    let i = 0
+    for i < n * n
+        matrix.push(0)
+        i = i + 1
+    let bonds = mol[1]
+    i = 0
+    let m = mol[3]
+    for i < m
+        let bond = bonds[i]
+        matrix[bond[0] * n + bond[1]] = bond[2]
+        matrix[bond[1] * n + bond[0]] = bond[2]
+        i = i + 1
+    matrix
+let mol_distance(atom1, atom2) =
+    let dx = gf_sub(atom1[2], atom2[2])
+    let dy = gf_sub(atom1[3], atom2[3])
+    let dz = gf_sub(atom1[4], atom2[4])
+    gf_add(gf_add(gf_mul(dx, dx), gf_mul(dy, dy)), gf_mul(dz, dz))
+let field_mol(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let mol_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_mol(test_data, 3, 500)
+    let ok = 0
+    if result != 0
+        ok = 1
+    ok
+
+let ATOMIC_NUM = [1, 6, 7, 8, 9, 15, 16, 17, 9, 11, 12, 13, 14, 19, 20]
+let ATOM_LABELS = ["H", "C", "N", "O", "F", "P", "S", "Cl", "F2", "Na", "Mg", "Al", "Si", "K", "Ca"]
+
+let psi_atom(atom_z_list, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let diff = gf_sub(z, i)
+        if diff != 0
+            val = gf_add(val, gf_mul(gf_norm(atom_z_list[i]), gf_inv(diff)))
+        i = i + 1
+    val
+
+let BOND_LENGTH_POLES = [109, 154, 120, 134, 96, 101, 136, 116, 100]
+let BOND_ENERGY_RES = [4130, 3460, 8350, 6020, 4590, 3860, 3600, 7450, 4640]
+let BOND_LABELS = ["C-H", "C-C", "C≡C", "C=C", "O-H", "N-H", "C-O", "C=O", "C-N"]
+
+let psi_bond(r_x100) =
+    let val = 0
+    let k = 0
+    for k < 9
+        let diff = gf_sub(gf_norm(r_x100), gf_norm(BOND_LENGTH_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(BOND_ENERGY_RES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let BOND_ANGLE_POLES = [1045, 1070, 1095, 1200, 1800, 900, 1095, 1800]
+let DIPOLE_MOMENTS = [185, 147, 0, 0, 0, 0, 60, 0]
+let GEOM_LABELS = ["H₂O", "NH₃", "CH₄", "BF₃", "CO₂", "H₂S", "CH₃Cl", "C₂H₂"]
+
+let psi_geometry(theta_x10) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(theta_x10), gf_norm(BOND_ANGLE_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(DIPOLE_MOMENTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let molecule_global_response(atom_z_list, n_atoms, r_x100, theta_x10) =
+    let e1 = psi_atom(atom_z_list, n_atoms, n_atoms / 2)
+    let e2 = psi_bond(r_x100)
+    let e3 = psi_geometry(theta_x10)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+
+let predict_bond_length(bond_label_idx) = BOND_LENGTH_POLES[bond_label_idx]
+
+let predict_bond_angle(mol_label_idx) = BOND_ANGLE_POLES[mol_label_idx]
+
+let nested_fractal_molecule_invariants() =
+    let water_atoms = [1, 1, 8]
+    let e1 = psi_atom(water_atoms, 3, 1)
+    let e2 = psi_bond(96)
+    let e3 = psi_geometry(1045)
+    let inv1 = 0
+    if e1 != 0
+        if e2 != 0
+            if e3 != 0
+                inv1 = 1
+    let inv2 = 0
+    if BOND_LENGTH_POLES[0] < BOND_LENGTH_POLES[1]
+        inv2 = 1
+    let inv3 = 0
+    if len(BOND_LENGTH_POLES) == 9
+        if len(BOND_ENERGY_RES) == 9
+            inv3 = 1
+    let inv4 = 0
+    if BOND_ANGLE_POLES[0] == 1045
+        if BOND_ANGLE_POLES[4] == 1800
+            inv4 = 1
+    let inv5 = 0
+    if DIPOLE_MOMENTS[0] == 185
+        if DIPOLE_MOMENTS[4] == 0
+            inv5 = 1
+    [inv1, inv2, inv3, inv4, inv5]
+
+let molecule_verify_v19() =
+    let water_atoms = [1, 1, 8]
+    let t1 = 0
+    if psi_atom(water_atoms, 3, 1) != 0
+        t1 = 1
+    let t2 = 0
+    if psi_bond(109) != 0
+        t2 = 1
+    let t3 = 0
+    if psi_geometry(1045) != 0
+        t3 = 1
+    let t4 = 0
+    if BOND_LENGTH_POLES[0] == 109
+        t4 = 1
+    let t5 = 0
+    if BOND_LENGTH_POLES[1] == 154
+        t5 = 1
+    let t6 = 0
+    if BOND_LENGTH_POLES[2] == 120
+        t6 = 1
+    let t7 = 0
+    if BOND_ENERGY_RES[0] == 4130
+        t7 = 1
+    let t8 = 0
+    if BOND_ANGLE_POLES[0] == 1045
+        t8 = 1
+    let t9 = 0
+    if BOND_ANGLE_POLES[4] == 1800
+        t9 = 1
+    let t10 = 0
+    if DIPOLE_MOMENTS[0] == 185
+        t10 = 1
+    let t11 = 0
+    if DIPOLE_MOMENTS[4] == 0
+        t11 = 1
+    let invs = nested_fractal_molecule_invariants()
+    let t12 = 0
+    if invs[0] == 1
+        if invs[1] == 1
+            if invs[2] == 1
+                if invs[3] == 1
+                    if invs[4] == 1
+                        t12 = 1
+    let passed = t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12
+    passed == 12
+

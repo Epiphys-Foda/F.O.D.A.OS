@@ -1,0 +1,287 @@
+let stat_sum(data) =
+    let n = data.len()
+    let result = 0
+    let i = 0
+    for i < n
+        result = result + data[i]
+        i = i + 1
+    result
+
+let stat_mean(data) =
+    let n = data.len()
+    if n == 0
+        return 0
+    stat_sum(data) / n
+
+let stat_min(data) =
+    let n = data.len()
+    if n == 0
+        return 0
+    let result = data[0]
+    let i = 1
+    for i < n
+        if data[i] < result
+            result = data[i]
+        i = i + 1
+    result
+
+let stat_max(data) =
+    let n = data.len()
+    if n == 0
+        return 0
+    let result = data[0]
+    let i = 1
+    for i < n
+        if data[i] > result
+            result = data[i]
+        i = i + 1
+    result
+
+let stat_range(data) = stat_max(data) - stat_min(data)
+
+let stat_variance(data) =
+    let n = data.len()
+    if n == 0
+        return 0
+    let mean = stat_mean(data)
+    let sum_sq = 0
+    let i = 0
+    for i < n
+        let diff = data[i] - mean
+        sum_sq = sum_sq + diff * diff
+        i = i + 1
+    sum_sq / n
+
+let stat_stddev(data) =
+    let v = stat_variance(data)
+    if v == 0
+        return 0
+    let result = 1
+    for result * result <= v
+        result = result + 1
+    result - 1
+
+let stat_median(sorted_data) =
+    let n = sorted_data.len()
+    if n == 0
+        return 0
+    if n % 2 == 1
+        sorted_data[n / 2]
+    else
+        (sorted_data[n / 2 - 1] + sorted_data[n / 2]) / 2
+
+let stat_mode(sorted_data) =
+    let n = sorted_data.len()
+    if n == 0
+        return 0
+    let mode = sorted_data[0]
+    let mode_count = 1
+    let current = sorted_data[0]
+    let current_count = 1
+    let i = 1
+    for i < n
+        if sorted_data[i] == current
+            current_count = current_count + 1
+        else
+            if current_count > mode_count
+                mode_count = current_count
+                mode = current
+            current = sorted_data[i]
+            current_count = 1
+        i = i + 1
+    if current_count > mode_count
+        mode = current
+    mode
+
+let stat_percentile(sorted_data, p) =
+    let n = sorted_data.len()
+    if n == 0
+        return 0
+    let idx = (p * (n - 1)) / 100
+    sorted_data[idx]
+
+let stat_q1(sorted_data) = stat_percentile(sorted_data, 25)
+let stat_q3(sorted_data) = stat_percentile(sorted_data, 75)
+
+let stat_iqr(sorted_data) = stat_q3(sorted_data) - stat_q1(sorted_data)
+
+let stat_covariance(x, y) =
+    let n = x.len()
+    if n == 0
+        return 0
+    let mean_x = stat_mean(x)
+    let mean_y = stat_mean(y)
+    let sum = 0
+    let i = 0
+    for i < n
+        sum = sum + (x[i] - mean_x) * (y[i] - mean_y)
+        i = i + 1
+    sum / n
+
+let stat_correlation(x, y) =
+    let cov = stat_covariance(x, y)
+    let var_x = stat_variance(x)
+    let var_y = stat_variance(y)
+    if var_x == 0 || var_y == 0
+        return 0
+    let denom = var_x * var_y
+    (cov * cov) / denom
+
+let stat_histogram(data, bin_size) =
+    let lo = stat_min(data)
+    let hi = stat_max(data)
+    let num_bins = (hi - lo) / bin_size + 1
+    let counts = arr_new_n(num_bins)
+    let n = data.len()
+    let i = 0
+    for i < n
+        let bin = (data[i] - lo) / bin_size
+        counts[bin] = counts[bin] + 1
+        i = i + 1
+    counts
+
+let stat_frequency(data) =
+    let n = data.len()
+    let values = arr_new()
+    let counts = arr_new()
+    let i = 0
+    for i < n
+        let v = data[i]
+        let found = 0 - 1
+        let j = 0
+        let m = values.len()
+        for j < m
+            if values[j] == v
+                found = j
+            j = j + 1
+        if found >= 0
+            counts[found] = counts[found] + 1
+        else
+            values = arr_push(values, v)
+            counts = arr_push(counts, 1)
+        i = i + 1
+    let result = arr_new()
+    i = 0
+    let m = values.len()
+    for i < m
+        let pair = arr_new()
+        pair = arr_push(pair, values[i])
+        pair = arr_push(pair, counts[i])
+        result = arr_push(result, pair)
+        i = i + 1
+    result
+
+let stat_moving_average(data, window) =
+    let n = data.len()
+    if n < window
+        return arr_new()
+    let result = arr_new()
+    let i = 0
+    for i <= n - window
+        let sum = 0
+        let j = 0
+        for j < window
+            sum = sum + data[i + j]
+            j = j + 1
+        result = arr_push(result, sum / window)
+        i = i + 1
+    result
+
+let stat_exp_smoothing(data, alpha) =
+    let n = data.len()
+    if n == 0
+        return arr_new()
+    let result = arr_new()
+    result = arr_push(result, data[0])
+    let i = 1
+    for i < n
+        let prev = result[i - 1]
+        let smoothed = alpha * data[i] + (100 - alpha) * prev / 100
+        result = arr_push(result, smoothed)
+        i = i + 1
+    result
+
+let stat_weighted_mean(data, weights) =
+    let n = data.len()
+    let sum = 0
+    let weight_sum = 0
+    let i = 0
+    for i < n
+        sum = sum + data[i] * weights[i]
+        weight_sum = weight_sum + weights[i]
+        i = i + 1
+    if weight_sum == 0
+        return 0
+    sum / weight_sum
+
+let stat_geometric_mean(data) =
+    let n = data.len()
+    if n == 0
+        return 0
+    let product = 1
+    let i = 0
+    for i < n
+        product = product * data[i]
+        i = i + 1
+    product
+
+let stat_harmonic_mean(data) =
+    let n = data.len()
+    if n == 0
+        return 0
+    let sum = 0
+    let i = 0
+    for i < n
+        if data[i] == 0
+            return 0
+        sum = sum + (1 / data[i])
+        i = i + 1
+    if sum == 0
+        return 0
+    n / sum
+
+let stat_skewness(data) =
+    let n = data.len()
+    if n == 0
+        return 0
+    let mean = stat_mean(data)
+    let stddev = stat_stddev(data)
+    if stddev == 0
+        return 0
+    let sum = 0
+    let i = 0
+    for i < n
+        let diff = data[i] - mean
+        sum = sum + diff * diff * diff
+        i = i + 1
+    sum / (n * stddev * stddev * stddev)
+
+let stat_kurtosis(data) =
+    let n = data.len()
+    if n == 0
+        return 0
+    let mean = stat_mean(data)
+    let v = stat_variance(data)
+    if v == 0
+        return 0
+    let sum = 0
+    let i = 0
+    for i < n
+        let diff = data[i] - mean
+        let sq = diff * diff
+        sum = sum + sq * sq
+        i = i + 1
+    sum / (n * v * v) - 3
+
+let main() =
+    let data = arr_new()
+    data = arr_push(data, 1)
+    data = arr_push(data, 2)
+    data = arr_push(data, 3)
+    data = arr_push(data, 4)
+    data = arr_push(data, 5)
+    print(stat_mean(data))
+    print(stat_variance(data))
+    print(stat_min(data))
+    print(stat_max(data))
+    0

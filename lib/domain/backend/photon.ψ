@@ -1,0 +1,72 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let PHOTON_MAX_MODES = 64
+let PHOTON_MAX_PHOTONS = 16
+
+let photon_create(mode, polarization) = [mode, polarization, 0]
+let photon_set_phase(photon, phase) = [photon[0], photon[1], phase]
+let ELEMENT_BS = 1
+let ELEMENT_PS = 2
+let ELEMENT_MZ = 3
+let ELEMENT_DET = 4
+
+let optical_element_create(kind, params) = [kind, params]
+let optical_circuit_create(modes) = [[], modes, 0]
+let optical_circuit_add(circuit, element) =
+    let elements = circuit[1]
+    elements.push(element)
+    [circuit[0], elements, circuit[2] + 1]
+let beamsplitter(input1, input2) =
+    let output1 = gf_div(gf_add(input1, input2), 2)
+    let output2 = gf_div(gf_sub(input1, input2), 2)
+    [output1, output2]
+let phase_shifter(input, phase) = gf_mul(input, phase)
+let mach_zehnder(input, phase) =
+    let bs1 = beamsplitter(input, 0)
+    let ps = phase_shifter(bs1[0], phase)
+    beamsplitter(ps, bs1[1])
+let photon_detect(photon) =
+    (photon[1] == 0 ? 1 : 0)
+let photon_bunching(detector1, detector2) =
+    gf_mul(detector1, detector2)
+let boson_sampling(matrix, input_state) =
+    let output = []
+    let i = 0
+    let n = len(input_state)
+    for i < n
+        let val = 0
+        let j = 0
+        let m = matrix[0].len()
+        for j < m
+            val = gf_add(val, gf_mul(matrix[i][j], input_state[j]))
+            j = j + 1
+        output.push(val)
+        i = i + 1
+    output
+let permanent(matrix, n) =
+    let result = 1
+    let i = 0
+    for i < n
+        result = gf_mul(result, matrix[i][i])
+        i = i + 1
+    result
+let field_photon(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let photon_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_photon(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+

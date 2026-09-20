@@ -1,0 +1,174 @@
+import "numtheor.ψ"
+let tensor_shape(tensor) =
+    let shape = []
+    let current = tensor
+    for current.len() > 0
+        shape = arr_concat(shape, [current.len()])
+        if current[0].len() > 0
+            current = current[0]
+        else
+            current = []
+    shape
+
+let tensor_zeros(shape) =
+    if shape.len() == 0
+        0
+    else
+        0
+    if shape.len() == 1
+        let result = []
+        let i = 0
+        for i < shape[0]
+            result = arr_concat(result, [0])
+            i = i + 1
+        result
+    else
+        let result = []
+        let i = 0
+        for i < shape[0]
+            result = arr_concat(result, [tensor_zeros(arr_drop(shape, 1))])
+            i = i + 1
+        result
+
+let tensor_add(a, b) =
+    if a.len() == 0
+        a + b
+    else
+        let result = []
+        let i = 0
+        for i < a.len()
+            result = arr_concat(result, [tensor_add(a[i], b[i])])
+            i = i + 1
+        result
+
+let tensor_scale(a, s) =
+    if a.len() == 0
+        a * s
+    else
+        let result = []
+        let i = 0
+        for i < a.len()
+            result = arr_concat(result, [tensor_scale(a[i], s)])
+            i = i + 1
+        result
+
+let tensor_dot_1d(a, b) =
+    let result = 0
+    let i = 0
+    for i < a.len()
+        result = result + a[i] * b[i]
+        i = i + 1
+    result
+
+let tensor_matmul(a, b) =
+    let m = a.len()
+    let n = b.len()
+    let p = b[0].len()
+    let result = []
+    let i = 0
+    for i < m
+        let row = []
+        let j = 0
+        for j < p
+            let sum = 0
+            let k = 0
+            for k < n
+                sum = sum + a[i][k] * b[k][j] / 1000
+                k = k + 1
+            row = arr_concat(row, [sum])
+            j = j + 1
+        result = arr_concat(result, [row])
+        i = i + 1
+    result
+
+let tensor_transpose(matrix) =
+    let m = matrix.len()
+    let n = matrix[0].len()
+    let result = []
+    let j = 0
+    for j < n
+        let row = []
+        let i = 0
+        for i < m
+            row = arr_concat(row, [matrix[i][j]])
+            i = i + 1
+        result = arr_concat(result, [row])
+        j = j + 1
+    result
+
+let tensor_outer(a, b) =
+    let result = []
+    let i = 0
+    for i < a.len()
+        let row = []
+        let j = 0
+        for j < b.len()
+            row = arr_concat(row, [a[i] * b[j] / 1000])
+            j = j + 1
+        result = arr_concat(result, [row])
+        i = i + 1
+    result
+
+let tensor_trace(matrix) =
+    let n = matrix.len()
+    let result = 0
+    let i = 0
+    for i < n
+        result = result + matrix[i][i]
+        i = i + 1
+    result
+
+let tensor_frobenius_norm(tensor) =
+    let sq = tensor_sum_sq(tensor)
+    isqrt(sq)
+
+let tensor_sum_sq(a) =
+    if a.len() == 0
+        a * a
+    else
+        let result = 0
+        let i = 0
+        for i < a.len()
+            result = result + tensor_sum_sq(a[i])
+            i = i + 1
+        result
+
+let tensor_contract(tensor, axis1, axis2) =
+    if axis1 == 0 && axis2 == 1
+        tensor_trace(tensor)
+    else
+        0
+
+let tensor_kronecker(a, b) =
+    let m = a.len()
+    let n = a[0].len()
+    let p = b.len()
+    let q = b[0].len()
+    let result = []
+    let i = 0
+    for i < m * p
+        let row = []
+        let j = 0
+        for j < n * q
+            let ai = i / p
+            let bi = i % p
+            let aj = j / q
+            let bj = j % q
+            row = arr_concat(row, [a[ai][aj] * b[bi][bj] / 1000])
+            j = j + 1
+        result = arr_concat(result, [row])
+        i = i + 1
+    result
+
+let main() =
+    let a = [[1000, 200], [300, 400]]
+    let b = [[500, 600], [700, 800]]
+    let c = tensor_matmul(a, b)
+    print(c)
+    let t = tensor_transpose(a)
+    print(t)
+    let tr = tensor_trace(a)
+    print(tr)
+    let outer = tensor_outer([1, 2, 3], [4, 5, 6])
+    print(outer)
+    0

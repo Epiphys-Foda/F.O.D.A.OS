@@ -1,0 +1,212 @@
+import "../domain_field.ψ"
+
+let DL_DEFAULT_MAX_PARTITIONS = 64
+let DL_DEFAULT_MAX_VERSIONS = 100
+let DL_FORMAT_RAW = 0
+let DL_FORMAT_CSV = 1
+let DL_FORMAT_JSON = 2
+let DL_FORMAT_PARQUET = 3
+
+let dl_object_new(id, name, format, size, partition, content_hash, created_at) =
+    [id, name, format, size, partition, content_hash, created_at, []]
+
+let dl_obj_id(o) = o[0]
+let dl_obj_name(o) = o[1]
+let dl_obj_format(o) = o[2]
+let dl_obj_size(o) = o[3]
+let dl_obj_partition(o) = o[4]
+let dl_obj_hash(o) = o[5]
+let dl_obj_created_at(o) = o[6]
+let dl_obj_tags(o) = o[7]
+
+let dl_obj_set_tags(o, t) = [o[0], o[1], o[2], o[3], o[4], o[5], o[6], t]
+
+let dl_new() = [{}, {}, {}, 1, 0, 0]
+
+let dl_objects(dl) = dl[0]
+let dl_partitions(dl) = dl[1]
+let dl_versions(dl) = dl[2]
+let dl_next_id(dl) = dl[3]
+let dl_total_size(dl) = dl[4]
+let dl_object_count(dl) = dl[5]
+
+let dl_set_objects(dl, o) = [o, dl[1], dl[2], dl[3], dl[4], dl[5]]
+let dl_set_partitions(dl, p) = [dl[0], p, dl[2], dl[3], dl[4], dl[5]]
+let dl_set_versions(dl, v) = [dl[0], dl[1], v, dl[3], dl[4], dl[5]]
+let dl_set_next_id(dl, n) = [dl[0], dl[1], dl[2], n, dl[4], dl[5]]
+let dl_set_total_size(dl, s) = [dl[0], dl[1], dl[2], dl[3], s, dl[5]]
+let dl_set_object_count(dl, c) = [dl[0], dl[1], dl[2], dl[3], dl[4], c]
+
+let dl_put(dl, name, format, size, partition, content_hash, created_at) =
+    let id = dl_next_id(dl)
+    let obj = dl_object_new(id, name, format, size, partition, content_hash, created_at)
+    let objects = dl_objects(dl)
+    objects[id] = obj
+    let partitions = dl_partitions(dl)
+    let part_list = partitions[partition]
+    if part_list == 0
+        part_list = []
+    part_list.push(id)
+    partitions[partition] = part_list
+    let versions = dl_versions(dl)
+    let version_list = versions[name]
+    if version_list == 0
+        version_list = []
+    version_list.push(id)
+    for len(version_list) > DL_DEFAULT_MAX_VERSIONS
+        version_list.shift()
+    versions[name] = version_list
+    let dl2 = dl_set_objects(dl, objects)
+    dl2 = dl_set_partitions(dl2, partitions)
+    dl2 = dl_set_versions(dl2, versions)
+    dl2 = dl_set_next_id(dl2, id + 1)
+    dl2 = dl_set_total_size(dl2, dl_total_size(dl2) + size)
+    dl2 = dl_set_object_count(dl2, dl_object_count(dl2) + 1)
+    [dl2, id]
+
+let dl_get(dl, id) =
+    let objects = dl_objects(dl)
+    objects[id]
+
+let dl_get_latest_by_name(dl, name) =
+    let versions = dl_versions(dl)
+    let version_list = versions[name]
+    if version_list == 0
+        0
+    else
+        if len(version_list) == 0
+            0
+        else
+            let latest_id = version_list[len(version_list) - 1]
+            dl_get(dl, latest_id)
+
+let dl_get_at_time(dl, name, timestamp) =
+    let versions = dl_versions(dl)
+    let version_list = versions[name]
+    if version_list == 0
+        0
+    else
+        let objects = dl_objects(dl)
+        let found = 0
+        let i = len(version_list) - 1
+        for i >= 0
+            let obj_id = version_list[i]
+            let obj = objects[obj_id]
+            if obj != 0
+                if dl_obj_created_at(obj) <= timestamp
+                    found = obj
+                    i = -1
+            i = i - 1
+        found
+
+let dl_list_partition(dl, partition) =
+    let partitions = dl_partitions(dl)
+    let part_list = partitions[partition]
+    if part_list == 0
+        []
+    else
+        let objects = dl_objects(dl)
+        let result = []
+        let i = 0
+        let n = len(part_list)
+        for i < n
+            result.push(objects[part_list[i]])
+            i = i + 1
+        result
+
+let dl_list_partitions(dl) =
+    let partitions = dl_partitions(dl)
+    keys_of(partitions)
+
+let dl_bragg_verify_hash(dl, id, expected_hash) =
+    let obj = dl_get(dl, id)
+    if obj == 0
+        0
+    else
+        if dl_obj_hash(obj) == expected_hash
+            1
+        else
+            0
+
+let dl_bragg_verify_partition(dl, partition) =
+    let partitions = dl_partitions(dl)
+    let part_list = partitions[partition]
+    if part_list == 0
+        1
+    else
+        let objects = dl_objects(dl)
+        let i = 0
+        let n = len(part_list)
+        let pass = 1
+        for i < n
+            if objects[part_list[i]] == 0
+                pass = 0
+                i = n
+            i = i + 1
+        pass
+
+let dl_bragg_verify_version_chain(dl, name) =
+    let versions = dl_versions(dl)
+    let version_list = versions[name]
+    if version_list == 0
+        1
+    else
+        let objects = dl_objects(dl)
+        let i = 1
+        let n = len(version_list)
+        let pass = 1
+        for i < n
+            let prev = objects[version_list[i - 1]]
+            let cur = objects[version_list[i]]
+            if prev == 0
+                pass = 0
+                i = n
+            else
+                if cur == 0
+                    pass = 0
+                    i = n
+                else
+                    if dl_obj_created_at(cur) < dl_obj_created_at(prev)
+                        pass = 0
+                        i = n
+            i = i + 1
+        pass
+
+let dl_self_test() =
+    let results = []
+
+    let dl = dl_new()
+    let put_res = dl_put(dl, "data.csv", DL_FORMAT_CSV, 100, "p1", 12345, 1000)
+    dl = put_res[0]
+    let id1 = put_res[1]
+    results.push(id1 == 1)
+    results.push(dl_object_count(dl) == 1)
+
+    let obj = dl_get(dl, id1)
+    results.push(dl_obj_name(obj) == "data.csv")
+    results.push(dl_obj_size(obj) == 100)
+
+    let put_res2 = dl_put(dl, "data.csv", DL_FORMAT_CSV, 200, "p1", 67890, 2000)
+    dl = put_res2[0]
+    let id2 = put_res2[1]
+    results.push(id2 == 2)
+
+    let latest = dl_get_latest_by_name(dl, "data.csv")
+    results.push(dl_obj_id(latest) == id2)
+    results.push(dl_obj_hash(latest) == 67890)
+
+    let old = dl_get_at_time(dl, "data.csv", 1500)
+    results.push(dl_obj_id(old) == id1)
+
+    let put_res3 = dl_put(dl, "data2.json", DL_FORMAT_JSON, 50, "p2", 99999, 3000)
+    dl = put_res3[0]
+    let p1_list = dl_list_partition(dl, "p1")
+    results.push(len(p1_list) == 2)
+
+    results.push(dl_bragg_verify_hash(dl, id1, 12345))
+    results.push(dl_bragg_verify_partition(dl, "p1"))
+    results.push(dl_bragg_verify_version_chain(dl, "data.csv"))
+
+    results
+
+let dl_default_lake() = dl_new()

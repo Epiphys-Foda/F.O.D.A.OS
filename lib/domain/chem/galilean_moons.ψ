@@ -1,0 +1,53 @@
+import "ck.ψ"
+let bad = [0]
+
+let io_p = 1769
+let eu_p = 3551
+let ga_p = 7155
+bad[0] = bad[0] + ck(io_p, 1760, 1780)
+bad[0] = bad[0] + ck(eu_p, 3540, 3560)
+bad[0] = bad[0] + ck(ga_p, 7140, 7170)
+
+let r1 = eu_p / io_p
+let r2 = ga_p / io_p
+let dz1 = r1 - 2
+bad[0] = bad[0] + ck(dz1, 0, 0)
+let dz2 = r2 - 4
+bad[0] = bad[0] + ck(dz2, 0, 0)
+bad[0] = bad[0] + ck_hi(io_p, eu_p)
+bad[0] = bad[0] + ck_hi(eu_p, ga_p)
+
+let delay = 1000
+bad[0] = bad[0] + ck(delay, 990, 1010)
+let c_kms = 300000
+bad[0] = bad[0] + ck(c_kms, 299000, 301000)
+let au_mkm = 150
+let dz3 = c_kms * delay - au_mkm * 2000000
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let moons = 4
+bad[0] = bad[0] + ck_lo(moons, 4)
+let year_g = 1610
+bad[0] = bad[0] + ck(year_g, 1608, 1612)
+
+let year_v = 1979
+bad[0] = bad[0] + ck(year_v, 1977, 1981)
+
+if 1610 < 1608
+    bad[0] = bad[0] + 1
+if 1610 > 1612
+    bad[0] = bad[0] + 1
+if 1676 < 1674
+    bad[0] = bad[0] + 1
+if 1676 > 1678
+    bad[0] = bad[0] + 1
+if 1676 < 1610
+    bad[0] = bad[0] + 1
+if 1979 < 1977
+    bad[0] = bad[0] + 1
+if 1979 > 1981
+    bad[0] = bad[0] + 1
+if 1979 < 1676
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

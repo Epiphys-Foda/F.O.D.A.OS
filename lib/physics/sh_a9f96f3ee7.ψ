@@ -1,0 +1,14 @@
+let gf_tonelli_shanks(n) =
+    let nr = gf_reduce(n)
+    if nr == 0
+        0
+    else
+        0
+    if gf_legendre(nr) != 1
+        0
+    else
+        0
+    if nr == 1
+        1
+    else
+        _ts_loop(16, gf_reduce(3), nr, nr)

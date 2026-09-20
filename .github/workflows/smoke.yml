@@ -1,0 +1,48 @@
+name: smoke
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  windows-smoke:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compiler version
+        shell: cmd
+        run: bin\qlc2.exe --version
+
+      - name: Examples run clean
+        shell: cmd
+        run: |
+          bin\qlc2.exe --run examples\hello.ψ
+          bin\qlc2.exe --run examples\operators.ψ
+          bin\qlc2.exe --run examples\library.ψ
+          bin\qlc2.exe --fast examples\metacircular.ψ
+
+      - name: Semantic fingerprint determinism
+        shell: cmd
+        run: |
+          bin\qlc2.exe examples\hello.ψ > fp1.txt
+          bin\qlc2.exe examples\hello.ψ > fp2.txt
+          fc fp1.txt fp2.txt
+
+      - name: Library syntax sweep (core sample)
+        shell: cmd
+        run: |
+          bin\qlc2.exe --check lib\core\stdlib\arr.ψ
+          bin\qlc2.exe --check lib\core\stdlib\str.ψ
+          bin\qlc2.exe --check lib\core\stdlib\wasm_interp.ψ
+          bin\qlc2.exe --check lib\core\stdlib\gf65537.ψ
+
+      - name: Bootstrap self-test (collision + GF hosts)
+        shell: cmd
+        working-directory: bin
+        run: qlc2.exe --selftest
+
+      - name: Kleene fixpoint verification
+        shell: cmd
+        working-directory: bin
+        run: qlc2.exe --fixpoint

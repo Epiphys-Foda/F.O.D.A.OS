@@ -1,0 +1,23 @@
+import "ck.ψ"
+let bad = [0]
+
+let gam = 205
+bad[0] = bad[0] + ck(gam, 200, 210)
+
+let vc = 994
+bad[0] = bad[0] + ck(vc, 980, 1010)
+
+if 205 < 65 * 3
+    bad[0] = bad[0] + 1
+
+let cAnchor = 299792
+bad[0] = bad[0] + ck(cAnchor, 299000, 300000)
+
+let prec = 503
+if prec < gam * 2
+    bad[0] = bad[0] + 1
+
+let yr = 1728
+bad[0] = bad[0] + ck(yr, 1725, 1730)
+
+arr_get(arr_new_n(1), bad[0])

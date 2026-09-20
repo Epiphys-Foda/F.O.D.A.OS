@@ -1,0 +1,197 @@
+import "../core/stdlib_lang2/gf_base.ψ"
+
+let OP_UNIFY_ADD = 0
+let OP_GF_MUL = 1
+let OP_EVOLVE = 2
+let OP_COLLAPSE = 3
+let OP_INJECT = 4
+
+let op_make(op_type, params, arity) = [op_type, params, arity]
+let op_type(op) = op[0]
+let op_params(op) = op[1]
+let op_meta_arity(op) = op[2]
+
+let meta_gf_mul(op1, op2) =
+    let p1 = op_params(op1)
+    let p2 = op_params(op2)
+    let n = len(p1)
+    let result = 0
+    let i = 0
+    for i < n
+        result = gf_add(result, gf_mul(p1[i], p2[i]))
+        i = i + 1
+    op_make(OP_GF_MUL, [result], 1)
+
+let paradigm_bragg_distance(op1, op2) =
+    let inner_11 = op_params(meta_gf_mul(op1, op1))[0]
+    let inner_12 = op_params(meta_gf_mul(op1, op2))[0]
+    let inner_22 = op_params(meta_gf_mul(op2, op2))[0]
+    gf_sub(gf_add(inner_11, inner_22), gf_mul(2, inner_12))
+
+let meta_evolve(op) =
+    let p = op_params(op)
+    let n = len(p)
+    let new_params = []
+    let i = 0
+    for i < n
+        new_params.push(gf_mul(p[i], p[i]))
+        i = i + 1
+    op_make(op_type(op), new_params, op_meta_arity(op))
+
+let META_CL_DIM = 5
+
+let meta_cl_geometric_product(a, b) =
+    gf_mul(a, b)
+
+let meta_collapse(op) =
+    let p = op_params(op)
+    let n = len(p)
+    let max_val = 0
+    let i = 0
+    for i < n
+        if gf_abs(p[i]) > gf_abs(max_val)
+            max_val = p[i]
+        i = i + 1
+    op_make(OP_COLLAPSE, [max_val], 1)
+
+let meta_collapse_idempotent_test(op) =
+    let c1 = meta_collapse(op)
+    let c2 = meta_collapse(c1)
+    (op_params(c1)[0] == op_params(c2)[0] ? 1 : 0)
+
+let meta_inject(op, paradigm) =
+    let op_p = op_params(op)
+    let par_p = op_params(paradigm)
+    let n = len(op_p)
+    let new_params = []
+    let i = 0
+    for i < n
+        new_params.push(gf_add(op_p[i], gf_mul(op_p[i], par_p[i])))
+        i = i + 1
+    op_make(OP_INJECT, new_params, op_meta_arity(op))
+
+let meta_inject_injective_test(op1, op2) =
+    let paradigm = op_make(OP_INJECT, [100], 1)
+    let i1 = meta_inject(op1, paradigm)
+    let i2 = meta_inject(op2, paradigm)
+    if op_params(op1)[0] != op_params(op2)[0]
+        (op_params(i1)[0] != op_params(i2)[0] ? 1 : 0)
+    else
+            1
+
+let meta_add(op1, op2) =
+    let p1 = op_params(op1)
+    let p2 = op_params(op2)
+    let n = len(p1)
+    let new_params = []
+    let i = 0
+    for i < n
+        new_params.push(gf_add(p1[i], p2[i]))
+        i = i + 1
+    op_make(OP_UNIFY_ADD, new_params, op_meta_arity(op1))
+
+let meta_collapse_preserves_add_test(op1, op2) =
+    let lhs = meta_collapse(meta_add(op1, op2))
+    let rhs1 = meta_collapse(op1)
+    let rhs2 = meta_collapse(op2)
+    let rhs = meta_add(rhs1, rhs2)
+    (op_params(lhs)[0] == op_params(rhs)[0] ? 1 : 0)
+
+let meta_kleene_map(op) = meta_collapse(meta_evolve(op))
+
+let meta_kleene_fixed_point_search(init_op, max_iter) =
+    let op = init_op
+    let i = 0
+    for i < max_iter
+        let next_op = meta_kleene_map(op)
+        if op_params(next_op)[0] == op_params(op)[0]
+            if op_meta_arity(next_op) == op_meta_arity(op)
+                op
+        op = next_op
+        i = i + 1
+    op
+
+let meta_pcd(op) =
+    let p = op_params(op)
+    let n = len(p)
+    if n == 0
+        0
+    else
+        let mean = 0
+        let i = 0
+        for i < n
+            mean = gf_add(mean, p[i])
+            i = i + 1
+        mean = gf_div(mean, n)
+        let var_ = 0
+        let j = 0
+        for j < n
+            let diff = gf_sub(p[j], mean)
+            var_ = gf_add(var_, gf_mul(diff, diff))
+            j = j + 1
+        let norm_sq = op_params(meta_gf_mul(op, op))[0]
+        (norm_sq == 0 ? 0 : gf_div(var_, norm_sq))
+
+let QIR_NODE_GFMUL = 0
+let QIR_NODE_GEOMETRIC = 1
+let QIR_NODE_BORN = 2
+let QIR_NODE_HEBBIAN = 3
+let QIR_NODE_INJECT = 4
+let QIR_META_GFMUL = 5
+let QIR_META_EVOLVE = 6
+let QIR_META_COLLAPSE = 7
+let QIR_META_INJECT = 8
+let QIR_META_KLEENE = 9
+
+let meta_qir_execute(node_type, op) =
+    if node_type == QIR_META_GFMUL
+        meta_gf_mul(op, op)
+    else
+        0
+    if node_type == QIR_META_EVOLVE
+        meta_evolve(op)
+    else
+        0
+    if node_type == QIR_META_COLLAPSE
+        meta_collapse(op)
+    else
+        0
+    if node_type == QIR_META_INJECT
+        meta_inject(op, op)
+    else
+        0
+    if node_type == QIR_META_KLEENE
+        meta_kleene_map(op)
+    else
+        op
+
+let field_meta(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 800 + i * 600
+        let diff = gf_sub(z, pole)
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let meta_verify() =
+    let op1 = op_make(OP_GF_MUL, [100, 200, 300], 2)
+    let op2 = op_make(OP_GF_MUL, [400, 500, 600], 2)
+    let inner = meta_gf_mul(op1, op2)
+    let ok1 = (op_params(inner)[0] > 0 ? 1 : 0)
+
+    let ok2 = meta_collapse_idempotent_test(op1)
+
+    let dist = paradigm_bragg_distance(op1, op2)
+    let ok3 = (dist >= 0 ? 1 : 0)
+
+    let fp = meta_kleene_fixed_point_search(op1, 100)
+    let ok4 = (op_params(fp)[0] >= 0 ? 1 : 0)
+
+    let pcd = meta_pcd(op1)
+    let ok5 = (pcd >= 0 ? 1 : 0)
+
+    let ok6 = meta_collapse_preserves_add_test(op1, op2)
+
+    ok1 + ok2 + ok3 + ok4 + ok5 + ok6

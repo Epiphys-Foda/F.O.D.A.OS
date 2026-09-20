@@ -1,0 +1,130 @@
+import "../domain_field.ψ"
+
+let IPC_P = 65537
+let IPC_MAX_CHANNELS = 4096
+let IPC_MAX_MSG = 65536
+let IPC_MSG_SIZE = 256
+
+let ipc_channels = array_new(IPC_MAX_CHANNELS)
+let ipc_messages = array_new(IPC_MAX_MSG)
+let ipc_seq_counter = 0
+
+let ipc_create_channel(owner, capacity) =
+    let cid = 1
+    for cid < IPC_MAX_CHANNELS
+        if ipc_channels[cid] == 0
+            let ch = { id: cid, owner: owner, head: 0, tail: 0, count: 0, capacity: capacity, closed: 0 }
+            ipc_channels[cid] = ch
+            cid
+        cid = cid + 1
+    0
+
+let ipc_send(cid, src, msg_type, data, len) =
+        let ch = ipc_channels[cid]
+        if ch == 0
+            0
+        if ch.closed == 1
+            0
+        if ch.count >= ch.capacity
+            0
+
+        let mid = 1
+        for mid < IPC_MAX_MSG && ipc_messages[mid] != 0
+            mid = mid + 1
+        if mid >= IPC_MAX_MSG
+            0
+
+        ipc_seq_counter = ipc_seq_counter + 1
+        let msg = { src: src, dst: ch.owner, kind: msg_type, len: len, data: data, seq: ipc_seq_counter, next: 0 }
+        ipc_messages[mid] = msg
+
+        if ch.tail == 0
+            ch.head = mid
+            ch.tail = mid
+        else
+            let __t = ipc_messages[ch.tail]
+            __t.next = mid
+            ch.tail = mid
+        ch.count = ch.count + 1
+        1
+
+let ipc_recv(cid) =
+    let ch = ipc_channels[cid]
+    if ch == 0
+        0
+    if ch.head == 0
+        0
+
+    let mid = ch.head
+    let msg = ipc_messages[mid]
+
+    ch.head = msg.next
+    if ch.head == 0
+        ch.tail = 0
+    ch.count = ch.count - 1
+
+    ipc_messages[mid] = 0
+
+    msg
+
+let ipc_close(cid) =
+    let ch = ipc_channels[cid]
+    if ch != 0
+        ch.closed = 1
+
+let ipc_destroy(cid) =
+    let ch = ipc_channels[cid]
+    if ch != 0
+        let mid = ch.head
+        for mid != 0
+            let msg = ipc_messages[mid]
+            let next = msg.next
+            ipc_messages[mid] = 0
+            mid = next
+        ipc_channels[cid] = 0
+
+let ipc_encode_residue(data, len) =
+    let encoded = array_new(len)
+    let k = 0
+    for k < len
+        encoded[k] = data[k]
+        k = k + 1
+    encoded
+
+let ipc_decode_residue(encoded, len) =
+    let data = array_new(len)
+    let k = 0
+    for k < len
+        data[k] = encoded[k]
+        k = k + 1
+    data
+
+let ipc_residue_eval(encoded, len, z) =
+    let result = 0
+    let k = 0
+    for k < len
+        let zk = k + 1
+        let diff = ((z - zk) % IPC_P + IPC_P) % IPC_P
+        if diff != 0
+            let inv = ipc_gf_inv(diff)
+            result = (result + encoded[k] * inv) % IPC_P
+        k = k + 1
+    result
+
+let ipc_broadcast(src, cids, msg_type, data, len, n) =
+    let i = 0
+    for i < n
+        ipc_send(cids[i], src, msg_type, data, len)
+        i = i + 1
+
+let ipc_request(cid, src, msg_type, data, len) =
+    ipc_send(cid, src, msg_type, data, len)
+    let response = 0
+    for response == 0
+        response = ipc_recv(cid)
+    response
+
+let ipc_gf_inv(a) = domain_gf_inv(a)
+
+let array_new(n) = arr_new_n(n)
+

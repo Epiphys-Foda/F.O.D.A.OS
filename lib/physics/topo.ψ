@@ -1,0 +1,75 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let TOPO_MAX_BZ = 1024
+
+let berry_phase(connection, path) =
+    let phase = 0
+    let i = 0
+    let n = len(path)
+    for i < n
+        phase = gf_add(phase, connection[path.get(i)])
+        i = i + 1
+    phase
+let berry_curvature(connection_x, connection_y, kx, ky) =
+    let dx_Ay = gf_sub(connection_y[kx + 1], connection_y[kx])
+    let dy_Ax = gf_sub(connection_x[ky + 1], connection_x[ky])
+    gf_sub(dx_Ay, dy_Ax)
+let chern_number(connection_x, connection_y, bz_size) =
+    let chern = 0
+    let i = 0
+    for i < bz_size
+        let j = 0
+        for j < bz_size
+            let F = berry_curvature(connection_x, connection_y, i, j)
+            chern = gf_add(chern, F)
+            j = j + 1
+        i = i + 1
+    gf_div(chern, gf_mul(2, 32768))
+let winding_number(path, center) =
+    let winding = 0
+    let i = 0
+    let n = len(path)
+    for i < n
+        let p1 = path[i]
+        let p2 = path[(i + 1) % n]
+        let angle1 = gf_sub(p1, center)
+        let angle2 = gf_sub(p2, center)
+        winding = gf_add(winding, gf_sub(angle2, angle1))
+        i = i + 1
+    gf_div(winding, gf_mul(2, 32768))
+let euler_characteristic(n_vertices, n_edges, n_faces) =
+    gf_sub(gf_sub(n_vertices, n_edges), n_faces)
+let z2_invariant(wilson_loop) =
+    (wilson_loop / 32768 % 2 == 0 ? 0 : 1)
+let wilson_loop(gauge_field, path) =
+    let product = 1
+    let i = 0
+    let n = len(path)
+    for i < n
+        product = gf_mul(product, gauge_field[path.get(i)])
+        i = i + 1
+    product
+let topo_phase_transition(gap, critical_gap) =
+    (gap > critical_gap ? 1 : 0)
+let field_topo(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = gf_sub(z, pole)
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let topo_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_topo(test_data, 3, 500)
+    let ok = 0
+    if result != 0
+        ok = 1
+    else
+        ok = 0
+    ok

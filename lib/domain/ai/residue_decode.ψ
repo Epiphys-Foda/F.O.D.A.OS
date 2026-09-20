@@ -1,0 +1,200 @@
+let rd_field_eval_inline(poles, residues, z, n) =
+    let sum = 0
+    let i = 0
+    for i < n
+        let dz = (z - poles[i]) % 65537
+        if dz < 0
+            dz = dz + 65537
+        if dz == 0
+            sum = (sum + residues[i]) % 65537
+        else
+            let or = dz
+            let r = 65537
+            let os = 1
+            let s = 0
+            for r > 0
+                let q = or // r
+                let tr = or - q * r
+                or = r
+                r = tr
+                let ts = os - q * s
+                os = s
+                s = ts
+            let inv = os % 65537
+            if inv < 0
+                inv = inv + 65537
+            sum = (sum + residues[i] * inv) % 65537
+        i = i + 1
+    sum
+
+let main() =
+    let poles = [3, 6, 9, 12, 1, 2, 4, 100]
+    let residues = [100, 200, 300, 400, 500, 600, 700, 800]
+
+    let sp_pts = [5, 7, 50, 150]
+    let sp_ok = 1
+
+    let inv_table = []
+    let pt = 0
+    for pt < 4
+        let z = sp_pts[pt]
+        let pk = 0
+        for pk < 8
+            let dz = (z - poles[pk]) % 65537
+            if dz < 0
+                dz = dz + 65537
+            let or = dz
+            let r = 65537
+            let os = 1
+            let s = 0
+            for r > 0
+                let q = or // r
+                let tr = or - q * r
+                or = r
+                r = tr
+                let ts = os - q * s
+                os = s
+                s = ts
+            let inv = os % 65537
+            if inv < 0
+                inv = inv + 65537
+            inv_table = arr_push(inv_table, inv)
+            pk = pk + 1
+        pt = pt + 1
+
+    let st = 0
+    for st < 4
+        let psi_a = 0
+        let ka = 0
+        for ka < 4
+            psi_a = (psi_a + residues[ka] * inv_table[st * 8 + ka]) % 65537
+            ka = ka + 1
+        let psi_b = 0
+        let kb = 4
+        for kb < 8
+            psi_b = (psi_b + residues[kb] * inv_table[st * 8 + kb]) % 65537
+            kb = kb + 1
+        let psi_full = 0
+        let kf = 0
+        for kf < 8
+            psi_full = (psi_full + residues[kf] * inv_table[st * 8 + kf]) % 65537
+            kf = kf + 1
+        let lhs = (psi_a + psi_b) % 65537
+        if lhs != psi_full
+            sp_ok = 0
+        st = st + 1
+
+    let ablate_ok = 1
+    let z_ab = 50
+
+    let psi_full_50 = 0
+    let k50 = 0
+    for k50 < 8
+        let dz = (z_ab - poles[k50]) % 65537
+        if dz < 0
+            dz = dz + 65537
+        let or = dz
+        let r = 65537
+        let os = 1
+        let s = 0
+        for r > 0
+            let q = or // r
+            let tr = or - q * r
+            or = r
+            r = tr
+            let ts = os - q * s
+            os = s
+            s = ts
+        let inv = os % 65537
+        if inv < 0
+            inv = inv + 65537
+        psi_full_50 = (psi_full_50 + residues[k50] * inv) % 65537
+        k50 = k50 + 1
+
+    let psi_ablate_0 = 0
+    let ka2 = 1
+    for ka2 < 8
+        let dz = (z_ab - poles[ka2]) % 65537
+        if dz < 0
+            dz = dz + 65537
+        let or = dz
+        let r = 65537
+        let os = 1
+        let s = 0
+        for r > 0
+            let q = or // r
+            let tr = or - q * r
+            or = r
+            r = tr
+            let ts = os - q * s
+            os = s
+            s = ts
+        let inv = os % 65537
+        if inv < 0
+            inv = inv + 65537
+        psi_ablate_0 = (psi_ablate_0 + residues[ka2] * inv) % 65537
+        ka2 = ka2 + 1
+
+    let diff = (psi_full_50 - psi_ablate_0 + 65537) % 65537
+    let dz47 = 47
+    let or47 = 47
+    let r47 = 65537
+    let os47 = 1
+    let s47 = 0
+    for r47 > 0
+        let q = or47 // r47
+        let tr = or47 - q * r47
+        or47 = r47
+        r47 = tr
+        let ts = os47 - q * s47
+        os47 = s47
+        s47 = ts
+    let inv47 = os47 % 65537
+    if inv47 < 0
+        inv47 = inv47 + 65537
+    let contrib_0 = (100 * inv47) % 65537
+    if diff != contrib_0
+        ablate_ok = 0
+
+    let recompose_ok = 1
+    let rc_pts = [5, 7, 50]
+    let rc_poles = [3, 6, 9, 12, 1, 2, 4]
+    let rc_residues = [100, 200, 300, 400, 500, 600, 700]
+    let rt = 0
+    for rt < 3
+        let z = rc_pts[rt]
+        let psi = 0
+        let rk = 0
+        for rk < 7
+            let dz = (z - rc_poles[rk]) % 65537
+            if dz < 0
+                dz = dz + 65537
+            let or = dz
+            let r = 65537
+            let os = 1
+            let s = 0
+            for r > 0
+                let q = or // r
+                let tr = or - q * r
+                or = r
+                r = tr
+                let ts = os - q * s
+                os = s
+                s = ts
+            let inv = os % 65537
+            if inv < 0
+                inv = inv + 65537
+            psi = (psi + rc_residues[rk] * inv) % 65537
+            rk = rk + 1
+        if psi == 0
+            recompose_ok = 0
+        rt = rt + 1
+
+    let verdict = sp_ok * ablate_ok * recompose_ok
+    print(sp_ok)
+    print(ablate_ok)
+    print(recompose_ok)
+    print(verdict)
+    verdict
+
+main()

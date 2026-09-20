@@ -1,0 +1,153 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let QSIM_MAX_QUBITS = 20
+let QSIM_MAX_GATES = 65536
+
+let GATE_H = 1
+let GATE_X = 2
+let GATE_Y = 3
+let GATE_Z = 4
+let GATE_S = 5
+let GATE_T = 6
+let GATE_CNOT = 7
+let GATE_CZ = 8
+let GATE_SWAP = 9
+let GATE_MEASURE = 10
+
+let circuit_create(n_qubits) = [n_qubits, [], 0]
+let circuit_add_gate(circuit, gate) =
+    let gates = circuit[1]
+    gates.push(gate)
+    [circuit[0], gates, circuit[2] + 1]
+let gate_create(kind, target) = [kind, target, -1, []]
+let gate_create_controlled(kind, target, control) = [kind, target, control, []]
+let qsim_init(n_qubits) =
+    let dim = 1
+    let i = 0
+    for i < n_qubits
+        dim = dim * 2
+        i = i + 1
+    let state = []
+    i = 0
+    for i < dim
+        state.push(0)
+        i = i + 1
+    state[0] = 1
+    state
+let qsim_apply_x(state, target) =
+    let n = len(state)
+    let mask = 1
+    let i = 0
+    for i < target
+        mask = mask * 2
+        i = i + 1
+    let result = []
+    i = 0
+    for i < n
+        result.push(state[i])
+        i = i + 1
+    i = 0
+    for i < n
+        let j = i / mask % 2
+        let partner = i + mask
+        if j == 0
+            result.set(i, state[partner])
+            result.set(partner, state[i])
+        i = i + 1
+    result
+let qsim_apply_z(state, target) =
+    let n = len(state)
+    let mask = 1
+    let i = 0
+    for i < target
+        mask = mask * 2
+        i = i + 1
+    i = 0
+    for i < n
+        if i / mask % 2 == 1
+            state[i] = gf_neg(state[i])
+        i = i + 1
+    state
+let qsim_apply_cnot(state, control, target) =
+    let n = len(state)
+    let cmask = 1
+    let tmask = 1
+    let i = 0
+    for i < control
+        cmask = cmask * 2
+        i = i + 1
+    i = 0
+    for i < target
+        tmask = tmask * 2
+        i = i + 1
+    let result = []
+    i = 0
+    for i < n
+        result.push(state[i])
+        i = i + 1
+    i = 0
+    for i < n
+        if i / cmask % 2 == 1
+            let j = i + tmask
+            if i / tmask % 2 == 0
+                result.set(i, state[j])
+                result.set(j, state[i])
+        i = i + 1
+    result
+let qsim_run(circuit, state) =
+    let gates = circuit[1]
+    let s = state
+    let i = 0
+    let n = len(gates)
+    for i < n
+        let gate = gates[i]
+        if gate[0] == GATE_X
+            s = qsim_apply_x(s, gate[1])
+        if gate[0] == GATE_Z
+            s = qsim_apply_z(s, gate[1])
+        if gate[0] == GATE_CNOT
+            s = qsim_apply_cnot(s, gate[2], gate[1])
+        i = i + 1
+    s
+let qsim_measure(state, target) =
+    let n = len(state)
+    let mask = 1
+    let i = 0
+    for i < target
+        mask = mask * 2
+        i = i + 1
+    let prob_0 = 0
+    let prob_1 = 0
+    i = 0
+    for i < n
+        if i / mask % 2 == 0
+            prob_0 = gf_add(prob_0, gf_mul(state[i], state[i]))
+        else
+            prob_1 = gf_add(prob_1, gf_mul(state[i], state[i]))
+        i = i + 1
+    (prob_0 > prob_1 ? 0 : 1)
+let qsim_field_evolve(state, n, z, steps) =
+    let current = state
+    let s = 0
+    for s < steps
+        let next = arr_new_n(n)
+        let i = 0
+        for i < n
+            let pole = 127 + i * 1000
+            let diff = (z + 65537 - pole) % 65537
+            next[i] = gf_mul(current[i], gf_inv(diff))
+            i = i + 1
+        current = next
+        s = s + 1
+    current
+
+let qsim_verify() =
+    let state = arr_new_n(3)
+    state[0] = 100
+    state[1] = 200
+    state[2] = 300
+    let evolved = qsim_field_evolve(state, 3, 500, 1)
+    let ok = 0
+    (evolved[0] != state[0] ? (ok = 1) : (ok = 0))
+    ok
+

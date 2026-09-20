@@ -1,0 +1,46 @@
+let tl_not(a) =
+    (a == 1 ? 0 : 1)
+
+let tl_and(a, b) = a * b
+
+let tl_or(a, b) = a + b - a * b
+
+let tl_xor(a, b) =
+    (a == b ? 0 : 1)
+
+let tl_nand(a, b) = tl_not(tl_and(a, b))
+let tl_nor(a, b) = tl_not(tl_or(a, b))
+
+let tl_and_tt() = tl_and(0, 0) == 0 && tl_and(0, 1) == 0 && tl_and(1, 0) == 0 && tl_and(1, 1) == 1
+
+let tl_or_tt() = tl_or(0, 0) == 0 && tl_or(0, 1) == 1 && tl_or(1, 0) == 1 && tl_or(1, 1) == 1
+
+let tl_xor_tt() = tl_xor(0, 0) == 0 && tl_xor(0, 1) == 1 && tl_xor(1, 0) == 1 && tl_xor(1, 1) == 0
+
+let tl_nand_tt() = tl_nand(1, 1) == 0 && tl_nand(0, 0) == 1
+let tl_nor_tt() = tl_nor(0, 0) == 1 && tl_nor(1, 0) == 0
+
+let tl_demorgan_and(a, b) = tl_nand(a, b) == tl_or(tl_not(a), tl_not(b))
+
+let tl_demorgan_or(a, b) = tl_nor(a, b) == tl_and(tl_not(a), tl_not(b))
+
+let tl_demorgan_ok() = tl_demorgan_and(0, 0) && tl_demorgan_and(0, 1) && tl_demorgan_and(1, 0) && tl_demorgan_and(1, 1) && tl_demorgan_or(0, 0) && tl_demorgan_or(0, 1) && tl_demorgan_or(1, 0) && tl_demorgan_or(1, 1)
+
+let tl_xor_via_ops(a, b) = tl_xor(a, b) == tl_and(tl_or(a, b), tl_not(tl_and(a, b)))
+
+let tl_xor_compose_ok() = tl_xor_via_ops(0, 0) && tl_xor_via_ops(0, 1) && tl_xor_via_ops(1, 0) && tl_xor_via_ops(1, 1)
+
+let tl_assoc_and(a, b, c) = tl_and(tl_and(a, b), c) == tl_and(a, tl_and(b, c))
+
+let tl_assoc_ok() = tl_assoc_and(0, 0, 0) && tl_assoc_and(0, 0, 1) && tl_assoc_and(0, 1, 0) && tl_assoc_and(0, 1, 1) && tl_assoc_and(1, 0, 0) && tl_assoc_and(1, 0, 1) && tl_assoc_and(1, 1, 0) && tl_assoc_and(1, 1, 1)
+
+let tl_charge_conserve() = tl_and_tt() && tl_or_tt() && tl_xor_tt()
+
+let tl_fuse_xor(a, b) = tl_xor(a, b)
+
+let tl_fuse_align() = tl_fuse_xor(0, 0) == 0 && tl_fuse_xor(0, 1) == 1 && tl_fuse_xor(1, 0) == 1 && tl_fuse_xor(1, 1) == 0
+
+let tl_logic_from_fusion() = tl_fuse_align()
+
+let tl_summary() =
+    { theory: "topological logic (vortex collision = Boolean gate)", charge: "true = 1 (vortex exists) / false = 0 (annihilated)", conserve: "truth table = topological charge conservation law", gates: "AND = charge multiply / OR = superposition / XOR = annihilation", merge: "merges with Z2 fusion: fusion = XOR = logic gate", principle: "vortex as symbol — physical laws replace code execution" }

@@ -1,0 +1,343 @@
+import "../domain_field.ψ"
+
+let im_table_new(name) = [name, [], {}, {}, 1, 0, 0]
+
+let im_t_name(t) = t[0]
+let im_t_cols(t) = t[1]
+let im_t_rows(t) = t[2]
+let im_t_idx(t) = t[3]
+let im_t_next(t) = t[4]
+let im_t_total(t) = t[5]
+let im_t_mem(t) = t[6]
+
+let im_t_set_cols(t, v) = [t[0], v, t[2], t[3], t[4], t[5], t[6]]
+let im_t_set_rows(t, v) = [t[0], t[1], v, t[3], t[4], t[5], t[6]]
+let im_t_set_idx(t, v) = [t[0], t[1], t[2], v, t[4], t[5], t[6]]
+let im_t_set_next(t, v) = [t[0], t[1], t[2], t[3], v, t[5], t[6]]
+let im_t_set_total(t, v) = [t[0], t[1], t[2], t[3], t[4], v, t[6]]
+let im_t_set_mem(t, v) = [t[0], t[1], t[2], t[3], t[4], t[5], v]
+
+let im_t_add_col(t, col_name, col_type) =
+    let cols = im_t_cols(t)
+    cols.push([col_name, col_type])
+    im_t_set_cols(t, cols)
+
+let im_t_insert(t, row_data) =
+    let id = im_t_next(t)
+    t = im_t_set_next(t, id + 1)
+    let rows = im_t_rows(t)
+    rows[id] = row_data
+    t = im_t_set_rows(t, rows)
+    let idx = im_t_idx(t)
+    let keys = keys_of(row_data)
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let col = keys[i]
+        let val = row_data[col]
+        let col_idx = idx[col]
+        if col_idx == 0
+            col_idx = {}
+            idx[col] = col_idx
+        let lst = col_idx[val]
+        if lst == 0
+            lst = []
+        lst.push(id)
+        col_idx[val] = lst
+        i = i + 1
+    t = im_t_set_idx(t, idx)
+    t = im_t_set_total(t, im_t_total(t) + 1)
+    t = im_t_set_mem(t, im_t_mem(t) + 64)
+    [t, id]
+
+let im_t_get_row(t, row_id) =
+    let rows = im_t_rows(t)
+    rows[row_id]
+
+let im_t_find_by(t, col, value) =
+    let idx = im_t_idx(t)
+    let col_idx = idx[col]
+    let result = []
+    if col_idx != 0
+        let lst = col_idx[value]
+        if lst != 0
+            let rows = im_t_rows(t)
+            let i = 0
+            let n = len(lst)
+            for i < n
+                let r = rows[lst[i]]
+                if r != 0
+                    result.push([lst[i], r])
+                i = i + 1
+    result
+
+let im_t_update(t, row_id, new_data) =
+    let rows = im_t_rows(t)
+    let old = rows[row_id]
+    if old == 0
+        [t, 0]
+    else
+        let merged = old
+        let keys = keys_of(new_data)
+        let i = 0
+        let n = len(keys)
+        for i < n
+            let k = keys[i]
+            let old_val = merged[k]
+            let new_val = new_data[k]
+            if old_val != new_val
+                let idx = im_t_idx(t)
+                let col_idx = idx[k]
+                if col_idx != 0
+                    let lst = col_idx[old_val]
+                    if lst != 0
+                        let new_lst = []
+                        let j = 0
+                        let m = len(lst)
+                        for j < m
+                            if lst[j] != row_id
+                                new_lst.push(lst[j])
+                            j = j + 1
+                        col_idx[old_val] = new_lst
+                        let new_value_lst = col_idx[new_val]
+                        if new_value_lst == 0
+                            new_value_lst = []
+                        new_value_lst.push(row_id)
+                        col_idx[new_val] = new_value_lst
+                t = im_t_set_idx(t, idx)
+                merged[k] = new_val
+            i = i + 1
+        rows[row_id] = merged
+        t = im_t_set_rows(t, rows)
+        [t, 1]
+
+let im_t_delete(t, row_id) =
+    let rows = im_t_rows(t)
+    let r = rows[row_id]
+    if r == 0
+        [t, 0]
+    else
+        rows[row_id] = 0
+        t = im_t_set_rows(t, rows)
+        let idx = im_t_idx(t)
+        let keys = keys_of(r)
+        let i = 0
+        let n = len(keys)
+        for i < n
+            let col = keys[i]
+            let val = r[col]
+            let col_idx = idx[col]
+            if col_idx != 0
+                let lst = col_idx[val]
+                if lst != 0
+                    let new_lst = []
+                    let j = 0
+                    let m = len(lst)
+                    for j < m
+                        if lst[j] != row_id
+                            new_lst.push(lst[j])
+                        j = j + 1
+                    col_idx[val] = new_lst
+            i = i + 1
+        t = im_t_set_idx(t, idx)
+        t = im_t_set_total(t, im_t_total(t) - 1)
+        [t, 1]
+
+let im_t_scan(t, filter) =
+    let rows = im_t_rows(t)
+    let keys = keys_of(rows)
+    let result = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let rid = keys[i]
+        let r = rows[rid]
+        if r != 0
+            let ok = 1
+            if filter != 0
+                let fkeys = keys_of(filter)
+                let j = 0
+                let m = len(fkeys)
+                for j < m
+                    let k = fkeys[j]
+                    if r[k] != filter[k]
+                        ok = 0
+                    j = j + 1
+            if ok == 1
+                result.push([rid, r])
+        i = i + 1
+    result
+
+let im_db_new() = [{}, 1, 0, 0, 0]
+
+let im_db_tables(d) = d[0]
+let im_db_next(d) = d[1]
+let im_db_ckpt(d) = d[2]
+let im_db_ops(d) = d[3]
+let im_db_mem(d) = d[4]
+
+let im_db_set_tables(d, v) = [v, d[1], d[2], d[3], d[4]]
+let im_db_set_next(d, v) = [d[0], v, d[2], d[3], d[4]]
+let im_db_set_ckpt(d, v) = [d[0], d[1], v, d[3], d[4]]
+let im_db_set_ops(d, v) = [d[0], d[1], d[2], v, d[4]]
+let im_db_set_mem(d, v) = [d[0], d[1], d[2], d[3], v]
+
+let im_db_create_table(d, name) =
+    let t = im_table_new(name)
+    let tables = im_db_tables(d)
+    tables[name] = t
+    d = im_db_set_tables(d, tables)
+    d = im_db_set_next(d, im_db_next(d) + 1)
+    d = im_db_set_ops(d, im_db_ops(d) + 1)
+    d
+
+let im_db_get_table(d, name) =
+    let tables = im_db_tables(d)
+    tables[name]
+
+let im_db_drop_table(d, name) =
+    let tables = im_db_tables(d)
+    tables[name] = 0
+    d = im_db_set_tables(d, tables)
+    d = im_db_set_ops(d, im_db_ops(d) + 1)
+    d
+
+let im_db_checkpoint(d, ts) =
+    let tables = im_db_tables(d)
+    let keys = keys_of(tables)
+    let snapshot = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let t = tables[keys[i]]
+        if t != 0
+            snapshot.push([im_t_name(t), im_t_rows(t)])
+        i = i + 1
+    d = im_db_set_ckpt(d, ts)
+    d = im_db_set_ops(d, im_db_ops(d) + 1)
+    [d, snapshot]
+
+let im_db_bragg_check(d) =
+    let tables = im_db_tables(d)
+    let keys = keys_of(tables)
+    let sum = 0
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let t = tables[keys[i]]
+        if t != 0
+            sum = sum + im_t_total(t)
+        i = i + 1
+    let actual = 0
+    i = 0
+    for i < n
+        let t = tables[keys[i]]
+        if t != 0
+            let rows = im_t_rows(t)
+            actual = actual + len(keys_of(rows))
+        i = i + 1
+    if sum == actual
+        1
+    else
+        0
+
+let im_test_basic() =
+    let d = im_db_new()
+    let ok1 = 1
+    if im_db_ops(d) != 0
+        ok1 = 0
+
+    d = im_db_create_table(d, "users")
+    let ok2 = 1
+    let t = im_db_get_table(d, "users")
+    if t == 0
+        ok2 = 0
+    if im_t_total(t) != 0
+        ok2 = 0
+
+    t = im_t_add_col(t, "id", "int")
+    t = im_t_add_col(t, "name", "string")
+    t = im_t_add_col(t, "age", "int")
+    let tables = im_db_tables(d)
+    tables["users"] = t
+    d = im_db_set_tables(d, tables)
+
+    let r1 = im_t_insert(t, {id: 1, name: "alice", age: 30})
+    t = r1[0]
+    let row1 = r1[1]
+    tables = im_db_tables(d)
+    tables["users"] = t
+    d = im_db_set_tables(d, tables)
+
+    let r2 = im_t_insert(t, {id: 2, name: "bob", age: 25})
+    t = r2[0]
+    tables = im_db_tables(d)
+    tables["users"] = t
+    d = im_db_set_tables(d, tables)
+
+    let ok3 = 1
+    if row1 != 1
+        ok3 = 0
+    if im_t_total(t) != 2
+        ok3 = 0
+
+    let found = im_t_find_by(t, "id", 1)
+    let ok4 = 1
+    if len(found) != 1
+        ok4 = 0
+    else
+        0
+    if found[0][1]["name"] != "alice"
+        ok4 = 0
+
+    let bobs = im_t_find_by(t, "name", "bob")
+    let ok5 = 1
+    if len(bobs) != 1
+        ok5 = 0
+
+    let ur = im_t_update(t, 2, {age: 26})
+    t = ur[0]
+    tables = im_db_tables(d)
+    tables["users"] = t
+    d = im_db_set_tables(d, tables)
+    let ok6 = 1
+    if ur[1] != 1
+        ok6 = 0
+    let bob_row = im_t_get_row(t, 2)
+    if bob_row["age"] != 26
+        ok6 = 0
+
+    let dr = im_t_delete(t, 1)
+    t = dr[0]
+    tables = im_db_tables(d)
+    tables["users"] = t
+    d = im_db_set_tables(d, tables)
+    let ok7 = 1
+    if dr[1] != 1
+        ok7 = 0
+    if im_t_total(t) != 1
+        ok7 = 0
+
+    let ok8 = 1
+    if im_db_bragg_check(d) != 1
+        ok8 = 0
+
+    let ckpt = im_db_checkpoint(d, 1000)
+    d = ckpt[0]
+    let ok9 = 1
+    if im_db_ckpt(d) != 1000
+        ok9 = 0
+    if len(ckpt[1]) != 1
+        ok9 = 0
+
+    ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7 * ok8 * ok9
+
+let im_test_self() =
+        let ok = im_test_basic()
+        if ok == 1
+            print("in_memory: ALL PASS")
+        else
+            print("in_memory: FAIL")
+        ok
+
+    im_test_self()

@@ -1,0 +1,20 @@
+import "ui_framework.ψ"
+
+let ui_counter_dag() =
+    let d = dag_create()
+    d = dag_add_node_v13_1(d, 16, 16, -1, 0)
+    d = dag_add_node_v13_1(d, 1, 1, 0, 0)
+    d = dag_add_node_v13_1(d, 8, 6, -1, 1)
+    d = dag_add_node_v13_1(d, 17, 17, -1, 2)
+    d = dag_add_edge_v13_1(d, 0, 0, 1, 0, 0, 4)
+    d = dag_add_edge_v13_1(d, 1, 0, 2, 0, 0, 4)
+    d = dag_add_edge_v13_1(d, 2, 0, 3, 0, 0, 4)
+    d
+
+let ui_react_cost(total) = total
+
+let true UI_COUNT = [0]
+let ui_render_frame(dag, count, eval_fn) =
+    UI_COUNT[0] = count
+    let r = sched_run(dag, eval_fn)
+    r.results

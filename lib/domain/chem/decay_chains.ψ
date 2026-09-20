@@ -1,0 +1,79 @@
+let bad = [0]
+
+let flU = [
+    1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1,
+]
+let flT = [
+    1, 0, 0, 1, 1, 1, 1, 0, 0, 1,
+]
+let aU = 238
+let zU = 92
+let naU = [0]
+let nbU = [0]
+let kU = 0
+for kU < 14
+    let jx = kU * 1
+    let f = flU[jx]
+    let isA = [0]
+    let qA = f - 1
+    let aqA =
+        if qA < 0
+            0 - qA
+        else
+            qA
+    if aqA < 1
+        isA[0] = 1
+    if isA[0] > 0
+        aU = aU - 4
+        zU = zU - 2
+        naU[0] = naU[0] + 1
+    if isA[0] < 1
+        zU = zU + 1
+        nbU[0] = nbU[0] + 1
+    kU = kU + 1
+let daU = aU - 206
+bad[0] = bad[0] + daU * daU
+let dzU = zU - 82
+bad[0] = bad[0] + dzU * dzU
+let dnaU = naU[0] - 8
+bad[0] = bad[0] + dnaU * dnaU
+let dnbU = nbU[0] - 6
+bad[0] = bad[0] + dnbU * dnbU
+let aT = 232
+let zT = 90
+let naT = [0]
+let nbT = [0]
+let kT = 0
+for kT < 10
+    let jx = kT * 1
+    let f = flT[jx]
+    let isA = [0]
+    let qA = f - 1
+    let aqA =
+        if qA < 0
+            0 - qA
+        else
+            qA
+    if aqA < 1
+        isA[0] = 1
+    if isA[0] > 0
+        aT = aT - 4
+        zT = zT - 2
+        naT[0] = naT[0] + 1
+    if isA[0] < 1
+        zT = zT + 1
+        nbT[0] = nbT[0] + 1
+    kT = kT + 1
+let daT = aT - 208
+bad[0] = bad[0] + daT * daT
+let dzT = zT - 82
+bad[0] = bad[0] + dzT * dzT
+let dnaT = naT[0] - 6
+bad[0] = bad[0] + dnaT * dnaT
+let dnbT = nbT[0] - 4
+bad[0] = bad[0] + dnbT * dnbT
+
+let pend1 = 206 - 206
+bad[0] = bad[0] + pend1 * pend1
+
+arr_get(arr_new_n(1), bad[0])

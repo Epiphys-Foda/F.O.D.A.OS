@@ -1,0 +1,60 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let BRAGG_MAX_PLANES = 256
+
+let bragg_angle(n, lambda, d) =
+    let sin_theta = gf_div(gf_mul(n, lambda), gf_mul(2, d))
+    (sin_theta > 1 ? 0 : sin_theta)
+let bragg_wavelength(n, d, theta) =
+    gf_mul(gf_mul(2, d), theta)
+let bragg_spacing(n, lambda, theta) =
+    gf_div(gf_mul(n, lambda), gf_mul(2, theta))
+let d_cubic(a, h, k, l) =
+    let sum_sq = gf_add(gf_add(gf_mul(h, h), gf_mul(k, k)), gf_mul(l, l))
+    if sum_sq == 0
+        0
+    gf_div(a, gf_sqrt(sum_sq))
+let d_tetragonal(a, c, h, k, l) =
+    let numerator = gf_add(gf_div(gf_add(gf_mul(h, h), gf_mul(k, k)), gf_mul(a, a)), gf_div(gf_mul(l, l), gf_mul(c, c)))
+    if numerator == 0
+        0
+    gf_div(1, gf_sqrt(numerator))
+let d_orthorhombic(a, b, c, h, k, l) =
+    let numerator = gf_add(gf_add(gf_div(gf_mul(h, h), gf_mul(a, a)), gf_div(gf_mul(k, k), gf_mul(b, b))), gf_div(gf_mul(l, l), gf_mul(c, c)))
+    if numerator == 0
+        0
+    gf_div(1, gf_sqrt(numerator))
+let structure_factor(atoms, h, k, l) =
+    let F_real = 0
+    let F_imag = 0
+    let i = 0
+    let n = len(atoms)
+    for i < n
+        let atom = atoms[i]
+        let phase = gf_add(gf_add(gf_mul(h, atom[0]), gf_mul(k, atom[1])), gf_mul(l, atom[2]))
+        F_real = gf_add(F_real, phase)
+        i = i + 1
+    gf_add(gf_mul(F_real, F_real), gf_mul(F_imag, F_imag))
+let reciprocal_lattice(a, b, c) =
+    let volume = gf_mul(gf_mul(a, b), c)
+    [gf_div(gf_mul(b, c), volume), gf_div(gf_mul(a, c), volume), gf_div(gf_mul(a, b), volume)]
+let field_bragg(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let bragg_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_bragg(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+

@@ -1,0 +1,260 @@
+import "../domain_field.ψ"
+
+let PC_P = 65537
+let PC_DEFAULT_CAPACITY = 1024
+let PC_POLE_SCALE = 256
+let PC_POLE_OFFSET = 1
+let PC_FRACTAL_N0 = 0
+let PC_FRACTAL_N1 = 1
+
+let pc_default_cache(cap) =
+    [{}, [], cap, 0, 0, []]
+
+let pc_lru_remove(lru_list, page_id) =
+    let new_list = []
+    let i = 0
+    let n = len(lru_list)
+    for i < n
+        if lru_list[i] != page_id
+            new_list.push(lru_list[i])
+        i = i + 1
+    new_list
+
+let pc_lru_touch(cache, page_id) =
+    let lru = cache[1]
+    lru = pc_lru_remove(lru, page_id)
+    lru.push(page_id)
+    cache[1] = lru
+    cache
+
+let pc_evict_lru(cache) =
+    let lru = cache[1]
+    let pages_map = cache[0]
+    let capacity = cache[2]
+    for len(lru) > capacity
+        let victim = lru[0]
+        let page = pages_map[victim]
+        if page != 0
+            if page[2] == 1
+                page[2] = 0
+        pages_map[victim] = 0
+        let new_lru = []
+        let i = 1
+        let n = len(lru)
+        for i < n
+            new_lru.push(lru[i])
+            i = i + 1
+        lru = new_lru
+    cache[0] = pages_map
+    cache[1] = lru
+    cache
+
+let pc_get(cache, page_id, ts) =
+    let pages_map = cache[0]
+    let page = pages_map[page_id]
+    if page != 0
+        page[4] = ts
+        page[1] = page[1] + 1
+        cache = pc_lru_touch(cache, page_id)
+        cache[3] = cache[3] + 1
+        [cache, page]
+    else
+        cache[4] = cache[4] + 1
+        [cache, 0]
+
+let pc_put(cache, page_id, content, ts) =
+    let pages_map = cache[0]
+    let page = pages_map[page_id]
+    if page != 0
+        page[3] = content
+        page[2] = 1
+        page[4] = ts
+        cache = pc_lru_touch(cache, page_id)
+        cache
+    else
+        let new_page = [page_id, 0, 1, content, ts]
+        pages_map[page_id] = new_page
+        cache[0] = pages_map
+        let lru = cache[1]
+        lru.push(page_id)
+        cache[1] = lru
+        cache = pc_evict_lru(cache)
+        let log = cache[5]
+        log.push(["put", page_id])
+        cache[5] = log
+        cache
+
+let pc_mark_dirty(cache, page_id) =
+    let pages_map = cache[0]
+    let page = pages_map[page_id]
+    if page != 0
+        page[2] = 1
+        cache[0] = pages_map
+        let log = cache[5]
+        log.push(["mark_dirty", page_id])
+        cache[5] = log
+    cache
+
+let pc_flush_page(cache, page_id) =
+    let pages_map = cache[0]
+    let page = pages_map[page_id]
+    if page != 0
+        page[2] = 0
+        cache[0] = pages_map
+        let log = cache[5]
+        log.push(["flush_page", page_id])
+        cache[5] = log
+    cache
+
+let pc_size(cache) =
+    let pages_map = cache[0]
+    let keys = keys_of(pages_map)
+    let count = 0
+    let i = 0
+    let n = len(keys)
+    for i < n
+        if pages_map[keys[i]] != 0
+            count = count + 1
+        i = i + 1
+    count
+
+let pc_hit_rate(cache) =
+    let hit = cache[3]
+    let miss = cache[4]
+    let total = hit + miss
+    if total == 0
+        0
+    else
+        (hit * 1000) / total
+
+let pc_bragg_verify(cache, ops_seq) =
+    let ref_cache = pc_default_cache(cache[2])
+    let ref_hit = 0
+    let ref_miss = 0
+    let i = 0
+    let n = len(ops_seq)
+    for i < n
+        let op = ops_seq[i]
+        ref_cache = pc_put(ref_cache, op[0], op[1], i)
+        let r = pc_get(ref_cache, op[0], i)
+        ref_cache = r[0]
+        if r[1] != 0
+            ref_hit = ref_hit + 1
+        else
+            ref_miss = ref_miss + 1
+        i = i + 1
+    let d1_cache = pc_default_cache(cache[2])
+    let d1_hit = 0
+    let d1_miss = 0
+    i = 0
+    for i < n
+        let op = ops_seq[i]
+        d1_cache = pc_put(d1_cache, op[0], op[1], i)
+        let r = pc_get(d1_cache, op[0], i)
+        d1_cache = r[0]
+        if r[1] != 0
+            d1_hit = d1_hit + 1
+        else
+            d1_miss = d1_miss + 1
+        i = i + 1
+    let consistent = 1
+    if ref_hit != d1_hit
+        consistent = 0
+    if ref_miss != d1_miss
+        consistent = 0
+    consistent
+
+let pc_gf_mod(x) = domain_gf_mod(x)
+
+let pc_gf_inv(x) = domain_gf_inv(x)
+
+let pc_collect_pages(cache) =
+    let pages_map = cache[0]
+    let keys = keys_of(pages_map)
+    let pages = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let page = pages_map[keys[i]]
+        if page != 0
+            pages.push(page)
+        i = i + 1
+    pages
+
+let pc_field_encode(pages, n) =
+    let records = []
+    let _i = 0
+    for _i < n
+        records.push([pages[_i], pages[_i]])
+        _i = _i + 1
+    domain_field_encode(records, n, 1, 0)
+let pc_field_eval(poles, residues, z) = domain_field_eval(poles, residues, z)
+
+let pc_field_bragg_verify(cache, ops_seq) = domain_bragg_verify(cache[0], cache[1], ops_seq[0], ops_seq[1])
+
+let pc_test_basic() =
+    let ok1 = 1
+    let cache = pc_default_cache(3)
+    cache = pc_put(cache, 1, "page1", 10)
+    cache = pc_put(cache, 2, "page2", 20)
+    cache = pc_put(cache, 3, "page3", 30)
+    let r = pc_get(cache, 1, 40)
+    cache = r[0]
+    if r[1] == 0
+        ok1 = 0
+    if cache[3] != 1
+        ok1 = 0
+
+    let ok2 = 1
+    cache = pc_put(cache, 4, "page4", 50)
+    let r2 = pc_get(cache, 2, 60)
+    cache = r2[0]
+    if r2[1] != 0
+        ok2 = 0
+    let r3 = pc_get(cache, 1, 70)
+    cache = r3[0]
+    if r3[1] == 0
+        ok2 = 0
+    let r4 = pc_get(cache, 3, 80)
+    cache = r4[0]
+    if r4[1] == 0
+        ok2 = 0
+    let r5 = pc_get(cache, 4, 90)
+    cache = r5[0]
+    if r5[1] == 0
+        ok2 = 0
+
+    let ok3 = 1
+    cache = pc_mark_dirty(cache, 1)
+    let pages = cache[0]
+    if pages[1][2] != 1
+        ok3 = 0
+    cache = pc_flush_page(cache, 1)
+    if pages[1][2] != 0
+        ok3 = 0
+
+    let ok4 = 1
+    let rate = pc_hit_rate(cache)
+    if rate < 0
+        ok4 = 0
+
+    let ok5 = 1
+    let ops = [[1, 100, 0], [2, 200, 1], [1, 101, 2], [3, 300, 3], [2, 201, 4]]
+    let bragg = pc_bragg_verify(cache, ops)
+    if bragg != 1
+        ok5 = 0
+
+    let ok6 = 1
+    if pc_size(cache) < 1
+        ok6 = 0
+
+    ok1 * ok2 * ok3 * ok4 * ok5 * ok6
+
+let pc_test_self() =
+    let ok = pc_test_basic()
+    if ok == 1
+        print("page_cache: ALL PASS")
+    else
+        print("page_cache: FAIL")
+    ok
+

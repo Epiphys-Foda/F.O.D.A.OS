@@ -1,0 +1,52 @@
+import "ck.ψ"
+let bad = [0]
+
+let slope_a = 1
+let p0_a = 273
+let t_floor = 273
+let p_floor_a = p0_a - slope_a * t_floor
+let dz1 = p_floor_a
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let p0_b = 546
+let slope_b = 2
+let p_floor_b = p0_b - slope_b * t_floor
+let dz2 = p_floor_b
+bad[0] = bad[0] + ck(dz2, 0, 0)
+let dz3 = p_floor_b - p_floor_a
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let p_room = p0_a + slope_a * 27
+let dz4 = p_room - 27 - 273
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let t_c = 25
+let t_k = t_c + 273
+let dz5 = t_k - 298
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let p298 = 298
+let p596 = 596
+let dz6 = p596 - p298 * 2
+bad[0] = bad[0] + ck(dz6, 0, 0)
+let p50c = 323
+bad[0] = bad[0] + ck_hi(p50c, p596)
+
+if 1742 < 1740
+    bad[0] = bad[0] + 1
+if 1742 > 1744
+    bad[0] = bad[0] + 1
+if 1802 < 1800
+    bad[0] = bad[0] + 1
+if 1802 > 1804
+    bad[0] = bad[0] + 1
+if 1802 < 1742
+    bad[0] = bad[0] + 1
+if 1848 < 1846
+    bad[0] = bad[0] + 1
+if 1848 > 1850
+    bad[0] = bad[0] + 1
+if 1848 < 1802
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

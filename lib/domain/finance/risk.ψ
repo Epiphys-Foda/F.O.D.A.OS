@@ -1,0 +1,108 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let RISK_MAX_PORTFOLIO = 256
+let RISK_CONFIDENCE = 95
+
+let var_historical(returns, confidence) =
+    let sorted = []
+    let i = 0
+    let n = len(returns)
+    for i < n
+        sorted.push(returns[i])
+        i = i + 1
+    i = 0
+    for i < n
+        let j = i + 1
+        for j < n
+            if sorted[j] < sorted[i]
+                let temp = sorted[i]
+                sorted[i] = sorted[j]
+                sorted[j] = temp
+            j = j + 1
+        i = i + 1
+    let idx = gf_div(gf_mul(n, gf_sub(100, confidence)), 100)
+    sorted[idx]
+let cvar_historical(returns, confidence) =
+    let var_val = var_historical(returns, confidence)
+    let sum = 0
+    let count = 0
+    let i = 0
+    let n = len(returns)
+    for i < n
+        if returns[i] < var_val
+            sum = gf_add(sum, returns[i])
+        count = count + 1
+        i = i + 1
+    (count > 0 ? gf_div(sum, count) : var_val)
+let volatility(returns) =
+    let n = len(returns)
+    let mean = 0
+    let i = 0
+    for i < n
+        mean = gf_add(mean, returns[i])
+        i = i + 1
+    mean = gf_div(mean, n)
+    let var_val = 0
+    i = 0
+    for i < n
+        let diff = gf_sub(returns[i], mean)
+        var_val = gf_add(var_val, gf_mul(diff, diff))
+        i = i + 1
+    gf_sqrt(gf_div(var_val, n))
+let beta(asset_returns, market_returns) =
+    let n = len(asset_returns)
+    let mean_a = 0
+    let mean_m = 0
+    let i = 0
+    for i < n
+        mean_a = gf_add(mean_a, asset_returns[i])
+        mean_m = gf_add(mean_m, market_returns[i])
+        i = i + 1
+    mean_a = gf_div(mean_a, n)
+    mean_m = gf_div(mean_m, n)
+    let cov = 0
+    let var_m = 0
+    i = 0
+    for i < n
+        cov = gf_add(cov, gf_mul(gf_sub(asset_returns[i], mean_a), gf_sub(market_returns[i], mean_m)))
+        var_m = gf_add(var_m, gf_mul(gf_sub(market_returns[i], mean_m), gf_sub(market_returns[i], mean_m)))
+        i = i + 1
+    gf_div(cov, var_m)
+let stress_test(positions, shock) =
+    let total_loss = 0
+    let i = 0
+    let n = len(positions)
+    for i < n
+        let pos = positions[i]
+        total_loss = gf_add(total_loss, gf_mul(pos[2], shock))
+        i = i + 1
+    total_loss
+let sharpe_ratio(returns, risk_free) =
+    let n = len(returns)
+    let mean = 0
+    let i = 0
+    for i < n
+        mean = gf_add(mean, returns[i])
+        i = i + 1
+    mean = gf_div(mean, n)
+    gf_div(gf_sub(mean, risk_free), volatility(returns))
+let field_risk(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let risk_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_risk(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+

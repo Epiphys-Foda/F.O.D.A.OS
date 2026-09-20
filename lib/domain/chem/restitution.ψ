@@ -1,0 +1,28 @@
+import "ck.ψ"
+let bad = [0]
+
+let e_x10 = 5
+let h_drop = 100
+let h_bounce = 25
+let dz1 = h_bounce * 4 - h_drop
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let e_sb = 9
+let h_sb = 81
+let dz2 = h_sb - e_sb * e_sb
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let e_putty = 0
+let e_wood = 5
+let e_id = 10
+bad[0] = bad[0] + ck_hi(e_putty, e_wood)
+if e_wood > e_sb * 10
+    bad[0] = bad[0] + 1
+bad[0] = bad[0] + ck_lo(e_id, e_sb)
+
+if 1693 < 1691
+    bad[0] = bad[0] + 1
+if 1693 > 1695
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

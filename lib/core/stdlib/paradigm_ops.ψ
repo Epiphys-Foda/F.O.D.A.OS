@@ -1,0 +1,95 @@
+import "gf65537.ψ"
+import "arr.ψ"
+import "linalg_gf.ψ"
+import "fft.ψ"
+
+let gf_partial(f_vals, x) = gf_sub(arr_get(f_vals, x + 1), arr_get(f_vals, x))
+
+let gf_partial2(f_vals, x) =
+    let f_next = arr_get(f_vals, x + 1)
+    let f_curr = arr_get(f_vals, x)
+    let f_prev = arr_get(f_vals, x - 1)
+    gf_add(gf_sub(f_next, gf_mul(2, f_curr)), f_prev)
+
+let _gf_gradient_acc(f_matrix, d, dim_count, x_idx, grad) =
+    if d >= dim_count
+        grad
+    let f_d = arr_get(f_matrix, d)
+    arr_set(grad, d, gf_partial(f_d, x_idx))
+    _gf_gradient_acc(f_matrix, d + 1, dim_count, x_idx, grad)
+let gf_gradient(f_matrix, x_idx) =
+    let dim_count = arr_len(f_matrix)
+    let grad = arr_new_n(dim_count)
+    _gf_gradient_acc(f_matrix, 0, dim_count, x_idx, grad)
+
+let _gf_integral_acc(f_vals, x, b, acc) =
+    if x > b
+        acc
+    _gf_integral_acc(f_vals, x + 1, b, gf_add(acc, arr_get(f_vals, x)))
+let gf_integral(f_vals, a, b) = _gf_integral_acc(f_vals, a, b, 0)
+
+let _gf_argmin_acc(f_vals, i, n, best_x, best_y) =
+    if i >= n
+        best_x
+    let y = arr_get(f_vals, i)
+    let new_best_x = ((gf_sub(y, best_y) > 32768) ? (i) : (best_x))
+    let new_best_y = ((gf_sub(y, best_y) > 32768) ? (y) : (best_y))
+    _gf_argmin_acc(f_vals, i + 1, n, new_best_x, new_best_y)
+let gf_argmin(f_vals) = _gf_argmin_acc(f_vals, 1, arr_len(f_vals), 0, arr_get(f_vals, 0))
+
+let _gf_argmax_acc(f_vals, i, n, best_x, best_y) =
+    if i >= n
+        best_x
+    let y = arr_get(f_vals, i)
+    let new_best_x = ((gf_sub(y, best_y) <= 32768) ? (i) : (best_x))
+    let new_best_y = ((gf_sub(y, best_y) <= 32768) ? (y) : (best_y))
+    _gf_argmax_acc(f_vals, i + 1, n, new_best_x, new_best_y)
+let gf_argmax(f_vals) = _gf_argmax_acc(f_vals, 1, arr_len(f_vals), 0, arr_get(f_vals, 0))
+
+let gf_kleene_star(R) = gf_inv(gf_sub(1, R))
+
+let gf_ssa_phi(v1, v2) = gf_add(v1, v2)
+
+let _gf_meta_inner_acc(a, b, i, n, acc) =
+    if i >= n
+        acc
+    let term = gf_mul(arr_get(a, i), arr_get(b, i))
+    _gf_meta_inner_acc(a, b, i + 1, n, gf_add(acc, term))
+let gf_meta_inner(a, b) = _gf_meta_inner_acc(a, b, 0, arr_len(a), 0)
+
+let _gf_resonance_acc(A, B, i, n, acc) =
+    if i >= n
+        acc
+    let term = gf_mul(arr_get(A, i), arr_get(B, i))
+    _gf_resonance_acc(A, B, i + 1, n, gf_add(acc, term))
+let gf_meta_resonance(a, b) =
+    let n = arr_len(a)
+    let A = ntt(a, n)
+    let B = ntt(b, n)
+    _gf_resonance_acc(A, B, 0, n, 0)
+
+let _gf_meta_hebbian_acc(a, grad_L, i, n, result) =
+    if i >= n
+        result
+    let update = gf_mul(256, arr_get(grad_L, i))
+    arr_set(result, i, gf_add(arr_get(a, i), update))
+    _gf_meta_hebbian_acc(a, grad_L, i + 1, n, result)
+let gf_meta_hebbian(a, grad_L) =
+    let n = arr_len(a)
+    let result = arr_new_n(n)
+    _gf_meta_hebbian_acc(a, grad_L, 0, n, result)
+
+let op_partial(f_vals, x) = gf_partial(f_vals, x)
+let op_partial2(f_vals, x) = gf_partial2(f_vals, x)
+let op_gradient(f_matrix, x_idx) = gf_gradient(f_matrix, x_idx)
+let op_integral(f_vals, a, b) = gf_integral(f_vals, a, b)
+let op_argmin(f_vals) = gf_argmin(f_vals)
+let op_argmax(f_vals) = gf_argmax(f_vals)
+let op_kleene_star(R) = gf_kleene_star(R)
+let op_ssa_phi(v1, v2) = gf_ssa_phi(v1, v2)
+let op_meta_inner(a, b) = gf_meta_inner(a, b)
+let op_meta_resonance(a, b) = gf_meta_resonance(a, b)
+let op_meta_hebbian(a, grad_L) = gf_meta_hebbian(a, grad_L)
+
+let paradigm_ops_layer_id() = 80
+let paradigm_ops_module_count() = 21

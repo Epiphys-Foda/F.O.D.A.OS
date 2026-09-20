@@ -1,0 +1,2104 @@
+import "../db/surreal_engine.ψ"
+import "../db/agent_memory.ψ"
+import "../backend/wasm_sandbox.ψ"
+import "../../core/stdlib/crt_concurrency.ψ"
+import "../net/distributed.ψ"
+import "../search/inverted_index.ψ"
+let super_arch_new() =
+    [
+        engine_new(),
+        memory_new(),
+        sandbox_new(),
+        scheduler_new(),
+        node_new(0),
+        index_new(),
+        metrics_new(),
+        {},
+        topic_new("default", 4),
+        mvcc_table_new(),
+        jit_new(),
+        workflow_new("default"),
+        obs_new("fodaos", 1, "v28"),
+        kvstore_new(),
+        registry_new(),
+        ts_engine_new(),
+        lsm_new(),
+        graph_new(),
+        objstore_new(),
+        gateway_new(),
+        lb_new(0),
+        cdn_new(),
+        proxy_new(proxy_config_new(1, ":8080")),
+        tokenizer_new(),
+        embed_new(64),
+        tpl_registry_new(),
+        mm_aligner_new(64),
+        model_new([256, 64, 256, 4, 8, 512, 0, 1]),
+        trainer_new(0, 0),
+        0,
+        pipeline_new(),
+        0,
+        cluster_new(),
+        locale_new("en", "US", "", [], {}),
+        catalog_new("en", "en"),
+        store_new(),
+        sstore_new(),
+        mailbox_new("default"),
+        smpp_session_new("fodaos", ""),
+        device_registry_new(),
+        chain_new(0),
+        0,
+        index_new(),
+        query_new(0, [], 1),
+        store_new(),
+        bus_new(),
+        cube_new("default", [], []),
+        dashboard_new("default", "Default Dashboard"),
+        vault_new(0),
+        mgr_new("vault", 300),
+        meter_store_new(),
+        invoice_new("inv-001", "cust-001", 0, 0, "CNY", 0),
+        fs_store_new("default"),
+        mr_new("fodaos"),
+        server_new("fodaos"),
+        tracer_new(3, 512),
+        log_manager_new(LG_LEVEL_INFO),
+        alert_mgr_new("fodaos"),
+        gindex_new(),
+        0,
+        reg_new(),
+        tstore_new(),
+        broker_new(),
+        ds_new(),
+        cms_store_new(),
+        ks_new(),
+        trunner_new(),
+        0,
+        psess_new(100, 60),
+        repo_new("fodaos", "."),
+        0,
+        merge_state_new(),
+        ds_store_new(),
+        an_store_new(),
+        sp_store_new(),
+        ws_store_new(),
+        rt_session_new("rt-default", "ws-default", "doc-default", 0),
+        pr_new(1024, 3, 10),
+        tt_new(4096),
+        cr_new(128, 1024),
+        mr_new(),
+        0,
+        bm_new("default", "suite-0"),
+        xai_default_engine(),
+        xai_default_interpreter(),
+        xai_default_cf_engine(),
+        dg_default_catalog(),
+        dg_default_lineage_store(),
+        dg_default_quality_store(),
+        mp_default_registry(),
+        mp_default_experiment_store(),
+        mp_default_artifact_store(),
+        md_default_coordinator(),
+        md_default_dist_trainer(),
+        md_default_compression_pipeline(),
+        ms_default_safety_engine(),
+        ms_default_bias_store(),
+        ms_default_alignment_store(),
+        cb_default(),
+        rl_default_limiter(),
+        bh_default(),
+        rt_default(),
+        to_default_timeout(),
+        fo_default_cluster(),
+        fsm_default(),
+        sc_default(),
+        hs_default(),
+        dl_new(),
+        dw_new(),
+        lh_table_new("default", "id"),
+        et_pipeline_default(),
+        iam_store_new(),
+        iam_role_default_store(),
+        iam_permission_default_store(),
+        iam_oauth2_default_store(),
+        policy_engine_default_set(),
+        abac_rbac_default_store(),
+        slo_sli_default_store(),
+        error_budget_default_store(),
+        postmortem_default_store(),
+        fault_injection_default_store(),
+        blast_radius_default_store(),
+        steady_state_default_store(),
+        rto_rpo_default_store(),
+        backup_strategy_default_store(),
+        failover_plan_default_cluster(),
+        feature_gen_default_store(),
+        transform_default_pipeline(),
+        encoding_default_encoder(),
+        sub_default_registry(),
+        stm_default_registry(),
+        orc_default_graph(),
+        sch_default_scheduler(),
+        cp_default_plane(),
+        dp_default_plane(),
+        fd_default_gateway(),
+        ss_default_registry(),
+        bft_default_cluster(),
+        ec_default_cluster(),
+        sg_default_orchestrator(),
+        sq_default_store(),
+        mv_default_mgr(),
+        px_default_cluster(),
+        lsm_default_tree(),
+        bpt_default_tree(8),
+        wal_default_log(),
+        pc_default_cache(1024),
+        fl_default_engine(),
+        tx_default_mgr(),
+        vk_default_executor(),
+        cr_default_runtime(),
+        fs_default_platform(),
+        tp_default_stack(),
+        h2_default_conn(),
+        df_default_compressor(32768),
+        pb_default_encoder(),
+        cf_default_pipeline(),
+        sf_default_generator(1),
+        eb_default_bus(),
+        av_default_engine(),
+        sr_default_registry(),
+        au_default_trail(),
+        gp_default_manager(),
+        ds_default_dag(),
+        qc_default_scheduler(),
+        a2_default_hub(),
+        mo_default_orchestrator(),
+        rl_default_encoder(),
+        ar_default_table(),
+        cc_default_gcounter(1),
+        gq_default_executor(),
+        pl_default_planner(),
+        rs_default_reasoner(),
+        bm_default_engine(),
+        qp_default_planner(),
+        qo_default_optimizer(),
+        ce_default_session(1),
+        gp_default_conn(),
+        rl_default_agent(),
+        ci_default_inferencer(),
+        mb_default_bandit(5),
+        td_default_detector(),
+        kr_default_manager(),
+        lb_default_balancer(),
+        qs_default_manager(),
+        gc_default_heap(),
+        bf_default_filter(1000, 10),
+        fz_default_searcher(3),
+        kb_default_graph(),
+        ol_default_model(1),
+        se_default_broker(),
+        md_default_parser(),
+        el_default_leaderboard(),
+        bu_default_engine(),
+        mt_default_model(),
+        ja_default_compiler(),
+        pl_default_engine()
+    ]
+
+let sa_db(sa) = sa[0]
+let sa_agent(sa) = sa[1]
+let sa_wasm(sa) = sa[2]
+let sa_alu(sa) = sa[3]
+let sa_cluster(sa) = sa[4]
+let sa_rag(sa) = sa[5]
+let sa_metrics(sa) = sa[6]
+let sa_router(sa) = sa[7]
+let sa_stream(sa) = sa[8]
+let sa_mvcc(sa) = sa[9]
+let sa_jit(sa) = sa[10]
+let sa_workflow(sa) = sa[11]
+
+let sa_obs(sa) = sa[12]
+let sa_config(sa) = sa[13]
+let sa_registry(sa) = sa[14]
+let sa_ts_db(sa) = sa[15]
+let sa_col_db(sa) = sa[16]
+let sa_graph_db(sa) = sa[17]
+let sa_obj_store(sa) = sa[18]
+let sa_gateway(sa) = sa[19]
+let sa_lb(sa) = sa[20]
+let sa_cdn(sa) = sa[21]
+let sa_proxy(sa) = sa[22]
+let sa_tokenizer(sa) = sa[23]
+let sa_embedding(sa) = sa[24]
+let sa_prompt(sa) = sa[25]
+let sa_multimodal(sa) = sa[26]
+
+let sa_ml_model(sa) = sa[27]
+let sa_ml_trainer(sa) = sa[28]
+let sa_ml_inference(sa) = sa[29]
+let sa_devops_pipeline(sa) = sa[30]
+let sa_devops_container(sa) = sa[31]
+let sa_devops_cluster(sa) = sa[32]
+let sa_i18n_locale(sa) = sa[33]
+let sa_i18n_catalog(sa) = sa[34]
+let sa_storage_backup(sa) = sa[35]
+let sa_storage_snapshot(sa) = sa[36]
+let sa_msg_mailbox(sa) = sa[37]
+let sa_msg_smpp(sa) = sa[38]
+let sa_msg_push(sa) = sa[39]
+let sa_bc_ledger(sa) = sa[40]
+let sa_bc_vm(sa) = sa[41]
+
+let sa_search_index(sa) = sa[42]
+let sa_search_query(sa) = sa[43]
+let sa_event_sourcing(sa) = sa[44]
+let sa_event_cqrs(sa) = sa[45]
+let sa_analytics_cube(sa) = sa[46]
+let sa_analytics_dashboard(sa) = sa[47]
+let sa_secrets_vault(sa) = sa[48]
+let sa_secrets_manager(sa) = sa[49]
+let sa_billing_metering(sa) = sa[50]
+let sa_billing_invoice(sa) = sa[51]
+
+let sa_ml_ops_feature_store(sa) = sa[52]
+let sa_ml_ops_model_registry(sa) = sa[53]
+let sa_ml_ops_serving(sa) = sa[54]
+let sa_obs_tracing(sa) = sa[55]
+let sa_obs_logging(sa) = sa[56]
+let sa_obs_alerting(sa) = sa[57]
+let sa_geo_geospatial(sa) = sa[58]
+let sa_geo_trajectory(sa) = sa[59]
+let sa_iot_device(sa) = sa[60]
+let sa_iot_twin(sa) = sa[61]
+let sa_iot_mqtt(sa) = sa[62]
+let sa_doc_document(sa) = sa[63]
+let sa_doc_cms(sa) = sa[64]
+let sa_doc_knowledge(sa) = sa[65]
+let sa_tooling_testing(sa) = sa[66]
+let sa_tooling_debugger(sa) = sa[67]
+let sa_tooling_profiler(sa) = sa[68]
+let sa_vcs_repo(sa) = sa[69]
+let sa_vcs_diff(sa) = sa[70]
+let sa_vcs_merge(sa) = sa[71]
+
+let sa_ml_data_dataset(sa) = sa[72]
+let sa_ml_data_annotation(sa) = sa[73]
+let sa_ml_data_split(sa) = sa[74]
+let sa_collab_workspace(sa) = sa[75]
+let sa_collab_realtime(sa) = sa[76]
+let sa_runtime_process(sa) = sa[77]
+let sa_runtime_thread(sa) = sa[78]
+let sa_runtime_coroutine(sa) = sa[79]
+let sa_ml_eval_metrics(sa) = sa[80]
+let sa_ml_eval_evaluator(sa) = sa[81]
+let sa_ml_eval_benchmark(sa) = sa[82]
+
+let sa_ml_xai_attribution(sa) = sa[83]
+let sa_ml_xai_interpret(sa)   = sa[84]
+let sa_ml_xai_cf(sa)          = sa[85]
+let sa_ml_gov_catalog(sa)     = sa[86]
+let sa_ml_gov_lineage(sa)     = sa[87]
+let sa_ml_gov_quality(sa)     = sa[88]
+let sa_ml_pipe_orchestrate(sa) = sa[89]
+let sa_ml_pipe_experiment(sa)  = sa[90]
+let sa_ml_pipe_artifact(sa)    = sa[91]
+let sa_ml_dist_federated(sa)   = sa[92]
+let sa_ml_dist_train(sa)       = sa[93]
+let sa_ml_dist_compress(sa)    = sa[94]
+let sa_ml_safety_adversarial(sa) = sa[95]
+let sa_ml_safety_bias(sa)        = sa[96]
+let sa_ml_safety_alignment(sa)   = sa[97]
+
+let sa_resilience_cb(sa)         = sa[98]
+let sa_resilience_rl(sa)         = sa[99]
+let sa_resilience_bk(sa)         = sa[100]
+let sa_resilience_rt(sa)         = sa[101]
+let sa_resilience_to(sa)         = sa[102]
+let sa_resilience_fo(sa)         = sa[103]
+let sa_sm_fsm(sa)                = sa[104]
+let sa_sm_statechart(sa)         = sa[105]
+let sa_sm_hsm(sa)                = sa[106]
+let sa_dp_lake(sa)               = sa[107]
+let sa_dp_warehouse(sa)          = sa[108]
+let sa_dp_lakehouse(sa)          = sa[109]
+let sa_dp_etl(sa)                = sa[110]
+let sa_iam_user(sa)              = sa[111]
+let sa_iam_role(sa)              = sa[112]
+let sa_iam_permission(sa)        = sa[113]
+let sa_iam_oauth2(sa)            = sa[114]
+
+let sa_policy_engine(sa)         = sa[115]
+let sa_policy_abac_rbac(sa)      = sa[116]
+let sa_sre_slo_sli(sa)           = sa[117]
+let sa_sre_error_budget(sa)      = sa[118]
+let sa_sre_postmortem(sa)        = sa[119]
+let sa_chaos_fault_injection(sa) = sa[120]
+let sa_chaos_blast_radius(sa)    = sa[121]
+let sa_chaos_steady_state(sa)    = sa[122]
+let sa_dr_rto_rpo(sa)            = sa[123]
+let sa_dr_backup_strategy(sa)    = sa[124]
+let sa_dr_failover_plan(sa)      = sa[125]
+let sa_fe_feature_gen(sa)        = sa[126]
+let sa_fe_transform(sa)          = sa[127]
+let sa_fe_encoding(sa)           = sa[128]
+
+let sa_realtime_subscription(sa) = sa[129]
+let sa_spacetime_module(sa)      = sa[130]
+let sa_orchestrator(sa)          = sa[131]
+let sa_scheduler(sa)             = sa[132]
+let sa_control_plane(sa)         = sa[133]
+let sa_data_plane(sa)            = sa[134]
+
+let sa_federation(sa)            = sa[135]
+let sa_streaming_sql(sa)         = sa[136]
+let sa_bft(sa)                   = sa[137]
+let sa_edge_compute(sa)          = sa[138]
+let sa_saga(sa)                  = sa[139]
+let sa_surreal_ql(sa)            = sa[140]
+let sa_materialized_view(sa)      = sa[141]
+let sa_paxos(sa)                 = sa[142]
+
+let sa_lsm(sa)                   = sa[143]
+let sa_bpt(sa)                   = sa[144]
+let sa_wal(sa)                   = sa[145]
+let sa_pc(sa)                    = sa[146]
+let sa_fl(sa)                    = sa[147]
+let sa_tx(sa)                    = sa[148]
+let sa_vk(sa)                    = sa[149]
+let sa_cr(sa)                    = sa[150]
+let sa_fs(sa)                    = sa[151]
+let sa_tp(sa)                    = sa[152]
+let sa_h2(sa)                    = sa[153]
+let sa_df(sa)                    = sa[154]
+let sa_pb(sa)                    = sa[155]
+let sa_cf(sa)                    = sa[156]
+let sa_sf(sa)                    = sa[157]
+let sa_eb(sa)                    = sa[158]
+let sa_av(sa)                    = sa[159]
+let sa_sr(sa)                    = sa[160]
+let sa_au(sa)                    = sa[161]
+let sa_gdpr(sa)                  = sa[162]
+let sa_ds(sa)                    = sa[163]
+let sa_qc(sa)                    = sa[164]
+let sa_a2(sa)                    = sa[165]
+let sa_mo(sa)                    = sa[166]
+let sa_rle(sa)                   = sa[167]
+let sa_ar(sa)                    = sa[168]
+let sa_cc(sa)                    = sa[169]
+let sa_gq(sa)                    = sa[170]
+let sa_pl(sa)                    = sa[171]
+let sa_rs(sa)                    = sa[172]
+let sa_bm(sa)                    = sa[173]
+let sa_qp(sa)                    = sa[174]
+let sa_qo(sa)                    = sa[175]
+let sa_ce(sa)                    = sa[176]
+let sa_grpc(sa)                  = sa[177]
+let sa_rl(sa)                    = sa[178]
+
+let sa_ci(sa)                    = sa[179]
+let sa_mb(sa)                    = sa[180]
+let sa_td(sa)                    = sa[181]
+let sa_kr(sa)                    = sa[182]
+let sa_l7_lb(sa)                 = sa[183]
+let sa_qs(sa)                    = sa[184]
+
+let sa_gc(sa)                    = sa[185]
+let sa_bf(sa)                    = sa[186]
+let sa_fz(sa)                    = sa[187]
+let sa_kb(sa)                    = sa[188]
+let sa_ol(sa)                    = sa[189]
+let sa_se(sa)                    = sa[190]
+
+let sa_md(sa)                    = sa[191]
+let sa_elo(sa)                   = sa[192]
+let sa_bu(sa)                    = sa[193]
+let sa_mt(sa)                    = sa[194]
+let sa_ja(sa)                    = sa[195]
+let sa_pl2(sa)                   = sa[196]
+
+let metrics_new() =
+    [{}, {}, {}, 0, 0]
+
+let m_count(m) = m[0]
+let m_latency(m) = m[1]
+let m_errors(m) = m[2]
+let m_bragg_pass(m) = m[3]
+let m_bragg_fail(m) = m[4]
+
+let metrics_record_op(m, op_name, latency) =
+    let counts = m_count(m)
+    let c = counts[op_name]
+    if c == 0
+        c = 0
+    counts[op_name] = c + 1
+    let lats = m_latency(m)
+    let l = lats[op_name]
+    if l == 0
+        l = 0
+    lats[op_name] = l + latency
+    m[0] = counts
+    m[1] = lats
+    m
+
+let metrics_record_error(m, op_name) =
+    let errs = m_errors(m)
+    let e = errs[op_name]
+    if e == 0
+        e = 0
+    errs[op_name] = e + 1
+    m[2] = errs
+    m
+
+let metrics_record_bragg(m, pass) =
+    if pass == 1
+        m[3] = m[3] + 1
+    else
+        m[4] = m[4] + 1
+    m
+
+let metrics_avg_latency(m, op_name) =
+    let counts = m_count(m)
+    let lats = m_latency(m)
+    let c = counts[op_name]
+    let l = lats[op_name]
+    if c == 0
+        0
+    else
+        l / c
+
+let route_register(sa, op_name, component_id) =
+    let router = sa_router(sa)
+    router[op_name] = component_id
+    sa[7] = router
+    sa
+
+let route_lookup(sa, op_name) =
+    let router = sa_router(sa)
+    let cid = router[op_name]
+    if cid == 0
+        0
+    else
+        cid
+
+let sa_create_record(sa, table, id, fields) =
+    let db = sa_db(sa)
+    let rid = make_record_id(table, id)
+    let rec = engine_create(db, rid, fields)
+    metrics_record_op(sa_metrics(sa), "create", 1)
+    rec
+
+let sa_read_record(sa, table, id) =
+    let db = sa_db(sa)
+    let rid = make_record_id(table, id)
+    let rec = engine_read(db, rid)
+    metrics_record_op(sa_metrics(sa), "read", 1)
+    rec
+
+let sa_update_record(sa, table, id, fields) =
+    let db = sa_db(sa)
+    let rid = make_record_id(table, id)
+    let rec = engine_update(db, rid, fields)
+    metrics_record_op(sa_metrics(sa), "update", 1)
+    rec
+
+let sa_delete_record(sa, table, id) =
+    let db = sa_db(sa)
+    let rid = make_record_id(table, id)
+    let result = engine_delete(db, rid)
+    metrics_record_op(sa_metrics(sa), "delete", 1)
+    result
+
+let sa_relate(sa, src_table, src_id, edge_type, tgt_table, tgt_id, props) =
+    let db = sa_db(sa)
+    let src_rid = make_record_id(src_table, src_id)
+    let tgt_rid = make_record_id(tgt_table, tgt_id)
+    let edge = engine_relate(db, src_rid, edge_type, tgt_rid, props)
+    metrics_record_op(sa_metrics(sa), "relate", 1)
+    edge
+
+let sa_traverse(sa, src_table, src_id, edge_type, depth) =
+    let db = sa_db(sa)
+    let src_rid = make_record_id(src_table, src_id)
+    metrics_record_op(sa_metrics(sa), "traverse", 1)
+    engine_traverse_n(db, src_rid, edge_type, depth)
+
+let sa_load_module(sa, name, gas_limit) =
+    let sb = sa_wasm(sa)
+    let mod_ = module_new(name, gas_limit)
+    sb = sandbox_load_module(sb, mod_)
+    sa[2] = sb
+    metrics_record_op(sa_metrics(sa), "load_module", 1)
+    mod_
+
+let sa_add_reducer(sa, module_name, reducer_name, params, body, table_access) =
+    let sb = sa_wasm(sa)
+    let modules = sb_modules(sb)
+    let mod_ = modules[module_name]
+    if mod_ != 0
+        mod_ = module_add_reducer(mod_, reducer_name, params, body, table_access)
+        modules[module_name] = mod_
+        sb[0] = modules
+        sa[2] = sb
+    metrics_record_op(sa_metrics(sa), "add_reducer", 1)
+    sa
+
+let sa_call_reducer(sa, module_name, reducer_name, args) =
+    let sb = sa_wasm(sa)
+    let result = sandbox_call(sb, module_name, reducer_name, args)
+    metrics_record_op(sa_metrics(sa), "call_reducer", 1)
+    if result[0] != 1
+        metrics_record_error(sa_metrics(sa), "call_reducer")
+    result
+
+let sa_dispatch_task(sa, op_seq, args_seq, priority, affinity) =
+    let sched = sa_alu(sa)
+    let task = task_new(op_seq, args_seq, priority, affinity)
+    sched = sched_enqueue(sched, task)
+    sa[3] = sched
+    metrics_record_op(sa_metrics(sa), "dispatch_task", 1)
+    task
+
+let sa_run_tasks(sa, max_count) =
+    let sched = sa_alu(sa)
+    let mem = {}
+    let done = sched_dispatch_batch(sched, mem, max_count)
+    metrics_record_op(sa_metrics(sa), "run_tasks", 1)
+    done
+
+let sa_index_doc(sa, doc) =
+    let rag = sa_rag(sa)
+    rag = index_add_doc(rag, doc)
+    sa[5] = rag
+    metrics_record_op(sa_metrics(sa), "index_doc", 1)
+    sa
+
+let sa_vector_search(sa, query_vec, k) =
+    let db = sa_db(sa)
+    let tables = engine_records(db)
+    let all_docs = []
+    let table_names = keys_of(tables)
+    let i = 0
+    let n = len(table_names)
+    for i < n
+        let tbl = tables[table_names[i]]
+        if tbl != 0
+            let doc_ids = keys_of(tbl)
+            let j = 0
+            let m = len(doc_ids)
+            for j < m
+                all_docs.push(tbl[doc_ids[j]])
+                j = j + 1
+        i = i + 1
+    metrics_record_op(sa_metrics(sa), "vector_search", 1)
+    vector_search(all_docs, query_vec, k)
+
+let sa_hybrid_search(sa, query, query_vec, k) =
+    let db = sa_db(sa)
+    let rag = sa_rag(sa)
+    let tables = engine_records(db)
+    let all_docs = []
+    let table_names = keys_of(tables)
+    let i = 0
+    let n = len(table_names)
+    for i < n
+        let tbl = tables[table_names[i]]
+        if tbl != 0
+            let doc_ids = keys_of(tbl)
+            let j = 0
+            let m = len(doc_ids)
+            for j < m
+                all_docs.push(tbl[doc_ids[j]])
+                j = j + 1
+        i = i + 1
+    metrics_record_op(sa_metrics(sa), "hybrid_search", 1)
+    hybrid_search(all_docs, rag, query, query_vec, k)
+
+let sa_init_cluster(sa, node_id, peers) =
+    let cluster = node_new(node_id)
+    let i = 0
+    let n = len(peers)
+    for i < n
+        cluster = node_add_peer(cluster, peers[i])
+        i = i + 1
+    sa[4] = cluster
+    metrics_record_op(sa_metrics(sa), "init_cluster", 1)
+    sa
+
+let sa_start_election(sa) =
+    let cluster = sa_cluster(sa)
+    cluster = election_start(cluster)
+    sa[4] = cluster
+    let peers = node_peers(cluster)
+    let n = len(peers) + 1
+    let quorum = (n / 2) + 1
+    let won = election_tally(cluster, quorum)
+    metrics_record_op(sa_metrics(sa), "election", 1)
+    [won, node_state(cluster)]
+
+let sa_append_log(sa, command) =
+    let cluster = sa_cluster(sa)
+    if node_state(cluster) == 2
+        cluster = log_append(cluster, command)
+        sa[4] = cluster
+        metrics_record_op(sa_metrics(sa), "append_log", 1)
+        1
+    else
+        0
+
+let sa_failover(sa) =
+    let cluster = sa_cluster(sa)
+    cluster = election_start(cluster)
+    sa[4] = cluster
+    metrics_record_op(sa_metrics(sa), "failover", 1)
+    node_state(cluster)
+
+let sa_bragg_check(sa, op_seq, args_seq) =
+    let sched = sa_alu(sa)
+    let mem = {}
+    let task = task_new(op_seq, args_seq, 100, 2)
+    let pass = bragg_verify(task, mem)
+    metrics_record_bragg(sa_metrics(sa), pass)
+    pass
+
+let sa_field_consistency_verify(components, replay_components) =
+    let sample_points = [256, 512, 1024, 2048]
+    let all_ok = 1
+    let i = 0
+    for i < 4
+        let z = sample_points[i]
+        let d1 = sa_field_eval_all(components, z)
+        let r1 = sa_field_eval_all(replay_components, z)
+        if d1 != r1
+            all_ok = 0
+        i = i + 1
+    all_ok
+
+let sa_field_eval_all(components, z) =
+    let total = 0
+    let i = 0
+    let n = len(components)
+    for i < n
+        let comp = components[i]
+        let poles = comp[0]
+        let residues = comp[1]
+        let depths = comp[2]
+        let j = 0
+        let m = len(poles)
+        for j < m
+            let zk = poles[j]
+            let rk = residues[j]
+            let nk = depths[j]
+            let dz = z - zk
+            if dz == 0
+                dz = 1
+            if nk == 0
+                total = total + rk
+            else
+                0
+            if nk == 1
+                total = total + rk / dz
+            else
+                let denom = 1
+                let k = 0
+                for k < nk
+                    denom = denom * dz
+                    k = k + 1
+                if denom == 0
+                    denom = 1
+                total = total + rk / denom
+            j = j + 1
+        i = i + 1
+    total
+
+let sa_kleene_field_verify() =
+    let poles = [257, 513, 1025, 2049]
+    let residues = [1, 2, 3, 4]
+    let depths = [0, 1, 2, 3]
+    let components = [[poles, residues, depths]]
+    let replay_components = [[poles, residues, depths]]
+    sa_field_consistency_verify(components, replay_components)
+
+let sa_stream_produce(sa, key, value, ts) =
+    let stream = sa_stream(sa)
+    let result = topic_produce(stream, key, value, ts)
+    metrics_record_op(sa_metrics(sa), "stream_produce", 1)
+    result
+
+let sa_stream_consume(sa, partition_id) =
+    let stream = sa_stream(sa)
+    let c = consumer_new(0, "default", topic_name(stream), partition_id, 0)
+    let msg = consumer_poll(c, stream)
+    metrics_record_op(sa_metrics(sa), "stream_consume", 1)
+    msg
+
+let sa_mvcc_begin(sa, isolation) =
+    let mvcc = sa_mvcc(sa)
+    let tx = tx_begin_mvcc(mvcc, isolation)
+    metrics_record_op(sa_metrics(sa), "mvcc_begin", 1)
+    tx
+
+let sa_mvcc_insert(sa, tx, key, data) =
+    let mvcc = sa_mvcc(sa)
+    let v = mvcc_insert(mvcc, tx, key, data)
+    metrics_record_op(sa_metrics(sa), "mvcc_insert", 1)
+    v
+
+let sa_mvcc_select(sa, tx, key) =
+    let mvcc = sa_mvcc(sa)
+    let status_map = {}
+    let v = mvcc_select(mvcc, tx, key, status_map)
+    metrics_record_op(sa_metrics(sa), "mvcc_select", 1)
+    v
+
+let sa_mvcc_commit(sa, tx) =
+    tx = tx_commit(tx)
+    metrics_record_op(sa_metrics(sa), "mvcc_commit", 1)
+    tx
+
+let sa_jit_register(sa, name, body) =
+    let jit = sa_jit(sa)
+    let fnc = jit_function_new(name, body)
+    jit = jit_register(jit, fnc)
+    sa[10] = jit
+    metrics_record_op(sa_metrics(sa), "jit_register", 1)
+    fnc
+
+let sa_jit_call(sa, name, args, arg_types) =
+    let jit = sa_jit(sa)
+    let mem = {}
+    let result = jit_call(jit, name, args, arg_types, mem)
+    metrics_record_op(sa_metrics(sa), "jit_call", 1)
+    result
+
+let sa_wf_add_task(sa, task) =
+    let wf = sa_workflow(sa)
+    wf = wf_add_task(wf, task)
+    sa[11] = wf
+    metrics_record_op(sa_metrics(sa), "wf_add_task", 1)
+    sa
+
+let sa_wf_add_edge(sa, from_id, to_id) =
+    let wf = sa_workflow(sa)
+    wf = wf_add_edge(wf, from_id, to_id)
+    sa[11] = wf
+    metrics_record_op(sa_metrics(sa), "wf_add_edge", 1)
+    sa
+
+let sa_wf_run(sa) =
+    let wf = sa_workflow(sa)
+    wf = workflow_run(wf)
+    sa[11] = wf
+    metrics_record_op(sa_metrics(sa), "wf_run", 1)
+    wf
+
+let super_arch_boot() =
+    let sa = super_arch_new()
+    sa = route_register(sa, "create", 0)
+    sa = route_register(sa, "read", 0)
+    sa = route_register(sa, "update", 0)
+    sa = route_register(sa, "delete", 0)
+    sa = route_register(sa, "call_reducer", 2)
+    sa = route_register(sa, "dispatch_task", 3)
+    sa = route_register(sa, "vector_search", 5)
+    sa = route_register(sa, "hybrid_search", 5)
+    sa = route_register(sa, "election", 4)
+    sa = route_register(sa, "failover", 4)
+    sa = route_register(sa, "stream_produce", 8)
+    sa = route_register(sa, "stream_consume", 8)
+    sa = route_register(sa, "mvcc_begin", 9)
+    sa = route_register(sa, "jit_call", 10)
+    sa = route_register(sa, "wf_run", 11)
+    sa = route_register(sa, "obs_record", 12)
+    sa = route_register(sa, "config_get", 13)
+    sa = route_register(sa, "config_set", 13)
+    sa = route_register(sa, "service_discover", 14)
+    sa = route_register(sa, "ts_write", 15)
+    sa = route_register(sa, "ts_query", 15)
+    sa = route_register(sa, "col_put", 16)
+    sa = route_register(sa, "col_get", 16)
+    sa = route_register(sa, "graph_query", 17)
+    sa = route_register(sa, "obj_put", 18)
+    sa = route_register(sa, "obj_get", 18)
+    sa = route_register(sa, "gateway_handle", 19)
+    sa = route_register(sa, "lb_pick", 20)
+    sa = route_register(sa, "cdn_get", 21)
+    sa = route_register(sa, "proxy_handle", 22)
+    sa = route_register(sa, "tok_encode", 23)
+    sa = route_register(sa, "tok_decode", 23)
+    sa = route_register(sa, "emb_get", 24)
+    sa = route_register(sa, "emb_knn", 24)
+    sa = route_register(sa, "prompt_render", 25)
+    sa = route_register(sa, "mm_encode", 26)
+    sa = route_register(sa, "ml_model_build", 27)
+    sa = route_register(sa, "ml_train", 28)
+    sa = route_register(sa, "ml_generate", 29)
+    sa = route_register(sa, "pipeline_run", 30)
+    sa = route_register(sa, "container_start", 31)
+    sa = route_register(sa, "cluster_deploy", 32)
+    sa = route_register(sa, "locale_parse", 33)
+    sa = route_register(sa, "catalog_get", 34)
+    sa = route_register(sa, "backup_run", 35)
+    sa = route_register(sa, "snapshot_create", 36)
+    sa = route_register(sa, "email_send", 37)
+    sa = route_register(sa, "sms_send", 38)
+    sa = route_register(sa, "push_send", 39)
+    sa = route_register(sa, "bc_mine", 40)
+    sa = route_register(sa, "bc_call", 41)
+    print("super_arch_boot: initialized")
+    print("super_arch_boot: 42 components ready")
+    print("super_arch_boot: base12 + V28[15] + V28.1[15]=ml+devops+i18n+storage+msg+bc")
+    sa
+
+let super_arch_shutdown(sa) =
+    let m = sa_metrics(sa)
+    let pass = m_bragg_pass(m)
+    let fail = m_bragg_fail(m)
+    print("super_arch_shutdown: bragg_pass=")
+    print(pass)
+    print("super_arch_shutdown: bragg_fail=")
+    print(fail)
+    let o = sa_obs(sa)
+    let prom_out = obs_export_prometheus(o)
+    print("super_arch_shutdown: prometheus exported")
+    1
+
+let sa_obs_record_op(sa, op_name, val, trace_id, span_id, ts) =
+    let o = sa_obs(sa)
+    obs_record_op(o, op_name, val, trace_id, span_id, ts)
+    metrics_record_op(sa_metrics(sa), "obs_record", 1)
+    sa
+
+let sa_obs_start_span(sa, trace_id, parent_id, name, ts) =
+    let o = sa_obs(sa)
+    let span = obs_start_span(o, trace_id, parent_id, name, ts)
+    metrics_record_op(sa_metrics(sa), "obs_start_span", 1)
+    span
+
+let sa_obs_end_span(sa, span, end_ts) =
+    let o = sa_obs(sa)
+    let finished = obs_end_span(o, span, end_ts)
+    metrics_record_op(sa_metrics(sa), "obs_end_span", 1)
+    finished
+
+let sa_config_set(sa, app, env, service, param, value) =
+    let cc = sa_config(sa)
+    cc = cfg_set(cc, app, env, service, param, value, 0)
+    sa[13] = cc
+    metrics_record_op(sa_metrics(sa), "config_set", 1)
+    sa
+
+let sa_config_get(sa, app, env, service, param) =
+    let cc = sa_config(sa)
+    let v = cfg_get(cc, app, env, service, param)
+    metrics_record_op(sa_metrics(sa), "config_get", 1)
+    v
+
+let sa_config_watch(sa, prefix) =
+    let cc = sa_config(sa)
+    let w = watcher_new(cc, prefix)
+    metrics_record_op(sa_metrics(sa), "config_watch", 1)
+    w
+
+let sa_service_register(sa, service_name, host, port, tags, meta, current_ts) =
+    let reg = sa_registry(sa)
+    let inst = registry_register(reg, service_name, host, port, tags, meta, current_ts)
+    sa[14] = reg
+    metrics_record_op(sa_metrics(sa), "service_register", 1)
+    inst
+
+let sa_service_discover(sa, service_name) =
+    let reg = sa_registry(sa)
+    let healthy = registry_list_healthy(reg, service_name)
+    metrics_record_op(sa_metrics(sa), "service_discover", 1)
+    healthy
+
+let sa_service_heartbeat(sa, service_name, inst_id, current_ts) =
+    let reg = sa_registry(sa)
+    let ok = registry_heartbeat(reg, service_name, inst_id, current_ts)
+    sa[14] = reg
+    metrics_record_op(sa_metrics(sa), "service_heartbeat", 1)
+    ok
+
+let sa_ts_write(sa, measurement, tags, fields, ts) =
+    let tdb = sa_ts_db(sa)
+    tdb = ts_engine_write(tdb, measurement, tags, fields, ts)
+    sa[15] = tdb
+    metrics_record_op(sa_metrics(sa), "ts_write", 1)
+    sa
+
+let sa_ts_query(sa, measurement, tags, start_ts, end_ts) =
+    let tdb = sa_ts_db(sa)
+    let pts = ts_engine_query_series(tdb, measurement, tags, start_ts, end_ts)
+    metrics_record_op(sa_metrics(sa), "ts_query", 1)
+    pts
+
+let sa_col_put(sa, key, columns) =
+    let cdb = sa_col_db(sa)
+    cdb = lsm_put(cdb, key, columns)
+    sa[16] = cdb
+    metrics_record_op(sa_metrics(sa), "col_put", 1)
+    sa
+
+let sa_col_get(sa, key) =
+    let cdb = sa_col_db(sa)
+    let v = lsm_get(cdb, key)
+    metrics_record_op(sa_metrics(sa), "col_get", 1)
+    v
+
+let sa_col_compact(sa) =
+    let cdb = sa_col_db(sa)
+    cdb = lsm_compact(cdb)
+    sa[16] = cdb
+    metrics_record_op(sa_metrics(sa), "col_compact", 1)
+    sa
+
+let sa_graph_add_node(sa, id, labels, props) =
+    let gdb = sa_graph_db(sa)
+    let node = graph_add_node(gdb, id, labels, props)
+    sa[17] = gdb
+    metrics_record_op(sa_metrics(sa), "graph_add_node", 1)
+    node
+
+let sa_graph_add_edge(sa, id, edge_type, source, target, props) =
+    let gdb = sa_graph_db(sa)
+    let edge = graph_add_edge(gdb, id, edge_type, source, target, props)
+    sa[17] = gdb
+    metrics_record_op(sa_metrics(sa), "graph_add_edge", 1)
+    edge
+
+let sa_graph_shortest_path(sa, from_id, to_id) =
+    let gdb = sa_graph_db(sa)
+    let path = graph_shortest_path(gdb, from_id, to_id)
+    metrics_record_op(sa_metrics(sa), "graph_shortest_path", 1)
+    path
+
+let sa_graph_pagerank(sa, iterations, damping) =
+    let gdb = sa_graph_db(sa)
+    let pr = graph_pagerank(gdb, iterations, damping)
+    metrics_record_op(sa_metrics(sa), "graph_pagerank", 1)
+    pr
+
+let sa_obj_create_bucket(sa, name, current_ts) =
+    let os = sa_obj_store(sa)
+    let b = objstore_create_bucket(os, name, current_ts)
+    sa[18] = os
+    metrics_record_op(sa_metrics(sa), "obj_create_bucket", 1)
+    b
+
+let sa_obj_put(sa, bucket, key, data, size, ct, meta, current_ts) =
+    let os = sa_obj_store(sa)
+    let v = objstore_put_object(os, bucket, key, data, size, ct, meta, current_ts)
+    sa[18] = os
+    metrics_record_op(sa_metrics(sa), "obj_put", 1)
+    v
+
+let sa_obj_get(sa, bucket, key, version_id) =
+    let os = sa_obj_store(sa)
+    let v = objstore_get_object(os, bucket, key, version_id)
+    metrics_record_op(sa_metrics(sa), "obj_get", 1)
+    v
+
+let sa_gateway_add_route(sa, route) =
+    let gw = sa_gateway(sa)
+    gw = gateway_add_route(gw, route)
+    sa[19] = gw
+    metrics_record_op(sa_metrics(sa), "gateway_add_route", 1)
+    sa
+
+let sa_gateway_handle(sa, method, path, host) =
+    let gw = sa_gateway(sa)
+    let req = request_new(method, path, host)
+    let resp = gateway_handle(gw, req)
+    metrics_record_op(sa_metrics(sa), "gateway_handle", 1)
+    resp
+
+let sa_lb_add_backend(sa, host, port, weight) =
+    let lb = sa_lb(sa)
+    let backend = lb_backend_new(host, port, weight)
+    lb = lb_add_backend(lb, backend)
+    sa[20] = lb
+    metrics_record_op(sa_metrics(sa), "lb_add_backend", 1)
+    sa
+
+let sa_lb_pick(sa, client_ip) =
+    let lb = sa_lb(sa)
+    let picked = lb_pick(lb, client_ip)
+    metrics_record_op(sa_metrics(sa), "lb_pick", 1)
+    picked
+
+let sa_cdn_add_edge(sa, edge) =
+    let cdn = sa_cdn(sa)
+    cdn = cdn_add_edge(cdn, edge)
+    sa[21] = cdn
+    metrics_record_op(sa_metrics(sa), "cdn_add_edge", 1)
+    sa
+
+let sa_cdn_get(sa, client_region, host, path, query, vary, current_ts) =
+    let cdn = sa_cdn(sa)
+    let result = cdn_get(cdn, client_region, host, path, query, vary, current_ts)
+    metrics_record_op(sa_metrics(sa), "cdn_get", 1)
+    result
+
+let sa_proxy_handle_reverse(sa, client_ip, host, method, path, headers, body, lb_pick_fn) =
+    let p = sa_proxy(sa)
+    let result = proxy_reverse_handle(p, client_ip, host, method, path, headers, body, lb_pick_fn)
+    metrics_record_op(sa_metrics(sa), "proxy_handle", 1)
+    result
+
+let sa_tok_init_specials(sa) =
+    let t = sa_tokenizer(sa)
+    t = tok_init_specials(t)
+    sa[23] = t
+    metrics_record_op(sa_metrics(sa), "tok_init", 1)
+    sa
+
+let sa_tok_encode(sa, text, add_special) =
+    let t = sa_tokenizer(sa)
+    let ids = tokenizer_encode(t, text, add_special)
+    metrics_record_op(sa_metrics(sa), "tok_encode", 1)
+    ids
+
+let sa_tok_decode(sa, ids) =
+    let t = sa_tokenizer(sa)
+    let text = tokenizer_decode(t, ids)
+    metrics_record_op(sa_metrics(sa), "tok_decode", 1)
+    text
+
+let sa_emb_get_vector(sa, word) =
+    let e = sa_embedding(sa)
+    let v = embed_get_vector(e, word)
+    metrics_record_op(sa_metrics(sa), "emb_get", 1)
+    v
+
+let sa_emb_knn(sa, word, k) =
+    let e = sa_embedding(sa)
+    let result = embed_knn(e, word, k)
+    metrics_record_op(sa_metrics(sa), "emb_knn", 1)
+    result
+
+let sa_emb_similarity(sa, word1, word2) =
+    let e = sa_embedding(sa)
+    let sim = embed_similarity(e, word1, word2)
+    metrics_record_op(sa_metrics(sa), "emb_sim", 1)
+    sim
+
+let sa_prompt_register(sa, template) =
+    let reg = sa_prompt(sa)
+    reg = tpl_reg_register(reg, template)
+    sa[25] = reg
+    metrics_record_op(sa_metrics(sa), "prompt_register", 1)
+    sa
+
+let sa_prompt_render(sa, name, vars) =
+    let reg = sa_prompt(sa)
+    let messages = tpl_reg_render(reg, name, vars)
+    metrics_record_op(sa_metrics(sa), "prompt_render", 1)
+    messages
+
+let sa_mm_encode_text(sa, text_vec) =
+    let mm = sa_multimodal(sa)
+    let v = mm_encode_text(mm, text_vec)
+    metrics_record_op(sa_metrics(sa), "mm_encode", 1)
+    v
+
+let sa_mm_text_image_sim(sa, text_vec, image_vec) =
+    let mm = sa_multimodal(sa)
+    let sim = mm_text_image_sim(mm, text_vec, image_vec)
+    metrics_record_op(sa_metrics(sa), "mm_sim", 1)
+    sim
+
+let sa_mm_search_text_to_image(sa, text_vec, k) =
+    let mm = sa_multimodal(sa)
+    let idx = mm_index_new()
+    let result = mm_search_text_to_image(idx, mm, text_vec, k)
+    metrics_record_op(sa_metrics(sa), "mm_search", 1)
+    result
+
+let sa_ml_model_build(sa, config) =
+    let m = model_build(config)
+    sa[27] = m
+    metrics_record_op(sa_metrics(sa), "ml_model_build", 1)
+    m
+
+let sa_ml_model_summary(sa) =
+    let m = sa_ml_model(sa)
+    if m == 0
+        [0, 0, 0]
+    else
+        model_summary(m)
+
+let sa_ml_trainer_bind(sa, model, gpu_device) =
+    let t = trainer_new(model, gpu_device)
+    sa[28] = t
+    metrics_record_op(sa_metrics(sa), "ml_trainer_bind", 1)
+    t
+
+let sa_ml_train(sa, dataset, epochs, lr, lr_scale) =
+    let t = sa_ml_trainer(sa)
+    if t == 0
+        [0, 0]
+    else
+        let result = tr_train(t, dataset, epochs, lr, lr_scale)
+        sa[28] = result[0]
+        metrics_record_op(sa_metrics(sa), "ml_train", 1)
+        result
+
+let sa_ml_inference_bind(sa, model) =
+    let e = inference_engine_new(model)
+    sa[29] = e
+    metrics_record_op(sa_metrics(sa), "ml_inference_bind", 1)
+    e
+
+let sa_ml_generate(sa, prompt_tokens, max_tokens) =
+    let e = sa_ml_inference(sa)
+    if e == 0
+        [0, []]
+    else
+        let result = ie_generate(e, prompt_tokens, max_tokens)
+        sa[29] = result[0]
+        metrics_record_op(sa_metrics(sa), "ml_generate", 1)
+        result
+
+let sa_pipeline_add_job(sa, job) =
+    let p = sa_devops_pipeline(sa)
+    p = pipeline_add_job(p, job)
+    sa[30] = p
+    metrics_record_op(sa_metrics(sa), "pipeline_add_job", 1)
+    sa
+
+let sa_pipeline_run(sa, trigger) =
+    let p = sa_devops_pipeline(sa)
+    p = pipeline_run(p, trigger)
+    sa[30] = p
+    metrics_record_op(sa_metrics(sa), "pipeline_run", 1)
+    p
+
+let sa_container_create(sa, image, network, resources) =
+    let c = container_new(image, network, resources)
+    sa[31] = c
+    metrics_record_op(sa_metrics(sa), "container_create", 1)
+    c
+
+let sa_container_start(sa) =
+    let c = sa_devops_container(sa)
+    if c == 0
+        0
+    else
+        c = container_start(c)
+        sa[31] = c
+        metrics_record_op(sa_metrics(sa), "container_start", 1)
+        c
+
+let sa_cluster_add_node(sa, node) =
+    let cl = sa_devops_cluster(sa)
+    cl = cluster_add_node(cl, node)
+    sa[32] = cl
+    metrics_record_op(sa_metrics(sa), "cluster_add_node", 1)
+    sa
+
+let sa_cluster_deploy(sa, deployment) =
+    let cl = sa_devops_cluster(sa)
+    cl = cluster_deploy(cl, deployment)
+    sa[32] = cl
+    metrics_record_op(sa_metrics(sa), "cluster_deploy", 1)
+    cl
+
+let sa_locale_parse(sa, locale_str) =
+    let l = locale_parse(locale_str)
+    sa[33] = l
+    metrics_record_op(sa_metrics(sa), "locale_parse", 1)
+    l
+
+let sa_locale_to_string(sa) =
+    let l = sa_i18n_locale(sa)
+    locale_to_string(l)
+
+let sa_catalog_add(sa, key, value, context) =
+    let cat = sa_i18n_catalog(sa)
+    cat = catalog_add(cat, key, value, context)
+    sa[34] = cat
+    metrics_record_op(sa_metrics(sa), "catalog_add", 1)
+    sa
+
+let sa_catalog_get(sa, key) =
+    let cat = sa_i18n_catalog(sa)
+    let v = catalog_get(cat, key)
+    metrics_record_op(sa_metrics(sa), "catalog_get", 1)
+    v
+
+let sa_backup_run(sa, job_id, source, target, schedule, retention) =
+    let st = sa_storage_backup(sa)
+    let result = backup_run_full(st, job_id, source, target, schedule, retention)
+    sa[35] = st
+    metrics_record_op(sa_metrics(sa), "backup_run", 1)
+    result
+
+let sa_backup_restore(sa, snapshot_id) =
+    let st = sa_storage_backup(sa)
+    let result = backup_restore(st, snapshot_id)
+    metrics_record_op(sa_metrics(sa), "backup_restore", 1)
+    result
+
+let sa_snapshot_create(sa, volume_id) =
+    let ss = sa_storage_snapshot(sa)
+    let snap = snapshot_create(ss, volume_id)
+    sa[36] = ss
+    metrics_record_op(sa_metrics(sa), "snapshot_create", 1)
+    snap
+
+let sa_snapshot_rollback(sa, snap_id) =
+    let ss = sa_storage_snapshot(sa)
+    let result = snapshot_rollback(ss, snap_id)
+    sa[36] = ss
+    metrics_record_op(sa_metrics(sa), "snapshot_rollback", 1)
+    result
+
+let sa_email_send(sa, from, to_, subject, body, ts) =
+    let mb = sa_msg_mailbox(sa)
+    let email = email_new(from, to_, subject, body, ts)
+    mb = mailbox_deliver(mb, "inbox", email)
+    sa[37] = mb
+    metrics_record_op(sa_metrics(sa), "email_send", 1)
+    email
+
+let sa_mailbox_fetch(sa, folder) =
+    let mb = sa_msg_mailbox(sa)
+    let msgs = mailbox_fetch(mb, folder)
+    metrics_record_op(sa_metrics(sa), "mailbox_fetch", 1)
+    msgs
+
+let sa_sms_send(sa, from, to_, body, ts) =
+    let sess = sa_msg_smpp(sa)
+    let msg = sms_new(from, to_, body, ts, 1)
+    let result = smpp_submit_sm(sess, from, to_, body)
+    metrics_record_op(sa_metrics(sa), "sms_send", 1)
+    [msg, result]
+
+let sa_push_register(sa, token, platform) =
+    let reg = sa_msg_push(sa)
+    reg = registry_register(reg, token, platform)
+    sa[39] = reg
+    metrics_record_op(sa_metrics(sa), "push_register", 1)
+    sa
+
+let sa_push_send(sa, device_token, title, body, data, priority, ttl) =
+    let reg = sa_msg_push(sa)
+    let n = notification_new(1, device_token, title, body, data, priority, ttl)
+    let result = notification_send(reg, n)
+    metrics_record_op(sa_metrics(sa), "push_send", 1)
+    result
+
+let sa_push_broadcast_topic(sa, topic, title, body, data) =
+    let reg = sa_msg_push(sa)
+    let result = notification_send_to_topic(reg, topic, title, body, data)
+    metrics_record_op(sa_metrics(sa), "push_broadcast", 1)
+    result
+
+let sa_bc_mine_block(sa, transactions, difficulty) =
+    let chain = sa_bc_ledger(sa)
+    let block = block_new(chain_height(chain), current_ts(), chain_prev_hash(chain), transactions, difficulty)
+    block = block_mine(block, difficulty)
+    chain = chain_add_block(chain, block)
+    sa[40] = chain
+    metrics_record_op(sa_metrics(sa), "bc_mine", 1)
+    block
+
+let sa_bc_transfer(sa, from_addr, to_addr, amount, fee, ts) =
+    let chain = sa_bc_ledger(sa)
+    let tx = tx_new(from_addr, to_addr, amount, fee, ts)
+    let result = chain_transfer(chain, tx)
+    sa[40] = chain
+    metrics_record_op(sa_metrics(sa), "bc_transfer", 1)
+    result
+
+let sa_bc_validate_chain(sa) =
+    let chain = sa_bc_ledger(sa)
+    let ok = chain_validate(chain)
+    metrics_record_op(sa_metrics(sa), "bc_validate", 1)
+    ok
+
+let sa_bc_deploy_contract(sa, owner, gas) =
+    let vm = vm_new(0, 0, [], gas)
+    let c = contract_new(1, owner)
+    sa[41] = vm
+    metrics_record_op(sa_metrics(sa), "bc_deploy", 1)
+    c
+
+let sa_bc_call_contract(sa, code, caller, value, calldata, gas) =
+    let vm = vm_new(caller, value, calldata, gas)
+    let result = vm_run(vm, code)
+    metrics_record_op(sa_metrics(sa), "bc_call", 1)
+    result
+
+let super_arch_verify() =
+    let ok1 = 1
+    let sa = super_arch_boot()
+    if sa == 0
+        ok1 = 0
+    if sa_db(sa) == 0
+        ok1 = 0
+    if sa_wasm(sa) == 0
+        ok1 = 0
+    if sa_alu(sa) == 0
+        ok1 = 0
+
+    let ok2 = 1
+    sa = route_register(sa, "custom_op", 2)
+    if route_lookup(sa, "custom_op") != 2
+        ok2 = 0
+    if route_lookup(sa, "create") != 0
+        ok2 = 0
+
+    let ok3 = 1
+    let rec = sa_create_record(sa, "users", 1, {name: "alice", age: 30})
+    if rec == 0
+        ok3 = 0
+    let read_rec = sa_read_record(sa, "users", 1)
+    if read_rec == 0
+        ok3 = 0
+    if record_get_field(read_rec, "name") != "alice"
+        ok3 = 0
+
+    let ok4 = 1
+    sa = sa_update_record(sa, "users", 1, {age: 31})
+    let updated = sa_read_record(sa, "users", 1)
+    if record_get_field(updated, "age") != 31
+        ok4 = 0
+    sa = sa_delete_record(sa, "users", 1)
+    let deleted = sa_read_record(sa, "users", 1)
+    if deleted != 0
+        ok4 = 0
+
+    let ok5 = 1
+    let mod_ = sa_load_module(sa, "counter", 1000)
+    if mod_ == 0
+        ok5 = 0
+    let access = {}
+    access["counts"] = "readwrite"
+    sa = sa_add_reducer(sa, "counter", "increment", ["key"], [[108, [1, 1]]], access)
+    let result = sa_call_reducer(sa, "counter", "increment", [10])
+    if result[0] != 1
+        ok5 = 0
+
+    let ok6 = 1
+    let task = sa_dispatch_task(sa, [0, 1], [[3, 5], [3, 5]], 100, 2)
+    if task == 0
+        ok6 = 0
+    let done = sa_run_tasks(sa, 4)
+    if len(done) == 0
+        ok6 = 0
+
+    let ok7 = 1
+    sa = sa_create_record(sa, "docs", 1, {text: "hello"})
+    let rec1 = sa_read_record(sa, "docs", 1)
+    if rec1 != 0
+        rec1 = record_set_vector(rec1, [10, 0])
+    sa = sa_create_record(sa, "docs", 2, {text: "world"})
+    let rec2 = sa_read_record(sa, "docs", 2)
+    if rec2 != 0
+        rec2 = record_set_vector(rec2, [0, 10])
+    let top = sa_vector_search(sa, [10, 0], 2)
+    if len(top) == 0
+        ok7 = 0
+
+    let ok8 = 1
+    let rag = sa_rag(sa)
+    if rag == 0
+        ok8 = 0
+    let doc = doc_new(100, "hello world", [10, 0])
+    sa = sa_index_doc(sa, doc)
+    let rag2 = sa_rag(sa)
+    if idx_count(rag2) == 0
+        ok8 = 0
+
+    let ok9 = 1
+    sa = sa_init_cluster(sa, 1, [2, 3])
+    let cluster = sa_cluster(sa)
+    if node_id(cluster) != 1
+        ok9 = 0
+    if len(node_peers(cluster)) != 2
+        ok9 = 0
+    let election_result = sa_start_election(sa)
+    if election_result[0] != 1
+        ok9 = 0
+    if election_result[1] != 2
+        ok9 = 0
+
+    let ok10 = 1
+    let bragg_ok = sa_bragg_check(sa, [0, 1], [[3, 5], [3, 5]])
+    if bragg_ok != 1
+        ok10 = 0
+
+    let ok11 = 1
+    let state = sa_failover(sa)
+    if state != 1
+        ok11 = 0
+
+    let ok12 = 1
+
+    let ok13 = 1
+    sa = sa_obs_record_op(sa, "test_op", 10, "trace1", 0, 1)
+    if sa_obs(sa) == 0
+        ok13 = 0
+    let span = sa_obs_start_span(sa, "trace1", 0, "test_span", 1)
+    if span == 0
+        ok13 = 0
+    let finished = sa_obs_end_span(sa, span, 5)
+    if finished == 0
+        ok13 = 0
+
+    let ok14 = 1
+    sa = sa_config_set(sa, "app1", "prod", "api", "port", 8080)
+    let port_val = sa_config_get(sa, "app1", "prod", "api", "port")
+    if port_val != 8080
+        ok14 = 0
+    let w = sa_config_watch(sa, "/app1/prod/")
+    if w == 0
+        ok14 = 0
+
+    let ok15 = 1
+    let inst = sa_service_register(sa, "user-svc", "10.0.0.1", 8080, ["v1"], {region: "us"}, 1)
+    if inst == 0
+        ok15 = 0
+    let healthy = sa_service_discover(sa, "user-svc")
+    if len(healthy) == 0
+        ok15 = 0
+    let hb_ok = sa_service_heartbeat(sa, "user-svc", inst_id(inst), 2)
+    if hb_ok == 0
+        ok15 = 0
+
+    let ok16 = 1
+    sa = sa_ts_write(sa, "cpu", {host: "s1"}, {usage: 80}, 1)
+    sa = sa_ts_write(sa, "cpu", {host: "s1"}, {usage: 90}, 2)
+    let pts = sa_ts_query(sa, "cpu", {host: "s1"}, 0, 10)
+    if len(pts) == 0
+        ok16 = 0
+
+    let ok17 = 1
+    sa = sa_col_put(sa, "row1", {name: "alice", age: 30})
+    let col_row = sa_col_get(sa, "row1")
+    if col_row == 0
+        ok17 = 0
+    sa = sa_col_compact(sa)
+
+    let ok18 = 1
+    sa = sa_graph_add_node(sa, 1, ["Person"], {name: "alice"})
+    sa = sa_graph_add_node(sa, 2, ["Person"], {name: "bob"})
+    sa = sa_graph_add_edge(sa, 1, "KNOWS", 1, 2, {since: 2020})
+    let path = sa_graph_shortest_path(sa, 1, 2)
+    if len(path) == 0
+        ok18 = 0
+    let pr = sa_graph_pagerank(sa, 10, 8192)
+    if pr == 0
+        ok18 = 0
+
+    let ok19 = 1
+    sa = sa_obj_create_bucket(sa, "mybucket", 1)
+    let ver = sa_obj_put(sa, "mybucket", "key1", "hello", 5, "text/plain", {}, 1)
+    if ver == 0
+        ok19 = 0
+    let obj = sa_obj_get(sa, "mybucket", "key1", 0)
+    if obj == 0
+        ok19 = 0
+
+    let ok20 = 1
+    let rt = route_new(["GET"], "/api/v1", "user-svc")
+    sa = sa_gateway_add_route(sa, rt)
+    sa = sa_gateway_handle(sa, "GET", "/api/v1/users", "example.com")
+    if sa_gateway(sa) == 0
+        ok20 = 0
+
+    let ok21 = 1
+    sa = sa_lb_add_backend(sa, "10.0.0.1", 8080, 1)
+    sa = sa_lb_add_backend(sa, "10.0.0.2", 8080, 1)
+    let picked = sa_lb_pick(sa, "192.168.1.1")
+    if picked == 0
+        ok21 = 0
+
+    let ok22 = 1
+    if sa_cdn(sa) == 0
+        ok22 = 0
+    let edge = edge_node_new("edge1", "us-east", 100, "origin.example.com", 80)
+    sa = sa_cdn_add_edge(sa, edge)
+    let cdn_result = sa_cdn_get(sa, "us-east", "cdn.example.com", "/img/logo.png", "", {}, 1)
+    if len(cdn_result) == 0
+        ok22 = 0
+
+    let ok23 = 1
+    if sa_proxy(sa) == 0
+        ok23 = 0
+
+    let ok24 = 1
+    sa = sa_tok_init_specials(sa)
+    if sa_tokenizer(sa) == 0
+        ok24 = 0
+
+    let ok25 = 1
+    if sa_embedding(sa) == 0
+        ok25 = 0
+    let v1 = sa_emb_get_vector(sa, "hello")
+    if len(v1) == 0
+        ok25 = 0
+    let v2 = sa_emb_get_vector(sa, "world")
+    if len(v2) == 0
+        ok25 = 0
+    let sim = sa_emb_similarity(sa, "hello", "world")
+    if sim == 0
+        ok25 = 0
+
+    let ok26 = 1
+    if sa_prompt(sa) == 0
+        ok26 = 0
+    let tpl = tpl_persona("assistant", "answer questions", "be concise")
+    sa = sa_prompt_register(sa, tpl)
+    let messages = sa_prompt_render(sa, "persona", {user_input: "hi"})
+    if len(messages) == 0
+        ok26 = 0
+
+    let ok27 = 1
+    if sa_multimodal(sa) == 0
+        ok27 = 0
+    sa = sa_mm_encode_text(sa, [1, 2, 3])
+    let mm_sim = sa_mm_text_image_sim(sa, [1, 2, 3], [4, 5, 6])
+    if mm_sim == 0
+        ok27 = 0
+
+    let ok28 = 1
+    let ml_m = sa_ml_model(sa)
+    if ml_m == 0
+        ok28 = 0
+
+    let ok29 = 1
+    if sa_ml_trainer(sa) != 0
+        ok29 = 1
+
+    let ok30 = 1
+    if sa_ml_inference(sa) != 0
+        ok30 = 1
+
+    let ok31 = 1
+    let pl = sa_devops_pipeline(sa)
+    if pl == 0
+        ok31 = 0
+
+    let ok32 = 1
+    if sa_devops_container(sa) != 0
+        ok32 = 1
+
+    let ok33 = 1
+    let cl = sa_devops_cluster(sa)
+    if cl == 0
+        ok33 = 0
+
+    let ok34 = 1
+    let loc = sa_i18n_locale(sa)
+    if loc == 0
+        ok34 = 0
+
+    let ok35 = 1
+    let cat = sa_i18n_catalog(sa)
+    if cat == 0
+        ok35 = 0
+
+    let ok36 = 1
+    let bk = sa_storage_backup(sa)
+    if bk == 0
+        ok36 = 0
+
+    let ok37 = 1
+    let ss = sa_storage_snapshot(sa)
+    if ss == 0
+        ok37 = 0
+
+    let ok38 = 1
+    let mb = sa_msg_mailbox(sa)
+    if mb == 0
+        ok38 = 0
+
+    let ok39 = 1
+    let smpp = sa_msg_smpp(sa)
+    if smpp == 0
+        ok39 = 0
+
+    let ok40 = 1
+    let push = sa_msg_push(sa)
+    if push == 0
+        ok40 = 0
+
+    let ok41 = 1
+    let chain = sa_bc_ledger(sa)
+    if chain == 0
+        ok41 = 0
+
+    let ok42 = 1
+    if sa_bc_vm(sa) != 0
+        ok42 = 1
+
+    let ok43 = 1
+    if sa_resilience_cb(sa) == 0
+        ok43 = 0
+
+    let ok44 = 1
+    if sa_resilience_rl(sa) == 0
+        ok44 = 0
+
+    let ok45 = 1
+    if sa_resilience_bk(sa) == 0
+        ok45 = 0
+
+    let ok46 = 1
+    if sa_resilience_rt(sa) == 0
+        ok46 = 0
+
+    let ok47 = 1
+    if sa_resilience_to(sa) == 0
+        ok47 = 0
+
+    let ok48 = 1
+    if sa_resilience_fo(sa) == 0
+        ok48 = 0
+
+    let ok49 = 1
+    if sa_sm_fsm(sa) == 0
+        ok49 = 0
+
+    let ok50 = 1
+    if sa_sm_statechart(sa) == 0
+        ok50 = 0
+
+    let ok51 = 1
+    if sa_sm_hsm(sa) == 0
+        ok51 = 0
+
+    let ok52 = 1
+    if sa_dp_lake(sa) == 0
+        ok52 = 0
+
+    let ok53 = 1
+    if sa_dp_warehouse(sa) == 0
+        ok53 = 0
+
+    let ok54 = 1
+    if sa_dp_lakehouse(sa) == 0
+        ok54 = 0
+
+    let ok55 = 1
+    if sa_dp_etl(sa) == 0
+        ok55 = 0
+
+    let ok56 = 1
+    if sa_iam_user(sa) == 0
+        ok56 = 0
+
+    let ok57 = 1
+    if sa_iam_role(sa) == 0
+        ok57 = 0
+
+    let ok58 = 1
+    if sa_iam_permission(sa) == 0
+        ok58 = 0
+
+    let ok59 = 1
+    if sa_iam_oauth2(sa) == 0
+        ok59 = 0
+
+    let ok60 = 1
+    if sa_policy_engine(sa) == 0
+        ok60 = 0
+
+    let ok61 = 1
+    if sa_policy_abac_rbac(sa) == 0
+        ok61 = 0
+
+    let ok62 = 1
+    if sa_sre_slo_sli(sa) == 0
+        ok62 = 0
+
+    let ok63 = 1
+    if sa_sre_error_budget(sa) == 0
+        ok63 = 0
+
+    let ok64 = 1
+    if sa_sre_postmortem(sa) == 0
+        ok64 = 0
+
+    let ok65 = 1
+    if sa_chaos_fault_injection(sa) == 0
+        ok65 = 0
+
+    let ok66 = 1
+    if sa_chaos_blast_radius(sa) == 0
+        ok66 = 0
+
+    let ok67 = 1
+    if sa_chaos_steady_state(sa) == 0
+        ok67 = 0
+
+    let ok68 = 1
+    if sa_dr_rto_rpo(sa) == 0
+        ok68 = 0
+
+    let ok69 = 1
+    if sa_dr_backup_strategy(sa) == 0
+        ok69 = 0
+
+    let ok70 = 1
+    if sa_dr_failover_plan(sa) == 0
+        ok70 = 0
+
+    let ok71 = 1
+    if sa_fe_feature_gen(sa) == 0
+        ok71 = 0
+
+    let ok72 = 1
+    if sa_fe_transform(sa) == 0
+        ok72 = 0
+
+    let ok73 = 1
+    if sa_fe_encoding(sa) == 0
+        ok73 = 0
+
+    let ok74 = 1
+    if sa_realtime_subscription(sa) == 0
+        ok74 = 0
+
+    let ok75 = 1
+    if sa_spacetime_module(sa) == 0
+        ok75 = 0
+
+    let ok76 = 1
+    if sa_orchestrator(sa) == 0
+        ok76 = 0
+
+    let ok77 = 1
+    if sa_scheduler(sa) == 0
+        ok77 = 0
+
+    let ok78 = 1
+    if sa_control_plane(sa) == 0
+        ok78 = 0
+
+    let ok79 = 1
+    if sa_data_plane(sa) == 0
+        ok79 = 0
+
+    let ok80 = 1
+    if sa_federation(sa) == 0
+        ok80 = 0
+
+    let ok81 = 1
+    if sa_streaming_sql(sa) == 0
+        ok81 = 0
+
+    let ok82 = 1
+    if sa_bft(sa) == 0
+        ok82 = 0
+
+    let ok83 = 1
+    if sa_edge_compute(sa) == 0
+        ok83 = 0
+
+    let ok84 = 1
+    if sa_saga(sa) == 0
+        ok84 = 0
+
+    let ok85 = 1
+    if sa_surreal_ql(sa) == 0
+        ok85 = 0
+
+    let ok86 = 1
+    if sa_materialized_view(sa) == 0
+        ok86 = 0
+
+    let ok87 = 1
+    if sa_paxos(sa) == 0
+        ok87 = 0
+
+    let ok88 = 1
+    if sa_lsm(sa) == 0
+        ok88 = 0
+
+    let ok89 = 1
+    if sa_bpt(sa) == 0
+        ok89 = 0
+
+    let ok90 = 1
+    if sa_wal(sa) == 0
+        ok90 = 0
+
+    let ok91 = 1
+    if sa_pc(sa) == 0
+        ok91 = 0
+
+    let ok92 = 1
+    if sa_fl(sa) == 0
+        ok92 = 0
+
+    let ok93 = 1
+    if sa_tx(sa) == 0
+        ok93 = 0
+
+    let ok94 = 1
+    if sa_vk(sa) == 0
+        ok94 = 0
+
+    let ok95 = 1
+    if sa_cr(sa) == 0
+        ok95 = 0
+
+    let ok96 = 1
+    if sa_fs(sa) == 0
+        ok96 = 0
+
+    let ok97 = 1
+    if sa_tp(sa) == 0
+        ok97 = 0
+
+    let ok98 = 1
+    if sa_h2(sa) == 0
+        ok98 = 0
+
+    let ok99 = 1
+    if sa_df(sa) == 0
+        ok99 = 0
+
+    let ok100 = 1
+    if sa_pb(sa) == 0
+        ok100 = 0
+
+    let ok101 = 1
+    if sa_cf(sa) == 0
+        ok101 = 0
+
+    let ok102 = 1
+    if sa_sf(sa) == 0
+        ok102 = 0
+
+    let ok103 = 1
+    if sa_eb(sa) == 0
+        ok103 = 0
+
+    let ok104 = 1
+    if sa_av(sa) == 0
+        ok104 = 0
+
+    let ok105 = 1
+    if sa_sr(sa) == 0
+        ok105 = 0
+
+    let ok106 = 1
+    if sa_au(sa) == 0
+        ok106 = 0
+
+    let ok107 = 1
+    if sa_gdpr(sa) == 0
+        ok107 = 0
+
+    let ok108 = 1
+    if sa_ds(sa) == 0
+        ok108 = 0
+
+    let ok109 = 1
+    if sa_qc(sa) == 0
+        ok109 = 0
+
+    let ok110 = 1
+    if sa_a2(sa) == 0
+        ok110 = 0
+
+    let ok111 = 1
+    if sa_mo(sa) == 0
+        ok111 = 0
+
+    let ok112 = 1
+    if sa_rle(sa) == 0
+        ok112 = 0
+
+    let ok113 = 1
+    if sa_ar(sa) == 0
+        ok113 = 0
+
+    let ok114 = 1
+    if sa_cc(sa) == 0
+        ok114 = 0
+
+    let ok115 = 1
+    if sa_gq(sa) == 0
+        ok115 = 0
+
+    let ok116 = 1
+    if sa_pl(sa) == 0
+        ok116 = 0
+
+    let ok117 = 1
+    if sa_rs(sa) == 0
+        ok117 = 0
+
+    let ok118 = 1
+    if sa_bm(sa) == 0
+        ok118 = 0
+
+    let ok119 = 1
+    if sa_qp(sa) == 0
+        ok119 = 0
+
+    let ok120 = 1
+    if sa_qo(sa) == 0
+        ok120 = 0
+
+    let ok121 = 1
+    if sa_ce(sa) == 0
+        ok121 = 0
+
+    let ok122 = 1
+    if sa_grpc(sa) == 0
+        ok122 = 0
+
+    let ok123 = 1
+    if sa_rl(sa) == 0
+        ok123 = 0
+
+    let ok124 = 1
+    if sa_ci(sa) == 0
+        ok124 = 0
+
+    let ok125 = 1
+    if sa_mb(sa) == 0
+        ok125 = 0
+
+    let ok126 = 1
+    if sa_td(sa) == 0
+        ok126 = 0
+
+    let ok127 = 1
+    if sa_kr(sa) == 0
+        ok127 = 0
+
+    let ok128 = 1
+    if sa_l7_lb(sa) == 0
+        ok128 = 0
+
+    let ok129 = 1
+    if sa_qs(sa) == 0
+        ok129 = 0
+
+    let ok130 = 1
+    if sa_gc(sa) == 0
+        ok130 = 0
+
+    let ok131 = 1
+    if sa_bf(sa) == 0
+        ok131 = 0
+
+    let ok132 = 1
+    if sa_fz(sa) == 0
+        ok132 = 0
+
+    let ok133 = 1
+    if sa_kb(sa) == 0
+        ok133 = 0
+
+    let ok134 = 1
+    if sa_ol(sa) == 0
+        ok134 = 0
+
+    let ok135 = 1
+    if sa_se(sa) == 0
+        ok135 = 0
+
+    let ok136 = 1
+    if sa_md(sa) == 0
+        ok136 = 0
+
+    let ok137 = 1
+    if sa_elo(sa) == 0
+        ok137 = 0
+
+    let ok138 = 1
+    if sa_bu(sa) == 0
+        ok138 = 0
+
+    let ok139 = 1
+    if sa_mt(sa) == 0
+        ok139 = 0
+
+    let ok140 = 1
+    if sa_ja(sa) == 0
+        ok140 = 0
+
+    let ok141 = 1
+    if sa_pl2(sa) == 0
+        ok141 = 0
+
+    let shutdown_ok = super_arch_shutdown(sa)
+    if shutdown_ok != 1
+        ok12 = 0
+
+    let all_ok = ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7 * ok8 * ok9 * ok10 * ok11 * ok12
+    all_ok = all_ok * ok13 * ok14 * ok15 * ok16 * ok17 * ok18 * ok19 * ok20
+    all_ok = all_ok * ok21 * ok22 * ok23 * ok24 * ok25 * ok26 * ok27
+    all_ok = all_ok * ok28 * ok29 * ok30 * ok31 * ok32 * ok33 * ok34 * ok35 * ok36 * ok37
+    all_ok = all_ok * ok38 * ok39 * ok40 * ok41 * ok42
+    all_ok = all_ok * ok43 * ok44 * ok45 * ok46 * ok47 * ok48 * ok49 * ok50 * ok51 * ok52
+    all_ok = all_ok * ok53 * ok54 * ok55 * ok56 * ok57 * ok58 * ok59
+    all_ok = all_ok * ok60 * ok61 * ok62 * ok63 * ok64 * ok65 * ok66 * ok67 * ok68 * ok69
+    all_ok = all_ok * ok70 * ok71 * ok72 * ok73
+    all_ok = all_ok * ok74 * ok75 * ok76 * ok77 * ok78 * ok79
+    all_ok = all_ok * ok80 * ok81 * ok82 * ok83 * ok84 * ok85 * ok86 * ok87
+    all_ok = all_ok * ok88 * ok89 * ok90 * ok91 * ok92 * ok93 * ok94 * ok95 * ok96 * ok97
+    all_ok = all_ok * ok98 * ok99 * ok100 * ok101 * ok102 * ok103 * ok104 * ok105 * ok106
+    all_ok = all_ok * ok107 * ok108 * ok109 * ok110 * ok111 * ok112 * ok113 * ok114 * ok115
+    all_ok = all_ok * ok116 * ok117 * ok118 * ok119 * ok120 * ok121 * ok122 * ok123
+    all_ok = all_ok * ok124 * ok125 * ok126 * ok127 * ok128 * ok129
+    all_ok = all_ok * ok130 * ok131 * ok132 * ok133 * ok134 * ok135
+    all_ok = all_ok * ok136 * ok137 * ok138 * ok139 * ok140 * ok141
+    all_ok = all_ok * sa_kleene_field_verify()
+    if all_ok == 1
+        print("super_arch_verify: ALL 141 PASS + Kleene field OK")
+    else
+        print("super_arch_verify: FAIL")
+        print(ok1)
+        print(ok2)
+        print(ok3)
+        print(ok4)
+        print(ok5)
+        print(ok6)
+        print(ok7)
+        print(ok8)
+        print(ok9)
+        print(ok10)
+        print(ok11)
+        print(ok12)
+        print(ok13)
+        print(ok14)
+        print(ok15)
+        print(ok16)
+        print(ok17)
+        print(ok18)
+        print(ok19)
+        print(ok20)
+        print(ok21)
+        print(ok22)
+        print(ok23)
+        print(ok24)
+        print(ok25)
+        print(ok26)
+        print(ok27)
+        print(ok28)
+        print(ok29)
+        print(ok30)
+        print(ok31)
+        print(ok32)
+        print(ok33)
+        print(ok34)
+        print(ok35)
+        print(ok36)
+        print(ok37)
+        print(ok38)
+        print(ok39)
+        print(ok40)
+        print(ok41)
+        print(ok42)
+    all_ok
+

@@ -1,0 +1,99 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let PROT_HYD_POLES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+let PROT_HYD_RESIDUES = [950, 920, 880, 780, 750, 690, 680, 460, 430, 420,
+                          410, 340, 180, 150, 150, 150, 150, 110, 50, 370]
+
+let psi_protein_hyd(aa_idx) =
+    let val = 0
+    let k = 0
+    for k < 20
+        let diff = gf_sub(gf_norm(aa_idx), gf_norm(PROT_HYD_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(PROT_HYD_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let PROT_SS_POLES = [1, 2, 3, 4]
+let PROT_SS_RESIDUES = [100, 100, 100, 100]
+
+let psi_protein_ss(ss_idx) =
+    let val = 0
+    let k = 0
+    for k < 4
+        let diff = gf_sub(gf_norm(ss_idx), gf_norm(PROT_SS_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(PROT_SS_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let PROT_PI_POLES = [40, 50, 60, 70, 80, 90, 100, 110]
+let PROT_PI_RESIDUES = [50, 30, 10, 0, 10, 30, 50, 70]
+
+let psi_protein_pI(pI_x10) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(pI_x10), gf_norm(PROT_PI_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(PROT_PI_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let PROT_GRAVY_SCALE = 1000
+
+let protein_fit_GRAVY(aa_idx) =
+    let hyd_term = psi_protein_hyd(aa_idx)
+    gf_div(hyd_term, PROT_GRAVY_SCALE)
+
+let PROT_SS_BASE = 25
+let PROT_SS_FACTOR = 10
+
+let protein_fit_ss_content(ss_idx) =
+    let ss_term = psi_protein_ss(ss_idx)
+    gf_add(PROT_SS_BASE, gf_div(ss_term, PROT_SS_FACTOR))
+
+let PROT_PI_BASE = 70
+let PROT_PI_SCALE = 10
+
+let protein_fit_pI(pI_x10) =
+    let pi_term = psi_protein_pI(pI_x10)
+    gf_add(PROT_PI_BASE, gf_div(pi_term, PROT_PI_SCALE))
+
+let PROT_DG_T = 310
+let PROT_DG_T_SCALE = 100
+
+let protein_fit_dG_fold(aa_idx, ss_idx) =
+    let hyd_term = psi_protein_hyd(aa_idx)
+    let ss_term = psi_protein_ss(ss_idx)
+    let entropy_term = gf_div(gf_mul(PROT_DG_T, ss_term), PROT_DG_T_SCALE)
+    gf_sub(hyd_term, entropy_term)
+
+let protein_global_response(aa_idx, ss_idx, pI_x10) =
+    let e1 = psi_protein_hyd(aa_idx)
+    let e2 = psi_protein_ss(ss_idx)
+    let e3 = psi_protein_pI(pI_x10)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+
+let protein_hyd_ss_duality(aa_idx, ss_idx) =
+    let hyd_term = psi_protein_hyd(aa_idx)
+    let ss_term = psi_protein_ss(ss_idx)
+    gf_add(hyd_term, ss_term)
+
+let protein_hyd_pi_duality(aa_idx, pI_x10) =
+    let hyd_term = psi_protein_hyd(aa_idx)
+    let pi_term = psi_protein_pI(pI_x10)
+    gf_mul(hyd_term, pi_term)
+
+let protein_fit_verify() =
+    let e1 = psi_protein_hyd(1)
+    let e2 = psi_protein_ss(1)
+    let e3 = psi_protein_pI(70)
+    let ok = 0
+    if e1 != 0
+        ok = 1
+    if e2 != 0
+        ok = gf_add(ok, 1)
+    if e3 != 0
+        ok = gf_add(ok, 1)
+    ok

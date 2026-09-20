@@ -1,0 +1,24 @@
+let score_pergeo(YY, n, out2) =
+    let best = 1000000000
+    let bP = 0
+    let P = 2
+    for P < 9
+        let ok = 0
+        if 2 * P <= n
+            ok = 1
+        let s = 1000000000
+        if ok == 1
+            let lhs = YY[n] * YY[n - 2 * P]
+            let rhs = YY[n - P] * YY[n - P]
+            s = permille(abs_i(lhs - rhs), rhs)
+        let take = 0
+        if s < best
+            take = 1
+        if take == 1
+            best = s
+            bP = P
+        P = P + 1
+    out2[0] = best
+    out2[1] = bP
+    0
+

@@ -1,0 +1,40 @@
+let gc_build(nodes, edges, n, ne) =
+    let lines = []
+    let i = 0
+    for i < n
+      let id = nodes[i * 7 + 4]
+      let kind = nodes[i * 7 + 5]
+      let val = nodes[i * 7 + 6]
+      let s1 = 0 - 1
+      let s2 = 0 - 1
+      let k = 0
+      for k < ne
+        if edges[k * 6 + 3] == i
+          if s1 < 0
+            s1 = edges[k * 6]
+          else
+            if s2 < 0
+              s2 = edges[k * 6]
+            else
+              0
+        else
+          0
+        k = k + 1
+      if kind == 0
+        lines = lines.push("let v" + to_str(id) + " = " + to_str(val))
+      else
+        0
+      if kind == 1
+        lines = lines.push("let v" + to_str(id) + " = v" + to_str(s1) + " + v" + to_str(s2))
+      else
+        0
+      if kind == 2
+        lines = lines.push("let v" + to_str(id) + " = v" + to_str(s1) + " * v" + to_str(s2))
+      else
+        0
+      if kind == 3
+        lines = lines.push("print(v" + to_str(s1) + ")")
+      else
+        0
+      i = i + 1
+    lines

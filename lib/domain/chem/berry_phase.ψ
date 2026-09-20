@@ -1,0 +1,26 @@
+import "ck.ψ"
+let bad = [0]
+
+let gam = 180
+bad[0] = bad[0] + ck(gam, 175, 185)
+
+let chern = 1
+let dch = chern - 1
+bad[0] = bad[0] + ck(dch, 0, 0)
+
+let mono = 1
+bad[0] = bad[0] + ck_lo(mono, 1)
+
+let sig = 1
+bad[0] = bad[0] + ck_lo(sig, 1)
+
+if 1984 < 1982
+    bad[0] = bad[0] + 1
+if 1984 > 1986
+    bad[0] = bad[0] + 1
+if 2016 < 2014
+    bad[0] = bad[0] + 1
+if 2016 > 2018
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

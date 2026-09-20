@@ -1,0 +1,28 @@
+import "ck.ψ"
+let bad = [0]
+
+let fold = 10
+bad[0] = bad[0] + ck(fold, 9, 11)
+let forbidden = fold - 6
+bad[0] = bad[0] + ck_lo(forbidden, 1)
+
+let conv = 55 * 100 / 34
+bad[0] = bad[0] + ck(conv, 160, 162)
+
+let c1 = 21 * 8 - 13 * 13
+let dc1 = c1 + 1
+bad[0] = bad[0] + ck(dc1, 0, 0)
+let c2 = 55 * 21 - 34 * 34
+let dc2 = c2 + 1
+bad[0] = bad[0] + ck(dc2, 0, 0)
+
+if 1982 < 1980
+    bad[0] = bad[0] + 1
+if 1982 > 1984
+    bad[0] = bad[0] + 1
+if 2011 < 2009
+    bad[0] = bad[0] + 1
+if 2011 > 2013
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

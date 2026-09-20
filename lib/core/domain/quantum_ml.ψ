@@ -1,0 +1,191 @@
+import "../stdlib/gf65537.ψ"
+import "domain_list.ψ"
+
+let rz_gate(theta) =
+    let phase = gf_pow(3, theta)
+    [[1, 0], [0, phase]]
+
+let ry_gate(theta) =
+    let g_theta = gf_pow(3, theta)
+    let half = gf_inv(2)
+    let c_sq = gf_mul(gf_add(1, g_theta), half)
+    let s_sq = gf_mul(gf_sub(1, g_theta), half)
+    let c = gf_sqrt(c_sq)
+    let s = gf_sqrt(s_sq)
+    [[c, gf_neg(s)], [s, c]]
+
+let ansatz_3param(theta1, theta2, theta3) =
+    let rz1 = rz_gate(theta1)
+    let ry2 = ry_gate(theta2)
+    let rz3 = rz_gate(theta3)
+    let ry_rz = mat2_mul(ry2, rz3)
+    mat2_mul(rz1, ry_rz)
+
+let mat2_vec_mul(m, v) =
+    [gf_add(gf_mul(m[0][0], v[0]), gf_mul(m[0][1], v[1])),
+     gf_add(gf_mul(m[1][0], v[0]), gf_mul(m[1][1], v[1]))]
+
+let variational_energy(h_matrix, psi) =
+    let h_psi = mat2_vec_mul(h_matrix, psi)
+    gf_add(gf_mul(psi[0], h_psi[0]), gf_mul(psi[1], h_psi[1]))
+
+let vqe_step(h_matrix, theta1, theta2, theta3, initial_state) =
+    let u = ansatz_3param(theta1, theta2, theta3)
+    let psi = mat2_vec_mul(u, initial_state)
+    let energy = variational_energy(h_matrix, psi)
+    [energy, psi]
+
+let vqe_finite_search(h_matrix, initial_state, step, max_iter) =
+    _vqe_search_loop(h_matrix, initial_state, step, max_iter, 0, 0, 0, 0)
+let _vqe_search_loop(h, psi0, step, max_iter, i, best_energy, best_theta, current_theta) =
+        if i >= max_iter
+            [best_energy, best_theta]
+        else
+            let result = vqe_step(h, current_theta, 0, 0, psi0)
+            let energy = result[0]
+            let new_best_e = (i == 0 || energy < best_energy) ? energy : best_energy
+            let new_best_t = (i == 0 || energy < best_energy) ? current_theta : best_theta
+            _vqe_search_loop(h, psi0, step, max_iter, i + 1, new_best_e, new_best_t, gf_add(current_theta, step))
+
+let feature_map(x) =
+    let g_x = gf_pow(3, x)
+    let half = gf_inv(2)
+    let c_sq = gf_mul(gf_add(1, g_x), half)
+    let s_sq = gf_mul(gf_sub(1, g_x), half)
+    [gf_sqrt(c_sq), gf_sqrt(s_sq)]
+
+let quantum_kernel(x, y) =
+    let psi_x = feature_map(x)
+    let psi_y = feature_map(y)
+    let inner = gf_add(gf_mul(psi_x[0], psi_y[0]), gf_mul(psi_x[1], psi_y[1]))
+    gf_mul(inner, inner)
+
+let quantum_kernel_matrix(data, n) =
+    _kernel_matrix_loop(data, n, 0, [])
+let _kernel_matrix_loop(data, n, i, matrix) =
+        if i >= n
+            matrix
+        else
+            let row = _kernel_row_loop(data, n, i, 0, [])
+            _kernel_matrix_loop(data, n, i + 1, arr_concat(matrix, [row]))
+let _kernel_row_loop(data, n, i, j, row) =
+        if j >= n
+            row
+        else
+            let k = quantum_kernel(data[i], data[j])
+            _kernel_row_loop(data, n, i, j + 1, arr_concat(row, [k]))
+
+let algebraic_activation(x) =
+    gf_pow(3, x)
+
+let quantum_neuron(w, x, b) =
+    let wx = gf_mul(w, x)
+    let wx_b = gf_add(wx, b)
+    algebraic_activation(wx_b)
+
+let qnn_layer(weights, inputs, bias, n_in, n_out) =
+    _qnn_layer_loop(weights, inputs, bias, n_in, n_out, 0, [])
+let _qnn_layer_loop(w, x, b, n_in, n_out, i, outputs) =
+        if i >= n_out
+            outputs
+        else
+            let sum = _qnn_neuron_sum(w, x, n_in, i, 0, 0)
+            let activated = algebraic_activation(gf_add(sum, b[i]))
+            _qnn_layer_loop(w, x, b, n_in, n_out, i + 1, arr_concat(outputs, [activated]))
+let _qnn_neuron_sum(w, x, n_in, i, j, acc) =
+        if j >= n_in
+            acc
+        else
+            _qnn_neuron_sum(w, x, n_in, i, j + 1, gf_add(acc, gf_mul(w[i][j], x[j])))
+
+let qaoa_p1_cost(z1, z2) =
+    let z1z2 = gf_mul(z1, z2)
+    gf_mul(gf_sub(1, z1z2), gf_inv(2))
+
+let qaoa_expectation(gamma, beta, z1, z2) =
+    let phase_c = gf_pow(3, gamma)
+    let phase_m = gf_pow(3, beta)
+    let cost = qaoa_p1_cost(z1, z2)
+    gf_mul(gf_mul(cost, phase_c), phase_m)
+
+let qaoa_optimize(z1, z2, step, max_iter) =
+    _qaoa_opt_loop(z1, z2, step, max_iter, 0, 0, 0, 0, 0)
+let _qaoa_opt_loop(z1, z2, step, max_iter, i, best_exp, best_g, best_b, gamma) =
+        if i >= max_iter
+            [best_exp, best_g, best_b]
+        else
+            let exp_val = qaoa_expectation(gamma, 0, z1, z2)
+            let new_best = (i == 0 || exp_val > best_exp) ? exp_val : best_exp
+            let new_g = (i == 0 || exp_val > best_exp) ? gamma : best_g
+            _qaoa_opt_loop(z1, z2, step, max_iter, i + 1, new_best, new_g, best_b, gf_add(gamma, step))
+
+let qbm_energy(visible, hidden, weights_vh, bias_v, bias_h, n_v, n_h) =
+    let e_v = _qbm_bias_term(bias_v, visible, n_v, 0, 0)
+    let e_h = _qbm_bias_term(bias_h, hidden, n_h, 0, 0)
+    let e_vh = _qbm_interaction_term(weights_vh, visible, hidden, n_v, n_h, 0, 0, 0)
+    gf_neg(gf_add(gf_add(e_v, e_h), e_vh))
+let _qbm_bias_term(bias, state, n, i, acc) =
+        if i >= n
+            acc
+        else
+            _qbm_bias_term(bias, state, n, i + 1, gf_add(acc, gf_mul(bias[i], state[i])))
+let _qbm_interaction_term(w, v, h, n_v, n_h, i, j, acc) =
+    if i >= n_v
+        acc
+    else
+        0
+    if j >= n_h
+        _qbm_interaction_term(w, v, h, n_v, n_h, i + 1, 0, acc)
+    else
+        let term = gf_mul(gf_mul(w[i][j], v[i]), h[j])
+        _qbm_interaction_term(w, v, h, n_v, n_h, i, j + 1, gf_add(acc, term))
+
+let qbm_probability(energy, r, z_partition) =
+    let weight = gf_pow(r, energy)
+    gf_div(weight, z_partition)
+
+let finite_difference(loss_fn_at_theta, loss_fn_at_theta_plus_1) =
+    gf_sub(loss_fn_at_theta_plus_1, loss_fn_at_theta)
+
+let second_derivative(f_minus, f_zero, f_plus) =
+    gf_sub(gf_add(f_plus, f_minus), gf_mul(2, f_zero))
+
+let quantum_classifier(theta, x, initial_state) =
+        let u = rz_gate(theta)
+        let encoded = [x, gf_sub(1, x)]
+        let psi = mat2_vec_mul(u, encoded)
+        if psi[0] > psi[1]
+            0
+        else
+            1
+
+let classification_accuracy(thetas, data, labels, n) =
+    _accuracy_loop(thetas, data, labels, n, 0, 0)
+let _accuracy_loop(thetas, data, labels, n, i, correct) =
+        if i >= n
+            gf_div(correct, n)
+        else
+            let pred = quantum_classifier(thetas[0], data[i], [1, 0])
+            let is_correct = (pred == labels[i] ? 1 : 0)
+            _accuracy_loop(thetas, data, labels, n, i + 1, gf_add(correct, is_correct))
+
+let qgan_generator_loss(d_output_fake) =
+    gf_neg(d_output_fake)
+
+let qgan_discriminator_loss(d_output_real, d_output_fake) =
+    gf_neg(gf_add(d_output_real, gf_sub(1, d_output_fake)))
+
+let q_learning_update(q_old, alpha, reward, gamma, q_max_next) =
+    let td_target = gf_add(reward, gf_mul(gamma, q_max_next))
+    let td_error = gf_sub(td_target, q_old)
+    gf_add(q_old, gf_mul(alpha, td_error))
+
+let annealing_hamiltonian(h_problem, h_driver, k, n_steps) =
+    let k_over_n = gf_div(k, n_steps)
+    let one_minus = gf_sub(1, k_over_n)
+    let h00 = gf_add(gf_mul(one_minus, h_problem[0][0]), gf_mul(k_over_n, h_driver[0][0]))
+    let h01 = gf_add(gf_mul(one_minus, h_problem[0][1]), gf_mul(k_over_n, h_driver[0][1]))
+    let h10 = gf_add(gf_mul(one_minus, h_problem[1][0]), gf_mul(k_over_n, h_driver[1][0]))
+    let h11 = gf_add(gf_mul(one_minus, h_problem[1][1]), gf_mul(k_over_n, h_driver[1][1]))
+    [[h00, h01], [h10, h11]]
+

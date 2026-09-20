@@ -1,0 +1,326 @@
+let QO_P = 65537
+let QO_RULE_PRED_PUSH_DOWN = 1
+let QO_RULE_COL_PRUNE = 2
+let QO_RULE_JOIN_REORDER = 3
+let QO_RULE_CONST_FOLD = 4
+let QO_RULE_DEAD_CODE_ELIM = 5
+let QO_OP_SCAN = 1
+let QO_OP_FILTER = 2
+let QO_OP_PROJECT = 3
+let QO_OP_JOIN = 4
+let QO_OP_AGG = 5
+let QO_OP_SORT = 6
+let QO_PRED_EQ = 1
+let QO_PRED_RANGE = 2
+let QO_W_CPU = 1
+let QO_W_IO = 4
+let QO_W_MEM = 1
+let qo_plan_op(p) = p[0]
+let qo_plan_table(p) = p[1]
+let qo_plan_preds(p) = p[2]
+let qo_plan_projs(p) = p[3]
+let qo_plan_children(p) = p[5]
+let qo_plan_set_preds(p, preds) =
+    p[2] = preds
+    p
+let qo_plan_set_projs(p, projs) =
+    p[3] = projs
+    p
+let qo_plan_set_children(p, ch) =
+    p[5] = ch
+    p
+let qo_rule_new(id, name, pattern, action) = [id, name, pattern, action, 0]
+let qo_r_id(r) = r[0]
+let qo_r_name(r) = r[1]
+let qo_r_count(r) = r[4]
+let qo_r_inc(r) =
+    r[4] = r[4] + 1
+    r
+let qo_colprune_new(plan, needed_cols) = [plan, needed_cols]
+let qo_cp_plan(c) = c[0]
+let qo_cp_cols(c) = c[1]
+let qo_optimizer_new() = [[], {}, [], []]
+let qo_opt_rules(o) = o[0]
+let qo_opt_stats(o) = o[1]
+let qo_opt_plans(o) = o[2]
+let qo_opt_log(o) = o[3]
+let qo_opt_set_stats(o, s) =
+    o[1] = s
+    o
+let qo_log_op(optimizer, rec) =
+    let lg = qo_opt_log(optimizer)
+    lg.push(rec)
+    optimizer[3] = lg
+    optimizer
+let qo_stats_rows(stats, table) =
+    let e = stats[table]
+    if e == 0
+        0
+    else
+        e[0]
+let qo_stats_distinct(stats, table, col_id) =
+    let e = stats[table]
+    if e == 0
+        1
+    else
+        let d = e[1][col_id]
+        if d == 0
+            1
+        else
+            d
+let qo_register_rule(optimizer, rule) =
+    let rs = qo_opt_rules(optimizer)
+    rs.push(rule)
+    optimizer[0] = rs
+    optimizer
+let qo_apply_pred_push_down(plan) =
+    let op = qo_plan_op(plan)
+    if op == QO_OP_FILTER
+        let preds = qo_plan_preds(plan)
+        let children = qo_plan_children(plan)
+        if len(children) == 1
+            let child = children[0]
+            if qo_plan_op(child) == QO_OP_SCAN
+                child = qo_plan_set_preds(child, preds)
+                child
+            else
+                let nc = qo_apply_pred_push_down(child)
+                qo_plan_set_children(plan, [nc])
+        else
+            plan
+    else
+        0
+    if op == QO_OP_SCAN
+        plan
+    else
+        let children = qo_plan_children(plan)
+        let new_ch = []
+        let i = 0
+        for i < len(children)
+            new_ch.push(qo_apply_pred_push_down(children[i]))
+            i = i + 1
+        qo_plan_set_children(plan, new_ch)
+let qo_col_needed(col, needed) =
+    let found = 0
+    let i = 0
+    for i < len(needed)
+        if needed[i] == col
+            found = 1
+        i = i + 1
+    found
+let qo_apply_col_prune(plan, needed_cols) =
+    let op = qo_plan_op(plan)
+    if op == QO_OP_PROJECT
+        let projs = qo_plan_projs(plan)
+        let new_projs = []
+        let i = 0
+        for i < len(projs)
+            if qo_col_needed(projs[i], needed_cols) == 1
+                new_projs.push(projs[i])
+            i = i + 1
+        plan = qo_plan_set_projs(plan, new_projs)
+        let children = qo_plan_children(plan)
+        let new_ch = []
+        let k = 0
+        for k < len(children)
+            new_ch.push(qo_apply_col_prune(children[k], new_projs))
+            k = k + 1
+        qo_plan_set_children(plan, new_ch)
+    else
+        if op == QO_OP_SCAN
+            plan
+        else
+            let children = qo_plan_children(plan)
+            let new_ch = []
+            let i = 0
+            for i < len(children)
+                new_ch.push(qo_apply_col_prune(children[i], needed_cols))
+                i = i + 1
+            qo_plan_set_children(plan, new_ch)
+let qo_apply_const_fold(plan) =
+    let preds = qo_plan_preds(plan)
+    let new_preds = []
+    let i = 0
+    for i < len(preds)
+        let pred = preds[i]
+        let is_true = 0
+        if pred[0] == 0
+            if pred[1] == QO_PRED_EQ
+                if pred[2] == 0
+                    is_true = 1
+        if is_true == 0
+            new_preds.push(pred)
+        i = i + 1
+    plan = qo_plan_set_preds(plan, new_preds)
+    let children = qo_plan_children(plan)
+    let new_ch = []
+    let k = 0
+    for k < len(children)
+        new_ch.push(qo_apply_const_fold(children[k]))
+        k = k + 1
+    qo_plan_set_children(plan, new_ch)
+let qo_apply_dead_code_elim(plan) =
+    let op = qo_plan_op(plan)
+    let children = qo_plan_children(plan)
+    let new_ch = []
+    let i = 0
+    for i < len(children)
+        new_ch.push(qo_apply_dead_code_elim(children[i]))
+        i = i + 1
+    plan = qo_plan_set_children(plan, new_ch)
+    if op == QO_OP_FILTER
+        if len(qo_plan_preds(plan)) == 0
+            if len(new_ch) == 1
+                new_ch[0]
+            else
+                plan
+        else
+            plan
+    else
+        0
+    if op == QO_OP_PROJECT
+        if len(qo_plan_projs(plan)) == 0
+            if len(new_ch) == 1
+                new_ch[0]
+            else
+                plan
+        else
+            plan
+    else
+        plan
+let qo_apply_join_reorder(plan, stats) =
+    let op = qo_plan_op(plan)
+    let children = qo_plan_children(plan)
+    let new_ch = []
+    let i = 0
+    for i < len(children)
+        new_ch.push(qo_apply_join_reorder(children[i], stats))
+        i = i + 1
+    if op == QO_OP_JOIN
+        if len(new_ch) == 2
+            let lc = qo_stats_rows(stats, qo_plan_table(new_ch[0]))
+            let rc = qo_stats_rows(stats, qo_plan_table(new_ch[1]))
+            if lc > rc
+                let tmp = new_ch[0]
+                new_ch[0] = new_ch[1]
+                new_ch[1] = tmp
+    qo_plan_set_children(plan, new_ch)
+let qo_ilog2(n) =
+    let r = 0
+    let v = n
+    for v > 1
+        v = v / 2
+        r = r + 1
+    r
+let qo_compute_cost(plan, stats) =
+    let op = qo_plan_op(plan)
+    let table = qo_plan_table(plan)
+    let ch = qo_plan_children(plan)
+    let cost = 0
+    let i = 0
+    for i < len(ch)
+        cost = cost + qo_compute_cost(ch[i], stats)
+        i = i + 1
+    let rows = qo_stats_rows(stats, table)
+    if len(ch) > 0
+        rows = qo_stats_rows(stats, qo_plan_table(ch[0]))
+    if op == QO_OP_SCAN
+        cost = cost + qo_stats_rows(stats, table) * QO_W_IO
+    else
+        if op == QO_OP_FILTER
+            cost = cost + rows * QO_W_CPU
+        else
+            if op == QO_OP_PROJECT
+                cost = cost + rows * QO_W_CPU
+            else
+                if op == QO_OP_JOIN
+                    let lc = 0
+                    let rc = 0
+                    if len(ch) >= 2
+                        lc = qo_stats_rows(stats, qo_plan_table(ch[0]))
+                        rc = qo_stats_rows(stats, qo_plan_table(ch[1]))
+                    cost = cost + (lc + rc) * (QO_W_CPU + QO_W_MEM)
+                else
+                    if op == QO_OP_SORT
+                        let sc = 0
+                        if rows > 1
+                            sc = qo_ilog2(rows + 1) * rows * QO_W_CPU
+                        cost = cost + sc
+                    else
+                        if op == QO_OP_AGG
+                            cost = cost + rows * QO_W_CPU
+    cost % QO_P
+let qo_optimize(optimizer, plan, stats) =
+    let p = plan
+    p = qo_apply_pred_push_down(p)
+    qo_log_op(optimizer, ["pred_push_down"])
+    p = qo_apply_col_prune(p, qo_plan_projs(p))
+    qo_log_op(optimizer, ["col_prune"])
+    p = qo_apply_const_fold(p)
+    qo_log_op(optimizer, ["const_fold"])
+    p = qo_apply_dead_code_elim(p)
+    qo_log_op(optimizer, ["dead_code_elim"])
+    p = qo_apply_join_reorder(p, stats)
+    qo_log_op(optimizer, ["join_reorder"])
+    let pl = qo_opt_plans(optimizer)
+    pl.push(p)
+    optimizer[2] = pl
+    p
+let qo_plan_hash(plan) =
+    if plan == 0
+        0
+    let h = qo_plan_op(plan)
+    h = (h * 31 + len(qo_plan_preds(plan))) % QO_P
+    h = (h * 31 + len(qo_plan_projs(plan))) % QO_P
+    let ch = qo_plan_children(plan)
+    let i = 0
+    for i < len(ch)
+        h = (h * 7 + qo_plan_hash(ch[i])) % QO_P
+        i = i + 1
+    h
+let qo_bragg_verify(optimizer, ops_seq) =
+    let ok = 1
+    let log = qo_opt_log(optimizer)
+    if len(ops_seq) != len(log)
+        ok = 0
+    let last_hash = 0
+    let plans = qo_opt_plans(optimizer)
+    if len(plans) > 0
+        last_hash = qo_plan_hash(plans[len(plans) - 1])
+    [ok, last_hash, len(log)]
+let qo_default_optimizer() =
+    let o = qo_optimizer_new()
+    let s = {}
+    s["users"] = [1000, [0, 100, 50]]
+    s["orders"] = [5000, [0, 5000, 100]]
+    s["items"] = [100, [0, 100]]
+    o = qo_opt_set_stats(o, s)
+    o = qo_register_rule(o, qo_rule_new(QO_RULE_PRED_PUSH_DOWN, "pred_push_down", "Filter", "push"))
+    o = qo_register_rule(o, qo_rule_new(QO_RULE_COL_PRUNE, "col_prune", "Project", "prune"))
+    o = qo_register_rule(o, qo_rule_new(QO_RULE_JOIN_REORDER, "join_reorder", "Join", "reorder"))
+    o = qo_register_rule(o, qo_rule_new(QO_RULE_CONST_FOLD, "const_fold", "Filter", "fold"))
+    o = qo_register_rule(o, qo_rule_new(QO_RULE_DEAD_CODE_ELIM, "dead_code_elim", "*", "elim"))
+    o
+let qo_self_test() =
+    let o = qo_default_optimizer()
+    let stats = qo_opt_stats(o)
+    let scan = [QO_OP_SCAN, "users", [[1, QO_PRED_EQ, 42]], [], [], []]
+    let filt = [QO_OP_FILTER, "users", [[1, QO_PRED_EQ, 42]], [], [], [scan]]
+    let plan = [QO_OP_PROJECT, "users", [], [1, 2], [], [filt]]
+    let p1 = qo_apply_pred_push_down(plan)
+    let ok1 = qo_plan_op(p1) == QO_OP_PROJECT
+    let scan2 = [QO_OP_SCAN, "users", [[0, QO_PRED_EQ, 0]], [], [], []]
+    let ok2 = len(qo_plan_preds(qo_apply_const_fold(scan2))) == 0
+    let scan3 = [QO_OP_SCAN, "users", [], [], [], []]
+    let filt3 = [QO_OP_FILTER, "users", [], [], [], [scan3]]
+    let ok3 = qo_plan_op(qo_apply_dead_code_elim(filt3)) == QO_OP_SCAN
+    let jl = [QO_OP_SCAN, "orders", [], [], [], []]
+    let jr = [QO_OP_SCAN, "items", [], [], [], []]
+    let join = [QO_OP_JOIN, "", [], [], [], [jl, jr]]
+    let ok4 = qo_plan_table(qo_plan_children(qo_apply_join_reorder(join, stats))[0]) == "items"
+    let opt = qo_optimize(o, plan, stats)
+    let ok5 = qo_plan_op(opt) == QO_OP_PROJECT
+    let ok6 = qo_compute_cost(opt, stats) > 0
+    let bv = qo_bragg_verify(o, qo_opt_log(o))
+    let ok7 = bv[0] == 1
+    ["query_optimizer", ok1, ok2, ok3, ok4, ok5, ok6, ok7]

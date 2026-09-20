@@ -1,0 +1,100 @@
+let H_DEFAULT_EPSILON = 0.01
+
+let H_DEFAULT_LAMBDA = 0.001
+
+let H_INFER_FORWARD_ID = 100
+
+let h_c_mul(a, b) =
+    let re = a[0] * b[0] - a[1] * b[1]
+    let im = a[0] * b[1] + a[1] * b[0]
+    [re, im]
+
+let h_c_conj(a) = [a[0], 0.0 - a[1]]
+
+let h_c_im(a) = a[1] + 0.0
+
+let h_c_add(a, b) = [a[0] + b[0], a[1] + b[1]]
+
+let h_c_sub(a, b) = [a[0] - b[0], a[1] - b[1]]
+
+let h_c_scale(a, s) = [a[0] * s, a[1] * s]
+
+let train_init(model) = host_obj_store(model)
+
+let train_infer(model_id, input_id) = host_call(H_INFER_FORWARD_ID, model_id, input_id)
+
+let train_hebbian_update(model, input, output, target, epsilon, lambda) =
+    let new_model = []
+    let j = 0
+    let n = len(model)
+    for j < n
+      let m = model[j]
+      let inp = input[j]
+      let out = output[j]
+      let tgt = target[j]
+      let im_phase_diff = inp[0] * out[1] - inp[1] * out[0]
+      let err_im = tgt[1] - out[1]
+      let theta_j = m[1] + 0.0
+      let sin_theta = theta_j
+      let d_theta = epsilon * (im_phase_diff + err_im) - lambda * sin_theta
+      let new_node = [m[0], m[1] + d_theta]
+      new_model = new_model.push(new_node)
+      j = j + 1
+    new_model
+
+let train_loop(model, data, targets, epochs, epsilon, lambda) =
+    let m = model
+    let epoch = 0
+    for epoch < epochs
+      let i = 0
+      let n_samples = len(data)
+      for i < n_samples
+        let x = data[i]
+        let target = targets[i]
+        let y = []
+        let k = 0
+        let dim = len(m)
+        for k < dim
+          let yk = h_c_mul(m[k], x[k])
+          y = y.push(yk)
+          k = k + 1
+          0
+        m = train_hebbian_update(m, x, y, target, epsilon, lambda)
+        i = i + 1
+      epoch = epoch + 1
+    m
+
+let train_mnist_lean() =
+    let init_model = [[1.0, 0.0], [1.0, 0.0], [1.0, 0.0]]
+    let data = [
+      [[0.5, 0.1], [0.3, 0.0], [0.7, 0.2]],
+      [[0.2, 0.0], [0.8, 0.1], [0.4, 0.0]]
+    ]
+    let targets = [
+      [[1.0, 0.0], [0.0, 0.0], [0.0, 0.0]],
+      [[0.0, 0.0], [1.0, 0.0], [0.0, 0.0]]
+    ]
+    let trained = train_loop(init_model, data, targets, 1, H_DEFAULT_EPSILON, H_DEFAULT_LAMBDA)
+    let test_input = data[0]
+    let y = []
+    let k = 0
+    let dim = len(trained)
+    for k < dim
+      let yk = h_c_mul(trained[k], test_input[k])
+      y = y.push(yk)
+      k = k + 1
+      0
+    let max_amp = 0.0
+    let max_idx = 0
+    let j = 0
+    for j < dim
+      let amp = y[j]
+      let abs_amp = amp[0] * amp[0] + amp[1] * amp[1]
+      if abs_amp > max_amp
+        max_amp = abs_amp
+        max_idx = j
+      else
+        0
+      j = j + 1
+    max_idx
+

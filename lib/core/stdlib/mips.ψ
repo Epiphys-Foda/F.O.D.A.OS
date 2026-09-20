@@ -1,0 +1,695 @@
+let MI_LI = 1
+let MI_ADD = 2
+let MI_SUB = 3
+let MI_MUL = 4
+let MI_DIV = 5
+let MI_MOD = 6
+let MI_AND = 7
+let MI_OR = 8
+let MI_XOR = 9
+let MI_SLL = 10
+let MI_SRL = 11
+let MI_SRA = 12
+let MI_ADDI = 13
+let MI_LW = 14
+let MI_SW = 15
+let MI_BEQ = 16
+let MI_BNE = 17
+let MI_BLT = 18
+let MI_BGE = 19
+let MI_B = 20
+let MI_JAL = 21
+let MI_JR = 22
+let MI_SLT = 23
+let MI_MOV = 24
+let MI_NEG = 25
+
+let M_ZERO = 0
+let M_V0 = 2
+let M_A0 = 4
+let M_A1 = 5
+let M_A2 = 6
+let M_T0 = 8
+let M_T1 = 9
+let M_T2 = 10
+let M_T3 = 11
+let M_T4 = 12
+let M_T5 = 13
+let M_T6 = 14
+let M_T7 = 15
+let M_SP = 29
+let M_FP = 30
+let M_RA = 31
+let M_S0 = 16
+let M_S1 = 17
+let M_S2 = 18
+let M_S3 = 19
+let M_S4 = 20
+let M_S5 = 21
+let M_S6 = 22
+let M_S7 = 23
+
+let mi_new_reg() =
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+let mi_set_arr(arr, idx, val) =
+    let n = len(arr)
+    let front = arr.slice(0, idx)
+    let back = arr.slice(idx + 1, n)
+    [front, [val], back].flat()
+
+let mi_asr(v, count) =
+    let r = v
+    let i = 0
+    for i < count
+      r = (r < 0 ? (r - 1) / 2 : r / 2)
+      i = i + 1
+    r
+
+let mi_lsr(v, count) =
+    let u = v
+    if u < 0
+      u = u + 9223372036854775808
+    else
+      0
+    let i = 0
+    for i < count
+      u = u / 2
+      i = i + 1
+    u
+
+let mi_bit_and(a, b) =
+    let result = 0
+    let bit = 1
+    let aa = a
+    let bb = b
+    let i = 0
+    for i < 32
+      let la_a = aa - (aa / 2) * 2
+      let la_b = bb - (bb / 2) * 2
+      if (la_a == 1) && (la_b == 1)
+        result = result + bit
+      else
+        0
+      aa = (aa < 0 ? (aa - 1) / 2 : aa / 2)
+      bb = (bb < 0 ? (bb - 1) / 2 : bb / 2)
+      bit = bit * 2
+      i = i + 1
+    result
+
+let mi_bit_or(a, b) =
+    let result = 0
+    let bit = 1
+    let aa = a
+    let bb = b
+    let i = 0
+    for i < 32
+      let la_a = aa - (aa / 2) * 2
+      let la_b = bb - (bb / 2) * 2
+      if (la_a == 1) || (la_b == 1)
+        result = result + bit
+      else
+        0
+      aa = (aa < 0 ? (aa - 1) / 2 : aa / 2)
+      bb = (bb < 0 ? (bb - 1) / 2 : bb / 2)
+      bit = bit * 2
+      i = i + 1
+    result
+
+let mi_bit_xor(a, b) =
+    let result = 0
+    let bit = 1
+    let aa = a
+    let bb = b
+    let i = 0
+    for i < 32
+      let la_a = aa - (aa / 2) * 2
+      let la_b = bb - (bb / 2) * 2
+      if la_a != la_b
+        result = result + bit
+      else
+        0
+      aa = (aa < 0 ? (aa - 1) / 2 : aa / 2)
+      bb = (bb < 0 ? (bb - 1) / 2 : bb / 2)
+      bit = bit * 2
+      i = i + 1
+    result
+
+let mips_exec(code, arg) =
+    let reg = mi_new_reg()
+    let mem = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    reg = mi_set_arr(reg, M_A0, arg)
+    reg = mi_set_arr(reg, M_SP, 4096)
+    let pc = 0
+    let done = 0
+    for done == 0
+      if pc < len(code)
+        let insn = code[pc]
+        let op = insn[0]
+        let rd = insn[1]
+        let rn = insn[2]
+        let rm = insn[3]
+        let imm = insn[4]
+        let next = pc + 1
+        if op == MI_LI
+          reg = mi_set_arr(reg, rd, imm)
+        else
+          0
+        if op == MI_ADD
+          reg = mi_set_arr(reg, rd, reg[rn] + reg[rm])
+        else
+          0
+        if op == MI_SUB
+          reg = mi_set_arr(reg, rd, reg[rn] - reg[rm])
+        else
+          0
+        if op == MI_MUL
+          reg = mi_set_arr(reg, rd, reg[rn] * reg[rm])
+        else
+          0
+        if op == MI_DIV
+          reg = mi_set_arr(reg, rd, (reg[rm] == 0 ? 0 : reg[rn] / reg[rm]))
+        else
+          0
+        if op == MI_MOD
+          reg = mi_set_arr(reg, rd, (reg[rm] == 0 ? 0 : reg[rn] - (reg[rn] / reg[rm]) * reg[rm]))
+        else
+          0
+        if op == MI_AND
+          reg = mi_set_arr(reg, rd, mi_bit_and(reg[rn], reg[rm]))
+        else
+          0
+        if op == MI_OR
+          reg = mi_set_arr(reg, rd, mi_bit_or(reg[rn], reg[rm]))
+        else
+          0
+        if op == MI_XOR
+          reg = mi_set_arr(reg, rd, mi_bit_xor(reg[rn], reg[rm]))
+        else
+          0
+        if op == MI_SLL
+          reg = mi_set_arr(reg, rd, reg[rn] * (1 << reg[rm]))
+        else
+          0
+        if op == MI_SRL
+          reg = mi_set_arr(reg, rd, mi_lsr(reg[rn], reg[rm]))
+        else
+          0
+        if op == MI_SRA
+          reg = mi_set_arr(reg, rd, mi_asr(reg[rn], reg[rm]))
+        else
+          0
+        if op == MI_ADDI
+          reg = mi_set_arr(reg, rd, reg[rn] + imm)
+        else
+          0
+        if op == MI_LW
+          let addr = reg[rn] + imm
+          let m2 = if addr < len(mem)
+            mem
+          else
+            let m = mem
+            let i = len(mem)
+            for i <= addr
+              m = m.push(0)
+              i = i + 1
+            m
+          reg = mi_set_arr(reg, rd, m2[addr])
+        else
+          0
+        if op == MI_SW
+          let addr = rn + imm
+          let m2 = if addr < len(mem)
+            mem
+          else
+            let m = mem
+            let i = len(mem)
+            for i <= addr
+              m = m.push(0)
+              i = i + 1
+            m
+          mem = mi_set_arr(m2, addr, reg[rd])
+        else
+          0
+        if op == MI_BEQ
+          if reg[rn] == reg[rm]
+            next = pc + imm
+          else
+            0
+        else
+          0
+        if op == MI_BNE
+          if reg[rn] != reg[rm]
+            next = pc + imm
+          else
+            0
+        else
+          0
+        if op == MI_BLT
+          if reg[rn] < reg[rm]
+            next = pc + imm
+          else
+            0
+        else
+          0
+        if op == MI_BGE
+          if reg[rn] >= reg[rm]
+            next = pc + imm
+          else
+            0
+        else
+          0
+        if op == MI_B
+          next = pc + imm
+        else
+          0
+        if op == MI_JAL
+          reg = mi_set_arr(reg, M_RA, next)
+          next = imm
+        else
+          0
+        if op == MI_JR
+          next = reg[M_RA]
+        else
+          0
+        if op == MI_SLT
+          reg = mi_set_arr(reg, rd, (reg[rn] < reg[rm] ? 1 : 0))
+        else
+          0
+        if op == MI_MOV
+          reg = mi_set_arr(reg, rd, reg[rn])
+        else
+          0
+        if op == MI_NEG
+          reg = mi_set_arr(reg, rd, 0 - reg[rn])
+        else
+          0
+        pc = next
+      else
+        done = 1
+    reg[M_V0]
+
+let mi_alloc_slot(ctx, name) =
+    let slots = ctx[1]
+    let nslots = ctx[2]
+    let reg = M_S0 + nslots
+    let new_slots = slots.push([name, reg])
+    [ctx[0], new_slots, nslots + 1, ctx[3], ctx[4]]
+
+let mi_lookup_slot(ctx, name) =
+    let slots = ctx[1]
+    let reg = M_ZERO
+    let found = 0
+    let i = 0
+    for i < len(slots)
+      if (found == 0) && (slots[i][0] == name)
+        reg = slots[i][1]
+        found = 1
+      else
+        0
+      i = i + 1
+    reg
+
+let mi_compile_expr(ast, ctx) =
+    let tag = ast[0]
+    if tag == "lit"
+      ctx[0] = ctx[0].push([MI_LI, M_V0, 0, 0, ast[1]])
+    else
+      0
+    if tag == "var"
+      let r = mi_lookup_slot(ctx, ast[1])
+      ctx[0] = ctx[0].push([MI_MOV, M_V0, r, 0, 0])
+    else
+      0
+    if tag == "binop"
+      let op_name = ast[1]
+      let left = ast[2]
+      let right = ast[3]
+      mi_compile_expr(left, ctx)
+      ctx[0] = ctx[0].push([MI_MOV, M_T0, M_V0, 0, 0])
+      mi_compile_expr(right, ctx)
+      ctx[0] = ctx[0].push([MI_MOV, M_T1, M_V0, 0, 0])
+      if op_name == "+"
+        ctx[0] = ctx[0].push([MI_ADD, M_V0, M_T0, M_T1, 0])
+      else
+        0
+      if op_name == "-"
+        ctx[0] = ctx[0].push([MI_SUB, M_V0, M_T0, M_T1, 0])
+      else
+        0
+      if op_name == "*"
+        ctx[0] = ctx[0].push([MI_MUL, M_V0, M_T0, M_T1, 0])
+      else
+        0
+      if op_name == "/"
+        ctx[0] = ctx[0].push([MI_DIV, M_V0, M_T0, M_T1, 0])
+      else
+        0
+      if op_name == "%"
+        ctx[0] = ctx[0].push([MI_MOD, M_V0, M_T0, M_T1, 0])
+      else
+        0
+      if op_name == "&"
+        ctx[0] = ctx[0].push([MI_AND, M_V0, M_T0, M_T1, 0])
+      else
+        0
+      if op_name == "|"
+        ctx[0] = ctx[0].push([MI_OR, M_V0, M_T0, M_T1, 0])
+      else
+        0
+      if op_name == "^"
+        ctx[0] = ctx[0].push([MI_XOR, M_V0, M_T0, M_T1, 0])
+      else
+        0
+      if op_name == "<<"
+        ctx[0] = ctx[0].push([MI_SLL, M_V0, M_T0, M_T1, 0])
+      else
+        0
+      if op_name == ">>"
+        ctx[0] = ctx[0].push([MI_SRA, M_V0, M_T0, M_T1, 0])
+      else
+        0
+      if op_name == "<"
+        ctx[0] = ctx[0].push([MI_SLT, M_V0, M_T0, M_T1, 0])
+      else
+        0
+      if op_name == ">"
+        ctx[0] = ctx[0].push([MI_SLT, M_V0, M_T1, M_T0, 0])
+      else
+        0
+      if op_name == "<="
+        ctx[0] = ctx[0].push([MI_SLT, M_V0, M_T0, M_T1, 0])
+        ctx[0] = ctx[0].push([MI_SLT, M_T1, M_T0, M_T1, 0])
+        ctx[0] = ctx[0].push([MI_BEQ, M_V0, M_T1, 0, 2])
+        ctx[0] = ctx[0].push([MI_LI, M_V0, 0, 0, 1])
+      else
+        0
+      if op_name == ">="
+        ctx[0] = ctx[0].push([MI_SLT, M_V0, M_T1, M_T0, 0])
+        ctx[0] = ctx[0].push([MI_SLT, M_T1, M_T0, M_T1, 0])
+        ctx[0] = ctx[0].push([MI_BEQ, M_V0, M_T1, 0, 2])
+        ctx[0] = ctx[0].push([MI_LI, M_V0, 0, 0, 1])
+      else
+        0
+      if op_name == "=="
+        ctx[0] = ctx[0].push([MI_SUB, M_V0, M_T0, M_T1, 0])
+        ctx[0] = ctx[0].push([MI_LI, M_T1, 0, 0, 1])
+        ctx[0] = ctx[0].push([MI_BEQ, M_V0, M_ZERO, 0, 2])
+        ctx[0] = ctx[0].push([MI_LI, M_T1, 0, 0, 0])
+        ctx[0] = ctx[0].push([MI_MOV, M_V0, M_T1, 0, 0])
+      else
+        0
+      if op_name == "!="
+        ctx[0] = ctx[0].push([MI_SUB, M_V0, M_T0, M_T1, 0])
+        ctx[0] = ctx[0].push([MI_LI, M_T1, 0, 0, 0])
+        ctx[0] = ctx[0].push([MI_BEQ, M_V0, M_ZERO, 0, 2])
+        ctx[0] = ctx[0].push([MI_LI, M_T1, 0, 0, 1])
+        ctx[0] = ctx[0].push([MI_MOV, M_V0, M_T1, 0, 0])
+      else
+        0
+    else
+      0
+    if tag == "call"
+      let fn_name = ast[1]
+      let args = ast[2]
+      let i = 0
+      for i < len(args)
+        mi_compile_expr(args[i], ctx)
+        let arg_reg = if i == 0
+          M_A0
+        else
+          if i == 1
+            M_A1
+          else
+            M_A2
+        ctx[0] = ctx[0].push([MI_MOV, arg_reg, M_V0, 0, 0])
+        i = i + 1
+      let call_pos = len(ctx[0])
+      ctx[0] = ctx[0].push([MI_JAL, 0, 0, 0, 0])
+      ctx[4] = ctx[4].push([call_pos, fn_name])
+      ctx[0] = ctx[0].push([MI_MOV, M_V0, M_V0, 0, 0])
+    else
+      0
+    ctx
+
+let mi_compile_stmt(ast, ctx) =
+    let tag = ast[0]
+    if tag == "lit"
+      mi_compile_expr(ast, ctx)
+    else
+      0
+    if tag == "var"
+      mi_compile_expr(ast, ctx)
+    else
+      0
+    if tag == "binop"
+      mi_compile_expr(ast, ctx)
+    else
+      0
+    if tag == "call"
+      mi_compile_expr(ast, ctx)
+    else
+      0
+    if tag == "let"
+      let var_name = ast[1]
+      let val = ast[2]
+      mi_compile_expr(val, ctx)
+      ctx = mi_alloc_slot(ctx, var_name)
+      let r = mi_lookup_slot(ctx, var_name)
+      ctx[0] = ctx[0].push([MI_MOV, r, M_V0, 0, 0])
+    else
+      0
+    if tag == "assign"
+      let var_name = ast[1]
+      let val = ast[2]
+      mi_compile_expr(val, ctx)
+      let r = mi_lookup_slot(ctx, var_name)
+      ctx[0] = ctx[0].push([MI_MOV, r, M_V0, 0, 0])
+    else
+      0
+    if tag == "if"
+      let cond = ast[1]
+      let then_body = ast[2]
+      let else_body = ast[3]
+      mi_compile_expr(cond, ctx)
+      let beq_pos = len(ctx[0])
+      ctx[0] = ctx[0].push([MI_BEQ, M_V0, M_ZERO, 0, 0])
+      mi_compile_stmt(then_body, ctx)
+      let b_pos = len(ctx[0])
+      ctx[0] = ctx[0].push([MI_B, 0, 0, 0, 0])
+      let else_start = len(ctx[0])
+      ctx[0] = mi_set_arr(ctx[0], beq_pos, [MI_BEQ, M_V0, M_ZERO, 0, else_start - beq_pos])
+      if else_body[0] != "null"
+        mi_compile_stmt(else_body, ctx)
+      else
+        0
+      let else_end = len(ctx[0])
+      ctx[0] = mi_set_arr(ctx[0], b_pos, [MI_B, 0, 0, 0, else_end - b_pos])
+    else
+      0
+    if tag == "for"
+      let var_name = ast[1]
+      let count_expr = ast[2]
+      let body = ast[3]
+      mi_compile_expr(count_expr, ctx)
+      ctx = mi_alloc_slot(ctx, var_name)
+      let loop_var = mi_lookup_slot(ctx, var_name)
+      ctx[0] = ctx[0].push([MI_LI, loop_var, 0, 0, 0])
+      let loop_start = len(ctx[0])
+      ctx[0] = ctx[0].push([MI_BGE, loop_var, M_V0, 0, 0])
+      let bge_pos = len(ctx[0]) - 1
+      mi_compile_stmt(body, ctx)
+      ctx[0] = ctx[0].push([MI_ADDI, loop_var, loop_var, 0, 1])
+      ctx[0] = ctx[0].push([MI_B, 0, 0, 0, loop_start - len(ctx[0]) - 1])
+      let loop_end = len(ctx[0])
+      ctx[0] = mi_set_arr(ctx[0], bge_pos, [MI_BGE, loop_var, M_V0, 0, loop_end - bge_pos])
+    else
+      0
+    if tag == "return"
+      let val = ast[1]
+      mi_compile_expr(val, ctx)
+      ctx[0] = ctx[0].push([MI_JR, 0, 0, 0, 0])
+    else
+      0
+    if tag == "seq"
+      let stmts = ast.slice(1, len(ast))
+      let i = 0
+      for i < len(stmts)
+        mi_compile_stmt(stmts[i], ctx)
+        i = i + 1
+    else
+      0
+    ctx
+
+let mi_compile_fn(ast, ctx) =
+    let fn_name = ast[1]
+    let params = ast[2]
+    let body = ast[3]
+    let fn_offset = len(ctx[0])
+    ctx[3] = ctx[3].push([fn_name, fn_offset])
+    let saved_slots = ctx[1]
+    let saved_nslots = ctx[2]
+    ctx[1] = []
+    ctx[2] = 0
+    let i = 0
+    for i < len(params)
+      ctx = mi_alloc_slot(ctx, params[i])
+      let r = mi_lookup_slot(ctx, params[i])
+      let arg_reg = if i == 0
+        M_A0
+      else
+        if i == 1
+          M_A1
+        else
+          M_A2
+      ctx[0] = ctx[0].push([MI_MOV, r, arg_reg, 0, 0])
+      i = i + 1
+    mi_compile_stmt(body, ctx)
+    ctx[0] = ctx[0].push([MI_JR, 0, 0, 0, 0])
+    ctx[1] = saved_slots
+    ctx[2] = saved_nslots
+    ctx
+
+let mips_compile(ast) =
+    let code = []
+    let ctx = [code, [], 0, [], []]
+    let stmts = if ast[0] == "seq"
+      ast.slice(1, len(ast))
+    else
+      [ast]
+    let user_fns = []
+    let other_stmts = []
+    let i = 0
+    for i < len(stmts)
+      if stmts[i][0] == "fn"
+        user_fns = user_fns.push(stmts[i])
+      else
+        other_stmts = other_stmts.push(stmts[i])
+      i = i + 1
+    let j = 0
+    for j < len(other_stmts)
+      mi_compile_stmt(other_stmts[j], ctx)
+      j = j + 1
+    ctx[0] = ctx[0].push([MI_LI, M_V0, 0, 0, 0])
+    ctx[0] = ctx[0].push([MI_JR, 0, 0, 0, 0])
+    let k = 0
+    for k < len(user_fns)
+      mi_compile_fn(user_fns[k], ctx)
+      k = k + 1
+    let m = 0
+    for m < len(ctx[4])
+      let patch = ctx[4][m]
+      let call_pos = patch[0]
+      let fn_name = patch[1]
+      let n = 0
+      let found = 0
+      for n < len(ctx[3])
+        if (found == 0) && (ctx[3][n][0] == fn_name)
+          ctx[0] = mi_set_arr(ctx[0], call_pos, [MI_JAL, 0, 0, 0, ctx[3][n][1]])
+          found = 1
+        else
+          0
+        n = n + 1
+      m = m + 1
+    ctx[0]
+
+let mi_test_add() =
+    let ast = ["seq", ["let", "a", ["binop", "+", ["lit", 3], ["lit", 4]]]]
+    mips_exec(mips_compile(ast), 0)
+
+let mi_test_sub() =
+    let ast = ["seq", ["let", "a", ["binop", "-", ["lit", 10], ["lit", 3]]]]
+    mips_exec(mips_compile(ast), 0)
+
+let mi_test_mul() =
+    let ast = ["seq", ["let", "a", ["binop", "*", ["lit", 6], ["lit", 7]]]]
+    mips_exec(mips_compile(ast), 0)
+
+let mi_test_div() =
+    let ast = ["seq", ["let", "a", ["binop", "/", ["lit", 84], ["lit", 2]]]]
+    mips_exec(mips_compile(ast), 0)
+
+let mi_test_mod() =
+    let ast = ["seq", ["let", "a", ["binop", "%", ["lit", 10], ["lit", 3]]]]
+    mips_exec(mips_compile(ast), 0)
+
+let mi_test_var_ref() =
+    let ast = ["seq", ["let", "x", ["lit", 7]], ["let", "a", ["binop", "+", ["var", "x"], ["lit", 4]]]]
+    mips_exec(mips_compile(ast), 0)
+
+let mi_test_chain() =
+    let ast = ["seq", ["let", "x", ["lit", 2]], ["let", "y", ["binop", "+", ["var", "x"], ["lit", 1]]], ["let", "a", ["binop", "+", ["var", "y"], ["lit", 2]]]]
+    mips_exec(mips_compile(ast), 0)
+
+let mi_test_if_true() =
+    let ast = ["seq", ["let", "x", ["lit", 1]], ["if", ["binop", "<", ["var", "x"], ["lit", 2]], ["assign", "x", ["lit", 10]], ["assign", "x", ["lit", 20]]]]
+    mips_exec(mips_compile(ast), 0)
+
+let mi_test_if_false() =
+    let ast = ["seq", ["let", "x", ["lit", 5]], ["if", ["binop", "<", ["var", "x"], ["lit", 2]], ["assign", "x", ["lit", 10]], ["assign", "x", ["lit", 20]]]]
+    mips_exec(mips_compile(ast), 0)
+
+let mi_test_for_loop() =
+    let ast = ["seq", ["let", "s", ["lit", 0]], ["for", "i", ["lit", 5], ["assign", "s", ["binop", "+", ["var", "s"], ["var", "i"]]]]]
+    mips_exec(mips_compile(ast), 0)
+
+let mi_test_for_loop_10() =
+    let ast = ["seq", ["let", "s", ["lit", 0]], ["for", "i", ["lit", 10], ["assign", "s", ["binop", "+", ["var", "s"], ["var", "i"]]]]]
+    mips_exec(mips_compile(ast), 0)
+
+let mi_test_fn_call() =
+    let ast = ["seq", ["fn", "double", ["x"], ["binop", "*", ["var", "x"], ["lit", 2]]], ["let", "r", ["call", "double", [["lit", 21]]]]]
+    mips_exec(mips_compile(ast), 0)
+
+let mi_test_fn_add() =
+    let ast = ["seq", ["fn", "add", ["a", "b"], ["binop", "+", ["var", "a"], ["var", "b"]]], ["let", "r", ["call", "add", [["lit", 17], ["lit", 25]]]]]
+    mips_exec(mips_compile(ast), 0)
+
+let mi_test_nested_fn() =
+    let ast = ["seq", ["fn", "sq", ["x"], ["binop", "*", ["var", "x"], ["var", "x"]]], ["let", "r", ["call", "sq", [["lit", 7]]]]]
+    mips_exec(mips_compile(ast), 0)
+
+let mi_test_negative() =
+    let ast = ["seq", ["let", "a", ["binop", "-", ["lit", 0], ["lit", 5]]]]
+    mips_exec(mips_compile(ast), 0)
+
+let mi_test_bitwise() =
+    let ast = ["seq", ["let", "a", ["binop", "&", ["lit", 12], ["lit", 10]]]]
+    mips_exec(mips_compile(ast), 0)
+
+let mi_test_shift() =
+    let ast = ["seq", ["let", "a", ["binop", "<<", ["lit", 1], ["lit", 4]]]]
+    mips_exec(mips_compile(ast), 0)
+
+let mi_run_all_tests() =
+    let results = []
+    results = results.push(["add", mi_test_add(), 7])
+    results = results.push(["sub", mi_test_sub(), 7])
+    results = results.push(["mul", mi_test_mul(), 42])
+    results = results.push(["div", mi_test_div(), 42])
+    results = results.push(["mod", mi_test_mod(), 1])
+    results = results.push(["var_ref", mi_test_var_ref(), 11])
+    results = results.push(["chain", mi_test_chain(), 5])
+    results = results.push(["if_true", mi_test_if_true(), 10])
+    results = results.push(["if_false", mi_test_if_false(), 20])
+    results = results.push(["for_loop", mi_test_for_loop(), 10])
+    results = results.push(["for_loop_10", mi_test_for_loop_10(), 45])
+    results = results.push(["fn_call", mi_test_fn_call(), 42])
+    results = results.push(["fn_add", mi_test_fn_add(), 42])
+    results = results.push(["nested_fn", mi_test_nested_fn(), 49])
+    results = results.push(["negative", mi_test_negative(), -5])
+    results = results.push(["bitwise", mi_test_bitwise(), 8])
+    results = results.push(["shift", mi_test_shift(), 16])
+    let pass = 0
+    let fail = 0
+    let i = 0
+    for i < len(results)
+      let name = results[i][0]
+      let got = results[i][1]
+      let want = results[i][2]
+      if got == want
+        pass = pass + 1
+      else
+        fail = fail + 1
+      i = i + 1
+    [pass, fail, results]

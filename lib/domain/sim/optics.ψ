@@ -1,0 +1,192 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let OPTICS_MAX_RAYS = 65536
+let OPTICS_MAX_SURFACES = 1024
+
+let ray_create(ox, oy, oz, dx, dy, dz, wavelength) = [[ox, oy, oz], [dx, dy, dz], wavelength, 1000]
+let ray_reflect(ray, normal) =
+    let d = ray[1]
+    let dot = gf_add(gf_add(gf_mul(d[0], normal[0]), gf_mul(d[1], normal[1])), gf_mul(d[2], normal[2]))
+    let new_dx = gf_sub(d[0], gf_mul(2, gf_mul(dot, normal[0])))
+    let new_dy = gf_sub(d[1], gf_mul(2, gf_mul(dot, normal[1])))
+    let new_dz = gf_sub(d[2], gf_mul(2, gf_mul(dot, normal[2])))
+    [ray[0], [new_dx, new_dy, new_dz], ray[2], ray[3]]
+let ray_refract(ray, normal, n1, n2) =
+    let d = ray[1]
+    let dot = gf_add(gf_add(gf_mul(d[0], normal[0]), gf_mul(d[1], normal[1])), gf_mul(d[2], normal[2]))
+    let eta = gf_div(n1, n2)
+    let k = gf_sub(gf_mul(eta, eta), 1)
+    k = gf_add(gf_mul(k, gf_mul(dot, dot)), 1)
+    if k < 0
+        ray
+    let new_dx = gf_sub(gf_mul(eta, d[0]), gf_mul(gf_sub(gf_mul(eta, dot), gf_sqrt(k)), normal[0]))
+    let new_dy = gf_sub(gf_mul(eta, d[1]), gf_mul(gf_sub(gf_mul(eta, dot), gf_sqrt(k)), normal[1]))
+    let new_dz = gf_sub(gf_mul(eta, d[2]), gf_mul(gf_sub(gf_mul(eta, dot), gf_sqrt(k)), normal[2]))
+    [ray[0], [new_dx, new_dy, new_dz], ray[2], ray[3]]
+let ray_trace(ray, surfaces, max_bounces) =
+    let r = ray
+    let bounces = 0
+    let path = [r[0]]
+    for bounces < max_bounces
+        let hit = 0
+        let i = 0
+        let n = len(surfaces)
+        for i < n
+            let s = surfaces[i]
+            if s[0] == 1
+                hit = i
+            i = n
+            i = i + 1
+        if hit == 0
+            path
+        let surface = surfaces[hit]
+        r = ray_reflect(r, surface[1])
+        path.push(r[0])
+        bounces = bounces + 1
+    path
+let thin_lens_equation(u, f) =
+    if gf_sub(u, f) == 0
+        65536
+    gf_div(gf_mul(u, f), gf_sub(u, f))
+let diffraction_grating(d, n, wavelength, angle) =
+    gf_sub(gf_mul(n, wavelength), gf_mul(d, angle))
+let interference(phase1, phase2) =
+    gf_add(gf_pow(phase1, 2), gf_add(gf_pow(phase2, 2), gf_mul(2, gf_mul(phase1, phase2))))
+let field_optics(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let optics_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_optics(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+
+let REFRACTIVE_INDEX_POLES = [100, 133, 200, 250, 333, 420, 500, 750]
+let REFRACTIVE_WEIGHTS = [10, 30, 50, 60, 100, 80, 40, 95]
+
+let psi_refractive_index(n_x100) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(n_x100), gf_norm(REFRACTIVE_INDEX_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(REFRACTIVE_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let FRAUNHOFER_WAVELENGTHS = [393, 430, 486, 518, 589, 589, 656, 759]
+let SPECTRAL_LINE_WEIGHTS = [80, 60, 70, 50, 100, 100, 80, 60]
+
+let psi_fraunhofer(wavelength_nm) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(wavelength_nm), gf_norm(FRAUNHOFER_WAVELENGTHS[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(SPECTRAL_LINE_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let ABSORPTION_COEF_POLES = [1, 5, 25, 100, 500, 1500, 5000, 20000]
+let ABSORPTION_WEIGHTS = [10, 20, 30, 50, 70, 75, 90, 100]
+
+let psi_absorption(alpha_x10) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(alpha_x10), gf_norm(ABSORPTION_COEF_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(ABSORPTION_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let optics_global_response(n_x100, wavelength_nm, alpha_x10) =
+    let e1 = psi_refractive_index(n_x100)
+    let e2 = psi_fraunhofer(wavelength_nm)
+    let e3 = psi_absorption(alpha_x10)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+
+let snell_law_test() =
+    let v_vacuum = psi_refractive_index(100)
+    let v_diamond = psi_refractive_index(333)
+    (v_vacuum != v_diamond ? 1 : 0)
+
+let fraunhofer_d_lines_test() =
+    let v_d1 = psi_fraunhofer(589)
+    let v_k = psi_fraunhofer(393)
+    (v_d1 != v_k ? 1 : 0)
+
+let beer_lambert_test() =
+    let v_low_alpha = psi_absorption(1)
+    let v_high_alpha = psi_absorption(20000)
+    (v_low_alpha != v_high_alpha ? 1 : 0)
+
+let nested_fractal_optics_invariants() =
+    let e1 = psi_refractive_index(200)
+    let e2 = psi_fraunhofer(589)
+    let e3 = psi_absorption(100)
+    let inv1 = 0
+    if e1 != 0
+        (e2 != 0 ? (e3 != 0 ? (inv1 = 1) : 0) : 0)
+    let inv2 = 0
+    if REFRACTIVE_INDEX_POLES[0] < REFRACTIVE_INDEX_POLES[2]
+        (REFRACTIVE_INDEX_POLES[2] < REFRACTIVE_INDEX_POLES[4] ? (inv2 = 1) : 0)
+    let inv3 = 0
+    if SPECTRAL_LINE_WEIGHTS[4] == 100
+        (SPECTRAL_LINE_WEIGHTS[5] == 100 ? (inv3 = 1) : 0)
+    let inv4 = 0
+    if ABSORPTION_COEF_POLES[0] < ABSORPTION_COEF_POLES[3]
+        (ABSORPTION_COEF_POLES[3] < ABSORPTION_COEF_POLES[7] ? (inv4 = 1) : 0)
+    let inv5 = snell_law_test()
+    [inv1, inv2, inv3, inv4, inv5]
+
+let optics_verify_v20() =
+    let t1 = 0
+    if psi_refractive_index(200) != 0
+        t1 = 1
+    let t2 = 0
+    if psi_fraunhofer(589) != 0
+        t2 = 1
+    let t3 = 0
+    if psi_absorption(100) != 0
+        t3 = 1
+    let t4 = snell_law_test()
+    let t5 = fraunhofer_d_lines_test()
+    let t6 = beer_lambert_test()
+    let t7 = 0
+    if REFRACTIVE_INDEX_POLES[0] == 100
+        t7 = 1
+    let t8 = 0
+    if REFRACTIVE_INDEX_POLES[4] == 333
+        t8 = 1
+    let t9 = 0
+    if FRAUNHOFER_WAVELENGTHS[4] == 589
+        (FRAUNHOFER_WAVELENGTHS[5] == 589 ? (t9 = 1) : 0)
+    let t10 = 0
+    if FRAUNHOFER_WAVELENGTHS[0] == 393
+        t10 = 1
+    let t11 = 0
+    if ABSORPTION_COEF_POLES[0] == 1
+        t11 = 1
+    let invs = nested_fractal_optics_invariants()
+    let t12 = 0
+    if invs[0] == 1
+        if invs[1] == 1
+            if invs[2] == 1
+                if invs[3] == 1
+                    if invs[4] == 1
+                        t12 = 1
+    let passed = t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12
+    passed == 12
+

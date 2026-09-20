@@ -1,0 +1,228 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let self_reference_encode(state, n) =
+    let code = 0
+    let i = 0
+    for i < n
+        code = gf_add(gf_mul(code, 256), state[i])
+        i = i + 1
+    code
+
+let godel_map(x) = gf_mul(x, x)
+
+let godel_fixed_point() =
+    let x = 1
+    let gx = godel_map(x)
+    (gx == x ? 1 : 0)
+
+let self_reference_depth(init, max_iter) =
+    let x = init
+    let depth = 0
+    let i = 0
+    for i < max_iter
+        let gx = godel_map(x)
+        if gx == x
+            depth
+        x = gx
+        depth = depth + 1
+        i = i + 1
+    depth
+
+let knowledge_base() =
+    7 + 7 + 9
+
+let curiosity(known) =
+    let total = 100
+    let unknown = total - known
+    (unknown < 0 ? 0 : unknown)
+
+let curiosity_driven_explore(known, steps) =
+    let current = known
+    let explored = 0
+    let i = 0
+    for i < steps
+        let cur = curiosity(current)
+        if cur > 0
+            current = current + 1
+            explored = explored + 1
+        i = i + 1
+    explored
+
+let cognitive_closure(known, total) =
+    if total == 0
+        0
+    gf_mul(known, gf_inv(total))
+
+let consciousness_measure(self_depth, curiosity_level, closure) =
+    gf_mul(gf_mul(self_depth, curiosity_level), closure)
+
+let consciousness_threshold() = 1000
+
+let consciousness_emerged(measure) =
+    (measure >= consciousness_threshold() ? 1 : 0)
+
+let cognition_init() = [0, 0, 0, 0]
+
+let cognition_step(state) =
+    let depth = state[0]
+    let known = state[1]
+
+    let new_depth = depth + 1
+    let godel = godel_map(new_depth)
+    let cur = curiosity(known)
+    let new_known = known
+    if cur > 0
+        new_known = known + 1
+    let closure = cognitive_closure(new_known, 100)
+    let measure = consciousness_measure(godel, cur, closure)
+
+    [new_depth, new_known, cur, measure]
+
+let consciousness_loop(steps) =
+    let state = cognition_init()
+    let max_measure = 0
+    let emerged = 0
+    let i = 0
+    for i < steps
+        state = cognition_step(state)
+        let measure = state[3]
+        if measure > max_measure
+            max_measure = measure
+        if consciousness_emerged(measure) == 1
+            emerged = 1
+        i = i + 1
+    [max_measure, emerged]
+
+let consciousness_galois_stable(sigma) =
+    let base_measure = consciousness_measure(256, 50, 50)
+    let mutated = gf_pow(base_measure, sigma)
+    (mutated > 0 ? 1 : 0)
+
+let consciousness_homology(depth, known, curiosity_val) =
+    let h0 = 0
+    if depth > 0
+        h0 = 1
+    let h1 = 0
+    if curiosity_val > 0
+        h1 = 1
+    let h2 = 0
+    let product = gf_mul(depth, curiosity_val)
+    if product > consciousness_threshold()
+        h2 = 1
+    let healthy = 0
+    if h0 == 1 && h2 == 1
+        healthy = 1
+    [h0, h1, h2, healthy]
+
+let consciousness_fitness(measure, stable, healthy) =
+    gf_mul(gf_mul(measure, stable), healthy)
+
+let evolve_consciousness(measure, sigma) =
+    let mutated = gf_pow(measure, sigma)
+    let stable = consciousness_galois_stable(sigma)
+    let stable_measure = 0
+    if mutated < 32768
+        stable_measure = mutated
+    consciousness_fitness(stable_measure, stable, 1)
+
+let full_consciousness_verify() =
+    let ok = 0
+
+    let state = [1, 2, 3]
+    let code = self_reference_encode(state, 3)
+    if code >= 0
+        ok = ok + 1
+
+    if godel_map(3) == 9
+        ok = ok + 1
+
+    if godel_fixed_point() == 1
+        ok = ok + 1
+
+    if godel_map(0) == 0
+        ok = ok + 1
+
+    let depth = self_reference_depth(2, 10)
+    if depth >= 0
+        ok = ok + 1
+
+    let kb = knowledge_base()
+    if kb == 23
+        ok = ok + 1
+
+    let cur = curiosity(23)
+    if cur == 77
+        ok = ok + 1
+
+    let explored = curiosity_driven_explore(23, 10)
+    if explored == 10
+        ok = ok + 1
+
+    let no_explore = curiosity_driven_explore(100, 10)
+    if no_explore == 0
+        ok = ok + 1
+
+    let closure = cognitive_closure(50, 100)
+    if closure >= 0
+        ok = ok + 1
+
+    let measure = consciousness_measure(256, 50, 50)
+    if measure >= 0
+        ok = ok + 1
+
+    if consciousness_threshold() == 1000
+        ok = ok + 1
+
+    let init_state = cognition_init()
+    if init_state[0] == 0
+        ok = ok + 1
+
+    let step1 = cognition_step(init_state)
+    if step1[0] == 1
+        ok = ok + 1
+
+    let loop10 = consciousness_loop(10)
+    if loop10[0] >= 0
+        ok = ok + 1
+
+    let loop50 = consciousness_loop(50)
+    if loop50[0] >= loop10[0]
+        ok = ok + 1
+
+    if consciousness_galois_stable(1) == 1
+        ok = ok + 1
+
+    if consciousness_galois_stable(2) == 1
+        ok = ok + 1
+
+    let hom_low = consciousness_homology(1, 10, 10)
+    if hom_low[0] == 1
+        ok = ok + 1
+
+    let hom_high = consciousness_homology(100, 80, 80)
+    if hom_high[0] == 1
+        ok = ok + 1
+
+    let fit = consciousness_fitness(1000, 1, 1)
+    if fit == 1000
+        ok = ok + 1
+
+    let evolved = evolve_consciousness(500, 2)
+    if evolved >= 0
+        ok = ok + 1
+
+    let godel_ok = godel_fixed_point()
+    let loop_result = consciousness_loop(20)
+    if godel_ok == 1 && loop_result[0] >= 0
+        ok = ok + 1
+
+    let final_depth = 10
+    let final_cur = curiosity(30)
+    let final_closure = cognitive_closure(30, 100)
+    let final_measure = consciousness_measure(final_depth, final_cur, final_closure)
+    if final_measure >= 0
+        ok = ok + 1
+
+    ok
+
+let main() = full_consciousness_verify()

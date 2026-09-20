@@ -1,0 +1,49 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let t2j = small_div(1186 * 1186, 100)
+let a3j = small_div(52 * 52 * 52, 10)
+bad[0] = bad[0] + ck(t2j, 13900, 14200)
+bad[0] = bad[0] + ck(a3j, 13950, 14150)
+
+let dj = t2j - a3j
+if dj < 0 - 50
+    bad[0] = bad[0] + 1
+bad[0] = bad[0] + ck_hi(dj, 50)
+
+let t2s = small_div(2946 * 2946, 1000)
+let a3s = 8683
+bad[0] = bad[0] + ck(t2s, 8600, 8750)
+let ds = a3s - t2s
+if ds < 0 - 50
+    bad[0] = bad[0] + 1
+bad[0] = bad[0] + ck_hi(ds, 50)
+
+let t2n = small_div(1648 * 1648, 100)
+let a3n = 27190
+bad[0] = bad[0] + ck(t2n, 26500, 27800)
+let dn = a3n - t2n
+if dn < 0 - 100
+    bad[0] = bad[0] + 1
+bad[0] = bad[0] + ck_hi(dn, 100)
+
+let t2h = small_div(755 * 755, 100)
+let a3h = 5640
+bad[0] = bad[0] + ck(t2h, 5550, 5850)
+let dh = t2h - a3h
+if dh < 0 - 150
+    bad[0] = bad[0] + 1
+bad[0] = bad[0] + ck_hi(dh, 150)
+
+if 1619 < 1617
+    bad[0] = bad[0] + 1
+if 1619 > 1621
+    bad[0] = bad[0] + 1
+if 1687 < 1685
+    bad[0] = bad[0] + 1
+if 1687 > 1689
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,36 @@
+import "ck.ψ"
+let bad = [0]
+
+let t_big = 40
+let t_small = 10
+let w_big = 1
+let w_small = 4
+let dz1 = t_big * w_big - t_small * w_small
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let tau_big = 4
+let tau_small = 1
+let dz2 = tau_big * w_big - tau_small * w_small
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let stage = 4
+let total = stage * stage
+let dz3 = total - 16
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let ring = 48
+let cog = 16
+let ratio = ring / cog
+let dz4 = ratio - 3
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+if 2100 < 2000
+    bad[0] = bad[0] + 1
+if 2100 > 2200
+    bad[0] = bad[0] + 1
+if 1885 < 1883
+    bad[0] = bad[0] + 1
+if 1885 > 1887
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

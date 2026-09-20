@@ -1,0 +1,60 @@
+{
+  "history": [
+    {
+      "generation": 0,
+      "corpus_len": 3000,
+      "web_tokens": 0,
+      "query_code": 3,
+      "query_topic": "residue_distribution",
+      "gaps": 43,
+      "best_acc_x100": 100,
+      "compile_run_sec": 0.16,
+      "timestamp": "2026-09-05T04:39:26.066369"
+    },
+    {
+      "generation": 1,
+      "corpus_len": 3000,
+      "web_tokens": 0,
+      "query_code": 3,
+      "query_topic": "residue_distribution",
+      "gaps": 43,
+      "best_acc_x100": 100,
+      "compile_run_sec": 0.13,
+      "timestamp": "2026-09-05T04:39:26.298264"
+    },
+    {
+      "generation": 2,
+      "corpus_len": 3000,
+      "web_tokens": 0,
+      "query_code": 3,
+      "query_topic": "residue_distribution",
+      "gaps": 43,
+      "best_acc_x100": 100,
+      "compile_run_sec": 0.13,
+      "timestamp": "2026-09-05T04:39:26.528590"
+    },
+    {
+      "generation": 3,
+      "corpus_len": 3000,
+      "web_tokens": 0,
+      "query_code": 3,
+      "query_topic": "residue_distribution",
+      "gaps": 43,
+      "best_acc_x100": 100,
+      "compile_run_sec": 0.14,
+      "timestamp": "2026-09-05T04:39:26.769367"
+    },
+    {
+      "generation": 4,
+      "corpus_len": 3000,
+      "web_tokens": 0,
+      "query_code": 3,
+      "query_topic": "residue_distribution",
+      "gaps": 43,
+      "best_acc_x100": 100,
+      "compile_run_sec": 0.14,
+      "timestamp": "2026-09-05T04:39:27.013437"
+    }
+  ],
+  "timestamp": "2026-09-05T04:39:27.114932"
+}

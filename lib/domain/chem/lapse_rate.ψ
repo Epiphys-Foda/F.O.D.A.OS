@@ -1,0 +1,17 @@
+import "ck.ψ"
+let bad = [0]
+
+let lz = 9806 * 1000 / 1004
+let dlz = lz - 9766
+bad[0] = bad[0] + dlz * dlz
+
+let dz10 = lz / 100 - 97
+bad[0] = bad[0] + dz10 * dz10
+
+let moist = 60
+bad[0] = bad[0] + ck(moist, 50, 70)
+
+let drop = 8848 * 9767 / 1000
+bad[0] = bad[0] + ck(drop, 85000, 88000)
+
+arr_get(arr_new_n(1), bad[0])

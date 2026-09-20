@@ -1,0 +1,125 @@
+import "../stdlib/gf65537.ψ"
+
+let PSID_MAGIC = 1145983632
+let P_FIELD = 65537
+let P_INV_EXP = 65535
+
+let crown_new(max_poles) =
+    let cap = 3 * max_poles + 4
+    let crown = arr_new_n(cap)
+    arr_set(crown, 0, PSID_MAGIC)
+    arr_set(crown, 1, 0)
+    crown
+
+let crown_n(crown) = arr_get(crown, 1)
+
+let crown_add_pole(crown, z, r, gamma) =
+    let count = arr_get(crown, 1)
+    arr_set(crown, 2 + 3 * count, z)
+    arr_set(crown, 2 + 3 * count + 1, r)
+    arr_set(crown, 2 + 3 * count + 2, gamma)
+    arr_set(crown, 1, count + 1)
+    crown
+
+let crown_get_z(crown, idx) = arr_get(crown, 2 + 3 * idx)
+let crown_get_r(crown, idx) = arr_get(crown, 2 + 3 * idx + 1)
+let crown_get_gamma(crown, idx) = arr_get(crown, 2 + 3 * idx + 2)
+
+let crown_set_noise(crown, eta) =
+    let n = arr_get(crown, 1)
+    arr_set(crown, 2 + 3 * n, eta)
+    crown
+
+let crown_get_noise(crown) =
+    let n = arr_get(crown, 1)
+    arr_get(crown, 2 + 3 * n)
+
+let _crown_checksum_loop(crown, i, n, acc) =
+        if i < n
+            let z = arr_get(crown, 2 + 3 * i)
+            let r = arr_get(crown, 2 + 3 * i + 1)
+            let g = arr_get(crown, 2 + 3 * i + 2)
+            let acc1 = gf_add(acc, z)
+            let acc2 = gf_add(acc1, r)
+            let acc3 = gf_add(acc2, g)
+            _crown_checksum_loop(crown, i + 1, n, acc3)
+        else
+            acc
+
+let crown_bragg_checksum(crown) =
+    let n = arr_get(crown, 1)
+    let partial = _crown_checksum_loop(crown, 0, n, 0)
+    let eta = crown_get_noise(crown)
+    gf_add(partial, eta)
+
+let _crown_eval_loop(crown, z, i, n, acc) =
+        if i < n
+            let zk = crown_get_z(crown, i)
+            let rk = crown_get_r(crown, i)
+            let dz = gf_sub(z, zk)
+            let is_zero = (dz == 0)
+            let dz_safe = ((is_zero) ? (1) : (dz))
+            let inv_dz = gf_pow(dz_safe, P_INV_EXP)
+            let term_full = gf_mul(rk, inv_dz)
+            let term = ((is_zero) ? (0) : (term_full))
+            let next_acc = gf_add(acc, term)
+            _crown_eval_loop(crown, z, i + 1, n, next_acc)
+        else
+            acc
+
+let crown_eval(crown, z) =
+    let n = arr_get(crown, 1)
+    let noise = crown_get_noise(crown)
+    _crown_eval_loop(crown, z, 0, n, noise)
+
+let crown_bragg_verify(crown, z) =
+    let d1 = crown_eval(crown, z)
+    let r1 = crown_eval(crown, z)
+    d1 == r1
+
+let _crown_save_loop(crown, out, i, n) =
+        if i < n
+            arr_set(out, 2 + 3 * i, crown_get_z(crown, i))
+            arr_set(out, 2 + 3 * i + 1, crown_get_r(crown, i))
+            arr_set(out, 2 + 3 * i + 2, crown_get_gamma(crown, i))
+            _crown_save_loop(crown, out, i + 1, n)
+        else
+            out
+
+let crown_save(crown) =
+    let n = arr_get(crown, 1)
+    let out_cap = 3 * n + 6
+    let out = arr_new_n(out_cap)
+    arr_set(out, 0, PSID_MAGIC)
+    arr_set(out, 1, n)
+    let body = _crown_save_loop(crown, out, 0, n)
+    arr_set(body, 2 + 3 * n, crown_get_noise(crown))
+    arr_set(body, 2 + 3 * n + 1, crown_bragg_checksum(crown))
+    body
+
+let _crown_load_loop(buf, crown, i, n) =
+        if i < n
+            let z = arr_get(buf, 2 + 3 * i)
+            let r = arr_get(buf, 2 + 3 * i + 1)
+            let g = arr_get(buf, 2 + 3 * i + 2)
+            crown_add_pole(crown, z, r, g)
+            _crown_load_loop(buf, crown, i + 1, n)
+        else
+            crown
+
+let crown_load(buf) =
+        let magic = arr_get(buf, 0)
+        if magic != PSID_MAGIC
+            crown_new(0)
+        else
+            let n = arr_get(buf, 1)
+            let crown = crown_new(n)
+            let loaded = _crown_load_loop(buf, crown, 0, n)
+            crown_set_noise(loaded, arr_get(buf, 2 + 3 * n))
+            let stored_cs = arr_get(buf, 2 + 3 * n + 1)
+            let computed_cs = crown_bragg_checksum(loaded)
+            if stored_cs != computed_cs
+                crown_new(0)
+            else
+                loaded
+

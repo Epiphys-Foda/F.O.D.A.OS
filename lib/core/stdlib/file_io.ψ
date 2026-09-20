@@ -1,0 +1,19 @@
+import "fs.ψ"
+import "arr.ψ"
+
+import "../../compiler/bootstrap/str_ops.ψ"
+let read_file_text(path) = read_file(path)
+
+let write_file_text(path, content) = write_file(path, content)
+
+let write_file_bytes(path, bytes) = wasm_save(bytes, path)
+
+let append_file_bytes(path, bytes) =
+    let existing = []
+    if file_exists(path)
+      existing = read_file_bytes(path)
+    else
+      0
+    let combined = [existing, bytes].flat()
+    write_file_bytes(path, combined)
+

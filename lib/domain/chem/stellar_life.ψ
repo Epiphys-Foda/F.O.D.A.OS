@@ -1,0 +1,21 @@
+import "ck.ψ"
+let bad = [0]
+
+let tau = 103
+bad[0] = bad[0] + ck(tau, 100, 105)
+
+let frac = 46
+bad[0] = bad[0] + ck(frac, 40, 55)
+
+let t30 = 0
+let t05 = 56
+bad[0] = bad[0] + ck_hi(t30, t05)
+
+let eta = 7
+if eta != 7
+    bad[0] = bad[0] + 1
+
+let lum10 = 3162
+bad[0] = bad[0] + ck_lo(lum10, 1000)
+
+arr_get(arr_new_n(1), bad[0])

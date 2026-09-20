@@ -1,0 +1,90 @@
+let bad = [0]
+let npass = [0]
+let nfail = [0]
+let d0 = 1093 - 1200
+let ad0 =
+    if d0 < 0
+        0 - d0
+    else
+        d0
+nfail[0] = nfail[0] + 1
+let d1 = 130 - 326
+let ad1 =
+    if d1 < 0
+        0 - d1
+    else
+        d1
+nfail[0] = nfail[0] + 1
+let d2 = 839 - 270
+let ad2 =
+    if d2 < 0
+        0 - d2
+    else
+        d2
+npass[0] = npass[0] + 1
+let d3 = 869 - 786
+let ad3 =
+    if d3 < 0
+        0 - d3
+    else
+        d3
+npass[0] = npass[0] + 1
+let d4 = 787 - 456
+let ad4 =
+    if d4 < 0
+        0 - d4
+    else
+        d4
+npass[0] = npass[0] + 1
+let d5 = 758 - 630
+let ad5 =
+    if d5 < 0
+        0 - d5
+    else
+        d5
+npass[0] = npass[0] + 1
+let d6 = 755 - 647
+let ad6 =
+    if d6 < 0
+        0 - d6
+    else
+        d6
+npass[0] = npass[0] + 1
+let d7 = 712 - 541
+let ad7 =
+    if d7 < 0
+        0 - d7
+    else
+        d7
+npass[0] = npass[0] + 1
+let d8 = 636 - 503
+let ad8 =
+    if d8 < 0
+        0 - d8
+    else
+        d8
+npass[0] = npass[0] + 1
+
+let dn = npass[0] - 7
+bad[0] = bad[0] + dn * dn
+let df = nfail[0] - 2
+bad[0] = bad[0] + df * df
+
+let c_ab = 839
+let o_ab = 869
+let dco = o_ab - c_ab
+let adco =
+    if dco < 0
+        0 - dco
+    else
+        dco
+let tco = adco - 30
+let wco =
+    if tco < 0
+        0 - tco
+    else
+        tco
+bad[0] = bad[0] + wco
+
+print(bad[0])
+arr_get(arr_new_n(1), bad[0])

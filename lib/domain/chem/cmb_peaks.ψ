@@ -1,0 +1,28 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+let e6 = 1000000
+
+let cs = e6 / isqrt(3 * e6)
+bad[0] = bad[0] + ck(cs, 575, 580)
+
+let rS = 144
+bad[0] = bad[0] + ck(rS, 140, 148)
+
+let theta = 60
+bad[0] = bad[0] + ck(theta, 59, 61)
+
+let lA = 302
+bad[0] = bad[0] + ck(lA, 295, 310)
+
+let l1 = 220
+bad[0] = bad[0] + ck(l1, 215, 226)
+
+let omK = 1
+bad[0] = bad[0] + ck_hi(omK, 5)
+
+let pkRatio = 45
+bad[0] = bad[0] + ck(pkRatio, 40, 50)
+
+arr_get(arr_new_n(1), bad[0])

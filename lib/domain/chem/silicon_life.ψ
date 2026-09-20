@@ -1,0 +1,29 @@
+import "ck.ψ"
+let bad = [0]
+
+let eCC = 348
+bad[0] = bad[0] + ck(eCC, 340, 355)
+
+let eSiSi = 222
+bad[0] = bad[0] + ck(eSiSi, 215, 230)
+
+let eCO = 358
+bad[0] = bad[0] + ck(eCO, 350, 365)
+
+let eSiO = 452
+bad[0] = bad[0] + ck(eSiO, 445, 460)
+
+bad[0] = bad[0] + ck_lo(eSiO, eCC)
+
+let co2Gas = 1
+if co2Gas != 1
+    bad[0] = bad[0] + 1
+
+let sio2Solid = 1
+if sio2Solid != 1
+    bad[0] = bad[0] + 1
+
+let siAbund = 900
+bad[0] = bad[0] + ck(siAbund, 800, 1000)
+
+arr_get(arr_new_n(1), bad[0])

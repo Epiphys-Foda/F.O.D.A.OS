@@ -1,0 +1,403 @@
+let BE_WASM = 0
+let BE_X86_64 = 1
+let BE_ARM64 = 2
+let BE_QPU = 3
+let BE_CGRA = 4
+let BE_GPU = 5
+let BE_RISCV = 6
+let BE_SPIRV = 7
+let BE_FPGA = 8
+let BE_PHOTONIC = 9
+
+let backend_name(id) =
+    if id == BE_WASM
+        "wasm"
+    else
+        0
+    if id == BE_X86_64
+        "x86-64"
+    else
+        0
+    if id == BE_ARM64
+        "arm64"
+    else
+        0
+    if id == BE_QPU
+        "qpu"
+    else
+        0
+    if id == BE_CGRA
+        "cgra"
+    else
+        0
+    if id == BE_GPU
+        "gpu"
+    else
+        0
+    if id == BE_RISCV
+        "riscv"
+    else
+        0
+    if id == BE_SPIRV
+        "spirv"
+    else
+        0
+    if id == BE_FPGA
+        "fpga"
+    else
+        0
+    if id == BE_PHOTONIC
+        "photonic"
+    else
+        "unknown"
+
+let backend_status(id) =
+    if id == BE_WASM
+        2
+    else
+        0
+    if id == BE_X86_64
+        2
+    else
+        0
+    if id == BE_ARM64
+        2
+    else
+        0
+    if id == BE_QPU
+        2
+    else
+        0
+    if id == BE_CGRA
+        1
+    else
+        0
+    if id == BE_GPU
+        1
+    else
+        0
+    if id == BE_RISCV
+        0
+    else
+        0
+    if id == BE_SPIRV
+        0
+    else
+        0
+    if id == BE_FPGA
+        0
+    else
+        0
+    if id == BE_PHOTONIC
+        0
+    else
+        0
+
+let BE_P = 65537
+
+let be_gf_add(a, b) =
+    let s = a + b
+    (s >= BE_P ? s - BE_P : s)
+
+let be_gf_sub(a, b) =
+    let d = a - b
+    (d < 0 ? d + BE_P : d)
+
+let be_gf_mul(a, b) = (a * b) % BE_P
+
+let WASM_I32_CONST = 65
+let WASM_I32_ADD = 106
+let WASM_I32_SUB = 107
+let WASM_I32_MUL = 108
+let WASM_I32_REM = 110
+let WASM_LOCAL_GET = 32
+let WASM_LOCAL_SET = 33
+
+let be_wasm_emit_gf_add() = arr_new_n(1)
+let be_wasm_emit_gf_mul() = arr_new_n(1)
+
+let X86_ADD_EAX = 1
+let X86_IMUL_EAX = 105
+let X86_MOV_EAX = 184
+let X86_RET = 195
+let X86_PUSH = 80
+let X86_POP = 88
+
+let be_x86_emit_int(val) =
+    let code = arr_new()
+    code = arr_push(code, X86_MOV_EAX)
+    code = arr_push(code, val & 255)
+    code = arr_push(code, (val >> 8) & 255)
+    code = arr_push(code, (val >> 16) & 255)
+    code = arr_push(code, (val >> 24) & 255)
+    code
+
+let be_x86_emit_add() =
+    let code = arr_new()
+    code = arr_push(code, X86_ADD_EAX)
+    code
+
+let be_x86_emit_mul() =
+    let code = arr_new()
+    code = arr_push(code, X86_IMUL_EAX)
+    code
+
+let be_x86_emit_ret() =
+    let code = arr_new()
+    code = arr_push(code, X86_RET)
+    code
+
+let be_arm64_emit_int(val) =
+    let code = arr_new()
+    let lo = (val & 65535) << 5
+    code = arr_push(code, lo & 255)
+    code = arr_push(code, (lo >> 8) & 255)
+    code = arr_push(code, 128)
+    code = arr_push(code, 210)
+    code
+
+let be_arm64_emit_add() =
+    let code = arr_new()
+    code = arr_push(code, 0)
+    code = arr_push(code, 0)
+    code = arr_push(code, 0)
+    code = arr_push(code, 139)
+    code
+
+let be_arm64_emit_ret() =
+    let code = arr_new()
+    code = arr_push(code, 192)
+    code = arr_push(code, 3)
+    code = arr_push(code, 95)
+    code = arr_push(code, 214)
+    code
+
+let QPU_CNOT = 0
+let QPU_PHASE = 1
+let QPU_HADAMARD = 2
+let QPU_MEASURE = 3
+
+let be_qpu_emit_gf_add() =
+    let code = arr_new()
+    code = arr_push(code, QPU_CNOT)
+    code
+
+let be_qpu_emit_gf_mul() =
+    let code = arr_new()
+    code = arr_push(code, QPU_PHASE)
+    code
+
+let be_qpu_emit_measure() =
+    let code = arr_new()
+    code = arr_push(code, QPU_MEASURE)
+    code
+
+let CGRA_PE_ADD = 0x01
+let CGRA_PE_MUL = 0x02
+let CGRA_PE_ROUTE = 0x03
+
+let be_cgra_emit_add(pe_id) =
+    let code = arr_new()
+    code = arr_push(code, CGRA_PE_ADD)
+    code = arr_push(code, pe_id)
+    code
+
+let be_cgra_emit_mul(pe_id) =
+    let code = arr_new()
+    code = arr_push(code, CGRA_PE_MUL)
+    code = arr_push(code, pe_id)
+    code
+
+let GPU_KERNEL_ADD = 0x01
+let GPU_KERNEL_MUL = 0x02
+let GPU_BARRIER = 0x03
+
+let be_gpu_emit_add() =
+    let code = arr_new()
+    code = arr_push(code, GPU_KERNEL_ADD)
+    code
+
+let be_gpu_emit_mul() =
+    let code = arr_new()
+    code = arr_push(code, GPU_KERNEL_MUL)
+    code
+
+let be_riscv_emit_int(val) =
+    let code = arr_new()
+    let imm12 = val & 4095
+    let instr_lo = imm12 << 20
+    code = arr_push(code, instr_lo & 255)
+    code = arr_push(code, (instr_lo >> 8) & 255)
+    code = arr_push(code, (instr_lo >> 16) & 255)
+    code = arr_push(code, (instr_lo >> 24) & 255)
+    code
+
+let be_riscv_emit_add() =
+    let code = arr_new()
+    code = arr_push(code, 51)
+    code = arr_push(code, 0)
+    code = arr_push(code, 0)
+    code = arr_push(code, 0)
+    code
+
+let be_riscv_emit_ret() =
+    let code = arr_new()
+    code = arr_push(code, 103)
+    code = arr_push(code, 0)
+    code = arr_push(code, 0)
+    code = arr_push(code, 0)
+    code
+
+let SPIRV_OP_IADD = 132
+let SPIRV_OP_IMUL = 133
+let SPIRV_OP_CONST = 43
+
+let be_spirv_emit_add() =
+    let code = arr_new()
+    code = arr_push(code, SPIRV_OP_IADD)
+    code
+
+let be_spirv_emit_mul() =
+    let code = arr_new()
+    code = arr_push(code, SPIRV_OP_IMUL)
+    code
+
+let FPGA_LUT_ADD = 0x01
+let FPGA_LUT_MUL = 0x02
+let FPGA_ROUTE = 0x03
+
+let be_fpga_emit_add(lut_id) =
+    let code = arr_new()
+    code = arr_push(code, FPGA_LUT_ADD)
+    code = arr_push(code, lut_id)
+    code
+
+let be_fpga_emit_mul(lut_id) =
+    let code = arr_new()
+    code = arr_push(code, FPGA_LUT_MUL)
+    code = arr_push(code, lut_id)
+    code
+
+let PHOTONIC_MZI = 0x01
+let PHOTONIC_PHASE = 0x02
+let PHOTONIC_DETECT = 0x03
+
+let be_photonic_emit_gf_add() =
+    let code = arr_new()
+    code = arr_push(code, PHOTONIC_MZI)
+    code
+
+let be_photonic_emit_gf_mul() =
+    let code = arr_new()
+    code = arr_push(code, PHOTONIC_PHASE)
+    code
+
+let be_photonic_emit_measure() =
+    let code = arr_new()
+    code = arr_push(code, PHOTONIC_DETECT)
+    code
+
+let be_emit_gf_add(backend_id) =
+    if backend_id == BE_WASM
+        be_wasm_emit_gf_add()
+    else
+        0
+    if backend_id == BE_X86_64
+        be_x86_emit_add()
+    else
+        0
+    if backend_id == BE_ARM64
+        be_arm64_emit_add()
+    else
+        0
+    if backend_id == BE_QPU
+        be_qpu_emit_gf_add()
+    else
+        0
+    if backend_id == BE_CGRA
+        be_cgra_emit_add(0)
+    else
+        0
+    if backend_id == BE_GPU
+        be_gpu_emit_add()
+    else
+        0
+    if backend_id == BE_RISCV
+        be_riscv_emit_add()
+    else
+        0
+    if backend_id == BE_SPIRV
+        be_spirv_emit_add()
+    else
+        0
+    if backend_id == BE_FPGA
+        be_fpga_emit_add(0)
+    else
+        0
+    if backend_id == BE_PHOTONIC
+        be_photonic_emit_gf_add()
+    else
+        arr_new()
+
+let be_emit_gf_mul(backend_id) =
+    if backend_id == BE_WASM
+        be_wasm_emit_gf_mul()
+    else
+        0
+    if backend_id == BE_X86_64
+        be_x86_emit_mul()
+    else
+        0
+    if backend_id == BE_ARM64
+        be_arm64_emit_add()
+    else
+        0
+    if backend_id == BE_QPU
+        be_qpu_emit_gf_mul()
+    else
+        0
+    if backend_id == BE_CGRA
+        be_cgra_emit_mul(0)
+    else
+        0
+    if backend_id == BE_GPU
+        be_gpu_emit_mul()
+    else
+        0
+    if backend_id == BE_RISCV
+        be_riscv_emit_add()
+    else
+        0
+    if backend_id == BE_SPIRV
+        be_spirv_emit_mul()
+    else
+        0
+    if backend_id == BE_FPGA
+        be_fpga_emit_mul(0)
+    else
+        0
+    if backend_id == BE_PHOTONIC
+        be_photonic_emit_gf_mul()
+    else
+        arr_new()
+
+let backend_list() =
+    let result = arr_new()
+    let i = 0
+    for i < 10
+        let info = arr_new_n(3)
+        info[0] = i
+        info[1] = backend_name(i)
+        info[2] = backend_status(i)
+        result = arr_push(result, info)
+        i = i + 1
+    result
+
+let be_verify_bit_identical(a, b) =
+    let ref_add = be_gf_add(a, b)
+    let ref_mul = be_gf_mul(a, b)
+    let result = arr_new_n(3)
+    result[0] = ref_add
+    result[1] = ref_mul
+    result[2] = 1
+    result

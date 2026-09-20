@@ -1,0 +1,237 @@
+import "../domain_field.ψ"
+
+let LS_STATUS_ACTIVE = 0
+let LS_STATUS_EXPIRED = 1
+let LS_STATUS_REVOKED = 2
+
+let lease_new(id, ttl, granted_at) =
+    [id, ttl, granted_at, granted_at + ttl, 0, [], LS_STATUS_ACTIVE]
+
+let l_id(l) = l[0]
+let l_ttl(l) = l[1]
+let l_granted(l) = l[2]
+let l_expire(l) = l[3]
+let l_keepalive(l) = l[4]
+let l_keys(l) = l[5]
+let l_status(l) = l[6]
+
+let l_set_expire(l, v) = [l[0], l[1], l[2], v, l[4], l[5], l[6]]
+let l_set_keepalive(l, v) = [l[0], l[1], l[2], l[3], v, l[5], l[6]]
+let l_set_keys(l, v) = [l[0], l[1], l[2], l[3], l[4], v, l[6]]
+let l_set_status(l, v) = [l[0], l[1], l[2], l[3], l[4], l[5], v]
+
+let l_attach_key(l, key) =
+    let keys = l_keys(l)
+    keys.push(key)
+    l_set_keys(l, keys)
+
+let lease_mgr_new() = [{}, {}, 1, 0, 0, 0, 0]
+
+let lm_leases(m) = m[0]
+let lm_kl(m) = m[1]
+let lm_next(m) = m[2]
+let lm_grant(m) = m[3]
+let lm_exp(m) = m[4]
+let lm_revoke(m) = m[5]
+let lm_ka(m) = m[6]
+
+let lm_set_leases(m, v) = [v, m[1], m[2], m[3], m[4], m[5], m[6]]
+let lm_set_kl(m, v) = [m[0], v, m[2], m[3], m[4], m[5], m[6]]
+let lm_set_next(m, v) = [m[0], m[1], v, m[3], m[4], m[5], m[6]]
+let lm_set_grant(m, v) = [m[0], m[1], m[2], v, m[4], m[5], m[6]]
+let lm_set_exp(m, v) = [m[0], m[1], m[2], m[3], v, m[5], m[6]]
+let lm_set_revoke(m, v) = [m[0], m[1], m[2], m[3], m[4], v, m[6]]
+let lm_set_ka(m, v) = [m[0], m[1], m[2], m[3], m[4], m[5], v]
+
+let lease_grant(m, ttl, now) =
+    let id = lm_next(m)
+    m = lm_set_next(m, id + 1)
+    let lease = lease_new(id, ttl, now)
+    let leases = lm_leases(m)
+    leases[id] = lease
+    m = lm_set_leases(m, leases)
+    m = lm_set_grant(m, lm_grant(m) + 1)
+    [m, id]
+
+let lease_keepalive(m, id, now) =
+    let leases = lm_leases(m)
+    let lease = leases[id]
+    if lease == 0
+        [m, 0]
+    else
+        if l_status(lease) != LS_STATUS_ACTIVE
+            [m, 0]
+        else
+            let ttl = l_ttl(lease)
+            lease = l_set_expire(lease, now + ttl)
+            lease = l_set_keepalive(lease, l_keepalive(lease) + 1)
+            leases[id] = lease
+            m = lm_set_leases(m, leases)
+            m = lm_set_ka(m, lm_ka(m) + 1)
+            [m, 1]
+
+let lease_revoke(m, id) =
+    let leases = lm_leases(m)
+    let lease = leases[id]
+    if lease == 0
+        [m, 0]
+    else
+        lease = l_set_status(lease, LS_STATUS_REVOKED)
+        leases[id] = lease
+        m = lm_set_leases(m, leases)
+        m = lm_set_revoke(m, lm_revoke(m) + 1)
+        [m, 1]
+
+let lease_attach(m, lease_id, key) =
+    let leases = lm_leases(m)
+    let lease = leases[lease_id]
+    if lease == 0
+        [m, 0]
+    else
+        lease = l_attach_key(lease, key)
+        leases[lease_id] = lease
+        m = lm_set_leases(m, leases)
+        let kl = lm_kl(m)
+        kl[key] = lease_id
+        m = lm_set_kl(m, kl)
+        [m, 1]
+
+let lease_sweep(m, now) =
+    let leases = lm_leases(m)
+    let keys = keys_of(leases)
+    let expired_ids = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let id = keys[i]
+        let lease = leases[id]
+        if lease != 0 && l_status(lease) == LS_STATUS_ACTIVE
+            if l_expire(lease) <= now
+                lease = l_set_status(lease, LS_STATUS_EXPIRED)
+                leases[id] = lease
+                m = lm_set_exp(m, lm_exp(m) + 1)
+                expired_ids.push(id)
+        i = i + 1
+    m = lm_set_leases(m, leases)
+    [m, expired_ids]
+
+let lease_expired_keys(m) =
+    let leases = lm_leases(m)
+    let keys = keys_of(leases)
+    let result = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let lease = leases[keys[i]]
+        if lease != 0 && l_status(lease) == LS_STATUS_EXPIRED
+            let attached = l_keys(lease)
+            let j = 0
+            let m = len(attached)
+            for j < m
+                result.push(attached[j])
+                j = j + 1
+        i = i + 1
+    result
+
+let lease_bragg_check(m) =
+    let grants = lm_grant(m)
+    let expired = lm_exp(m)
+    let revoked = lm_revoke(m)
+    let leases = lm_leases(m)
+    let keys = keys_of(leases)
+    let active = 0
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let l = leases[keys[i]]
+        if l != 0 && l_status(l) == LS_STATUS_ACTIVE
+            active = active + 1
+        i = i + 1
+    if grants == expired + revoked + active
+        1
+    else
+        0
+
+let lease_test_basic() =
+    let m = lease_mgr_new()
+    let ok1 = 1
+    if lm_grant(m) != 0
+        ok1 = 0
+
+    let r1 = lease_grant(m, 100, 1000)
+    m = r1[0]
+    let id1 = r1[1]
+    let ok2 = 1
+    if id1 != 1
+        ok2 = 0
+    if lm_grant(m) != 1
+        ok2 = 0
+
+    let r2 = lease_attach(m, id1, "key1")
+    m = r2[0]
+    let ok3 = 1
+    if r2[1] != 1
+        ok3 = 0
+
+    let r3 = lease_keepalive(m, id1, 1050)
+    m = r3[0]
+    let ok4 = 1
+    if r3[1] != 1
+        ok4 = 0
+    if lm_ka(m) != 1
+        ok4 = 0
+    let l = lm_leases(m)[id1]
+    if l_expire(l) != 1150
+        ok4 = 0
+
+    let sweep1 = lease_sweep(m, 1100)
+    m = sweep1[0]
+    let ok5 = 1
+    if len(sweep1[1]) != 0
+        ok5 = 0
+    if lm_exp(m) != 0
+        ok5 = 0
+
+    let sweep2 = lease_sweep(m, 1200)
+    m = sweep2[0]
+    let ok6 = 1
+    if len(sweep2[1]) != 1
+        ok6 = 0
+    if lm_exp(m) != 1
+        ok6 = 0
+
+    let exp_keys = lease_expired_keys(m)
+    let ok7 = 1
+    if len(exp_keys) != 1
+        ok7 = 0
+    else
+        0
+    if exp_keys[0] != "key1"
+        ok7 = 0
+
+    let r4 = lease_grant(m, 200, 2000)
+    m = r4[0]
+    let id2 = r4[1]
+    let r5 = lease_revoke(m, id2)
+    m = r5[0]
+    let ok8 = 1
+    if r5[1] != 1
+        ok8 = 0
+    if lm_revoke(m) != 1
+        ok8 = 0
+
+    let ok9 = 1
+    if lease_bragg_check(m) != 1
+        ok9 = 0
+
+    ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7 * ok8 * ok9
+
+let lease_test_self() =
+        let ok = lease_test_basic()
+        if ok == 1
+            print("lease: ALL PASS")
+        else
+            print("lease: FAIL")
+        ok
+
+    lease_test_self()

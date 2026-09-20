@@ -1,0 +1,76 @@
+let async_spawn(fn_name) =
+    { thunk: fn_name, arg: 0, status: 0, result: 0 }
+
+let async_spawn1(fn_name, arg) =
+    { thunk: fn_name, arg: arg, status: 0, result: 0 }
+
+let async_status(task) = task.status
+
+let async_result(task) = task.result
+
+let async_join(task) =
+    let args = arr_new()
+    args = args.push(task.arg)
+    let result_arr = host_call(78, args, task.thunk)
+    result_arr[0]
+
+let async_join1(task) = async_join(task)
+
+let _async_all_acc(tasks, results, i, n) =
+    if i >= n
+        results
+    let task = tasks[i]
+    let result = async_join(task)
+    let new_results = results.push(result)
+    _async_all_acc(tasks, new_results, i + 1, n)
+
+let async_all(tasks) =
+    let n = len(tasks)
+    let results = arr_new()
+    _async_all_acc(tasks, results, 0, n)
+
+let _async_any_acc(tasks, i, n) =
+    if i >= n
+        0
+    let task = tasks[i]
+    let result = async_join(task)
+    if result != 0
+        result
+    _async_any_acc(tasks, i + 1, n)
+
+let async_any(tasks) =
+    let n = len(tasks)
+    _async_any_acc(tasks, 0, n)
+
+let async_crt(thunks, moduli) =
+    let results = async_all(thunks)
+    results[0]
+
+let async_then(task, next_fn_name) =
+    let result = async_join(task)
+    async_spawn1(next_fn_name, result)
+
+let _async_chain_acc(tasks, acc, i, n) =
+    if i >= n
+        acc
+    let task = tasks[i]
+    let result = async_join(task)
+    _async_chain_acc(tasks, result, i + 1, n)
+
+let async_chain(tasks, init) =
+    let n = len(tasks)
+    _async_chain_acc(tasks, init, 0, n)
+
+let _async_parallel_acc(domains, fn_name, results, i, n) =
+    if i >= n
+        results
+    let dom = domains[i]
+    let task = async_spawn1(fn_name, dom)
+    let result = async_join(task)
+    let new_results = results.push(result)
+    _async_parallel_acc(domains, fn_name, new_results, i + 1, n)
+
+let async_parallel(domains, fn_name) =
+    let n = len(domains)
+    let results = arr_new()
+    _async_parallel_acc(domains, fn_name, results, 0, n)

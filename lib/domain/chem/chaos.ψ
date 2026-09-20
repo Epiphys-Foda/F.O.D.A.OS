@@ -1,0 +1,87 @@
+﻿
+
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let rx = 2800
+let x = 200
+let i = 0
+for i < 300
+    x = rx * x * (1000 - x) / 1000 / 1000
+    i = i + 1
+let t = x - 643
+let dx = t * t
+bad[0] = bad[0] + ck_hi(dx, 9)
+
+rx = 3200
+x = 200
+i = 0
+for i < 300
+    x = rx * x * (1000 - x) / 1000 / 1000
+    i = i + 1
+let x1 = rx * x * (1000 - x) / 1000 / 1000
+let x2 = rx * x1 * (1000 - x1) / 1000 / 1000
+if x2 != x
+    bad[0] = bad[0] + 1
+if x1 == x
+    bad[0] = bad[0] + 1
+let t1 = x1 - x
+let d1 = t1 * t1
+bad[0] = bad[0] + ck_lo(d1, 10000)
+
+rx = 3500
+x = 200
+i = 0
+for i < 300
+    x = rx * x * (1000 - x) / 1000 / 1000
+    i = i + 1
+let y1 = rx * x * (1000 - x) / 1000 / 1000
+let y2 = rx * y1 * (1000 - y1) / 1000 / 1000
+let y3 = rx * y2 * (1000 - y2) / 1000 / 1000
+let y4 = rx * y3 * (1000 - y3) / 1000 / 1000
+if y4 != x
+    bad[0] = bad[0] + 1
+if y1 == x
+    bad[0] = bad[0] + 1
+let t2 = y2 - x
+let dy = t2 * t2
+bad[0] = bad[0] + ck_lo(dy, 100)
+
+rx = 3600
+x = 200
+i = 0
+for i < 300
+    x = rx * x * (1000 - x) / 1000 / 1000
+    i = i + 1
+let z1 = x
+i = 0
+for i < 5
+    z1 = rx * z1 * (1000 - z1) / 1000 / 1000
+    i = i + 1
+let t3 = z1 - x
+let dz = t3 * t3
+bad[0] = bad[0] + ck_lo(dz, 10000)
+
+let delta = 4669
+bad[0] = bad[0] + ck(delta, 4600, 4700)
+
+let dfin = small_div(44949 * 1000, 9460)
+bad[0] = bad[0] + ck(dfin, 4700, 4800)
+bad[0] = bad[0] + ck_lo(dfin, delta)
+
+if 1976 < 1974
+    bad[0] = bad[0] + 1
+if 1976 > 1978
+    bad[0] = bad[0] + 1
+if 1978 < 1976
+    bad[0] = bad[0] + 1
+if 1978 > 1980
+    bad[0] = bad[0] + 1
+if 1963 < 1961
+    bad[0] = bad[0] + 1
+if 1963 > 1965
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

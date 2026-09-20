@@ -1,0 +1,42 @@
+import "ck.ψ"
+let bad = [0]
+
+let v_a = 36 * 10 / 36
+let dz1 = v_a - 10
+bad[0] = bad[0] + ck(dz1, 0, 0)
+let v_b = 54 * 10 / 36
+let dz2 = v_b - 15
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let len_all = 100 + 150
+let dz3 = len_all - 250
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let closing = v_a + v_b
+let dz4 = closing - 25
+bad[0] = bad[0] + ck(dz4, 0, 0)
+let t_opp = len_all / closing
+let dz5 = t_opp - 10
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let rel_same = v_b - v_a
+let dz6 = rel_same - 5
+bad[0] = bad[0] + ck(dz6, 0, 0)
+let t_same = len_all / rel_same
+let dz7 = t_same - 50
+bad[0] = bad[0] + ck(dz7, 0, 0)
+
+let price = t_same / t_opp
+let dz8 = price - 5
+bad[0] = bad[0] + ck(dz8, 0, 0)
+
+if 1825 < 1823
+    bad[0] = bad[0] + 1
+if 1825 > 1827
+    bad[0] = bad[0] + 1
+if 1829 < 1827
+    bad[0] = bad[0] + 1
+if 1829 > 1831
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

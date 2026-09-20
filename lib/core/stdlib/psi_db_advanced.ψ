@@ -1,0 +1,318 @@
+import "gf65537.ψ"
+import "arr.ψ"
+import "linalg_gf.ψ"
+
+let QSCAN      = 1
+let QSELECT    = 2
+let QPROJECT   = 3
+let QJOIN      = 4
+let QAGGREGATE = 5
+let QFILTER    = 6
+let QMAP       = 7
+let QREDUCE    = 8
+let QSORT      = 9
+let QLIMIT     = 10
+
+let qnode_make(node_type, params) =
+    let v = arr_new_n(2)
+    arr_set(v, 0, node_type)
+    arr_set(v, 1, params)
+    v
+
+let qnode_type(n) = arr_get(n, 0)
+
+let qnode_params(n) = arr_get(n, 1)
+
+let qscan(table_id) = qnode_make(QSCAN, table_id)
+
+let qselect(pred_fn_id, child) =
+    let v = arr_new_n(2)
+    arr_set(v, 0, pred_fn_id)
+    arr_set(v, 1, child)
+    qnode_make(QSELECT, v)
+
+let qproject(cols, child) =
+    let v = arr_new_n(2)
+    arr_set(v, 0, cols)
+    arr_set(v, 1, child)
+    qnode_make(QPROJECT, v)
+
+let qjoin(left, right, pred_fn_id) =
+    let v = arr_new_n(3)
+    arr_set(v, 0, left)
+    arr_set(v, 1, right)
+    arr_set(v, 2, pred_fn_id)
+    qnode_make(QJOIN, v)
+
+let qaggregate(group_by, agg_fn_id, child) =
+    let v = arr_new_n(3)
+    arr_set(v, 0, group_by)
+    arr_set(v, 1, agg_fn_id)
+    arr_set(v, 2, child)
+    qnode_make(QAGGREGATE, v)
+
+let qmap(map_fn_id, child) =
+    let v = arr_new_n(2)
+    arr_set(v, 0, map_fn_id)
+    arr_set(v, 1, child)
+    qnode_make(QMAP, v)
+
+let qreduce(reduce_fn_id, init, child) =
+    let v = arr_new_n(3)
+    arr_set(v, 0, reduce_fn_id)
+    arr_set(v, 1, init)
+    arr_set(v, 2, child)
+    qnode_make(QREDUCE, v)
+
+let qsort(key_fn_id, child) =
+    let v = arr_new_n(2)
+    arr_set(v, 0, key_fn_id)
+    arr_set(v, 1, child)
+    qnode_make(QSORT, v)
+
+let qlimit(n, child) =
+    let v = arr_new_n(2)
+    arr_set(v, 0, n)
+    arr_set(v, 1, child)
+    qnode_make(QLIMIT, v)
+
+let qcompile(node) =
+    let plan = arr_new()
+    _qcompile_acc(node, plan, 0)
+    plan
+let _qcompile_acc(node, plan, depth) =
+      let nt = qnode_type(node)
+      let params = qnode_params(node)
+      let entry = arr_new_n(3)
+      arr_set(entry, 0, nt)
+      arr_set(entry, 1, params)
+      arr_set(entry, 2, depth)
+      arr_push(plan, entry)
+      if nt == QSELECT
+        _qcompile_acc(arr_get(params, 1), plan, depth + 1)
+      else
+          0
+    if nt == QPROJECT
+        _qcompile_acc(arr_get(params, 1), plan, depth + 1)
+    else
+        0
+    if nt == QJOIN
+        _qcompile_acc(arr_get(params, 0), plan, depth + 1)
+        _qcompile_acc(arr_get(params, 1), plan, depth + 1)
+    else
+        0
+    if nt == QAGGREGATE
+        _qcompile_acc(arr_get(params, 2), plan, depth + 1)
+    else
+        0
+    if nt == QMAP
+        _qcompile_acc(arr_get(params, 1), plan, depth + 1)
+    else
+        0
+    if nt == QREDUCE
+        _qcompile_acc(arr_get(params, 2), plan, depth + 1)
+    else
+        0
+    if nt == QSORT
+        _qcompile_acc(arr_get(params, 1), plan, depth + 1)
+    else
+        0
+    if nt == QLIMIT
+        _qcompile_acc(arr_get(params, 1), plan, depth + 1)
+      plan
+
+let qoptimize(node) =
+    let nt = qnode_type(node)
+    if nt == QPROJECT
+      let cols = arr_get(qnode_params(node), 0)
+      let child = arr_get(qnode_params(node), 1)
+      if qnode_type(child) == QSELECT
+        let pred = arr_get(qnode_params(child), 0)
+        let inner = arr_get(qnode_params(child), 1)
+        let new_inner = qproject(cols, inner)
+        qselect(pred, new_inner)
+    if nt == QSELECT
+      let pred = arr_get(qnode_params(node), 0)
+      let child = arr_get(qnode_params(node), 1)
+      if qnode_type(child) == QJOIN
+        let left = arr_get(qnode_params(child), 0)
+        let right = arr_get(qnode_params(child), 1)
+        let join_pred = arr_get(qnode_params(child), 2)
+        let new_left = qselect(pred, left)
+        qjoin(new_left, right, join_pred)
+    node
+
+let qestimate_cost(node) =
+    let nt = qnode_type(node)
+    if nt == QSCAN
+      let v = arr_new_n(2)
+      arr_set(v, 0, 1000)
+      arr_set(v, 1, 1000)
+      v
+    if nt == QSELECT
+      let child_cost = qestimate_cost(arr_get(qnode_params(node), 1))
+      let rows = arr_get(child_cost, 0) / 2
+      let v = arr_new_n(2)
+      arr_set(v, 0, rows)
+      arr_set(v, 1, arr_get(child_cost, 1) + rows)
+      v
+    if nt == QPROJECT
+      qestimate_cost(arr_get(qnode_params(node), 1))
+    if nt == QJOIN
+      let lc = qestimate_cost(arr_get(qnode_params(node), 0))
+      let rc = qestimate_cost(arr_get(qnode_params(node), 1))
+      let rows = arr_get(lc, 0) * arr_get(rc, 0) / 100
+      let v = arr_new_n(2)
+      arr_set(v, 0, rows)
+      arr_set(v, 1, arr_get(lc, 1) + arr_get(rc, 1) + rows)
+      v
+    if nt == QAGGREGATE
+      let child_cost = qestimate_cost(arr_get(qnode_params(node), 2))
+      let rows = 10
+      let v = arr_new_n(2)
+      arr_set(v, 0, rows)
+      arr_set(v, 1, arr_get(child_cost, 1) + 100)
+      v
+    let v = arr_new_n(2)
+    arr_set(v, 0, 1)
+    arr_set(v, 1, 1)
+    v
+
+let hologram_make(boundary_tensor, bulk_coords) =
+    let v = arr_new_n(2)
+    arr_set(v, 0, boundary_tensor)
+    arr_set(v, 1, bulk_coords)
+    v
+
+let hologram_boundary(h) = arr_get(h, 0)
+
+let hologram_bulk_coords(h) = arr_get(h, 1)
+
+let hologram_kernel(z, y_count) =
+    let kernel = arr_new_n(y_count)
+    _hologram_kernel_acc(kernel, z, y_count, 0)
+    kernel
+let _hologram_kernel_acc(kernel, z, n, i) =
+    if i >= n
+        kernel
+    let z_sq = gf_mul(z, z)
+    let i_sq = gf_mul(i, i)
+    let denom = gf_add(z_sq, i_sq)
+    let k_i = gf_mul(z_sq, gf_inv(denom))
+    arr_set(kernel, i, k_i)
+    _hologram_kernel_acc(kernel, z, n, i + 1)
+
+let hologram_reconstruct(boundary, z, n) =
+    let kernel = hologram_kernel(z, n)
+    let bulk = arr_new_n(n)
+    _hologram_recon_acc(boundary, kernel, bulk, n, 0)
+    bulk
+let _hologram_recon_acc(boundary, kernel, bulk, n, i) =
+    if i >= n
+        bulk
+    let b = arr_get(boundary, i)
+    let k = arr_get(kernel, i)
+    let val = gf_mul(k, b)
+    arr_set(bulk, i, val)
+    _hologram_recon_acc(boundary, kernel, bulk, n, i + 1)
+
+let hologram_rtcft(boundary_field, z) =
+    let n = arr_len(boundary_field)
+    _hologram_rtcft_acc(boundary_field, n, 0, 0)
+let _hologram_rtcft_acc(field, n, i, count) =
+    if i >= n
+        count
+    let v = arr_get(field, i)
+    let new_count = ((v != 0) ? (count + 1) : (count))
+    _hologram_rtcft_acc(field, n, i + 1, new_count)
+
+let hologram_ads_metric(z) =
+    let L = 1
+    let inv_z = gf_inv(z)
+    gf_mul(gf_mul(L, inv_z), gf_mul(L, inv_z))
+
+let hologram_geodesic_length(z1, z2, x1, x2) = gf_add(z1, z2)
+
+let hologram_entanglement_wedge(boundary_region, bulk_points) =
+    let n = arr_len(bulk_points)
+    _hologram_ew_acc(boundary_region, bulk_points, n, 0, 0)
+let _hologram_ew_acc(region, points, n, i, count) =
+    if i >= n
+        count
+    let p = arr_get(points, i)
+    let in_region = _hologram_in_region(region, p)
+    let new_count = ((in_region == 1) ? (count + 1) : (count))
+    _hologram_ew_acc(region, points, n, i + 1, new_count)
+let _hologram_in_region(region, point) =
+    let n = arr_len(region)
+    _hologram_in_region_acc(region, point, n, 0)
+let _hologram_in_region_acc(region, point, n, i) =
+    if i >= n
+        0
+    if arr_get(region, i) == point
+        1
+    _hologram_in_region_acc(region, point, n, i + 1)
+
+let residue_make(pole, residue) =
+    let v = arr_new_n(2)
+    arr_set(v, 0, pole)
+    arr_set(v, 1, residue)
+    v
+
+let residue_pole(r) = arr_get(r, 0)
+
+let residue_residue(r) = arr_get(r, 1)
+
+let residue_field_eval(residues, z, n) =
+    _rfe_acc(residues, z, n, 0, 0)
+let _rfe_acc(residues, z, n, k, acc) =
+    if k >= n
+        acc
+    let r = arr_get(residues, k)
+    let z_k = residue_pole(r)
+    let r_k = residue_residue(r)
+    let denom = gf_sub(z, z_k)
+    let term = gf_mul(r_k, gf_inv(denom))
+    _rfe_acc(residues, z, n, k + 1, gf_add(acc, term))
+
+let residue_field_insert(residues, pole, residue) =
+    let r = residue_make(pole, residue)
+    arr_push(residues, r)
+    residues
+
+let residue_field_forget(residues, pole, n) =
+    let result = arr_new()
+    _rff_acc(residues, pole, n, result, 0)
+    result
+let _rff_acc(residues, pole, n, result, i) =
+    if i >= n
+        result
+    let r = arr_get(residues, i)
+    if residue_pole(r) != pole
+      arr_push(result, r)
+    _rff_acc(residues, pole, n, result, i + 1)
+
+let residue_field_save(residues, n) =
+    let serialized = arr_new_n(n * 2)
+    _rfs_acc(residues, n, serialized, 0)
+    serialized
+let _rfs_acc(residues, n, serialized, i) =
+    if i >= n
+        serialized
+    let r = arr_get(residues, i)
+    arr_set(serialized, i * 2, residue_pole(r))
+    arr_set(serialized, i * 2 + 1, residue_residue(r))
+    _rfs_acc(residues, n, serialized, i + 1)
+
+let residue_field_load(serialized, n) =
+    let residues = arr_new()
+    _rfl_acc(serialized, n, residues, 0)
+    residues
+let _rfl_acc(serialized, n, residues, i) =
+    if i >= n
+        residues
+    let pole = arr_get(serialized, i * 2)
+    let residue = arr_get(serialized, i * 2 + 1)
+    let r = residue_make(pole, residue)
+    arr_push(residues, r)
+    _rfl_acc(serialized, n, residues, i + 1)

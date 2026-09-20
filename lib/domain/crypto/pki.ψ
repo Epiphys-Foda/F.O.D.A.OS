@@ -1,0 +1,240 @@
+let keypair_new(private_key, public_key) =
+    [private_key, public_key, "GF65537"]
+
+let kp_priv(kp) = kp[0]
+let kp_pub(kp) = kp[1]
+let kp_algo(kp) = kp[2]
+
+let pki_mulmod(a, b) =
+    let r = 0
+    let x = a % 65537
+    let y = b % 65537
+    for y > 0
+        if y % 2 == 1
+            r = (r + x) % 65537
+        x = (x + x) % 65537
+        y = y / 2
+    r
+
+let keypair_generate(seed) =
+    let priv = 0
+    let i = 0
+    let n = len(seed)
+    for i < n
+        priv = (priv * 31 + seed[i]) % 65537
+        i = i + 1
+    if priv == 0
+        priv = 1
+    let public_key = 1
+    let base = priv
+    let exp = 3
+    for exp > 0
+        if exp % 2 == 1
+            public_key = pki_mulmod(public_key, base)
+        base = pki_mulmod(base, base)
+        exp = exp / 2
+    keypair_new(priv, public_key)
+
+let pki_sign(kp, message) =
+    let h = 0
+    let i = 0
+    let n = len(message)
+    for i < n
+        h = (h * 31 + message[i]) % 65537
+        i = i + 1
+    let sig = 1
+    let base = h
+    let exp = kp_priv(kp)
+    for exp > 0
+        if exp % 2 == 1
+            sig = pki_mulmod(sig, base)
+        base = pki_mulmod(base, base)
+        exp = exp / 2
+    sig
+
+let pki_verify(kp, message, signature) =
+    let h = 0
+    let i = 0
+    let n = len(message)
+    for i < n
+        h = (h * 31 + message[i]) % 65537
+        i = i + 1
+    let computed = 1
+    let base = signature
+    let exp = kp_pub(kp)
+    for exp > 0
+        if exp % 2 == 1
+            computed = pki_mulmod(computed, base)
+        base = pki_mulmod(base, base)
+        exp = exp / 2
+    if computed == h
+        1
+    else
+        0
+
+let cert_new(serial, subject, issuer, pubkey, not_before, not_after) =
+    [3, serial, subject, issuer, pubkey, not_before, not_after, 0, {}]
+
+let cert_version(c) = c[0]
+let cert_serial(c) = c[1]
+let cert_subject(c) = c[2]
+let cert_issuer(c) = c[3]
+let cert_pubkey(c) = c[4]
+let cert_not_before(c) = c[5]
+let cert_not_after(c) = c[6]
+let cert_signature(c) = c[7]
+let cert_ext(c) = c[8]
+
+let cert_set_signature(c, sig) =
+    c[7] = sig
+    c
+
+let cert_set_ext(c, key, val) =
+    let ext = cert_ext(c)
+    ext[key] = val
+    c[8] = ext
+    c
+
+let cert_is_expired(c, current_ts) =
+    if current_ts < cert_not_before(c)
+        1
+    else
+        0
+    if current_ts > cert_not_after(c)
+        1
+    else
+        0
+
+let cert_tbs(c) =
+    [cert_serial(c), cert_subject(c), cert_issuer(c), cert_pubkey(c), cert_not_before(c), cert_not_after(c)]
+
+let ca_new(name, keypair, is_root) =
+    [name, keypair, [], [], is_root, 0]
+
+let ca_name(ca) = ca[0]
+let ca_keypair(ca) = ca[1]
+let ca_issued(ca) = ca[2]
+let ca_crl(ca) = ca[3]
+let ca_is_root(ca) = ca[4]
+let ca_parent(ca) = ca[5]
+
+let ca_set_parent(ca, parent) =
+    ca[5] = parent
+    ca
+
+let ca_issue(ca, subject, subject_pubkey, not_before, not_after) =
+    let serial = len(ca_issued(ca)) + 1
+    let cert = cert_new(serial, subject, ca_name(ca), subject_pubkey, not_before, not_after)
+    let tbs = cert_tbs(cert)
+    let sig = pki_sign(ca_keypair(ca), tbs)
+    cert = cert_set_signature(cert, sig)
+    let issued = ca_issued(ca)
+    issued.push(cert)
+    ca[2] = issued
+    cert
+
+let ca_revoke(ca, serial) =
+    let crl = ca_crl(ca)
+    crl.push(serial)
+    ca[3] = crl
+    ca
+
+let ca_is_revoked(ca, serial) =
+    let crl = ca_crl(ca)
+    let found = 0
+    let i = 0
+    let n = len(crl)
+    for i < n
+        if crl[i] == serial
+            found = 1
+            i = n
+        i = i + 1
+    found
+
+let verify_cert_chain(cert, issuer_ca, current_ts, root_cas) =
+    let ok = 1
+    if cert_is_expired(cert, current_ts) == 1
+        ok = 0
+    if ok == 1
+        if ca_is_revoked(issuer_ca, cert_serial(cert)) == 1
+            ok = 0
+    if ok == 1
+        let tbs = cert_tbs(cert)
+        let sig_ok = pki_verify(ca_keypair(issuer_ca), tbs, cert_signature(cert))
+        if sig_ok != 1
+            ok = 0
+    if ok == 1
+        if ca_is_root(issuer_ca) == 1
+            let in_trust = 0
+            let i = 0
+            let n = len(root_cas)
+            for i < n
+                if ca_name(root_cas[i]) == ca_name(issuer_ca)
+                    in_trust = 1
+                    i = n
+                i = i + 1
+            if in_trust == 0
+                ok = 0
+            else
+                0
+            let parent = ca_parent(issuer_ca)
+            if parent == 0
+                ok = 0
+    ok
+
+let csr_new(subject, pubkey, keypair) =
+    let csr = [subject, pubkey, 0]
+    let sig = pki_sign(keypair, [subject, pubkey])
+    csr[2] = sig
+    csr
+
+let csr_subject(c) = c[0]
+let csr_pubkey(c) = c[1]
+let csr_sig(c) = c[2]
+
+let ca_process_csr(ca, csr, not_before, not_after) =
+    ca_issue(ca, csr_subject(csr), csr_pubkey(csr), not_before, not_after)
+
+let trust_store_new() =
+    [[]]
+
+let ts_list(t) = t[0]
+
+let ts_add_root(t, ca) =
+    ts_list(t).push(ca)
+    t
+
+let ts_remove_root(t, ca_name) =
+    let new_list = []
+    let roots = ts_list(t)
+    let i = 0
+    let n = len(roots)
+    for i < n
+        if ca_name(roots[i]) != ca_name
+            new_list.push(roots[i])
+        i = i + 1
+    t[0] = new_list
+    t
+
+let ts_find_root(t, name) =
+    let roots = ts_list(t)
+    let i = 0
+    let n = len(roots)
+    let found = 0
+    for i < n
+        if ca_name(roots[i]) == name
+            found = roots[i]
+            i = n
+        i = i + 1
+    found
+
+let cert_fingerprint(cert) =
+    let data = [cert_serial(cert), cert_subject(cert), cert_issuer(cert), cert_pubkey(cert)]
+    let h = 0
+    let i = 0
+    let n = len(data)
+    for i < n
+        let item = data[i]
+        h = (h * 31 + item) % 65537
+        i = i + 1
+    h

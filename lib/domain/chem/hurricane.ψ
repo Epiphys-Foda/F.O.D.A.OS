@@ -1,0 +1,34 @@
+import "ck.ψ"
+let bad = [0]
+
+let t_hot = 300
+let t_cold = 200
+let eta = 33
+bad[0] = bad[0] + ck(eta, 30, 36)
+let dz1 = (t_hot - t_cold) * 100 - eta * t_hot
+bad[0] = bad[0] + ck(dz1, -500, 500)
+
+let fuel = 200
+bad[0] = bad[0] + ck(fuel, 100, 300)
+
+let trop = 15
+bad[0] = bad[0] + ck(trop, 12, 18)
+
+let w_cat3 = 178
+let w_cat5 = 252
+bad[0] = bad[0] + ck(w_cat3, 160, 200)
+bad[0] = bad[0] + ck(w_cat5, 240, 260)
+bad[0] = bad[0] + ck_lo(w_cat5, w_cat3)
+
+if 1986 < 1984
+    bad[0] = bad[0] + 1
+if 1986 > 1988
+    bad[0] = bad[0] + 1
+if 2005 < 2003
+    bad[0] = bad[0] + 1
+if 2005 > 2007
+    bad[0] = bad[0] + 1
+if 2005 < 1986
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

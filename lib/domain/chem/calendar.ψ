@@ -1,0 +1,54 @@
+import "ck.ψ"
+let bad = [0]
+
+let ledger = 31 * 7 + 30 * 4 + 28
+let dz1 = ledger - 365
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let r2024 = 2024 % 4
+let dz2 = r2024
+bad[0] = bad[0] + ck(dz2, 0, 0)
+let r2000 = 2000 % 400
+let dz3 = r2000
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let r1900c = 1900 % 100
+let dz4 = r1900c
+bad[0] = bad[0] + ck(dz4, 0, 0)
+let r1900f = 1900 % 400
+let dz5 = r1900f - 300
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let cycle = 400 * 365 + 97
+let dz6 = cycle - 146097
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+let wk = cycle % 7
+let dz7 = wk
+bad[0] = bad[0] + ck(dz7, 0, 0)
+
+let avg = cycle * 10000 / 400
+let dz8 = avg - 3652425
+bad[0] = bad[0] + ck(dz8, 0, 0)
+
+let julian = 3652500 - 3652422
+let dz9 = julian - 78
+bad[0] = bad[0] + ck(dz9, 0, 0)
+let jmin = julian * 1440 / 100 / 100
+let dz10 = jmin - 11
+bad[0] = bad[0] + ck(dz10, 0, 0)
+
+let gres = 3652425 - 3652422
+let gsec = gres * 86400 / 100 / 100
+let dz11 = gsec - 25
+bad[0] = bad[0] + ck(dz11, 0, 0)
+
+let skipped = 15 - 5
+bad[0] = bad[0] + ck_lo(skipped, 10)
+
+if 1582 < 1580
+    bad[0] = bad[0] + 1
+if 1582 > 1584
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

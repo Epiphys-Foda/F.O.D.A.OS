@@ -1,0 +1,125 @@
+import "numtheor.ψ"
+let complex_new(re, im) =
+    [re, im]
+
+let complex_add(a, b) =
+    [a[0] + b[0], a[1] + b[1]]
+
+let complex_sub(a, b) =
+    [a[0] - b[0], a[1] - b[1]]
+
+let complex_mul(a, b) =
+    [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]]
+
+let complex_div(a, b) =
+    let denom = b[0] * b[0] + b[1] * b[1]
+    if denom == 0
+        [0, 0]
+    else
+        [(a[0] * b[0] + a[1] * b[1]) / denom, (a[1] * b[0] - a[0] * b[1]) / denom]
+
+let complex_neg(a) =
+    [-a[0], -a[1]]
+
+let complex_conj(a) =
+    [a[0], -a[1]]
+
+let complex_abs_sq(a) =
+    a[0] * a[0] + a[1] * a[1]
+
+let complex_abs(a) =
+    let sq = complex_abs_sq(a)
+    isqrt(sq)
+
+let complex_arg(a) =
+    let re = a[0]
+    let im = a[1]
+    if re == 0
+        (im > 0 ? 1570796 : -1570796)
+    else
+            0
+        let ratio = im * 1000 / re
+        let x = ratio
+        let x3 = x * x * x / 1000000
+        let x5 = x3 * x * x / 1000000
+        let atan_val = x - x3 / 3 + x5 / 5
+        if re > 0
+            atan_val
+        else
+            0
+        if im >= 0
+            atan_val + 3141593
+        else
+            atan_val - 3141593
+
+let complex_exp(a) =
+    let exp_re = 1
+    let term = 1
+    let i = 1
+    for i < 20
+        term = term * a[0] / i
+        exp_re = exp_re + term
+        i = i + 1
+    let cos_im = 1
+    let sin_im = a[1]
+    let term_c = 1
+    let term_s = a[1]
+    let i = 1
+    for i < 10
+        term_c = -term_c * a[1] * a[1] / ((2 * i) * (2 * i - 1))
+        cos_im = cos_im + term_c
+        term_s = -term_s * a[1] * a[1] / ((2 * i + 1) * (2 * i))
+        sin_im = sin_im + term_s
+        i = i + 1
+    [exp_re * cos_im, exp_re * sin_im]
+
+let complex_log(a) =
+    let abs_val = complex_abs(a)
+    let log_abs = 0
+    if abs_val > 0
+        let x = abs_val
+        for x > 1
+            x = x / 2
+            log_abs = log_abs + 1
+    [log_abs, complex_arg(a)]
+
+let complex_pow(a, n) =
+    if n == 0
+        [1, 0]
+    else
+        0
+    if n < 0
+        complex_pow(complex_div([1, 0], a), -n)
+    else
+        let result = [1, 0]
+        let i = 0
+        for i < n
+            result = complex_mul(result, a)
+            i = i + 1
+        result
+
+let complex_sqrt(a) =
+    let abs_val = complex_abs(a)
+    let re_part = isqrt((abs_val + a[0]) / 2)
+    let im_part = isqrt((abs_val - a[0]) / 2)
+    let sign_im = (a[1] < 0 ? -1 : 1)
+    [re_part, sign_im * im_part]
+
+let complex_from_polar(r, theta) =
+    let cos_t = 1000 - theta * theta / 2000000
+    let sin_t = theta
+    [r * cos_t / 1000, r * sin_t / 1000]
+
+let complex_to_str(a) =
+    str_concat(str(a[0]), str_concat("+", str_concat(str(a[1]), "i")))
+
+let main() =
+    let z1 = complex_new(3, 4)
+    let z2 = complex_new(1, 2)
+    print(complex_add(z1, z2))
+    print(complex_mul(z1, z2))
+    print(complex_abs(z1))
+    print(complex_conj(z1))
+    print(complex_div(z1, z2))
+    print(complex_pow(z1, 2))
+    0

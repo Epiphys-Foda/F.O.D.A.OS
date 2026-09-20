@@ -1,0 +1,34 @@
+import "ck.ψ"
+let bad = [0]
+
+let dead = 100
+let mrate = 1000000 / dead
+bad[0] = bad[0] + ck(mrate, 10000, 10000)
+
+let sig = 10
+let sq = sig * sig - 100
+bad[0] = bad[0] + ck(sq, 0, 0)
+
+let plat = 150
+bad[0] = bad[0] + ck(plat, 100, 300)
+
+let geff = 10
+bad[0] = bad[0] + ck(geff, 5, 50)
+
+let blind = 1
+bad[0] = bad[0] + ck_lo(blind, 1)
+
+if 1908 < 1906
+    bad[0] = bad[0] + 1
+if 1908 > 1910
+    bad[0] = bad[0] + 1
+if 1928 < 1926
+    bad[0] = bad[0] + 1
+if 1928 > 1930
+    bad[0] = bad[0] + 1
+if 1932 < 1930
+    bad[0] = bad[0] + 1
+if 1932 > 1934
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

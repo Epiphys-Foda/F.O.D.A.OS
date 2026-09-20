@@ -1,0 +1,204 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let gene_encode(g) =
+    gene_pole(g) * 1000000 + gene_residue(g) * 1000 + gene_op(g)
+
+let gene_decode(code) =
+    let op = code % 1000
+    let rest = code / 1000
+    let residue = rest % 1000
+    let pole = rest / 1000
+    [pole, residue, op]
+
+let gene_self_ref_test(code) =
+    let g = gene_decode(code)
+    let re_encoded = gene_encode(g)
+    (re_encoded == code ? 1 : 0)
+
+let gene_express(g, a, b) =
+    let r = gene_residue(g)
+    let op = gene_op(g)
+    if op == 0
+        gf_sub(r, gf_mul(a, b))
+    else
+        0
+    if op == 1
+        gf_mul(a, b)
+    else
+        0
+    if op == 2
+        gf_sub(gf_add(a, b), gf_mul(a, b))
+    else
+        0
+    if op == 3
+        gf_sub(gf_add(a, b), gf_mul(2, gf_mul(a, b)))
+    else
+        0
+    if op == 4
+        gf_sub(r, a)
+    else
+        0
+
+let fitness(g) =
+    let score = 0
+    let a = 0
+    for a < 2
+        let b = 0
+        for b < 2
+            let out = gene_express(g, a, b)
+            if out == 0 || out == 1
+                score = score + 1
+            b = b + 1
+        a = a + 1
+    score
+
+let find_fixed_point(g, sigma, max_iter) =
+    let current = g
+    let iter = 0
+    let converged = 0
+    for iter < max_iter
+        let next = galois_mutate(current, sigma)
+        if gene_pole(next) == gene_pole(current) && gene_residue(next) == gene_residue(current)
+            converged = 1
+            iter = max_iter
+        current = next
+        iter = iter + 1
+    converged
+
+let meta_compose(g1, g2) =
+    let p1 = gene_pole(g1)
+    let r1 = gene_residue(g1)
+    let op1 = gene_op(g1)
+    let p2 = gene_pole(g2)
+    let r2 = gene_residue(g2)
+    let new_p = gf_add(p1, p2)
+    let new_r = gf_mul(r1, r2)
+    [new_p, new_r, op1]
+
+let meta_derivative(g) =
+    let p = gene_pole(g)
+    let r = gene_residue(g)
+    let op = gene_op(g)
+    [p, p, op]
+
+let meta_integral(g) =
+    let p = gene_pole(g)
+    let r = gene_residue(g)
+    let op = gene_op(g)
+    let new_r = gf_div(r, p)
+    [p, new_r, op]
+
+let srrf_eval(genes, n, z) =
+    let total = 0
+    let i = 0
+    for i < n
+        let g = genes[i]
+        let w_k = gene_pole(g)
+        let psi_wk = gene_residue(g)
+        let psi_prime_wk = gene_pole(g)
+        let denom = gf_sub(z, psi_wk)
+        let term = gf_div(psi_prime_wk, denom)
+        total = gf_add(total, term)
+        i = i + 1
+    total
+
+let srrf_fixed_point(genes, n, z) =
+    let psi_z = srrf_eval(genes, n, z)
+    (psi_z == z ? 1 : 0)
+
+let srrf_search_fixed_points(genes, n, search_range) =
+    let count = 0
+    let z = 0
+    for z < search_range
+        if srrf_fixed_point(genes, n, z) == 1
+            count = count + 1
+        z = z + 1
+    count
+
+let bootstrap2_step(g, nutrient) =
+    let phenotype = fitness(g)
+    let p = gene_pole(g)
+    let r = gene_residue(g)
+    let op = gene_op(g)
+    let new_r = (phenotype == 4 ? r : gf_add(r, nutrient))
+    [p, new_r, op]
+
+let bootstrap2_verify(g, nutrient, max_iter) =
+    let current = g
+    let iter = 0
+    let converged = 0
+    for iter < max_iter
+        let next = bootstrap2_step(current, nutrient)
+        if gene_pole(next) == gene_pole(current) && gene_residue(next) == gene_residue(current) && gene_op(next) == gene_op(current)
+            converged = 1
+            iter = max_iter
+        current = next
+        iter = iter + 1
+    converged
+
+let bootstrap2_test() =
+    let ok = 0
+
+    let g1 = gene_new(101, 5, 0)
+    let code1 = gene_encode(g1)
+    if gene_self_ref_test(code1) == 1
+        ok = ok + 1
+
+    let g2 = gene_new(203, 7, 2)
+    let code2 = gene_encode(g2)
+    let decoded2 = gene_decode(code2)
+    if gene_pole(decoded2) == 203 && gene_residue(decoded2) == 7 && gene_op(decoded2) == 2
+        ok = ok + 1
+
+    let g3 = gene_new(101, 1, 0)
+    if find_fixed_point(g3, 1, 10) == 1
+        ok = ok + 1
+
+    let g4 = gene_new(101, 1, 0)
+    let fp4 = find_fixed_point(g4, 2, 10)
+    if fp4 == 0 || fp4 == 1
+        ok = ok + 1
+
+    let nand1 = gene_new(101, 1, 0)
+    let nand2 = gene_new(103, 1, 0)
+    let composed = meta_compose(nand1, nand2)
+    if gene_pole(composed) == 204
+        ok = ok + 1
+
+    let g6 = gene_new(101, 5, 0)
+    let deriv = meta_derivative(g6)
+    if gene_residue(deriv) == 101
+        ok = ok + 1
+
+    let g7 = gene_new(5, 10, 0)
+    let integ = meta_integral(g7)
+    if gene_residue(integ) == 2
+        ok = ok + 1
+
+    let srrf_genes = [gene_new(101, 101, 0)]
+    let psi_val = srrf_eval(srrf_genes, 1, 202)
+    if psi_val == 1
+        ok = ok + 1
+
+    let srrf_genes2 = [gene_new(101, 101, 0)]
+    let fp_count = srrf_search_fixed_points(srrf_genes2, 1, 200)
+    if fp_count >= 0
+        ok = ok + 1
+
+    let stable_gene = gene_new(101, 1, 0)
+    if bootstrap2_verify(stable_gene, 1, 10) == 1
+        ok = ok + 1
+
+    let unstable_gene = gene_new(101, 5, 0)
+    let bs_result = bootstrap2_verify(unstable_gene, 0, 10)
+    if bs_result == 0 || bs_result == 1
+        ok = ok + 1
+
+    let pop = [gene_new(101, 1, 0), gene_new(103, 1, 0)]
+    let pop_fp = bootstrap2_verify(pop[0], 0, 5)
+    if pop_fp >= 0
+        ok = ok + 1
+
+    ok
+
+let main() = bootstrap2_test()

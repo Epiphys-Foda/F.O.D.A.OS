@@ -1,0 +1,394 @@
+let MICRO_MUL_GF    = 10
+let MICRO_ADD_GF    = 11
+let MICRO_SUB_GF    = 12
+let MICRO_INV_GF    = 13
+
+let MICRO_ROT_CL    = 20
+let MICRO_REF_CL    = 21
+let MICRO_PROD_CL   = 22
+let MICRO_DUAL_CL   = 23
+
+let MICRO_FFT_FWD    = 30
+let MICRO_FFT_INV    = 31
+let MICRO_FFT_BITREV = 32
+
+let MICRO_PROJ_HOM   = 40
+let MICRO_PROJ_AFF   = 41
+let MICRO_INTERP     = 42
+
+let MICRO_DIFF_FWD   = 50
+let MICRO_DIFF_BWD   = 51
+let MICRO_DIFF_CEN   = 52
+
+let MICRO_FUSE_GEO_PROJ   = 60
+let MICRO_FUSE_FREQ_DIFF  = 61
+let MICRO_FUSE_TEN_GEO   = 62
+
+let MICRO_TOKEN     = 16
+let MICRO_EMIT      = 17
+let MICRO_END       = 255
+
+let MICRO_GF_MOD = 65537
+
+let MICRO_SPECS = [
+  { opcode: 10, name: "MUL_GF",    category: "GF",      arity: 2, layer0_src: 1, note: "GF(65537) modular multiply" },
+  { opcode: 11, name: "ADD_GF",    category: "GF",      arity: 2, layer0_src: 1, note: "GF(65537) modular add" },
+  { opcode: 12, name: "SUB_GF",    category: "GF",      arity: 2, layer0_src: 1, note: "GF(65537) modular subtract" },
+  { opcode: 13, name: "INV_GF",    category: "GF",      arity: 1, layer0_src: 1, note: "GF(65537) inverse" },
+
+  { opcode: 20, name: "ROT_CL",    category: "CL",      arity: 2, layer0_src: 2, note: "Clifford rotation" },
+  { opcode: 21, name: "REF_CL",    category: "CL",      arity: 2, layer0_src: 2, note: "Clifford reflection" },
+  { opcode: 22, name: "PROD_CL",   category: "CL",      arity: 2, layer0_src: 2, note: "Clifford geometric product" },
+  { opcode: 23, name: "DUAL_CL",   category: "CL",      arity: 1, layer0_src: 2, note: "Clifford dual" },
+
+  { opcode: 30, name: "FFT_FWD",    category: "NTT",     arity: 2, layer0_src: 3, note: "forward NTT butterfly" },
+  { opcode: 31, name: "FFT_INV",    category: "NTT",     arity: 2, layer0_src: 3, note: "inverse NTT butterfly" },
+  { opcode: 32, name: "FFT_BITREV", category: "NTT",     arity: 1, layer0_src: 3, note: "bit reversal" },
+
+  { opcode: 40, name: "PROJ_HOM",   category: "BORN",    arity: 2, layer0_src: 4, note: "homogeneous projection" },
+  { opcode: 41, name: "PROJ_AFF",   category: "BORN",    arity: 3, layer0_src: 4, note: "affine projection" },
+  { opcode: 42, name: "INTERP",     category: "BORN",    arity: 3, layer0_src: 4, note: "interpolation" },
+
+  { opcode: 50, name: "DIFF_FWD",   category: "HEBBIAN", arity: 2, layer0_src: 5, note: "forward difference" },
+  { opcode: 51, name: "DIFF_BWD",   category: "HEBBIAN", arity: 2, layer0_src: 5, note: "backward difference" },
+  { opcode: 52, name: "DIFF_CEN",   category: "HEBBIAN", arity: 2, layer0_src: 5, note: "central difference" },
+
+  { opcode: 60, name: "FUSE_GEO_PROJ",   category: "FUSE", arity: 2, layer0_src: 0, note: "◦↡ fused operator" },
+  { opcode: 61, name: "FUSE_FREQ_DIFF",  category: "FUSE", arity: 2, layer0_src: 0, note: "≋∆ fused operator" },
+  { opcode: 62, name: "FUSE_TEN_GEO",    category: "FUSE", arity: 2, layer0_src: 0, note: "⊙◦ fused operator" },
+
+  { opcode: 16, name: "TOKEN",       category: "SCAFFOLD", arity: 1, layer0_src: 0, note: "input token" },
+  { opcode: 17, name: "EMIT",        category: "SCAFFOLD", arity: 1, layer0_src: 0, note: "output token" }
+]
+
+let micro_spec(opcode) =
+    let found = null
+    let i = 0
+    let n = len(MICRO_SPECS)
+    let done = false
+    for !done
+      if i < n
+        let spec = MICRO_SPECS[i]
+        if spec.opcode == opcode
+          found = spec
+          done = true
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    found
+
+let micro_name(opcode) =
+    let spec = micro_spec(opcode)
+    (spec == null ? "?" : spec.name)
+
+let micro_category(opcode) =
+    let spec = micro_spec(opcode)
+    (spec == null ? "?" : spec.category)
+
+let micro_arity(opcode) =
+    let spec = micro_spec(opcode)
+    (spec == null ? -1 : spec.arity)
+
+let micro_layer0_src(opcode) =
+    let spec = micro_spec(opcode)
+    (spec == null ? 0 : spec.layer0_src)
+
+let micro_count() = len(MICRO_SPECS)
+
+let qq_lower_to_micro(qq_opcode) =
+    if qq_opcode == 1
+        MICRO_MUL_GF
+    else
+      if qq_opcode == 2
+          MICRO_PROD_CL
+      else
+        if qq_opcode == 3
+            MICRO_FFT_FWD
+        else
+          if qq_opcode == 4
+              MICRO_PROJ_HOM
+          else
+            if qq_opcode == 5
+                MICRO_DIFF_FWD
+            else
+              if qq_opcode == 16
+                  MICRO_TOKEN
+              else
+                if qq_opcode == 17
+                    MICRO_EMIT
+                else
+                  if qq_opcode == 255
+                      MICRO_END
+                  else
+                      0
+
+let qqbc_to_micro_seq(qqbc) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(qqbc)
+        let op = qqbc[i]
+        let micro_op = qq_lower_to_micro(op)
+        if micro_op == MICRO_TOKEN
+          if i + 1 < len(qqbc)
+            let imm = qqbc[i + 1]
+            out = out.push(micro_op)
+            out = out.push(imm)
+            i = i + 2
+          else
+            i = i + 1
+        else
+          out = out.push(micro_op)
+          i = i + 1
+      else
+        done = true
+    out
+
+let micro_gf_mod(v) =
+    let abs_v = (v < 0 ? 0 - v : v)
+    abs_v - (abs_v / MICRO_GF_MOD) * MICRO_GF_MOD
+
+let micro_eval(opcode, args) =
+    if opcode == MICRO_MUL_GF
+      let a = args[0]
+      let b = args[1]
+      micro_gf_mod(a * b)
+    else
+      if opcode == MICRO_ADD_GF
+        let a = args[0]
+        let b = args[1]
+        micro_gf_mod(a + b)
+      else
+        if opcode == MICRO_SUB_GF
+          let a = args[0]
+          let b = args[1]
+          micro_gf_mod(a - b)
+        else
+          if opcode == MICRO_INV_GF
+            let a = args[0]
+            if a == 1
+                1
+            else
+                (a == 0 ? 0 : 1)
+          else
+                0
+            if opcode == MICRO_ROT_CL
+              args[0]
+            else
+              if opcode == MICRO_REF_CL
+                let a = args[0]
+                let b = args[1]
+                0 - a
+              else
+                if opcode == MICRO_PROD_CL
+                  let a = args[0]
+                  let b = args[1]
+                  bit_and(bit_xor(a, b), bit_or(a, b))
+                else
+                  if opcode == MICRO_DUAL_CL
+                    args[0]
+                  else
+                    if opcode == MICRO_FFT_FWD
+                      let a = args[0]
+                      let b = args[1]
+                      bit_or(a + b, a - b)
+                    else
+                      if opcode == MICRO_FFT_INV
+                        let a = args[0]
+                        let b = args[1]
+                        let fwd = bit_or(a + b, a - b)
+                        fwd / 2
+                      else
+                        if opcode == MICRO_FFT_BITREV
+                          args[0]
+                        else
+                          if opcode == MICRO_PROJ_HOM
+                            let c = args[0]
+                            let t = args[1]
+                            (c != 0 ? t : 0)
+                          else
+                                0
+                            if opcode == MICRO_PROJ_AFF
+                              let c = args[0]
+                              let t = args[1]
+                              let e = args[2]
+                              (c != 0 ? t : e)
+                            else
+                                  0
+                              if opcode == MICRO_INTERP
+                                let a = args[0]
+                                let b = args[1]
+                                a + b
+                              else
+                                if opcode == MICRO_DIFF_FWD
+                                  let a = args[0]
+                                  let b = args[1]
+                                  a + b
+                                else
+                                  if opcode == MICRO_DIFF_BWD
+                                    let a = args[0]
+                                    let b = args[1]
+                                    a - b
+                                  else
+                                    if opcode == MICRO_DIFF_CEN
+                                      let a = args[0]
+                                      let b = args[1]
+                                      (a + b) / 2
+                                    else
+                                      if opcode == MICRO_FUSE_GEO_PROJ
+                                        let a = args[0]
+                                        let b = args[1]
+                                        bit_and(bit_xor(a, b), bit_or(a, b))
+                                      else
+                                        if opcode == MICRO_FUSE_FREQ_DIFF
+                                          let a = args[0]
+                                          let b = args[1]
+                                          let fwd = bit_or(a + b, a - b)
+                                          fwd + 0
+                                        else
+                                          if opcode == MICRO_FUSE_TEN_GEO
+                                            let a = args[0]
+                                            let b = args[1]
+                                            micro_gf_mod(a * b)
+                                          else
+                                            0
+
+let micro_interp(micro_seq) =
+    let stack = []
+    let pc = 0
+    let result = 0
+    let done = false
+    for !done
+      if pc < len(micro_seq)
+        let op = micro_seq[pc]
+        pc = pc + 1
+        if op == MICRO_TOKEN
+          let v = micro_seq[pc]
+          pc = pc + 1
+          stack = stack.push(v)
+        else
+          0
+        if op == MICRO_MUL_GF || op == MICRO_ADD_GF || op == MICRO_SUB_GF
+          let n = len(stack)
+          if n >= 2
+            let b = stack[n - 1]
+            let a = stack[n - 2]
+            stack = stack.slice(0, n - 2)
+            stack = stack.push(micro_eval(op, [a, b]))
+          else
+              0
+        else
+          0
+        if op == MICRO_PROD_CL || op == MICRO_FFT_FWD || op == MICRO_FFT_INV
+          let n = len(stack)
+          if n >= 2
+            let b = stack[n - 1]
+            let a = stack[n - 2]
+            stack = stack.slice(0, n - 2)
+            stack = stack.push(micro_eval(op, [a, b]))
+          else
+              0
+        else
+          0
+        if op == MICRO_DIFF_FWD || op == MICRO_DIFF_BWD || op == MICRO_DIFF_CEN
+          let n = len(stack)
+          if n >= 2
+            let b = stack[n - 1]
+            let a = stack[n - 2]
+            stack = stack.slice(0, n - 2)
+            stack = stack.push(micro_eval(op, [a, b]))
+          else
+              0
+        else
+          0
+        if op == MICRO_FUSE_GEO_PROJ || op == MICRO_FUSE_FREQ_DIFF || op == MICRO_FUSE_TEN_GEO
+          let n = len(stack)
+          if n >= 2
+            let b = stack[n - 1]
+            let a = stack[n - 2]
+            stack = stack.slice(0, n - 2)
+            stack = stack.push(micro_eval(op, [a, b]))
+          else
+              0
+        else
+          0
+        if op == MICRO_ROT_CL || op == MICRO_REF_CL || op == MICRO_DUAL_CL
+          let n = len(stack)
+          if n >= 2
+            let b = stack[n - 1]
+            let a = stack[n - 2]
+            stack = stack.slice(0, n - 2)
+            stack = stack.push(micro_eval(op, [a, b]))
+          else
+              0
+        else
+          0
+        if op == MICRO_INV_GF || op == MICRO_FFT_BITREV
+          let n = len(stack)
+          if n >= 1
+            let a = stack[n - 1]
+            stack = stack.slice(0, n - 1)
+            stack = stack.push(micro_eval(op, [a]))
+          else
+              0
+        else
+          0
+        if op == MICRO_PROJ_HOM
+          let n = len(stack)
+          if n >= 2
+            let t = stack[n - 1]
+            let c = stack[n - 2]
+            stack = stack.slice(0, n - 2)
+            stack = stack.push(micro_eval(op, [c, t]))
+          else
+              0
+        else
+          0
+        if op == MICRO_PROJ_AFF || op == MICRO_INTERP
+          let n = len(stack)
+          if n >= 3
+            let e = stack[n - 1]
+            let t = stack[n - 2]
+            let c = stack[n - 3]
+            stack = stack.slice(0, n - 3)
+            stack = stack.push(micro_eval(op, [c, t, e]))
+          else
+              0
+        else
+          0
+        if op == MICRO_EMIT
+          let n = len(stack)
+          if n >= 1
+            result = stack[n - 1]
+          else
+              0
+        else
+          0
+        if op == MICRO_END
+          done = true
+        else
+            0
+      else
+        done = true
+    result
+
+let micro_dump_all() =
+    let out = []
+    let i = 0
+    let n = len(MICRO_SPECS)
+    let done = false
+    for !done
+      if i < n
+        let spec = MICRO_SPECS[i]
+        let row = [spec.opcode, spec.name, spec.category, spec.arity, spec.layer0_src]
+        out = out.push(row)
+        i = i + 1
+      else
+        done = true
+    out
+
+let micro_summary() =
+    { total: len(MICRO_SPECS), gf_ops: 4, cl_ops: 4, ntt_ops: 3, born_ops: 3, hebbian_ops: 3, fuse_ops: 3, scaffolds: 2, gf_mod: MICRO_GF_MOD }

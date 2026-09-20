@@ -1,0 +1,46 @@
+import "wblit.ψ"
+import "wui.ψ"
+
+let init() =
+    let st = arr_new_n(80)
+    let fb = arr_new_n(160 * 120)
+    arr_set(st, 6, fb)
+    arr_set(st, 9, font_glyphs())
+    arr_set(st, 5, ui_ctx(st, fb, 160, 120, st[9]))
+    let vals = arr_new_n(12)
+    arr_set(st, 15, vals)
+    arr_set(vals, 0, 10)
+    arr_set(vals, 1, 20)
+    arr_set(vals, 2, 10)
+    arr_set(vals, 3, 84)
+    arr_set(vals, 4, 62)
+    arr_set(vals, 5, 48)
+    arr_set(vals, 6, 112)
+    arr_set(vals, 7, 48)
+    arr_set(vals, 8, 30)
+    arr_set(vals, 9, 60)
+    st
+
+let frame(st) =
+    let fb = st[6]
+    let fg = st[9]
+    let u = st[5]
+    let vals = st[15]
+    fill_rect(fb, 160, 120, 0, 0, 160, 120, 524801)
+    ui_begin(u)
+    draw_line(fb, 160, 120, vals[0] + 40, vals[1] + 8, vals[4], vals[5] + 8, 2890776)
+    draw_line(fb, 160, 120, vals[2] + 40, vals[3] + 8, vals[4], vals[5] + 8, 2890776)
+    draw_line(fb, 160, 120, vals[4] + 40, vals[5] + 8, vals[6], vals[7] + 8, 2890776)
+    ui_node(u, 1, vals, 0, 1, 44, 30, "SRC")
+    ui_node(u, 2, vals, 2, 3, 44, 30, "SRC")
+    ui_node(u, 3, vals, 4, 5, 44, 24, "ADD")
+    ui_node(u, 4, vals, 6, 7, 44, 24, "OUT")
+    ui_slider(u, 11, vals[0] + 4, vals[1] + 14, 34, vals, 8)
+    ui_slider(u, 12, vals[2] + 4, vals[3] + 14, 34, vals, 9)
+    let sum = vals[8] + vals[9]
+    arr_set(vals, 10, sum)
+    blit_num(u, vals[4] + 4, vals[5] + 14, sum)
+    blit_num(u, vals[6] + 4, vals[7] + 14, sum)
+    present_size(160, 120)
+    present(fb, 160 * 120)
+    0

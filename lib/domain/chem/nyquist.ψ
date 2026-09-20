@@ -1,0 +1,43 @@
+import "ck.ψ"
+let bad = [0]
+
+let wall = 44100 / 2
+let dz1 = wall - 22050
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+bad[0] = bad[0] + ck_lo(wall, 20000)
+
+let g1 = 44100 - 30000
+let dz3 = g1 - 14100
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let g2 = 50000 - 44100
+let dz4 = g2 - 5900
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let g3 = 44100 - 22051
+let dz5 = g3 - 22049
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let guard = wall - 20000
+let dz6 = guard - 2050
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+let span = 20000 - 20
+let dz7 = span - 19980
+bad[0] = bad[0] + ck(dz7, 0, 0)
+
+if 1928 < 1926
+    bad[0] = bad[0] + 1
+if 1928 > 1930
+    bad[0] = bad[0] + 1
+if 1948 < 1946
+    bad[0] = bad[0] + 1
+if 1948 > 1950
+    bad[0] = bad[0] + 1
+if 1982 < 1980
+    bad[0] = bad[0] + 1
+if 1982 > 1984
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

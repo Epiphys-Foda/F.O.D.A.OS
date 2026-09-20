@@ -1,0 +1,172 @@
+let P = 65537
+let P2 = 131071
+
+import "../core/stdlib_lang2/gf_canon_shared.ψ"
+import "sh_d39d441e28.ψ"
+import "wf_brain.ψ"
+import "../core/stdlib_lang2/bm_canon.ψ"
+import "sh_ee308d734f.ψ"
+import "sh_bffc56f968.ψ"
+import "sh_0fe08dee05.ψ"
+let bm_learn(s, n, T, C) =
+    let z = 0
+    for z < n + 1
+        T[z] = 0
+        C[z] = 0
+        z = z + 1
+    C[0] = 1
+    let B = arr_new_n(n + 1)
+    let zb = 0
+    for zb < n + 1
+        B[zb] = 0
+        zb = zb + 1
+    B[0] = 1
+    let L = 0
+    let m = 1
+    let bq = 1
+    let coef = 0
+    let upd = 0
+    let take = 0
+    let i = 0
+    for i < n
+        let d = s[i]
+        let k1 = 1
+        for k1 < L + 1
+            d = gf_add(d, gf_mul(C[k1], s[i - k1]))
+            k1 = k1 + 1
+        let nz = 0
+        if d != 0
+            nz = 1
+        let keep = 0
+        let dz = 0
+        take = 0
+        upd = 0
+        if nz == 1
+            coef = gf_mul(d, gf_inv(bq))
+            let k2 = 0
+            for k2 < n + 1
+                T[k2] = C[k2]
+                k2 = k2 + 1
+            let k3 = 0
+            for k3 < n + 1 - m
+                C[k3 + m] = gf_sub(C[k3 + m], gf_mul(coef, B[k3]))
+                k3 = k3 + 1
+            upd = 0
+            if 2 * L <= i
+                upd = 1
+            take = upd * nz
+            if take == 1
+                let k4 = 0
+                for k4 < n + 1
+                    B[k4] = T[k4]
+                    k4 = k4 + 1
+                L = i + 1 - L
+                bq = d
+                m = 1
+            if take == 0
+                keep = 1
+        if d == 0
+            dz = 1
+        m = m + keep
+        m = m + dz
+        i = i + 1
+    L
+
+let bm_verify(s, n, C, L) =
+    let ok = 1
+    let i = L
+    for i < n
+        let pred = 0
+        let k = 1
+        for k < L + 1
+            pred = gf_add(pred, gf_mul(C[k], s[i - k]))
+            k = k + 1
+        pred = gf_sub(0, pred)
+        let eq = 0
+        if pred == s[i]
+            eq = 1
+        ok = ok * eq
+        i = i + 1
+    ok
+
+let bm_next(s, n, C, L) =
+    let acc = 0
+    let k = 1
+    for k < L + 1
+        acc = gf_add(acc, gf_mul(C[k], s[n - k]))
+        k = k + 1
+    gf_sub(0, acc)
+
+let hyp_verify(s, n, a, bq, c) =
+    let ok = 1
+    let i = 0
+    for i < n - 1
+        let lhs = gf_mul(s[i + 1], gf_add(gf_mul(c, i), 1))
+        let rhs = gf_mul(s[i], gf_add(gf_mul(a, i), bq))
+        let eq = 0
+        if lhs == rhs
+            eq = 1
+        ok = ok * eq
+        i = i + 1
+    ok
+
+let hyp_next(s, n, a, bq, c) =
+    gf_mul(s[n], gf_div(gf_add(gf_mul(a, n), bq), gf_add(gf_mul(c, n), 1)))
+
+let weinstein(L, n, verify_ok) =
+    let half = 0
+    if 2 * L < n
+        half = 1
+    let v = 0
+    if verify_ok == 1
+        v = 1
+    half * v
+
+let innovation(s, n, C, L) =
+    let pred = 0
+    let k = 1
+    for k < L + 1
+        pred = gf_add(pred, gf_mul(C[k], s[n - 1 - k + 1]))
+        k = k + 1
+    let diff = gf_sub(s[n - 1], pred)
+    let surprised = 0
+    if diff != 0
+        surprised = 1
+    surprised
+
+let rrns_audit(arr, n) =
+    let a1 = 1
+    let a2 = 1
+    let w1 = 1
+    let w2 = 1
+    let i = 0
+    for i < n
+        a1 = (a1 + arr[i] * w1) % P
+        a2 = (a2 + (arr[i] % P2) * w2) % P2
+        w1 = w1 * 3 % P
+        w2 = w2 * 3 % P2
+        i = i + 1
+    [a1, a2]
+
+let seek(s, n) =
+    let T = arr_new_n(n + 1)
+    let C = arr_new_n(n + 1)
+    let L = bm_learn(s, n, T, C)
+    let vf = bm_verify(s, n, C, L)
+    let hok = 0
+    if vf == 0
+        let ha = gf_div(s[2], s[1])
+        let hb = gf_sub(s[1], gf_mul(ha, s[0]))
+        let hc = gf_sub(0, 1)
+        hok = hyp_verify(s, n, ha, hb, hc)
+    let gate = weinstein(L, n, vf)
+    let nxt = 0
+    if gate == 1
+        nxt = bm_next(s, n, C, L)
+    let KB = arr_new_n(4)
+    KB[0] = L
+    KB[1] = vf
+    KB[2] = hok
+    KB[3] = gate
+    let RR = rrns_audit(KB, 4)
+    [L, vf, hok, gate, nxt, RR[0], RR[1]]

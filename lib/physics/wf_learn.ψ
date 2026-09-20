@@ -1,0 +1,203 @@
+let P = 65537
+let P2 = 131071
+
+import "../core/stdlib_lang2/gf_canon_shared.ψ"
+import "sh_d39d441e28.ψ"
+import "../core/stdlib_lang2/bm_canon.ψ"
+import "sh_ee308d734f.ψ"
+import "wf_brain.ψ"
+import "sh_bffc56f968.ψ"
+import "sh_0fe08dee05.ψ"
+
+let bm_learn(s, n, T, C) =
+    let z = 0
+    for z < n + 1
+        T[z] = 0
+        C[z] = 0
+        z = z + 1
+    C[0] = 1
+    let B = arr_new_n(n + 1)
+    let zb = 0
+    for zb < n + 1
+        B[zb] = 0
+        zb = zb + 1
+    B[0] = 1
+    let L = 0
+    let m = 1
+    let b = 1
+    let coef = 0
+    let upd = 0
+    let take = 0
+    let i = 0
+    for i < n
+        let d = s[i]
+        let k1 = 1
+        for k1 < L + 1
+            d = gf_add(d, gf_mul(C[k1], s[i - k1]))
+            k1 = k1 + 1
+        let nz = 0
+        if d != 0
+            nz = 1
+        let keep = 0
+        let dz = 0
+        take = 0
+        upd = 0
+        if nz == 1
+            coef = gf_mul(d, gf_inv(b))
+            let k2 = 0
+            for k2 < n + 1
+                T[k2] = C[k2]
+                k2 = k2 + 1
+            let k3 = 0
+            for k3 < n + 1 - m
+                C[k3 + m] = gf_sub(C[k3 + m], gf_mul(coef, B[k3]))
+                k3 = k3 + 1
+            upd = 0
+            if 2 * L <= i
+                upd = 1
+            take = upd * nz
+            if take == 1
+                let k4 = 0
+                for k4 < n + 1
+                    B[k4] = T[k4]
+                    k4 = k4 + 1
+                L = i + 1 - L
+                b = d
+                m = 1
+            if take == 0
+                keep = 1
+        if d == 0
+            dz = 1
+        m = m + keep
+        m = m + dz
+        i = i + 1
+    L
+
+let poly_predict(C, L, s, n, P_out, h) =
+    let j = 0
+    for j < h
+        let acc = 0
+        let k = 1
+        for k < L + 1
+            acc = gf_add(acc, gf_mul(C[k], s[n + j - k]))
+            k = k + 1
+        let v = gf_sub(0, acc)
+        s[n + j] = v
+        P_out[j] = v
+        j = j + 1
+    0
+
+let poly_refit(C, L, s, n, F) =
+    let i = L
+    for i < n
+        let acc = 0
+        let k = 1
+        for k < L + 1
+            acc = gf_add(acc, gf_mul(C[k], s[i - k]))
+            k = k + 1
+        F[i] = gf_sub(0, acc)
+        i = i + 1
+    0
+
+let poly_fit0(C, L, s, n, F) =
+    poly_refit(C, L, s, n, F)
+    let mism = 0
+    let i = L
+    for i < n
+        let bad = 0
+        if F[i] != s[i]
+            bad = 1
+        mism = mism + bad
+        i = i + 1
+    let ok = 0
+    if mism == 0
+        ok = 1
+    ok
+
+let chk_eq(a, b) =
+    let ok = 0
+    if a == b
+        ok = 1
+    ok
+
+let law_locked(L, n, fit0) =
+    let half = 0
+    if 2 * L < n
+        half = 1
+    gf_mul(half, fit0)
+
+let wf_health(fit0, pred0, chain0, lock0) =
+    gf_add(gf_add(fit0, pred0), gf_add(chain0, lock0))
+
+let weinstein_gate(L, n, fit0) = law_locked(L, n, fit0)
+
+let stream_innov(C, L, s, n) =
+    let d = s[n]
+    let k = 1
+    for k < L + 1
+        d = gf_add(d, gf_mul(C[k], s[n - k]))
+        k = k + 1
+    let bad = 0
+    if d != 0
+        bad = 1
+    bad
+
+let law_recall(sQ, KN, nlaws, W) =
+    let best = 0
+    let bestd = 2000000000
+    let li = 0
+    for li < nlaws
+        let base = li * W
+        let d1 = sQ[1] - KN[base + 4]
+        if d1 < 0
+            d1 = 0 - d1
+        let d2 = sQ[2] - KN[base + 5]
+        if d2 < 0
+            d2 = 0 - d2
+        let d3 = sQ[3] - KN[base + 6]
+        if d3 < 0
+            d3 = 0 - d3
+        let dist = d1 + d2 + d3
+        if dist < bestd
+            bestd = dist
+            best = li
+        li = li + 1
+    best
+
+let kn_predict(KN, row, s, n, out) =
+    let L = KN[row]
+    let acc = 0
+    let k = 1
+    for k < L + 1
+        acc = gf_add(acc, gf_mul(KN[row + k], s[n - k]))
+        k = k + 1
+    out[0] = gf_sub(0, acc)
+    0
+
+let wf_learn_verify() =
+    let FIB = [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
+    let s = arr_new_n(12)
+    let z = 0
+    for z < 10
+        s[z] = FIB[z]
+        z = z + 1
+    let T = arr_new_n(11)
+    let C = arr_new_n(11)
+    let L = bm_learn(s, 10, T, C)
+    let r1 = 0
+    if L == 2
+        r1 = 1
+    let P1 = arr_new_n(1)
+    poly_predict(C, L, s, 10, P1, 1)
+    let r2 = 0
+    if P1[0] == 89
+        r2 = 1
+    let F = arr_new_n(10)
+    let fit = poly_fit0(C, L, s, 10, F)
+    let r3 = 0
+    if fit == 1
+        r3 = 1
+    let chk1 = chain_commit(C, 3, 0)
+    let chk2 = chain_commit(C, 3, 0)
+    let r4 = chk_eq(chk1, chk2)
+    [r1, r2, r3, r4]

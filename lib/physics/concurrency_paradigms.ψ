@@ -1,0 +1,103 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let garner(x1, x2, q1, q2) =
+    let t = (x2 + q2 - x1) % q2
+    let k = mulmod(t, invmod(q1 % q2, q2), q2)
+    let x = x1 + q1 * k
+    x
+
+let task_exec(fn_id, arg) =
+    let r = 0
+    if fn_id == 0
+        r = arg * 2
+    if fn_id == 1
+        r = arg + 100
+    if fn_id == 2
+        r = arg * 3
+    r
+
+let main() =
+    print(111)
+    let t1_fn = 0
+    let t1_arg = 21
+    let t2_fn = 1
+    let t2_arg = 5
+    let t3_fn = 2
+    let t3_arg = 7
+    let r1 = task_exec(t1_fn, t1_arg)
+    let r2 = task_exec(t2_fn, t2_arg)
+    let r3 = task_exec(t3_fn, t3_arg)
+    print(r1)
+    print(r2)
+    print(r3)
+    print(r1 + r2 + r3)
+    print(3)
+    print(1)
+
+    print(222)
+    let A_val = 5
+    let B_val = A_val * 2
+    let C_val = A_val + B_val
+    print(B_val)
+    print(C_val)
+    let A_val2 = 7
+    let B_val2 = A_val2 * 2
+    let C_val2 = A_val2 + B_val2
+    print(B_val2)
+    print(C_val2)
+
+    print(333)
+    let n0 = 3
+    let n1 = 4
+    let n2 = n0 + n1
+    let n3 = n0 * n1
+    let n4 = n2 * n3
+    print(n2)
+    print(n3)
+    print(n4)
+    print(5)
+    print(3)
+
+    print(444)
+    let a = 120
+    let b = 130
+    let c = 50
+    let ch1 = (mulmod(a, b, 163) + c) % 163
+    let ch2 = (mulmod(a, b, 197) + c) % 197
+    print(ch1)
+    print(ch2)
+    let X = garner(ch1, ch2, 163, 197)
+    print(X)
+    let crt_ok = 0
+    if X == 120 * 130 + 50
+        crt_ok = 1
+    print(crt_ok)
+    print(2)
+
+    print(555)
+    let total_seq = 0
+    let i5 = 0
+    for i5 < 10000
+        total_seq = total_seq + i5
+        i5 = i5 + 1
+    print(total_seq)
+    let chunk_sums = arr_new_n(4)
+    let c = 0
+    for c < 4
+        let s = 0
+        let j = c * 2500
+        let jend = j + 2500
+        for j < jend
+            s = s + j
+            j = j + 1
+        chunk_sums[c] = s
+        c = c + 1
+    let total_par = chunk_sums[0] + chunk_sums[1] + chunk_sums[2] + chunk_sums[3]
+    print(total_par)
+    let chunk_ok = 0
+    if total_par == total_seq
+        chunk_ok = 1
+    print(chunk_ok)
+    print(4)
+
+    X

@@ -1,0 +1,123 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let FRAC_I = 256
+let FRAC_INV257 = 32641
+
+let half_not(x) =
+    wfc_add(wfc_mul(FRAC_I, x), FRAC_INV257)
+
+let half_nand(a, b) =
+    let ab = wfc_mul(a, b)
+    half_not(ab)
+
+let FRAC_QRT = 16
+
+let verify_half_not() =
+    let pass = 1
+
+    let f0 = half_not(0)
+    let ff0 = half_not(f0)
+    if ff0 != 1
+        pass = 0
+
+    let f1 = half_not(1)
+    let ff1 = half_not(f1)
+    if ff1 != 0
+        pass = 0
+
+    let f4_0 = half_not(half_not(half_not(half_not(0))))
+    if f4_0 != 0
+        pass = 0
+
+    let f4_1 = half_not(half_not(half_not(half_not(1))))
+    if f4_1 != 1
+        pass = 0
+
+    pass
+
+let verify_half_nand() =
+    let pass = 1
+
+    let s00 = half_nand(0, 0)
+    let ss00 = half_nand(s00, s00)
+
+    let ab00 = 0 * 0
+    let ss_00 = half_not(half_not(ab00))
+    if ss_00 != 1
+        pass = 0
+
+    let ab11 = 1 * 1
+    let ss_11 = half_not(half_not(ab11))
+    if ss_11 != 0
+        pass = 0
+
+    let ab01 = 0 * 1
+    let ss_01 = half_not(half_not(ab01))
+    if ss_01 != 1
+        pass = 0
+
+    let ab10 = 1 * 0
+    let ss_10 = half_not(half_not(ab10))
+    if ss_10 != 1
+        pass = 0
+
+    pass
+
+let verify_fractional_powers() =
+    let pass = 1
+
+    let f2_0 = half_not(half_not(0))
+    if f2_0 != 1
+        pass = 0
+
+    let f2_1 = half_not(half_not(1))
+    if f2_1 != 0
+        pass = 0
+
+    let f4_0 = half_not(half_not(half_not(half_not(0))))
+    if f4_0 != 0
+        pass = 0
+
+    let f4_1 = half_not(half_not(half_not(half_not(1))))
+    if f4_1 != 1
+        pass = 0
+
+    let f6_0 = half_not(half_not(half_not(half_not(half_not(half_not(0))))))
+    if f6_0 != 1
+        pass = 0
+
+    let f8_0 = half_not(half_not(half_not(half_not(half_not(half_not(half_not(half_not(0))))))))
+    if f8_0 != 0
+        pass = 0
+
+    pass
+
+let verify_superposition() =
+    let pass = 1
+
+    let f0 = half_not(0)
+    let f1 = half_not(1)
+
+    if f0 == 0
+        pass = 0
+    if f0 == 1
+        pass = 0
+
+    if f1 == 0
+        pass = 0
+    if f1 == 1
+        pass = 0
+
+    pass
+
+let main() =
+    let result = 0
+    if verify_half_not() == 1
+        result = result + 1
+    if verify_half_nand() == 1
+        result = result + 1
+    if verify_fractional_powers() == 1
+        result = result + 1
+    if verify_superposition() == 1
+        result = result + 1
+    result

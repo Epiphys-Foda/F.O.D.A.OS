@@ -1,0 +1,255 @@
+let sym_num(n) =
+    ["num", n]
+
+let sym_var(name) =
+    ["var", name]
+
+let sym_add(a, b) =
+    ["add", a, b]
+
+let sym_mul(a, b) =
+    ["mul", a, b]
+
+let sym_pow(base, exp) =
+    ["pow", base, exp]
+
+let sym_sin(x) =
+    ["sin", x]
+
+let sym_cos(x) =
+    ["cos", x]
+
+let sym_exp(x) =
+    ["exp", x]
+
+let sym_log(x) =
+    ["log", x]
+
+let sym_simplify(expr) =
+    if expr[0] == "num"
+        expr
+    else
+        0
+    if expr[0] == "var"
+        expr
+    else
+        0
+    if expr[0] == "add"
+        let a = sym_simplify(expr[1])
+        let b = sym_simplify(expr[2])
+        if a[0] == "num" && a[1] == 0
+            b
+        else
+            0
+        if b[0] == "num" && b[1] == 0
+            a
+        else
+            0
+        if a[0] == "num" && b[0] == "num"
+            ["num", a[1] + b[1]]
+        else
+            ["add", a, b]
+    else
+        0
+    if expr[0] == "mul"
+        let a = sym_simplify(expr[1])
+        let b = sym_simplify(expr[2])
+        if a[0] == "num" && a[1] == 0
+            ["num", 0]
+        else
+            0
+        if b[0] == "num" && b[1] == 0
+            ["num", 0]
+        else
+            0
+        if a[0] == "num" && a[1] == 1
+            b
+        else
+            0
+        if b[0] == "num" && b[1] == 1
+            a
+        else
+            0
+        if a[0] == "num" && b[0] == "num"
+            ["num", a[1] * b[1]]
+        else
+            ["mul", a, b]
+    else
+        0
+    if expr[0] == "pow"
+        let base = sym_simplify(expr[1])
+        let exp = sym_simplify(expr[2])
+        if exp[0] == "num" && exp[1] == 0
+            ["num", 1]
+        else
+            0
+        if exp[0] == "num" && exp[1] == 1
+            base
+        else
+            0
+        if base[0] == "num" && base[1] == 0
+            ["num", 0]
+        else
+            0
+        if base[0] == "num" && base[1] == 1
+            ["num", 1]
+        else
+            ["pow", base, exp]
+    else
+        expr
+
+let sym_diff(expr, var_name) =
+    if expr[0] == "num"
+        ["num", 0]
+    else
+        0
+    if expr[0] == "var"
+        if expr[1] == var_name
+            ["num", 1]
+        else
+            ["num", 0]
+    else
+        0
+    if expr[0] == "add"
+        ["add", sym_diff(expr[1], var_name), sym_diff(expr[2], var_name)]
+    else
+        0
+    if expr[0] == "mul"
+        ["add",
+            ["mul", sym_diff(expr[1], var_name), expr[2]],
+            ["mul", expr[1], sym_diff(expr[2], var_name)]
+        ]
+    else
+        0
+    if expr[0] == "pow"
+        let base = expr[1]
+        let exp = expr[2]
+        if exp[0] == "num"
+            ["mul", ["mul", ["num", exp[1]], ["pow", base, ["num", exp[1] - 1]]], sym_diff(base, var_name)]
+        else
+            ["mul", ["pow", base, exp],
+                ["add",
+                    ["mul", sym_diff(exp, var_name), ["log", base]],
+                    ["mul", exp, ["mul", sym_diff(base, var_name), ["pow", base, ["num", -1]]]]
+                ]
+            ]
+    else
+        0
+    if expr[0] == "sin"
+        ["mul", ["cos", expr[1]], sym_diff(expr[1], var_name)]
+    else
+        0
+    if expr[0] == "cos"
+        ["mul", ["mul", ["num", -1], ["sin", expr[1]]], sym_diff(expr[1], var_name)]
+    else
+        0
+    if expr[0] == "exp"
+        ["mul", ["exp", expr[1]], sym_diff(expr[1], var_name)]
+    else
+        0
+    if expr[0] == "log"
+        ["mul", sym_diff(expr[1], var_name), ["pow", expr[1], ["num", -1]]]
+    else
+        ["num", 0]
+
+let sym_eval(expr, env) =
+    if expr[0] == "num"
+        expr[1]
+    else
+        0
+    if expr[0] == "var"
+        env[expr[1]]
+    else
+        0
+    if expr[0] == "add"
+        sym_eval(expr[1], env) + sym_eval(expr[2], env)
+    else
+        0
+    if expr[0] == "mul"
+        sym_eval(expr[1], env) * sym_eval(expr[2], env) / 1000
+    else
+        0
+    if expr[0] == "pow"
+        let base = sym_eval(expr[1], env)
+        let exp = sym_eval(expr[2], env)
+        let result = 1
+        let i = 0
+        for i < exp
+            result = result * base / 1000
+            i = i + 1
+        result
+    else
+        0
+    if expr[0] == "sin"
+        let x = sym_eval(expr[1], env)
+        x - x * x * x / 6000
+    else
+        0
+    if expr[0] == "cos"
+        let x = sym_eval(expr[1], env)
+        1000 - x * x / 2000
+    else
+        0
+    if expr[0] == "exp"
+        let x = sym_eval(expr[1], env)
+        1000 + x + x * x / 2000
+    else
+        0
+    if expr[0] == "log"
+        let x = sym_eval(expr[1], env)
+        if x > 0
+            x - 1000
+        else
+            0
+    else
+        0
+
+let sym_to_str(expr) =
+    if expr[0] == "num"
+        str(expr[1])
+    else
+        0
+    if expr[0] == "var"
+        expr[1]
+    else
+        0
+    if expr[0] == "add"
+        str_concat(str_concat("(", str_concat(sym_to_str(expr[1]), "+")), str_concat(sym_to_str(expr[2]), ")"))
+    else
+        0
+    if expr[0] == "mul"
+        str_concat(str_concat("(", str_concat(sym_to_str(expr[1]), "*")), str_concat(sym_to_str(expr[2]), ")"))
+    else
+        0
+    if expr[0] == "pow"
+        str_concat(str_concat("(", str_concat(sym_to_str(expr[1]), "^")), str_concat(sym_to_str(expr[2]), ")"))
+    else
+        0
+    if expr[0] == "sin"
+        str_concat("sin(", str_concat(sym_to_str(expr[1]), ")"))
+    else
+        0
+    if expr[0] == "cos"
+        str_concat("cos(", str_concat(sym_to_str(expr[1]), ")"))
+    else
+        0
+    if expr[0] == "exp"
+        str_concat("exp(", str_concat(sym_to_str(expr[1]), ")"))
+    else
+        0
+    if expr[0] == "log"
+        str_concat("log(", str_concat(sym_to_str(expr[1]), ")"))
+    else
+        "?"
+
+let main() =
+    let x = sym_var("x")
+    let expr = sym_add(sym_pow(x, sym_num(2)), sym_mul(sym_num(3), x))
+    let s1 = sym_to_str(expr)
+    print(s1)
+    let d = sym_diff(expr, "x")
+    let s2 = sym_to_str(d)
+    print(s2)
+    let v = sym_eval(expr, {x: 500})
+    print(v)
+    0

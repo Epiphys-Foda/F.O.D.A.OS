@@ -1,0 +1,89 @@
+let pd_expand_impl(v, p, n, idx, acc) =
+    let r = if idx < n
+      let d = v - (v / p) * p
+      pd_expand_impl(v / p, p, n, idx + 1, acc.push(d))
+    else
+      acc
+    r
+
+let pd_expand(v, p, n) = pd_expand_impl(v, p, n, 0, [])
+
+let pd_reconstruct_impl(digits, p, idx, acc, place) =
+    let r = if idx < len(digits)
+      pd_reconstruct_impl(digits, p, idx + 1, acc + digits[idx] * place, place * p)
+    else
+      acc
+    r
+
+let pd_reconstruct(digits, p) = pd_reconstruct_impl(digits, p, 0, 0, 1)
+
+let pd_roundtrip(v, p, n) = pd_reconstruct(pd_expand(v, p, n), p) == v
+
+let pd_valuation_impl(v, p, acc) =
+    let r = if v > 0
+      if v - (v / p) * p == 0
+        pd_valuation_impl(v / p, p, acc + 1)
+      else
+        acc
+    else
+      0
+    r
+
+let pd_valuation(v, p) = pd_valuation_impl(v, p, 0)
+
+let pd_norm_level(v, p) = pd_valuation(v, p)
+
+let pd_compress_residue_impl(v, p, k, acc) =
+    let r = if k > 0
+      pd_compress_residue_impl(v / p, p, k - 1, acc)
+    else
+      v
+    r
+
+let pd_compress_residue(v, p, val) = pd_compress_residue_impl(v, p, val, 0)
+
+let pd_compress(v, p) =
+    let val = pd_valuation(v, p)
+    let residue = pd_compress_residue(v, p, val)
+    [val, residue]
+
+let pd_decompress_impl(residue, p, val) =
+    let r = if val > 0
+      pd_decompress_impl(residue * p, p, val - 1)
+    else
+      residue
+    r
+
+let pd_decompress(comp, p) = pd_decompress_impl(comp[1], p, comp[0])
+
+let pd_compress_roundtrip(v, p) = pd_decompress(pd_compress(v, p), p) == v
+
+let pd_mul(a, b) =
+    let r = a * b
+    r - r / 65537 * 65537
+
+let pd_fpow(base, exp) =
+    let result = 1
+    let b = base
+    let e = exp
+    let done = false
+    for !done
+      if e > 0
+        if e - (e / 2) * 2 == 1
+          result = pd_mul(result, b)
+        else
+          0
+        b = pd_mul(b, b)
+        e = e / 2
+      else
+        done = true
+    result
+
+let pd_frobenius(x) = pd_fpow(x, 65537)
+
+let pd_frobenius_fixed(x) = pd_frobenius(x) == x
+
+let pd_macro(x) = pd_frobenius(pd_frobenius(x)) == pd_frobenius(x)
+
+let pd_summary() =
+    { theory: "p-adic layer (mod-p descent = prototype of p-adic convergence)", expand: "v = Sum a_i*p^i (layered expansion)", valuation: "val_p(v) = structural depth (norm grading)", compress: "v = p^val * residue (exponent-residue factorization)", frobenius: "x → x^p (metaprogramming = field automorphism)" }

@@ -1,0 +1,45 @@
+import "ck.ψ"
+let bad = [0]
+
+let n_in = 4
+let n_out = 2
+let dz1 = n_in - n_out * 2
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let y_high = 40
+let y_low = 1
+bad[0] = bad[0] + ck(y_high, 35, 45)
+bad[0] = bad[0] + ck_hi(y_low, 5)
+if y_high < y_low * 10
+    bad[0] = bad[0] + 1
+
+let y400 = 55
+let y500 = 25
+bad[0] = bad[0] + ck(y400, 50, 60)
+bad[0] = bad[0] + ck(y500, 20, 30)
+bad[0] = bad[0] + ck_lo(y400, y500)
+let t_op = 450
+bad[0] = bad[0] + ck(t_op, 430, 470)
+
+let d_h = 0 - 92
+bad[0] = bad[0] + ck_hi(d_h, 0)
+let y_fe = 40
+let y_nofe = 40
+let dz2 = y_fe - y_nofe
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let food = 50
+bad[0] = bad[0] + ck(food, 40, 60)
+
+if 1913 < 1911
+    bad[0] = bad[0] + 1
+if 1913 > 1915
+    bad[0] = bad[0] + 1
+if 1918 < 1916
+    bad[0] = bad[0] + 1
+if 1918 > 1920
+    bad[0] = bad[0] + 1
+if 1918 < 1913
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,46 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let s1 = 4 * 0 + 2
+let s2 = 4 * 1 + 2
+let s3 = 4 * 2 + 2
+if s1 != 2
+    bad[0] = bad[0] + 1
+if s2 != 6
+    bad[0] = bad[0] + 1
+if s3 != 10
+    bad[0] = bad[0] + 1
+
+let mob_g = 200000
+let mob_si = 1400
+let mob = small_div(mob_g, mob_si)
+bad[0] = bad[0] + ck(mob, 130, 155)
+
+let vf = 1000000
+bad[0] = bad[0] + ck_hi(vf, 1500000)
+
+let half_shift = 2
+if half_shift != 2
+    bad[0] = bad[0] + 1
+
+let first_int = 1
+if first_int != 1
+    bad[0] = bad[0] + 1
+if half_shift == first_int
+    bad[0] = bad[0] + 1
+
+let gq = 39
+bad[0] = bad[0] + ck(gq, 37, 41)
+
+if 2004 < 2002
+    bad[0] = bad[0] + 1
+if 2004 > 2006
+    bad[0] = bad[0] + 1
+if 2010 < 2008
+    bad[0] = bad[0] + 1
+if 2010 > 2012
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

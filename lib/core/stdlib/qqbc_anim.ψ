@@ -1,0 +1,80 @@
+import "psi_dataflow.ψ"
+import "pole.ψ"
+import "qqbc_session.ψ"
+
+let qa_poles_to_dag_impl(poles, idx, dag) =
+    let n = len(poles)
+    let r = if idx < n
+      let x = poles[idx]
+      let y = poles[idx + 1]
+      qa_poles_to_dag_impl(poles, idx + 2, dag_add_node_v13_1(dag, 2, 2, y, x))
+    else
+      dag
+    r
+
+let qa_poles_to_dag(poles) = qa_poles_to_dag_impl(poles, 0, dag_create())
+
+let qa_dag_to_poles_impl(dag, idx, acc) =
+    let n = dag.node_count
+    let r = if idx < n
+      let node = dag.nodes[idx]
+      qa_dag_to_poles_impl(dag, idx + 1, acc.push(node.schedule_hint).push(node.fusion_group))
+    else
+      acc
+    r
+
+let qa_dag_to_poles(dag) = qa_dag_to_poles_impl(dag, 0, [])
+
+let qa_poles_same(a, b, idx) =
+    let r = if idx < len(a)
+      if a[idx] == b[idx]
+        qa_poles_same(a, b, idx + 1)
+      else
+        false
+    else
+      true
+    r
+
+let qa_poles_roundtrip(poles) =
+    let dag = qa_poles_to_dag(poles)
+    let back = qa_dag_to_poles(dag)
+    let n = len(poles)
+    qa_poles_same(poles, back, 0)
+
+let qa_evolve_poles_impl(poles, vs, dt, idx, acc) =
+    let n = len(poles)
+    let r = if idx < n
+      let x = pole_move(poles[idx], vs[idx], dt)
+      let y = pole_move(poles[idx + 1], vs[idx + 1], dt)
+      qa_evolve_poles_impl(poles, vs, dt, idx + 2, acc.push(x).push(y))
+    else
+      acc
+    r
+
+let qa_evolve_poles(poles, vs, dt) = qa_evolve_poles_impl(poles, vs, dt, 0, [])
+
+let qa_scene_sequence_impl(poles, vs, dt, n, idx, acc) =
+    let r = if idx < n
+      let next = qa_evolve_poles(poles, vs, dt)
+      qa_scene_sequence_impl(next, vs, dt, n, idx + 1, acc.push(qa_poles_to_dag(next)))
+    else
+      acc
+    r
+
+let qa_scene_sequence(poles, vs, dt, n) =
+    qa_scene_sequence_impl(poles, vs, dt, n - 1, 0, [qa_poles_to_dag(poles)])
+
+let qa_animate(poles, vs, dt, n) =
+    let scenes = qa_scene_sequence(poles, vs, dt, n)
+    qs_simulate(scenes)
+
+let qa_restore_poles(dag) = qa_dag_to_poles(dag)
+
+let qa_render_ok(poles, vs, dt, n) =
+    let scenes = qa_scene_sequence(poles, vs, dt, n)
+    let last = scenes[scenes.len() - 1]
+    let expected = qa_scene_sequence(poles, vs, dt, n)[n - 1]
+    qa_poles_same(qa_restore_poles(last), qa_restore_poles(expected), 0)
+
+let qa_summary() =
+    { theory: "pole dynamics x frame-stream protocol (remote animation)", codec: "poles → QQBC DAG (schedule_hint=x, fusion_group=y)", stream: "first frame FULL + displacement DELTA (bandwidth ∝ moving particles)", restore: "receiver evolves locally into animation (unlimited resolution x time)", principle: "transmit pole trajectories, evolve locally on client — animation has no frame rate" }

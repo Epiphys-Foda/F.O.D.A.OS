@@ -1,0 +1,7 @@
+let path = host_call(3, 0, 0)
+let n = host_call(2, path, 0)
+let b6 = host_call(4, 6, 0)
+let b7 = host_call(4, 7, 0)
+let two = (b7 >= 48) * (b7 <= 57)
+let num = (b6 - 48) * (1 + two * 9) + (b7 - 48) * two
+host_call(1, num, 0)

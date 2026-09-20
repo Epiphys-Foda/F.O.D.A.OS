@@ -1,0 +1,1212 @@
+let WOP_END = 11
+let WOP_LOCAL_GET = 32
+let WOP_LOCAL_SET = 33
+let WOP_SELECT = 27
+let WOP_I32_CONST = 65
+let WOP_I32_ADD = 106
+let WOP_I32_SUB = 107
+let WOP_I32_MUL = 108
+let WOP_I32_REM_U = 111
+let WOP_I32_AND = 113
+let WOP_I32_OR = 114
+let WOP_I32_XOR = 115
+
+let WOP_I32_EQ = 70
+let WOP_I32_NE = 71
+let WOP_I32_LT_S = 72
+let WOP_I32_GT_S = 74
+
+let WOP_I32_SHL = 116
+let WOP_I32_SHR_U = 118
+let WOP_I32_SHR_S = 117
+
+let WOP_DROP = 26
+let WOP_I32_LOAD = 40
+let WOP_I32_STORE = 54
+
+let WOP_BLOCK = 2
+let WOP_LOOP = 3
+let WOP_IF = 4
+let WOP_ELSE = 5
+let WOP_BR = 12
+let WOP_BR_IF = 13
+
+let WOP_I32_DIV_S = 109
+let WOP_I32_LE_S = 76
+let WOP_I32_GE_S = 78
+let WOP_I32_EQZ = 69
+
+let WOP_CALL = 16
+
+let WOP_RETURN = 15
+let WOP_LOCAL_TEE = 34
+let WOP_GLOBAL_GET = 35
+let WOP_GLOBAL_SET = 36
+let WOP_I32_REM_S = 79
+
+let WOP_I64_CONST = 66
+let WOP_I64_ADD = 124
+let WOP_I64_SUB = 125
+let WOP_I64_MUL = 126
+let WOP_I64_DIV_S = 127
+let WOP_I64_REM_S = 129
+let WOP_I64_GT_S = 85
+let WOP_I64_GE_S = 87
+let WOP_I64_EXTEND_I32_S = 172
+let WOP_I32_WRAP_I64 = 167
+
+let WSEC_CODE = 10
+let WSEC_GLOBAL = 6
+
+let pow128(n) =
+    let r = 1
+    let i = 0
+    for i < n
+      r = r * 128
+      i = i + 1
+    r
+
+let uleb128_decode(bytes, offset) =
+    let result = 0
+    let shift = 0
+    let pos = offset
+    let done = 0
+    for done == 0
+      let byte = bytes[pos]
+      let low7 = byte - (byte / 128) * 128
+      if byte < 128
+        result = result + low7 * pow128(shift)
+        done = 1
+      else
+        result = result + low7 * pow128(shift)
+        shift = shift + 1
+        0
+      pos = pos + 1
+    [result, pos]
+
+let sleb128_decode(bytes, offset) =
+    let result = 0
+    let shift = 0
+    let pos = offset
+    let done = 0
+    for done == 0
+      let byte = bytes[pos]
+      let low7 = byte - (byte / 128) * 128
+      if byte < 128
+        result = result + low7 * pow128(shift)
+        if byte >= 64
+          result = result - pow128(shift + 1)
+        else
+          0
+        done = 1
+      else
+        result = result + low7 * pow128(shift)
+        shift = shift + 1
+        0
+      pos = pos + 1
+    [result, pos]
+
+let lsb(v) =
+    let r = v - (v / 2) * 2
+    (r < 0 ? r + 2 : r)
+
+let asr1(v) =
+    (v < 0 ? (v - 1) / 2 : v / 2)
+
+let to_i32(u) =
+    (u >= 2147483648 ? u - 4294967296 : u)
+
+let bit_and(a, b) =
+    let result = 0
+    let bit = 1
+    let aa = a
+    let bb = b
+    let i = 0
+    for i < 32
+      if (lsb(aa) == 1) && (lsb(bb) == 1)
+        result = result + bit
+      else
+        0
+      aa = asr1(aa)
+      bb = asr1(bb)
+      bit = bit * 2
+      i = i + 1
+    to_i32(result)
+
+let bit_or(a, b) =
+    let result = 0
+    let bit = 1
+    let aa = a
+    let bb = b
+    let i = 0
+    for i < 32
+      if (lsb(aa) == 1) || (lsb(bb) == 1)
+        result = result + bit
+      else
+        0
+      aa = asr1(aa)
+      bb = asr1(bb)
+      bit = bit * 2
+      i = i + 1
+    to_i32(result)
+
+let bit_xor(a, b) =
+    let result = 0
+    let bit = 1
+    let aa = a
+    let bb = b
+    let i = 0
+    for i < 32
+      if lsb(aa) != lsb(bb)
+        result = result + bit
+      else
+        0
+      aa = asr1(aa)
+      bb = asr1(bb)
+      bit = bit * 2
+      i = i + 1
+    to_i32(result)
+
+let pow2(n) =
+    let r = 1
+    let i = 0
+    for i < n
+      r = r * 2
+      i = i + 1
+    r
+
+let bit_shl(a, count) =
+    let au = a
+    if au < 0
+      au = au + 4294967296
+    else
+      0
+    let shifted = au * pow2(count)
+    let shifted_mod = shifted - (shifted / 4294967296) * 4294967296
+    to_i32(shifted_mod)
+
+let bit_shr_u(a, count) =
+    let au = a
+    if au < 0
+      au = au + 4294967296
+    else
+      0
+    let divisor = pow2(count)
+    let q = au / divisor
+    to_i32(q)
+
+let bit_shr_s(a, count) =
+    let r = a
+    let i = 0
+    for i < count
+      r = asr1(r)
+      i = i + 1
+    r
+
+let i32_eq(a, b) =
+    (a == b ? 1 : 0)
+let i32_ne(a, b) =
+    (a != b ? 1 : 0)
+let i32_lt_s(a, b) =
+    (a < b ? 1 : 0)
+let i32_gt_s(a, b) =
+    (a > b ? 1 : 0)
+
+let i32_le_s(a, b) =
+    (a <= b ? 1 : 0)
+let i32_ge_s(a, b) =
+    (a >= b ? 1 : 0)
+let i32_eqz(a) =
+    (a == 0 ? 1 : 0)
+
+let i32_div_s(a, b) =
+    if b == 0
+    else
+      0
+    (b == 0 ? 0 : a / b)
+
+let i32_rem_s(a, b) =
+    (b == 0 ? 0 : a - (a / b) * b)
+
+let i64_gt_s(a, b) =
+    (a > b ? 1 : 0)
+let i64_ge_s(a, b) =
+    (a >= b ? 1 : 0)
+
+let i32_wrap_i64(v) =
+    let lo = v - (v / 4294967296) * 4294967296
+    to_i32(lo)
+
+let skip_one_opcode(body, pc) =
+    let opcode = body[pc]
+    let new_pc = pc + 1
+    if opcode == WOP_I32_CONST
+      new_pc = sleb128_decode(body, pc + 1)[1]
+    else
+      0
+    if opcode == WOP_LOCAL_GET || opcode == WOP_LOCAL_SET || opcode == WOP_LOCAL_TEE || opcode == WOP_GLOBAL_GET || opcode == WOP_GLOBAL_SET
+      new_pc = uleb128_decode(body, pc + 1)[1]
+    else
+      0
+    if opcode == WOP_IF || opcode == WOP_BLOCK || opcode == WOP_LOOP
+      new_pc = pc + 2
+    else
+      0
+    if opcode == WOP_BR
+      new_pc = uleb128_decode(body, pc + 1)[1]
+    else
+      0
+    if opcode == WOP_BR_IF
+      new_pc = uleb128_decode(body, pc + 1)[1]
+    else
+      0
+    if opcode == WOP_CALL
+      new_pc = uleb128_decode(body, pc + 1)[1]
+    else
+      0
+    if opcode == WOP_I32_LOAD || opcode == WOP_I32_STORE
+      let a1 = uleb128_decode(body, pc + 1)
+      let a2 = uleb128_decode(body, a1[1])
+      new_pc = a2[1]
+    else
+      0
+    if opcode == WOP_I64_CONST
+      new_pc = sleb128_decode(body, pc + 1)[1]
+    else
+      0
+    new_pc
+
+let find_if_targets(body, if_pos) =
+    let pc = if_pos + 2
+    let depth = 0
+    let else_pc = -1
+    let end_pc = -1
+    let done = false
+    for done == false
+      if pc < len(body)
+        let opcode = body[pc]
+        if opcode == WOP_IF || opcode == WOP_BLOCK || opcode == WOP_LOOP
+          depth = depth + 1
+          pc = pc + 2
+        else
+          0
+        if opcode == WOP_ELSE
+          if depth == 0
+            else_pc = pc
+          else
+            0
+          pc = pc + 1
+        else
+          0
+        if opcode == WOP_END
+          if depth == 0
+            end_pc = pc
+            done = true
+          else
+            depth = depth - 1
+            0
+          pc = pc + 1
+        else
+          0
+        if opcode != WOP_IF && opcode != WOP_BLOCK && opcode != WOP_LOOP && opcode != WOP_ELSE && opcode != WOP_END
+          pc = skip_one_opcode(body, pc)
+        else
+            0
+      else
+        done = true
+    [else_pc, end_pc]
+
+let find_end_pc(body, body_start) =
+    let pc = body_start
+    let depth = 0
+    let end_pc = len(body) - 1
+    let done = false
+    for done == false
+      if pc < len(body)
+        let opcode = body[pc]
+        if opcode == WOP_IF || opcode == WOP_BLOCK || opcode == WOP_LOOP
+          depth = depth + 1
+          pc = pc + 2
+        else
+          0
+        if opcode == WOP_ELSE
+          pc = pc + 1
+        else
+          0
+        if opcode == WOP_END
+          if depth == 0
+            end_pc = pc
+            done = true
+          else
+            depth = depth - 1
+            0
+          pc = pc + 1
+        else
+          0
+        if opcode != WOP_IF && opcode != WOP_BLOCK && opcode != WOP_LOOP && opcode != WOP_ELSE && opcode != WOP_END
+          pc = skip_one_opcode(body, pc)
+        else
+            0
+      else
+        done = true
+    end_pc
+
+let WSEC_TYPE = 1
+let WSEC_IMPORT = 2
+let WSEC_FUNC = 3
+let WSEC_EXPORT = 7
+
+let skip_limits(bytes, offset) =
+    let pos = offset
+    let flags = bytes[pos]
+    pos = pos + 1
+    let min_pair = uleb128_decode(bytes, pos)
+    pos = min_pair[1]
+    if (flags - (flags / 2) * 2) == 1
+      let max_pair = uleb128_decode(bytes, pos)
+      pos = max_pair[1]
+    else
+      0
+    pos
+
+let parse_type_section(bytes, offset) =
+    let pos = offset
+    let count_pair = uleb128_decode(bytes, pos)
+    let count = count_pair[0]
+    pos = count_pair[1]
+    let types = []
+    let i = 0
+    for i < count
+      pos = pos + 1
+      let np_pair = uleb128_decode(bytes, pos)
+      let np = np_pair[0]
+      pos = np_pair[1]
+      pos = pos + np
+      let nr_pair = uleb128_decode(bytes, pos)
+      let nr = nr_pair[0]
+      pos = nr_pair[1]
+      pos = pos + nr
+      types = types.push([np, nr])
+      i = i + 1
+    [types, pos]
+
+let parse_import_section(bytes, offset) =
+    let pos = offset
+    let count_pair = uleb128_decode(bytes, pos)
+    let count = count_pair[0]
+    pos = count_pair[1]
+    let import_func_types = []
+    let i = 0
+    for i < count
+      let mlen_pair = uleb128_decode(bytes, pos)
+      let mlen = mlen_pair[0]
+      pos = mlen_pair[1]
+      pos = pos + mlen
+      let flen_pair = uleb128_decode(bytes, pos)
+      let flen = flen_pair[0]
+      pos = flen_pair[1]
+      pos = pos + flen
+      let kind = bytes[pos]
+      pos = pos + 1
+      if kind == 0
+        let tidx_pair = uleb128_decode(bytes, pos)
+        let tidx = tidx_pair[0]
+        pos = tidx_pair[1]
+        import_func_types = import_func_types.push(tidx)
+      else
+        0
+      if kind == 1
+        pos = pos + 1
+        pos = skip_limits(bytes, pos)
+      else
+        0
+      if kind == 2
+        pos = skip_limits(bytes, pos)
+      else
+        0
+      if kind == 3
+        pos = pos + 2
+      else
+        0
+      i = i + 1
+    [import_func_types, pos]
+
+let parse_func_section(bytes, offset) =
+    let pos = offset
+    let count_pair = uleb128_decode(bytes, pos)
+    let count = count_pair[0]
+    pos = count_pair[1]
+    let func_type_idx = []
+    let i = 0
+    for i < count
+      let tidx_pair = uleb128_decode(bytes, pos)
+      let tidx = tidx_pair[0]
+      pos = tidx_pair[1]
+      func_type_idx = func_type_idx.push(tidx)
+      i = i + 1
+    [func_type_idx, pos]
+
+let parse_export_section(bytes, offset) =
+    let pos = offset
+    let count_pair = uleb128_decode(bytes, pos)
+    let count = count_pair[0]
+    pos = count_pair[1]
+    let export_names = []
+    let export_idxs = []
+    let i = 0
+    for i < count
+      let nlen_pair = uleb128_decode(bytes, pos)
+      let nlen = nlen_pair[0]
+      pos = nlen_pair[1]
+      let name_bytes = []
+      let j = 0
+      for j < nlen
+        name_bytes = name_bytes.push(bytes[pos + j])
+        j = j + 1
+      pos = pos + nlen
+      let kind = bytes[pos]
+      pos = pos + 1
+      let idx_pair = uleb128_decode(bytes, pos)
+      let idx = idx_pair[0]
+      pos = idx_pair[1]
+      if kind == 0
+        export_names = export_names.push(name_bytes)
+        export_idxs = export_idxs.push(idx)
+      else
+        0
+      i = i + 1
+    [export_names, export_idxs, pos]
+
+let parse_code_section_full(bytes, offset) =
+    let pos = offset
+    let count_pair = uleb128_decode(bytes, pos)
+    let count = count_pair[0]
+    pos = count_pair[1]
+    let code_locals = []
+    let code_bodies = []
+    let i = 0
+    for i < count
+      let bsize_pair = uleb128_decode(bytes, pos)
+      let bsize = bsize_pair[0]
+      pos = bsize_pair[1]
+      let body_end = pos + bsize
+      let ndecls_pair = uleb128_decode(bytes, pos)
+      let ndecls = ndecls_pair[0]
+      pos = ndecls_pair[1]
+      let n_locals = 0
+      let k = 0
+      for k < ndecls
+        let n_pair = uleb128_decode(bytes, pos)
+        let n = n_pair[0]
+        pos = n_pair[1]
+        pos = pos + 1
+        n_locals = n_locals + n
+        k = k + 1
+      let body = bytes.slice(pos, body_end)
+      code_locals = code_locals.push(n_locals)
+      code_bodies = code_bodies.push(body)
+      pos = body_end
+      i = i + 1
+    [code_locals, code_bodies, pos]
+
+let parse_global_section(bytes, offset) =
+    let pos = offset
+    let count_pair = uleb128_decode(bytes, pos)
+    let count = count_pair[0]
+    pos = count_pair[1]
+    let global_inits = []
+    let i = 0
+    for i < count
+      pos = pos + 1
+      pos = pos + 1
+      let opcode = bytes[pos]
+      pos = pos + 1
+      if opcode == WOP_I32_CONST
+        let vpair = sleb128_decode(bytes, pos)
+        global_inits = global_inits.push(vpair[0])
+        pos = vpair[1]
+      else
+        if opcode == WOP_I64_CONST
+          let vpair = sleb128_decode(bytes, pos)
+          global_inits = global_inits.push(vpair[0])
+          pos = vpair[1]
+        else
+          0
+      pos = pos + 1
+      i = i + 1
+    [global_inits, pos]
+
+let parse_module(wasm_bytes) =
+    let offset = 8
+    let types = []
+    let import_func_types = []
+    let func_type_idx = []
+    let export_names = []
+    let export_idxs = []
+    let code_locals = []
+    let code_bodies = []
+    let global_inits = []
+    let done = 0
+    for done == 0
+      if offset < len(wasm_bytes)
+        let sec_id = wasm_bytes[offset]
+        offset = offset + 1
+        let len_pair = uleb128_decode(wasm_bytes, offset)
+        let payload_len = len_pair[0]
+        offset = len_pair[1]
+        let section_end = offset + payload_len
+        if sec_id == WSEC_TYPE
+          let r = parse_type_section(wasm_bytes, offset)
+          types = r[0]
+          offset = r[1]
+        else
+          0
+        if sec_id == WSEC_IMPORT
+          let r = parse_import_section(wasm_bytes, offset)
+          import_func_types = r[0]
+          offset = r[1]
+        else
+          0
+        if sec_id == WSEC_FUNC
+          let r = parse_func_section(wasm_bytes, offset)
+          func_type_idx = r[0]
+          offset = r[1]
+        else
+          0
+        if sec_id == WSEC_EXPORT
+          let r = parse_export_section(wasm_bytes, offset)
+          export_names = r[0]
+          export_idxs = r[1]
+          offset = r[2]
+        else
+          0
+        if sec_id == WSEC_CODE
+          let r = parse_code_section_full(wasm_bytes, offset)
+          code_locals = r[0]
+          code_bodies = r[1]
+          offset = r[2]
+        else
+          0
+        if sec_id == WSEC_GLOBAL
+          let r = parse_global_section(wasm_bytes, offset)
+          global_inits = r[0]
+          offset = r[1]
+        else
+          0
+        offset = section_end
+      else
+        done = 1
+    [types, import_func_types, func_type_idx, export_names, export_idxs, code_locals, code_bodies, global_inits]
+
+let func_type_of(module, fidx) =
+    let types = module[0]
+    let import_func_types = module[1]
+    let func_type_idx = module[2]
+    let n_imports = len(import_func_types)
+    let tidx = if fidx < n_imports
+      import_func_types[fidx]
+    else
+      func_type_idx[fidx - n_imports]
+    types[tidx]
+
+let name_eq_main(name_bytes) =
+    let n = len(name_bytes)
+    if n != 4
+      0
+    else
+      if (name_bytes[0] == 109) && (name_bytes[1] == 97) && (name_bytes[2] == 105) && (name_bytes[3] == 110)
+        1
+      else
+        0
+
+let find_entry(module) =
+    let export_names = module[3]
+    let export_idxs = module[4]
+    let import_func_types = module[1]
+    let code_bodies = module[6]
+    let n_imports = len(import_func_types)
+    let entry = n_imports
+    let found = 0
+    let i = 0
+    for i < len(export_names)
+      if (found == 0) && (export_names[i].len() == 4)
+        if name_eq_main(export_names[i]) == 1
+          entry = export_idxs[i]
+          found = 1
+        else
+            0
+      else
+        0
+      i = i + 1
+      0
+    if (found == 0) && (len(code_bodies) == 0)
+      entry = 0
+    else
+      0
+    entry
+
+let u32_mod(a, b) =
+    let au = a
+    let bu = b
+    if au < 0
+      au = au + 4294967296
+    else
+      0
+    if bu < 0
+      bu = bu + 4294967296
+    else
+      0
+    au - (au / bu) * bu
+
+let find_code_section(wasm_bytes) =
+    let offset = 8
+    let body = []
+    let total_locals = 0
+    let done = 0
+    for done == 0
+      let sec_id = wasm_bytes[offset]
+      offset = offset + 1
+      let len_pair = uleb128_decode(wasm_bytes, offset)
+      let payload_len = len_pair[0]
+      offset = len_pair[1]
+      if sec_id == WSEC_CODE
+        let count_pair = uleb128_decode(wasm_bytes, offset)
+        offset = count_pair[1]
+        let fsize_pair = uleb128_decode(wasm_bytes, offset)
+        let func_size = fsize_pair[0]
+        let body_end = fsize_pair[1] + func_size
+        offset = fsize_pair[1]
+        let local_pair = uleb128_decode(wasm_bytes, offset)
+        let local_decl_count = local_pair[0]
+        offset = local_pair[1]
+        let ld = 0
+        let ld_done = false
+        for ld_done == false
+          if ld < local_decl_count
+            let cnt_pair = uleb128_decode(wasm_bytes, offset)
+            let cnt = cnt_pair[0]
+            offset = cnt_pair[1]
+            offset = offset + 1
+            total_locals = total_locals + cnt
+            ld = ld + 1
+          else
+            ld_done = true
+            0
+          0
+        body = wasm_bytes.slice(offset, body_end)
+        done = 1
+      else
+        offset = offset + payload_len
+        0
+      if offset >= len(wasm_bytes)
+        done = 1
+      else
+          0
+    [body, total_locals]
+
+let set_local(locals, idx, val) =
+    let n = len(locals)
+    if idx >= n
+    else
+      0
+    let front = locals.slice(0, idx)
+    let back = locals.slice(idx + 1, n)
+    [front, [val], back].flat()
+
+let mem_ensure(mem, idx) =
+    if idx < len(mem)
+      mem
+    else
+      let m = mem
+      let i = len(mem)
+      for i <= idx
+        m = m.push(0)
+        i = i + 1
+      m
+
+let mem_set(mem, idx, val) =
+    let m2 = mem_ensure(mem, idx)
+    let out = []
+    let i = 0
+    let done = false
+    for done == false
+      if i < len(m2)
+        if i == idx
+          out = out.push(val)
+        else
+          out = out.push(m2[i])
+          0
+        i = i + 1
+      else
+        done = true
+    out
+
+let wasm_exec(body, locals, module, mem, globals) =
+    let mem = mem
+    let globals = globals
+    let stack = []
+    let pc = 0
+    let done = 0
+    let block_stack = []
+    for done == 0
+      let opcode = body[pc]
+      pc = pc + 1
+      if opcode == WOP_I32_CONST
+        let pair = sleb128_decode(body, pc)
+        pc = pair[1]
+        stack = stack.push(pair[0])
+      else
+        0
+      if opcode == WOP_LOCAL_GET
+        let pair = uleb128_decode(body, pc)
+        pc = pair[1]
+        stack = stack.push(locals[pair.get(0)])
+      else
+        0
+      if opcode == WOP_LOCAL_SET
+        let pair = uleb128_decode(body, pc)
+        pc = pair[1]
+        let val = stack[stack.len() - 1]
+        stack = stack.slice(0, len(stack) - 1)
+        locals = set_local(locals, pair[0], val)
+      else
+        0
+      if opcode == WOP_I32_ADD
+        let b = stack[stack.len() - 1]
+        let a = stack[stack.len() - 2]
+        stack = stack.slice(0, len(stack) - 2).push(a + b)
+      else
+        0
+      if opcode == WOP_I32_SUB
+        let b = stack[stack.len() - 1]
+        let a = stack[stack.len() - 2]
+        stack = stack.slice(0, len(stack) - 2).push(a - b)
+      else
+        0
+      if opcode == WOP_I32_MUL
+        let b = stack[stack.len() - 1]
+        let a = stack[stack.len() - 2]
+        stack = stack.slice(0, len(stack) - 2).push(a * b)
+      else
+        0
+      if opcode == WOP_I32_REM_U
+        let b = stack[stack.len() - 1]
+        let a = stack[stack.len() - 2]
+        stack = stack.slice(0, len(stack) - 2).push(u32_mod(a, b))
+      else
+        0
+      if opcode == WOP_I32_AND
+        let b = stack[stack.len() - 1]
+        let a = stack[stack.len() - 2]
+        stack = stack.slice(0, len(stack) - 2).push(bit_and(a, b))
+      else
+        0
+      if opcode == WOP_I32_OR
+        let b = stack[stack.len() - 1]
+        let a = stack[stack.len() - 2]
+        stack = stack.slice(0, len(stack) - 2).push(bit_or(a, b))
+      else
+        0
+      if opcode == WOP_I32_XOR
+        let b = stack[stack.len() - 1]
+        let a = stack[stack.len() - 2]
+        stack = stack.slice(0, len(stack) - 2).push(bit_xor(a, b))
+      else
+        0
+      if opcode == WOP_SELECT
+        let c = stack[stack.len() - 1]
+        let v2 = stack[stack.len() - 2]
+        let v1 = stack[stack.len() - 3]
+        if c != 0
+          stack = stack.slice(0, len(stack) - 3).push(v1)
+        else
+          stack = stack.slice(0, len(stack) - 3).push(v2)
+      else
+        0
+      if opcode == WOP_I32_EQ
+        let b = stack[stack.len() - 1]
+        let a = stack[stack.len() - 2]
+        stack = stack.slice(0, len(stack) - 2).push(i32_eq(a, b))
+      else
+        0
+      if opcode == WOP_I32_NE
+        let b = stack[stack.len() - 1]
+        let a = stack[stack.len() - 2]
+        stack = stack.slice(0, len(stack) - 2).push(i32_ne(a, b))
+      else
+        0
+      if opcode == WOP_I32_LT_S
+        let b = stack[stack.len() - 1]
+        let a = stack[stack.len() - 2]
+        stack = stack.slice(0, len(stack) - 2).push(i32_lt_s(a, b))
+      else
+        0
+      if opcode == WOP_I32_GT_S
+        let b = stack[stack.len() - 1]
+        let a = stack[stack.len() - 2]
+        stack = stack.slice(0, len(stack) - 2).push(i32_gt_s(a, b))
+      else
+        0
+      if opcode == WOP_I32_SHL
+        let count = stack[stack.len() - 1]
+        let a = stack[stack.len() - 2]
+        stack = stack.slice(0, len(stack) - 2).push(bit_shl(a, count))
+      else
+        0
+      if opcode == WOP_I32_SHR_U
+        let count = stack[stack.len() - 1]
+        let a = stack[stack.len() - 2]
+        stack = stack.slice(0, len(stack) - 2).push(bit_shr_u(a, count))
+      else
+        0
+      if opcode == WOP_I32_SHR_S
+        let count = stack[stack.len() - 1]
+        let a = stack[stack.len() - 2]
+        stack = stack.slice(0, len(stack) - 2).push(bit_shr_s(a, count))
+      else
+        0
+      if opcode == WOP_I32_DIV_S
+        let b = stack[stack.len() - 1]
+        let a = stack[stack.len() - 2]
+        stack = stack.slice(0, len(stack) - 2).push(i32_div_s(a, b))
+      else
+        0
+      if opcode == WOP_I32_LE_S
+        let b = stack[stack.len() - 1]
+        let a = stack[stack.len() - 2]
+        stack = stack.slice(0, len(stack) - 2).push(i32_le_s(a, b))
+      else
+        0
+      if opcode == WOP_I32_GE_S
+        let b = stack[stack.len() - 1]
+        let a = stack[stack.len() - 2]
+        stack = stack.slice(0, len(stack) - 2).push(i32_ge_s(a, b))
+      else
+        0
+      if opcode == WOP_I32_EQZ
+        let a = stack[stack.len() - 1]
+        stack = stack.slice(0, len(stack) - 1).push(i32_eqz(a))
+      else
+        0
+      if opcode == WOP_DROP
+        stack = stack.slice(0, len(stack) - 1)
+      else
+        0
+      if opcode == WOP_BLOCK
+        pc = pc + 1
+        let body_start = pc
+        let end_pc = find_end_pc(body, body_start)
+        block_stack = block_stack.push([1, body_start, end_pc, -1])
+      else
+        0
+      if opcode == WOP_LOOP
+        pc = pc + 1
+        let body_start = pc
+        let end_pc = find_end_pc(body, body_start)
+        block_stack = block_stack.push([2, body_start, end_pc, -1])
+      else
+        0
+      if opcode == WOP_BR
+        let pair = uleb128_decode(body, pc)
+        let label_idx = pair[0]
+        pc = pair[1]
+        let target = block_stack[block_stack.len() - 1 - label_idx]
+        let kind = target[0]
+        let start_pc = target[1]
+        let end_pc = target[2]
+        if kind == 2
+          pc = start_pc
+        else
+          block_stack = block_stack.slice(0, len(block_stack) - 1 - label_idx)
+          pc = end_pc + 1
+      else
+        0
+      if opcode == WOP_BR_IF
+        let pair = uleb128_decode(body, pc)
+        let label_idx = pair[0]
+        pc = pair[1]
+        let cond = stack[stack.len() - 1]
+        stack = stack.slice(0, len(stack) - 1)
+        if cond != 0
+          let target = block_stack[block_stack.len() - 1 - label_idx]
+          let kind = target[0]
+          let start_pc = target[1]
+          let end_pc = target[2]
+          if kind == 2
+            pc = start_pc
+          else
+            block_stack = block_stack.slice(0, len(block_stack) - 1 - label_idx)
+            pc = end_pc + 1
+        else
+            0
+      else
+        0
+      if opcode == WOP_IF
+        pc = pc + 1
+        let then_start = pc
+        let if_pos = pc - 2
+        let targets = find_if_targets(body, if_pos)
+        let else_pc = targets[0]
+        let end_pc = targets[1]
+        let cond = stack[stack.len() - 1]
+        stack = stack.slice(0, len(stack) - 1)
+        block_stack = block_stack.push([0, then_start, end_pc, else_pc])
+        if cond == 0
+          if else_pc >= 0
+            pc = else_pc + 1
+          else
+            pc = end_pc + 1
+        else
+            0
+      else
+        0
+      if opcode == WOP_ELSE
+        let top = block_stack[block_stack.len() - 1]
+        let end_pc = top[2]
+        pc = end_pc
+      else
+        0
+      if opcode == WOP_END
+        if len(block_stack) > 0
+          block_stack = block_stack.slice(0, len(block_stack) - 1)
+        else
+          done = 1
+      else
+        0
+      if opcode == WOP_I32_LOAD
+        let align_pair = uleb128_decode(body, pc)
+        pc = align_pair[1]
+        let off_pair = uleb128_decode(body, pc)
+        pc = off_pair[1]
+        let addr = stack[stack.len() - 1]
+        stack = stack.slice(0, len(stack) - 1)
+        let mem_idx = (addr + off_pair[0]) / 4
+        let m2 = mem_ensure(mem, mem_idx)
+        stack = stack.push(m2[mem_idx])
+      else
+        0
+      if opcode == WOP_I32_STORE
+        let align_pair = uleb128_decode(body, pc)
+        pc = align_pair[1]
+        let off_pair = uleb128_decode(body, pc)
+        pc = off_pair[1]
+        let val = stack[stack.len() - 1]
+        stack = stack.slice(0, len(stack) - 1)
+        let addr = stack[stack.len() - 1]
+        stack = stack.slice(0, len(stack) - 1)
+        let mem_idx = (addr + off_pair[0]) / 4
+        mem = mem_set(mem, mem_idx, val)
+      else
+        0
+      if opcode == WOP_CALL
+        let pair = uleb128_decode(body, pc)
+        let func_idx = pair[0]
+        pc = pair[1]
+        if func_idx == 0
+          let arg2 = stack[stack.len() - 1]
+          let arg1 = stack[stack.len() - 2]
+          let hid = stack[stack.len() - 3]
+          stack = stack.slice(0, len(stack) - 3)
+          let handled = 0
+          if hid == 1
+            print(arg1)
+            stack = stack.push(arg1)
+            handled = 1
+          else
+            0
+          if (handled == 0) && (hid == 21)
+            stack = stack.push(gfmul(arg1, arg2))
+            handled = 1
+          else
+            0
+          if (handled == 0) && (hid == 22)
+            stack = stack.push(gfadd(arg1, arg2))
+            handled = 1
+          else
+            0
+          if handled == 0
+            stack = stack.push(host_call(hid, arg1, arg2))
+          else
+            0
+        else
+          0
+        if (func_idx != 0) && (len(module) > 0)
+          let ft = func_type_of(module, func_idx)
+          let n_params = ft[0]
+          let n_results = ft[1]
+          let n_imports = module[1].len()
+          let def_idx = func_idx - n_imports
+          let body2 = module[6][def_idx]
+          let n_locals2 = module[5][def_idx]
+          let call_args = []
+          let k = 0
+          for k < n_params
+            call_args = call_args.push(stack[stack.len() - n_params + k])
+            k = k + 1
+          stack = stack.slice(0, len(stack) - n_params)
+          let locals2 = call_args
+          let m = 0
+          for m < n_locals2
+            locals2 = locals2.push(0)
+            m = m + 1
+            0
+          if len(locals2) >= 2 && len(locals) >= 2
+            let mp_idx = len(locals2) - 2
+            let caller_mp = locals[locals.len() - 2]
+            locals2 = [locals2.slice(0, mp_idx), [caller_mp], locals2.slice(mp_idx + 1, len(locals2))].flat()
+          else
+            0
+          let rr = wasm_exec(body2, locals2, module, mem, globals)
+          mem = rr[1]
+          globals = rr[2]
+          let r = rr[0]
+          if n_results > 0
+            stack = stack.push(r)
+          else
+              0
+        else
+          0
+        if (func_idx != 0) && (len(module) == 0)
+          stack = stack.push(0)
+        else
+            0
+      else
+        0
+      if opcode == WOP_RETURN
+        done = 1
+      else
+        0
+      if opcode == WOP_LOCAL_TEE
+        let pair = uleb128_decode(body, pc)
+        pc = pair[1]
+        let val = stack[stack.len() - 1]
+        locals = set_local(locals, pair[0], val)
+      else
+        0
+      if opcode == WOP_GLOBAL_GET
+        let pair = uleb128_decode(body, pc)
+        pc = pair[1]
+        stack = stack.push(globals[pair[0]])
+      else
+        0
+      if opcode == WOP_GLOBAL_SET
+        let pair = uleb128_decode(body, pc)
+        pc = pair[1]
+        let val = stack[stack.len() - 1]
+        stack = stack.slice(0, len(stack) - 1)
+        globals = set_local(globals, pair[0], val)
+      else
+        0
+      if opcode == WOP_I32_REM_S
+        let b = stack[stack.len() - 1]
+        let a = stack[stack.len() - 2]
+        stack = stack.slice(0, len(stack) - 2).push(i32_rem_s(a, b))
+      else
+        0
+      if opcode == WOP_I64_CONST
+        let pair = sleb128_decode(body, pc)
+        pc = pair[1]
+        stack = stack.push(pair[0])
+      else
+        0
+      if opcode == WOP_I64_ADD
+        let b = stack[stack.len() - 1]
+        let a = stack[stack.len() - 2]
+        stack = stack.slice(0, len(stack) - 2).push(a + b)
+      else
+        0
+      if opcode == WOP_I64_SUB
+        let b = stack[stack.len() - 1]
+        let a = stack[stack.len() - 2]
+        stack = stack.slice(0, len(stack) - 2).push(a - b)
+      else
+        0
+      if opcode == WOP_I64_MUL
+        let b = stack[stack.len() - 1]
+        let a = stack[stack.len() - 2]
+        stack = stack.slice(0, len(stack) - 2).push(a * b)
+      else
+        0
+      if opcode == WOP_I64_DIV_S
+        let b = stack[stack.len() - 1]
+        let a = stack[stack.len() - 2]
+        stack = stack.slice(0, len(stack) - 2).push(i32_div_s(a, b))
+      else
+        0
+      if opcode == WOP_I64_REM_S
+        let b = stack[stack.len() - 1]
+        let a = stack[stack.len() - 2]
+        stack = stack.slice(0, len(stack) - 2).push(i32_rem_s(a, b))
+      else
+        0
+      if opcode == WOP_I64_GT_S
+        let b = stack[stack.len() - 1]
+        let a = stack[stack.len() - 2]
+        stack = stack.slice(0, len(stack) - 2).push(i64_gt_s(a, b))
+      else
+        0
+      if opcode == WOP_I64_GE_S
+        let b = stack[stack.len() - 1]
+        let a = stack[stack.len() - 2]
+        stack = stack.slice(0, len(stack) - 2).push(i64_ge_s(a, b))
+      else
+        0
+      if opcode == WOP_I64_EXTEND_I32_S
+        0
+      else
+        0
+      if opcode == WOP_I32_WRAP_I64
+        let a = stack[stack.len() - 1]
+        stack = stack.slice(0, len(stack) - 1).push(i32_wrap_i64(a))
+      else
+        0
+      if (opcode != WOP_END) && (opcode != WOP_I32_CONST) && (opcode != WOP_LOCAL_GET) && (opcode != WOP_LOCAL_SET) && (opcode != WOP_I32_ADD) && (opcode != WOP_I32_SUB) && (opcode != WOP_I32_MUL) && (opcode != WOP_I32_REM_U) && (opcode != WOP_I32_AND) && (opcode != WOP_I32_OR) && (opcode != WOP_I32_XOR) && (opcode != WOP_SELECT) && (opcode != WOP_I32_EQ) && (opcode != WOP_I32_NE) && (opcode != WOP_I32_LT_S) && (opcode != WOP_I32_GT_S) && (opcode != WOP_I32_SHL) && (opcode != WOP_I32_SHR_U) && (opcode != WOP_I32_SHR_S) && (opcode != WOP_DROP) && (opcode != WOP_I32_LOAD) && (opcode != WOP_I32_STORE) && (opcode != WOP_IF) && (opcode != WOP_ELSE) && (opcode != WOP_BLOCK) && (opcode != WOP_LOOP) && (opcode != WOP_BR) && (opcode != WOP_BR_IF) && (opcode != WOP_I32_DIV_S) && (opcode != WOP_I32_LE_S) && (opcode != WOP_I32_GE_S) && (opcode != WOP_I32_EQZ) && (opcode != WOP_CALL) && (opcode != WOP_RETURN) && (opcode != WOP_LOCAL_TEE) && (opcode != WOP_GLOBAL_GET) && (opcode != WOP_GLOBAL_SET) && (opcode != WOP_I32_REM_S) && (opcode != WOP_I64_CONST) && (opcode != WOP_I64_ADD) && (opcode != WOP_I64_SUB) && (opcode != WOP_I64_MUL) && (opcode != WOP_I64_DIV_S) && (opcode != WOP_I64_REM_S) && (opcode != WOP_I64_GT_S) && (opcode != WOP_I64_GE_S) && (opcode != WOP_I64_EXTEND_I32_S) && (opcode != WOP_I32_WRAP_I64)
+        done = 1
+      else
+        0
+      0
+    [stack[stack.len() - 1], mem, globals]
+
+let wasm_run(wasm_bytes, a, b) =
+    let module = parse_module(wasm_bytes)
+    let entry = find_entry(module)
+    let n_imports = module[1].len()
+    let def_idx = entry - n_imports
+    let code_bodies = module[6]
+    let body = if len(code_bodies) == 0
+      [WOP_END]
+    else
+      code_bodies[def_idx]
+    let n_locals = if len(code_bodies) == 0
+      0
+    else
+      module[5][def_idx]
+    let ft = if len(code_bodies) == 0
+      [2, 1]
+    else
+      func_type_of(module, entry)
+    let n_params = ft[0]
+    let locals = []
+    if n_params >= 1
+      locals = locals.push(a)
+    else
+      0
+    if n_params >= 2
+      locals = locals.push(b)
+    else
+      0
+    let p = 2
+    for p < n_params
+      locals = locals.push(0)
+      p = p + 1
+      0
+    let i = 0
+    for i < n_locals
+      locals = locals.push(0)
+      i = i + 1
+    let mem = []
+    let globals = if len(module) > 7
+      module[7]
+    else
+      []
+    wasm_exec(body, locals, module, mem, globals)[0]

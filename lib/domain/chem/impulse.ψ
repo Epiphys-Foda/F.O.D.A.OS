@@ -1,0 +1,29 @@
+import "ck.ψ"
+let bad = [0]
+
+let f_n = 10
+let dt_s = 2
+let m_kg = 5
+let dv = 4
+let impulse = f_n * dt_s
+let dz1 = impulse - m_kg * dv
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let v_light = 20
+let v_heavy = 2
+let dz2 = v_light - v_heavy * 10
+bad[0] = bad[0] + ck(dz2, 0, 0)
+bad[0] = bad[0] + ck_hi(v_heavy, v_light)
+
+let f_hard = 98000
+let f_soft = 1960
+bad[0] = bad[0] + ck_hi(f_soft, f_hard)
+if f_hard < f_soft * 10
+    bad[0] = bad[0] + 1
+
+if 1644 < 1642
+    bad[0] = bad[0] + 1
+if 1644 > 1646
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,420 @@
+import "../domain_field.ψ"
+
+let instance_new(id, host, port, weight) =
+    [id, host, port, weight, 1, 0]
+
+let inst_id(i) = i[0]
+let inst_host(i) = i[1]
+let inst_port(i) = i[2]
+let inst_weight(i) = i[3]
+let inst_healthy(i) = i[4]
+let inst_conns(i) = i[5]
+
+let inst_set_healthy(i, h) =
+    i[4] = h
+    i
+
+let inst_inc_conn(i) =
+    i[5] = i[5] + 1
+    i
+
+let inst_dec_conn(i) =
+    i[5] = i[5] - 1
+    i
+
+let registry_new() =
+    [{}, {}, {}, {}]
+
+let reg_services(r) = r[0]
+let reg_routes(r) = r[1]
+let reg_cbs(r) = r[2]
+let reg_metrics(r) = r[3]
+
+let service_new(name, lb_policy) =
+    [name, [], lb_policy, {}]
+
+let svc_name(s) = s[0]
+let svc_instances(s) = s[1]
+let svc_policy(s) = s[2]
+let svc_cb(s) = s[3]
+
+let service_add_instance(s, inst) =
+    let instances = svc_instances(s)
+    instances.push(inst)
+    s[1] = instances
+    s
+
+let lb_round_robin(instances, counter) =
+    let n = len(instances)
+    if n == 0
+        0
+    else
+        let idx = counter % n
+        instances[idx]
+
+let lb_least_connections(instances) =
+    let best = 0
+    let min_conns = 65536
+    let i = 0
+    let n = len(instances)
+    for i < n
+        let inst = instances[i]
+        if inst_healthy(inst) == 1
+            let c = inst_conns(inst)
+            if c < min_conns
+                min_conns = c
+                best = inst
+        i = i + 1
+    best
+
+let lb_weighted_rr(instances, counter) =
+    let total_weight = 0
+    let i = 0
+    let n = len(instances)
+    for i < n
+        let inst = instances[i]
+        if inst_healthy(inst) == 1
+            total_weight = total_weight + inst_weight(inst)
+        i = i + 1
+    if total_weight == 0
+        0
+    else
+        let target = counter % total_weight
+        let cumulative = 0
+        let i2 = 0
+        let found = 0
+        for i2 < n
+            let inst = instances[i2]
+            if inst_healthy(inst) == 1
+                cumulative = cumulative + inst_weight(inst)
+                if target < cumulative
+                    found = inst
+                    i2 = n
+            i2 = i2 + 1
+        found
+
+let lb_select(service, counter) =
+    let instances = svc_instances(service)
+    let policy = svc_policy(service)
+    if policy == 0
+        lb_round_robin(instances, counter)
+    else
+        0
+    if policy == 1
+        lb_least_connections(instances)
+    else
+        0
+    if policy == 2
+        lb_weighted_rr(instances, counter)
+    else
+        lb_round_robin(instances, counter)
+
+let cb_new(failure_threshold, timeout_ms) =
+    [0, 0, 0, failure_threshold, timeout_ms, 0]
+
+let cb_state(cb) = cb[0]
+let cb_failures(cb) = cb[1]
+let cb_successes(cb) = cb[2]
+let cb_threshold(cb) = cb[3]
+let cb_timeout(cb) = cb[4]
+let cb_last_fail(cb) = cb[5]
+
+let cb_record_success(cb) =
+    if cb_state(cb) == 2
+        cb[2] = cb[2] + 1
+        if cb[2] >= 2
+            cb[0] = 0
+            cb[1] = 0
+        else
+            0
+        cb[1] = 0
+    cb
+
+let cb_record_failure(cb, current_time) =
+    cb[1] = cb[1] + 1
+    cb[5] = current_time
+    if cb[1] >= cb_threshold(cb)
+        cb[0] = 1
+    cb
+
+let cb_can_request(cb, current_time) =
+    let state = cb_state(cb)
+    if state == 0
+        1
+    else
+        0
+    if state == 1
+        if current_time - cb_last_fail(cb) > cb_timeout(cb)
+            cb[0] = 2
+            cb[2] = 0
+            1
+        else
+            0
+    else
+        1
+
+let token_bucket_new(capacity, rate) =
+    [capacity, rate, capacity, 0]
+
+let tb_capacity(tb) = tb[0]
+let tb_rate(tb) = tb[1]
+let tb_tokens(tb) = tb[2]
+let tb_last_refill(tb) = tb[3]
+
+let tb_refill(tb, current_time) =
+    let elapsed = current_time - tb_last_refill(tb)
+    let new_tokens = tb_tokens(tb) + (elapsed * tb_rate(tb))
+    let cap = tb_capacity(tb)
+    if new_tokens > cap
+        new_tokens = cap
+    tb[2] = new_tokens
+    tb[3] = current_time
+    tb
+
+let tb_try_consume(tb, current_time, count) =
+    tb = tb_refill(tb, current_time)
+    if tb_tokens(tb) >= count
+        tb[2] = tb_tokens(tb) - count
+        1
+    else
+        0
+
+let route_new(match_path, target_service, weight) =
+    [match_path, target_service, weight]
+
+let route_path(r) = r[0]
+let route_service(r) = r[1]
+let route_weight(r) = r[2]
+
+let registry_add_route(reg, route) =
+    let routes = reg_routes(reg)
+    routes[route_path(route)] = route
+    reg[1] = routes
+    reg
+
+let registry_match_route(reg, path) =
+    let routes = reg_routes(reg)
+    let keys = keys_of(routes)
+    let best = 0
+    let best_len = 0
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let p = keys[i]
+        let match_ok = 1
+        let j = 0
+        let pn = len(p)
+        for j < pn
+            if j >= len(path)
+                match_ok = 0
+                j = pn
+            else
+                0
+            if path[j] != p[j]
+                match_ok = 0
+                j = pn
+            j = j + 1
+        if match_ok == 1
+            if pn > best_len
+                best_len = pn
+                best = routes[p]
+        i = i + 1
+    best
+
+let retry_call(fn_ref, args, max_retries, timeout) =
+    let attempts = 0
+    let success = 0
+    let result = 0
+    for attempts <= max_retries && success == 0
+        if fn_ref != 0
+            result = fn_ref
+            success = 1
+        else
+            success = 0
+        attempts = attempts + 1
+    [success, result, attempts - 1]
+
+let mesh_call(reg, path, request, current_time, counter) =
+    let route = registry_match_route(reg, path)
+    if route == 0
+        [-1, "no_route"]
+    else
+        let svc_name = route_service(route)
+        let services = reg_services(reg)
+        let service = services[svc_name]
+        if service == 0
+            [-2, "no_service"]
+        else
+            let cb = svc_cb(service)
+            if cb != 0
+                if cb_can_request(cb, current_time) == 0
+                    [-3, "circuit_open"]
+            let inst = lb_select(service, counter)
+            if inst == 0
+                [-4, "no_instance"]
+            else
+                inst = inst_inc_conn(inst)
+                let result = [1, "ok"]
+                inst = inst_dec_conn(inst)
+                if cb != 0
+                    if result[0] == 1
+                        cb_record_success(cb)
+                    else
+                        cb_record_failure(cb, current_time)
+                result
+
+let service_mesh_verify() =
+    let ok1 = 1
+    let i1 = instance_new(1, "host1", 8080, 1)
+    let i2 = instance_new(2, "host2", 8080, 1)
+    let i3 = instance_new(3, "host3", 8080, 2)
+    if inst_id(i1) != 1
+        ok1 = 0
+    if inst_host(i2) != "host2"
+        ok1 = 0
+    if inst_weight(i3) != 2
+        ok1 = 0
+    if inst_healthy(i1) != 1
+        ok1 = 0
+
+    let ok2 = 1
+    let svc = service_new("api", 0)
+    svc = service_add_instance(svc, i1)
+    svc = service_add_instance(svc, i2)
+    svc = service_add_instance(svc, i3)
+    if len(svc_instances(svc)) != 3
+        ok2 = 0
+
+    let ok3 = 1
+    let inst_a = lb_round_robin(svc_instances(svc), 0)
+    if inst_id(inst_a) != 1
+        ok3 = 0
+    let inst_b = lb_round_robin(svc_instances(svc), 1)
+    if inst_id(inst_b) != 2
+        ok3 = 0
+    let inst_c = lb_round_robin(svc_instances(svc), 2)
+    if inst_id(inst_c) != 3
+        ok3 = 0
+    let inst_d = lb_round_robin(svc_instances(svc), 3)
+    if inst_id(inst_d) != 1
+        ok3 = 0
+
+    let ok4 = 1
+    let i4 = instance_new(4, "h4", 80, 1)
+    i4 = inst_inc_conn(i4)
+    i4 = inst_inc_conn(i4)
+    let svc2 = service_new("lc", 1)
+    svc2 = service_add_instance(svc2, instance_new(5, "h5", 80, 1))
+    svc2 = service_add_instance(svc2, i4)
+    let best = lb_least_connections(svc_instances(svc2))
+    if inst_id(best) != 5
+        ok4 = 0
+
+    let ok5 = 1
+    let cb = cb_new(3, 1000)
+    if cb_state(cb) != 0
+        ok5 = 0
+    cb = cb_record_failure(cb, 100)
+    cb = cb_record_failure(cb, 200)
+    if cb_state(cb) != 0
+        ok5 = 0
+    cb = cb_record_failure(cb, 300)
+    if cb_state(cb) != 1
+        ok5 = 0
+    if cb_can_request(cb, 500) != 0
+        ok5 = 0
+    if cb_can_request(cb, 1500) != 1
+        ok5 = 0
+    if cb_state(cb) != 2
+        ok5 = 0
+    cb = cb_record_success(cb)
+    cb = cb_record_success(cb)
+    if cb_state(cb) != 0
+        ok5 = 0
+
+    let ok6 = 1
+    let tb = token_bucket_new(5, 1)
+    if tb_try_consume(tb, 0, 1) != 1
+        ok6 = 0
+    if tb_try_consume(tb, 0, 5) != 1
+        ok6 = 0
+    if tb_try_consume(tb, 0, 4) != 1
+        ok6 = 0
+    if tb_try_consume(tb, 0, 1) != 0
+        ok6 = 0
+    if tb_try_consume(tb, 1, 1) != 1
+        ok6 = 0
+
+    let ok7 = 1
+    let reg = registry_new()
+    let route1 = route_new("/api/v1", "api_service", 100)
+    let route2 = route_new("/api/v2", "api_v2_service", 100)
+    reg = registry_add_route(reg, route1)
+    reg = registry_add_route(reg, route2)
+    let matched = registry_match_route(reg, "/api/v1/users")
+    if matched == 0
+        ok7 = 0
+    if route_service(matched) != "api_service"
+        ok7 = 0
+    let matched2 = registry_match_route(reg, "/api/v2/products")
+    if route_service(matched2) != "api_v2_service"
+        ok7 = 0
+
+    let ok8 = 1
+    let reg2 = registry_new()
+    let svc3 = service_new("api", 0)
+    svc3 = service_add_instance(svc3, instance_new(1, "h1", 80, 1))
+    let services = reg_services(reg2)
+    services["api"] = svc3
+    reg2[0] = services
+    reg2 = registry_add_route(reg2, route_new("/api", "api", 100))
+    let result = mesh_call(reg2, "/api/users", "request", 0, 0)
+    if result[0] != 1
+        ok8 = 0
+
+    let ok9 = 1
+    let svc4 = service_new("broken", 0)
+    svc4 = service_add_instance(svc4, instance_new(1, "h1", 80, 1))
+    let cb2 = cb_new(2, 1000)
+    svc4[3] = cb2
+    let services2 = reg_services(reg2)
+    services2["broken"] = svc4
+    reg2[0] = services2
+    reg2 = registry_add_route(reg2, route_new("/broken", "broken", 100))
+    cb2 = cb_record_failure(cb2, 0)
+    cb2 = cb_record_failure(cb2, 0)
+    let result2 = mesh_call(reg2, "/broken/x", "req", 100, 0)
+    if result2[0] == -3
+        ok9 = 0
+    if result2[0] != 1
+        ok9 = 0
+
+    let ok10 = 1
+    let retry_result = retry_call(100, [], 3, 1000)
+    if retry_result[0] != 1
+        ok10 = 0
+    if retry_result[2] != 0
+        ok10 = 0
+
+    let retry_result2 = retry_call(0, [], 3, 1000)
+    if retry_result2[0] != 0
+        ok10 = 0
+    if retry_result2[2] != 3
+        ok10 = 0
+
+    let all_ok = ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7 * ok8 * ok9 * ok10
+    if all_ok == 1
+        print("service_mesh_verify: ALL PASS")
+    else
+        print("service_mesh_verify: FAIL")
+        print(ok1)
+        print(ok2)
+        print(ok3)
+        print(ok4)
+        print(ok5)
+        print(ok6)
+        print(ok7)
+        print(ok8)
+        print(ok9)
+        print(ok10)
+    all_ok

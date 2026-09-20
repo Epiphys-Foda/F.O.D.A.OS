@@ -1,0 +1,131 @@
+import "render3d.ψ"
+
+let rf_db3_insert(db3, x, y, z, r) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(db3)
+        out = out.push(db3[i])
+        i = i + 1
+      else
+        done = true
+    out = out.push(x)
+    out = out.push(y)
+    out = out.push(z)
+    out = out.push(r)
+    out
+
+let rf_db3_field(db3, px, py, pz) =
+    let acc = 0
+    let i = 0
+    let done = false
+    for !done
+      if i + 3 < len(db3)
+        let dx = px - db3[i]
+        let dy = py - db3[i + 1]
+        let dz = pz - db3[i + 2]
+        let r = db3[i + 3]
+        let ax = (dx < 0 ? 0 - dx : dx)
+        let ay = (dy < 0 ? 0 - dy : dy)
+        let az = (dz < 0 ? 0 - dz : dz)
+        let dx2 = (ax > 26457 ? 700000000 : ax * ax)
+        let dy2 = (ay > 26457 ? 700000000 : ay * ay)
+        let dz2 = (az > 26457 ? 700000000 : az * az)
+        let d2 = dx2 + dy2 + dz2
+        let den = (d2 == 0 ? 1 : d2)
+        let term = r * 1000 / den
+        acc = acc + term - (term / 65537) * 65537
+        i = i + 4
+      else
+        done = true
+    acc
+
+let rf_db3_select(db3, cx, cy, cz, w, h, d) =
+    let sum = 0
+    let i = 0
+    let done = false
+    for !done
+      if i + 3 < len(db3)
+        let xk = db3[i]
+        let yk = db3[i + 1]
+        let zk = db3[i + 2]
+        let rk = db3[i + 3]
+        if xk > cx - w / 2 && xk < cx + w / 2 && yk > cy - h / 2 && yk < cy + h / 2 && zk > cz - d / 2 && zk < cz + d / 2
+          let s = sum + rk
+          (s >= 65537 ? (sum = s - 65537) : (sum = s))
+        else
+              0
+        i = i + 4
+      else
+            0
+        done = true
+    sum
+
+let rf_db3_slice(db3, z) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i + 3 < len(db3)
+        if db3[i + 2] == z
+          out = out.push(db3[i])
+          out = out.push(db3[i + 1])
+          out = out.push(db3[i + 3])
+        else
+          0
+        i = i + 4
+      else
+        done = true
+    out
+
+let rf_db3_join(a, b) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(a)
+        out = out.push(a[i])
+        i = i + 1
+      else
+        done = true
+    i = 0
+    done = false
+    for !done
+      if i < len(b)
+        out = out.push(b[i])
+        i = i + 1
+      else
+        done = true
+    out
+
+let rf_db3_render(db3, z, w, h) = rf_rd3_render(rf_db3_slice_to_poles(db3, z), w, h, z)
+
+let rf_db3_slice_to_poles(db3, z) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i + 3 < len(db3)
+        if db3[i + 2] == z
+          out = out.push(db3[i])
+          out = out.push(db3[i + 1])
+          out = out.push(db3[i + 2])
+          out = out.push(db3[i + 3])
+        else
+          0
+        i = i + 4
+      else
+        done = true
+    out
+
+let rf_db3_verify() =
+    let db3 = rf_db3_insert([], 0, 0, 0, 100)
+    let t1 = len(db3) == 4
+    let db3b = rf_db3_insert(db3, 0, 0, 0, 50)
+    let t2 = len(db3b) == 8
+    let t3 = rf_db3_field(db3, 0, 0, 0) > rf_db3_field(db3, 5, 5, 5)
+    let t4 = rf_db3_select(db3, 0, 0, 0, 10, 10, 10) == 100
+    let t5 = len(rf_db3_slice(db3, 0)) == 3 && len(rf_db3_slice(db3, 5)) == 0
+    let t6 = len(rf_db3_join(db3, [1, 1, 1, 50])) == 8
+    t1 && t2 && t3 && t4 && t5 && t6

@@ -1,0 +1,32 @@
+import "ck.ψ"
+let bad = [0]
+
+let slope = 552
+if 540 * 100 > slope * 100
+    bad[0] = bad[0] + 1
+if slope * 100 > 570 * 100
+    bad[0] = bad[0] + 1
+
+let mDC = 0 - 34
+if mDC < 0 - 40
+    bad[0] = bad[0] + 1
+if mDC > 0 - 30
+    bad[0] = bad[0] + 1
+
+let mV1 = 0 - 55
+if mV1 < 0 - 58
+    bad[0] = bad[0] + 1
+if mV1 > 0 - 50
+    bad[0] = bad[0] + 1
+
+let DM = 249
+bad[0] = bad[0] + ck(DM, 240, 260)
+
+let dM31 = 969
+if dM31 < 30 * 10
+    bad[0] = bad[0] + 1
+
+let v1 = 1923
+bad[0] = bad[0] + ck(v1, 1920, 1930)
+
+arr_get(arr_new_n(1), bad[0])

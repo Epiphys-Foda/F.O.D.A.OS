@@ -1,0 +1,5 @@
+import "../lib/core/stdlib/gf65537.ψ"
+print(GF_P)
+print(gf_tonelli_shanks(GF_P - 4))
+let xx = gf_p2_mul(gf_p2_x(), gf_p2_x())
+print(xx[0])

@@ -1,0 +1,44 @@
+import "ck.ψ"
+let bad = [0]
+
+let t1 = 0 * 0 - 4 * 0
+let t2 = 4 * 3 - 0 * 0
+let t3 = 0 * 0 - 0 * 3
+let tri_sum = t1 + t2 + t3
+let dz1 = tri_sum - 12
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let sq1 = 0 * 0 - 2 * 0
+let sq2 = 2 * 2 - 2 * 0
+let sq3 = 2 * 2 - 0 * 2
+let sq4 = 0 * 0 - 0 * 2
+let sq_sum = sq1 + sq2 + sq3 + sq4
+let dz2 = sq_sum - 8
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let sq_area = sq_sum / 2
+let dz3 = sq_area - 4
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let p1 = 0 * 0 - 2 * 0
+let p2 = 2 * 2 - 0 * 3
+let p3 = 3 * 4 - 2 * 1
+let p4 = 1 * 4 - 4 * (-1)
+let p5 = (-1) * 2 - 0 * 1
+let p_sum = p1 + p2 + p3 + p4 + p5
+let dz4 = p_sum - 20
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let rt1 = 0 * 0 - 6 * 0
+let rt2 = 6 * 8 - 0 * 0
+let rt3 = 0 * 8 - 0 * 0
+let rt_sum = rt1 + rt2 + rt3
+let dz5 = rt_sum - 48
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+if 1795 < 1793
+    bad[0] = bad[0] + 1
+if 1795 > 1797
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,27 @@
+let dilate(x, d) =
+    let s = d & 31
+    x | (x << s) | (x >> s)
+
+let erode(x, d) =
+    let s = d & 31
+    x & (x << s) & (x >> s)
+
+let open(x, d) = dilate(erode(x, d), d)
+
+let shut(x, d) = erode(dilate(x, d), d)
+
+let broad(x, m) =
+    let sel = x & m
+    x | sel | (sel >> 1)
+
+let spread(x, m) =
+    let left = (x << 1) & m
+    let right = (x >> 1) & m
+    x | left | right
+
+let cluster(x, d) = shut(open(x, d), d)
+
+let grad(x, d) =
+    let dil = dilate(x, d)
+    let ero = erode(x, d)
+    bit_xor(dil, ero)

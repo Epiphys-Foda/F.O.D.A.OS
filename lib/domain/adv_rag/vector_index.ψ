@@ -1,0 +1,315 @@
+let VI_TYPE_FLAT = 0
+let VI_TYPE_IVF = 1
+let VI_TYPE_HNSW = 2
+
+let VI_METRIC_L2 = 0
+let VI_METRIC_COSINE = 1
+let VI_METRIC_HAMMING = 2
+
+let vi_l2_squared(a, b) =
+    let sum = 0
+    let i = 0
+    let n = len(a)
+    for i < n
+        let d = a[i] - b[i]
+        let ax = (d < 0 ? 0 - d : d)
+        let d2 = (ax > 26457 ? 700000000 : ax * ax)
+        sum = sum + d2
+        i = i + 1
+    sum
+
+let vi_cosine_int(a, b) =
+    let sum = 0
+    let i = 0
+    let n = len(a)
+    for i < n
+        let p = a[i] * b[i]
+        let ap = (p < 0 ? 0 - p : p)
+        let ps = (ap > 1000000000 ? 1000000000 : p)
+        sum = sum + ps
+        i = i + 1
+    sum
+
+let vi_hamming(a, b) =
+    let d = 0
+    let i = 0
+    let n = len(a)
+    for i < n
+        let x = a[i] ^ b[i]
+        for x != 0
+            d = d + 1
+            x = x & (x - 1)
+        i = i + 1
+    d
+
+let vi_distance(metric, a, b) =
+    if metric == VI_METRIC_L2
+        vi_l2_squared(a, b)
+    else
+        0
+    if metric == VI_METRIC_COSINE
+        vi_cosine_int(a, b)
+    else
+        0
+    if metric == VI_METRIC_HAMMING
+        vi_hamming(a, b)
+    else
+        0
+
+let vi_entry_new(id, vector, label, ts) = [id, vector, label, ts]
+let vi_e_id(e) = e[0]
+let vi_e_vec(e) = e[1]
+let vi_e_label(e) = e[2]
+let vi_e_ts(e) = e[3]
+
+let vi_flat_new(metric, dim) = [[], metric, 1, dim]
+
+let vi_f_entries(f) = f[0]
+let vi_f_metric(f) = f[1]
+let vi_f_next(f) = f[2]
+let vi_f_dim(f) = f[3]
+
+let vi_f_set_entries(f, v) = [v, f[1], f[2], f[3]]
+let vi_f_set_next(f, v) = [f[0], f[1], v, f[3]]
+
+let vi_flat_add(f, vector, label, ts) =
+    let id = vi_f_next(f)
+    f = vi_f_set_next(f, id + 1)
+    let entry = vi_entry_new(id, vector, label, ts)
+    let entries = vi_f_entries(f)
+    entries.push(entry)
+    f = vi_f_set_entries(f, entries)
+    [f, id]
+
+let vi_flat_search(f, query, k) =
+    let entries = vi_f_entries(f)
+    let metric = vi_f_metric(f)
+    let scored = []
+    let i = 0
+    let n = len(entries)
+    for i < n
+        let e = entries[i]
+        let d = vi_distance(metric, query, vi_e_vec(e))
+        scored.push([d, vi_e_id(e)])
+        i = i + 1
+    let result = []
+    let j = 0
+    for j < k && j < len(scored)
+        let min_idx = j
+        let m = j + 1
+        for m < len(scored)
+            if scored[m][0] < scored[min_idx][0]
+                min_idx = m
+            m = m + 1
+        let tmp = scored[j]
+        scored[j] = scored[min_idx]
+        scored[min_idx] = tmp
+        result.push([scored[j][1], scored[j][0]])
+        j = j + 1
+    result
+
+let vi_flat_search_filtered(f, query, k, label_filter) =
+    let entries = vi_f_entries(f)
+    let metric = vi_f_metric(f)
+    let scored = []
+    let i = 0
+    let n = len(entries)
+    for i < n
+        let e = entries[i]
+        if label_filter == 0 || vi_e_label(e) == label_filter
+            let d = vi_distance(metric, query, vi_e_vec(e))
+            scored.push([d, vi_e_id(e)])
+        i = i + 1
+    let result = []
+    let j = 0
+    for j < k && j < len(scored)
+        let min_idx = j
+        let m = j + 1
+        for m < len(scored)
+            if scored[m][0] < scored[min_idx][0]
+                min_idx = m
+            m = m + 1
+        let tmp = scored[j]
+        scored[j] = scored[min_idx]
+        scored[min_idx] = tmp
+        result.push([scored[j][1], scored[j][0]])
+        j = j + 1
+    result
+
+let vi_ivf_new(metric, dim, n_clusters, nprobe) =
+    [[], [], metric, 1, dim, n_clusters, nprobe]
+
+let vi_iv_centroids(i) = i[0]
+let vi_iv_buckets(i) = i[1]
+let vi_iv_metric(i) = i[2]
+let vi_iv_next(i) = i[3]
+let vi_iv_dim(i) = i[4]
+let vi_iv_nc(i) = i[5]
+let vi_iv_nprobe(i) = i[6]
+
+let vi_iv_set_centroids(i, v) = [v, i[1], i[2], i[3], i[4], i[5], i[6]]
+let vi_iv_set_buckets(i, v) = [i[0], v, i[2], i[3], i[4], i[5], i[6]]
+let vi_iv_set_next(i, v) = [i[0], i[1], i[2], v, i[4], i[5], i[6]]
+
+let vi_ivf_init_centroids(ivf, vectors) =
+    let centroids = vi_iv_centroids(ivf)
+    let i = 0
+    let n = vi_iv_nc(ivf)
+    if n > len(vectors)
+        n = len(vectors)
+    for i < n
+        centroids.push(vectors[i])
+        i = i + 1
+    let buckets = vi_iv_buckets(ivf)
+    i = 0
+    for i < n
+        buckets.push([])
+        i = i + 1
+    ivf = vi_iv_set_centroids(ivf, centroids)
+    ivf = vi_iv_set_buckets(ivf, buckets)
+    ivf
+
+let vi_ivf_nearest_centroid(ivf, vector) =
+    let centroids = vi_iv_centroids(ivf)
+    let metric = vi_iv_metric(ivf)
+    let best = 0
+    let best_d = 0
+    let i = 0
+    let n = len(centroids)
+    for i < n
+        let d = vi_distance(metric, vector, centroids[i])
+        if i == 0 || d < best_d
+            best_d = d
+            best = i
+        i = i + 1
+    best
+
+let vi_ivf_add(ivf, vector, label, ts) =
+    let id = vi_iv_next(ivf)
+    ivf = vi_iv_set_next(ivf, id + 1)
+    let entry = vi_entry_new(id, vector, label, ts)
+    let cid = vi_ivf_nearest_centroid(ivf, vector)
+    let buckets = vi_iv_buckets(ivf)
+    buckets[cid].push(entry)
+    vi_iv_set_buckets(ivf, buckets)
+    [ivf, id]
+
+let vi_ivf_search(ivf, query, k) =
+    let metric = vi_iv_metric(ivf)
+    let centroids = vi_iv_centroids(ivf)
+    let nprobe = vi_iv_nprobe(ivf)
+    let scored_centroids = []
+    let i = 0
+    let n = len(centroids)
+    for i < n
+        let d = vi_distance(metric, query, centroids[i])
+        scored_centroids.push([d, i])
+        i = i + 1
+    let probe_buckets = []
+    let j = 0
+    for j < nprobe && j < len(scored_centroids)
+        let min_idx = j
+        let m = j + 1
+        for m < len(scored_centroids)
+            if scored_centroids[m][0] < scored_centroids[min_idx][0]
+                min_idx = m
+            m = m + 1
+        let tmp = scored_centroids[j]
+        scored_centroids[j] = scored_centroids[min_idx]
+        scored_centroids[min_idx] = tmp
+        probe_buckets.push(scored_centroids[j][1])
+        j = j + 1
+    let buckets = vi_iv_buckets(ivf)
+    let scored = []
+    let pb = 0
+    for pb < len(probe_buckets)
+        let bid = probe_buckets[pb]
+        let bucket = buckets[bid]
+        let bi = 0
+        let bn = len(bucket)
+        for bi < bn
+            let e = bucket[bi]
+            let d = vi_distance(metric, query, vi_e_vec(e))
+            scored.push([d, vi_e_id(e)])
+            bi = bi + 1
+        pb = pb + 1
+    let result = []
+    j = 0
+    for j < k && j < len(scored)
+        let min_idx = j
+        let m = j + 1
+        for m < len(scored)
+            if scored[m][0] < scored[min_idx][0]
+                min_idx = m
+            m = m + 1
+        let tmp = scored[j]
+        scored[j] = scored[min_idx]
+        scored[min_idx] = tmp
+        result.push([scored[j][1], scored[j][0]])
+        j = j + 1
+    result
+
+let vi_test_basic() =
+    let f = vi_flat_new(VI_METRIC_L2, 3)
+    let ok1 = 1
+    if vi_f_next(f) != 1
+        ok1 = 0
+
+    let r1 = vi_flat_add(f, [1, 2, 3], "a", 100)
+    f = r1[0]
+    let r2 = vi_flat_add(f, [4, 5, 6], "b", 200)
+    f = r2[0]
+    let r3 = vi_flat_add(f, [2, 3, 4], "a", 300)
+    f = r3[0]
+
+    let knn = vi_flat_search(f, [1, 2, 3], 2)
+    let ok2 = 1
+    if len(knn) != 2
+        ok2 = 0
+    else
+        0
+    if knn[0][0] != 1
+        ok2 = 0
+
+    let knn_filtered = vi_flat_search_filtered(f, [1, 2, 3], 10, "a")
+    let ok3 = 1
+    if len(knn_filtered) != 2
+        ok3 = 0
+
+    let ok4 = 1
+    if vi_l2_squared([1, 0, 0], [0, 0, 0]) != 1
+        ok4 = 0
+    if vi_cosine_int([1, 2], [3, 4]) != 11
+        ok4 = 0
+    if vi_hamming([1, 0], [0, 1]) != 2
+        ok4 = 0
+
+    let ivf = vi_ivf_new(VI_METRIC_L2, 3, 2, 1)
+    ivf = vi_ivf_init_centroids(ivf, [[1, 2, 3], [10, 20, 30]])
+    let ok5 = 1
+    if len(vi_iv_centroids(ivf)) != 2
+        ok5 = 0
+
+    let r4 = vi_ivf_add(ivf, [1, 2, 4], "a", 100)
+    ivf = r4[0]
+    let r5 = vi_ivf_add(ivf, [10, 20, 31], "b", 200)
+    ivf = r5[0]
+    let r6 = vi_ivf_add(ivf, [1, 3, 5], "a", 300)
+    ivf = r6[0]
+
+    let ivf_knn = vi_ivf_search(ivf, [1, 2, 3], 2)
+    let ok6 = 1
+    if len(ivf_knn) == 0
+        ok6 = 0
+
+    ok1 * ok2 * ok3 * ok4 * ok5 * ok6
+
+let vi_test_self() =
+        let ok = vi_test_basic()
+        if ok == 1
+            print("vector_index: ALL PASS")
+        else
+            print("vector_index: FAIL")
+        ok
+
+    vi_test_self()

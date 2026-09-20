@@ -1,0 +1,77 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let POP_SPEC_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let POP_SPEC_RESIDUES = [860, 500, 430, 370, 330, 300, 270, 185]
+
+let psi_pop_species(idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(idx), gf_norm(POP_SPEC_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(POP_SPEC_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let POP_AGE_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let POP_AGE_RESIDUES = [1000, 850, 700, 550, 400, 250, 100, 20]
+
+let psi_pop_age(cohort) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(cohort), gf_norm(POP_AGE_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(POP_AGE_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let POP_TRO_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let POP_TRO_RESIDUES = [1000, 100, 10, 1, 5, 50, 70, 1]
+
+let psi_pop_trophic(level) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(level), gf_norm(POP_TRO_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(POP_TRO_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let POP_DN_BASE = 1000
+let POP_DN_SCALE1 = 100
+let POP_DN_SCALE2 = 1000
+
+let pop_fit_growth_rate(species_idx, age_cohort, N, K) =
+    let r_term = gf_div(psi_pop_species(species_idx), POP_DN_SCALE1)
+    let k_term = gf_div(psi_pop_age(age_cohort), POP_DN_SCALE2)
+    let carrying = gf_sub(K, N)
+    gf_div(gf_mul(gf_mul(r_term, N), carrying), K)
+
+let POP_LV_BASE = 6283
+let POP_LV_SCALE = 100
+
+let pop_fit_LV_period(species_prey_idx, species_pred_idx) =
+    let a = gf_div(psi_pop_species(species_prey_idx), POP_LV_SCALE)
+    let d = gf_div(psi_pop_species(species_pred_idx), POP_LV_SCALE)
+    let prod = gf_mul(a, d)
+    let sqrt_prod = gf_sqrt(prod)
+    if sqrt_prod != 0
+        gf_div(POP_LV_BASE, sqrt_prod)
+    else
+        POP_LV_BASE
+
+let POP_R0_BASE = 1000
+let POP_R0_SCALE = 1000
+
+let pop_fit_net_reproductive_rate(age_cohort) =
+    let a_term = gf_div(psi_pop_age(age_cohort), POP_R0_SCALE)
+    gf_add(POP_R0_BASE, a_term)
+
+let pop_global_response(species_idx, age_cohort, trophic_level) =
+    let e1 = psi_pop_species(species_idx)
+    let e2 = psi_pop_age(age_cohort)
+    let e3 = psi_pop_trophic(trophic_level)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+

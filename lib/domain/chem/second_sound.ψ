@@ -1,0 +1,41 @@
+import "ck.ψ"
+let bad = [0]
+
+let tlam = 217
+bad[0] = bad[0] + ck(tlam, 215, 219)
+
+let v1 = 238
+bad[0] = bad[0] + ck(v1, 234, 242)
+
+let v2 = 20
+bad[0] = bad[0] + ck(v2, 15, 25)
+
+let vs2 = 137
+let v1sq = v1 * v1
+let dv = 3 * vs2 * vs2 - v1sq
+let dvr = 0 - dv
+bad[0] = bad[0] + ck_hi(dv, 1133)
+bad[0] = bad[0] + ck_hi(dvr, 1133)
+
+let rln = 30
+let rls = 70
+let rsum = rln + rls
+bad[0] = bad[0] + ck(rsum, 100, 100)
+
+let rs_lam = 0
+bad[0] = bad[0] + ck(rs_lam, 0, 0)
+
+if 1941 < 1939
+    bad[0] = bad[0] + 1
+if 1941 > 1943
+    bad[0] = bad[0] + 1
+if 1944 < 1942
+    bad[0] = bad[0] + 1
+if 1944 > 1946
+    bad[0] = bad[0] + 1
+if 2019 < 2017
+    bad[0] = bad[0] + 1
+if 2019 > 2021
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

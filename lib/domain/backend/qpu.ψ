@@ -1,0 +1,73 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let QPU_MAX_QUBITS = 128
+let QPU_MAX_GATES = 65536
+
+let QPU_H = 1
+let QPU_X = 2
+let QPU_Y = 3
+let QPU_Z = 4
+let QPU_S = 5
+let QPU_T = 6
+let QPU_CNOT = 7
+let QPU_CZ = 8
+let QPU_SWAP = 9
+let QPU_MEASURE = 10
+
+let qpu_circuit_create(n_qubits) = [[], n_qubits, 0, 0]
+let qpu_gate_create(kind, target) = [kind, target, -1, []]
+let qpu_gate_controlled(kind, target, control) = [kind, target, control, []]
+let qpu_circuit_add(circuit, gate) =
+    let gates = circuit[0]
+    gates.push(gate)
+    [gates, circuit[1], circuit[2] + 1, circuit[3] + 1]
+let qpu_h(circuit, target) = qpu_circuit_add(circuit, qpu_gate_create(QPU_H, target))
+let qpu_x(circuit, target) = qpu_circuit_add(circuit, qpu_gate_create(QPU_X, target))
+let qpu_cnot(circuit, control, target) = qpu_circuit_add(circuit, qpu_gate_controlled(QPU_CNOT, target, control))
+let qpu_measure(circuit, target) = qpu_circuit_add(circuit, qpu_gate_create(QPU_MEASURE, target))
+let pulse_create(freq, amplitude, duration, phase) = [freq, amplitude, duration, phase]
+let pulse_compose(p1, p2) = [gf_add(p1[0], p2[0]), gf_add(p1[1], p2[1]), gf_add(p1[2], p2[2]), gf_add(p1[3], p2[3])]
+let decompose_to_pulse(gate) =
+    let kind = gate[0]
+    if kind == QPU_H
+        [pulse_create(0, 100, 10, 0)]
+    else
+        if kind == QPU_X
+            [pulse_create(0, 200, 10, 0)]
+        else
+            [pulse_create(0, 100, 5, 0)]
+let circuit_to_pulses(circuit) =
+    let pulses = []
+    let gates = circuit[0]
+    let i = 0
+    let n = circuit[2]
+    for i < n
+        let gate_pulses = decompose_to_pulse(gates[i])
+        let j = 0
+        let m = len(gate_pulses)
+        for j < m
+            pulses.push(gate_pulses[j])
+            j = j + 1
+        i = i + 1
+    pulses
+let qpu_optimize(circuit) = circuit
+let field_qpu(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let qpu_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_qpu(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+

@@ -1,0 +1,245 @@
+import "algebraic_replacements.ψ"
+
+let MATH_DEG_Q1 = 90
+let MATH_DEG_Q2 = 180
+let MATH_DEG_Q3 = 270
+let MATH_DEG_FULL = 360
+let MATH_MILLI = 1000
+let MATH_BHASKARA_NUM = 4
+let MATH_BHASKARA_DEN = 40500
+let MATH_ATAN_COEFF = 45
+let MATH_TAN_HUGE = 1000000
+
+let math_gf_exp(x) = gf_exp(x)
+let math_gf_log(t) = gf_log(t)
+let math_gf_sin(k) = gf_sin(k)
+let math_gf_cos(k) = gf_cos(k)
+let math_gf_tanh(x) = gf_tanh(x)
+let math_gf_sigmoid(x) = gf_sigmoid(x)
+let math_gf_relu(x) = gf_relu(x)
+let math_gf_deriv(f, x) = gf_deriv(f, x)
+let math_gf_deriv2(f, x) = gf_deriv2(f, x)
+let math_gf_integral(f, a, b) = gf_integral(f, a, b)
+let math_gf_finite_search_min(f) = gf_finite_search_min(f)
+let math_gf_finite_search_max(f) = gf_finite_search_max(f)
+let math_gf_termination_bound(k) = gf_termination_bound(k)
+let math_gf_complex_mul(a, b, c, d) = gf_complex_mul(a, b, c, d)
+let math_gf_complex_abs_sq(a, b) = gf_complex_abs_sq(a, b)
+
+let math_abs(x) = ((x < 0) ? (0 - x) : (x))
+let math_mod(a, b) = a - (a / b) * b
+let math_sign(x) = ((x > 0) ? (1) : (((x < 0) ? (0 - 1) : (0))))
+let math_clamp(x, lo, hi) = ((x < lo) ? (lo) : (((x > hi) ? (hi) : (x))))
+
+let math_max(a, b) = ((a >= b) ? (a) : (b))
+let math_min(a, b) = ((a <= b) ? (a) : (b))
+let math_max3(a, b, c) = math_max(math_max(a, b), c)
+let math_min3(a, b, c) = math_min(math_min(a, b), c)
+
+let _gcd_acc(x, y) =
+    if y == 0
+        x
+    else
+        _gcd_acc(y, math_mod(x, y))
+let math_gcd(a, b) = _gcd_acc(math_abs(a), math_abs(b))
+let math_lcm(a, b) =
+    if a == 0
+        0
+    if b == 0
+        0
+    let g = math_gcd(a, b)
+    math_abs(a / g) * math_abs(b)
+let _pow_int_acc(base, exp, acc) =
+    if exp == 0
+        acc
+    else
+        if math_mod(exp, 2) == 1
+            _pow_int_acc(base * base, exp / 2, acc * base)
+        else
+            _pow_int_acc(base * base, exp / 2, acc)
+let math_pow_int(base, exp) =
+    if exp < 0
+        0
+    _pow_int_acc(base, exp, 1)
+let _isqrt_acc(n, i) =
+    if i * i > n
+        i - 1
+    else
+        _isqrt_acc(n, i + 1)
+let math_isqrt(n) =
+    if n <= 0
+        0
+    _isqrt_acc(n, 1)
+let math_is_square(n) =
+    if n < 0
+        0
+    let r = math_isqrt(n)
+    ((r * r == n) ? (1) : (0))
+
+let _factorial_acc(n, i, acc) =
+    if i > n
+        acc
+    else
+        _factorial_acc(n, i + 1, acc * i)
+let math_factorial(n) =
+    if n < 0
+        0
+    _factorial_acc(n, 2, 1)
+let _perm_acc(n, i, k, acc) =
+    if i >= k
+        acc
+    else
+        _perm_acc(n, i + 1, k, acc * (n - i))
+let math_perm(n, k) = _perm_acc(n, 0, k, 1)
+let _comb_acc(n, i, k, acc) =
+    if i >= k
+        acc
+    else
+        _comb_acc(n, i + 1, k, acc * (n - i) / (i + 1))
+let math_comb(n, k) =
+    if k < 0
+        0
+    if k > n
+        0
+    _comb_acc(n, 0, k, 1)
+let _fib_acc(i, n, a, b) =
+    if i > n
+        a
+    else
+        _fib_acc(i + 1, n, b, a + b)
+let math_fib(n) =
+    if n <= 0
+        0
+    if n == 1
+        1
+    _fib_acc(2, n, 0, 1)
+
+let _popcount_acc(x, count) =
+    if x == 0
+        count
+    else
+        _popcount_acc(x / 2, count + math_mod(x, 2))
+let math_popcount(n) = _popcount_acc(math_abs(n), 0)
+let _log2_int_acc(x, r) =
+    if x <= 1
+        r
+    else
+        _log2_int_acc(x / 2, r + 1)
+let math_log2_int(n) = _log2_int_acc(n, 0)
+let math_is_even(n) = ((math_mod(n, 2) == 0) ? (1) : (0))
+let math_is_odd(n) = ((math_mod(n, 2) != 0) ? (1) : (0))
+let math_pow2(n) = math_pow_int(2, n)
+let math_is_pow2(n) = ((n > 0 && math_popcount(n) == 1) ? (1) : (0))
+
+let math_floor_div(a, b) =
+    if b == 0
+        0
+    else
+        let q = a / b
+        let r = math_mod(a, b)
+        if r != 0
+            (((r < 0) != (b < 0)) ? (q - 1) : q)
+        else
+            q
+let math_ceil_div(a, b) =
+    if b == 0
+        0
+    else
+        let q = a / b
+        let r = math_mod(a, b)
+        if r != 0
+            (((r > 0) == (b > 0)) ? (q + 1) : q)
+        else
+            q
+let math_floor_mod(a, b) =
+    if b == 0
+        0
+    else
+        let r = math_mod(a, b)
+        if r == 0
+            r
+        else
+            (((r < 0) != (b < 0)) ? (r + b) : (r))
+let math_floor(x) = x
+let math_ceil(x) = x
+let math_trunc(x) = x
+
+let _sin_approx(deg) =
+    if deg <= 0
+        0
+    else
+        if deg >= MATH_DEG_Q1
+            MATH_MILLI
+        else
+            let d180 = deg * (MATH_DEG_Q2 - deg)
+            (MATH_BHASKARA_NUM * d180 * MATH_MILLI) / (MATH_BHASKARA_DEN - d180)
+let _sin_quadrant(deg) =
+    if deg <= MATH_DEG_Q1
+        [1, deg]
+    else
+        if deg <= MATH_DEG_Q2
+            [1, MATH_DEG_Q2 - deg]
+        else
+            if deg <= MATH_DEG_Q3
+                [0 - 1, deg - MATH_DEG_Q2]
+            else
+                [0 - 1, MATH_DEG_FULL - deg]
+let math_sin(deg) =
+    let d = math_mod(math_mod(deg, MATH_DEG_FULL) + MATH_DEG_FULL, MATH_DEG_FULL)
+    let q = _sin_quadrant(d)
+    let sign = arr_get(q, 0)
+    let abs_deg = arr_get(q, 1)
+    sign * _sin_approx(abs_deg)
+let math_cos(deg) = math_sin(deg + MATH_DEG_Q1)
+let math_tan(deg) =
+    let s = math_sin(deg)
+    let c = math_cos(deg)
+    if c == 0
+        ((s > 0) ? (MATH_TAN_HUGE) : (0 - MATH_TAN_HUGE))
+    else
+        (s * MATH_MILLI) / c
+let math_asin(x) =
+    if x < 0 - MATH_MILLI
+        0
+    else
+        if x > MATH_MILLI
+            0
+        else
+            (x * MATH_DEG_Q1) / MATH_MILLI
+let math_acos(x) = MATH_DEG_Q1 - math_asin(x)
+let math_atan(x) =
+    if x > MATH_MILLI
+        MATH_ATAN_COEFF
+    else
+        if x < 0 - MATH_MILLI
+            0 - MATH_ATAN_COEFF
+        else
+            (x * MATH_ATAN_COEFF) / MATH_MILLI
+
+let _math_range_acc(dst, base, i, n) =
+    if i >= n
+        dst
+    else
+        let _ = arr_set(dst, i, base + i)
+        _math_range_acc(dst, base, i + 1, n)
+let math_range(n) =
+    let nn = ((n > 0) ? (n) : (0))
+    _math_range_acc(arr_new_n(nn), 0, 0, nn)
+let math_range2(lo, hi) =
+    let n = ((hi > lo) ? (hi - lo) : (0))
+    _math_range_acc(arr_new_n(n), lo, 0, n)
+
+let math_sqr(x) = x ⊙ x
+let math_cube(x) = (x ⊙ x) ⊙ x
+let math_quad(x) = ((x ⊙ x) ⊙ x) ⊙ x
+let math_half(x) = x >> 1
+let math_twice(x) = x << 1
+let math_triple(x) = x + x + x
+let math_negate(x) = 0 - x
+let math_recip(x) = ((x == 0) ? (0) : (1 / x))
+let math_succ(x) = x + 1
+let math_pred(x) = x - 1
+let math_round(a, b) = ((b == 0) ? (0) : ((a + (b >> 1)) / b))
+
+let math_layer_id() = 79
+let math_module_count() = 51

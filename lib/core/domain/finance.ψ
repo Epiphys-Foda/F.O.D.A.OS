@@ -1,0 +1,300 @@
+import "../stdlib/gf65537.ψ"
+import "domain_list.ψ"
+
+let black_scholes_call_gf(S, K, r, sigma, T) =
+
+    let log_ratio = gf_sub(S, K)
+    let sigma_sq_half = gf_div(gf_mul(sigma, sigma), 2)
+    let drift = gf_mul(gf_add(r, sigma_sq_half), T)
+    let numerator = gf_add(log_ratio, drift)
+    let denom = gf_mul(sigma, T)
+    let d1 = gf_div(numerator, denom)
+    let d2 = gf_sub(d1, gf_mul(sigma, T))
+
+    let g_d1 = gf_pow(3, d1)
+    let g_neg_rT = gf_pow(3, gf_sub(0, gf_mul(r, T)))
+    let g_d2 = gf_pow(3, d2)
+
+    let term1 = gf_mul(S, g_d1)
+    let term2 = gf_mul(gf_mul(K, g_neg_rT), g_d2)
+    gf_sub(term1, term2)
+
+let black_scholes_put_gf(S, K, r, sigma, T) =
+    let call = black_scholes_call_gf(S, K, r, sigma, T)
+    let g_neg_rT = gf_pow(3, gf_sub(0, gf_mul(r, T)))
+    let PV_K = gf_mul(K, g_neg_rT)
+    gf_add(gf_sub(PV_K, S), call)
+
+let binomial_option_gf(S, K, r, sigma, T, n) =
+    let dt = gf_div(T, n)
+    let u = gf_pow(3, gf_mul(sigma, dt))
+    let d = gf_div(1, u)
+    let g_rdt = gf_pow(3, gf_mul(r, dt))
+    let p = gf_div(gf_sub(g_rdt, d), gf_sub(u, d))
+    let q = gf_sub(1, p)
+
+    binomial_rec_gf(S, K, u, d, p, q, r, dt, n, 0)
+
+let binomial_rec_gf(S, K, u, d, p, q, r, dt, n, i) =
+        if i >= n
+            let payoff = gf_sub(S, K)
+            (payoff > 0) ? payoff : 0
+        else
+            let S_up = gf_mul(S, u)
+            let S_down = gf_mul(S, d)
+            let C_up = binomial_rec_gf(S_up, K, u, d, p, q, r, dt, n, i + 1)
+            let C_down = binomial_rec_gf(S_down, K, u, d, p, q, r, dt, n, i + 1)
+            let expected = gf_add(gf_mul(p, C_up), gf_mul(q, C_down))
+            let g_neg_rdt = gf_pow(3, gf_sub(0, gf_mul(r, dt)))
+            gf_mul(g_neg_rdt, expected)
+
+let monte_carlo_option_gf(S, K, r, sigma, T) =
+    mc_search_gf(S, K, r, sigma, T, 0, 0, 0)
+
+let mc_search_gf(S, K, r, sigma, T, z, total, count) =
+        if z >= 65537
+            gf_div(total, count)
+        else
+            let drift = gf_mul(gf_sub(r, gf_div(gf_mul(sigma, sigma), 2)), T)
+            let diffusion = gf_mul(gf_mul(sigma, z), T)
+            let exponent = gf_add(drift, diffusion)
+            let S_T = gf_mul(S, gf_pow(3, exponent))
+            let payoff = gf_sub(S_T, K)
+            let positive_payoff = (payoff > 0) ? payoff : 0
+            mc_search_gf(S, K, r, sigma, T, z + 1, gf_add(total, positive_payoff), count + 1)
+
+let delta_gf(S, K, r, sigma, T) =
+    let C_S = black_scholes_call_gf(S, K, r, sigma, T)
+    let C_S_plus = black_scholes_call_gf(gf_add(S, 1), K, r, sigma, T)
+    gf_sub(C_S_plus, C_S)
+
+let gamma_gf(S, K, r, sigma, T) =
+    let C_S = black_scholes_call_gf(S, K, r, sigma, T)
+    let C_S_plus = black_scholes_call_gf(gf_add(S, 1), K, r, sigma, T)
+    let C_S_minus = black_scholes_call_gf(gf_sub(S, 1), K, r, sigma, T)
+    gf_add(gf_sub(C_S_plus, gf_mul(2, C_S)), C_S_minus)
+
+let vega_gf(S, K, r, sigma, T) =
+    let C_sigma = black_scholes_call_gf(S, K, r, sigma, T)
+    let C_sigma_plus = black_scholes_call_gf(S, K, r, gf_add(sigma, 1), T)
+    gf_sub(C_sigma_plus, C_sigma)
+
+let theta_gf(S, K, r, sigma, T) =
+    let C_T = black_scholes_call_gf(S, K, r, sigma, T)
+    let C_T_plus = black_scholes_call_gf(S, K, r, sigma, gf_add(T, 1))
+    gf_sub(C_T_plus, C_T)
+
+let rho_gf(S, K, r, sigma, T) =
+    let C_r = black_scholes_call_gf(S, K, r, sigma, T)
+    let C_r_plus = black_scholes_call_gf(S, K, gf_add(r, 1), sigma, T)
+    gf_sub(C_r_plus, C_r)
+
+let markowitz_gf(mu, Sigma, target) =
+    markowitz_search_gf(mu, Sigma, target, 0, 65537, [])
+
+let markowitz_search_gf(mu, Sigma, target, w, best_var, best_w) =
+        if w >= 65537
+            best_w
+        else
+            let weights = [w, gf_sub(1, w)]
+            let ret = gf_add(gf_mul(weights[0], mu[0]), gf_mul(weights[1], mu[1]))
+            if ret == target
+                let var_val = portfolio_variance_gf(weights, Sigma)
+                if var_val < best_var
+                    markowitz_search_gf(mu, Sigma, target, w + 1, var_val, weights)
+                else
+                    markowitz_search_gf(mu, Sigma, target, w + 1, best_var, best_w)
+            else
+                markowitz_search_gf(mu, Sigma, target, w + 1, best_var, best_w)
+
+let portfolio_variance_gf(w, Sigma) =
+    portfolio_var_rec_gf(w, Sigma, 0, 0)
+
+let portfolio_var_rec_gf(w, Sigma, i, acc) =
+        if i >= len(w)
+            acc
+        else
+            let row_contrib = portfolio_var_row_gf(w, Sigma[i], i)
+            portfolio_var_rec_gf(w, Sigma, i + 1, gf_add(acc, row_contrib))
+
+let portfolio_var_row_gf(w, row, i) =
+    let row_sum = portfolio_var_row_rec_gf(w, row, 0, 0)
+    gf_mul(w[i], row_sum)
+
+let portfolio_var_row_rec_gf(w, row, j, acc) =
+        if j >= len(w)
+            acc
+        else
+            portfolio_var_row_rec_gf(w, row, j + 1, gf_add(acc, gf_mul(row[j], w[j])))
+
+let capm_gf(R_f, beta, R_m) =
+    gf_add(R_f, gf_mul(beta, gf_sub(R_m, R_f)))
+
+let beta_gf(returns, market_returns) =
+    let cov = covariance_gf(returns, market_returns)
+    let var_val = variance_gf(market_returns)
+    gf_div(cov, var_val)
+
+let covariance_gf(x, y) =
+    let mx = mean_gf(x)
+    let my = mean_gf(y)
+    covariance_rec_gf(x, y, mx, my, 0, 0)
+
+let covariance_rec_gf(x, y, mx, my, i, acc) =
+        if i >= len(x)
+            gf_div(acc, len(x))
+        else
+            let term = gf_mul(gf_sub(x[i], mx), gf_sub(y[i], my))
+            covariance_rec_gf(x, y, mx, my, i + 1, gf_add(acc, term))
+
+let variance_gf(v) =
+    let m = mean_gf(v)
+    variance_rec_gf(v, m, 0, 0)
+
+let variance_rec_gf(v, m, i, acc) =
+        if i >= len(v)
+            gf_div(acc, len(v))
+        else
+            let diff = gf_sub(v[i], m)
+            variance_rec_gf(v, m, i + 1, gf_add(acc, gf_mul(diff, diff)))
+
+let mean_gf(v) =
+    gf_div(sum_gf(v), len(v))
+
+let sum_gf(v) = vec_sum_gf(v)
+
+let var_gf(losses, alpha) =
+    let sorted = sort_gf(losses)
+    let index = gf_div(gf_mul(alpha, len(losses)), 100)
+    sorted[index]
+
+let cvar_gf(losses, alpha) =
+    let var_val = var_gf(losses, alpha)
+    cvar_rec_gf(losses, var_val, 0, 0, 0)
+
+let cvar_rec_gf(losses, var_val, i, total, count) =
+        if i >= len(losses)
+            gf_div(total, count)
+        else
+            if losses[i] > var_val
+                cvar_rec_gf(losses, var_val, i + 1, gf_add(total, losses[i]), count + 1)
+            else
+                cvar_rec_gf(losses, var_val, i + 1, total, count)
+
+let sort_gf(v) =
+    sort_rec_gf(v, 1, v)
+
+let sort_rec_gf(v, i, sorted) =
+        if i >= len(v)
+            sorted
+        else
+            let inserted = insert_sorted_gf(sorted, i, sorted[i])
+            sort_rec_gf(v, i + 1, inserted)
+
+let insert_sorted_gf(v, i, val) =
+    insert_sorted_rec_gf(v, i, val, i - 1, v)
+
+let insert_sorted_rec_gf(v, i, val, j, result) =
+        if j < 0
+            result[0] = val
+            result
+        else
+            if result[j] > val
+                result[j + 1] = result[j]
+                insert_sorted_rec_gf(v, i, val, j - 1, result)
+            else
+                result[j + 1] = val
+                result
+
+let vasicek_gf(r, a, b, sigma, n) =
+    let mean_reversion = gf_mul(a, gf_sub(b, r))
+    let noise = gf_mul(sigma, n)
+    gf_add(mean_reversion, noise)
+
+let cir_gf(r, a, b, sigma, n) =
+    let mean_reversion = gf_mul(a, gf_sub(b, r))
+    let noise = gf_mul(gf_mul(sigma, r), n)
+    gf_add(mean_reversion, noise)
+
+let random_walk_gf(S_0, mu, sigma, t, n) =
+    let exponent = gf_add(gf_mul(mu, t), gf_mul(sigma, n))
+    gf_mul(S_0, gf_pow(3, exponent))
+
+let gbm_gf(S_0, mu, sigma, t, n) =
+    random_walk_gf(S_0, mu, sigma, t, n)
+
+let default_probability_gf(d) =
+    gf_pow(3, gf_sub(0, d))
+
+let cds_price_gf(spread, LGD, r, T, n) =
+    let dt = gf_div(T, n)
+    cds_rec_gf(spread, LGD, r, dt, n, 0, 0)
+
+let cds_rec_gf(spread, LGD, r, dt, n, t, acc) =
+        if t >= n
+            acc
+        else
+            let survival = gf_pow(3, gf_sub(0, gf_mul(spread, t)))
+            let default_prob = gf_sub(1, survival)
+            let discount = gf_pow(3, gf_sub(0, gf_mul(r, gf_mul(t, dt))))
+            let premium_leg = gf_mul(gf_mul(spread, survival), dt)
+            let default_leg = gf_mul(default_prob, LGD)
+            let period = gf_mul(discount, gf_sub(premium_leg, default_leg))
+            cds_rec_gf(spread, LGD, r, dt, n, t + 1, gf_add(acc, period))
+
+let order_book_gf(orders) =
+    let bids = filter_bids_gf(orders, 0, [])
+    let asks = filter_asks_gf(orders, 0, [])
+    [sort_desc_gf(bids), sort_gf(asks)]
+
+let filter_bids_gf(orders, i, bids) =
+        if i >= len(orders)
+            bids
+        else
+            if orders[i][2] == 1
+                filter_bids_gf(orders, i + 1, append(bids, orders[i]))
+            else
+                filter_bids_gf(orders, i + 1, bids)
+
+let filter_asks_gf(orders, i, asks) =
+        if i >= len(orders)
+            asks
+        else
+            if orders[i][2] == 0
+                filter_asks_gf(orders, i + 1, append(asks, orders[i]))
+            else
+                filter_asks_gf(orders, i + 1, asks)
+
+let sort_desc_gf(v) =
+    reverse_gf(sort_gf(v))
+
+let reverse_gf(v) =
+    reverse_rec_gf(v, 0, [])
+
+let reverse_rec_gf(v, i, result) =
+        if i >= len(v)
+            result
+        else
+            reverse_rec_gf(v, i + 1, append([v[i]], result))
+
+let market_making_gf(mid_price, spread) =
+    let half_spread = gf_div(spread, 2)
+    let bid = gf_sub(mid_price, half_spread)
+    let ask = gf_add(mid_price, half_spread)
+    [bid, ask]
+
+let futures_price_gf(S, r, T) =
+    gf_mul(S, gf_pow(3, gf_mul(r, T)))
+
+let forward_price_gf(S, r, T) =
+    futures_price_gf(S, r, T)
+
+let fx_option_gf(S, K, r_d, r_f, sigma, T) =
+    let log_ratio = gf_sub(S, K)
+    let drift = gf_mul(gf_sub(gf_sub(r_d, r_f), gf_div(gf_mul(sigma, sigma), 2)), T)
+    let d1 = gf_div(gf_add(log_ratio, drift), gf_mul(sigma, T))
+    let d2 = gf_sub(d1, gf_mul(sigma, T))
+    let term1 = gf_mul(gf_mul(S, gf_pow(3, gf_sub(0, gf_mul(r_f, T)))), gf_pow(3, d1))
+    let term2 = gf_mul(gf_mul(K, gf_pow(3, gf_sub(0, gf_mul(r_d, T)))), gf_pow(3, d2))
+    gf_sub(term1, term2)
+

@@ -1,0 +1,103 @@
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let aa_orig = [57052, 71079, 114104, 115088, 103139, 128130, 129116, 57052, 137141, 113159, 113159, 128174, 131192, 147177, 97117, 87078, 101105, 186213, 163176, 99133]
+
+let aa_tamp = [57052, 71079, 114104, 115088, 103139, 128130, 129116, 57052, 137141, 113159, 113159, 128174, 131192, 147177, 97117, 87078, 101105, 120676, 163176, 99133]
+
+let c1o = [0]
+let r1o = 1
+let j = 0
+for j < 20
+    let jx = j * 1
+    let term = smod(aa_orig[jx] * r1o, 65537)
+    c1o[0] = smod(c1o[0] + term, 65537)
+    let rn = smod(r1o * 3, 65537)
+    r1o = rn
+    j = j + 1
+let d1o = c1o[0] - 31666
+let ad1o =
+    if d1o < 0
+        0 - d1o
+    else
+        d1o
+let m1o = smod(ad1o, 65537)
+bad[0] = bad[0] + m1o
+
+let c1t = [0]
+let r1t = 1
+let j = 0
+for j < 20
+    let jx = j * 1
+    let term = smod(aa_tamp[jx] * r1t, 65537)
+    c1t[0] = smod(c1t[0] + term, 65537)
+    let rn = smod(r1t * 3, 65537)
+    r1t = rn
+    j = j + 1
+let d1t = c1t[0] - 31666
+let ad1t =
+    if d1t < 0
+        0 - d1t
+    else
+        d1t
+let m1t = smod(ad1t, 65537)
+bad[0] = bad[0] + m1t
+
+let c2o = [0]
+let r2o = 1
+let j = 0
+for j < 20
+    let jx = j * 1
+    let term = smod(aa_orig[jx] * r2o, 131071)
+    c2o[0] = smod(c2o[0] + term, 131071)
+    let rn = smod(r2o * 3, 131071)
+    r2o = rn
+    j = j + 1
+let d2o = c2o[0] - 60020
+let ad2o =
+    if d2o < 0
+        0 - d2o
+    else
+        d2o
+let m2o = smod(ad2o, 131071)
+bad[0] = bad[0] + m2o
+
+let c2t = [0]
+let r2t = 1
+let j = 0
+for j < 20
+    let jx = j * 1
+    let term = smod(aa_tamp[jx] * r2t, 131071)
+    c2t[0] = smod(c2t[0] + term, 131071)
+    let rn = smod(r2t * 3, 131071)
+    r2t = rn
+    j = j + 1
+let d2t = c2t[0] - 7178
+let ad2t =
+    if d2t < 0
+        0 - d2t
+    else
+        d2t
+let m2t = smod(ad2t, 131071)
+bad[0] = bad[0] + m2t
+
+let dd = c2t[0] - c2o[0]
+let add =
+    if dd < 0
+        0 - dd
+    else
+        dd
+let td = 1 - add
+let wd =
+    if td < 0
+        0
+    else
+        td
+bad[0] = bad[0] + wd
+
+let rec = 55139 + 65537 * 2
+let drec = rec - 186213
+bad[0] = bad[0] + drec * drec
+
+arr_get(arr_new_n(1), bad[0])

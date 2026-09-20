@@ -1,0 +1,36 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let r14 = 14 * 14
+let r4 = r14 * r14
+let b2 = 9 * 9
+let b4 = b2 * b2
+if r4 != 38416
+    bad[0] = bad[0] + 1
+if b4 != 6561
+    bad[0] = bad[0] + 1
+
+let rat = small_div(r4, b4)
+bad[0] = bad[0] + ck(rat, 4, 7)
+
+bad[0] = bad[0] + ck_lo(rat, 1)
+
+let am = 38
+bad[0] = bad[0] + ck(am, 35, 42)
+
+let dr = small_div(200, 5)
+bad[0] = bad[0] + ck(dr, 30, 50)
+
+bad[0] = bad[0] + ck_lo(dr, 10)
+
+let eye = 555
+bad[0] = bad[0] + ck(eye, 550, 560)
+
+if 1871 < 1869
+    bad[0] = bad[0] + 1
+if 1871 > 1873
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

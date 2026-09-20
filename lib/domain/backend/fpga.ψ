@@ -1,0 +1,78 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let FPGA_MAX_LUT = 65536
+let FPGA_MAX_FF = 65536
+let FPGA_LUT_SIZE = 6
+
+let lut_create(id, n_inputs) =
+    let tt = []
+    let i = 0
+    for i < gf_pow(2, n_inputs)
+        tt.push(0)
+        i = i + 1
+    [id, [], tt, 0]
+let lut_set_truth_table(lut, tt) = [lut[0], lut[1], tt, lut[3]]
+let lut_evaluate(lut, inputs) =
+    let tt = lut[2]
+    let idx = 0
+    let i = 0
+    let n = len(inputs)
+    for i < n
+        idx = idx + gf_mul(inputs[i], gf_pow(2, i))
+        i = i + 1
+    tt[idx]
+let ff_create(id) = [id, 0, 0, 0]
+let ff_clock(ff, input) = [ff[0], input, input, ff[3]]
+let circuit_create() = [[], [], 0, 0]
+let circuit_add_lut(circuit, lut) =
+    let luts = circuit[0]
+    luts.push(lut)
+    [luts, circuit[1], circuit[2] + 1, circuit[3]]
+let circuit_add_ff(circuit, ff) =
+    let ffs = circuit[1]
+    ffs.push(ff)
+    [circuit[0], ffs, circuit[2], circuit[3] + 1]
+let synthesize(truth_table) =
+    let luts = []
+    let i = 0
+    let n = len(truth_table)
+    for i < n
+        luts.push(lut_create(i, FPGA_LUT_SIZE))
+        i = i + 1
+    luts
+let place_and_route(circuit) = circuit
+let bitstream_generate(circuit) =
+    let bits = []
+    let luts = circuit[0]
+    let i = 0
+    let n = circuit[2]
+    for i < n
+        let lut = luts[i]
+        let tt = lut[2]
+        let j = 0
+        let m = len(tt)
+        for j < m
+            bits.push(tt[j])
+            j = j + 1
+        i = i + 1
+    bits
+let field_fpga(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let fpga_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_fpga(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+

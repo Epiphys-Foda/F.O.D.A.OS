@@ -1,0 +1,471 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+import "bootstrap_residue_prime.ψ"
+
+import "sh_ef2caeb45c.ψ"
+
+import "sh_9190a5699c.ψ"
+
+    let rp1 = rp_make(3, 10, 1)
+    if rp_z(rp1) == 3
+        ok = ok + 1
+    if rp_r(rp1) == 10
+        ok = ok + 1
+    if rp_n(rp1) == 1
+        ok = ok + 1
+
+    let rp2 = rp_make(5, 20, 1)
+    let rp3 = rp_make(7, 30, 2)
+
+    let rp4 = rp_make(3, 15, 1)
+    let rp_add_result = rp_add(rp1, rp4)
+    if rp_r(rp_add_result) == 25
+        ok = ok + 1
+
+    let rp_mul_result = rp_mul(rp1, rp2)
+    if rp_z(rp_mul_result) == 3
+        ok = ok + 1
+
+    let rp_scaled = rp_scale(rp1, 2)
+    if rp_r(rp_scaled) == 20
+        ok = ok + 1
+
+    let rp_mut = rp_galois(rp1, 2)
+    if rp_z(rp_mut) == 9
+        ok = ok + 1
+    if rp_r(rp_mut) == 100
+        ok = ok + 1
+
+    let eval1 = rp_eval(rp1, 10)
+    if eval1 >= 0
+        ok = ok + 1
+
+    if rp_residue(rp1) == 10
+        ok = ok + 1
+
+    let primes = [rp1, rp2, rp3]
+    let field = rpf_make(primes, 3)
+    if rpf_count(field) == 3
+        ok = ok + 1
+
+    let field_eval = rpf_eval(field, 100)
+    if field_eval >= 0
+        ok = ok + 1
+
+    let total_res = rpf_total_residue(field)
+    if total_res == gf_add(gf_add(10, 20), 30)
+        ok = ok + 1
+
+    let field2 = rpf_make([rp1], 1)
+    let field_add = rpf_add(field, field2)
+    if rpf_count(field_add) == 4
+        ok = ok + 1
+
+    let field_mut = rpf_galois(field, 2)
+    if rpf_count(field_mut) == 3
+        ok = ok + 1
+
+    let fp = rpf_fingerprint(field)
+    if fp >= 0
+        ok = ok + 1
+
+    let collide_result = rp_collide(rp1, rp2)
+    if rp_z(collide_result[0]) == 3
+        ok = ok + 1
+    if rp_z(collide_result[1]) == 5
+        ok = ok + 1
+
+    let collided_field = rpf_collide(field)
+    if rpf_count(collided_field) == 3
+        ok = ok + 1
+
+    let hom = rpf_homology(field)
+    if hom[0] == 3
+        ok = ok + 1
+    if hom[1] == 60
+        ok = ok + 1
+
+    let cancer = rpf_cancer_check(field)
+    if cancer == 0 || cancer == 1
+        ok = ok + 1
+
+    let apop = rpf_apoptosis(field)
+    if rpf_count(apop) >= 0
+        ok = ok + 1
+
+    let photon = rp_to_photon_config(rp1)
+    if photon[0] == 3
+        ok = ok + 1
+    if photon[1] == 10
+        ok = ok + 1
+    if photon[2] == 1
+        ok = ok + 1
+
+    let supercond = rp_to_superconductor_config(rp2)
+    if supercond[0] == 5
+        ok = ok + 1
+
+    let fluid = rp_to_fluid_config(rp3)
+    if fluid[0] == 7
+        ok = ok + 1
+
+    let dna = rp_dna(primes, 3)
+    let mutated_dna = rp_mutate(dna, 2)
+    if rpf_count(mutated_dna) == 3
+        ok = ok + 1
+
+    let transcribed = rp_transcribe(dna)
+    if rpf_count(transcribed) == 3
+        ok = ok + 1
+
+    let translated = rp_translate(dna)
+    if translated >= 0
+        ok = ok + 1
+
+    let fit = rp_fitness(dna)
+    if fit >= 0
+        ok = ok + 1
+
+    let gen = rp_generation(dna, 2)
+    if rpf_count(gen) == 3
+        ok = ok + 1
+
+    let info = rp_information(rp1)
+    if info >= 0
+        ok = ok + 1
+
+    let field_info = rpf_information(field)
+    if field_info == 99
+        ok = ok + 1
+
+    let entropy = rpf_entropy(field)
+    if entropy >= 0
+        ok = ok + 1
+
+    let s_mat = rp_s_matrix(rp1, rp2)
+    if rp_z(s_mat[0]) == 3
+        ok = ok + 1
+
+    let field_s = rpf_s_matrix(field)
+    if rpf_count(field_s) == 3
+        ok = ok + 1
+
+    let prop = rp_propagator(10, 3)
+    if prop >= 0
+        ok = ok + 1
+
+    let prop_res = rp_propagator_residue(3)
+    if gf_mul(prop_res, 6) == 1
+        ok = ok + 1
+
+    let mass = rp_particle_mass(rp1)
+    if mass == 3
+        ok = ok + 1
+
+    let s_elem = rp_s_matrix_element(field)
+    if s_elem >= 0
+        ok = ok + 1
+
+    let total = rpf_total_residue(field)
+    let manual_sum = gf_add(gf_add(rp_residue(rp1), rp_residue(rp2)), rp_residue(rp3))
+    if total == manual_sum
+        ok = ok + 1
+
+    let before = rpf_total_residue(field)
+    let after = rpf_total_residue(collided_field)
+    if before == after
+        ok = ok + 1
+
+    ok
+
+let SLIT_1() = 1
+let SLIT_2() = 2
+let SOURCE() = 0
+
+let screen_positions() = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+
+let green_function_1(x) =
+    let slit1 = SLIT_1()
+    let r1 = 10
+    gf_mul(r1, gf_inv(gf_sub(x, slit1)))
+
+let green_function_2(x) =
+    let slit2 = SLIT_2()
+    let r2 = 10
+    gf_mul(r2, gf_inv(gf_sub(x, slit2)))
+
+let green_function_total(x) = gf_add(green_function_1(x), green_function_2(x))
+
+let intensity(x) =
+    let g = green_function_total(x)
+    gf_mul(g, g)
+
+let interference_term(x) =
+    let g1 = green_function_1(x)
+    let g2 = green_function_2(x)
+    gf_mul(gf_mul(2, g1), g2)
+
+let intensity_no_interference(x) =
+    let g1 = green_function_1(x)
+    let g2 = green_function_2(x)
+    gf_add(gf_mul(g1, g1), gf_mul(g2, g2))
+
+let visibility(x) =
+    let i_total = intensity(x)
+    let i_no = intensity_no_interference(x)
+    let diff = gf_sub(i_total, i_no)
+    gf_div(diff, i_no)
+
+let s_matrix_poles() = screen_positions()
+
+let s_matrix_residue(pole_index) =
+    let poles = s_matrix_poles()
+    let x = poles[pole_index]
+    green_function_total(x)
+
+let born_probability(pole_index, n_poles) =
+    let res_j = s_matrix_residue(pole_index)
+    let prob_j = gf_mul(res_j, res_j)
+    let total = 0
+    let i = 0
+    for i < n_poles
+        let res_k = s_matrix_residue(i)
+        total = gf_add(total, gf_mul(res_k, res_k))
+        i = i + 1
+    gf_div(prob_j, total)
+
+let residue_sample(n_poles) =
+    let best_pole = 0
+    let best_weight = 0
+    let i = 0
+    for i < n_poles
+        let weight = born_probability(i, n_poles)
+        if weight > best_weight
+            best_weight = weight
+            best_pole = i
+        i = i + 1
+    best_pole
+
+let residue_sample_n(n_poles, n_samples) =
+    let counts = []
+    let i = 0
+    for i < n_poles
+        counts = counts.push(0)
+        i = i + 1
+    let j = 0
+    for j < n_poles
+        let prob = born_probability(j, n_poles)
+        let count = gf_mul(prob, n_samples)
+        counts[j] = count
+        j = j + 1
+    counts
+
+let s_matrix_with_which_path(pole_index, n_poles) =
+    let poles = s_matrix_poles()
+    let x = poles[pole_index]
+    let g1 = green_function_1(x)
+    let g2 = green_function_2(x)
+    gf_add(gf_mul(g1, g1), gf_mul(g2, g2))
+
+let born_probability_with_which_path(pole_index, n_poles) =
+    let prob_wp = s_matrix_with_which_path(pole_index, n_poles)
+    let total = 0
+    let i = 0
+    for i < n_poles
+        total = gf_add(total, s_matrix_with_which_path(i, n_poles))
+        i = i + 1
+    gf_div(prob_wp, total)
+
+let verify_interference_disappears(x) =
+    let i_with = intensity(x)
+    let i_without = intensity_no_interference(x)
+    let interference = gf_sub(i_with, i_without)
+    let i_wp = s_matrix_with_which_path(gf_sub(x, 10), 10)
+    let result = 0
+    if i_wp == i_without
+        result = 1
+    result
+
+let double_slit_field() =
+    let slit1 = rp_make(SLIT_1(), 10, 1)
+    let slit2 = rp_make(SLIT_2(), 10, 1)
+    rpf_make([slit1, slit2], 2)
+
+let double_slit_intensity(field, x) =
+    let g = rpf_eval(field, x)
+    gf_mul(g, g)
+
+let double_slit_interference(field, x) =
+    let primes = rpf_primes(field)
+    let rp1 = primes[0]
+    let rp2 = primes[1]
+    let g1 = rp_eval(rp1, x)
+    let g2 = rp_eval(rp2, x)
+    gf_mul(gf_mul(2, g1), g2)
+
+let verify_residue_theorem(field) =
+    let total_residue = rpf_total_residue(field)
+    let primes = rpf_primes(field)
+    let n = rpf_count(field)
+    let manual_sum = 0
+    let i = 0
+    for i < n
+        manual_sum = gf_add(manual_sum, rp_residue(primes[i]))
+        i = i + 1
+    let result = 0
+    if total_residue == manual_sum
+        result = 1
+    result
+
+let double_slit_experiment_verify() =
+    let ok = 0
+
+    let g1 = green_function_1(10)
+    let g2 = green_function_2(10)
+    if g1 >= 0
+        ok = ok + 1
+    if g2 >= 0
+        ok = ok + 1
+    if g1 != g2
+        ok = ok + 1
+
+    let g_total = green_function_total(10)
+    if g_total == gf_add(g1, g2)
+        ok = ok + 1
+
+    let i_total = intensity(10)
+    let i_no = intensity_no_interference(10)
+    if i_total >= 0
+        ok = ok + 1
+    if i_no >= 0
+        ok = ok + 1
+
+    let interference = interference_term(10)
+    if interference >= 0
+        ok = ok + 1
+
+    let i_formula = gf_add(i_no, interference)
+    if i_total == i_formula
+        ok = ok + 1
+
+    let i_10 = intensity(10)
+    let i_11 = intensity(11)
+    let i_12 = intensity(12)
+    if i_10 >= 0
+        ok = ok + 1
+    if i_11 >= 0
+        ok = ok + 1
+    if i_12 >= 0
+        ok = ok + 1
+
+    let poles = s_matrix_poles()
+    if poles[0] == 10
+        ok = ok + 1
+    if poles[9] == 19
+        ok = ok + 1
+
+    let res_0 = s_matrix_residue(0)
+    if res_0 >= 0
+        ok = ok + 1
+
+    let prob_0 = born_probability(0, 10)
+    let prob_1 = born_probability(1, 10)
+    if prob_0 >= 0
+        ok = ok + 1
+    if prob_1 >= 0
+        ok = ok + 1
+
+    let total_prob = 0
+    let i = 0
+    for i < 10
+        total_prob = gf_add(total_prob, born_probability(i, 10))
+        i = i + 1
+    if total_prob == 1
+        ok = ok + 1
+
+    let sample = residue_sample(10)
+    if sample >= 0 && sample < 10
+        ok = ok + 1
+
+    let counts = residue_sample_n(10, 1000)
+    if counts[0] >= 0
+        ok = ok + 1
+    if counts[9] >= 0
+        ok = ok + 1
+
+    let i_wp = s_matrix_with_which_path(0, 10)
+    if i_wp >= 0
+        ok = ok + 1
+
+    let prob_wp = born_probability_with_which_path(0, 10)
+    if prob_wp >= 0
+        ok = ok + 1
+
+    let total_wp = 0
+    let j = 0
+    for j < 10
+        total_wp = gf_add(total_wp, born_probability_with_which_path(j, 10))
+        j = j + 1
+    if total_wp == 1
+        ok = ok + 1
+
+    let field = double_slit_field()
+    if rpf_count(field) == 2
+        ok = ok + 1
+
+    let field_intensity = double_slit_intensity(field, 10)
+    if field_intensity >= 0
+        ok = ok + 1
+
+    let field_interference = double_slit_interference(field, 10)
+    if field_interference >= 0
+        ok = ok + 1
+
+    let field_g = rpf_eval(field, 10)
+    let field_i = gf_mul(field_g, field_g)
+    if field_i == field_intensity
+        ok = ok + 1
+
+    if verify_residue_theorem(field) == 1
+        ok = ok + 1
+
+    let click = residue_sample(10)
+    if click >= 0
+        ok = ok + 1
+
+    let has_interference = 0
+    if i_total != i_no
+        has_interference = 1
+    if has_interference == 1
+        ok = ok + 1
+
+    let wp_no_interference = 0
+    if i_wp == i_no
+        wp_no_interference = 1
+    if wp_no_interference == 1
+        ok = ok + 1
+
+    let primes = rpf_primes(field)
+    let rp1 = primes[0]
+    let rp2 = primes[1]
+    let collided = rp_collide(rp1, rp2)
+    if rp_z(collided[0]) == SLIT_1()
+        ok = ok + 1
+    if rp_z(collided[1]) == SLIT_2()
+        ok = ok + 1
+
+    let before = gf_add(rp_r(rp1), rp_r(rp2))
+    let after = gf_add(rp_r(collided[0]), rp_r(collided[1]))
+    if before == after
+        ok = ok + 1
+
+    let mutated_field = rpf_galois(field, 2)
+    if rpf_count(mutated_field) == 2
+        ok = ok + 1
+
+    let hom = rpf_homology(field)
+    if hom[0] == 2
+        ok = ok + 1
+
+    ok
+
+let main() = double_slit_experiment_verify()

@@ -1,0 +1,153 @@
+let dce(instructions) =
+    let n = instructions.len()
+    let used = []
+    let i = 0
+    for i < n * 4
+        used = arr_concat(used, [0])
+        i = i + 1
+    if n > 0
+        used[instructions[n - 1][1]] = 1
+    let i = n - 1
+    for i >= 0
+        let inst = instructions[i]
+        if used[inst[1]] == 1
+            used[inst[2]] = 1
+            used[inst[3]] = 1
+        i = i - 1
+    let result = []
+    let i = 0
+    for i < n
+        if used[instructions[i][1]] == 1
+            result = arr_concat(result, [instructions[i]])
+        i = i + 1
+    result
+
+let constant_fold(instructions) =
+    let constants = []
+    let i = 0
+    for i < 100
+        constants = arr_concat(constants, [0])
+        i = i + 1
+    let result = []
+    let i = 0
+    for i < instructions.len()
+        let inst = instructions[i]
+        let op = inst[0]
+        let dest = inst[1]
+        let src1 = inst[2]
+        let src2 = inst[3]
+        if constants[src1] != 0 && constants[src2] != 0
+            let val = 0
+            if op == "add"
+                val = constants[src1] + constants[src2]
+            else
+                0
+            if op == "mul"
+                val = constants[src1] * constants[src2]
+            else
+                0
+            if op == "sub"
+                val = constants[src1] - constants[src2]
+            constants[dest] = val
+            result = arr_concat(result, [["const", dest, val, 0]])
+        else
+            result = arr_concat(result, [inst])
+        i = i + 1
+    result
+
+let cse(instructions) =
+    let seen = {}
+    let result = []
+    let i = 0
+    for i < instructions.len()
+        let inst = instructions[i]
+        let key = str_concat(inst[0], str_concat(str(inst[2]), str(inst[3])))
+        let existing = seen[key]
+        if existing != 0
+            result = arr_concat(result, [["copy", inst[1], existing, 0]])
+        else
+            seen[key] = inst[1]
+            result = arr_concat(result, [inst])
+        i = i + 1
+    result
+
+let inline_pass(instructions, call_graph, threshold) =
+    let result = []
+    let i = 0
+    for i < instructions.len()
+        let inst = instructions[i]
+        if inst[0] == "call"
+            let fn_size = call_graph[inst[2]]
+            if fn_size < threshold
+                result = arr_concat(result, [["inline", inst[1], inst[2], inst[3]]])
+            else
+                result = arr_concat(result, [inst])
+        else
+            result = arr_concat(result, [inst])
+        i = i + 1
+    result
+
+let strength_reduction(instructions) =
+    let result = []
+    let i = 0
+    for i < instructions.len()
+        let inst = instructions[i]
+        if inst[0] == "mul" && inst[3] == 2
+            result = arr_concat(result, [["add", inst[1], inst[2], inst[2]]])
+        else
+            0
+        if inst[0] == "mul" && inst[3] == 4
+            result = arr_concat(result, [["shl", inst[1], inst[2], 2]])
+        else
+            0
+        if inst[0] == "div" && inst[3] == 2
+            result = arr_concat(result, [["shr", inst[1], inst[2], 1]])
+        else
+            0
+        if inst[0] == "mod" && inst[3] == 2
+            result = arr_concat(result, [["and", inst[1], inst[2], 1]])
+        else
+            result = arr_concat(result, [inst])
+        i = i + 1
+    result
+
+let loop_unroll(instructions, unroll_factor) =
+    let result = []
+    let i = 0
+    for i < instructions.len()
+        let inst = instructions[i]
+        if inst[0] == "loop_start"
+            result = arr_concat(result, [inst])
+            let body = []
+            let j = i + 1
+            for j < instructions.len() && instructions[j][0] != "loop_end"
+                body = arr_concat(body, [instructions[j]])
+                j = j + 1
+            let u = 0
+            for u < unroll_factor - 1
+                result = arr_concat(result, body)
+                u = u + 1
+            i = j
+        else
+            result = arr_concat(result, [inst])
+        i = i + 1
+    result
+
+let optimize(instructions) =
+    let ir = instructions
+    ir = constant_fold(ir)
+    ir = cse(ir)
+    ir = dce(ir)
+    ir = strength_reduction(ir)
+    ir
+
+let main() =
+    let insts = [
+        ["add", 1, 0, 0],
+        ["mul", 2, 1, 2],
+        ["add", 3, 2, 1],
+        ["mul", 4, 3, 0]
+    ]
+    let optimized = optimize(insts)
+    print(optimized)
+    0

@@ -1,0 +1,21 @@
+let frozen0_bm(YY, n, K) =
+    let T = arr_new_n(n + 1)
+    let C = arr_new_n(n + 1)
+    let L = bm_discover(YY, n, T, C)
+    let W = arr_new_n(n + K)
+    let i = 0
+    for i < n
+        W[i] = YY[i]
+        i = i + 1
+    let ok = 1
+    let k = 0
+    for k < K
+        let pred = bm_predict(C, L, W, n + k)
+        W[n + k] = pred
+        let bad = 0
+        if rel_permille(pred, 1, YY[n + k]) > QTOL
+            bad = 1
+        ok = ok * (1 - bad)
+        k = k + 1
+    ok
+

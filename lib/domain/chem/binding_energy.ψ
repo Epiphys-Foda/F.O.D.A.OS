@@ -1,0 +1,29 @@
+import "ck.ψ"
+let bad = [0]
+
+let be_fe = 492
+let n_fe = 56
+let be_per_fe = be_fe / n_fe
+let per_fe = be_per_fe
+bad[0] = bad[0] + ck_lo(per_fe, 8)
+bad[0] = bad[0] + ck_hi(be_per_fe, 9)
+
+let be_he = 28
+let be_u = 1786
+let per_he = be_he / 4
+let per_u = be_u / 235
+bad[0] = bad[0] + ck_lo(per_fe, per_he)
+bad[0] = bad[0] + ck_lo(per_fe, per_u)
+
+let fission_e = 200
+bad[0] = bad[0] + ck(fission_e, 180, 220)
+
+let solar_e = 27
+bad[0] = bad[0] + ck(solar_e, 25, 29)
+
+if 1939 < 1937
+    bad[0] = bad[0] + 1
+if 1939 > 1941
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,24 @@
+import "ck.ψ"
+let bad = [0]
+
+let teq = 186
+bad[0] = bad[0] + ck(teq, 150, 200)
+
+let ts = 15
+bad[0] = bad[0] + ck(ts, 10, 20)
+
+let green = 33
+bad[0] = bad[0] + ck(green, 30, 36)
+
+let dist = 150
+bad[0] = bad[0] + ck(dist, 145, 155)
+
+if 1 > 1
+    bad[0] = bad[0] + 1
+
+let rem = 54
+bad[0] = bad[0] + ck(rem, 50, 60)
+
+bad[0] = bad[0] + ck(ts, 0, 100)
+
+arr_get(arr_new_n(1), bad[0])

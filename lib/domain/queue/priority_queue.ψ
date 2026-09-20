@@ -1,0 +1,282 @@
+import "../domain_field.ψ"
+let PQ_UNACKED = 0
+let PQ_ACKED = 1
+let PQ_NACKED = 2
+
+let pq_msg_new(id, priority, payload, enq_at, ttl, deliver_after) =
+    [id, priority, payload, enq_at, ttl, deliver_after, PQ_UNACKED]
+
+let pq_m_id(m) = m[0]
+let pq_m_pri(m) = m[1]
+let pq_m_payload(m) = m[2]
+let pq_m_enq(m) = m[3]
+let pq_m_ttl(m) = m[4]
+let pq_m_deliver(m) = m[5]
+let pq_m_ack(m) = m[6]
+
+let pq_m_set_ack(m, v) = [m[0], m[1], m[2], m[3], m[4], m[5], v]
+
+let pq_new(name, max_priority) =
+    let heaps = []
+    let i = 0
+    for i <= max_priority
+        heaps.push([])
+        i = i + 1
+    [name, heaps, max_priority, {}, [], 1, 0, 0, 0, 0]
+
+let pq_name(q) = q[0]
+let pq_heaps(q) = q[1]
+let pq_max(q) = q[2]
+let pq_inflight(q) = q[3]
+let pq_dl(q) = q[4]
+let pq_next(q) = q[5]
+let pq_enq_count(q) = q[6]
+let pq_ack_count(q) = q[7]
+let pq_nack_count(q) = q[8]
+let pq_exp_count(q) = q[9]
+
+let pq_set_heaps(q, v) = [q[0], v, q[2], q[3], q[4], q[5], q[6], q[7], q[8], q[9]]
+let pq_set_inflight(q, v) = [q[0], q[1], q[2], v, q[4], q[5], q[6], q[7], q[8], q[9]]
+let pq_set_dl(q, v) = [q[0], q[1], q[2], q[3], v, q[5], q[6], q[7], q[8], q[9]]
+let pq_set_next(q, v) = [q[0], q[1], q[2], q[3], q[4], v, q[6], q[7], q[8], q[9]]
+let pq_set_enq_count(q, v) = [q[0], q[1], q[2], q[3], q[4], q[5], v, q[7], q[8], q[9]]
+let pq_set_ack_count(q, v) = [q[0], q[1], q[2], q[3], q[4], q[5], q[6], v, q[8], q[9]]
+let pq_set_nack_count(q, v) = [q[0], q[1], q[2], q[3], q[4], q[5], q[6], q[7], v, q[9]]
+let pq_set_exp_count(q, v) = [q[0], q[1], q[2], q[3], q[4], q[5], q[6], q[7], q[8], v]
+
+let pq_enqueue(q, priority, payload, ttl, deliver_after, now) =
+    let id = pq_next(q)
+    q = pq_set_next(q, id + 1)
+    let msg = pq_msg_new(id, priority, payload, now, ttl, deliver_after)
+    let heaps = pq_heaps(q)
+    if priority > pq_max(q)
+        priority = pq_max(q)
+    heaps[priority].push(msg)
+    q = pq_set_heaps(q, heaps)
+    q = pq_set_enq_count(q, pq_enq_count(q) + 1)
+    [q, id]
+
+let pq_dequeue(q, now) =
+    let heaps = pq_heaps(q)
+    let found = 0
+    let i = 0
+    let n = len(heaps)
+    for i < n && found == 0
+        if len(heaps[i]) > 0
+            let j = 0
+            let m = len(heaps[i])
+            for j < m && found == 0
+                let msg = heaps[i][j]
+                if pq_m_deliver(msg) <= now
+                    if pq_m_ttl(msg) == 0 || pq_m_ttl(msg) > now
+                        found = msg
+                    else
+                        let dl = pq_dl(q)
+                        dl.push(msg)
+                        q = pq_set_dl(q, dl)
+                        q = pq_set_exp_count(q, pq_exp_count(q) + 1)
+                    let new_heap = []
+                    let k = 0
+                    for k < m
+                        if k != j
+                            new_heap.push(heaps[i][k])
+                        k = k + 1
+                    heaps[i] = new_heap
+                j = j + 1
+        i = i + 1
+    q = pq_set_heaps(q, heaps)
+    if found == 0
+        [q, 0]
+    else
+        let inflight = pq_inflight(q)
+        inflight[pq_m_id(found)] = found
+        q = pq_set_inflight(q, inflight)
+        [q, found]
+
+let pq_dequeue_batch(q, count, now) =
+    let result = []
+    let i = 0
+    for i < count
+        let r = pq_dequeue(q, now)
+        q = r[0]
+        if r[1] == 0
+            i = count
+        else
+            result.push(r[1])
+        i = i + 1
+    [q, result]
+
+let pq_ack(q, msg_id) =
+    let inflight = pq_inflight(q)
+    let msg = inflight[msg_id]
+    if msg == 0
+        [q, 0]
+    else
+        msg = pq_m_set_ack(msg, PQ_ACKED)
+        inflight[msg_id] = 0
+        q = pq_set_inflight(q, inflight)
+        q = pq_set_ack_count(q, pq_ack_count(q) + 1)
+        [q, 1]
+
+let pq_nack(q, msg_id, requeue) =
+    let inflight = pq_inflight(q)
+    let msg = inflight[msg_id]
+    if msg == 0
+        [q, 0]
+    else
+        msg = pq_m_set_ack(msg, PQ_NACKED)
+        inflight[msg_id] = 0
+        q = pq_set_inflight(q, inflight)
+        q = pq_set_nack_count(q, pq_nack_count(q) + 1)
+        if requeue == 1
+            let heaps = pq_heaps(q)
+            let pri = pq_m_pri(msg)
+            if pri > pq_max(q)
+                pri = pq_max(q)
+            heaps[pri].push(msg)
+            q = pq_set_heaps(q, heaps)
+        else
+            let dl = pq_dl(q)
+            dl.push(msg)
+            q = pq_set_dl(q, dl)
+        [q, 1]
+
+let pq_age(q, aging_threshold, now) =
+    let heaps = pq_heaps(q)
+    let max_p = pq_max(q)
+    let i = 0
+    let n = len(heaps)
+    for i < n
+        if i < max_p
+            let new_heap = []
+            let moved = []
+            let j = 0
+            let m = len(heaps[i])
+            for j < m
+                let msg = heaps[i][j]
+                if now - pq_m_enq(msg) > aging_threshold
+                    moved.push(msg)
+                else
+                    new_heap.push(msg)
+                j = j + 1
+            heaps[i] = new_heap
+            let k = 0
+            let p = len(moved)
+            for k < p
+                heaps[i + 1].push(moved[k])
+                k = k + 1
+        i = i + 1
+    pq_set_heaps(q, heaps)
+
+let pq_len(q) =
+    let heaps = pq_heaps(q)
+    let total = 0
+    let i = 0
+    let n = len(heaps)
+    for i < n
+        total = total + len(heaps[i])
+        i = i + 1
+    total
+
+let pq_bragg_check(q) =
+    let enq = pq_enq_count(q)
+    let ack = pq_ack_count(q)
+    let nack = pq_nack_count(q)
+    let exp = pq_exp_count(q)
+    let inflight = len(keys_of(pq_inflight(q)))
+    let pending = pq_len(q)
+    let dl = len(pq_dl(q))
+    if enq == ack + nack + exp + inflight + pending + dl
+        1
+    else
+        0
+
+let pq_test_basic() =
+    let q = pq_new("test", 5)
+    let ok1 = 1
+    if pq_enq_count(q) != 0
+        ok1 = 0
+
+    let r1 = pq_enqueue(q, 0, "urgent", 0, 0, 100)
+    q = r1[0]
+    let id1 = r1[1]
+    let r2 = pq_enqueue(q, 5, "low", 0, 0, 100)
+    q = r2[0]
+    let id2 = r2[1]
+    let r3 = pq_enqueue(q, 2, "normal", 0, 0, 100)
+    q = r3[0]
+    let id3 = r3[1]
+
+    let ok2 = 1
+    if pq_enq_count(q) != 3
+        ok2 = 0
+    if pq_len(q) != 3
+        ok2 = 0
+
+    let d1 = pq_dequeue(q, 100)
+    q = d1[0]
+    let ok3 = 1
+    if d1[1] == 0
+        ok3 = 0
+    else
+        0
+    if pq_m_pri(d1[1]) != 0
+        ok3 = 0
+
+    let d2 = pq_dequeue(q, 100)
+    q = d2[0]
+    let ok4 = 1
+    if d2[1] == 0
+        ok4 = 0
+    else
+        0
+    if pq_m_pri(d2[1]) != 2
+        ok4 = 0
+
+    let a1 = pq_ack(q, pq_m_id(d1[1]))
+    q = a1[0]
+    let ok5 = 1
+    if a1[1] != 1
+        ok5 = 0
+    if pq_ack_count(q) != 1
+        ok5 = 0
+
+    let n1 = pq_nack(q, pq_m_id(d2[1]), 1)
+    q = n1[0]
+    let ok6 = 1
+    if n1[1] != 1
+        ok6 = 0
+    if pq_nack_count(q) != 1
+        ok6 = 0
+    if pq_len(q) != 2
+        ok6 = 0
+
+    let batch = pq_dequeue_batch(q, 10, 100)
+    q = batch[0]
+    let ok7 = 1
+    if len(batch[1]) != 2
+        ok7 = 0
+
+    let q2 = pq_new("aging", 3)
+    let e1 = pq_enqueue(q2, 3, "old-low", 0, 0, 100)
+    q2 = e1[0]
+    q2 = pq_age(q2, 50, 200)
+    let ok8 = 1
+    if pq_len(q2) != 1
+        ok8 = 0
+
+    let ok9 = 1
+    if pq_bragg_check(q) != 1
+        ok9 = 0
+
+    ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7 * ok8 * ok9
+
+let pq_test_self() =
+        let ok = pq_test_basic()
+        if ok == 1
+            print("priority_queue: ALL PASS")
+        else
+            print("priority_queue: FAIL")
+        ok
+
+    pq_test_self()

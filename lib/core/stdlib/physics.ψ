@@ -1,0 +1,126 @@
+let velocity(displacement, time) =
+    displacement / time
+
+let acceleration(v_final, v_initial, time) =
+    (v_final - v_initial) / time
+
+let displacement_kinematic(v_initial, acceleration_val, time) =
+    v_initial * time + acceleration_val * time * time / 2000
+
+let velocity_kinematic(v_initial, acceleration_val, time) =
+    v_initial + acceleration_val * time
+
+let velocity_squared(v_initial, acceleration_val, displacement) =
+    v_initial * v_initial + 2 * acceleration_val * displacement
+
+let force(mass, acceleration_val) =
+    mass * acceleration_val
+
+let momentum(mass, velocity_val) =
+    mass * velocity_val
+
+let kinetic_energy(mass, velocity_val) =
+    mass * velocity_val * velocity_val / 2000
+
+let potential_energy(mass, gravity, height) =
+    mass * gravity * height
+
+let total_energy(mass, velocity_val, gravity, height) =
+    kinetic_energy(mass, velocity_val) + potential_energy(mass, gravity, height)
+
+let work(force_val, displacement, angle) =
+    let cos_a = 1000 - angle * angle / 2000000
+    force_val * displacement * cos_a / 1000000
+
+let power(work_val, time) =
+    work_val / time
+
+let impulse(force_val, time) =
+    force_val * time
+
+let pressure(force_val, area) =
+    force_val / area
+
+let density(mass, volume) =
+    mass / volume
+
+let specific_heat(heat, mass, temp_change) =
+    heat / (mass * temp_change)
+
+let heat_transfer(mass, specific_heat_val, temp_change) =
+    mass * specific_heat_val * temp_change
+
+let thermal_expansion(length, alpha, temp_change) =
+    length + length * alpha * temp_change / 1000000
+
+let ohms_law_voltage(current, resistance) =
+    current * resistance
+
+let ohms_law_current(voltage, resistance) =
+    voltage / resistance
+
+let ohms_law_resistance(voltage, current) =
+    voltage / current
+
+let electrical_power(voltage, current) =
+    voltage * current
+
+let series_resistance(resistances) =
+    let total = 0
+    let i = 0
+    for i < resistances.len()
+        total = total + resistances[i]
+        i = i + 1
+    total
+
+let parallel_resistance(resistances) =
+    let inv_total = 0
+    let i = 0
+    for i < resistances.len()
+        inv_total = inv_total + 1000000 / resistances[i]
+        i = i + 1
+    if inv_total == 0
+        0
+    else
+        1000000 / inv_total
+
+let capacitance_series(capacitances) =
+    let inv_total = 0
+    let i = 0
+    for i < capacitances.len()
+        inv_total = inv_total + 1000000 / capacitances[i]
+        i = i + 1
+    if inv_total == 0
+        0
+    else
+        1000000 / inv_total
+
+let capacitance_parallel(capacitances) =
+    let total = 0
+    let i = 0
+    for i < capacitances.len()
+        total = total + capacitances[i]
+        i = i + 1
+    total
+
+let wave_speed(frequency, wavelength) =
+    frequency * wavelength
+
+let wave_frequency(speed, wavelength) =
+    speed / wavelength
+
+let doppler_effect(source_freq, source_vel, observer_vel, wave_speed) =
+    source_freq * (wave_speed + observer_vel) / (wave_speed - source_vel)
+
+let snells_law(n1, theta1, n2) =
+    let sin1 = theta1 - theta1 * theta1 * theta1 / 6000000
+    n1 * sin1 / n2
+
+let main() =
+    print(kinetic_energy(10, 5000))
+    print(potential_energy(10, 9800, 100))
+    print(force(10, 200))
+    print(ohms_law_voltage(2, 10))
+    print(parallel_resistance([100, 200, 300]))
+    print(doppler_effect(440, 0, 0, 343))
+    0

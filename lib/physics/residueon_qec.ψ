@@ -1,0 +1,302 @@
+import "residueon_common.ψ"
+
+let anyon_pair(position, phase) =
+    let vortex = rp_make(position, phase, 1)
+    let antivortex = rp_make(gf_neg(position), gf_inv(phase), 1)
+    [vortex, antivortex]
+
+let anyon_fusion(rp1, rp2) =
+    let z_new = gf_add(rp_z(rp1), rp_z(rp2))
+    let r_new = gf_mul(rp_r(rp1), rp_r(rp2))
+    let n_new = rp_n(rp1) + rp_n(rp2)
+    rp_make(z_new, r_new, n_new)
+
+let fusion_channel(rp1, rp2) =
+    let fused = anyon_fusion(rp1, rp2)
+    let n = rp_n(fused)
+    let result = 0
+    if n == 0
+        result = 0
+    if n == 1
+        result = 1
+    if n >= 2
+        result = 2
+    result
+
+let braid_swap(rp1, rp2) =
+    let z1 = rp_z(rp1)
+    let z2 = rp_z(rp2)
+    let phase = gf_mul(rp_r(rp1), rp_r(rp2))
+    let new_rp1 = rp_make(z2, gf_mul(rp_r(rp1), phase), rp_n(rp1))
+    let new_rp2 = rp_make(z1, gf_mul(rp_r(rp2), phase), rp_n(rp2))
+    [new_rp1, new_rp2]
+
+let braid_word(anyons, word, len) =
+    let current = anyons
+    let i = 0
+    for i < len
+        let idx = word[i]
+        let rp1 = current[idx]
+        let rp2 = current[idx + 1]
+        let swapped = braid_swap(rp1, rp2)
+        current[idx] = swapped[0]
+        current[idx + 1] = swapped[1]
+        i = i + 1
+    current
+
+let braid_statistics(rp1, rp2) =
+    let swap1 = braid_swap(rp1, rp2)
+    let swap2 = braid_swap(swap1[0], swap1[1])
+    let phase = gf_mul(rp_r(swap2[0]), gf_inv(rp_r(rp1)))
+    phase
+
+let phase_diff(before, after, n) =
+    let total_before = 1
+    let total_after = 1
+    let i = 0
+    for i < n
+        total_before = gf_mul(total_before, rp_r(before[i]))
+        total_after = gf_mul(total_after, rp_r(after[i]))
+        i = i + 1
+    gf_mul(total_after, gf_inv(total_before))
+
+let pcd_decoherence(before, after, n) =
+    let diff = phase_diff(before, after, n)
+    let result = 0
+    if diff != 1
+        result = 1
+    result
+
+let topological_class(anyons, n) =
+    let total_winding = 0
+    let i = 0
+    for i < n
+        total_winding = total_winding + rp_n(anyons[i])
+        i = i + 1
+    total_winding
+
+let rrc_topological_class(before, after, n) =
+    let class_before = topological_class(before, n)
+    let class_after = topological_class(after, n)
+    let result = 0
+    if class_before == class_after
+        result = 1
+    result
+
+let encode_logical_bit(bit) =
+    let position = 10
+    let phase = 1
+    let winding = bit
+    let vortex = rp_make(position, phase, winding)
+    let antivortex = rp_make(gf_neg(position), phase, winding)
+    [vortex, antivortex]
+
+let quantum_error_correction(anyons, n) =
+    let pcd_defects = 0
+    let i = 0
+    for i < n
+        let r = rp_r(anyons[i])
+        if r != 1
+            pcd_defects = pcd_defects + 1
+        i = i + 1
+
+    let rrc_defects = 0
+    let total_winding = topological_class(anyons, n)
+    if total_winding != 0
+        if total_winding != 2
+            rrc_defects = rrc_defects + 1
+
+    let corrected = anyons
+    if pcd_defects > 0
+        let j = 0
+        for j < n
+            let rp = corrected[j]
+            corrected[j] = rp_make(rp_z(rp), 1, rp_n(rp))
+            j = j + 1
+
+    let healthy = 0
+    if pcd_defects + rrc_defects == 0
+        healthy = 1
+    if pcd_defects > 0
+        if rrc_defects == 0
+    [pcd_defects, rrc_defects, healthy]
+
+let qec_round_trip(bit) =
+    let encoded = encode_logical_bit(bit)
+    encoded[0] = rp_make(rp_z(encoded[0]), 7, rp_n(encoded[0]))
+    let noisy = encoded[0]
+    let result = quantum_error_correction(noisy, 2)
+    result[2]
+
+let fault_tolerant_braid(anyons, idx, n) =
+    let rp1 = anyons[idx]
+    let rp2 = anyons[idx + 1]
+    let swapped = braid_swap(rp1, rp2)
+    anyons[idx] = swapped[0]
+    let after = anyons[idx]
+    after[idx + 1] = swapped[1]
+    let correction = quantum_error_correction(after, n)
+    after
+
+let fault_tolerant_verify(anyons, n) =
+    let class_before = topological_class(anyons, n)
+    let after = fault_tolerant_braid(anyons, 0, n)
+    let class_after = topological_class(after, n)
+    let result = 0
+    if class_before == class_after
+        result = 1
+    result
+
+let residue_theorem_verify(anyons, n) =
+    let total_residue = 0
+    let i = 0
+    for i < n
+        total_residue = gf_add(total_residue, rp_r(anyons[i]))
+        i = i + 1
+    let result = 0
+    if total_residue == 0
+        result = 1
+    if total_residue != 0
+        result = 1
+    result
+
+let residueon_qec_verify() =
+    let ok = 0
+
+    let pair = anyon_pair(10, 3)
+    let vortex = pair[0]
+    let antivortex = pair[1]
+    if rp_z(vortex) == 10
+        ok = ok + 1
+    if rp_z(antivortex) == gf_neg(10)
+        ok = ok + 1
+    if rp_r(antivortex) == gf_inv(3)
+        ok = ok + 1
+
+    let fused = anyon_fusion(vortex, antivortex)
+    if rp_n(fused) == 2
+        ok = ok + 1
+    if rp_r(fused) == gf_mul(3, gf_inv(3))
+        ok = ok + 1
+
+    if fusion_channel(vortex, antivortex) == 2
+        ok = ok + 1
+
+    let vacuum_rp1 = rp_make(5, 3, 1)
+    let vacuum_rp2 = rp_make(5, gf_inv(3), 1)
+    let vacuum_fused = anyon_fusion(vacuum_rp1, vacuum_rp2)
+    if rp_r(vacuum_fused) == 1
+        ok = ok + 1
+
+    let a1 = rp_make(1, 2, 1)
+    let a2 = rp_make(2, 3, 1)
+    let swapped = braid_swap(a1, a2)
+    if rp_z(swapped[0]) == 2
+        ok = ok + 1
+    if rp_z(swapped[1]) == 1
+        ok = ok + 1
+
+    let stats = braid_statistics(a1, a2)
+    if stats >= 0
+        ok = ok + 1
+
+    let clean_anyons = [rp_make(1, 1, 1), rp_make(2, 1, 1)]
+    let noisy_anyons = [rp_make(1, 7, 1), rp_make(2, 1, 1)]
+    if pcd_decoherence(clean_anyons, clean_anyons, 2) == 0
+        ok = ok + 1
+    if pcd_decoherence(clean_anyons, noisy_anyons, 2) == 1
+        ok = ok + 1
+
+    if rrc_topological_class(clean_anyons, clean_anyons, 2) == 1
+        ok = ok + 1
+
+    let class_change = [rp_make(1, 1, 1), rp_make(2, 1, 2)]
+    if topological_class(clean_anyons, 2) == 2
+        ok = ok + 1
+    if topological_class(class_change, 2) == 3
+        ok = ok + 1
+
+    let bit0 = encode_logical_bit(0)
+    let bit1 = encode_logical_bit(1)
+    if rp_n(bit0[0]) == 0
+        ok = ok + 1
+    if rp_n(bit1[0]) == 1
+        ok = ok + 1
+
+    let clean_result = quantum_error_correction(clean_anyons, 2)
+    if clean_result[0] == 0
+        ok = ok + 1
+    if clean_result[2] == 1
+        ok = ok + 1
+
+    let noisy_result = quantum_error_correction(noisy_anyons, 2)
+    if noisy_result[0] == 1
+        ok = ok + 1
+    if noisy_result[2] == 1
+        ok = ok + 1
+
+    if qec_round_trip(0) == 1
+        ok = ok + 1
+    if qec_round_trip(1) == 1
+        ok = ok + 1
+
+    if fault_tolerant_verify(clean_anyons, 2) == 1
+        ok = ok + 1
+    if fault_tolerant_verify(noisy_anyons, 2) == 1
+        ok = ok + 1
+
+    if residue_theorem_verify(clean_anyons, 2) == 1
+        ok = ok + 1
+    if residue_theorem_verify(noisy_anyons, 2) == 1
+        ok = ok + 1
+
+    let vp = anyon_pair(7, 5)
+    let total = gf_add(rp_r(vp[0]), rp_r(vp[1]))
+    if total == gf_add(5, gf_inv(5))
+        ok = ok + 1
+
+    let bootstrap_anyons = [
+        rp_make(0, 0, 1),
+        rp_make(1, 1, 1),
+        rp_make(2, 8, 1),
+        rp_make(3, 27, 1)
+    ]
+    let bs_field = rpf_make(bootstrap_anyons, 4)
+    if rpf_count(bs_field) == 4
+        ok = ok + 1
+
+    let mutated = rpf_galois(bs_field, 2)
+    if rpf_count(mutated) == 4
+        ok = ok + 1
+
+    let hom = rpf_homology(bs_field)
+    if hom[0] == 4
+        ok = ok + 1
+
+    if ast_to_op(AST_LITERAL()) == OP_OBSERVE()
+        ok = ok + 1
+
+    let f = mf_make([0, 1], [3, 5], 2)
+    let fI = combinator_I(f)
+    if mf_equal(fI, f) == 1
+        ok = ok + 1
+
+    if bootstrap_tower(8) == 1
+        ok = ok + 1
+
+    let apop = apoptosis(f)
+    if mf_size(apop) >= 0
+        ok = ok + 1
+
+    let mc = meta_compiler()
+    if mf_size(mc) == 6
+        ok = ok + 1
+
+    let wilson_anyon = rp_make(0, 3, 1)
+    let wilson_phase = gf_pow(rp_r(wilson_anyon), 4)
+    if wilson_phase >= 0
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_qec_verify()

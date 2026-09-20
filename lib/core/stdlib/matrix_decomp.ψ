@@ -1,0 +1,204 @@
+import "numtheor.ψ"
+let lu_decompose(matrix, n) =
+    let lu = []
+    let i = 0
+    for i < n * n
+        lu = arr_concat(lu, [matrix[i]])
+        i = i + 1
+    let k = 0
+    for k < n
+        let i = k + 1
+        for i < n
+            lu[i * n + k] = lu[i * n + k] / lu[k * n + k]
+            let j = k + 1
+            for j < n
+                lu[i * n + j] = lu[i * n + j] - lu[i * n + k] * lu[k * n + j]
+                j = j + 1
+            i = i + 1
+        k = k + 1
+    let L = []
+    let U = []
+    let i = 0
+    for i < n
+        let j = 0
+        for j < n
+            if i > j
+                L = arr_concat(L, [lu[i * n + j]])
+                U = arr_concat(U, [0])
+            else
+                0
+            if i == j
+                L = arr_concat(L, [1])
+                U = arr_concat(U, [lu[i * n + j]])
+            else
+                L = arr_concat(L, [0])
+                U = arr_concat(U, [lu[i * n + j]])
+            j = j + 1
+        i = i + 1
+    [L, U]
+
+let lu_solve(L, U, b, n) =
+    let y = []
+    let i = 0
+    for i < n
+        y = arr_concat(y, [0])
+        i = i + 1
+    let i = 0
+    for i < n
+        let sum = b[i]
+        let j = 0
+        for j < i
+            sum = sum - L[i * n + j] * y[j]
+            j = j + 1
+        y[i] = sum
+        i = i + 1
+    let x = []
+    let i = 0
+    for i < n
+        x = arr_concat(x, [0])
+        i = i + 1
+    let i = n - 1
+    for i >= 0
+        let sum = y[i]
+        let j = i + 1
+        for j < n
+            sum = sum - U[i * n + j] * x[j]
+            j = j + 1
+        x[i] = sum / U[i * n + i]
+        i = i - 1
+    x
+
+let qr_gram_schmidt(matrix, m, n) =
+    let Q = []
+    let R = []
+    let i = 0
+    for i < m * n
+        Q = arr_concat(Q, [matrix[i]])
+        R = arr_concat(R, [0])
+        i = i + 1
+    let k = 0
+    for k < n
+        let norm = 0
+        let i = 0
+        for i < m
+            norm = norm + Q[i * n + k] * Q[i * n + k]
+            i = i + 1
+        norm = isqrt(norm)
+        R[k * n + k] = norm
+        if norm > 0
+            let i = 0
+            for i < m
+                Q[i * n + k] = Q[i * n + k] / norm * 1000
+                i = i + 1
+        let j = k + 1
+        for j < n
+            let dot = 0
+            let i = 0
+            for i < m
+                dot = dot + Q[i * n + k] * matrix[i * n + j] / 1000
+                i = i + 1
+            R[k * n + j] = dot
+            let i = 0
+            for i < m
+                Q[i * n + j] = Q[i * n + j] - dot * Q[i * n + k] / 1000
+                i = i + 1
+            j = j + 1
+        k = k + 1
+    [Q, R]
+
+let cholesky(matrix, n) =
+    let L = []
+    let i = 0
+    for i < n * n
+        L = arr_concat(L, [0])
+        i = i + 1
+    let i = 0
+    for i < n
+        let j = 0
+        for j <= i
+            let sum = matrix[i * n + j]
+            let k = 0
+            for k < j
+                sum = sum - L[i * n + k] * L[j * n + k] / 1000
+                k = k + 1
+            if i == j
+                L[i * n + j] = isqrt(sum * 1000)
+            else
+                L[i * n + j] = sum * 1000 / L[j * n + j]
+            j = j + 1
+        i = i + 1
+    L
+
+let power_iteration(matrix, n, n_iter) =
+    let v = []
+    let i = 0
+    for i < n
+        v = arr_concat(v, [1000])
+        i = i + 1
+    let eigenvalue = 0
+    let iter = 0
+    for iter < n_iter
+        let v_new = []
+        let i = 0
+        for i < n
+            let sum = 0
+            let j = 0
+            for j < n
+                sum = sum + matrix[i * n + j] * v[j] / 1000
+                j = j + 1
+            v_new = arr_concat(v_new, [sum])
+            i = i + 1
+        let norm = 0
+        let i = 0
+        for i < n
+            norm = norm + v_new[i] * v_new[i] / 1000
+            i = i + 1
+        norm = isqrt(norm)
+        if norm > 0
+            let i = 0
+            for i < n
+                v_new[i] = v_new[i] * 1000 / norm
+                i = i + 1
+        let av = []
+        let i = 0
+        for i < n
+            let sum = 0
+            let j = 0
+            for j < n
+                sum = sum + matrix[i * n + j] * v_new[j] / 1000
+                j = j + 1
+            av = arr_concat(av, [sum])
+            i = i + 1
+        let num = 0
+        let den = 0
+        let i = 0
+        for i < n
+            num = num + v_new[i] * av[i] / 1000
+            den = den + v_new[i] * v_new[i] / 1000
+            i = i + 1
+        if den > 0
+            eigenvalue = num / den
+        v = v_new
+        iter = iter + 1
+    [eigenvalue, v]
+
+let det_lu(matrix, n) =
+    let result = lu_decompose(matrix, n)
+    let U = result[1]
+    let det = 1
+    let i = 0
+    for i < n
+        det = det * U[i * n + i] / 1000
+        i = i + 1
+    det
+
+let main() =
+    let m = [4000, 3000, 3000, 2000]
+    let lu = lu_decompose(m, 2)
+    print(lu[0])
+    print(lu[1])
+    let pi = power_iteration(m, 2, 20)
+    print(pi)
+    let d = det_lu(m, 2)
+    print(d)
+    0

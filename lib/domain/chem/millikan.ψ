@@ -1,0 +1,39 @@
+import "ck.ψ"
+let bad = [0]
+
+let e16 = 16
+let q1 = 16
+let q2 = 32
+let q3 = 48
+bad[0] = bad[0] + ck(e16, 14, 18)
+bad[0] = bad[0] + ck(q1, 14, 18)
+
+let m1 = q1 % e16
+let m2 = q2 % e16
+let m3 = q3 % e16
+bad[0] = bad[0] + ck_hi(m1, 0)
+bad[0] = bad[0] + ck_hi(m2, 0)
+bad[0] = bad[0] + ck_hi(m3, 0)
+
+let r2 = q2 / q1
+let r3 = q3 / q1
+bad[0] = bad[0] + ck(r2, 2, 2)
+bad[0] = bad[0] + ck(r3, 3, 3)
+
+let quant = 1
+bad[0] = bad[0] + ck_lo(quant, 1)
+
+if 1909 < 1907
+    bad[0] = bad[0] + 1
+if 1909 > 1911
+    bad[0] = bad[0] + 1
+if 1923 < 1921
+    bad[0] = bad[0] + 1
+if 1923 > 1925
+    bad[0] = bad[0] + 1
+if 1969 < 1967
+    bad[0] = bad[0] + 1
+if 1969 > 1971
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

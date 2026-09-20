@@ -1,0 +1,180 @@
+let bfs(adj, start, n) =
+    let visited = []
+    let i = 0
+    for i < n
+        visited = arr_concat(visited, [0])
+        i = i + 1
+    let queue = [start]
+    visited[start] = 1
+    let order = []
+    for queue.len() > 0
+        let node = queue[0]
+        queue = arr_drop(queue, 1)
+        order = arr_concat(order, [node])
+        let i = 0
+        let neighbors = adj[node]
+        for i < neighbors.len()
+            let next = neighbors[i]
+            if visited[next] == 0
+                visited[next] = 1
+                queue = arr_concat(queue, [next])
+            i = i + 1
+    order
+
+let dfs(adj, start, n) =
+    let visited = []
+    let i = 0
+    for i < n
+        visited = arr_concat(visited, [0])
+        i = i + 1
+    let stack = [start]
+    let order = []
+    for stack.len() > 0
+        let node = stack[stack.len() - 1]
+        stack = arr_take(stack, stack.len() - 1)
+        if visited[node] == 0
+            visited[node] = 1
+            order = arr_concat(order, [node])
+            let i = 0
+            let neighbors = adj[node]
+            for i < neighbors.len()
+                let next = neighbors[i]
+                if visited[next] == 0
+                    stack = arr_concat(stack, [next])
+                i = i + 1
+    order
+
+let dijkstra(adj, weight, start, n) =
+    let dist = []
+    let visited = []
+    let i = 0
+    for i < n
+        dist = arr_concat(dist, [999999999])
+        visited = arr_concat(visited, [0])
+        i = i + 1
+    dist[start] = 0
+    let count = 0
+    for count < n
+        let u = -1
+        let min_d = 999999999
+        let i = 0
+        for i < n
+            if visited[i] == 0 && dist[i] < min_d
+                min_d = dist[i]
+                u = i
+            i = i + 1
+        if u == -1
+            count = n
+        else
+            visited[u] = 1
+            let neighbors = adj[u]
+            let i = 0
+            for i < neighbors.len()
+                let v = neighbors[i]
+                let w = weight[u * n + v]
+                if w > 0 && dist[u] + w < dist[v]
+                    dist[v] = dist[u] + w
+                i = i + 1
+            count = count + 1
+    dist
+
+let bellman_ford(edges, start, n) =
+    let dist = []
+    let i = 0
+    for i < n
+        dist = arr_concat(dist, [999999999])
+        i = i + 1
+    dist[start] = 0
+    let iter = 0
+    for iter < n - 1
+        let e = 0
+        for e < edges.len()
+            let u = edges[e]
+            let v = edges[e + 1]
+            let w = edges[e + 2]
+            if dist[u] + w < dist[v]
+                dist[v] = dist[u] + w
+            e = e + 3
+        iter = iter + 1
+    dist
+
+let floyd_warshall(matrix, n) =
+    let dist = matrix
+    let k = 0
+    for k < n
+        let i = 0
+        for i < n
+            let j = 0
+            for j < n
+                let through = dist[i * n + k] + dist[k * n + j]
+                if through < dist[i * n + j]
+                    dist[i * n + j] = through
+                j = j + 1
+            i = i + 1
+        k = k + 1
+    dist
+
+let topological_sort(adj, n) =
+    let in_degree = []
+    let i = 0
+    for i < n
+        in_degree = arr_concat(in_degree, [0])
+        i = i + 1
+    let i = 0
+    for i < n
+        let j = 0
+        let neighbors = adj[i]
+        for j < neighbors.len()
+            in_degree[neighbors[j]] = in_degree[neighbors[j]] + 1
+            j = j + 1
+        i = i + 1
+    let queue = []
+    let i = 0
+    for i < n
+        if in_degree[i] == 0
+            queue = arr_concat(queue, [i])
+        i = i + 1
+    let result = []
+    for queue.len() > 0
+        let node = queue[0]
+        queue = arr_drop(queue, 1)
+        result = arr_concat(result, [node])
+        let neighbors = adj[node]
+        let j = 0
+        for j < neighbors.len()
+            in_degree[neighbors[j]] = in_degree[neighbors[j]] - 1
+            if in_degree[neighbors[j]] == 0
+                queue = arr_concat(queue, [neighbors[j]])
+            j = j + 1
+    result
+
+let connected_components(adj, n) =
+    let visited = []
+    let i = 0
+    for i < n
+        visited = arr_concat(visited, [0])
+        i = i + 1
+    let components = 0
+    let i = 0
+    for i < n
+        if visited[i] == 0
+            let order = dfs(adj, i, n)
+            let j = 0
+            for j < order.len()
+                visited[order[j]] = 1
+                j = j + 1
+            components = components + 1
+        i = i + 1
+    components
+
+let main() =
+    let adj = [[1, 2], [0, 3], [0, 3], [1, 2]]
+    let v1 = bfs(adj, 0, 4)
+    print(v1)
+    let v2 = dfs(adj, 0, 4)
+    print(v2)
+    let v3 = topological_sort([[1], [2], [3], []], 4)
+    print(v3)
+    let v4 = connected_components(adj, 4)
+    print(v4)
+    0

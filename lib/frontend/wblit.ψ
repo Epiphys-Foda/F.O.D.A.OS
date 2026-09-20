@@ -1,0 +1,148 @@
+let font_glyphs() = [
+  0, 4169, 45, 24445, 10142, 17057, 27611, 9,
+  8778, 5265, 341, 1488, 5120, 448, 4096, 4772,
+  15214, 9370, 29347, 14499, 18925, 14543, 31694, 4775,
+  31727, 14831, 520, 5136, 17492, 3640, 5393, 8359,
+  25578, 23530, 15083, 25166, 15211, 29647, 5071, 27598,
+  23533, 29847, 11044, 23277, 29257, 23549, 24573, 11114,
+  4843, 28522, 22507, 14478, 9367, 27501, 9581, 24557,
+  23213, 9389, 29351, 29263, 2184, 31015, 42, 28672,
+  17, 31640, 15193, 25200, 27508, 26480, 9684, 85872,
+  23385, 4673, 88324, 22249, 29843, 24568, 23384, 11088,
+  47960, 158576, 4720, 15600, 25786, 27496, 12136, 32744,
+  21672, 85352, 30648, 25686, 4617, 13587, 30
+]
+
+let fill_rect(fb, w, h, x, y, rw, rh, color) =
+    let row = 0
+    for row < rh
+      let col = 0
+      for col < rw
+        let dx = x + col
+        let dy = y + row
+        let vis = ((dx >= 0) & (dx < w)) & ((dy >= 0) & (dy < h))
+        if vis == 1
+          arr_set(fb, dy * w + dx, color)
+        col = col + 1
+      row = row + 1
+    0
+
+let draw_line(fb, w, h, x0, y0, x1, y1, color) =
+    let dx = x1 - x0
+    let dy = y1 - y0
+    let sx = 0 - 1
+    if dx >= 0
+      sx = 1
+    let sy = 0 - 1
+    if dy >= 0
+      sy = 1
+    let adx = dx * sx
+    let ady = dy * sy
+    let nady = 0 - ady
+    let err = adx + nady
+    let x = x0
+    let y = y0
+    let done = 0
+    for done == 0
+      let vis = ((x >= 0) & (x < w)) & ((y >= 0) & (y < h))
+      if vis == 1
+        arr_set(fb, y * w + x, color)
+      if x == x1
+        if y == y1
+          done = 1
+      if done == 0
+        let e2 = err * 2
+        if e2 >= nady
+          err = err + nady
+          x = x + sx
+        if e2 <= adx
+          err = err + adx
+          y = y + sy
+    0
+
+let blit_sprite(fb, w, h, x, y, spr, sw, sh) =
+    let row = 0
+    for row < sh
+      let col = 0
+      for col < sw
+        let px = spr[row * sw + col]
+        let dx = x + col
+        let dy = y + row
+        let vis = (((px & 255) != 0) & (dx >= 0)) & ((dx < w) & ((dy >= 0) & (dy < h)))
+        if vis == 1
+          arr_set(fb, dy * w + dx, px)
+        col = col + 1
+      row = row + 1
+    0
+
+let blit_char(fb, w, h, x, y, code, color, fglyph) =
+    let gi = code - 32
+    if (gi >= 0) & (gi < 95)
+      let glyph = fglyph[gi]
+      let row = 0
+      for row < 6
+        let col = 0
+        for col < 3
+          let sh = row * 3 + col
+          if ((glyph >> sh) & 1) == 1
+            let dx = x + col
+            let dy = y + row
+            let vis = ((dx >= 0) & (dx < w)) & ((dy >= 0) & (dy < h))
+            if vis == 1
+              arr_set(fb, dy * w + dx, color)
+          col = col + 1
+        row = row + 1
+    0
+
+let blit_text(fb, w, h, x, y, s, color, fglyph) =
+    let n = len(s)
+    let ci = 0
+    for ci < n
+      blit_char(fb, w, h, x + ci * 4, y, s[ci], color, fglyph)
+      ci = ci + 1
+    0
+
+let blit_char2x(fb, w, h, x, y, code, color, fglyph) =
+    let gi = code - 32
+    if (gi >= 0) & (gi < 95)
+      let glyph = fglyph[gi]
+      let row = 0
+      for row < 6
+        let col = 0
+        for col < 3
+          let sh = row * 3 + col
+          if ((glyph >> sh) & 1) == 1
+            let dx = x + col * 2
+            let dy = y + row * 2
+            let vis = ((dx >= 0) & (dx + 1 < w)) & ((dy >= 0) & (dy + 1 < h))
+            if vis == 1
+              arr_set(fb, dy * w + dx, color)
+              arr_set(fb, dy * w + dx + 1, color)
+              arr_set(fb, (dy + 1) * w + dx, color)
+              arr_set(fb, (dy + 1) * w + dx + 1, color)
+          col = col + 1
+        row = row + 1
+    0
+
+let blit_text2x(fb, w, h, x, y, s, color, fglyph) =
+    let n = len(s)
+    let ci = 0
+    for ci < n
+      blit_char2x(fb, w, h, x + ci * 8, y, s[ci], color, fglyph)
+      ci = ci + 1
+    0
+
+let blit_code(fb, w, h, x, y, code, clen, color, fg) =
+    let i = 0
+    let cx = x
+    let cy = y
+    for i < clen
+      let c = code[i]
+      if c == 10
+        cx = x
+        cy = cy + 7
+      else
+        blit_char(fb, w, h, cx, cy, c, color, fg)
+        cx = cx + 4
+      i = i + 1
+    0

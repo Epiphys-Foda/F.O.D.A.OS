@@ -1,0 +1,104 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let MAC_CHAIN_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let MAC_CHAIN_RESIDUES = [138, 95, 250, 30, 500, 280, 200, 50]
+
+let psi_mac_chain(chain_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(chain_idx), gf_norm(MAC_CHAIN_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(MAC_CHAIN_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let MAC_SIDE_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let MAC_SIDE_RESIDUES = [500, 700, 1500, 5800, 3700, 5800, 4200, 6500]
+
+let psi_mac_side(side_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(side_idx), gf_norm(MAC_SIDE_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(MAC_SIDE_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let MAC_DP_POLES = [10, 100, 500, 1000, 5000, 10000, 50000, 100000]
+let MAC_DP_RESIDUES = [50000, 5000, 1000, 500, 100, 50, 10, 5]
+
+let psi_mac_dp(DP) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(DP), gf_norm(MAC_DP_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(MAC_DP_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let MAC_TG_BASE = 1500
+let MAC_TG_DP_SCALE = 100
+
+let mac_fit_Tg(chain_idx, side_idx, DP) =
+    let chain_term = psi_mac_chain(chain_idx)
+    let side_term = psi_mac_side(side_idx)
+    let dp_term = psi_mac_dp(DP)
+    let dp_correction = gf_div(dp_term, MAC_TG_DP_SCALE)
+    gf_sub(gf_add(gf_add(MAC_TG_BASE, chain_term), side_term), dp_correction)
+
+let MAC_TM_BASE = 500
+let MAC_TM_CHAIN_FACTOR = 5
+let MAC_TM_SIDE_FACTOR = 2
+
+let mac_fit_Tm(chain_idx, side_idx) =
+    let chain_term = gf_mul(psi_mac_chain(chain_idx), MAC_TM_CHAIN_FACTOR)
+    let side_term = gf_mul(psi_mac_side(side_idx), MAC_TM_SIDE_FACTOR)
+    gf_add(gf_add(MAC_TM_BASE, chain_term), side_term)
+
+let MAC_ETA_SCALE = 10000
+
+let mac_fit_intrinsic_viscosity(chain_idx, side_idx, M_log10) =
+    let chain_contrib = psi_mac_chain(chain_idx)
+    let side_contrib = psi_mac_side(side_idx)
+    let m_term = gf_mul(chain_contrib, gf_norm(M_log10))
+    gf_add(gf_div(m_term, MAC_ETA_SCALE), side_contrib)
+
+let mac_flory_schulz_prob(DP, p_x1000) =
+    let q_x1000 = gf_sub(1000, p_x1000)
+    let dp_field = psi_mac_dp(DP)
+    gf_mul(dp_field, q_x1000)
+
+let mac_global_response(chain_idx, side_idx, DP) =
+    let e1 = psi_mac_chain(chain_idx)
+    let e2 = psi_mac_side(side_idx)
+    let e3 = psi_mac_dp(DP)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+
+let mac_tg_tm_duality(chain_idx, side_idx, DP) =
+    let tg = mac_fit_Tg(chain_idx, side_idx, DP)
+    let tm = mac_fit_Tm(chain_idx, side_idx)
+    gf_add(tg, tm)
+
+let mac_wlf_shift(chain_idx, side_idx, DP, T_offset_x10) =
+    let tg = mac_fit_Tg(chain_idx, side_idx, DP)
+    let c1_x10 = 174
+    let c2_x10 = 516
+    let denom = gf_add(c2_x10, T_offset_x10)
+    let numer = gf_mul(c1_x10, T_offset_x10)
+    gf_div(numer, denom)
+
+let mac_verify() =
+    let e1 = psi_mac_chain(1)
+    let e2 = psi_mac_side(1)
+    let e3 = psi_mac_dp(1000)
+    let ok = 0
+    if e1 != 0
+        ok = 1
+    if e2 != 0
+        ok = gf_add(ok, 1)
+    if e3 != 0
+        ok = gf_add(ok, 1)
+    ok

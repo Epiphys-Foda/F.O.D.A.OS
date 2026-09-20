@@ -1,0 +1,29 @@
+import "ck.ψ"
+let bad = [0]
+
+let eg = 112
+bad[0] = bad[0] + ck(eg, 110, 115)
+let lamc = 124000 / eg
+bad[0] = bad[0] + ck(lamc, 1090, 1120)
+
+let sq = 33
+bad[0] = bad[0] + ck(sq, 32, 35)
+
+let comm = 20
+let rec = 27
+bad[0] = bad[0] + ck_hi(comm, rec)
+bad[0] = bad[0] + ck_hi(rec, sq)
+
+let iqe = 100
+bad[0] = bad[0] + ck_lo(iqe, 90)
+
+if 1839 < 1837
+    bad[0] = bad[0] + 1
+if 1839 > 1841
+    bad[0] = bad[0] + 1
+if 1954 < 1952
+    bad[0] = bad[0] + 1
+if 1954 > 1956
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

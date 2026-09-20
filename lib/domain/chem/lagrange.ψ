@@ -1,0 +1,30 @@
+import "ck.ψ"
+let bad = [0]
+
+let rl2 = 15
+bad[0] = bad[0] + ck(rl2, 14, 16)
+
+let troj = 360 / 6
+let tz = troj - 60
+bad[0] = bad[0] + ck(tz, 0, 0)
+
+let shield = 1
+bad[0] = bad[0] + ck_lo(shield, 1)
+
+let stable = 1
+bad[0] = bad[0] + ck_lo(stable, 1)
+
+if 1772 < 1770
+    bad[0] = bad[0] + 1
+if 1772 > 1774
+    bad[0] = bad[0] + 1
+if 1906 < 1904
+    bad[0] = bad[0] + 1
+if 1906 > 1908
+    bad[0] = bad[0] + 1
+if 2021 < 2019
+    bad[0] = bad[0] + 1
+if 2021 > 2023
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,28 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let gE = 98
+bad[0] = bad[0] + ck(gE, 95, 100)
+
+let gM = 37
+bad[0] = bad[0] + ck(gM, 35, 39)
+
+let gRatio = small_div(gE * 100, gM)
+bad[0] = bad[0] + ck(gRatio, 260, 270)
+
+let hEv = 8848
+bad[0] = bad[0] + ck(hEv, 8500, 9200)
+
+let hOl = 21900
+bad[0] = bad[0] + ck(hOl, 21000, 23000)
+
+if hOl < 2 * hEv
+    bad[0] = bad[0] + 1
+
+let hasPlateTectonics = 0
+if hasPlateTectonics != 0
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

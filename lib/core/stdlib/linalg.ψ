@@ -1,0 +1,92 @@
+import "gf65537.ψ"
+
+let _matmul_cell(A, B, m, n, p, i, j, k, acc) =
+      if k >= n
+        acc
+      else
+        let a = A[i * n + k]
+        let b = B[k * p + j]
+        let term = gfmul(a, b)
+        _matmul_cell(A, B, m, n, p, i, j, k + 1, (acc + term) % 65537)
+let _matmul_loop(A, B, C, m, n, p, i, j) =
+    if i >= m
+      C
+    else
+        0
+    if j >= p
+      _matmul_loop(A, B, C, m, n, p, i + 1, 0)
+    else
+      C[i * p + j] = _matmul_cell(A, B, m, n, p, i, j, 0, 0)
+      _matmul_loop(A, B, C, m, n, p, i, j + 1)
+let matmul(A, B, m, n, p) =
+    let C = arr_new_n(m * p)
+    _matmul_loop(A, B, C, m, n, p, 0, 0)
+    C
+
+let det_2x2(A) =
+    let ad = gfmul(A[0], A[3])
+    let bc = gfmul(A[1], A[2])
+    (ad + 65537 - bc) % 65537
+
+let det_3x3(A) =
+    let aei = gfmul(gfmul(A[0], A[4]), A[8])
+    let bfg = gfmul(gfmul(A[1], A[5]), A[6])
+    let cdh = gfmul(gfmul(A[2], A[3]), A[7])
+    let ceg = gfmul(gfmul(A[2], A[4]), A[6])
+    let bdi = gfmul(gfmul(A[1], A[3]), A[8])
+    let afh = gfmul(gfmul(A[0], A[5]), A[7])
+    let pos = (aei + bfg + cdh) % 65537
+    let neg = (ceg + bdi + afh) % 65537
+    (pos + 65537 - neg) % 65537
+
+let inv_2x2(A) =
+    let d = det_2x2(A)
+    let d_inv = gfinv(d)
+    let result = arr_new_n(4)
+    result[0] = gfmul(A[3], d_inv)
+    result[1] = gfmul(65537 - A[1], d_inv)
+    result[2] = gfmul(65537 - A[2], d_inv)
+    result[3] = gfmul(A[0], d_inv)
+    result
+
+let _matvec_cell(A, x, m, n, i, j, acc) =
+      if j >= n
+        acc
+      else
+        let term = gfmul(A[i * n + j], x[j])
+        _matvec_cell(A, x, m, n, i, j + 1, (acc + term) % 65537)
+let _matvec_loop(A, x, y, m, n, i) =
+      if i >= m
+        y
+      else
+        y[i] = _matvec_cell(A, x, m, n, i, 0, 0)
+        _matvec_loop(A, x, y, m, n, i + 1)
+let matvec(A, x, m, n) =
+    let y = arr_new_n(m)
+    _matvec_loop(A, x, y, m, n, 0)
+    y
+
+let _identity_loop(I, n, i) =
+      if i >= n
+        I
+      else
+        I[i * n + i] = 1
+        _identity_loop(I, n, i + 1)
+let identity(n) =
+    let I = arr_new_n(n * n)
+    _identity_loop(I, n, 0)
+    I
+
+let test_linalg() =
+    let A = arr_new_n(4)
+    A[0] = 2
+    A[1] = 3
+    A[2] = 4
+    A[3] = 5
+    let d = det_2x2(A)
+    assert_eq(d, (2 * 5 + 65537 - 3 * 4) % 65537)
+    let I = identity(2)
+    assert_eq(I[0], 1)
+    assert_eq(I[1], 0)
+    assert_eq(I[3], 1)
+    0

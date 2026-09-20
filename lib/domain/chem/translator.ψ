@@ -1,0 +1,362 @@
+import "ck.ψ"
+let aa_table = [
+    14, 14, 11, 11, 16, 16, 16, 16, 19, 19, 0, 0, 5, 5, 0, 18, 11, 11, 11, 11, 15, 15, 15, 15, 9, 9, 6, 6, 2, 2, 2, 2, 10, 10, 10, 13, 17, 17, 17, 17, 3, 3, 12, 12, 16, 16, 2, 2, 20, 20, 20, 20, 1, 1, 1, 1, 4, 4, 7, 7, 8, 8, 8, 8
+]
+
+let mass_table = [
+    147177, 147177, 113159, 113159, 87078, 87078, 87078, 87078, 163176, 163176, 0, 0, 103139, 103139, 0, 186213, 113159, 113159, 113159, 113159, 97117, 97117, 97117, 97117, 137141, 137141, 128130, 128130, 156188, 156188, 156188, 156188, 113159, 113159, 113159, 131192, 101105, 101105, 101105, 101105, 114104, 114104, 128174, 128174, 87078, 87078, 156188, 156188, 99133, 99133, 99133, 99133, 71079, 71079, 71079, 71079, 115088, 115088, 129116, 129116, 57052, 57052, 57052, 57052
+]
+
+let bad = [0]
+let m_T1_ang2 = [
+    1, 1, 3, 1, 4, 4, 3, 1, 2, 4, 1, 4, 1, 4, 1,
+    3, 2, 3, 1, 2, 2, 3, 2, 2, 2, 4, 1, 1, 1, 1,
+    3, 3, 1, 2, 3, 4, 1,
+]
+
+let m_T2_proinsA = [
+    3, 1, 4, 4, 4, 4, 3, 1, 2, 4, 1, 4, 4, 3, 4,
+    2, 3, 4, 1, 4, 2, 1, 4, 2, 3, 2, 2, 1, 2, 2,
+    3, 1, 2, 1, 4, 2, 1, 2, 2, 2, 1, 4, 1, 3, 2,
+    2, 3, 4, 2, 1, 4, 4, 3, 4, 3, 3, 2, 1, 3, 2,
+    1, 4, 2, 3, 3, 2, 1, 3, 3,
+]
+
+let m_T3_offset = [
+    1, 3, 3, 1, 4, 4, 3, 1, 2, 4, 1, 4, 1, 4, 1,
+    3, 2, 3, 1, 2, 2, 3, 2, 2, 2, 4, 1, 1, 1, 1,
+    3, 3, 1, 2, 3, 4, 1,
+]
+
+let m_T4_noaug = [
+    4, 4, 4, 4, 4, 4, 1, 1, 1, 1, 3, 3,
+]
+
+let m_T5_stop = [
+    3, 1, 4, 4, 3, 1, 2, 4, 1, 4, 1, 4, 1, 3, 3,
+    1, 3, 2, 3, 1, 2, 2, 3, 2, 2, 2, 4, 1, 1, 1,
+]
+
+let startT1_ang2 = [0 - 1]
+let i = 0
+for i < 37 - 2
+    let jx = i * 1
+    let b1 = m_T1_ang2[jx]
+    let b2 = m_T1_ang2[jx + 1]
+    let b3 = m_T1_ang2[jx + 2]
+    let c = (b1 - 1) * 16 + (b2 - 1) * 4 + (b3 - 1)
+    let dc = c - 35
+    let adc =
+        if dc < 0
+            0 - dc
+        else
+            dc
+    if adc < 1
+        let st0 = startT1_ang2[0]
+        if st0 < 0
+            startT1_ang2[0] = jx
+    i = i + 1
+let rawT1_ang2 = [0]
+let lenT1_ang2 = [0]
+let go = [0]
+let st = startT1_ang2[0]
+if st < 0
+    go[0] = 1
+let p = startT1_ang2[0]
+for go[0] < 1
+    let p2 = p + 2
+    let oob = p2 - 37
+    if oob < 0
+        let b1 = m_T1_ang2[p]
+        let b2 = m_T1_ang2[p + 1]
+        let b3 = m_T1_ang2[p2]
+        let c = (b1 - 1) * 16 + (b2 - 1) * 4 + (b3 - 1)
+        let aa = aa_table[c]
+        if aa > 0
+            rawT1_ang2[0] = rawT1_ang2[0] + mass_table[c]
+            lenT1_ang2[0] = lenT1_ang2[0] + 1
+        if aa < 1
+            go[0] = 1
+        p = p + 3
+    else
+        go[0] = 1
+let dr = rawT1_ang2[0] - 1159371
+bad[0] = bad[0] + dr * dr
+let dl = lenT1_ang2[0] - 9
+bad[0] = bad[0] + dl * dl
+let mat = rawT1_ang2[0]
+let mlen = lenT1_ang2[0]
+let has = [0]
+if mlen > 0
+    has[0] = 1
+if has[0] > 0
+    mat = mat - 131192
+    mlen = mlen - 1
+let dm2 =
+    if mlen > 0
+        mat - (1159371 - 131192)
+    else
+        mat - 1159371
+bad[0] = bad[0] + dm2 * dm2
+let startT2_proinsA = [0 - 1]
+let i = 0
+for i < 69 - 2
+    let jx = i * 1
+    let b1 = m_T2_proinsA[jx]
+    let b2 = m_T2_proinsA[jx + 1]
+    let b3 = m_T2_proinsA[jx + 2]
+    let c = (b1 - 1) * 16 + (b2 - 1) * 4 + (b3 - 1)
+    let dc = c - 35
+    let adc =
+        if dc < 0
+            0 - dc
+        else
+            dc
+    if adc < 1
+        let st0 = startT2_proinsA[0]
+        if st0 < 0
+            startT2_proinsA[0] = jx
+    i = i + 1
+let rawT2_proinsA = [0]
+let lenT2_proinsA = [0]
+let go = [0]
+let st = startT2_proinsA[0]
+if st < 0
+    go[0] = 1
+let p = startT2_proinsA[0]
+for go[0] < 1
+    let p2 = p + 2
+    let oob = p2 - 69
+    if oob < 0
+        let b1 = m_T2_proinsA[p]
+        let b2 = m_T2_proinsA[p + 1]
+        let b3 = m_T2_proinsA[p2]
+        let c = (b1 - 1) * 16 + (b2 - 1) * 4 + (b3 - 1)
+        let aa = aa_table[c]
+        if aa > 0
+            rawT2_proinsA[0] = rawT2_proinsA[0] + mass_table[c]
+            lenT2_proinsA[0] = lenT2_proinsA[0] + 1
+        if aa < 1
+            go[0] = 1
+        p = p + 3
+    else
+        go[0] = 1
+let dr = rawT2_proinsA[0] - 2496882
+bad[0] = bad[0] + dr * dr
+let dl = lenT2_proinsA[0] - 22
+bad[0] = bad[0] + dl * dl
+let mat = rawT2_proinsA[0]
+let mlen = lenT2_proinsA[0]
+let has = [0]
+if mlen > 0
+    has[0] = 1
+if has[0] > 0
+    mat = mat - 131192
+    mlen = mlen - 1
+let dm2 =
+    if mlen > 0
+        mat - (2496882 - 131192)
+    else
+        mat - 2496882
+bad[0] = bad[0] + dm2 * dm2
+let startT3_offset = [0 - 1]
+let i = 0
+for i < 37 - 2
+    let jx = i * 1
+    let b1 = m_T3_offset[jx]
+    let b2 = m_T3_offset[jx + 1]
+    let b3 = m_T3_offset[jx + 2]
+    let c = (b1 - 1) * 16 + (b2 - 1) * 4 + (b3 - 1)
+    let dc = c - 35
+    let adc =
+        if dc < 0
+            0 - dc
+        else
+            dc
+    if adc < 1
+        let st0 = startT3_offset[0]
+        if st0 < 0
+            startT3_offset[0] = jx
+    i = i + 1
+let rawT3_offset = [0]
+let lenT3_offset = [0]
+let go = [0]
+let st = startT3_offset[0]
+if st < 0
+    go[0] = 1
+let p = startT3_offset[0]
+for go[0] < 1
+    let p2 = p + 2
+    let oob = p2 - 37
+    if oob < 0
+        let b1 = m_T3_offset[p]
+        let b2 = m_T3_offset[p + 1]
+        let b3 = m_T3_offset[p2]
+        let c = (b1 - 1) * 16 + (b2 - 1) * 4 + (b3 - 1)
+        let aa = aa_table[c]
+        if aa > 0
+            rawT3_offset[0] = rawT3_offset[0] + mass_table[c]
+            lenT3_offset[0] = lenT3_offset[0] + 1
+        if aa < 1
+            go[0] = 1
+        p = p + 3
+    else
+        go[0] = 1
+let dr = rawT3_offset[0] - 1159371
+bad[0] = bad[0] + dr * dr
+let dl = lenT3_offset[0] - 9
+bad[0] = bad[0] + dl * dl
+let mat = rawT3_offset[0]
+let mlen = lenT3_offset[0]
+let has = [0]
+if mlen > 0
+    has[0] = 1
+if has[0] > 0
+    mat = mat - 131192
+    mlen = mlen - 1
+let dm2 =
+    if mlen > 0
+        mat - (1159371 - 131192)
+    else
+        mat - 1159371
+bad[0] = bad[0] + dm2 * dm2
+let startT4_noaug = [0 - 1]
+let i = 0
+for i < 12 - 2
+    let jx = i * 1
+    let b1 = m_T4_noaug[jx]
+    let b2 = m_T4_noaug[jx + 1]
+    let b3 = m_T4_noaug[jx + 2]
+    let c = (b1 - 1) * 16 + (b2 - 1) * 4 + (b3 - 1)
+    let dc = c - 35
+    let adc =
+        if dc < 0
+            0 - dc
+        else
+            dc
+    if adc < 1
+        let st0 = startT4_noaug[0]
+        if st0 < 0
+            startT4_noaug[0] = jx
+    i = i + 1
+let rawT4_noaug = [0]
+let lenT4_noaug = [0]
+let go = [0]
+let st = startT4_noaug[0]
+if st < 0
+    go[0] = 1
+let p = startT4_noaug[0]
+for go[0] < 1
+    let p2 = p + 2
+    let oob = p2 - 12
+    if oob < 0
+        let b1 = m_T4_noaug[p]
+        let b2 = m_T4_noaug[p + 1]
+        let b3 = m_T4_noaug[p2]
+        let c = (b1 - 1) * 16 + (b2 - 1) * 4 + (b3 - 1)
+        let aa = aa_table[c]
+        if aa > 0
+            rawT4_noaug[0] = rawT4_noaug[0] + mass_table[c]
+            lenT4_noaug[0] = lenT4_noaug[0] + 1
+        if aa < 1
+            go[0] = 1
+        p = p + 3
+    else
+        go[0] = 1
+let dr = rawT4_noaug[0] - 0
+bad[0] = bad[0] + dr * dr
+let dl = lenT4_noaug[0] - 0
+bad[0] = bad[0] + dl * dl
+let mat = rawT4_noaug[0]
+let mlen = lenT4_noaug[0]
+let has = [0]
+if mlen > 0
+    has[0] = 1
+if has[0] > 0
+    mat = mat - 131192
+    mlen = mlen - 1
+let dm2 =
+    if mlen > 0
+        mat - (0 - 131192)
+    else
+        mat - 0
+bad[0] = bad[0] + dm2 * dm2
+let startT5_stop = [0 - 1]
+let i = 0
+for i < 30 - 2
+    let jx = i * 1
+    let b1 = m_T5_stop[jx]
+    let b2 = m_T5_stop[jx + 1]
+    let b3 = m_T5_stop[jx + 2]
+    let c = (b1 - 1) * 16 + (b2 - 1) * 4 + (b3 - 1)
+    let dc = c - 35
+    let adc =
+        if dc < 0
+            0 - dc
+        else
+            dc
+    if adc < 1
+        let st0 = startT5_stop[0]
+        if st0 < 0
+            startT5_stop[0] = jx
+    i = i + 1
+let rawT5_stop = [0]
+let lenT5_stop = [0]
+let go = [0]
+let st = startT5_stop[0]
+if st < 0
+    go[0] = 1
+let p = startT5_stop[0]
+for go[0] < 1
+    let p2 = p + 2
+    let oob = p2 - 30
+    if oob < 0
+        let b1 = m_T5_stop[p]
+        let b2 = m_T5_stop[p + 1]
+        let b3 = m_T5_stop[p2]
+        let c = (b1 - 1) * 16 + (b2 - 1) * 4 + (b3 - 1)
+        let aa = aa_table[c]
+        if aa > 0
+            rawT5_stop[0] = rawT5_stop[0] + mass_table[c]
+            lenT5_stop[0] = lenT5_stop[0] + 1
+        if aa < 1
+            go[0] = 1
+        p = p + 3
+    else
+        go[0] = 1
+let dr = rawT5_stop[0] - 501601
+bad[0] = bad[0] + dr * dr
+let dl = lenT5_stop[0] - 4
+bad[0] = bad[0] + dl * dl
+let mat = rawT5_stop[0]
+let mlen = lenT5_stop[0]
+let has = [0]
+if mlen > 0
+    has[0] = 1
+if has[0] > 0
+    mat = mat - 131192
+    mlen = mlen - 1
+let dm2 =
+    if mlen > 0
+        mat - (501601 - 131192)
+    else
+        mat - 501601
+bad[0] = bad[0] + dm2 * dm2
+let ang = 1028179 + 18015
+let dca = ang - 1046194
+bad[0] = bad[0] + dca * dca
+let ea = dca
+let aaa =
+    if ea < 0
+        0 - ea
+    else
+        ea
+let ta = aaa - 100
+let wa =
+    if ta < 0
+        0 - ta
+    else
+        ta
+bad[0] = bad[0] + ck_hi(wa, 100)
+
+arr_get(arr_new_n(1), bad[0])

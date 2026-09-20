@@ -1,0 +1,83 @@
+let lp_gcd(a, b) =
+    if b == 0
+        a
+    else
+        lp_gcd(b, a - (a / b) * b)
+
+let lp_reduce(a, b) =
+    let g = lp_gcd(a, b)
+    [a / g, b / g]
+
+let lp_reduce_idem(a, b) =
+    let r1 = lp_reduce(a, b)
+    let r2 = lp_reduce(r1[0], r1[1])
+    r1[0] == r2[0] && r1[1] == r2[1]
+
+let lp_is_lock(a, b, max_den) =
+    let r = lp_reduce(a, b)
+    r[1] <= max_den
+
+let lp_lock_2_3() = lp_is_lock(2, 3, 10)
+
+let lp_lock_7_11() = !lp_is_lock(7, 11, 10)
+
+let lp_lock_4_6() = lp_is_lock(4, 6, 10)
+
+let lp_lock_large() = !lp_is_lock(97, 101, 10)
+
+let LP_PERIOD = 8
+
+let lp_phase_relation(d) =
+    let p = d - (d / LP_PERIOD) * LP_PERIOD
+    if p == 0
+        0
+    else
+        0
+    if p <= 2
+        1
+    else
+        0
+    if p <= 4
+        2
+    else
+        0
+    if p <= 6
+        3
+    else
+        4
+
+let lp_rel_name(rel) =
+    if rel == 0
+        "in_phase"
+    else
+        0
+    if rel == 1
+        "analogy"
+    else
+        0
+    if rel == 2
+        "causal"
+    else
+        0
+    if rel == 3
+        "opposed"
+    else
+        "anti_phase"
+
+let lp_phase_0() = lp_phase_relation(0) == 0
+
+let lp_phase_2() = lp_phase_relation(2) == 1
+
+let lp_phase_4() = lp_phase_relation(4) == 2
+
+let lp_phase_6() = lp_phase_relation(6) == 3
+
+let lp_phase_wrap() = lp_phase_relation(LP_PERIOD) == 0
+
+let lp_state(lock) =
+    (lock ? 2 : 0)
+
+let lp_state_demo() = lp_state(true) == 2 && lp_state(false) == 0
+
+let lp_summary() =
+    { theory: "Phase-lock coding (rational frequency ratio = cross-domain analogy)", lock: "Denominator after reduction <= max → phase lock (Diophantine criterion)", phase: "Relation type = quantized phase difference (in_phase/analogy/causal/opposed)", state: "Locked = solid state / unlocked = gas state (temperature semantic field)", principle: "Frequency phase lock = cross-domain analogy — semantics via number theory" }

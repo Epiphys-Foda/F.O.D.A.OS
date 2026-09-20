@@ -1,0 +1,76 @@
+let HOST_LOG_ID = 1
+let HOST_DRAW_PIXEL_ID = 2
+let HOST_HASH_ID = 3
+
+let host_log_value(value) = host_call(HOST_LOG_ID, value, 0)
+
+let host_draw(x, y, color) =
+    let y_color = y * 4294967296 + color
+    host_call(HOST_DRAW_PIXEL_ID, x, y_color)
+
+let host_hash(seed, salt) = host_call(HOST_HASH_ID, seed, salt)
+
+let render_red_pixel_demo() = host_draw(10, 20, 255)
+
+let HOST_GPU_DISPATCH_ID = 4
+
+let gpu_dispatch(shader_id, workgroup_count) = host_call(HOST_GPU_DISPATCH_ID, shader_id, workgroup_count)
+
+let test_host_register_known() = host_register("host_log")
+
+let test_host_register_unknown() = host_register("nonexistent")
+
+let test_host_call_log() = host_call(1, 42, 0)
+
+let test_host_call_hash() = host_call(3, 42, 0)
+
+let test_host_call_invalid() = host_call(999, 0, 0)
+
+let test_host_list() = host_list()
+
+let test_host_dfl() = host_call(3, 123, 456) + host_call(3, 123, 456) * 0
+
+let test_host_round_trip() = host_call(3, host_call(1, 42, 0), 0)
+
+let host_share_str(s) = host_obj_store(s)
+
+let host_share_arr(arr) = host_obj_store(arr)
+
+let host_get_str(id) = host_obj_load(id)
+
+let host_release(id) = host_obj_free(id)
+
+let HOST_GET_ELEMENT_BY_ID = 10
+let HOST_SET_TEXT_CONTENT = 11
+
+let HOST_GPU_WRITE_BUFFER = 12
+
+let gpu_upload(buffer_id, data_arr) =
+    let data_id = host_share_arr(data_arr)
+    host_call(HOST_GPU_WRITE_BUFFER, buffer_id, data_id)
+    host_release(data_id)
+
+let test_obj_store_str() = host_obj_store("hello")
+
+let test_obj_store_arr() = host_obj_store([1, 2, 3])
+
+let test_obj_store_int() = host_obj_store(42)
+
+let test_obj_load_str() = host_obj_load(host_obj_store("world"))
+
+let test_obj_load_arr() = host_obj_load(host_obj_store([10, 20, 30]))
+
+let test_obj_load_invalid() = host_obj_load(99999)
+
+let test_obj_free() =
+    let id = host_obj_store("temp")
+    host_obj_free(id)
+
+let test_obj_free_nonexistent() = host_obj_free(88888)
+
+let test_obj_via_host_call() =
+    let str_id = host_obj_store("test_data")
+    let hash_result = host_call(3, str_id, 0)
+    let recovered = host_obj_load(str_id)
+    host_obj_free(str_id)
+    hash_result

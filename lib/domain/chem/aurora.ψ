@@ -1,0 +1,36 @@
+import "ck.ψ"
+let bad = [0]
+
+let lg = 558
+bad[0] = bad[0] + ck(lg, 555, 560)
+
+let lr = 630
+bad[0] = bad[0] + ck(lr, 628, 632)
+
+let e1 = 223
+let e2 = 197
+let esum = e1 + e2
+bad[0] = bad[0] + ck(esum, 420, 420)
+
+let taug = 74
+let taur = 11000
+let tratio = taur / taug
+bad[0] = bad[0] + ck(tratio, 130, 165)
+
+let red_above = 1
+bad[0] = bad[0] + ck_lo(red_above, 1)
+
+if 1868 < 1866
+    bad[0] = bad[0] + 1
+if 1868 > 1870
+    bad[0] = bad[0] + 1
+if 1925 < 1923
+    bad[0] = bad[0] + 1
+if 1925 > 1927
+    bad[0] = bad[0] + 1
+if 1958 < 1956
+    bad[0] = bad[0] + 1
+if 1958 > 1960
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,100 @@
+import "opt.ψ"
+import "shor.ψ"
+import "net_math.ψ"
+import "gauge.ψ"
+import "qcrypto.ψ"
+
+let psc_chain(seed) =
+    let k = gcr_keygen(61, 53)
+    let msg = seed + 100
+    let c = gcr_encrypt(msg, 17, k[0])
+    let m2 = gcr_decrypt(c, k[2], k[0])
+    let rsa_ok = m2 == msg
+    let st = opt_grover_step(1, 1, 3)
+    let a2 = (st[0] * st[0]) % 65537
+    let b2 = (st[1] * st[1]) % 65537
+    let grover_ok = a2 > b2
+    let data = nm_data(seed)
+    let rx = nm_link5(seed)
+    let comm_ok = true
+    let i = 0
+    let done = false
+    for !done
+      if i < 8
+        if rx[i] != data[i]
+          comm_ok = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+        0
+      0
+    let pc = gg_pure_config()
+    let w0 = gg_wilson(pc[0], pc[1], pc[2], pc[3])
+    let gauge_ok = gg_tr(w0) == 2
+    let prim_ok = opt_inv(17, 3120) == 2753 && opt_dist(65536, 1, 65537) == 2
+    [rsa_ok, grover_ok, comm_ok, gauge_ok, prim_ok]
+
+let psc_verify() =
+    let results = []
+    results = results.push(opt_mod_pow(3, 7, 17) == 11)
+    results = results.push(opt_inv(17, 3120) == 2753)
+    results = results.push(opt_dist(65281, 1, 65537) == 257)
+    let k = gcr_keygen(61, 53)
+    let c65 = gcr_encrypt(65, 17, k[0])
+    results = results.push(gcr_decrypt(c65, k[2], k[0]) == 65)
+    let f = sh_factor(3233)
+    results = results.push(len(f) == 2 && f[0] * f[1] == 3233)
+    let orb = opt_grover_step(1, 1, 3)
+    results = results.push(orb[0] == 20 && orb[1] == 4)
+    let data = nm_data(5)
+    let rx = nm_link5(5)
+    let comm = true
+    let i = 0
+    let done = false
+    for !done
+      if i < 8
+        if rx[i] != data[i]
+          comm = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(comm)
+    let pc = gg_pure_config()
+    let w0 = gg_wilson(pc[0], pc[1], pc[2], pc[3])
+    results = results.push(gg_tr(w0) == 2)
+    let vc = gg_vortex_config()
+    let wv = gg_wilson(vc[0], vc[1], vc[2], vc[3])
+    results = results.push(gg_tr(wv) != 2)
+    let chain_ok = true
+    let seed = 1
+    let sdone = false
+    for !sdone
+      if seed <= 3
+        let ch = psc_chain(seed)
+        if ch[0] != true || ch[1] != true || ch[2] != true || ch[3] != true || ch[4] != true
+          chain_ok = false
+        else
+          0
+        seed = seed + 1
+      else
+        sdone = true
+    results = results.push(chain_ok)
+    let total = true
+    let j = 0
+    let done2 = false
+    for !done2
+      if j < len(results)
+        let v = results[j]
+        if v == false
+          total = false
+        else
+          0
+        j = j + 1
+      else
+        done2 = true
+    results = results.push(total)
+    results

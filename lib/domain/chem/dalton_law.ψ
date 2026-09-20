@@ -1,0 +1,29 @@
+import "ck.ψ"
+let bad = [0]
+
+let f_n2 = 78
+let f_o2 = 21
+let f_ar = 1
+let dz1 = f_n2 + f_o2 + f_ar - 100
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let p_n2 = 593
+let p_o2 = 160
+let p_ar = 7
+let p_total = 760
+let dz2 = p_n2 + p_o2 + p_ar - p_total
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let p_o2_summit = 53
+bad[0] = bad[0] + ck(p_o2_summit, 40, 60)
+bad[0] = bad[0] + ck_lo(p_o2_summit, 50)
+
+let independent = 1
+bad[0] = bad[0] + ck_lo(independent, 1)
+
+if 1801 < 1799
+    bad[0] = bad[0] + 1
+if 1801 > 1803
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

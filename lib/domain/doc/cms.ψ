@@ -1,0 +1,553 @@
+import "../domain_field.ψ"
+
+let CMS_P = 65537
+
+let CMS_FT_TEXT      = 1
+let CMS_FT_NUMBER    = 2
+let CMS_FT_DATE      = 3
+let CMS_FT_REFERENCE = 4
+let CMS_FT_LIST      = 5
+
+let CMS_ST_DRAFT     = 1
+let CMS_ST_REVIEW    = 2
+let CMS_ST_PUBLISHED = 3
+let CMS_ST_ARCHIVED  = 4
+
+let CMS_PERM_READ    = 0
+let CMS_PERM_WRITE   = 1
+let CMS_PERM_PUBLISH = 2
+let CMS_PERM_DELETE  = 3
+
+let CMS_HASH_INIT = 23456
+let CMS_HASH_MUL  = 31
+
+let cms_hash_ints(data) =
+    let h = CMS_HASH_INIT
+    let i = 0
+    let n = len(data)
+    for i < n
+        h = (h * CMS_HASH_MUL + data[i]) % CMS_P
+        h = (h * h + data[i]) % CMS_P
+        i = i + 1
+    h
+
+let cms_make_id(name, owner, created_at) =
+    cms_hash_ints([len(name), owner, created_at])
+
+let cms_str_join(parts) =
+    let result = ""
+    let i = 0
+    let n = len(parts)
+    for i < n
+        result = result + parts[i]
+        i = i + 1
+    result
+
+let ctf_new(name, field_type, required, default) =
+    [name, field_type, required, default]
+
+let ctf_name(f) = f[0]
+let ctf_type(f) = f[1]
+let ctf_required(f) = f[2]
+let ctf_default(f) = f[3]
+
+let ctf_set_default(f, val) =
+    f[3] = val
+    f
+
+let ctf_validate(field_def, value) =
+    let ok = 1
+    if ctf_required(field_def) == 1
+        if value == 0
+            ok = 0
+    ok
+
+let ctf_type_name(field_type) =
+    if field_type == CMS_FT_TEXT
+        "text"
+    else
+        0
+    if field_type == CMS_FT_NUMBER
+        "number"
+    else
+        0
+    if field_type == CMS_FT_DATE
+        "date"
+    else
+        0
+    if field_type == CMS_FT_REFERENCE
+        "reference"
+    else
+        0
+    if field_type == CMS_FT_LIST
+        "list"
+    else
+        "unknown"
+
+let ct_new(name, description) =
+    [name, description, []]
+
+let ct_name(ct) = ct[0]
+let ct_description(ct) = ct[1]
+let ct_fields_list(ct) = ct[2]
+
+let ct_add_field(ct, field_def) =
+    let fields = ct_fields_list(ct)
+    fields.push(field_def)
+    ct
+
+let ct_get_field(ct, field_name) =
+    let fields = ct_fields_list(ct)
+    let result = 0
+    let i = 0
+    let n = len(fields)
+    for i < n
+        if ctf_name(fields[i]) == field_name
+            result = fields[i]
+            i = n
+        else
+            i = i + 1
+    result
+
+let ct_field_count(ct) =
+    len(ct_fields_list(ct))
+
+let ct_validate_content(ct, content) =
+    let fields = content_fields(content)
+    let specs = ct_fields_list(ct)
+    let valid = 1
+    let i = 0
+    let n = len(specs)
+    for i < n
+        let spec = specs[i]
+        let fname = ctf_name(spec)
+        let val = fields[fname]
+        if ctf_validate(spec, val) == 0
+            valid = 0
+        i = i + 1
+    valid
+
+let content_new(id, type_name, fields, status) =
+    [id, type_name, fields, status]
+
+let content_id(c) = c[0]
+let content_type_name(c) = c[1]
+let content_fields(c) = c[2]
+let content_status(c) = c[3]
+
+let content_set_field(c, field_name, value) =
+    let fields = content_fields(c)
+    fields[field_name] = value
+    c
+
+let content_get_field(c, field_name) =
+    content_fields(c)[field_name]
+
+let content_set_status(c, status) =
+    c[3] = status
+    c
+
+let content_status_name(status) =
+    if status == CMS_ST_DRAFT
+        "draft"
+    else
+        0
+    if status == CMS_ST_REVIEW
+        "review"
+    else
+        0
+    if status == CMS_ST_PUBLISHED
+        "published"
+    else
+        0
+    if status == CMS_ST_ARCHIVED
+        "archived"
+    else
+        "unknown"
+
+let content_is_published(c) =
+    (content_status(c) == CMS_ST_PUBLISHED ? 1 : 0)
+
+let wf_can_transition(from_state, to_state) =
+    let ok = 0
+    if from_state == CMS_ST_DRAFT
+        if to_state == CMS_ST_REVIEW
+            ok = 1
+        else
+            0
+        if to_state == CMS_ST_PUBLISHED
+            ok = 1
+        else
+            0
+    if from_state == CMS_ST_REVIEW
+        if to_state == CMS_ST_PUBLISHED
+            ok = 1
+        else
+            0
+        if to_state == CMS_ST_DRAFT
+            ok = 1
+        else
+            0
+    if from_state == CMS_ST_PUBLISHED
+        if to_state == CMS_ST_ARCHIVED
+            ok = 1
+        else
+            0
+        if to_state == CMS_ST_REVIEW
+            ok = 1
+        else
+            0
+        if to_state == CMS_ST_DRAFT
+            ok = 1
+        else
+            0
+    if from_state == CMS_ST_ARCHIVED
+        if to_state == CMS_ST_DRAFT
+            ok = 1
+    ok
+
+let wf_next_state(from_state) =
+    if from_state == CMS_ST_DRAFT
+        CMS_ST_REVIEW
+    else
+        0
+    if from_state == CMS_ST_REVIEW
+        CMS_ST_PUBLISHED
+    else
+        0
+    if from_state == CMS_ST_PUBLISHED
+        CMS_ST_ARCHIVED
+    else
+        from_state
+
+let wf_transition(content, to_state) =
+    let current = content_status(content)
+    if wf_can_transition(current, to_state) == 1
+        content_set_status(content, to_state)
+        1
+    else
+        0
+
+let perm_new() =
+    {}
+
+let perm_ensure_user(permissions, content_id, user_id) =
+    let content_perms = permissions[content_id]
+    if content_perms == 0
+        permissions[content_id] = {}
+    let cp = permissions[content_id]
+    let user_perms = cp[user_id]
+    if user_perms == 0
+        cp[user_id] = [0, 0, 0, 0]
+    permissions[content_id][user_id]
+
+let perm_grant(permissions, content_id, user_id, perm_idx) =
+    let user_perms = perm_ensure_user(permissions, content_id, user_id)
+    user_perms[perm_idx] = 1
+
+let perm_check(permissions, content_id, user_id, perm_idx) =
+    let content_perms = permissions[content_id]
+    if content_perms == 0
+        0
+    else
+        let user_perms = content_perms[user_id]
+        if user_perms == 0
+            0
+        else
+            user_perms[perm_idx]
+
+let perm_revoke(permissions, content_id, user_id, perm_idx) =
+    let content_perms = permissions[content_id]
+    if content_perms != 0
+        let user_perms = content_perms[user_id]
+        if user_perms != 0
+            user_perms[perm_idx] = 0
+
+let perm_can_read(permissions, content_id, user_id) =
+    perm_check(permissions, content_id, user_id, CMS_PERM_READ)
+
+let perm_can_write(permissions, content_id, user_id) =
+    perm_check(permissions, content_id, user_id, CMS_PERM_WRITE)
+
+let perm_can_publish(permissions, content_id, user_id) =
+    perm_check(permissions, content_id, user_id, CMS_PERM_PUBLISH)
+
+let perm_can_delete(permissions, content_id, user_id) =
+    perm_check(permissions, content_id, user_id, CMS_PERM_DELETE)
+
+let tax_new() =
+    [{}, {}]
+
+let tax_categories(t) = t[0]
+let tax_tags(t) = t[1]
+
+let tax_add_category(tax, cat_id, name, parent_id) =
+    let cats = tax_categories(tax)
+    cats[cat_id] = {name: name, parent_id: parent_id}
+    tax
+
+let tax_get_category(tax, cat_id) =
+    tax_categories(tax)[cat_id]
+
+let tax_add_tag(tax, tag_name, content_id) =
+    let tags = tax_tags(tax)
+    let lst = tags[tag_name]
+    if lst == 0
+        tags[tag_name] = [content_id]
+    else
+        lst.push(content_id)
+    tax
+
+let tax_get_by_tag(tax, tag_name) =
+    let tags = tax_tags(tax)
+    let lst = tags[tag_name]
+    if lst == 0
+        []
+    else
+        lst
+
+let tax_remove_tag(tax, tag_name, content_id) =
+    let tags = tax_tags(tax)
+    let lst = tags[tag_name]
+    if lst != 0
+        let new_list = []
+        let i = 0
+        let n = len(lst)
+        for i < n
+            if lst[i] != content_id
+                new_list.push(lst[i])
+            i = i + 1
+        tags[tag_name] = new_list
+    tax
+
+let tax_get_children(tax, parent_id) =
+    let cats = tax_categories(tax)
+    let keys = keys_of(cats)
+    let result = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let k = keys[i]
+        let cat = cats[k]
+        if cat["parent_id"] == parent_id
+            result.push([k, cat["name"]])
+        i = i + 1
+    result
+
+let tax_get_path(tax, cat_id) =
+    let cats = tax_categories(tax)
+    let path = []
+    let cur_id = cat_id
+    let safety = 0
+    for cur_id != 0
+        if safety > 65536
+            cur_id = 0
+        else
+            let cat = cats[cur_id]
+            if cat == 0
+                cur_id = 0
+            else
+                path.push([cur_id, cat["name"]])
+                cur_id = cat["parent_id"]
+                safety = safety + 1
+    let reversed = []
+    let i = len(path) - 1
+    for i >= 0
+        reversed.push(path[i])
+        i = i - 1
+    reversed
+
+let tax_all_tags(tax) =
+    keys_of(tax_tags(tax))
+
+let tpl_new(name, field_specs) =
+    [name, field_specs]
+
+let tpl_name(t) = t[0]
+let tpl_fields(t) = t[1]
+
+let tpl_instantiate(template, type_name, owner, created_at) =
+    let fields = {}
+    let specs = tpl_fields(template)
+    let i = 0
+    let n = len(specs)
+    for i < n
+        let spec = specs[i]
+        fields[ctf_name(spec)] = ctf_default(spec)
+        i = i + 1
+    let id = cms_make_id(tpl_name(template), owner, created_at)
+    content_new(id, type_name, fields, CMS_ST_DRAFT)
+
+let cms_render(content, content_type) =
+    let fields = content_fields(content)
+    let specs = ct_fields_list(content_type)
+    let sb = []
+    sb.push(str_concat(str_concat("", chr(123)), "\n"))
+    let i = 0
+    let n = len(specs)
+    for i < n
+        let spec = specs[i]
+        let fname = ctf_name(spec)
+        let val = fields[fname]
+        sb.push("  \"")
+        sb.push(fname)
+        sb.push("\" (")
+        sb.push(ctf_type_name(ctf_type(spec)))
+        sb.push("): ")
+        if val == 0
+            sb.push(str(ctf_default(spec)))
+        else
+            sb.push(str(val))
+        if i < n - 1
+            sb.push(",\n")
+        else
+            sb.push("\n")
+        i = i + 1
+    sb.push("}")
+    cms_str_join(sb)
+
+let cms_render_published(content, content_type) =
+    if content_status(content) != CMS_ST_PUBLISHED
+        "[unpublished: content not in published state]"
+    else
+        cms_render(content, content_type)
+
+let cms_store_new() =
+    [{}, {}, {}, tax_new(), perm_new(), 0]
+
+let cms_contents(s) = s[0]
+let cms_types(s) = s[1]
+let cms_templates(s) = s[2]
+let cms_taxonomy(s) = s[3]
+let cms_permissions(s) = s[4]
+let cms_next_id(s) = s[5]
+
+let cms_register_type(s, content_type) =
+    let types = cms_types(s)
+    types[ct_name(content_type)] = content_type
+    s
+
+let cms_get_type(s, type_name) =
+    cms_types(s)[type_name]
+
+let cms_register_template(s, template) =
+    let templates = cms_templates(s)
+    templates[tpl_name(template)] = template
+    s
+
+let cms_get_template(s, template_name) =
+    cms_templates(s)[template_name]
+
+let cms_create_from_template(s, template_name, type_name, owner, created_at) =
+    let templates = cms_templates(s)
+    let tpl = templates[template_name]
+    let result = 0
+    if tpl != 0
+        let content = tpl_instantiate(tpl, type_name, owner, created_at)
+        let contents = cms_contents(s)
+        contents[content_id(content)] = content
+        s[5] = s[5] + 1
+        result = content
+    result
+
+let cms_create_content(s, id, type_name, fields) =
+    let content = content_new(id, type_name, fields, CMS_ST_DRAFT)
+    let contents = cms_contents(s)
+    contents[id] = content
+    s[5] = s[5] + 1
+    content
+
+let cms_get_content(s, content_id) =
+    cms_contents(s)[content_id]
+
+let cms_delete_content(s, content_id, user_id) =
+    let perms = cms_permissions(s)
+    if perm_can_delete(perms, content_id, user_id) == 1
+        let contents = cms_contents(s)
+        contents[content_id] = 0
+        1
+    else
+        0
+
+let cms_publish(s, content_id, user_id) =
+    let perms = cms_permissions(s)
+    if perm_can_publish(perms, content_id, user_id) == 1
+        let content = cms_get_content(s, content_id)
+        if content != 0
+            wf_transition(content, CMS_ST_PUBLISHED)
+        else
+            0
+    else
+        0
+
+let cms_archive(s, content_id, user_id) =
+    let perms = cms_permissions(s)
+    if perm_can_publish(perms, content_id, user_id) == 1
+        let content = cms_get_content(s, content_id)
+        if content != 0
+            wf_transition(content, CMS_ST_ARCHIVED)
+        else
+            0
+    else
+        0
+
+let cms_grant_permission(s, content_id, user_id, perm_idx) =
+    let perms = cms_permissions(s)
+    perm_grant(perms, content_id, user_id, perm_idx)
+    s
+
+let cms_add_category(s, cat_id, name, parent_id) =
+    tax_add_category(cms_taxonomy(s), cat_id, name, parent_id)
+    s
+
+let cms_add_tag(s, tag_name, content_id) =
+    tax_add_tag(cms_taxonomy(s), tag_name, content_id)
+    s
+
+let cms_find_by_tag(s, tag_name) =
+    tax_get_by_tag(cms_taxonomy(s), tag_name)
+
+let cms_list_by_type(s, type_name) =
+    let contents = cms_contents(s)
+    let keys = keys_of(contents)
+    let result = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let k = keys[i]
+        let c = contents[k]
+        if c != 0
+            if content_type_name(c) == type_name
+                result.push(k)
+        i = i + 1
+    result
+
+let cms_list_by_status(s, status) =
+    let contents = cms_contents(s)
+    let keys = keys_of(contents)
+    let result = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let k = keys[i]
+        let c = contents[k]
+        if c != 0
+            if content_status(c) == status
+                result.push(k)
+        i = i + 1
+    result
+
+let cms_content_count(s) =
+    len(keys_of(cms_contents(s)))
+
+let cms_render_content(s, content_id) =
+    let content = cms_get_content(s, content_id)
+    if content == 0
+        "[error: content not found]"
+    else
+        let type_name = content_type_name(content)
+        let ct = cms_get_type(s, type_name)
+        if ct == 0
+            cms_render_published(content, ct_new(type_name, "auto"))
+        else
+            cms_render_published(content, ct)

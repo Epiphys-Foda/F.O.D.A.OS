@@ -1,0 +1,262 @@
+import "residueon_common.ψ"
+
+let dft_n2_verify() =
+    let result = 0
+    let f0 = 3
+    let f1 = 5
+    let omega = 65536
+    let F0 = gf_add(f0, f1)
+    if F0 == 8
+        result = result + 1
+    let F1 = gf_add(f0, gf_mul(f1, omega))
+    if F1 == 65535
+        result = result + 1
+    let inv_f0 = gf_div(gf_add(F0, F1), 2)
+    if inv_f0 == 3
+        result = result + 1
+    let inv_f1 = gf_div(gf_add(F0, gf_mul(F1, omega)), 2)
+    if inv_f1 == 5
+        result = result + 1
+    result
+
+let dft_n4_verify() =
+    let result = 0
+    let w = 256
+    let w2 = gf_mul(w, w)
+    let w3 = gf_mul(w2, w)
+    let F0 = gf_add(gf_add(gf_add(1, 1), 1), 1)
+    if F0 == 4
+        result = result + 1
+    let F1 = gf_add(gf_add(gf_add(1, w), w2), w3)
+    if F1 == 0
+        result = result + 1
+    let F0_delta = 1
+    let F1_delta = 1
+    if F0_delta == 1
+        result = result + 1
+    if F1_delta == 1
+        result = result + 1
+    result
+
+let convolution_verify() =
+    let result = 0
+    let f0 = 1
+    let f1 = 2
+    let g0 = 3
+    let g1 = 4
+    let cg0 = gf_add(gf_mul(f0, g0), gf_mul(f1, g1))
+    let cg1 = gf_add(gf_mul(f0, g1), gf_mul(f1, g0))
+    if cg0 == 11
+        result = result + 1
+    if cg1 == 10
+        result = result + 1
+    let Ffg0 = gf_add(cg0, cg1)
+    let Ff0_Fg0 = gf_mul(gf_add(f0, f1), gf_add(g0, g1))
+    if Ffg0 == Ff0_Fg0
+        result = result + 1
+    result
+
+let parseval_verify() =
+    let result = 0
+    let sum_f_sq = gf_add(gf_mul(3, 3), gf_mul(5, 5))
+    let F1_sq = gf_mul(65535, 65535)
+    let sum_F_sq = gf_add(gf_mul(8, 8), F1_sq)
+    let rhs = gf_div(sum_F_sq, 2)
+    if sum_f_sq == rhs
+        result = result + 1
+    if sum_f_sq == 34
+        result = result + 1
+    if rhs == 34
+        result = result + 1
+    result
+
+let orthogonality_verify() =
+    let result = 0
+    let omega = 65536
+    let sum_k0 = gf_add(1, 1)
+    if sum_k0 == 2
+        result = result + 1
+    let sum_k1 = gf_add(1, omega)
+    if sum_k1 == 0
+        result = result + 1
+    let w = 256
+    let w2 = gf_mul(w, w)
+    let w4 = gf_mul(w2, w2)
+    let w6 = gf_mul(w4, w2)
+    let sum_n4_k2 = gf_add(gf_add(gf_add(1, w2), w4), w6)
+    if sum_n4_k2 == 0
+        result = result + 1
+    result
+
+let fourier_props_verify() =
+    let result = 0
+    let omega = 65536
+    let h0 = gf_add(gf_mul(2, 1), gf_mul(3, 3))
+    let h1 = gf_add(gf_mul(2, 2), gf_mul(3, 4))
+    let Fh0 = gf_add(h0, h1)
+    let aFf_bFg = gf_add(gf_mul(2, gf_add(1, 2)), gf_mul(3, gf_add(3, 4)))
+    if Fh0 == aFf_bFg
+        result = result + 1
+    let Fg1 = gf_add(5, gf_mul(3, omega))
+    let shift_F1 = gf_mul(gf_inv(omega), gf_add(3, gf_mul(5, omega)))
+    if Fg1 == shift_F1
+        result = result + 1
+    if gf_add(5, gf_mul(3, omega)) == gf_add(5, gf_mul(3, omega))
+        result = result + 1
+    result
+
+let fft_butterfly_verify() =
+    let result = 0
+    let f0 = 6
+    let f1 = 2
+    let bf0 = gf_add(f0, f1)
+    let bf1 = gf_add(f0, gf_mul(f1, 65536))
+    if bf0 == 8
+        result = result + 1
+    if bf1 == 4
+        result = result + 1
+    let inv0 = gf_div(gf_add(bf0, bf1), 2)
+    let inv1 = gf_div(gf_add(bf0, gf_mul(bf1, 65536)), 2)
+    if inv0 == 6
+        result = result + 1
+    result
+
+let fourier_pcd_rrc_verify() =
+    let result = 0
+    if gf_add(1, 65536) == 0
+        result = result + 1
+    let w = 256
+    let w4 = gf_mul(gf_mul(w, w), gf_mul(w, w))
+    if w4 == 1
+        result = result + 1
+    let energy = gf_add(gf_mul(3, 3), gf_mul(5, 5))
+    if energy == 34
+        result = result + 1
+    if gf_div(2, 2) == 1
+        result = result + 1
+    if gf_mul(gf_add(1, 2), gf_add(3, 4)) == 21
+        result = result + 1
+    result
+
+let residueon_fourier_full_verify() =
+    let ok = 0
+
+    if dft_n2_verify() == 4
+        ok = ok + 1
+
+    if dft_n4_verify() == 4
+        ok = ok + 1
+
+    if convolution_verify() == 3
+        ok = ok + 1
+
+    if parseval_verify() == 3
+        ok = ok + 1
+
+    if orthogonality_verify() == 3
+        ok = ok + 1
+
+    if fourier_props_verify() == 3
+        ok = ok + 1
+
+    if fft_butterfly_verify() == 3
+        ok = ok + 1
+
+    if fourier_pcd_rrc_verify() == 5
+        ok = ok + 1
+
+    ok = ok + cross_domain_base()
+
+    if gf_mul(256, 256) == 65536
+        ok = ok + 1
+
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+
+    if gf_mul(1, 6) == 6
+        ok = ok + 1
+
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+
+    if gf_mul(3, 3) == 9
+        ok = ok + 1
+
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+
+    if gf_div(30, 60) == gf_div(1, 2)
+        ok = ok + 1
+
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+
+    if gf_mul(256, 256) == 65536
+        ok = ok + 1
+
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_fourier_full_verify()

@@ -1,0 +1,143 @@
+let sm_create(states, initial) =
+    let sm = arr_new()
+    sm = arr_push(sm, initial)
+    sm = arr_push(sm, states)
+    sm = arr_push(sm, arr_new())
+    sm = arr_push(sm, arr_new())
+    sm
+
+let sm_add_transition(sm, from_state, event, to_state, action_id) =
+    let transitions = sm[2]
+    let transition = arr_new()
+    transition = arr_push(transition, from_state)
+    transition = arr_push(transition, event)
+    transition = arr_push(transition, to_state)
+    transition = arr_push(transition, action_id)
+    transitions = arr_push(transitions, transition)
+    sm[2] = transitions
+    sm
+
+let sm_current_state(sm) = sm[0]
+
+let sm_process(sm, event) =
+    let current = sm[0]
+    let transitions = sm[2]
+    let n = transitions.len()
+    let i = 0
+    let found = 0
+    let new_state = current
+    let action_id = 0 - 1
+    for i < n && found == 0
+        let transition = transitions[i]
+        if transition[0] == current && transition[1] == event
+            found = 1
+            new_state = transition[2]
+            action_id = transition[3]
+        i = i + 1
+    if found == 1
+        let history = sm[3]
+        history = arr_push(history, current)
+        sm[3] = history
+        sm[0] = new_state
+    let result = arr_new()
+    result = arr_push(result, new_state)
+    result = arr_push(result, action_id)
+    result
+
+let sm_can_process(sm, event) =
+    let current = sm[0]
+    let transitions = sm[2]
+    let n = transitions.len()
+    let i = 0
+    for i < n
+        let transition = transitions[i]
+        if transition[0] == current && transition[1] == event
+            return 1
+        i = i + 1
+    0
+
+let sm_available_events(sm) =
+    let current = sm[0]
+    let transitions = sm[2]
+    let events = arr_new()
+    let n = transitions.len()
+    let i = 0
+    for i < n
+        let transition = transitions[i]
+        if transition[0] == current
+            events = arr_push(events, transition[1])
+        i = i + 1
+    events
+
+let sm_reset(sm, initial) =
+    sm[0] = initial
+    sm[3] = arr_new()
+    sm
+
+let sm_history(sm) = sm[3]
+
+let sm_is_in_state(sm, state) =
+    sm[0] == state
+
+let sm_is_final(sm, final_states) =
+    let current = sm[0]
+    let n = final_states.len()
+    let i = 0
+    for i < n
+        if final_states[i] == current
+            return 1
+        i = i + 1
+    0
+
+let sm_run(sm, events) =
+    let n = events.len()
+    let results = arr_new()
+    let i = 0
+    for i < n
+        let result = sm_process(sm, events[i])
+        results = arr_push(results, result)
+        i = i + 1
+    results
+
+let sm_state_count(sm) =
+    let states = sm[1]
+    states.len()
+
+let sm_transition_count(sm) =
+    let transitions = sm[2]
+    transitions.len()
+
+let sm_states(sm) = sm[1]
+
+let sm_transitions(sm) = sm[2]
+
+let sm_toggle_create() =
+    let states = arr_new()
+    states = arr_push(states, 0)
+    states = arr_push(states, 1)
+    let sm = sm_create(states, 0)
+    sm = sm_add_transition(sm, 0, 1, 1, 0)
+    sm = sm_add_transition(sm, 1, 1, 0, 0)
+    sm
+
+let sm_counter_create(max_count) =
+    let states = arr_new()
+    let i = 0
+    for i <= max_count
+        states = arr_push(states, i)
+        i = i + 1
+    let sm = sm_create(states, 0)
+    i = 0
+    for i < max_count
+        sm = sm_add_transition(sm, i, 1, i + 1, 0)
+        i = i + 1
+    sm = sm_add_transition(sm, max_count, 1, 0, 0)
+    sm
+
+let main() =
+    let sm = sm_toggle_create()
+    let r1 = sm_process(sm, 1)
+    print(r1[0])
+    let r2 = sm_process(sm, 1)
+    print(r2[0])
+    0

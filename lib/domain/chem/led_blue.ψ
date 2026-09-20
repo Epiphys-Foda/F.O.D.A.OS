@@ -1,0 +1,37 @@
+import "ck.ψ"
+let bad = [0]
+
+let eb = 124000 / 460
+bad[0] = bad[0] + ck(eb, 260, 278)
+
+let gan = 34
+bad[0] = bad[0] + ck(gan, 33, 36)
+let alloy = gan * 10 - eb
+bad[0] = bad[0] + ck(alloy, 65, 80)
+
+let inc = 15
+let flu = 70
+let led = 300
+bad[0] = bad[0] + ck_hi(inc, flu)
+bad[0] = bad[0] + ck_hi(flu, led)
+let times = led / inc
+bad[0] = bad[0] + ck(times, 18, 22)
+
+let blue = 460
+let yellow = 580
+bad[0] = bad[0] + ck(yellow, blue, 600)
+
+if 1989 < 1987
+    bad[0] = bad[0] + 1
+if 1989 > 1991
+    bad[0] = bad[0] + 1
+if 1993 < 1991
+    bad[0] = bad[0] + 1
+if 1993 > 1995
+    bad[0] = bad[0] + 1
+if 2014 < 2012
+    bad[0] = bad[0] + 1
+if 2014 > 2016
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

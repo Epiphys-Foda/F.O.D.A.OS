@@ -1,0 +1,26 @@
+import "ck.ψ"
+let bad = [0]
+
+let v_kepler = 156
+bad[0] = bad[0] + ck(v_kepler, 150, 160)
+
+let v_flat = 220
+bad[0] = bad[0] + ck(v_flat, 210, 230)
+if v_flat < v_kepler + 50
+    bad[0] = bad[0] + 1
+
+let dark = 85
+bad[0] = bad[0] + ck(dark, 80, 90)
+
+if 1933 < 1931
+    bad[0] = bad[0] + 1
+if 1933 > 1935
+    bad[0] = bad[0] + 1
+if 1978 < 1975
+    bad[0] = bad[0] + 1
+if 1978 > 1980
+    bad[0] = bad[0] + 1
+if 1978 < 1933
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

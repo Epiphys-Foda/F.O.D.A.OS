@@ -1,0 +1,70 @@
+let even(x) = x % 2 == 0
+
+let odd(x) = x % 2 != 0
+
+let zero(x) = x == 0
+
+let nonzero(x) = x != 0
+
+let positive(x) = x > 0
+
+let negative(x) = x < 0
+
+let natural(x) = x >= 0
+
+let unit(x) = x == 1
+
+let sign(x) = ((x > 0) ? (1) : (((x < 0) ? (0 - 1) : (0))))
+
+let step(x) = ((x >= 0) ? (1) : (0))
+
+let relu(x) = ((x > 0) ? (x) : (0))
+
+let norm(x) = ((x < 0) ? (0 - x) : (x))
+
+let _is_pow2_acc(x) =
+    if x == 1
+        1
+    else
+        0
+    if x % 2 != 0
+        0
+    else
+        _is_pow2_acc(x / 2)
+let is_pow2(x) =
+    if x <= 0
+        0
+    else
+        _is_pow2_acc(x)
+
+let _is_prime_loop(n, d) =
+    if d * d > n
+        1
+    else
+        0
+    if n % d == 0
+        0
+    else
+        _is_prime_loop(n, d + 2)
+let is_prime(n) =
+    if n < 2
+        0
+    else
+        0
+    if n == 2
+        1
+    else
+        0
+    if (n & 1) == 0
+        0
+    else
+        _is_prime_loop(n, 3)
+
+let zeq(x, y) =
+    let d = x - y + 1
+    let r = 0
+    if d > 0
+        let e = y - x + 1
+        if e > 0
+            r = 1
+    r

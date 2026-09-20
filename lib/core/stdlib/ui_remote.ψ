@@ -1,0 +1,33 @@
+import "ui_framework.ψ"
+import "psitp.ψ"
+
+let ui_remote_send(state, frame_seq) =
+    let frame = psi_frame_encode(2, 0, frame_seq, psi_param_encode(0, 0, state))
+    frame
+
+let ui_remote_recv(param_frame, dag, eval_fn) =
+    let decoded = psi_frame_decode(param_frame)
+    let param = psi_param_decode(decoded.payload)
+    let state = param[2]
+    let r = ui_frame(dag, state, eval_fn)
+    r
+
+let ui_remote_session(sender_params, dag, width, height, eval_fn) =
+    let frames = []
+    let i = 0
+    let n = len(sender_params)
+    let done = false
+    for !done
+      if i < n
+        let frame = ui_remote_send(sender_params[i], i)
+        let r = ui_remote_recv(frame, dag, eval_fn)
+        frames = frames.push(r)
+        i = i + 1
+      else
+        done = true
+    frames
+
+let ui_remote_sync_cost(frames_sent, affected, total_nodes) =
+    let inc_bytes = frames_sent * 6
+    let full_bytes = frames_sent * total_nodes * 8
+    { inc_bytes: inc_bytes, full_bytes: full_bytes, ratio: (full_bytes == 0 ? 0 : inc_bytes / full_bytes) }

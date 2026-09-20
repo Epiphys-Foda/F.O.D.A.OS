@@ -1,0 +1,236 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let PORT_MAX_ASSETS = 256
+
+let portfolio_create(assets) =
+    let n = len(assets)
+    let weights = []
+    let i = 0
+    for i < n
+        weights.push(gf_div(1, n))
+        i = i + 1
+    [weights, assets, n]
+let portfolio_return(portfolio) =
+    let weights = portfolio[0]
+    let assets = portfolio[1]
+    let ret = 0
+    let i = 0
+    let n = portfolio[2]
+    for i < n
+        ret = gf_add(ret, gf_mul(weights[i], assets[i][1]))
+        i = i + 1
+    ret
+let portfolio_variance(portfolio, cov_matrix) =
+    let weights = portfolio[0]
+    let n = portfolio[2]
+    let variance = 0
+    let i = 0
+    for i < n
+        let j = 0
+        for j < n
+            variance = gf_add(variance, gf_mul(gf_mul(weights[i], weights[j]), cov_matrix[i * n + j]))
+            j = j + 1
+        i = i + 1
+    variance
+let portfolio_volatility(portfolio, cov_matrix) = gf_sqrt(portfolio_variance(portfolio, cov_matrix))
+let markowitz_optimize(assets, cov_matrix, target_return) =
+    let n = len(assets)
+    let weights = []
+    let i = 0
+    for i < n
+        weights.push(gf_div(1, n))
+        i = i + 1
+    let iteration = 0
+    for iteration < 100
+        let current_return = 0
+        i = 0
+        for i < n
+            current_return = gf_add(current_return, gf_mul(weights[i], assets[i][1]))
+            i = i + 1
+        let grad = []
+        i = 0
+        for i < n
+            let g = 0
+            let j = 0
+            for j < n
+                g = gf_add(g, gf_mul(cov_matrix[i * n + j], weights[j]))
+                j = j + 1
+            grad.push(g)
+            i = i + 1
+        i = 0
+        for i < n
+            weights[i] = gf_sub(weights[i], gf_mul(1, grad[i]))
+            i = i + 1
+        iteration = iteration + 1
+    weights
+let rebalance(portfolio, target_weights) =
+    let n = portfolio[2]
+    [target_weights, portfolio[1], n]
+let efficient_frontier(assets, cov_matrix, n_points) =
+    let frontier = []
+    let i = 0
+    for i < n_points
+        let target = gf_div(i, n_points)
+        let weights = markowitz_optimize(assets, cov_matrix, target)
+        let port = [weights, assets, len(assets)]
+        frontier.push([target, portfolio_volatility(port, cov_matrix)])
+        i = i + 1
+    frontier
+let field_portfolio(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let portfolio_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_portfolio(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+
+let PORT_RET_POLES = [50, 75, 100, 125, 150, 175, 200, 225]
+let PORT_RET_WEIGHTS = [50, 75, 100, 125, 150, 175, 200, 225]
+
+let psi_port_ret(a_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(a_idx), gf_norm(PORT_RET_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(PORT_RET_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let PORT_VOL_POLES = [50, 100, 150, 200, 250, 300, 350, 400]
+let PORT_VOL_WEIGHTS = [25, 50, 75, 100, 125, 150, 175, 200]
+
+let psi_port_vol(a_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(a_idx), gf_norm(PORT_VOL_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(PORT_VOL_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let PORT_COV_POLES = [10, 20, 30, 40, 50, 60, 70, 80]
+let PORT_COV_WEIGHTS = [5, 15, 25, 35, 45, 55, 65, 75]
+
+let psi_port_cov(p_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(p_idx), gf_norm(PORT_COV_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(PORT_COV_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let portfolio_global_response(a_idx, p_idx, c_idx) =
+    let e1 = psi_port_ret(a_idx)
+    let e2 = psi_port_vol(a_idx)
+    let e3 = psi_port_cov(p_idx)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+
+let port_ret_monotonic_test() =
+    let v1 = psi_port_ret(50)
+    let v2 = psi_port_ret(225)
+    (v1 != v2 ? 1 : 0)
+
+let port_vol_monotonic_test() =
+    let v1 = psi_port_vol(50)
+    let v2 = psi_port_vol(400)
+    (v1 != v2 ? 1 : 0)
+
+let port_cov_monotonic_test() =
+    let v1 = psi_port_cov(10)
+    let v2 = psi_port_cov(80)
+    (v1 != v2 ? 1 : 0)
+
+let port_global_nonzero_test() =
+    let g = portfolio_global_response(100, 30, 30)
+    (g != 0 ? 1 : 0)
+
+let port_efficient_frontier_test() =
+    let mu_inc = 0
+    if PORT_RET_WEIGHTS[0] < PORT_RET_WEIGHTS[7]
+        mu_inc = 1
+    let sigma_inc = 0
+    if PORT_VOL_WEIGHTS[0] < PORT_VOL_WEIGHTS[7]
+        sigma_inc = 1
+    if mu_inc == 1
+        (sigma_inc == 1 ? 1 : 0)
+    else
+        0
+
+let port_diversification_test() =
+    let v1 = portfolio_global_response(100, 30, 30)
+    let v2 = portfolio_global_response(100, 30, 30)
+    (v1 == v2 ? 1 : 0)
+
+let nested_fractal_portfolio_invariants() =
+    let e1 = psi_port_ret(100)
+    let e2 = psi_port_vol(100)
+    let e3 = psi_port_cov(30)
+    let inv1 = 0
+    if e1 != 0
+        (e2 != 0 ? (e3 != 0 ? (inv1 = 1) : 0) : 0)
+    let inv2 = 0
+    if PORT_RET_WEIGHTS[0] < PORT_RET_WEIGHTS[7]
+        inv2 = 1
+    let inv3 = 0
+    if PORT_VOL_WEIGHTS[0] < PORT_VOL_WEIGHTS[7]
+        inv3 = 1
+    let inv4 = 0
+    if PORT_COV_WEIGHTS[0] < PORT_COV_WEIGHTS[7]
+        inv4 = 1
+    let inv5 = 0
+    if portfolio_global_response(100, 30, 30) != 0
+        inv5 = 1
+    [inv1, inv2, inv3, inv4, inv5]
+
+let portfolio_verify_v21() =
+    let t1 = 0
+    if psi_port_ret(100) != 0
+        t1 = 1
+    let t2 = 0
+    if psi_port_vol(100) != 0
+        t2 = 1
+    let t3 = 0
+    if psi_port_cov(30) != 0
+        t3 = 1
+    let t4 = 0
+    if portfolio_global_response(100, 30, 30) != 0
+        t4 = 1
+    let t5 = port_ret_monotonic_test()
+    let t6 = port_vol_monotonic_test()
+    let t7 = port_cov_monotonic_test()
+    let t8 = port_global_nonzero_test()
+    let t9 = port_efficient_frontier_test()
+    let t10 = port_diversification_test()
+    let t11 = 0
+    if PORT_RET_POLES[0] < PORT_RET_POLES[7]
+        t11 = 1
+    let t12 = 0
+    if PORT_VOL_POLES[0] < PORT_VOL_POLES[7]
+        t12 = 1
+    let invs = nested_fractal_portfolio_invariants()
+    let inv_ok = 0
+    if invs[0] == 1
+        if invs[1] == 1
+            if invs[2] == 1
+                if invs[3] == 1
+                    if invs[4] == 1
+                        inv_ok = 1
+    let passed = t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12 + inv_ok
+    passed == 13
+

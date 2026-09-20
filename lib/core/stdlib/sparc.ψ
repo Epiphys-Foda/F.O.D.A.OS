@@ -1,0 +1,683 @@
+let SP_LI = 1
+let SP_ADD = 2
+let SP_SUB = 3
+let SP_MUL = 4
+let SP_DIV = 5
+let SP_MOD = 6
+let SP_AND = 7
+let SP_OR = 8
+let SP_XOR = 9
+let SP_SLL = 10
+let SP_SRL = 11
+let SP_SRA = 12
+let SP_ADDI = 13
+let SP_LW = 14
+let SP_STW = 15
+let SP_BEQ = 16
+let SP_BNE = 17
+let SP_BLT = 18
+let SP_BGE = 19
+let SP_B = 20
+let SP_CALL = 21
+let SP_RETL = 22
+let SP_CMP = 23
+let SP_MOV = 24
+let SP_NEG = 25
+
+let S_G0 = 0
+let S_O0 = 8
+let S_O1 = 9
+let S_O2 = 10
+let S_O6 = 14
+let S_O7 = 15
+let S_L0 = 16
+let S_L1 = 17
+let S_L2 = 18
+let S_L3 = 19
+let S_L4 = 20
+let S_L5 = 21
+let S_L6 = 22
+let S_L7 = 23
+let S_I0 = 24
+let S_I1 = 25
+let S_I2 = 26
+let S_I3 = 27
+let S_I4 = 28
+let S_I5 = 29
+let S_I6 = 30
+let S_I7 = 31
+let S_V0 = S_O0
+let S_A0 = S_O0
+let S_A1 = S_O1
+let S_A2 = S_O2
+let S_SP = S_O6
+let S_RA = S_O7
+let S_T0 = 1
+let S_T1 = 2
+let S_T2 = 3
+let S_T3 = 4
+
+let sp_new_reg() =
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+let sp_set_arr(arr, idx, val) =
+    let n = len(arr)
+    let front = arr.slice(0, idx)
+    let back = arr.slice(idx + 1, n)
+    [front, [val], back].flat()
+
+let sp_asr(v, count) =
+    let r = v
+    let i = 0
+    for i < count
+      r = (r < 0 ? (r - 1) / 2 : r / 2)
+      i = i + 1
+    r
+
+let sp_lsr(v, count) =
+    let u = v
+    if u < 0
+      u = u + 9223372036854775808
+    else
+      0
+    let i = 0
+    for i < count
+      u = u / 2
+      i = i + 1
+    u
+
+let sp_bit_and(a, b) =
+    let result = 0
+    let bit = 1
+    let aa = a
+    let bb = b
+    let i = 0
+    for i < 32
+      let la_a = aa - (aa / 2) * 2
+      let la_b = bb - (bb / 2) * 2
+      if (la_a == 1) && (la_b == 1)
+        result = result + bit
+      else
+        0
+      aa = (aa < 0 ? (aa - 1) / 2 : aa / 2)
+      bb = (bb < 0 ? (bb - 1) / 2 : bb / 2)
+      bit = bit * 2
+      i = i + 1
+    result
+
+let sp_bit_or(a, b) =
+    let result = 0
+    let bit = 1
+    let aa = a
+    let bb = b
+    let i = 0
+    for i < 32
+      let la_a = aa - (aa / 2) * 2
+      let la_b = bb - (bb / 2) * 2
+      if (la_a == 1) || (la_b == 1)
+        result = result + bit
+      else
+        0
+      aa = (aa < 0 ? (aa - 1) / 2 : aa / 2)
+      bb = (bb < 0 ? (bb - 1) / 2 : bb / 2)
+      bit = bit * 2
+      i = i + 1
+    result
+
+let sp_bit_xor(a, b) =
+    let result = 0
+    let bit = 1
+    let aa = a
+    let bb = b
+    let i = 0
+    for i < 32
+      let la_a = aa - (aa / 2) * 2
+      let la_b = bb - (bb / 2) * 2
+      if la_a != la_b
+        result = result + bit
+      else
+        0
+      aa = (aa < 0 ? (aa - 1) / 2 : aa / 2)
+      bb = (bb < 0 ? (bb - 1) / 2 : bb / 2)
+      bit = bit * 2
+      i = i + 1
+    result
+
+let sparc_exec(code, arg) =
+    let reg = sp_new_reg()
+    let mem = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    reg = sp_set_arr(reg, S_A0, arg)
+    reg = sp_set_arr(reg, S_SP, 4096)
+    let pc = 0
+    let done = 0
+    for done == 0
+      if pc < len(code)
+        let insn = code[pc]
+        let op = insn[0]
+        let rd = insn[1]
+        let rn = insn[2]
+        let rm = insn[3]
+        let imm = insn[4]
+        let next = pc + 1
+        if op == SP_LI
+          reg = sp_set_arr(reg, rd, imm)
+        else
+          0
+        if op == SP_ADD
+          reg = sp_set_arr(reg, rd, reg[rn] + reg[rm])
+        else
+          0
+        if op == SP_SUB
+          reg = sp_set_arr(reg, rd, reg[rn] - reg[rm])
+        else
+          0
+        if op == SP_MUL
+          reg = sp_set_arr(reg, rd, reg[rn] * reg[rm])
+        else
+          0
+        if op == SP_DIV
+          reg = sp_set_arr(reg, rd, (reg[rm] == 0 ? 0 : reg[rn] / reg[rm]))
+        else
+          0
+        if op == SP_MOD
+          reg = sp_set_arr(reg, rd, (reg[rm] == 0 ? 0 : reg[rn] - (reg[rn] / reg[rm]) * reg[rm]))
+        else
+          0
+        if op == SP_AND
+          reg = sp_set_arr(reg, rd, sp_bit_and(reg[rn], reg[rm]))
+        else
+          0
+        if op == SP_OR
+          reg = sp_set_arr(reg, rd, sp_bit_or(reg[rn], reg[rm]))
+        else
+          0
+        if op == SP_XOR
+          reg = sp_set_arr(reg, rd, sp_bit_xor(reg[rn], reg[rm]))
+        else
+          0
+        if op == SP_SLL
+          reg = sp_set_arr(reg, rd, reg[rn] * (1 << reg[rm]))
+        else
+          0
+        if op == SP_SRL
+          reg = sp_set_arr(reg, rd, sp_lsr(reg[rn], reg[rm]))
+        else
+          0
+        if op == SP_SRA
+          reg = sp_set_arr(reg, rd, sp_asr(reg[rn], reg[rm]))
+        else
+          0
+        if op == SP_ADDI
+          reg = sp_set_arr(reg, rd, reg[rn] + imm)
+        else
+          0
+        if op == SP_LW
+          let addr = reg[rn] + imm
+          let m2 = if addr < len(mem)
+            mem
+          else
+            let m = mem
+            let i = len(mem)
+            for i <= addr
+              m = m.push(0)
+              i = i + 1
+            m
+          reg = sp_set_arr(reg, rd, m2[addr])
+        else
+          0
+        if op == SP_STW
+          let addr = rn + imm
+          let m2 = if addr < len(mem)
+            mem
+          else
+            let m = mem
+            let i = len(mem)
+            for i <= addr
+              m = m.push(0)
+              i = i + 1
+            m
+          mem = sp_set_arr(m2, addr, reg[rd])
+        else
+          0
+        if op == SP_BEQ
+          if reg[rn] == reg[rm]
+            next = pc + imm
+          else
+            0
+        else
+          0
+        if op == SP_BNE
+          if reg[rn] != reg[rm]
+            next = pc + imm
+          else
+            0
+        else
+          0
+        if op == SP_BLT
+          if reg[rn] < reg[rm]
+            next = pc + imm
+          else
+            0
+        else
+          0
+        if op == SP_BGE
+          if reg[rn] >= reg[rm]
+            next = pc + imm
+          else
+            0
+        else
+          0
+        if op == SP_B
+          next = pc + imm
+        else
+          0
+        if op == SP_CALL
+          reg = sp_set_arr(reg, S_RA, next)
+          next = imm
+        else
+          0
+        if op == SP_RETL
+          next = reg[S_RA]
+        else
+          0
+        if op == SP_CMP
+          reg = sp_set_arr(reg, rd, (reg[rn] < reg[rm] ? 1 : 0))
+        else
+          0
+        if op == SP_MOV
+          reg = sp_set_arr(reg, rd, reg[rn])
+        else
+          0
+        if op == SP_NEG
+          reg = sp_set_arr(reg, rd, 0 - reg[rn])
+        else
+          0
+        pc = next
+      else
+        done = 1
+    reg[S_V0]
+
+let sp_alloc_slot(ctx, name) =
+    let slots = ctx[1]
+    let nslots = ctx[2]
+    let reg = S_L0 + nslots
+    let new_slots = slots.push([name, reg])
+    [ctx[0], new_slots, nslots + 1, ctx[3], ctx[4]]
+
+let sp_lookup_slot(ctx, name) =
+    let slots = ctx[1]
+    let reg = S_G0
+    let found = 0
+    let i = 0
+    for i < len(slots)
+      if (found == 0) && (slots[i][0] == name)
+        reg = slots[i][1]
+        found = 1
+      else
+        0
+      i = i + 1
+    reg
+
+let sp_compile_expr(ast, ctx) =
+    let tag = ast[0]
+    if tag == "lit"
+      ctx[0] = ctx[0].push([SP_LI, S_V0, 0, 0, ast[1]])
+    else
+      0
+    if tag == "var"
+      let r = sp_lookup_slot(ctx, ast[1])
+      ctx[0] = ctx[0].push([SP_MOV, S_V0, r, 0, 0])
+    else
+      0
+    if tag == "binop"
+      let op_name = ast[1]
+      let left = ast[2]
+      let right = ast[3]
+      sp_compile_expr(left, ctx)
+      ctx[0] = ctx[0].push([SP_MOV, S_T0, S_V0, 0, 0])
+      sp_compile_expr(right, ctx)
+      ctx[0] = ctx[0].push([SP_MOV, S_T1, S_V0, 0, 0])
+      if op_name == "+"
+        ctx[0] = ctx[0].push([SP_ADD, S_V0, S_T0, S_T1, 0])
+      else
+        0
+      if op_name == "-"
+        ctx[0] = ctx[0].push([SP_SUB, S_V0, S_T0, S_T1, 0])
+      else
+        0
+      if op_name == "*"
+        ctx[0] = ctx[0].push([SP_MUL, S_V0, S_T0, S_T1, 0])
+      else
+        0
+      if op_name == "/"
+        ctx[0] = ctx[0].push([SP_DIV, S_V0, S_T0, S_T1, 0])
+      else
+        0
+      if op_name == "%"
+        ctx[0] = ctx[0].push([SP_MOD, S_V0, S_T0, S_T1, 0])
+      else
+        0
+      if op_name == "&"
+        ctx[0] = ctx[0].push([SP_AND, S_V0, S_T0, S_T1, 0])
+      else
+        0
+      if op_name == "|"
+        ctx[0] = ctx[0].push([SP_OR, S_V0, S_T0, S_T1, 0])
+      else
+        0
+      if op_name == "^"
+        ctx[0] = ctx[0].push([SP_XOR, S_V0, S_T0, S_T1, 0])
+      else
+        0
+      if op_name == "<<"
+        ctx[0] = ctx[0].push([SP_SLL, S_V0, S_T0, S_T1, 0])
+      else
+        0
+      if op_name == ">>"
+        ctx[0] = ctx[0].push([SP_SRA, S_V0, S_T0, S_T1, 0])
+      else
+        0
+      if op_name == "<"
+        ctx[0] = ctx[0].push([SP_CMP, S_V0, S_T0, S_T1, 0])
+      else
+        0
+      if op_name == ">"
+        ctx[0] = ctx[0].push([SP_CMP, S_V0, S_T1, S_T0, 0])
+      else
+        0
+      if op_name == "<="
+        ctx[0] = ctx[0].push([SP_CMP, S_V0, S_T0, S_T1, 0])
+        ctx[0] = ctx[0].push([SP_CMP, S_T1, S_T0, S_T1, 0])
+        ctx[0] = ctx[0].push([SP_BEQ, S_V0, S_T1, 0, 2])
+        ctx[0] = ctx[0].push([SP_LI, S_V0, 0, 0, 1])
+      else
+        0
+      if op_name == ">="
+        ctx[0] = ctx[0].push([SP_CMP, S_V0, S_T1, S_T0, 0])
+        ctx[0] = ctx[0].push([SP_CMP, S_T1, S_T0, S_T1, 0])
+        ctx[0] = ctx[0].push([SP_BEQ, S_V0, S_T1, 0, 2])
+        ctx[0] = ctx[0].push([SP_LI, S_V0, 0, 0, 1])
+      else
+        0
+      if op_name == "=="
+        ctx[0] = ctx[0].push([SP_SUB, S_V0, S_T0, S_T1, 0])
+        ctx[0] = ctx[0].push([SP_LI, S_T1, 0, 0, 1])
+        ctx[0] = ctx[0].push([SP_BEQ, S_V0, S_G0, 0, 2])
+        ctx[0] = ctx[0].push([SP_LI, S_T1, 0, 0, 0])
+        ctx[0] = ctx[0].push([SP_MOV, S_V0, S_T1, 0, 0])
+      else
+        0
+      if op_name == "!="
+        ctx[0] = ctx[0].push([SP_SUB, S_V0, S_T0, S_T1, 0])
+        ctx[0] = ctx[0].push([SP_LI, S_T1, 0, 0, 0])
+        ctx[0] = ctx[0].push([SP_BEQ, S_V0, S_G0, 0, 2])
+        ctx[0] = ctx[0].push([SP_LI, S_T1, 0, 0, 1])
+        ctx[0] = ctx[0].push([SP_MOV, S_V0, S_T1, 0, 0])
+      else
+        0
+    else
+      0
+    if tag == "call"
+      let fn_name = ast[1]
+      let args = ast[2]
+      let i = 0
+      for i < len(args)
+        sp_compile_expr(args[i], ctx)
+        let arg_reg = if i == 0
+          S_A0
+        else
+          if i == 1
+            S_A1
+          else
+            S_A2
+        ctx[0] = ctx[0].push([SP_MOV, arg_reg, S_V0, 0, 0])
+        i = i + 1
+      let call_pos = len(ctx[0])
+      ctx[0] = ctx[0].push([SP_CALL, 0, 0, 0, 0])
+      ctx[4] = ctx[4].push([call_pos, fn_name])
+    else
+      0
+    ctx
+
+let sp_compile_stmt(ast, ctx) =
+    let tag = ast[0]
+    if tag == "lit"
+      sp_compile_expr(ast, ctx)
+    else
+      0
+    if tag == "var"
+      sp_compile_expr(ast, ctx)
+    else
+      0
+    if tag == "binop"
+      sp_compile_expr(ast, ctx)
+    else
+      0
+    if tag == "call"
+      sp_compile_expr(ast, ctx)
+    else
+      0
+    if tag == "let"
+      let var_name = ast[1]
+      let val = ast[2]
+      sp_compile_expr(val, ctx)
+      ctx = sp_alloc_slot(ctx, var_name)
+      let r = sp_lookup_slot(ctx, var_name)
+      ctx[0] = ctx[0].push([SP_MOV, r, S_V0, 0, 0])
+    else
+      0
+    if tag == "assign"
+      let var_name = ast[1]
+      let val = ast[2]
+      sp_compile_expr(val, ctx)
+      let r = sp_lookup_slot(ctx, var_name)
+      ctx[0] = ctx[0].push([SP_MOV, r, S_V0, 0, 0])
+    else
+      0
+    if tag == "if"
+      let cond = ast[1]
+      let then_body = ast[2]
+      let else_body = ast[3]
+      sp_compile_expr(cond, ctx)
+      let beq_pos = len(ctx[0])
+      ctx[0] = ctx[0].push([SP_BEQ, S_V0, S_G0, 0, 0])
+      sp_compile_stmt(then_body, ctx)
+      let b_pos = len(ctx[0])
+      ctx[0] = ctx[0].push([SP_B, 0, 0, 0, 0])
+      let else_start = len(ctx[0])
+      ctx[0] = sp_set_arr(ctx[0], beq_pos, [SP_BEQ, S_V0, S_G0, 0, else_start - beq_pos])
+      if else_body[0] != "null"
+        sp_compile_stmt(else_body, ctx)
+      else
+        0
+      let else_end = len(ctx[0])
+      ctx[0] = sp_set_arr(ctx[0], b_pos, [SP_B, 0, 0, 0, else_end - b_pos])
+    else
+      0
+    if tag == "for"
+      let var_name = ast[1]
+      let count_expr = ast[2]
+      let body = ast[3]
+      sp_compile_expr(count_expr, ctx)
+      ctx = sp_alloc_slot(ctx, var_name)
+      let loop_var = sp_lookup_slot(ctx, var_name)
+      ctx[0] = ctx[0].push([SP_LI, loop_var, 0, 0, 0])
+      let loop_start = len(ctx[0])
+      ctx[0] = ctx[0].push([SP_BGE, loop_var, S_V0, 0, 0])
+      let bge_pos = len(ctx[0]) - 1
+      sp_compile_stmt(body, ctx)
+      ctx[0] = ctx[0].push([SP_ADDI, loop_var, loop_var, 0, 1])
+      ctx[0] = ctx[0].push([SP_B, 0, 0, 0, loop_start - len(ctx[0]) - 1])
+      let loop_end = len(ctx[0])
+      ctx[0] = sp_set_arr(ctx[0], bge_pos, [SP_BGE, loop_var, S_V0, 0, loop_end - bge_pos])
+    else
+      0
+    if tag == "return"
+      let val = ast[1]
+      sp_compile_expr(val, ctx)
+      ctx[0] = ctx[0].push([SP_RETL, 0, 0, 0, 0])
+    else
+      0
+    if tag == "seq"
+      let stmts = ast.slice(1, len(ast))
+      let i = 0
+      for i < len(stmts)
+        sp_compile_stmt(stmts[i], ctx)
+        i = i + 1
+    else
+      0
+    ctx
+
+let sp_compile_fn(ast, ctx) =
+    let fn_name = ast[1]
+    let params = ast[2]
+    let body = ast[3]
+    let fn_offset = len(ctx[0])
+    ctx[3] = ctx[3].push([fn_name, fn_offset])
+    let saved_slots = ctx[1]
+    let saved_nslots = ctx[2]
+    ctx[1] = []
+    ctx[2] = 0
+    let i = 0
+    for i < len(params)
+      ctx = sp_alloc_slot(ctx, params[i])
+      let r = sp_lookup_slot(ctx, params[i])
+      let arg_reg = if i == 0
+        S_A0
+      else
+        if i == 1
+          S_A1
+        else
+          S_A2
+      ctx[0] = ctx[0].push([SP_MOV, r, arg_reg, 0, 0])
+      i = i + 1
+    sp_compile_stmt(body, ctx)
+    ctx[0] = ctx[0].push([SP_RETL, 0, 0, 0, 0])
+    ctx[1] = saved_slots
+    ctx[2] = saved_nslots
+    ctx
+
+let sparc_compile(ast) =
+    let code = []
+    let ctx = [code, [], 0, [], []]
+    let stmts = if ast[0] == "seq"
+      ast.slice(1, len(ast))
+    else
+      [ast]
+    let user_fns = []
+    let other_stmts = []
+    let i = 0
+    for i < len(stmts)
+      if stmts[i][0] == "fn"
+        user_fns = user_fns.push(stmts[i])
+      else
+        other_stmts = other_stmts.push(stmts[i])
+      i = i + 1
+    let j = 0
+    for j < len(other_stmts)
+      sp_compile_stmt(other_stmts[j], ctx)
+      j = j + 1
+    ctx[0] = ctx[0].push([SP_LI, S_V0, 0, 0, 0])
+    ctx[0] = ctx[0].push([SP_RETL, 0, 0, 0, 0])
+    let k = 0
+    for k < len(user_fns)
+      sp_compile_fn(user_fns[k], ctx)
+      k = k + 1
+    let m = 0
+    for m < len(ctx[4])
+      let patch = ctx[4][m]
+      let call_pos = patch[0]
+      let fn_name = patch[1]
+      let n = 0
+      let found = 0
+      for n < len(ctx[3])
+        if (found == 0) && (ctx[3][n][0] == fn_name)
+          ctx[0] = sp_set_arr(ctx[0], call_pos, [SP_CALL, 0, 0, 0, ctx[3][n][1]])
+          found = 1
+        else
+          0
+        n = n + 1
+      m = m + 1
+    ctx[0]
+
+let sp_test_add() =
+    let ast = ["seq", ["let", "a", ["binop", "+", ["lit", 3], ["lit", 4]]]]
+    sparc_exec(sparc_compile(ast), 0)
+let sp_test_sub() =
+    let ast = ["seq", ["let", "a", ["binop", "-", ["lit", 10], ["lit", 3]]]]
+    sparc_exec(sparc_compile(ast), 0)
+let sp_test_mul() =
+    let ast = ["seq", ["let", "a", ["binop", "*", ["lit", 6], ["lit", 7]]]]
+    sparc_exec(sparc_compile(ast), 0)
+let sp_test_div() =
+    let ast = ["seq", ["let", "a", ["binop", "/", ["lit", 84], ["lit", 2]]]]
+    sparc_exec(sparc_compile(ast), 0)
+let sp_test_mod() =
+    let ast = ["seq", ["let", "a", ["binop", "%", ["lit", 10], ["lit", 3]]]]
+    sparc_exec(sparc_compile(ast), 0)
+let sp_test_var_ref() =
+    let ast = ["seq", ["let", "x", ["lit", 7]], ["let", "a", ["binop", "+", ["var", "x"], ["lit", 4]]]]
+    sparc_exec(sparc_compile(ast), 0)
+let sp_test_chain() =
+    let ast = ["seq", ["let", "x", ["lit", 2]], ["let", "y", ["binop", "+", ["var", "x"], ["lit", 1]]], ["let", "a", ["binop", "+", ["var", "y"], ["lit", 2]]]]
+    sparc_exec(sparc_compile(ast), 0)
+let sp_test_if_true() =
+    let ast = ["seq", ["let", "x", ["lit", 1]], ["if", ["binop", "<", ["var", "x"], ["lit", 2]], ["assign", "x", ["lit", 10]], ["assign", "x", ["lit", 20]]]]
+    sparc_exec(sparc_compile(ast), 0)
+let sp_test_if_false() =
+    let ast = ["seq", ["let", "x", ["lit", 5]], ["if", ["binop", "<", ["var", "x"], ["lit", 2]], ["assign", "x", ["lit", 10]], ["assign", "x", ["lit", 20]]]]
+    sparc_exec(sparc_compile(ast), 0)
+let sp_test_for_loop() =
+    let ast = ["seq", ["let", "s", ["lit", 0]], ["for", "i", ["lit", 5], ["assign", "s", ["binop", "+", ["var", "s"], ["var", "i"]]]]]
+    sparc_exec(sparc_compile(ast), 0)
+let sp_test_for_loop_10() =
+    let ast = ["seq", ["let", "s", ["lit", 0]], ["for", "i", ["lit", 10], ["assign", "s", ["binop", "+", ["var", "s"], ["var", "i"]]]]]
+    sparc_exec(sparc_compile(ast), 0)
+let sp_test_fn_call() =
+    let ast = ["seq", ["fn", "double", ["x"], ["binop", "*", ["var", "x"], ["lit", 2]]], ["let", "r", ["call", "double", [["lit", 21]]]]]
+    sparc_exec(sparc_compile(ast), 0)
+let sp_test_fn_add() =
+    let ast = ["seq", ["fn", "add", ["a", "b"], ["binop", "+", ["var", "a"], ["var", "b"]]], ["let", "r", ["call", "add", [["lit", 17], ["lit", 25]]]]]
+    sparc_exec(sparc_compile(ast), 0)
+let sp_test_nested_fn() =
+    let ast = ["seq", ["fn", "sq", ["x"], ["binop", "*", ["var", "x"], ["var", "x"]]], ["let", "r", ["call", "sq", [["lit", 7]]]]]
+    sparc_exec(sparc_compile(ast), 0)
+let sp_test_negative() =
+    let ast = ["seq", ["let", "a", ["binop", "-", ["lit", 0], ["lit", 5]]]]
+    sparc_exec(sparc_compile(ast), 0)
+let sp_test_bitwise() =
+    let ast = ["seq", ["let", "a", ["binop", "&", ["lit", 12], ["lit", 10]]]]
+    sparc_exec(sparc_compile(ast), 0)
+let sp_test_shift() =
+    let ast = ["seq", ["let", "a", ["binop", "<<", ["lit", 1], ["lit", 4]]]]
+    sparc_exec(sparc_compile(ast), 0)
+
+let sp_run_all_tests() =
+    let results = []
+    results = results.push(["add", sp_test_add(), 7])
+    results = results.push(["sub", sp_test_sub(), 7])
+    results = results.push(["mul", sp_test_mul(), 42])
+    results = results.push(["div", sp_test_div(), 42])
+    results = results.push(["mod", sp_test_mod(), 1])
+    results = results.push(["var_ref", sp_test_var_ref(), 11])
+    results = results.push(["chain", sp_test_chain(), 5])
+    results = results.push(["if_true", sp_test_if_true(), 10])
+    results = results.push(["if_false", sp_test_if_false(), 20])
+    results = results.push(["for_loop", sp_test_for_loop(), 10])
+    results = results.push(["for_loop_10", sp_test_for_loop_10(), 45])
+    results = results.push(["fn_call", sp_test_fn_call(), 42])
+    results = results.push(["fn_add", sp_test_fn_add(), 42])
+    results = results.push(["nested_fn", sp_test_nested_fn(), 49])
+    results = results.push(["negative", sp_test_negative(), -5])
+    results = results.push(["bitwise", sp_test_bitwise(), 8])
+    results = results.push(["shift", sp_test_shift(), 16])
+    let pass = 0
+    let fail = 0
+    let i = 0
+    for i < len(results)
+      if results[i][1] == results[i][2]
+        pass = pass + 1
+      else
+        fail = fail + 1
+      i = i + 1
+    [pass, fail, results]

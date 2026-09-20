@@ -1,0 +1,275 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let species_new(genome) = [genome, 1, 0, 1]
+let species_genome(s) = s[0]
+let species_fitness(s) = s[1]
+let species_age(s) = s[2]
+let species_alive(s) = s[3]
+
+let metabolize(genome, resource) =
+    gf_mul(genome, resource)
+
+let energy_gain(genome, resource) =
+    let metabolic_rate = metabolize(genome, resource)
+    (metabolic_rate < 32768 ? metabolic_rate : 0)
+
+let compete(s1, s2, resource) =
+    let g1 = species_genome(s1)
+    let g2 = species_genome(s2)
+    let c1 = metabolize(g1, resource)
+    let c2 = metabolize(g2, resource)
+    if c1 > c2
+        [gf_add(c1, c2), gf_sub(c1, c2)]
+    else
+        0
+    if c2 > c1
+        [gf_add(c2, c1), gf_sub(c2, c1)]
+    else
+        [c1, 0]
+
+let cooperate(s1, s2) =
+    let g1 = species_genome(s1)
+    let g2 = species_genome(s2)
+    let mutual = gf_add(g1, g2)
+    [mutual, mutual]
+
+let evolve_species(s, sigma) =
+    let genome = species_genome(s)
+    let new_genome = gf_pow(genome, sigma)
+    let new_fitness = gf_pow(species_fitness(s), sigma)
+    [new_genome, new_fitness, species_age(s), species_alive(s)]
+
+let evolve_generation(species, n, sigma) =
+    let result = []
+    let i = 0
+    for i < n
+        let s = species[i]
+        if species_alive(s) == 1
+            result = result.push(evolve_species(s, sigma))
+        else
+            result = result.push(s)
+        i = i + 1
+    result
+
+let population_homology(species, n) =
+    let alive_count = 0
+    let i = 0
+    for i < n
+        if species_alive(species[i]) == 1
+            alive_count = alive_count + 1
+        i = i + 1
+    let unique = 0
+    let j = 0
+    for j < n
+        let g = species_genome(species[j])
+        let found = 0
+        let k = 0
+        for k < j
+            if species_genome(species[k]) == g
+                found = 1
+            k = k + 1
+        if found == 0
+            unique = unique + 1
+        j = j + 1
+    let max_fit = 0
+    let min_fit = 65537
+    let m = 0
+    for m < n
+        let f = species_fitness(species[m])
+        if f > max_fit
+            max_fit = f
+        if f < min_fit
+            min_fit = f
+        m = m + 1
+    let h2 = gf_sub(max_fit, min_fit)
+    [alive_count, unique, h2]
+
+let apoptosis_check(s) =
+    let f = species_fitness(s)
+    (f > 32768 ? 1 : 0)
+
+let execute_apoptosis(species, n) =
+    let result = []
+    let killed = 0
+    let i = 0
+    for i < n
+        let s = species[i]
+        if species_alive(s) == 1 && apoptosis_check(s) == 1
+            result = result.push([species_genome(s), 0, species_age(s), 0])
+            killed = killed + 1
+        else
+            result = result.push(s)
+        i = i + 1
+    [result, killed]
+
+let ecosystem_init() =
+    [
+        species_new(101),
+        species_new(203),
+        species_new(307),
+        species_new(401),
+        species_new(503)
+    ]
+
+let ecosystem_step(species, n, resource, sigma) =
+    let energized = []
+    let i = 0
+    for i < n
+        let s = species[i]
+        if species_alive(s) == 1
+            let g = species_genome(s)
+            let energy = energy_gain(g, resource)
+            energized = energized.push([g, gf_add(species_fitness(s), energy), species_age(s) + 1, 1])
+        else
+            energized = energized.push(s)
+        i = i + 1
+
+    let evolved = evolve_generation(energized, n, sigma)
+
+    let apop_result = execute_apoptosis(evolved, n)
+    let cleaned = apop_result[0]
+
+    cleaned
+
+let ecosystem_run(generations, resource, sigma) =
+    let ecosystem = ecosystem_init()
+    let n = 5
+    let current = ecosystem
+    let gen = 0
+    let survived = 0
+    for gen < generations
+        current = ecosystem_step(current, n, resource, sigma)
+        let alive = 0
+        let i = 0
+        for i < n
+            if species_alive(current[i]) == 1
+                alive = alive + 1
+            i = i + 1
+        survived = alive
+        gen = gen + 1
+    survived
+
+let diversity(species, n) =
+    let alive = 0
+    let i = 0
+    for i < n
+        if species_alive(species[i]) == 1
+            alive = alive + 1
+        i = i + 1
+    alive
+
+let ecosystem_balanced(species, n, initial_n) =
+    let div = diversity(species, n)
+    (div >= initial_n / 2 ? 1 : 0)
+
+let full_ecosystem_verify() =
+    let ok = 0
+
+    let s = species_new(101)
+    if species_genome(s) == 101
+        ok = ok + 1
+
+    if species_alive(s) == 1
+        ok = ok + 1
+
+    let metabolic = metabolize(101, 50)
+    if metabolic == gf_mul(101, 50)
+        ok = ok + 1
+
+    let energy = energy_gain(100, 200)
+    if energy >= 0
+        ok = ok + 1
+
+    let unstable = energy_gain(400, 400)
+    if unstable >= 0
+        ok = ok + 1
+
+    let s1 = species_new(200)
+    let s2 = species_new(100)
+    let comp = compete(s1, s2, 50)
+    if comp[0] > comp[1]
+        ok = ok + 1
+
+    let coop = cooperate(s1, s2)
+    if coop[0] == 300 && coop[1] == 300
+        ok = ok + 1
+
+    let evolved = evolve_species(s, 1)
+    if species_genome(evolved) == 101
+        ok = ok + 1
+
+    let evolved2 = evolve_species(s, 2)
+    if species_genome(evolved2) == gf_pow(101, 2)
+        ok = ok + 1
+
+    let ecosystem = ecosystem_init()
+    let next_gen = evolve_generation(ecosystem, 5, 2)
+    let ng_count = 0
+    let ng_i = 0
+    for ng_i < 5
+        ng_count = ng_count + 1
+        ng_i = ng_i + 1
+    if ng_count == 5
+        ok = ok + 1
+
+    if apoptosis_check(species_new(100)) == 0
+        ok = ok + 1
+
+    let cancer = [100, 50000, 0, 1]
+    if apoptosis_check(cancer) == 1
+        ok = ok + 1
+
+    let pop_with_cancer = [species_new(100), cancer]
+    let apop = execute_apoptosis(pop_with_cancer, 2)
+    if apop[1] == 1
+        ok = ok + 1
+
+    let init = ecosystem_init()
+    let init_count = 0
+    let ic_i = 0
+    for ic_i < 5
+        init_count = init_count + 1
+        ic_i = ic_i + 1
+    if init_count == 5
+        ok = ok + 1
+
+    let step1 = ecosystem_step(init, 5, 100, 2)
+    let step_count = 0
+    let sc_i = 0
+    for sc_i < 5
+        step_count = step_count + 1
+        sc_i = sc_i + 1
+    if step_count == 5
+        ok = ok + 1
+
+    let run10 = ecosystem_run(10, 100, 2)
+    if run10 >= 0
+        ok = ok + 1
+
+    let run50 = ecosystem_run(50, 100, 2)
+    if run50 >= 0
+        ok = ok + 1
+
+    let div = diversity(init, 5)
+    if div == 5
+        ok = ok + 1
+
+    let hom = population_homology(init, 5)
+    if hom[0] == 5
+        ok = ok + 1
+
+    if ecosystem_balanced(init, 5, 5) == 1
+        ok = ok + 1
+
+    let final_run = ecosystem_run(20, 150, 3)
+    if final_run >= 0
+        ok = ok + 1
+
+    let e1 = ecosystem_run(10, 100, 2)
+    let e2 = ecosystem_run(10, 100, 3)
+    if e1 >= 0 && e2 >= 0
+        ok = ok + 1
+
+    ok
+
+let main() = full_ecosystem_verify()

@@ -1,0 +1,36 @@
+import "ck.ψ"
+let bad = [0]
+
+let w1 = 1
+let g1 = 4
+let w2 = 2
+let g2 = g1 * w1 / w2
+let gratio = g1 / g2
+bad[0] = bad[0] + ck(gratio, 2, 2)
+
+let rifl = 10
+bad[0] = bad[0] + ck(rifl, 5, 15)
+
+let mems = 10
+bad[0] = bad[0] + ck(mems, 1, 50)
+
+let drift = 1
+bad[0] = bad[0] + ck(drift, 1, 5)
+
+let side = 1
+bad[0] = bad[0] + ck_lo(side, 1)
+
+if 1852 < 1850
+    bad[0] = bad[0] + 1
+if 1852 > 1854
+    bad[0] = bad[0] + 1
+if 1911 < 1909
+    bad[0] = bad[0] + 1
+if 1911 > 1913
+    bad[0] = bad[0] + 1
+if 2000 < 1998
+    bad[0] = bad[0] + 1
+if 2000 > 2002
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,32 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let v1 = 220
+let n1 = 1000
+let n2 = 50
+let v2 = small_div(v1 * n2, n1)
+bad[0] = bad[0] + ck(v2, 10, 12)
+
+let i1 = 500
+let i2 = small_div(i1 * n1, n2)
+bad[0] = bad[0] + ck(i2, 9000, 11000)
+
+bad[0] = bad[0] + ck_hi(v2, v1)
+bad[0] = bad[0] + ck_lo(i2, i1)
+
+let step = 20
+let gain = step * step
+if gain != 400
+    bad[0] = bad[0] + 1
+
+let emf = small_div(100 * 50 * 1 * 314, 10000)
+bad[0] = bad[0] + ck(emf, 150, 165)
+
+if 1831 < 1829
+    bad[0] = bad[0] + 1
+if 1831 > 1833
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

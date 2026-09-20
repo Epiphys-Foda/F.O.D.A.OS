@@ -1,0 +1,49 @@
+let tb_loop_code(target, init, steps) =
+    let lines = []
+    lines = lines.push("let r = " + to_str(target))
+    lines = lines.push("let s = " + to_str(init))
+    lines = lines.push("let e = 0")
+    lines = lines.push("let tt = 0")
+    lines = lines.push("for tt < " + to_str(steps))
+    lines = lines.push("  e = r - s")
+    lines = lines.push("  s = s + ((e + 1) >> 1)")
+    lines = lines.push("  tt = tt + 1")
+    lines = lines.push("print(e)")
+    lines
+
+let tb_learn_code(r, s0, bias, learn) =
+    let lines = []
+    lines = lines.push("let r = " + to_str(r))
+    lines = lines.push("let s = " + to_str(s0))
+    lines = lines.push("let b = 0")
+    lines = lines.push("let e = 0")
+    lines = lines.push("s = s + (r - s) + " + to_str(bias))
+    lines = lines.push("e = r - s")
+    if learn == 1
+      lines = lines.push("b = b + e")
+    else
+      lines = lines.push("b = b + 0")
+    lines = lines.push("s = s + (r - s) + b + " + to_str(bias))
+    lines = lines.push("e = r - s")
+    lines = lines.push("s = s + (r - s) + b + " + to_str(bias))
+    lines = lines.push("e = r - s")
+    lines = lines.push("print(e)")
+    lines
+
+let tb_gen_code(r1, s0, bias, r2, learn) =
+    let lines = []
+    lines = lines.push("let r = " + to_str(r1))
+    lines = lines.push("let s = " + to_str(s0))
+    lines = lines.push("let b = 0")
+    lines = lines.push("let e = 0")
+    lines = lines.push("s = s + (r - s) + " + to_str(bias))
+    lines = lines.push("e = r - s")
+    if learn == 1
+      lines = lines.push("b = b + e")
+    else
+      lines = lines.push("b = b + 0")
+    lines = lines.push("r = " + to_str(r2))
+    lines = lines.push("s = s + (r - s) + b + " + to_str(bias))
+    lines = lines.push("e = r - s")
+    lines = lines.push("print(e)")
+    lines

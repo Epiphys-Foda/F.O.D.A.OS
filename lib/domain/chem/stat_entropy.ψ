@@ -1,0 +1,22 @@
+import "ck.ψ"
+let bad = [0]
+
+let num = 10 * 9 * 8 * 7 * 6
+let den = 5 * 4 * 3 * 2 * 1
+let c52 = num / den
+let dz1 = c52 - 252
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let p_all = 1
+let dz2 = c52 - p_all * 100
+bad[0] = bad[0] + ck_lo(dz2, 0)
+
+let macro_balanced = 1
+bad[0] = bad[0] + ck_lo(macro_balanced, 1)
+
+if 1877 < 1875
+    bad[0] = bad[0] + 1
+if 1877 > 1879
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

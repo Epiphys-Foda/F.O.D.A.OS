@@ -1,0 +1,76 @@
+import "psi_dataflow.ψ"
+
+let qir_node_op(tree) = tree[0]
+
+let qir_leaf_value(node) =
+    let op = node[0]
+    if op == 65
+        node[1]
+    else
+      if op == 32
+          node[1]
+      else
+          -1
+
+let qir_child_depth(tree, i) =
+    let n = len(tree)
+    if i >= n
+      0
+    else
+      let c = tree[i]
+      if qir_leaf_value(c) == -1
+      else
+        0
+      let d = if qir_leaf_value(c) == -1
+        qir_tree_depth(c)
+      else
+        1
+      let rest = qir_child_depth(tree, i + 1)
+      (d > rest ? d : rest)
+
+let qir_tree_depth(tree) =
+    let op = tree[0]
+    if op == 65 || op == 32
+      1
+    else
+      qir_child_depth(tree, 1) + 1
+
+let qir_build_rec(tree, acc_dag, next_id) =
+    let op = tree[0]
+    let node_id = next_id
+    if op == 65
+    else
+      0
+    let pe_type = if op == 65 || op == 32
+      16
+      if op == 106 || op == 108 || op == 111
+        1
+      else
+        6
+    let d = dag_add_node_v13_1(acc_dag, op, pe_type, -1, node_id)
+    let cur_id = node_id + 1
+    let i = 1
+    let n = len(tree)
+    let done = false
+    for !done
+      if i < n
+        let c = tree[i]
+        if qir_leaf_value(c) == -1
+          let sub = qir_build_rec(c, d, cur_id)
+          d = sub[0]
+          let sub_id = sub[1]
+          d = dag_add_edge_v13_1(d, sub_id, 0, node_id, 0, 0, 4)
+          cur_id = sub[2]
+        else
+          d = dag_add_node_v13_1(d, c[0], 16, -1, cur_id)
+          d = dag_add_edge_v13_1(d, cur_id, 0, node_id, 0, 0, 4)
+          cur_id = cur_id + 1
+          0
+        i = i + 1
+      else
+        done = true
+    [d, node_id, cur_id]
+
+let qir_to_dag(tree) =
+    let r = qir_build_rec(tree, dag_create(), 0)
+    r[0]

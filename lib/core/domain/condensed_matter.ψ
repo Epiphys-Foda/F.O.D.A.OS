@@ -1,0 +1,222 @@
+import "../stdlib/gf65537.ψ"
+
+let tight_binding_1d_energy(epsilon, t, k) =
+    let g_k = gf_pow(3, k)
+    let g_neg_k = gf_inv(g_k)
+    let two_cos_k = gf_add(g_k, g_neg_k)
+    gf_add(epsilon, gf_mul(t, two_cos_k))
+
+let tight_binding_2d_energy(epsilon, t, kx, ky) =
+    let g_kx = gf_pow(3, kx)
+    let g_neg_kx = gf_inv(g_kx)
+    let g_ky = gf_pow(3, ky)
+    let g_neg_ky = gf_inv(g_ky)
+    let cos_sum = gf_add(gf_add(g_kx, g_neg_kx), gf_add(g_ky, g_neg_ky))
+    gf_add(epsilon, gf_mul(t, cos_sum))
+
+let graphene_energy(t, k1, k2) =
+    let f_real = gf_add(gf_add(1, gf_pow(3, k1)), gf_pow(3, k2))
+    let f_conj = gf_add(gf_add(1, gf_inv(gf_pow(3, k1))), gf_inv(gf_pow(3, k2)))
+    let f_sq = gf_mul(f_real, f_conj)
+    let legendre = gf_legendre(f_sq)
+    if legendre == 1
+        let sqrt_f_sq = gf_sqrt(f_sq)
+        [gf_mul(t, sqrt_f_sq), gf_neg(gf_mul(t, sqrt_f_sq))]
+    else
+        0
+    if legendre == 0
+        [0, 0]
+    else
+        [f_sq, 65536]
+
+let bloch_state(k, r) =
+    gf_pow(3, gf_mul(k, r))
+
+let bloch_condition_check(k, r, r_period) =
+        let lhs = bloch_state(k, gf_add(r, r_period))
+        let phase = gf_pow(3, gf_mul(k, r_period))
+        let rhs = gf_mul(phase, bloch_state(k, r))
+        if lhs == rhs
+            1
+        else
+            0
+
+let phonon_1d_freq_sq(k_force, mass, q, a_lattice) =
+    let qa = gf_mul(q, a_lattice)
+    let g_qa = gf_pow(3, qa)
+    let g_neg_qa = gf_inv(g_qa)
+    let two_cos = gf_add(g_qa, g_neg_qa)
+    let factor = gf_sub(2, two_cos)
+    gf_mul(gf_div(k_force, mass), factor)
+
+let phonon_1d_frequency(k_force, mass, q, a_lattice) =
+    let omega_sq = phonon_1d_freq_sq(k_force, mass, q, a_lattice)
+    let legendre = gf_legendre(omega_sq)
+    if legendre == 1
+        [gf_sqrt(omega_sq), 1]
+    else
+        0
+    if legendre == 0
+        [0, 0]
+    else
+        [omega_sq, 65536]
+
+let phonon_spectrum_ntt(k_force, mass, n_q, a_lattice) =
+    _phonon_spectrum_loop(k_force, mass, n_q, a_lattice, 0, [])
+let _phonon_spectrum_loop(k, m, n_q, a, q, spectrum) =
+        if q >= n_q
+            spectrum
+        else
+            let omega_sq = phonon_1d_freq_sq(k, m, q, a)
+            _phonon_spectrum_loop(k, m, n_q, a, q + 1, arr_concat(spectrum, [omega_sq]))
+
+let bcs_quasiparticle_energy(xi_k, delta) =
+    let xi_sq = gf_mul(xi_k, xi_k)
+    let delta_sq = gf_mul(delta, delta)
+    let e_sq = gf_add(xi_sq, delta_sq)
+    let legendre = gf_legendre(e_sq)
+    if legendre == 1
+        gf_sqrt(e_sq)
+    else
+        0
+    if legendre == 0
+        0
+    else
+        65536
+
+let bcs_gap_equation(v_pairing, xi_values, n_k, delta) =
+    _bcs_gap_loop(v_pairing, xi_values, n_k, delta, 0, 0)
+let _bcs_gap_loop(v, xis, n, delta, k, acc) =
+        if k >= n
+            gf_mul(v, acc)
+        else
+            let e_k = bcs_quasiparticle_energy(xis[k], delta)
+            let inv_2e = gf_inv(gf_mul(2, e_k))
+            _bcs_gap_loop(v, xis, n, delta, k + 1, gf_add(acc, inv_2e))
+
+let bcs_self_consistent(v_pairing, xi_values, n_k, delta_init, max_iter) =
+    _bcs_sc_loop(v_pairing, xi_values, n_k, max_iter, 0, delta_init)
+let _bcs_sc_loop(v, xis, n, max_iter, i, delta) =
+        if i >= max_iter
+            delta
+        else
+            let delta_new = bcs_gap_equation(v, xis, n, delta)
+            _bcs_sc_loop(v, xis, n, max_iter, i + 1, delta_new)
+
+let bcs_critical_temperature(omega_debye, v_pairing, n0_dos) =
+    let exponent = gf_neg(gf_div(n0_dos, v_pairing))
+    let factor = gf_pow(3, exponent)
+    gf_mul(omega_debye, factor)
+
+let bcs_universal_ratio() =
+    gf_div(353, 100)
+
+let ssh_winding_number(v_hopping, w_hopping, n_k) =
+    if v_hopping == 0
+        1
+    else
+        0
+    if w_hopping == 0
+        0
+    else
+        let ratio = gf_div(v_hopping, w_hopping)
+        if ratio > 32768
+            1
+        else
+            0
+
+let z2_invariant(winding) =
+    winding % 2
+
+let chern_number_simple(n_inverted_bands) =
+    n_inverted_bands
+
+let fermi_points_1d(epsilon, t, e_fermi) =
+    let c = gf_div(gf_sub(e_fermi, epsilon), t)
+    let c_sq = gf_mul(c, c)
+    let delta = gf_sub(c_sq, 4)
+    let legendre = gf_legendre(delta)
+    if legendre == 1
+        let sqrt_delta = gf_sqrt(delta)
+        let x1 = gf_mul(gf_add(c, sqrt_delta), gf_inv(2))
+        let x2 = gf_mul(gf_sub(c, sqrt_delta), gf_inv(2))
+        [x1, x2, 1]
+    else
+        0
+    if legendre == 0
+        let x = gf_mul(c, gf_inv(2))
+        [x, x, 0]
+    else
+        [delta, 65536, 65536]
+
+let fermi_energy(band_energies, n_electrons) =
+    band_energies[n_electrons - 1]
+
+let density_of_states(band_energies, n_k, e_target) =
+    _dos_loop(band_energies, n_k, e_target, 0, 0)
+let _dos_loop(energies, n, e, k, count) =
+        if k >= n
+            count
+        else
+            let new_count = (energies[k] == e ? count + 1 : count)
+            _dos_loop(energies, n, e, k + 1, new_count)
+
+let ising_energy(spins, n, j_coupling, h_field) =
+    _ising_loop(spins, n, j_coupling, h_field, 0, 0, 0)
+let _ising_loop(spins, n, j, h, i, e_inter, e_field) =
+        if i >= n
+            gf_neg(gf_add(e_inter, e_field))
+        else
+            let s_i = spins[i]
+            let s_next = spins[(i + 1) % n]
+            let inter = gf_mul(j, gf_mul(s_i, s_next))
+            let field = gf_mul(h, s_i)
+            _ising_loop(spins, n, j, h, i + 1, gf_add(e_inter, inter), gf_add(e_field, field))
+
+let ising_magnetization(spins, n) =
+    _mag_loop(spins, n, 0, 0)
+let _mag_loop(spins, n, i, acc) =
+        if i >= n
+            gf_div(acc, n)
+        else
+            _mag_loop(spins, n, i + 1, gf_add(acc, spins[i]))
+
+let ising_2d_critical_temp(j_coupling) =
+    gf_mul(2, j_coupling)
+
+let band_gap(e_valence_top, e_conduction_bottom) =
+    gf_sub(e_conduction_bottom, e_valence_top)
+
+let is_insulator(gap) =
+        if gap > 0 && gap < 32768
+            1
+        else
+            0
+
+let is_direct_gap(e_valence_kv, e_conduction_kc, e_conduction_kv) =
+        if e_conduction_kc == e_conduction_kv
+            1
+        else
+            0
+
+let effective_mass(e_k_minus, e_k, e_k_plus, dk) =
+    let d2e = gf_sub(gf_add(e_k_plus, e_k_minus), gf_mul(2, e_k))
+    let dk_sq = gf_mul(dk, dk)
+    let second_deriv = gf_div(d2e, dk_sq)
+    gf_inv(second_deriv)
+
+let drude_conductivity(n_carriers, tau_scattering, m_star) =
+    gf_div(gf_mul(n_carriers, tau_scattering), m_star)
+
+let hall_coefficient(n_carriers) =
+    gf_inv(n_carriers)
+
+let wiedemann_franz_ratio() =
+    3
+
+let is_topological_insulator(z2_inv) =
+    z2_inv
+
+let boundary_state_count(z2_inv) =
+    z2_inv
+

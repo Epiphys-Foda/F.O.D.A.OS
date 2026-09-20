@@ -1,0 +1,422 @@
+import "../domain_field.ψ"
+let entry_new(value, ttl_ms) =
+    let expire = 0
+    if ttl_ms > 0
+        expire = ttl_ms
+    [value, expire, 0]
+
+let entry_value(e) = e[0]
+let entry_expire(e) = e[1]
+let entry_access(e) = e[2]
+
+let entry_set_value(e, v) =
+    e[0] = v
+    e
+
+let entry_touch(e, access_counter) =
+    e[2] = access_counter
+    e
+
+let entry_is_expired(e, current_time) =
+    let exp = entry_expire(e)
+    if exp == 0
+        0
+    else
+        0
+    if exp > current_time
+        0
+    else
+        1
+
+let cache_new(max_size) =
+    [{}, {}, {}, {}, {}, 0, max_size, 0]
+
+let cache_kv(c) = c[0]
+let cache_lists(c) = c[1]
+let cache_hashes(c) = c[2]
+let cache_sets(c) = c[3]
+let cache_zsets(c) = c[4]
+let cache_counter(c) = c[5]
+let cache_max(c) = c[6]
+
+let cache_next_access(c) =
+    c[5] = c[5] + 1
+    c[5]
+
+let cache_set(c, key, value, ttl) =
+    let kv = cache_kv(c)
+    let entry = entry_new(value, ttl)
+    entry = entry_touch(entry, cache_next_access(c))
+    kv[key] = entry
+    c[0] = kv
+    if cache_max(c) > 0
+        let keys = keys_of(kv)
+        if len(keys) > cache_max(c)
+            let min_key = keys[0]
+            let min_access = entry_access(kv[keys[0]])
+            let i = 1
+            let n = len(keys)
+            for i < n
+                let a = entry_access(kv[keys[i]])
+                if a < min_access
+                    min_access = a
+                    min_key = keys[i]
+                i = i + 1
+            kv[min_key] = 0
+            c[0] = kv
+    c
+
+let cache_get(c, key, current_time) =
+    let kv = cache_kv(c)
+    let entry = kv[key]
+    if entry == 0
+        0
+    else
+        if entry_is_expired(entry, current_time) == 1
+            kv[key] = 0
+            c[0] = kv
+            0
+        else
+            entry = entry_touch(entry, cache_next_access(c))
+            kv[key] = entry
+            c[0] = kv
+            entry_value(entry)
+
+let cache_del(c, key) =
+    let kv = cache_kv(c)
+    kv[key] = 0
+    c[0] = kv
+    c
+
+let cache_incr(c, key) =
+    let kv = cache_kv(c)
+    let entry = kv[key]
+    let new_val = 0
+    if entry == 0
+        new_val = 1
+        entry = entry_new(new_val, 0)
+    else
+        new_val = entry_value(entry) + 1
+        entry = entry_set_value(entry, new_val)
+    entry = entry_touch(entry, cache_next_access(c))
+    kv[key] = entry
+    c[0] = kv
+    new_val
+
+let cache_decr(c, key) =
+    let kv = cache_kv(c)
+    let entry = kv[key]
+    let new_val = 0
+    if entry == 0
+        new_val = -1
+        entry = entry_new(new_val, 0)
+    else
+        new_val = entry_value(entry) - 1
+        entry = entry_set_value(entry, new_val)
+    entry = entry_touch(entry, cache_next_access(c))
+    kv[key] = entry
+    c[0] = kv
+    new_val
+
+let cache_lpush(c, key, value) =
+    let lists = cache_lists(c)
+    let lst = lists[key]
+    if lst == 0
+        lst = []
+    let new_lst = [value]
+    let i = 0
+    let n = len(lst)
+    for i < n
+        new_lst.push(lst[i])
+        i = i + 1
+    lists[key] = new_lst
+    c[1] = lists
+    len(new_lst)
+
+let cache_rpush(c, key, value) =
+    let lists = cache_lists(c)
+    let lst = lists[key]
+    if lst == 0
+        lst = []
+    lst.push(value)
+    lists[key] = lst
+    c[1] = lists
+    len(lst)
+
+let cache_lpop(c, key) =
+    let lists = cache_lists(c)
+    let lst = lists[key]
+    if lst == 0
+        0
+    else
+        0
+    if len(lst) == 0
+        0
+    else
+        let val = lst[0]
+        let new_lst = []
+        let i = 1
+        let n = len(lst)
+        for i < n
+            new_lst.push(lst[i])
+            i = i + 1
+        lists[key] = new_lst
+        c[1] = lists
+        val
+
+let cache_rpop(c, key) =
+    let lists = cache_lists(c)
+    let lst = lists[key]
+    if lst == 0
+        0
+    else
+        0
+    if len(lst) == 0
+        0
+    else
+        let val = lst[len(lst) - 1]
+        lst.pop()
+        lists[key] = lst
+        c[1] = lists
+        val
+
+let cache_lrange(c, key, start, stop) =
+    let lists = cache_lists(c)
+    let lst = lists[key]
+    if lst == 0
+        []
+    else
+        let n = len(lst)
+        let s = start
+        let e = stop
+        if s < 0
+            s = n + s
+        if e < 0
+            e = n + e
+        if s < 0
+            s = 0
+        if e >= n
+            e = n - 1
+        let result = []
+        let i = s
+        for i <= e
+            result.push(lst[i])
+            i = i + 1
+        result
+
+let cache_hset(c, key, field, value) =
+    let hashes = cache_hashes(c)
+    let h = hashes[key]
+    if h == 0
+        h = {}
+    h[field] = value
+    hashes[key] = h
+    c[2] = hashes
+    1
+
+let cache_hget(c, key, field) =
+    let hashes = cache_hashes(c)
+    let h = hashes[key]
+    if h == 0
+        0
+    else
+        h[field]
+
+let cache_hdel(c, key, field) =
+    let hashes = cache_hashes(c)
+    let h = hashes[key]
+    if h == 0
+        0
+    else
+        h[field] = 0
+        hashes[key] = h
+        c[2] = hashes
+        1
+
+let cache_hgetall(c, key) =
+    let hashes = cache_hashes(c)
+    let h = hashes[key]
+    if h == 0
+        {}
+    else
+        h
+
+let cache_sadd(c, key, member) =
+    let sets = cache_sets(c)
+    let s = sets[key]
+    if s == 0
+        s = {}
+    if s[member] == 0
+        s[member] = 1
+        sets[key] = s
+        c[3] = sets
+        1
+    else
+        0
+
+let cache_srem(c, key, member) =
+    let sets = cache_sets(c)
+    let s = sets[key]
+    if s == 0
+        0
+    else
+        0
+    if s[member] == 0
+        0
+    else
+        s[member] = 0
+        sets[key] = s
+        c[3] = sets
+        1
+
+let cache_sismember(c, key, member) =
+    let sets = cache_sets(c)
+    let s = sets[key]
+    if s == 0
+        0
+    else
+        0
+    if s[member] == 0
+        0
+    else
+        1
+
+let cache_smembers(c, key) =
+    let sets = cache_sets(c)
+    let s = sets[key]
+    if s == 0
+        []
+    else
+        keys_of(s)
+
+let cache_subscribe(c, channel, sub_id) =
+    let pubsub = c[7]
+    if pubsub == 0
+        pubsub = {}
+    let subs = pubsub[channel]
+    if subs == 0
+        subs = []
+    subs.push(sub_id)
+    pubsub[channel] = subs
+    c[7] = pubsub
+    c
+
+let cache_publish(c, channel, message) =
+    let pubsub = c[7]
+    if pubsub == 0
+        0
+    else
+        let subs = pubsub[channel]
+        if subs == 0
+            0
+        else
+            len(subs)
+
+let cache_aof_log(c, command) =
+    let aof = c[8]
+    if aof == 0
+        aof = []
+    aof.push(command)
+    c[8] = aof
+    c
+
+let cache_rdb_snapshot(c) =
+    cache_kv(c)
+
+let cache_verify() =
+    let ok1 = 1
+    let c = cache_new(100)
+    c = cache_set(c, "name", "alice", 0)
+    let v = cache_get(c, "name", 0)
+    if v != "alice"
+        ok1 = 0
+    c = cache_set(c, "age", 30, 0)
+    if cache_get(c, "age", 0) != 30
+        ok1 = 0
+
+    let ok2 = 1
+    c = cache_del(c, "name")
+    if cache_get(c, "name", 0) != 0
+        ok2 = 0
+
+    let ok3 = 1
+    let v1 = cache_incr(c, "counter")
+    if v1 != 1
+        ok3 = 0
+    let v2 = cache_incr(c, "counter")
+    if v2 != 2
+        ok3 = 0
+    let v3 = cache_decr(c, "counter")
+    if v3 != 1
+        ok3 = 0
+
+    let ok4 = 1
+    c = cache_set(c, "temp", "value", 100)
+    if cache_get(c, "temp", 50) != "value"
+        ok4 = 0
+    if cache_get(c, "temp", 200) != 0
+        ok4 = 0
+
+    let ok5 = 1
+    c = cache_rpush(c, "mylist", "a")
+    c = cache_rpush(c, "mylist", "b")
+    c = cache_rpush(c, "mylist", "c")
+    let range = cache_lrange(c, "mylist", 0, -1)
+    if len(range) != 3
+        ok5 = 0
+    if range[0] != "a"
+        ok5 = 0
+    let popped = cache_lpop(c, "mylist")
+    if popped != "a"
+        ok5 = 0
+
+    let ok6 = 1
+    c = cache_hset(c, "myhash", "field1", "value1")
+    if cache_hget(c, "myhash", "field1") != "value1"
+        ok6 = 0
+    if cache_hget(c, "myhash", "field2") != 0
+        ok6 = 0
+    c = cache_hdel(c, "myhash", "field1")
+    if cache_hget(c, "myhash", "field1") != 0
+        ok6 = 0
+
+    let ok7 = 1
+    let added = cache_sadd(c, "myset", "member1")
+    if added != 1
+        ok7 = 0
+    let added2 = cache_sadd(c, "myset", "member1")
+    if added2 != 0
+        ok7 = 0
+    if cache_sismember(c, "myset", "member1") != 1
+        ok7 = 0
+    if cache_sismember(c, "myset", "member2") != 0
+        ok7 = 0
+
+    let ok8 = 1
+    let c2 = cache_new(3)
+    c2 = cache_set(c2, "k1", "v1", 0)
+    c2 = cache_set(c2, "k2", "v2", 0)
+    c2 = cache_set(c2, "k3", "v3", 0)
+    cache_get(c2, "k1", 0)
+    c2 = cache_set(c2, "k4", "v4", 0)
+    if cache_get(c2, "k2", 0) != 0
+        ok8 = 0
+    if cache_get(c2, "k1", 0) != "v1"
+        ok8 = 0
+    if cache_get(c2, "k4", 0) != "v4"
+        ok8 = 0
+
+    let all_ok = ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7 * ok8
+    if all_ok == 1
+        print("cache_verify: ALL PASS")
+    else
+        print("cache_verify: FAIL")
+        print(ok1)
+        print(ok2)
+        print(ok3)
+        print(ok4)
+        print(ok5)
+        print(ok6)
+        print(ok7)
+        print(ok8)
+    all_ok

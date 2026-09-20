@@ -1,0 +1,10 @@
+let path = host_call(3, 0, 0)
+let n = host_call(2, path, 0)
+let i = 0
+let count = 0
+for i < n
+  count = count + (host_call(4, i, 0) == 112)
+  i = i + 1
+host_call(1, count, 0)
+host_call(1, n, 0)
+n

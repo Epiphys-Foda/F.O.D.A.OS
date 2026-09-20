@@ -1,0 +1,13 @@
+    let stack = arr_new_n(n)
+    let sp = 0
+    let i = 0
+    for i < n
+        let t = ops_type[i]
+        if t == 0
+            stack[sp] = ops_data[i]
+            sp = sp + 1
+        if t == 1
+            if sp >= 2
+                let b = stack[sp - 1]
+                let a = stack[sp - 2]
+                sp = sp - 2

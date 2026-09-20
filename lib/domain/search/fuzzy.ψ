@@ -1,0 +1,308 @@
+let FZ_P = 65537
+let FZ_HASH_BASE = 33
+let FZ_DEFAULT_GRAM_SIZE = 3
+let FZ_DEFAULT_MAX_DIST = 2
+let FZ_NG_GRAMS = 0
+let FZ_NG_GRAM_SIZE = 1
+let FZ_NG_ITEMS = 2
+let FZ_BK_WORD = 0
+let FZ_BK_CHILDREN = 1
+let FZ_BK_DISTS = 2
+let FZ_FS_NGRAM = 0
+let FZ_FS_BKROOT = 1
+let FZ_FS_VOCAB = 2
+let FZ_FS_LOG = 3
+
+let fz_min3(a, b, c) =
+    let m = a
+    if b < m
+        m = b
+    if c < m
+        m = c
+    m
+
+let fz_levenshtein(s1, s2) =
+    let m = len(s1)
+    let n = len(s2)
+    if m == 0
+        n
+    else
+        if n == 0
+            m
+        else
+            let dp = []
+            let i = 0
+            for i <= m
+                let row = []
+                let j = 0
+                for j <= n
+                    if i == 0
+                        row.push(j)
+                    else
+                        if j == 0
+                            row.push(i)
+                        else
+                            let cost = 1
+                            if s1[i - 1] == s2[j - 1]
+                                cost = 0
+                            let up = dp[i - 1][j] + 1
+                            let left = row[j - 1] + 1
+                            let diag = dp[i - 1][j - 1] + cost
+                            row.push(fz_min3(up, left, diag))
+                    j = j + 1
+                dp.push(row)
+                i = i + 1
+            dp[m][n]
+
+let fz_ngram_extract(word, gram_size) =
+    let grams = []
+    let n = len(word)
+    let i = 0
+    for i + gram_size <= n
+        let h = 5381
+        let j = 0
+        for j < gram_size
+            h = (h * FZ_HASH_BASE + word[i + j]) % FZ_P
+            j = j + 1
+        grams.push(h)
+        i = i + 1
+    grams
+
+let fz_ngram_new(gram_size) =
+    [{}, gram_size, []]
+
+let fz_default_searcher(gram_size) =
+    [fz_ngram_new(gram_size), 0, [], []]
+
+let fz_bk_node_new(word) =
+    [word, {}, []]
+
+let fz_bk_insert(bk_root, word) =
+    if bk_root == 0
+        fz_bk_node_new(word)
+    else
+        let dist = fz_levenshtein(word, bk_root[0])
+        let children = bk_root[1]
+        let child = children[dist]
+        if child != 0
+            child = fz_bk_insert(child, word)
+            children[dist] = child
+            bk_root[1] = children
+        else
+            children[dist] = fz_bk_node_new(word)
+            bk_root[1] = children
+            bk_root[2].push(dist)
+        bk_root
+
+let fz_add_word(searcher, word) =
+    let vocab = searcher[FZ_FS_VOCAB]
+    let word_id = len(vocab)
+    vocab.push(word)
+    searcher[FZ_FS_VOCAB] = vocab
+    let ni = searcher[FZ_FS_NGRAM]
+    let gram_size = ni[1]
+    let grams = fz_ngram_extract(word, gram_size)
+    let grams_map = ni[0]
+    let i = 0
+    let n = len(grams)
+    for i < n
+        let gh = grams[i]
+        let lst = grams_map[gh]
+        if lst == 0
+            lst = []
+        lst.push(word_id)
+        grams_map[gh] = lst
+        i = i + 1
+    ni[0] = grams_map
+    ni[2].push(word_id)
+    searcher[FZ_FS_NGRAM] = ni
+    searcher[FZ_FS_BKROOT] = fz_bk_insert(searcher[FZ_FS_BKROOT], word)
+    let log = searcher[FZ_FS_LOG]
+    log.push(["add_word", word_id])
+    searcher[FZ_FS_LOG] = log
+    searcher
+
+let fz_search_ngram(searcher, query, max_distance) =
+    let ni = searcher[FZ_FS_NGRAM]
+    let gram_size = ni[1]
+    let grams = fz_ngram_extract(query, gram_size)
+    let grams_map = ni[0]
+    let vocab = searcher[FZ_FS_VOCAB]
+    let counts = {}
+    let i = 0
+    let n = len(grams)
+    for i < n
+        let lst = grams_map[grams[i]]
+        if lst != 0
+            let j = 0
+            let m = len(lst)
+            for j < m
+                let wid = lst[j]
+                let c = counts[wid]
+                if c == 0
+                    c = 0
+                counts[wid] = c + 1
+                j = j + 1
+        i = i + 1
+    let results = []
+    let cids = keys_of(counts)
+    let ci = 0
+    let cn = len(cids)
+    for ci < cn
+        let wid = cids[ci]
+        let dist = fz_levenshtein(query, vocab[wid])
+        if dist <= max_distance
+            results.push([wid, dist])
+        ci = ci + 1
+    results
+
+let fz_bk_search(bk_root, query, max_distance) =
+    let results = []
+    if bk_root != 0
+        let stack = [bk_root]
+        let idx = 0
+        for idx < len(stack)
+            let node = stack[idx]
+            let dist = fz_levenshtein(query, node[0])
+            if dist <= max_distance
+                results.push([node[0], dist])
+            let dists = node[2]
+            let children = node[1]
+            let i = 0
+            let n = len(dists)
+            for i < n
+                let d = dists[i]
+                if dist - max_distance <= d
+                    if d <= dist + max_distance
+                        let child = children[d]
+                        if child != 0
+                            stack.push(child)
+                i = i + 1
+            idx = idx + 1
+    results
+
+let fz_correct(searcher, query, max_distance) =
+    let ngram_results = fz_search_ngram(searcher, query, max_distance)
+    let best_word = 0
+    let best_dist = max_distance + 1
+    let i = 0
+    let n = len(ngram_results)
+    for i < n
+        let entry = ngram_results[i]
+        let d = entry[1]
+        if d < best_dist
+            best_dist = d
+            best_word = searcher[FZ_FS_VOCAB][entry[0]]
+        i = i + 1
+    if best_dist <= max_distance
+        best_word
+    else
+        let bk_results = fz_bk_search(searcher[FZ_FS_BKROOT], query, max_distance)
+        let j = 0
+        let m = len(bk_results)
+        for j < m
+            let entry = bk_results[j]
+            let d = entry[1]
+            if d < best_dist
+                best_dist = d
+                best_word = entry[0]
+            j = j + 1
+        best_word
+
+let fz_replay_ops(ops_seq) =
+    let searcher = fz_default_searcher(FZ_DEFAULT_GRAM_SIZE)
+    let results = []
+    let i = 0
+    let n = len(ops_seq)
+    for i < n
+        let op = ops_seq[i]
+        let kind = op[0]
+        if kind == "add"
+            searcher = fz_add_word(searcher, op[1])
+        else
+            0
+        if kind == "search"
+            results.push(fz_search_ngram(searcher, op[1], op[2]))
+        else
+            0
+        if kind == "correct"
+            results.push(fz_correct(searcher, op[1], op[2]))
+        i = i + 1
+    results
+
+let fz_bragg_verify(searcher, ops_seq) =
+    let d1 = fz_replay_ops(ops_seq)
+    let r1 = fz_replay_ops(ops_seq)
+    let ok = 1
+    if len(d1) != len(r1)
+        ok = 0
+    else
+        let i = 0
+        let n = len(d1)
+        for i < n
+            let a = d1[i]
+            let b = r1[i]
+            if len(a) != len(b)
+                ok = 0
+                i = n
+            else
+                let j = 0
+                let m = len(a)
+                for j < m
+                    if a[j] != b[j]
+                        ok = 0
+                        j = m
+                    j = j + 1
+            i = i + 1
+    [ok, len(d1)]
+
+let fz_test_basic() =
+    let ok = 1
+    let s = fz_default_searcher(FZ_DEFAULT_GRAM_SIZE)
+    s = fz_add_word(s, [104, 101, 108, 108, 111])
+    s = fz_add_word(s, [119, 111, 114, 108, 100])
+    s = fz_add_word(s, [102, 111, 100, 97])
+    if len(s[FZ_FS_VOCAB]) != 3
+        ok = 0
+    if fz_levenshtein([104, 101, 108, 108, 111], [104, 101, 108, 108, 111]) != 0
+        ok = 0
+    if fz_levenshtein([104, 101, 108, 108, 111], [104, 101, 108, 112, 111]) != 1
+        ok = 0
+    let results = fz_search_ngram(s, [104, 101, 108, 108, 111], 0)
+    if len(results) == 0
+        ok = 0
+    if fz_correct(s, [104, 101, 108, 112, 111], 1) == 0
+        ok = 0
+    let ops = [["add", [104, 101, 108, 108, 111]],
+               ["add", [119, 111, 114, 108, 100]],
+               ["search", [104, 101, 108, 108, 111], 0]]
+    if fz_bragg_verify(s, ops)[0] != 1
+        ok = 0
+    ok
+
+let fz_test_self() =
+    let ok = fz_test_basic()
+    if ok == 1
+        print("fuzzy: ALL PASS")
+    else
+        print("fuzzy: FAIL")
+    ok
+
+import "../domain_field.ψ"
+
+let fz_gf_mod(x) = domain_gf_mod(x)
+
+let fz_gf_inv(a) = domain_gf_inv(a)
+
+let fz_field_encode(items, n) =
+    let records = []
+    let _i = 0
+    for _i < n
+        records.push([items[_i], items[_i]])
+        _i = _i + 1
+    domain_field_encode(records, n, 256, 1)
+
+let fz_field_eval(poles, residues, z) = domain_field_eval(poles, residues, z)
+
+let fz_field_bragg_verify(current, replay) = domain_bragg_verify(current[0], current[1], replay[0], replay[1])
+

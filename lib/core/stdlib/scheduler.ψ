@@ -1,0 +1,215 @@
+let sched_create() =
+    let sched = arr_new()
+    sched = arr_push(sched, arr_new())
+    sched = arr_push(sched, 0)
+    sched
+
+let sched_task_create(id, priority, callback_id) =
+    let task = arr_new()
+    task = arr_push(task, id)
+    task = arr_push(task, priority)
+    task = arr_push(task, callback_id)
+    task = arr_push(task, 0)
+    task = arr_push(task, arr_new())
+    task
+
+let sched_add(sched, task) =
+    let tasks = sched[0]
+    tasks = arr_push(tasks, task)
+    sched[0] = tasks
+    sched
+
+let sched_add_task(sched, id, priority, callback_id) =
+    let task = sched_task_create(id, priority, callback_id)
+    sched_add(sched, task)
+
+let sched_add_task_with_deps(sched, id, priority, callback_id, deps) =
+    let task = sched_task_create(id, priority, callback_id)
+    task[4] = deps
+    sched_add(sched, task)
+
+let sched_get_task(sched, id) =
+    let tasks = sched[0]
+    let n = tasks.len()
+    let i = 0
+    for i < n
+        let task = tasks[i]
+        if task[0] == id
+            return task
+        i = i + 1
+    arr_new()
+
+let sched_deps_ready(sched, task) =
+    let deps = task[4]
+    let n = deps.len()
+    let i = 0
+    for i < n
+        let dep_task = sched_get_task(sched, deps[i])
+        if dep_task.len() == 0
+            return 0
+        if dep_task[3] != 2
+            return 0
+        i = i + 1
+    1
+
+let sched_next(sched) =
+    let tasks = sched[0]
+    let n = tasks.len()
+    let best_idx = 0 - 1
+    let best_priority = 0 - 1
+    let i = 0
+    for i < n
+        let task = tasks[i]
+        if task[3] == 0 && sched_deps_ready(sched, task) == 1
+            if task[1] > best_priority
+                best_priority = task[1]
+                best_idx = i
+        i = i + 1
+    best_idx
+
+let sched_step(sched) =
+    let idx = sched_next(sched)
+    if idx < 0
+        return 0 - 1
+    let tasks = sched[0]
+    let task = tasks[idx]
+    task[3] = 1
+    let callback_id = task[2]
+    task[3] = 2
+    tasks[idx] = task
+    sched[0] = tasks
+    sched[1] = sched[1] + 1
+    callback_id
+
+let sched_run(sched) =
+    let results = arr_new()
+    let cont = 1
+    for cont == 1
+        let cb = sched_step(sched)
+        if cb < 0
+            cont = 0
+        else
+            results = arr_push(results, cb)
+    results
+
+let sched_count(sched) =
+    let tasks = sched[0]
+    tasks.len()
+
+let sched_pending_count(sched) =
+    let tasks = sched[0]
+    let n = tasks.len()
+    let count = 0
+    let i = 0
+    for i < n
+        let task = tasks[i]
+        if task[3] == 0
+            count = count + 1
+        i = i + 1
+    count
+
+let sched_done_count(sched) =
+    let tasks = sched[0]
+    let n = tasks.len()
+    let count = 0
+    let i = 0
+    for i < n
+        let task = tasks[i]
+        if task[3] == 2
+            count = count + 1
+        i = i + 1
+    count
+
+let sched_is_complete(sched) =
+    sched_pending_count(sched) == 0
+
+let sched_fail(sched, id) =
+    let tasks = sched[0]
+    let n = tasks.len()
+    let i = 0
+    for i < n
+        let task = tasks[i]
+        if task[0] == id
+            task[3] = 3
+            tasks[i] = task
+            i = n
+        i = i + 1
+    sched[0] = tasks
+    sched
+
+let sched_reset_task(sched, id) =
+    let tasks = sched[0]
+    let n = tasks.len()
+    let i = 0
+    for i < n
+        let task = tasks[i]
+        if task[0] == id
+            task[3] = 0
+            tasks[i] = task
+            i = n
+        i = i + 1
+    sched[0] = tasks
+    sched
+
+let sched_task_ids(sched) =
+    let tasks = sched[0]
+    let result = arr_new()
+    let n = tasks.len()
+    let i = 0
+    for i < n
+        let task = tasks[i]
+        result = arr_push(result, task[0])
+        i = i + 1
+    result
+
+let sched_tasks_by_state(sched, state) =
+    let tasks = sched[0]
+    let result = arr_new()
+    let n = tasks.len()
+    let i = 0
+    for i < n
+        let task = tasks[i]
+        if task[3] == state
+            result = arr_push(result, task[0])
+        i = i + 1
+    result
+
+let sched_clear_done(sched) =
+    let tasks = sched[0]
+    let new_tasks = arr_new()
+    let n = tasks.len()
+    let i = 0
+    for i < n
+        let task = tasks[i]
+        if task[3] != 2
+            new_tasks = arr_push(new_tasks, task)
+        i = i + 1
+    sched[0] = new_tasks
+    sched
+
+let sched_execution_order(sched) =
+    let order = arr_new()
+    let cont = 1
+    for cont == 1
+        let idx = sched_next(sched)
+        if idx < 0
+            cont = 0
+        else
+            let tasks = sched[0]
+            let task = tasks[idx]
+            order = arr_push(order, task[0])
+            task[3] = 2
+            tasks[idx] = task
+            sched[0] = tasks
+    order
+
+let main() =
+    let sched = sched_create()
+    sched = sched_add_task(sched, 1, 5, 100)
+    sched = sched_add_task(sched, 2, 10, 200)
+    sched = sched_add_task(sched, 3, 1, 300)
+    let order = sched_execution_order(sched)
+    print(order[0])
+    print(order[1])
+    print(order[2])
+    0

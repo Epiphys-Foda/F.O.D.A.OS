@@ -1,0 +1,18 @@
+import "ck.ψ"
+let bad = [0]
+let c2 = 299792458 * 299792458
+
+let gm_sun = 2 * 6674 * 1989 * 10000000000000
+if 2950 * c2 > gm_sun
+    bad[0] = bad[0] + 1
+if gm_sun > 2960 * c2
+    bad[0] = bad[0] + 1
+
+let gm_e = 13348 * 5972 * 10000000
+let r100 = gm_e * 100000 / c2
+bad[0] = bad[0] + ck(r100, 870, 895)
+
+if 2953 * 100000 > 696000000
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

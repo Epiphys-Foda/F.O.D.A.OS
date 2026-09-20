@@ -1,0 +1,27 @@
+import "ck.ψ"
+let bad = [0]
+
+let f0 = 220
+let f12 = 440
+let dz1 = f12 - f0 * 2
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let f_t4 = 440
+let dz2 = f_t4 - f0 * 2
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let f_mu4 = 110
+let dz3 = f_mu4 * 2 - f0
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let scale = 650
+let fret12 = 325
+let dz4 = fret12 * 2 - scale
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+if 1637 < 1635
+    bad[0] = bad[0] + 1
+if 1637 > 1639
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

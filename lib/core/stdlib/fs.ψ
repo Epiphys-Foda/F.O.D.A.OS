@@ -1,0 +1,97 @@
+import "str.ψ"
+
+let path_join(base, child) = str_append(str_append(base, "/"), child)
+
+let path_basename(path) =
+    let last_slash = -1
+    let i = 0
+    for i < len(path)
+        if str_char_at(path, i) == "/"
+            last_slash = i
+        i = i + 1
+    (last_slash == -1 ? path : str_substring(path, last_slash + 1, len(path) - last_slash - 1))
+
+let path_dirname(path) =
+    let last_slash = -1
+    let i = 0
+    for i < len(path)
+        if str_char_at(path, i) == "/"
+            last_slash = i
+        i = i + 1
+    if last_slash == -1
+        "."
+    else
+        0
+    if last_slash == 0
+        "/"
+    else
+        str_substring(path, 0, last_slash)
+
+let path_extension(path) =
+    let last_dot = -1
+    let i = 0
+    for i < len(path)
+        if str_char_at(path, i) == "."
+            last_dot = i
+        i = i + 1
+    (last_dot == -1 ? "" : str_substring(path, last_dot + 1, len(path) - last_dot - 1))
+
+let path_is_absolute(path) = len(path) > 0 && str_char_at(path, 0) == "/"
+
+let path_normalize(path) =
+    let result = ""
+    let i = 0
+    let prev_slash = 0
+    for i < len(path)
+        let c = str_char_at(path, i)
+        if c == "/" && prev_slash == 0
+            result = str_append(result, "/")
+            prev_slash = 1
+        else
+            0
+        if c != "/"
+            result = str_append(result, str_from_char(c))
+            prev_slash = 0
+        i = i + 1
+    result
+
+let file_read(path) = read_file(path)
+
+let file_write(path, content) = write_file(path, content)
+
+let arc_save(code, flag, path) = file_write(path, code)
+
+let arc_exec(code, flag, arg) = -1
+
+let wasm_save(bytes, path) = file_write(path, bytes)
+
+let file_exists(path) =
+    let result = host_call(3, path, 0)
+    (result == 0 ? 0 : 1)
+
+let file_size(path) =
+    let content = host_call(3, path, 0)
+    (content == 0 ? 0 : len(content))
+
+let dir_list(path) = 0
+let dir_create(path) = 0
+let file_delete(path) = 0
+
+let file_copy(src, dst) =
+    let content = file_read(src)
+    file_write(dst, content)
+
+let file_move(src, dst) =
+    file_copy(src, dst)
+    file_delete(src)
+
+let main() =
+    let p = path_join("usr", "local")
+    print(p)
+    let b = path_basename("/usr/local/bin/psi")
+    print(b)
+    let d = path_dirname("/usr/local/bin/psi")
+    print(d)
+    let e = path_extension("test.ψ")
+    print(e)
+    0

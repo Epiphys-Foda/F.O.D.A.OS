@@ -1,0 +1,179 @@
+import "ck.ψ"
+let bad = [0]
+let m = [
+    34969, 36966,
+]
+let p = [
+    75760, 24240,
+]
+let s = [0]
+let j = 0
+for j < 2
+    let jx = j * 1
+    s[0] = s[0] + m[jx] * p[jx]
+    j = j + 1
+let dw = s[0] - 3545307280
+bad[0] = bad[0] + dw * dw
+let pin = [0]
+let j = 0
+for j < 2
+    let jx = j * 1
+    pin[0] = pin[0] + p[jx]
+    j = j + 1
+let dn = pin[0] - 100000
+bad[0] = bad[0] + dn * dn
+let e = s[0] - 35453 * 100000
+let ae =
+    if e < 0
+        0 - e
+    else
+        e
+let t = ae - 50000
+let w1 =
+    if t < 0
+        0 - t
+    else
+        t
+bad[0] = bad[0] + ck_hi(ae, 50000)
+let m = [
+    62930, 64928,
+]
+let p = [
+    69150, 30850,
+]
+let s = [0]
+let j = 0
+for j < 2
+    let jx = j * 1
+    s[0] = s[0] + m[jx] * p[jx]
+    j = j + 1
+let dw = s[0] - 6354638300
+bad[0] = bad[0] + dw * dw
+let pin = [0]
+let j = 0
+for j < 2
+    let jx = j * 1
+    pin[0] = pin[0] + p[jx]
+    j = j + 1
+let dn = pin[0] - 100000
+bad[0] = bad[0] + dn * dn
+let e = s[0] - 63546 * 100000
+let ae =
+    if e < 0
+        0 - e
+    else
+        e
+let t = ae - 50000
+let w1 =
+    if t < 0
+        0 - t
+    else
+        t
+bad[0] = bad[0] + ck_hi(ae, 50000)
+let m = [
+    10013, 11009,
+]
+let p = [
+    19900, 80100,
+]
+let s = [0]
+let j = 0
+for j < 2
+    let jx = j * 1
+    s[0] = s[0] + m[jx] * p[jx]
+    j = j + 1
+let dw = s[0] - 1081079600
+bad[0] = bad[0] + dw * dw
+let pin = [0]
+let j = 0
+for j < 2
+    let jx = j * 1
+    pin[0] = pin[0] + p[jx]
+    j = j + 1
+let dn = pin[0] - 100000
+bad[0] = bad[0] + dn * dn
+let e = s[0] - 10811 * 100000
+let ae =
+    if e < 0
+        0 - e
+    else
+        e
+let t = ae - 50000
+let w1 =
+    if t < 0
+        0 - t
+    else
+        t
+bad[0] = bad[0] + ck_hi(ae, 50000)
+let m = [
+    53939, 55935, 56935, 57933,
+]
+let p = [
+    5845, 91754, 2119, 282,
+]
+let s = [0]
+let j = 0
+for j < 4
+    let jx = j * 1
+    s[0] = s[0] + m[jx] * p[jx]
+    j = j + 1
+let dw = s[0] - 5584515816
+bad[0] = bad[0] + dw * dw
+let pin = [0]
+let j = 0
+for j < 4
+    let jx = j * 1
+    pin[0] = pin[0] + p[jx]
+    j = j + 1
+let dn = pin[0] - 100000
+bad[0] = bad[0] + dn * dn
+let e = s[0] - 55845 * 100000
+let ae =
+    if e < 0
+        0 - e
+    else
+        e
+let t = ae - 50000
+let w1 =
+    if t < 0
+        0 - t
+    else
+        t
+bad[0] = bad[0] + ck_hi(ae, 50000)
+let m = [
+    15995, 16999, 17999,
+]
+let p = [
+    99757, 38, 205,
+]
+let s = [0]
+let j = 0
+for j < 3
+    let jx = j * 1
+    s[0] = s[0] + m[jx] * p[jx]
+    j = j + 1
+let dw = s[0] - 1599948972
+bad[0] = bad[0] + dw * dw
+let pin = [0]
+let j = 0
+for j < 3
+    let jx = j * 1
+    pin[0] = pin[0] + p[jx]
+    j = j + 1
+let dn = pin[0] - 100000
+bad[0] = bad[0] + dn * dn
+let e = s[0] - 15999 * 100000
+let ae =
+    if e < 0
+        0 - e
+    else
+        e
+let t = ae - 50000
+let w1 =
+    if t < 0
+        0 - t
+    else
+        t
+bad[0] = bad[0] + ck_hi(ae, 50000)
+
+arr_get(arr_new_n(1), bad[0])

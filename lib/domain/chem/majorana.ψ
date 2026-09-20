@@ -1,0 +1,31 @@
+import "ck.ψ"
+let bad = [0]
+
+let split = 2
+let dsplit = split - 2
+bad[0] = bad[0] + ck(dsplit, 0, 0)
+
+let u2 = 0 - 1
+bad[0] = bad[0] + ck_hi(u2, 0)
+
+let order1 = 1
+let order2 = 2
+let diff = order2 - order1
+bad[0] = bad[0] + ck_lo(diff, 1)
+
+let modes = 4
+let prs = modes / 2
+let qbit = prs / 2
+let dq = qbit - 1
+bad[0] = bad[0] + ck(dq, 0, 0)
+
+if 1937 < 1935
+    bad[0] = bad[0] + 1
+if 1937 > 1939
+    bad[0] = bad[0] + 1
+if 2012 < 2010
+    bad[0] = bad[0] + 1
+if 2012 > 2014
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

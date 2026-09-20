@@ -1,0 +1,458 @@
+let SCH_P = 65537
+
+let SCH_RES_CPU     = 0
+let SCH_RES_MEMORY  = 1
+let SCH_RES_GPU     = 2
+let SCH_RES_IO      = 3
+let SCH_RES_NETWORK = 4
+let SCH_RES_TYPES   = 5
+
+let SCH_REQ_PENDING   = 0
+let SCH_REQ_ALLOCATED = 1
+let SCH_REQ_FAILED    = 2
+let SCH_REQ_RELEASED  = 3
+let SCH_REQ_PREEMPTED = 4
+
+let SCH_PRIO_LOW      = 1
+let SCH_PRIO_NORMAL   = 5
+let SCH_PRIO_HIGH     = 10
+let SCH_PRIO_CRITICAL = 100
+
+let SCH_BIN_FIRST_FIT = 0
+let SCH_BIN_BEST_FIT  = 1
+let SCH_BIN_WORST_FIT = 2
+
+let SCH_RESERVATION_TIMEOUT = 30000
+
+let sch_node_new(node_id, capacities) =
+    [node_id, capacities, arr_take(capacities, ), [0, 0, 0, 0, 0]]
+
+let sch_node_id(n)        = n[0]
+let sch_node_cap(n)       = n[1]
+let sch_node_avail(n)     = n[2]
+let sch_node_alloc(n)     = n[3]
+
+let sch_node_set_avail(n, a) =
+    n[2] = a
+    n
+let sch_node_set_alloc(n, a) =
+    n[3] = a
+    n
+
+let sch_node_can_allocate(n, request) =
+    let avail = sch_node_avail(n)
+    let i = 0
+    let ok = 1
+    for i < SCH_RES_TYPES
+        if avail[i] < request[i]
+            ok = 0
+        i = i + 1
+    ok
+
+let sch_node_allocate(n, request) =
+    let avail = sch_node_avail(n)
+    let alloc = sch_node_alloc(n)
+    let i = 0
+    for i < SCH_RES_TYPES
+        avail[i] = avail[i] - request[i]
+        alloc[i] = alloc[i] + request[i]
+        i = i + 1
+    n = sch_node_set_avail(n, avail)
+    n = sch_node_set_alloc(n, alloc)
+    n
+
+let sch_node_release(n, request) =
+    let avail = sch_node_avail(n)
+    let alloc = sch_node_alloc(n)
+    let i = 0
+    for i < SCH_RES_TYPES
+        avail[i] = avail[i] + request[i]
+        alloc[i] = alloc[i] - request[i]
+        if alloc[i] < 0
+            alloc[i] = 0
+        i = i + 1
+    n = sch_node_set_avail(n, avail)
+    n = sch_node_set_alloc(n, alloc)
+    n
+
+let sch_quota_new(tenant_id, limits) =
+    [tenant_id, limits, [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]]
+
+let sch_q_tenant(q)   = q[0]
+let sch_q_limits(q)   = q[1]
+let sch_q_used(q)     = q[2]
+let sch_q_reserved(q) = q[3]
+
+let sch_q_set_used(q, u) =
+    q[2] = u
+    q
+let sch_q_set_reserved(q, r) =
+    q[3] = r
+    q
+
+let sch_q_can_allocate(q, request) =
+    let limits = sch_q_limits(q)
+    let used = sch_q_used(q)
+    let reserved = sch_q_reserved(q)
+    let i = 0
+    let ok = 1
+    for i < SCH_RES_TYPES
+        if used[i] + reserved[i] + request[i] > limits[i]
+            ok = 0
+        i = i + 1
+    ok
+
+let sch_q_add_reserved(q, request) =
+    let reserved = sch_q_reserved(q)
+    let i = 0
+    for i < SCH_RES_TYPES
+        reserved[i] = reserved[i] + request[i]
+        i = i + 1
+    sch_q_set_reserved(q, reserved)
+
+let sch_q_confirm(q, request) =
+    let reserved = sch_q_reserved(q)
+    let used = sch_q_used(q)
+    let i = 0
+    for i < SCH_RES_TYPES
+        reserved[i] = reserved[i] - request[i]
+        if reserved[i] < 0
+            reserved[i] = 0
+        used[i] = used[i] + request[i]
+        i = i + 1
+    q = sch_q_set_reserved(q, reserved)
+    q = sch_q_set_used(q, used)
+    q
+
+let sch_q_release(q, request) =
+    let used = sch_q_used(q)
+    let i = 0
+    for i < SCH_RES_TYPES
+        used[i] = used[i] - request[i]
+        if used[i] < 0
+            used[i] = 0
+        i = i + 1
+    sch_q_set_used(q, used)
+
+let sch_request_new(req_id, tenant_id, demand, priority, ts, deadline) =
+    [req_id, tenant_id, demand, priority, SCH_REQ_PENDING, 0, ts, deadline]
+
+let sch_req_id(r)        = r[0]
+let sch_req_tenant(r)    = r[1]
+let sch_req_demand(r)    = r[2]
+let sch_req_priority(r)  = r[3]
+let sch_req_state(r)     = r[4]
+let sch_req_node(r)      = r[5]
+let sch_req_ts(r)        = r[6]
+let sch_req_deadline(r)  = r[7]
+
+let sch_req_set_state(r, s) =
+    r[4] = s
+    r
+let sch_req_set_node(r, n) =
+    r[5] = n
+    r
+
+let sch_new() =
+    [[], {}, {}, 1, [], [0, 0, 0, 0, 0]]
+
+let sch_nodes(s)      = s[0]
+let sch_tenants(s)    = s[1]
+let sch_requests(s)   = s[2]
+let sch_next_req(s)   = s[3]
+let sch_log(s)        = s[4]
+let sch_stats(s)      = s[5]
+
+let sch_set_nodes(s, n)      = [n, s[1], s[2], s[3], s[4], s[5]]
+let sch_set_tenants(s, t)    = [s[0], t, s[2], s[3], s[4], s[5]]
+let sch_set_requests(s, r)   = [s[0], s[1], r, s[3], s[4], s[5]]
+let sch_set_next_req(s, n)   = [s[0], s[1], s[2], n, s[4], s[5]]
+let sch_set_log(s, l)        = [s[0], s[1], s[2], s[3], l, s[5]]
+let sch_set_stats(s, st)     = [s[0], s[1], s[2], s[3], s[4], st]
+
+let sch_stats_inc_req(s) =
+    let st = sch_stats(s)
+    st[0] = st[0] + 1
+    sch_set_stats(s, st)
+let sch_stats_inc_alloc(s) =
+    let st = sch_stats(s)
+    st[1] = st[1] + 1
+    sch_set_stats(s, st)
+let sch_stats_inc_fail(s) =
+    let st = sch_stats(s)
+    st[2] = st[2] + 1
+    sch_set_stats(s, st)
+let sch_stats_inc_release(s) =
+    let st = sch_stats(s)
+    st[3] = st[3] + 1
+    sch_set_stats(s, st)
+
+let sch_log_append(s, ts, action, req_id, node_id, demand) =
+    let log = sch_log(s)
+    log.push([ts, action, req_id, node_id, demand])
+    sch_set_log(s, log)
+
+let sch_add_node(s, node) =
+    let nodes = sch_nodes(s)
+    nodes.push(node)
+    sch_set_nodes(s, nodes)
+
+let sch_set_quota(s, quota) =
+    let tenants = sch_tenants(s)
+    tenants[sch_q_tenant(quota)] = quota
+    sch_set_tenants(s, tenants)
+
+let sch_submit(s, tenant_id, demand, priority, ts, deadline) =
+    let rid = sch_next_req(s)
+    let req = sch_request_new(rid, tenant_id, demand, priority, ts, deadline)
+    let requests = sch_requests(s)
+    requests[rid] = req
+    s = sch_set_requests(s, requests)
+    s = sch_set_next_req(s, rid + 1)
+    s = sch_stats_inc_req(s)
+    s = sch_log_append(s, ts, "submit", rid, 0, demand)
+    [s, rid]
+
+let sch_dominant_share(s, tenant_id, demand) =
+    let nodes = sch_nodes(s)
+    let total_avail = [0, 0, 0, 0, 0]
+    let i = 0
+    let n = len(nodes)
+    for i < n
+        let avail = sch_node_avail(nodes[i])
+        let j = 0
+        for j < SCH_RES_TYPES
+            total_avail[j] = total_avail[j] + avail[j]
+            j = j + 1
+        i = i + 1
+    let tenants = sch_tenants(s)
+    let quota = tenants[tenant_id]
+    if quota == 0
+        1
+    let used = sch_q_used(quota)
+    let limits = sch_q_limits(quota)
+    let dominant = 0
+    let j = 0
+    for j < SCH_RES_TYPES
+        if total_avail[j] > 0
+            let share = (used[j] + demand[j]) * 1000 / limits[j]
+            if share > dominant
+                dominant = share
+        j = j + 1
+    dominant
+
+let sch_select_node(s, demand, strategy) =
+    let nodes = sch_nodes(s)
+    let n = len(nodes)
+    let best_idx = -1
+    let best_score = 0
+    let i = 0
+    for i < n
+        if sch_node_can_allocate(nodes[i], demand) == 1
+            let avail = sch_node_avail(nodes[i])
+            let score = 0
+            if strategy == SCH_BIN_FIRST_FIT
+                score = 1
+            else
+                0
+            if strategy == SCH_BIN_BEST_FIT
+                let sum = 0
+                let j = 0
+                for j < SCH_RES_TYPES
+                    sum = sum + (avail[j] - demand[j])
+                    j = j + 1
+                score = 0 - sum
+            else
+                0
+            if strategy == SCH_BIN_WORST_FIT
+                let sum = 0
+                let j = 0
+                for j < SCH_RES_TYPES
+                    sum = sum + avail[j]
+                    j = j + 1
+                score = sum
+            if best_idx == -1
+                best_idx = i
+                best_score = score
+            else
+                0
+            if strategy == SCH_BIN_BEST_FIT
+                if score > best_score
+                    best_idx = i
+                    best_score = score
+                else
+                    0
+            if strategy == SCH_BIN_WORST_FIT
+                if score > best_score
+                    best_idx = i
+                    best_score = score
+                else
+                    0
+            if strategy == SCH_BIN_FIRST_FIT
+                i = n
+        i = i + 1
+    best_idx
+
+let sch_schedule_all(s, now_ts) =
+    let requests = sch_requests(s)
+    let keys = keys_of(requests)
+    let pending = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let req = requests[keys[i]]
+        if req != 0
+            if sch_req_state(req) == SCH_REQ_PENDING
+                pending.push(req)
+        i = i + 1
+    let np = len(pending)
+    let j = 0
+    for j < np
+        let k = j + 1
+        for k < np
+            if sch_req_priority(pending[k]) > sch_req_priority(pending[j])
+                let tmp = pending[j]
+                pending[j] = pending[k]
+                pending[k] = tmp
+            k = k + 1
+        j = j + 1
+    i = 0
+    for i < np
+        let req = pending[i]
+        let tenant_id = sch_req_tenant(req)
+        let demand = sch_req_demand(req)
+        let tenants = sch_tenants(s)
+        let quota = tenants[tenant_id]
+        let can_alloc = 1
+        if quota != 0
+            if sch_q_can_allocate(quota, demand) == 0
+                can_alloc = 0
+        if can_alloc == 1
+            let node_idx = sch_select_node(s, demand, SCH_BIN_BEST_FIT)
+            if node_idx >= 0
+                let nodes = sch_nodes(s)
+                let node = nodes[node_idx]
+                node = sch_node_allocate(node, demand)
+                nodes[node_idx] = node
+                s = sch_set_nodes(s, nodes)
+                if quota != 0
+                    quota = sch_q_confirm(quota, demand)
+                    tenants[tenant_id] = quota
+                    s = sch_set_tenants(s, tenants)
+                req = sch_req_set_state(req, SCH_REQ_ALLOCATED)
+                req = sch_req_set_node(req, sch_node_id(node))
+                requests[sch_req_id(req)] = req
+                s = sch_set_requests(s, requests)
+                s = sch_stats_inc_alloc(s)
+                s = sch_log_append(s, now_ts, "allocate", sch_req_id(req), sch_node_id(node), demand)
+            else
+                req = sch_req_set_state(req, SCH_REQ_FAILED)
+                requests[sch_req_id(req)] = req
+                s = sch_set_requests(s, requests)
+                s = sch_stats_inc_fail(s)
+                s = sch_log_append(s, now_ts, "fail", sch_req_id(req), 0, demand)
+            req = sch_req_set_state(req, SCH_REQ_FAILED)
+            requests[sch_req_id(req)] = req
+            s = sch_set_requests(s, requests)
+            s = sch_stats_inc_fail(s)
+            s = sch_log_append(s, now_ts, "quota_exceeded", sch_req_id(req), 0, demand)
+        i = i + 1
+    s
+
+let sch_release(s, req_id, now_ts) =
+    let requests = sch_requests(s)
+    let req = requests[req_id]
+    if req == 0
+        [s, 1]
+    else
+        if sch_req_state(req) != SCH_REQ_ALLOCATED
+            [s, 2]
+        else
+            let demand = sch_req_demand(req)
+            let node_id = sch_req_node(req)
+            let nodes = sch_nodes(s)
+            let i = 0
+            let n = len(nodes)
+            for i < n
+                if sch_node_id(nodes[i]) == node_id
+                    nodes[i] = sch_node_release(nodes[i], demand)
+                    i = n
+                i = i + 1
+            s = sch_set_nodes(s, nodes)
+            let tenants = sch_tenants(s)
+            let quota = tenants[sch_req_tenant(req)]
+            if quota != 0
+                quota = sch_q_release(quota, demand)
+                tenants[sch_req_tenant(req)] = quota
+                s = sch_set_tenants(s, tenants)
+            req = sch_req_set_state(req, SCH_REQ_RELEASED)
+            requests[req_id] = req
+            s = sch_set_requests(s, requests)
+            s = sch_stats_inc_release(s)
+            s = sch_log_append(s, now_ts, "release", req_id, node_id, demand)
+            [s, 0]
+
+let sch_bragg_check(s) =
+    let nodes = sch_nodes(s)
+    let ok = 1
+    let i = 0
+    let n = len(nodes)
+    for i < n
+        let node = nodes[i]
+        let cap = sch_node_cap(node)
+        let avail = sch_node_avail(node)
+        let alloc = sch_node_alloc(node)
+        let j = 0
+        for j < SCH_RES_TYPES
+            if cap[j] != avail[j] + alloc[j]
+                ok = 0
+            j = j + 1
+        i = i + 1
+    ok
+
+let sch_self_test() =
+    let s = sch_new()
+    let n1 = sch_node_new(1, [1000, 4096, 0, 100, 1000])
+    let n2 = sch_node_new(2, [2000, 8192, 1, 200, 2000])
+    s = sch_add_node(s, n1)
+    s = sch_add_node(s, n2)
+    let q1 = sch_quota_new(1, [1500, 4096, 1, 200, 2000])
+    s = sch_set_quota(s, q1)
+    let t1 = 0
+    if len(sch_nodes(s)) == 2
+        t1 = 1
+
+    let r = sch_submit(s, 1, [500, 1024, 0, 50, 500], SCH_PRIO_NORMAL, 1000, 0)
+    s = r[0]
+    let rid = r[1]
+    let t2 = 0
+    if rid == 1
+        t2 = 1
+
+    s = sch_schedule_all(s, 1001)
+    let req = sch_requests(s)[rid]
+    let t3 = 0
+    if sch_req_state(req) == SCH_REQ_ALLOCATED
+        t3 = 1
+
+    let bragg_ok = sch_bragg_check(s)
+
+    let rel = sch_release(s, rid, 1002)
+    s = rel[0]
+    req = sch_requests(s)[rid]
+    let t5 = 0
+    if sch_req_state(req) == SCH_REQ_RELEASED
+        t5 = 1
+
+    let r2 = sch_submit(s, 1, [200, 512, 0, 10, 100], SCH_PRIO_HIGH, 1003, 0)
+    s = r2[0]
+    s = sch_schedule_all(s, 1004)
+    let req2 = sch_requests(s)[r2[1]]
+    let t6 = 0
+    if sch_req_state(req2) == SCH_REQ_ALLOCATED
+        t6 = 1
+
+    [t1, t2, t3, bragg_ok, t5, t6]
+
+let sch_default_scheduler() =
+    sch_new()

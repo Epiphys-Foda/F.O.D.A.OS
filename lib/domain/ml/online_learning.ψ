@@ -1,0 +1,251 @@
+import "../domain_field.ψ"
+
+let OL_P = 65537
+let OL_FIXED_SCALE = 1000
+let OL_LR_DEFAULT = 10
+let OL_INTERCEPT_INIT = 0
+let OL_MAX_FEATURES = 65536
+let OL_MAX_UPDATES = 1000000
+let OL_DRIFT_THRESHOLD = 200
+let OL_WINDOW_DEFAULT = 100
+
+let OL_MODEL_LINEAR = 1
+let OL_MODEL_LOGISTIC = 2
+let OL_MODEL_HINGE = 3
+
+let ol_weight_new(feature_id, initial_value) =
+    [feature_id, initial_value, 0, 0]
+
+let ol_w_fid(w) = w[0]
+let ol_w_val(w) = w[1]
+let ol_w_grad(w) = w[2]
+let ol_w_count(w) = w[3]
+
+let ol_default_model(model_type) =
+    [{}, OL_LR_DEFAULT, OL_INTERCEPT_INIT, 0, [], model_type]
+
+let ol_m_weights(m) = m[0]
+let ol_m_lr(m) = m[1]
+let ol_m_intercept(m) = m[2]
+let ol_m_total(m) = m[3]
+let ol_m_log(m) = m[4]
+let ol_m_type(m) = m[5]
+
+let ol_default_drift_detector(window_size) =
+    [window_size, [], [], OL_DRIFT_THRESHOLD, 0, []]
+
+let ol_d_window(d) = d[0]
+let ol_d_ref(d) = d[1]
+let ol_d_curr(d) = d[2]
+let ol_d_thresh(d) = d[3]
+let ol_d_drift(d) = d[4]
+let ol_d_log(d) = d[5]
+
+let ol_add_feature(model, feature_id, initial_value) =
+    let weights = ol_m_weights(model)
+    if weights[feature_id] == 0
+        let init_fixed = initial_value * OL_FIXED_SCALE
+        weights[feature_id] = ol_weight_new(feature_id, init_fixed)
+        ol_m_log(model).push(["add_feature", feature_id, init_fixed])
+    model
+
+let ol_sigmoid_fixed(x_fixed) =
+    let s = 500 + 250 * x_fixed / 1000
+    if s < 0
+        s = 0
+    if s > 1000
+        s = 1000
+    s
+
+let ol_predict(model, features_map) =
+    let weights = ol_m_weights(model)
+    let intercept = ol_m_intercept(model)
+    let mtype = ol_m_type(model)
+    let sum_fixed = intercept
+    let keys = keys_of(features_map)
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let fid = keys[i]
+        let x_val = features_map[fid]
+        let w = weights[fid]
+        if w != 0
+            sum_fixed = sum_fixed + ol_w_val(w) * x_val
+        i = i + 1
+    if mtype == OL_MODEL_LINEAR
+        sum_fixed
+    else
+        0
+    if mtype == OL_MODEL_LOGISTIC
+        ol_sigmoid_fixed(sum_fixed)
+    else
+        0
+    if mtype == OL_MODEL_HINGE
+        if sum_fixed >= 1000
+            0
+        else
+            1000 - sum_fixed
+    else
+        sum_fixed
+
+let ol_update_sgd(model, features_map, label, ts) =
+    let weights = ol_m_weights(model)
+    let lr = ol_m_lr(model)
+    let pred_fixed = ol_predict(model, features_map)
+    let error_fixed = label * OL_FIXED_SCALE - pred_fixed
+    let keys = keys_of(features_map)
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let fid = keys[i]
+        let x_val = features_map[fid]
+        let w = weights[fid]
+        if w != 0
+            let delta = lr * error_fixed * x_val / OL_FIXED_SCALE
+            w[1] = ol_w_val(w) + delta
+            w[2] = ol_w_grad(w) + error_fixed
+            w[3] = ol_w_count(w) + 1
+        i = i + 1
+    let intercept_delta = lr * error_fixed / OL_FIXED_SCALE
+    model[2] = ol_m_intercept(model) + intercept_delta
+    model[3] = ol_m_total(model) + 1
+    ol_m_log(model).push(["sgd_update", error_fixed, ts])
+    model
+
+let ol_partial_fit(model, features_map, label, ts) =
+    ol_update_sgd(model, features_map, label, ts)
+
+let ol_detect_drift(detector, sample, ts) =
+    let curr = ol_d_curr(detector)
+    curr.push(sample)
+    let ws = ol_d_window(detector)
+    if len(curr) >= ws
+        let ref = ol_d_ref(detector)
+        let ref_n = len(ref)
+        let curr_n = len(curr)
+        let ref_sum = 0
+        let i = 0
+        for i < ref_n
+            ref_sum = ref_sum + ref[i]
+            i = i + 1
+        let curr_sum = 0
+        let j = 0
+        for j < curr_n
+            curr_sum = curr_sum + curr[j]
+            j = j + 1
+        let ref_mean = 0
+        if ref_n > 0
+            ref_mean = ref_sum / ref_n
+        let curr_mean = 0
+        if curr_n > 0
+            curr_mean = curr_sum / curr_n
+        let dist = 0
+        if ref_mean > curr_mean
+            dist = ref_mean - curr_mean
+        else
+            dist = curr_mean - ref_mean
+        dist = dist * OL_FIXED_SCALE / 100
+        if dist > ol_d_thresh(detector)
+            detector[4] = 1
+            ol_d_log(detector).push(["drift_detected", dist, ts])
+        else
+            detector[4] = 0
+        detector[1] = curr
+        detector[2] = []
+    detector
+
+let ol_retrain(model, recent_samples_buf, ts) =
+    let i = 0
+    let n = len(recent_samples_buf)
+    for i < n
+        let sample = recent_samples_buf[i]
+        ol_update_sgd(model, sample[0], sample[1], ts + i)
+        i = i + 1
+    ol_m_log(model).push(["retrain", n, ts])
+    model
+
+let ol_get_weights(model) =
+    let weights = ol_m_weights(model)
+    let keys = keys_of(weights)
+    let result = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let fid = keys[i]
+        let w = weights[fid]
+        if w != 0
+            result.push([fid, ol_w_val(w), ol_w_count(w)])
+        i = i + 1
+    [result, ol_m_intercept(model), ol_m_total(model)]
+
+let ol_apply_sample(model, sample, ts) =
+    ol_update_sgd(model, sample[0], sample[1], ts)
+
+let ol_state_signature(model) =
+    let weights = ol_m_weights(model)
+    let keys = keys_of(weights)
+    let wcount = len(keys)
+    let wsum = 0
+    let i = 0
+    for i < wcount
+        let fid = keys[i]
+        let w = weights[fid]
+        if w != 0
+            wsum = wsum + ol_w_val(w)
+        i = i + 1
+    [wcount, ol_m_total(model), wsum, ol_m_intercept(model)]
+
+let ol_bragg_verify(model, ops_seq) =
+    let mtype = ol_m_type(model)
+    let m1 = ol_default_model(mtype)
+    let m2 = ol_default_model(mtype)
+    let weights = ol_m_weights(model)
+    let keys = keys_of(weights)
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let fid = keys[i]
+        let w = weights[fid]
+        if w != 0
+            ol_add_feature(m1, fid, 0)
+            ol_add_feature(m2, fid, 0)
+        i = i + 1
+    let j = 0
+    let m = len(ops_seq)
+    for j < m
+        let sample = ops_seq[j]
+        ol_apply_sample(m1, sample, j)
+        ol_apply_sample(m2, sample, j)
+        j = j + 1
+    let d1 = ol_state_signature(m1)
+    let r1 = ol_state_signature(m2)
+    if d1[0] == r1[0]
+        if d1[1] == r1[1]
+            if d1[2] == r1[2]
+                if d1[3] == r1[3]
+                    1
+                else
+                    0
+            else
+                0
+        else
+            0
+    else
+        0
+
+let ol_gf_mod(x) = domain_gf_mod(x)
+
+let ol_gf_inv(a) = domain_gf_inv(a)
+
+let ol_field_encode(items, n) =
+    let records = []
+    let _i = 0
+    for _i < n
+        records.push([items[_i], items[_i]])
+        _i = _i + 1
+    domain_field_encode(records, n, 256, 1)
+
+let ol_field_eval(poles, residues, z) = domain_field_eval(poles, residues, z)
+
+let ol_field_bragg_verify(current, replay) = domain_bragg_verify(current[0], current[1], replay[0], replay[1])
+

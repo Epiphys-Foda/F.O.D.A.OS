@@ -1,0 +1,260 @@
+let pc_ok(value, pos) =
+    let result = arr_new()
+    result = arr_push(result, 1)
+    result = arr_push(result, value)
+    result = arr_push(result, pos)
+    result
+
+let pc_fail(pos) =
+    let result = arr_new()
+    result = arr_push(result, 0)
+    result = arr_push(result, 0)
+    result = arr_push(result, pos)
+    result
+
+let pc_success(result) = result[0]
+let pc_value(result) = result[1]
+let pc_position(result) = result[2]
+
+let pc_char(input, pos, expected) =
+    let n = input.len()
+    if pos >= n
+        return pc_fail(pos)
+    if input[pos] == expected
+        return pc_ok(expected, pos + 1)
+    pc_fail(pos)
+
+let pc_any_char(input, pos) =
+    let n = input.len()
+    if pos >= n
+        return pc_fail(pos)
+    pc_ok(input[pos], pos + 1)
+
+let pc_digit(input, pos) =
+    let n = input.len()
+    if pos >= n
+        return pc_fail(pos)
+    let c = input[pos]
+    if c >= 48 && c <= 57
+        return pc_ok(c - 48, pos + 1)
+    pc_fail(pos)
+
+let pc_letter(input, pos) =
+    let n = input.len()
+    if pos >= n
+        return pc_fail(pos)
+    let c = input[pos]
+    if (c >= 65 && c <= 90) || (c >= 97 && c <= 122)
+        return pc_ok(c, pos + 1)
+    pc_fail(pos)
+
+let pc_whitespace(input, pos) =
+    let n = input.len()
+    if pos >= n
+        return pc_fail(pos)
+    let c = input[pos]
+    if c == 32 || c == 9 || c == 10 || c == 13
+        return pc_ok(c, pos + 1)
+    pc_fail(pos)
+
+let pc_string(input, pos, expected) =
+    let n = input.len()
+    let m = expected.len()
+    let i = 0
+    let p = pos
+    for i < m
+        if p >= n || input[p] != expected[i]
+            return pc_fail(pos)
+        p = p + 1
+        i = i + 1
+    pc_ok(expected, p)
+
+let pc_integer(input, pos) =
+    let n = input.len()
+    let p = pos
+    let neg = 0
+    if p < n && input[p] == 45
+        neg = 1
+        p = p + 1
+    let val = 0
+    let count = 0
+    for p < n
+        let c = input[p]
+        if c >= 48 && c <= 57
+            val = val * 10 + (c - 48)
+            count = count + 1
+            p = p + 1
+        else
+            p = n
+    if count == 0
+        return pc_fail(pos)
+    if neg == 1
+        val = 0 - val
+    pc_ok(val, p)
+
+let pc_many(input, pos, parser_id) =
+    let values = arr_new()
+    let p = pos
+    let cont = 1
+    for cont == 1
+        let result = pc_fail(p)
+        if parser_id == 1
+            result = pc_digit(input, p)
+        else
+            0
+        if parser_id == 2
+            result = pc_letter(input, p)
+        else
+            0
+        if parser_id == 3
+            result = pc_whitespace(input, p)
+        if result[0] == 1
+            values = arr_push(values, result[1])
+            p = result[2]
+        else
+            cont = 0
+    pc_ok(values, p)
+
+let pc_many1(input, pos, parser_id) =
+    let result = pc_fail(pos)
+    if parser_id == 1
+        result = pc_digit(input, pos)
+    else
+        0
+    if parser_id == 2
+        result = pc_letter(input, pos)
+    else
+        0
+    if parser_id == 3
+        result = pc_whitespace(input, pos)
+    if result[0] == 0
+        return result
+    pc_many(input, pos, parser_id)
+
+let pc_optional(input, pos, parser_id) =
+    let result = pc_fail(pos)
+    if parser_id == 1
+        result = pc_digit(input, pos)
+    else
+        0
+    if parser_id == 2
+        result = pc_letter(input, pos)
+    else
+        0
+    if parser_id == 3
+        result = pc_whitespace(input, pos)
+    if result[0] == 1
+        return result
+    pc_ok(0, pos)
+
+let pc_choice(input, pos, parser_id1, parser_id2) =
+    let result = pc_fail(pos)
+    if parser_id1 == 1
+        result = pc_digit(input, pos)
+    else
+        0
+    if parser_id1 == 2
+        result = pc_letter(input, pos)
+    else
+        0
+    if parser_id1 == 3
+        result = pc_whitespace(input, pos)
+    if result[0] == 1
+        return result
+    if parser_id2 == 1
+        result = pc_digit(input, pos)
+    else
+        0
+    if parser_id2 == 2
+        result = pc_letter(input, pos)
+    else
+        0
+    if parser_id2 == 3
+        result = pc_whitespace(input, pos)
+    result
+
+let pc_skip_ws(input, pos) =
+    let n = input.len()
+    let p = pos
+    for p < n
+        let c = input[p]
+        if c == 32 || c == 9 || c == 10 || c == 13
+            p = p + 1
+        else
+            p = n
+    p
+
+let pc_until(input, pos, delimiter) =
+    let n = input.len()
+    let result = ""
+    let p = pos
+    for p < n && input[p] != delimiter
+        result = result + input[p]
+        p = p + 1
+    pc_ok(result, p)
+
+let pc_between(input, pos, open_char, close_char) =
+    let n = input.len()
+    if pos >= n || input[pos] != open_char
+        return pc_fail(pos)
+    let p = pos + 1
+    let content = ""
+    for p < n && input[p] != close_char
+        content = content + input[p]
+        p = p + 1
+    if p >= n
+        return pc_fail(pos)
+    pc_ok(content, p + 1)
+
+let pc_sep_list(input, pos, item_id, separator) =
+    let items = arr_new()
+    let p = pos
+    let cont = 1
+    for cont == 1
+        let result = pc_fail(p)
+        if item_id == 1
+            result = pc_digit(input, p)
+        else
+            0
+        if item_id == 2
+            result = pc_letter(input, p)
+        if result[0] == 1
+            items = arr_push(items, result[1])
+            p = result[2]
+            if p < input.len() && input[p] == separator
+                p = p + 1
+            else
+                cont = 0
+        else
+            cont = 0
+    pc_ok(items, p)
+
+let pc_count(input, parser_id) =
+    let result = pc_many(input, 0, parser_id)
+    let values = result[1]
+    values.len()
+
+let pc_parse_all(input, parser_id) =
+    let result = pc_fail(0)
+    if parser_id == 1
+        result = pc_many1(input, 0, 1)
+    else
+        0
+    if parser_id == 2
+        result = pc_many1(input, 0, 2)
+    else
+        0
+    if parser_id == 3
+        result = pc_integer(input, 0)
+    if result[0] == 1 && result[2] == input.len()
+        return result
+    pc_fail(0)
+
+let main() =
+    let input = "12345"
+    let result = pc_integer(input, 0)
+    print(result[0])
+    print(result[1])
+    let ws_result = pc_skip_ws("  hello", 0)
+    print(ws_result)
+    0

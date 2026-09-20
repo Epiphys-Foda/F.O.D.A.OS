@@ -1,0 +1,42 @@
+import "ck.ψ"
+let bad = [0]
+
+let f1 = 10
+let d1 = 2
+let f2 = 20
+let d2 = 1
+let side1 = f1 * d1
+let side2 = f2 * d2
+let balz = side2 - side1
+bad[0] = bad[0] + ck(balz, 0, 0)
+
+let wgt = 1200
+let nropes = 6
+let pull = wgt / nropes
+let pulz = pull * nropes - wgt
+bad[0] = bad[0] + ck(pulz, 0, 0)
+
+let lift = 1
+let pullm = 6
+let win = pull * pullm
+let wout = wgt * lift
+let wz = wout - win
+bad[0] = bad[0] + ck(wz, 0, 0)
+
+let armr = 1
+bad[0] = bad[0] + ck_lo(armr, 1)
+
+if 250 < 248
+    bad[0] = bad[0] + 1
+if 250 > 252
+    bad[0] = bad[0] + 1
+if 212 < 210
+    bad[0] = bad[0] + 1
+if 212 > 214
+    bad[0] = bad[0] + 1
+if 1687 < 1685
+    bad[0] = bad[0] + 1
+if 1687 > 1689
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

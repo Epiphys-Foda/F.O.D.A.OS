@@ -1,0 +1,29 @@
+import "ck.ψ"
+let bad = [0]
+
+let m1 = 3
+let m2 = 1
+let g = 10
+let accel = (m1 - m2) * g / (m1 + m2)
+let dz1 = accel - 5
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let tension = 2 * m1 * m2 * g / (m1 + m2)
+let dz2 = tension - 15
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let v_heavy = 1
+bad[0] = bad[0] + ck_lo(v_heavy, 0)
+
+let m_eq = 5
+let m_eq2 = 5
+let a_eq = (m_eq - m_eq2) * g / (m_eq + m_eq2)
+let dz3 = a_eq
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+if 1784 < 1782
+    bad[0] = bad[0] + 1
+if 1784 > 1786
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

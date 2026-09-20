@@ -1,0 +1,33 @@
+import "ck.ψ"
+let bad = [0]
+
+let s = 41
+let dt = 100
+let vuv = s * dt
+bad[0] = bad[0] + ck(vuv, 3900, 4300)
+
+let eff = 470 * 100 / 7000
+bad[0] = bad[0] + ck(eff, 5, 8)
+
+let decay = 249 * 100 / 470
+bad[0] = bad[0] + ck(decay, 48, 58)
+
+let dtmax = 67
+bad[0] = bad[0] + ck(dtmax, 55, 75)
+
+let zt = 10
+bad[0] = bad[0] + ck(zt, 8, 12)
+if 1821 < 1819
+    bad[0] = bad[0] + 1
+if 1821 > 1823
+    bad[0] = bad[0] + 1
+if 1834 < 1832
+    bad[0] = bad[0] + 1
+if 1834 > 1836
+    bad[0] = bad[0] + 1
+if 1977 < 1975
+    bad[0] = bad[0] + 1
+if 1977 > 1979
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,45 @@
+import "ck.ψ"
+let bad = [0]
+
+let en_li = 98
+let r_li = 128
+let en_f = 398
+let r_f = 57
+let d1 = en_f - en_li
+let r1 = r_li - r_f
+bad[0] = bad[0] + ck_lo(d1, 1)
+bad[0] = bad[0] + ck_lo(r1, 1)
+
+let s1 = 98 - 93
+bad[0] = bad[0] + ck_lo(s1, 1)
+let dr1 = 166 - 128
+bad[0] = bad[0] + ck_lo(dr1, 1)
+let s2 = 93 - 82
+bad[0] = bad[0] + ck_lo(s2, 1)
+let dr2 = 203 - 166
+bad[0] = bad[0] + ck_lo(dr2, 1)
+
+let f_ie = 1742
+let df_en = 398 - 398
+bad[0] = bad[0] + df_en * df_en
+let df_ie = f_ie - 1742
+bad[0] = bad[0] + df_ie * df_ie
+let df_r = 57 - 57
+bad[0] = bad[0] + df_r * df_r
+
+let cs_en = 79
+let cs_ie = 386
+let cs_r = 244
+let dcs_en = cs_en - 79
+bad[0] = bad[0] + dcs_en * dcs_en
+let dcs_ie = cs_ie - 386
+bad[0] = bad[0] + dcs_ie * dcs_ie
+let dcs_r = cs_r - 244
+bad[0] = bad[0] + dcs_r * dcs_r
+
+let d_ie = 1742 - 386
+let d_en = 398 - 79
+bad[0] = bad[0] + ck_lo(d_ie, 1)
+bad[0] = bad[0] + ck_lo(d_en, 1)
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,25 @@
+import "ck.ψ"
+let bad = [0]
+
+let fp_i = 9
+bad[0] = bad[0] + ck(fp_i, 8, 10)
+
+let fp_m = 1000
+bad[0] = bad[0] + ck(fp_m, 900, 1100)
+
+let nratio = 16
+bad[0] = bad[0] + ck(nratio, 15, 17)
+
+let fratio = 8
+bad[0] = bad[0] + ck(fratio, 7, 9)
+
+if 1902 < 1900
+    bad[0] = bad[0] + 1
+if 1902 > 1904
+    bad[0] = bad[0] + 1
+if 1926 < 1924
+    bad[0] = bad[0] + 1
+if 1926 > 1928
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

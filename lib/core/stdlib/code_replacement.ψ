@@ -1,0 +1,151 @@
+import "gf65537.ψ"
+import "arr.ψ"
+import "linalg_gf.ψ"
+import "paradigm_math.ψ"
+import "paradigm_math2.ψ"
+import "paradigm_math3.ψ"
+
+let cc4_attention_weights(Q, K, d_sqrt_inv) =
+    let n = arr_len(Q)
+    let weights = arr_new_n(n)
+    _cc4_aw_acc(Q, K, d_sqrt_inv, n, 0, weights)
+    weights
+let _cc4_aw_acc(Q, K, d_sqrt_inv, n, i, weights) =
+    if i >= n
+        weights
+    let q = arr_get(Q, i)
+    let k = arr_get(K, i)
+    let qk = gf_mul(q, k)
+    let exponent = gf_mul(qk, d_sqrt_inv)
+    let w = gf_pow(3, exponent)
+    arr_set(weights, i, w)
+    _cc4_aw_acc(Q, K, d_sqrt_inv, n, i + 1, weights)
+
+let cc5_positional_encoding(pos, dim, i) = gf_pow(3, gf_mul(pos, i))
+
+let _cc8_mean_acc(f_vals, i, n, acc) =
+    if i >= n
+        acc
+    _cc8_mean_acc(f_vals, i + 1, n, gf_add(acc, arr_get(f_vals, i)))
+let cc8_finite_expectation(f_vals) =
+    let n = arr_len(f_vals)
+    let sum = _cc8_mean_acc(f_vals, 0, n, 0)
+    gf_div(sum, n)
+
+let cc10_log_barrier(x) = gf_pow(3, gf_neg(gf_mul(x, x)))
+
+let cc12_gf_sample(mu, sigma, k) = gf_add(mu, gf_mul(sigma, k))
+
+let _cc13_count_le(samples, x, i, n, count) =
+      if i >= n
+          count
+      if arr_get(samples, i) <= x
+        _cc13_count_le(samples, x, i + 1, n, count + 1)
+      else
+        _cc13_count_le(samples, x, i + 1, n, count)
+let cc13_normal_cdf(samples, x) =
+    let n = arr_len(samples)
+    let count = _cc13_count_le(samples, x, 0, n, 0)
+    gf_div(count, n)
+
+let _cc14_hadamard_acc(v, n, y, x, acc) =
+    if x >= n
+        acc
+    let xy = x & y
+    let coef = (((xy & 1) == 1) ? (65536) : (1))
+    let term = gf_mul(arr_get(v, x), coef)
+    _cc14_hadamard_acc(v, n, y, x + 1, gf_add(acc, term))
+let cc14_hadamard(v, y) =
+    let n = arr_len(v)
+    _cc14_hadamard_acc(v, n, y, 0, 0)
+
+let cp2_nfa_subset_construct(nfa_transitions, n_states, alphabet_size) =
+    gf_nfa_to_dfa(n_states, alphabet_size)
+
+let cp3_kleene_star(R) = gf_regex_star(R)
+
+let cp4_register_alloc(interference_graph, num_regs) = gf_register_alloc(interference_graph, num_regs)
+
+let _cp5_build_matrix_row(transfer_fn_id, i, n, j, row) =
+    if j >= n
+        row
+    let next_state = host_call(transfer_fn_id, i, j)
+    arr_set(row, j, next_state)
+    _cp5_build_matrix_row(transfer_fn_id, i, n, j + 1, row)
+let _cp5_build_matrix_acc(transfer_fn_id, i, n, M) =
+    if i >= n
+        M
+    let row = arr_new_n(n)
+    _cp5_build_matrix_row(transfer_fn_id, i, n, 0, row)
+    arr_set(M, i, row)
+    _cp5_build_matrix_acc(transfer_fn_id, i + 1, n, M)
+let cp5_lookup_to_matrix(transfer_fn_id, n) =
+    let M = arr_new_n(n)
+    _cp5_build_matrix_acc(transfer_fn_id, 0, n, M)
+    M
+
+let cp6_symbol_hash(s_arr, n) =
+    _cp6_hash_acc(s_arr, n, 0, 0)
+let _cp6_hash_acc(s_arr, n, i, acc) =
+    if i >= n
+        acc
+    let c = arr_get(s_arr, i)
+    _cp6_hash_acc(s_arr, n, i + 1, gf_add(gf_mul(acc, 256), c))
+let cp6_symbol_eq(s1, s2, n) =
+    let h1 = cp6_symbol_hash(s1, n)
+    let h2 = cp6_symbol_hash(s2, n)
+    ((h1 == h2) ? (1) : (0))
+
+let cp7_exact_to_approx(x) = x
+let cp7_approx_to_exact(x) = x
+
+let _cp8_dfs_cycle(graph, n, node, visited, on_stack) =
+    if arr_get(on_stack, node) != 0
+        1
+    if arr_get(visited, node) != 0
+        0
+    arr_set(visited, node, 1)
+    arr_set(on_stack, node, 1)
+    let has_cycle = _cp8_dfs_scan_neighbors(graph, n, node, 0, visited, on_stack)
+    arr_set(on_stack, node, 0)
+    has_cycle
+let _cp8_dfs_scan_neighbors(graph, n, node, j, visited, on_stack) =
+    if j >= n
+        0
+    if mat_get(graph, node, j) != 0
+      if _cp8_dfs_cycle(graph, n, j, visited, on_stack) == 1
+          1
+    _cp8_dfs_scan_neighbors(graph, n, node, j + 1, visited, on_stack)
+let _cp8_init_visited(arr, i, n) =
+    if i >= n
+        arr
+    arr_set(arr, i, 0)
+    _cp8_init_visited(arr, i + 1, n)
+let _cp8_detect_acc(graph, n, i, visited) =
+    if i >= n
+        0
+    if arr_get(visited, i) == 0
+      let on_stack = _cp8_init_visited(arr_new_n(n), 0, n)
+      if _cp8_dfs_cycle(graph, n, i, visited, on_stack) == 1
+          1
+    _cp8_detect_acc(graph, n, i + 1, visited)
+let cp8_deadlock_detect(resource_graph) =
+    let n = mat_rows(resource_graph)
+    let visited = _cp8_init_visited(arr_new_n(n), 0, n)
+    _cp8_detect_acc(resource_graph, n, 0, visited)
+
+let cp10_kkt_check(grad_f, grad_g, grad_h, lambda, mu) = gf_kkt_check(grad_f, grad_g, grad_h, lambda, mu)
+
+let cp11_sdp_check(X) = gf_sdp_gf(X)
+
+let _cp13_time_avg_acc(f_vals, i, n, acc) =
+    if i >= n
+        acc
+    _cp13_time_avg_acc(f_vals, i + 1, n, gf_add(acc, arr_get(f_vals, i)))
+let cp13_time_average(f_vals) =
+    let n = arr_len(f_vals)
+    let sum = _cp13_time_avg_acc(f_vals, 0, n, 0)
+    gf_div(sum, n)
+
+let code_replacement_layer_id() = 86
+let code_replacement_module_count() = 17

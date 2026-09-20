@@ -1,0 +1,54 @@
+import "ck.ψ"
+let bad = [0]
+
+let v_flight = 10
+let surf = 2
+let kk = 1
+let lift1 = v_flight * surf * kk
+let surf_hi = 4
+let lift2 = v_flight * surf_hi * kk
+let dz1 = lift2 - lift1 * 2
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let v_hi = 20
+let lift3 = v_hi * surf * kk
+let dz2 = lift3 - lift1 * 2
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let rpm_fast = 2000
+bad[0] = bad[0] + ck(rpm_fast, 1800, 2200)
+let rpm_curve = 3000
+bad[0] = bad[0] + ck(rpm_curve, 2800, 3200)
+bad[0] = bad[0] + ck_lo(rpm_curve, rpm_fast)
+
+let lift_top = 0 - 1
+let lift_back = 1
+bad[0] = bad[0] + ck_hi(lift_top, 0)
+bad[0] = bad[0] + ck_lo(lift_back, 1)
+
+if 1742 < 1740
+    bad[0] = bad[0] + 1
+if 1742 > 1744
+    bad[0] = bad[0] + 1
+if 1852 < 1850
+    bad[0] = bad[0] + 1
+if 1852 > 1854
+    bad[0] = bad[0] + 1
+if 1852 < 1742
+    bad[0] = bad[0] + 1
+if 1926 < 1924
+    bad[0] = bad[0] + 1
+if 1926 > 1928
+    bad[0] = bad[0] + 1
+if 1926 < 1852
+    bad[0] = bad[0] + 1
+if 1997 < 1995
+    bad[0] = bad[0] + 1
+if 1997 > 1999
+    bad[0] = bad[0] + 1
+if 1997 < 1926
+    bad[0] = bad[0] + 1
+let kick_m = 35
+bad[0] = bad[0] + ck(kick_m, 30, 40)
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,54 @@
+import "pe_to_webgpu.ψ"
+import "pe_fuse.ψ"
+
+let ui_fused_calc(fused_op, out, a, b, c) =
+    let v = "v".concat(str(out))
+    let a2 = "v".concat(str(a))
+    let b2 = "v".concat(str(b))
+    let c2 = "v".concat(str(c))
+    if fused_op == 1001
+      "let ".concat(v).concat(" = ((").concat(a2).concat(" * ").concat(b2).concat(") % 65537u) + ").concat(c2)
+    else
+      if fused_op == 1002
+        "let ".concat(v).concat(" = ((").concat(a2).concat(" * ").concat(b2).concat(") % 65537u) | ").concat(c2)
+      else
+        if fused_op == 1003
+          "let ".concat(v).concat(" = select(0u, 1u, ").concat(a2).concat(" < ").concat(b2).concat(") + ").concat(c2)
+        else
+          if fused_op == 1004
+            "let ".concat(v).concat(" = ((").concat(a2).concat(" + ").concat(b2).concat(") | (").concat(a2).concat(" - ").concat(b2).concat(")) + ").concat(c2)
+          else
+            if fused_op == 1005
+              "let ".concat(v).concat(" = ").concat(a2)
+            else
+              ""
+
+let ui_fused_rec(pe_ops, pc, var_idx, acc) =
+    let n = len(pe_ops)
+    if pc >= n
+      [acc, var_idx]
+    else
+      let op = pe_ops[pc]
+      if op == 13
+        let imm = pe_ops[pc + 1]
+        ui_fused_rec(pe_ops, pc + 2, var_idx + 1, acc.push("let v".concat(str(var_idx)).concat(" = ").concat(str(imm)).concat("u")))
+      else
+        if op >= 1000
+        else
+          0
+        if op >= 1000
+          let line = ui_fused_calc(op, var_idx, var_idx - 3, var_idx - 2, var_idx - 1)
+          ui_fused_rec(pe_ops, pc + 1, var_idx + 1, acc.push(line))
+        else
+          let line = pe_op_to_wgsl(op, var_idx, var_idx - 1, var_idx - 2)
+          ui_fused_rec(pe_ops, pc + 1, var_idx + 1, acc.push(line))
+
+let ui_fused_kernel(pe_ops) =
+    let r = ui_fused_rec(pe_ops, 0, 0, [])
+    r[0]
+
+let ui_fusion_gain(pe_ops) =
+    let fused = pe_fuse_seq(pe_ops)
+    let orig_lines = ui_fused_rec(pe_ops, 0, 0, [])[0].len()
+    let fused_lines = ui_fused_rec(fused, 0, 0, [])[0].len()
+    { orig_lines: orig_lines, fused_lines: fused_lines, saved: orig_lines - fused_lines }

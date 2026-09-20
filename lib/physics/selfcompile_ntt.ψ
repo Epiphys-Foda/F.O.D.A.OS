@@ -1,0 +1,409 @@
+let NTT_P = 65537
+let NTT_N = 8
+let NTT_ROOT_E = 8192
+
+let ntt_pow(b, e) =
+    let r = 1
+    let base = b % NTT_P
+    let ex = e
+    for ex > 0
+        if ex % 2 == 1
+            r = r * base % NTT_P
+        base = base * base % NTT_P
+        ex = ex / 2
+    r
+
+let ntt_inv(a) =
+    ntt_pow(a, NTT_P - 2)
+
+let ntt_forward(x, n, w) =
+    let X = arr_new_n(n)
+    let k = 0
+    for k < n
+        let s = 0
+        let m = 0
+        for m < n
+            s = (s + x[m] * ntt_pow(w, m * k)) % NTT_P
+            m = m + 1
+        X[k] = s
+        k = k + 1
+    X
+
+let ntt_inverse(X, n, w) =
+    let x = arr_new_n(n)
+    let ninv = ntt_inv(n)
+    let i = 0
+    for i < n
+        let s = 0
+        let k = 0
+        for k < n
+            let e = (n - (i * k) % n) % n
+            s = (s + X[k] * ntt_pow(w, e)) % NTT_P
+            k = k + 1
+        x[i] = ninv * s % NTT_P
+        i = i + 1
+    x
+
+let ntt_conj_energy(X, n) =
+    let fe = 0
+    let k = 0
+    for k < n
+        let k2 = (n - k) % n
+        fe = (fe + X[k] * X[k2]) % NTT_P
+        k = k + 1
+    fe
+
+let ntt_naive_energy(X, n) =
+    let fe = 0
+    let k = 0
+    for k < n
+        fe = (fe + X[k] * X[k]) % NTT_P
+        k = k + 1
+    fe
+
+let ntt_time_energy(x, n) =
+    let te = 0
+    let j = 0
+    for j < n
+        te = (te + x[j] * x[j]) % NTT_P
+        j = j + 1
+    te
+
+let ntt_spectrum_of(x, n, w) =
+    ntt_forward(x, n, w)
+
+let ntt_case(x, n, w) =
+    let out = arr_new_n(4)
+    let wN = ntt_pow(w, n)
+    out[0] = wN == 1 ? 1 : 0
+    let X = ntt_forward(x, n, w)
+    let xr = ntt_inverse(X, n, w)
+    let rok = 1
+    let i = 0
+    for i < n
+        if xr[i] != x[i]
+            rok = 0
+        i = i + 1
+    out[1] = rok
+    let te = ntt_time_energy(x, n)
+    let rhs = n * te % NTT_P
+    out[2] = ntt_conj_energy(X, n) == rhs ? 1 : 0
+    out[3] = ntt_naive_energy(X, n) == rhs ? 0 : 1
+    out
+
+let ntt_vec_ok(vec) =
+    let w = ntt_pow(3, NTT_ROOT_E)
+    let c = ntt_case(vec, NTT_N, w)
+    let ok = 1
+    let t = 0
+    for t < 4
+        ok = ok * (c[t] == 1 ? 1 : 0)
+        t = t + 1
+    ok
+
+let ntt_v_all() =
+    let g1 = ntt_vec_ok([65, 42, 65, 58, 106, 65, 0, 70])
+    let g2 = ntt_vec_ok([1, 2, 3, 4, 5, 6, 7, 8])
+    let g3 = ntt_vec_ok([997, 1009, 1013, 1019, 5000, 3, 65536, 12345])
+    g1 * g2 * g3
+
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let main() =
+    let wasm = arr_new_n(256)
+    wasm[0] = 0
+    wasm[1] = 97
+    wasm[2] = 115
+    wasm[3] = 109
+    wasm[4] = 1
+    wasm[5] = 0
+    wasm[6] = 0
+    wasm[7] = 0
+    wasm[8] = 1
+    wasm[9] = 86
+    wasm[10] = 10
+    wasm[11] = 96
+    wasm[12] = 3
+    wasm[13] = 127
+    wasm[14] = 127
+    wasm[15] = 127
+    wasm[16] = 1
+    wasm[17] = 127
+    wasm[18] = 96
+    wasm[19] = 1
+    wasm[20] = 127
+    wasm[21] = 1
+    wasm[22] = 127
+    wasm[23] = 96
+    wasm[24] = 2
+    wasm[25] = 127
+    wasm[26] = 127
+    wasm[27] = 1
+    wasm[28] = 127
+    wasm[29] = 96
+    wasm[30] = 4
+    wasm[31] = 127
+    wasm[32] = 127
+    wasm[33] = 127
+    wasm[34] = 127
+    wasm[35] = 1
+    wasm[36] = 127
+    wasm[37] = 96
+    wasm[38] = 0
+    wasm[39] = 1
+    wasm[40] = 127
+    wasm[41] = 96
+    wasm[42] = 5
+    wasm[43] = 127
+    wasm[44] = 127
+    wasm[45] = 127
+    wasm[46] = 127
+    wasm[47] = 127
+    wasm[48] = 1
+    wasm[49] = 127
+    wasm[50] = 96
+    wasm[51] = 6
+    wasm[52] = 127
+    wasm[53] = 127
+    wasm[54] = 127
+    wasm[55] = 127
+    wasm[56] = 127
+    wasm[57] = 127
+    wasm[58] = 1
+    wasm[59] = 127
+    wasm[60] = 96
+    wasm[61] = 7
+    wasm[62] = 127
+    wasm[63] = 127
+    wasm[64] = 127
+    wasm[65] = 127
+    wasm[66] = 127
+    wasm[67] = 127
+    wasm[68] = 127
+    wasm[69] = 1
+    wasm[70] = 127
+    wasm[71] = 96
+    wasm[72] = 8
+    wasm[73] = 127
+    wasm[74] = 127
+    wasm[75] = 127
+    wasm[76] = 127
+    wasm[77] = 127
+    wasm[78] = 127
+    wasm[79] = 127
+    wasm[80] = 127
+    wasm[81] = 1
+    wasm[82] = 127
+    wasm[83] = 96
+    wasm[84] = 9
+    wasm[85] = 127
+    wasm[86] = 127
+    wasm[87] = 127
+    wasm[88] = 127
+    wasm[89] = 127
+    wasm[90] = 127
+    wasm[91] = 127
+    wasm[92] = 127
+    wasm[93] = 127
+    wasm[94] = 1
+    wasm[95] = 127
+    wasm[96] = 2
+    wasm[97] = 17
+    wasm[98] = 1
+    wasm[99] = 3
+    wasm[100] = 112
+    wasm[101] = 115
+    wasm[102] = 105
+    wasm[103] = 9
+    wasm[104] = 104
+    wasm[105] = 111
+    wasm[106] = 115
+    wasm[107] = 116
+    wasm[108] = 95
+    wasm[109] = 99
+    wasm[110] = 97
+    wasm[111] = 108
+    wasm[112] = 108
+    wasm[113] = 0
+    wasm[114] = 0
+    wasm[115] = 3
+    wasm[116] = 71
+    wasm[117] = 70
+    wasm[118] = 1
+    wasm[119] = 1
+    wasm[120] = 1
+    wasm[121] = 2
+    wasm[122] = 1
+    wasm[123] = 1
+    wasm[124] = 2
+    wasm[125] = 1
+    wasm[126] = 2
+    wasm[127] = 2
+    wasm[128] = 1
+    wasm[129] = 1
+    wasm[130] = 0
+    wasm[131] = 2
+    wasm[132] = 2
+    wasm[133] = 2
+    wasm[134] = 1
+    wasm[135] = 3
+    wasm[136] = 0
+    wasm[137] = 2
+    wasm[138] = 1
+    wasm[139] = 0
+    wasm[140] = 1
+    wasm[141] = 0
+    wasm[142] = 1
+    wasm[143] = 2
+    wasm[144] = 2
+    wasm[145] = 1
+    wasm[146] = 3
+    wasm[147] = 4
+    wasm[148] = 4
+    wasm[149] = 1
+    wasm[150] = 1
+    wasm[151] = 2
+    wasm[152] = 1
+    wasm[153] = 2
+    wasm[154] = 0
+    wasm[155] = 2
+    wasm[156] = 2
+    wasm[157] = 0
+    wasm[158] = 2
+    wasm[159] = 0
+    wasm[160] = 3
+    wasm[161] = 5
+    wasm[162] = 6
+    wasm[163] = 7
+    wasm[164] = 8
+    wasm[165] = 9
+    wasm[166] = 1
+    wasm[167] = 1
+    wasm[168] = 2
+    wasm[169] = 2
+    wasm[170] = 2
+    wasm[171] = 1
+    wasm[172] = 2
+    wasm[173] = 1
+    wasm[174] = 2
+    wasm[175] = 1
+    wasm[176] = 1
+    wasm[177] = 2
+    wasm[178] = 6
+    wasm[179] = 6
+    wasm[180] = 6
+    wasm[181] = 6
+    wasm[182] = 2
+    wasm[183] = 2
+    wasm[184] = 2
+    wasm[185] = 5
+    wasm[186] = 1
+    wasm[187] = 4
+    wasm[188] = 5
+    wasm[189] = 5
+    wasm[190] = 1
+    wasm[191] = 0
+    wasm[192] = 128
+    wasm[193] = 128
+    wasm[194] = 4
+    wasm[195] = 6
+    wasm[196] = 22
+    wasm[197] = 4
+    wasm[198] = 127
+    wasm[199] = 1
+    wasm[200] = 65
+    wasm[201] = 128
+    wasm[202] = 8
+    wasm[203] = 11
+    wasm[204] = 127
+    wasm[205] = 1
+    wasm[206] = 65
+    wasm[207] = 0
+    wasm[208] = 11
+    wasm[209] = 127
+    wasm[210] = 1
+    wasm[211] = 65
+    wasm[212] = 0
+    wasm[213] = 11
+    wasm[214] = 127
+    wasm[215] = 1
+    wasm[216] = 65
+    wasm[217] = 0
+    wasm[218] = 11
+    wasm[219] = 7
+    wasm[220] = 29
+    wasm[221] = 3
+    wasm[222] = 4
+    wasm[223] = 109
+    wasm[224] = 97
+    wasm[225] = 105
+    wasm[226] = 110
+    wasm[227] = 0
+    wasm[228] = 70
+    wasm[229] = 6
+    wasm[230] = 109
+    wasm[231] = 101
+    wasm[232] = 109
+    wasm[233] = 111
+    wasm[234] = 114
+    wasm[235] = 121
+    wasm[236] = 2
+    wasm[237] = 0
+    wasm[238] = 9
+    wasm[239] = 95
+    wasm[240] = 95
+    wasm[241] = 109
+    wasm[242] = 101
+    wasm[243] = 109
+    wasm[244] = 95
+    wasm[245] = 112
+    wasm[246] = 116
+    wasm[247] = 114
+    wasm[248] = 3
+    wasm[249] = 0
+    wasm[250] = 10
+    wasm[251] = 194
+    wasm[252] = 164
+    wasm[253] = 4
+    wasm[254] = 70
+    wasm[255] = 26
+
+    let w = gf_pow(3, 256)
+    print(w)
+
+    let w256 = gf_pow(w, 256)
+    print(w256)
+
+    let X = ntt_forward(wasm, 256, w)
+
+    let te = 0
+    let j = 0
+    for j < 256
+        let v = wasm[j]
+        te = te + v * v
+        j = j + 1
+    print(te)
+
+    let fe = 0
+    let k = 0
+    for k < 256
+        let v = X[k]
+        fe = fe + v * v
+        k = k + 1
+    print(fe)
+
+    let p = 0
+    for p < 16
+        print(X[p])
+        p = p + 1
+
+    let xr = ntt_inverse(X, 256, w)
+    let ok = 1
+    let m = 0
+    for m < 256
+        if xr[m] != wasm[m]
+            ok = 0
+        m = m + 1
+    print(ok)
+
+    w

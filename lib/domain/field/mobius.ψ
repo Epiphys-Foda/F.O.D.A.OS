@@ -1,0 +1,148 @@
+let MOB_P = 65537
+
+let mob_add(a, b) = (a + b) % MOB_P
+let mob_sub(a, b) = (a - b + MOB_P) % MOB_P
+let mob_mul(a, b) = (a * b) % MOB_P
+let mob_neg(a) = (MOB_P - a) % MOB_P
+
+let mob_inv(a) =
+    if a == 0
+        0
+    else
+        let inv = 1
+        let base = a
+        let exp = MOB_P - 2
+        for exp > 0
+            if exp % 2 == 1
+                inv = mob_mul(inv, base)
+            base = mob_mul(base, base)
+            exp = exp / 2
+        inv
+
+let mob_div(a, b) = mob_mul(a, mob_inv(b))
+
+let mobius(a, b, c, d) = [a, b, c, d]
+
+let mob_eval(m, z) =
+    let num = mob_add(mob_mul(m[0], z), m[1])
+    let den = mob_add(mob_mul(m[2], z), m[3])
+    (den == 0 ? 0 : mob_div(num, den))
+
+let mob_compose(m1, m2) =
+    mobius(
+        mob_add(mob_mul(m1[0], m2[0]), mob_mul(m1[1], m2[2])),
+        mob_add(mob_mul(m1[0], m2[1]), mob_mul(m1[1], m2[3])),
+        mob_add(mob_mul(m1[2], m2[0]), mob_mul(m1[3], m2[2])),
+        mob_add(mob_mul(m1[2], m2[1]), mob_mul(m1[3], m2[3]))
+    )
+
+let mob_inverse(m) =
+    let det = mob_sub(mob_mul(m[0], m[3]), mob_mul(m[1], m[2]))
+    let det_inv = mob_inv(det)
+    mobius(
+        mob_mul(m[3], det_inv),
+        mob_mul(mob_neg(m[1]), det_inv),
+        mob_mul(mob_neg(m[2]), det_inv),
+        mob_mul(m[0], det_inv)
+    )
+
+let mob_det(m) =
+    mob_sub(mob_mul(m[0], m[3]), mob_mul(m[1], m[2]))
+
+let mob_normalize(m) = m
+
+let mob_identity() = mobius(1, 0, 0, 1)
+
+let mob_translation(t) = mobius(1, t, 0, 1)
+
+let mob_scaling(k) = mobius(k, 0, 0, 1)
+
+let mob_rotation(theta) =
+    let eitheta = 1
+    let base = 3
+    let exp = theta
+    for exp > 0
+        if exp % 2 == 1
+            eitheta = mob_mul(eitheta, base)
+        base = mob_mul(base, base)
+        exp = exp / 2
+    mobius(eitheta, 0, 0, 1)
+
+let mob_inversion() = mobius(0, 1, 1, 0)
+
+let mob_act_on_field(m, poles, residues, n) =
+    let new_poles = arr_new_n(n)
+    let new_residues = arr_new_n(n)
+    let i = 0
+    for i < n
+        let zk = poles[i]
+        let rk = residues[i]
+        let num = mob_sub(mob_mul(zk, m[3]), m[1])
+        let den = mob_sub(m[0], mob_mul(zk, m[2]))
+        if den == 0
+            new_poles[i] = 0
+            new_residues[i] = 0
+        else
+            let new_z = mob_div(num, den)
+            new_poles[i] = new_z
+            let czd = mob_add(mob_mul(m[2], new_z), m[3])
+            new_residues[i] = mob_div(mob_mul(rk, czd), den)
+        i = i + 1
+    [new_poles, new_residues, n]
+
+let mob_check_identity(z) =
+    mob_eval(mob_identity(), z) == z
+
+let mob_check_compose(m1, m2, z) =
+    let lhs = mob_eval(mob_compose(m1, m2), z)
+    let rhs = mob_eval(m1, mob_eval(m2, z))
+    lhs == rhs
+
+let mob_check_inverse(m, z) =
+    let w = mob_eval(m, z)
+    mob_eval(mob_inverse(m), w) == z
+
+let mob_check_det_multiplicative(m1, m2) =
+    let lhs = mob_det(mob_compose(m1, m2))
+    let rhs = mob_mul(mob_det(m1), mob_det(m2))
+    lhs == rhs
+
+let mob_cross_ratio(z1, z2, z3, z4) =
+    let num = mob_mul(mob_sub(z1, z3), mob_sub(z2, z4))
+    let den = mob_mul(mob_sub(z1, z4), mob_sub(z2, z3))
+    mob_div(num, den)
+
+let mob_check_cross_ratio_invariance(m, poles, n) =
+    if n < 4
+        1
+    else
+        let act = mob_act_on_field(m, poles, [1, 1, 1, 1], n)
+        let np = act[0]
+        let cr_before = mob_cross_ratio(poles[0], poles[1], poles[2], poles[3])
+        let cr_after = mob_cross_ratio(np[0], np[1], np[2], np[3])
+        cr_before == cr_after
+
+let mob_psl_order() = 141557760
+
+let mob_psl_generators() =
+    let S = mobius(0, MOB_P - 1, 1, 0)
+    let T = mobius(1, 1, 0, 1)
+    [S, T]
+
+let mobius_verify() =
+    let t1 = mob_check_identity(42)
+    let m1 = mobius(2, 3, 5, 7)
+    let m2 = mobius(11, 13, 17, 19)
+    let t2 = mob_check_compose(m1, m2, 9)
+    let t3 = mob_check_inverse(m1, 9)
+    let t4 = mob_check_det_multiplicative(m1, m2)
+    let poles = [1, 2, 3]
+    let residues = [1, 1, 1]
+    let poles4 = [2, 5, 11, 17]
+    let t5 = mob_check_cross_ratio_invariance(m1, poles4, 4)
+    let t6 = mob_psl_order() == 141557760
+    let gens = mob_psl_generators()
+    let t7 = len(gens) == 2 && mob_det(gens[0]) != 0 && mob_det(gens[1]) != 0
+    let act = mob_act_on_field(mob_translation(5), poles, residues, 3)
+    let t8 = len(act) == 3 && act[2] == 3
+    t1 && t2 && t3 && t4 && t5 && t6 && t7 && t8

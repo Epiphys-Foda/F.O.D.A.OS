@@ -1,0 +1,232 @@
+import "../domain_field.ψ"
+
+let GP_P = 65537
+
+let GP_STREAM_UNARY  = 1
+let GP_STREAM_SERVER = 2
+let GP_STREAM_CLIENT = 3
+let GP_STREAM_BIDI  = 4
+
+let GP_STREAM_IDLE   = 1
+let GP_STREAM_OPEN   = 2
+let GP_STREAM_CLOSED = 3
+let GP_FIELD_SCALE  = 256
+let GP_FIELD_OFFSET = 1
+let GP_BRAGG_Z      = 256
+
+let gp_method_new(name, service, req_type, resp_type, mode) =
+    [name, service, req_type, resp_type, mode]
+
+let gp_m_name(m)    = m[0]
+let gp_m_service(m) = m[1]
+let gp_m_req(m)     = m[2]
+let gp_m_resp(m)    = m[3]
+let gp_m_mode(m)    = m[4]
+
+let gp_msg_new(compressed, msg_buf) =
+    [compressed, msg_buf, len(msg_buf)]
+
+let gp_msg_compressed(m) = m[0]
+let gp_msg_buf(m)        = m[1]
+let gp_msg_len(m)        = m[2]
+
+let gp_encode_prefix(compressed, length) =
+    [compressed,
+     (length / (65536 * 256)) % 256,
+     (length / 65536) % 256,
+     (length / 256) % 256,
+     length % 256]
+
+let gp_decode_prefix(buf) =
+    let compressed = buf[0]
+    let length = buf[1] * (65536 * 256) + buf[2] * 65536 + buf[3] * 256 + buf[4]
+    [compressed, length]
+
+let gp_stream_new(id, mode, ts) =
+    [id, GP_STREAM_OPEN, [], [], 0, ts, mode]
+
+let gp_stream_id(s)    = s[0]
+let gp_stream_state(s) = s[1]
+let gp_stream_send(s)  = s[2]
+let gp_stream_recv(s)  = s[3]
+let gp_stream_count(s) = s[4]
+let gp_stream_ts(s)    = s[5]
+let gp_stream_mode(s)  = s[6]
+
+let gp_default_conn() =
+    [{}, {}, 1, 0, []]
+
+let gp_conn_streams(s)  = s[0]
+let gp_conn_services(s) = s[1]
+let gp_conn_next_id(s)  = s[2]
+let gp_conn_http2(s)    = s[3]
+let gp_conn_log(s)      = s[4]
+
+let gp_log_append(log_arr, msg) =
+    log_arr.push(msg)
+    log_arr
+
+let gp_get_stream(conn, stream_id) =
+    let streams = gp_conn_streams(conn)
+    streams[stream_id]
+
+let gp_register_service(conn, service_name, methods_buf) =
+    let services = gp_conn_services(conn)
+    let svc_map = services[service_name]
+    if svc_map == 0
+        svc_map = {}
+    let i = 0
+    let n = len(methods_buf)
+    for i < n
+        let m = methods_buf[i]
+        svc_map[gp_m_name(m)] = m
+        i = i + 1
+    services[service_name] = svc_map
+    [gp_conn_streams(conn), services, gp_conn_next_id(conn),
+     gp_conn_http2(conn), gp_conn_log(conn)]
+
+let gp_create_stream(conn, mode, ts) =
+    let sid = gp_conn_next_id(conn)
+    let stream = gp_stream_new(sid, mode, ts)
+    let streams = gp_conn_streams(conn)
+    streams[sid] = stream
+    let log = gp_conn_log(conn)
+    log = gp_log_append(log, "stream_created id=" + sid + " mode=" + mode + " ts=" + ts)
+    [streams, gp_conn_services(conn), sid + 2, gp_conn_http2(conn), log]
+
+let gp_send_message(conn, stream_id, msg_buf, ts) =
+    let streams = gp_conn_streams(conn)
+    let stream = streams[stream_id]
+    if stream == 0
+        conn
+    else
+        let compressed = 0
+        let length = len(msg_buf)
+        let prefix = gp_encode_prefix(compressed, length)
+        let send_buf = gp_stream_send(stream)
+        let i = 0
+        for i < 5
+            send_buf.push(prefix[i])
+            i = i + 1
+        i = 0
+        for i < length
+            send_buf.push(msg_buf[i])
+            i = i + 1
+        stream[4] = gp_stream_count(stream) + 1
+        stream[5] = ts
+        streams[stream_id] = stream
+        [streams, gp_conn_services(conn), gp_conn_next_id(conn),
+         gp_conn_http2(conn), gp_conn_log(conn)]
+
+let gp_receive_message(conn, stream_id, ts) =
+    let streams = gp_conn_streams(conn)
+    let stream = streams[stream_id]
+    if stream == 0
+        [0, []]
+    else
+        let recv_buf = gp_stream_recv(stream)
+        let n = len(recv_buf)
+        if n < 5
+            [0, []]
+        else
+            let prefix = [recv_buf[0], recv_buf[1], recv_buf[2], recv_buf[3], recv_buf[4]]
+            let decoded = gp_decode_prefix(prefix)
+            let compressed = decoded[0]
+            let length = decoded[1]
+            if n < 5 + length
+                [0, []]
+            else
+                let msg_buf = []
+                let i = 0
+                for i < length
+                    msg_buf.push(recv_buf[5 + i])
+                    i = i + 1
+                stream[4] = gp_stream_count(stream) + 1
+                stream[5] = ts
+                streams[stream_id] = stream
+                [compressed, msg_buf]
+
+let gp_invoke_unary(conn, service, method, request_buf, ts) =
+    let sid = gp_conn_next_id(conn)
+    let conn1 = gp_create_stream(conn, GP_STREAM_UNARY, ts)
+    let conn2 = gp_send_message(conn1, sid, request_buf, ts)
+    let response = gp_receive_message(conn2, sid, ts)
+    let conn3 = gp_close_stream(conn2, sid, ts)
+    [conn3, response]
+
+let gp_invoke_server_stream(conn, service, method, request_buf, ts) =
+    let sid = gp_conn_next_id(conn)
+    let conn1 = gp_create_stream(conn, GP_STREAM_SERVER, ts)
+    let conn2 = gp_send_message(conn1, sid, request_buf, ts)
+    let responses = []
+    let conn_cur = conn2
+    let i = 0
+    for i < 16
+        let r = gp_receive_message(conn_cur, sid, ts)
+        if len(r[1]) == 0
+            i = 16
+        else
+            responses.push(r)
+            i = i + 1
+    let conn3 = gp_close_stream(conn_cur, sid, ts)
+    [conn3, responses]
+
+let gp_close_stream(conn, stream_id, ts) =
+    let streams = gp_conn_streams(conn)
+    let stream = streams[stream_id]
+    if stream == 0
+        conn
+    else
+        stream[1] = GP_STREAM_CLOSED
+        stream[5] = ts
+        streams[stream_id] = stream
+        [streams, gp_conn_services(conn), gp_conn_next_id(conn),
+         gp_conn_http2(conn), gp_conn_log(conn)]
+
+let gp_response_sig(resp) =
+    let compressed = resp[0]
+    let msg_buf = resp[1]
+    let length = len(msg_buf)
+    let sig = (compressed * 65536 + length) % GP_P
+    let i = 0
+    for i < length
+        sig = (sig * 31 + msg_buf[i]) % GP_P
+        i = i + 1
+    sig
+
+let gp_bragg_verify(conn, ops_seq) =
+    let conn1 = conn
+    let conn2 = gp_default_conn()
+    let i = 0
+    let n = len(ops_seq)
+    for i < n
+        let op = ops_seq[i]
+        let svc = op[0]
+        let mth = op[1]
+        let req = op[2]
+        let r1 = gp_invoke_unary(conn1, svc, mth, req, 0)
+        conn1 = r1[0]
+        let r2 = gp_invoke_unary(conn2, svc, mth, req, 0)
+        conn2 = r2[0]
+        let sig1 = gp_response_sig(r1[1])
+        let sig2 = gp_response_sig(r2[1])
+        if sig1 != sig2
+            0
+        i = i + 1
+    1
+
+let gp_gf_mod(x) = domain_gf_mod(x)
+
+let gp_gf_inv(a) = domain_gf_inv(a)
+
+let gp_field_encode(items, n) =
+    let records = []
+    let _i = 0
+    for _i < n
+        records.push([items[_i], items[_i]])
+        _i = _i + 1
+    domain_field_encode(records, n, 1, 0)
+let gp_field_eval(poles, residues, z) = domain_field_eval(poles, residues, z)
+
+let gp_field_bragg_verify(current, replay) = domain_bragg_verify(current[0], current[1], replay[0], replay[1])
+

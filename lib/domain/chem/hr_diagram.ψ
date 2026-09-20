@@ -1,0 +1,42 @@
+import "ck.ψ"
+let bad = [0]
+
+let t_m = 3000
+let t_sun = 5778
+let t_o = 40000
+bad[0] = bad[0] + ck(t_m, 2800, 3200)
+bad[0] = bad[0] + ck(t_sun, 5700, 5850)
+bad[0] = bad[0] + ck(t_o, 38000, 42000)
+bad[0] = bad[0] + ck_hi(t_m, t_sun)
+bad[0] = bad[0] + ck_hi(t_sun, t_o)
+
+let lum_x = 113
+bad[0] = bad[0] + ck(lum_x, 105, 120)
+
+let t_o_myr = 3
+let t_sun_myr = 10000
+bad[0] = bad[0] + ck(t_o_myr, 2, 5)
+bad[0] = bad[0] + ck(t_sun_myr, 9000, 11000)
+bad[0] = bad[0] + ck_hi(t_o_myr, t_sun_myr)
+
+let mars_rsun = 322
+bad[0] = bad[0] + ck(mars_rsun, 300, 350)
+let r_betel = 900
+bad[0] = bad[0] + ck(r_betel, 800, 1000)
+bad[0] = bad[0] + ck_lo(r_betel, mars_rsun)
+
+let dens_wd = 1
+bad[0] = bad[0] + ck(dens_wd, 1, 2)
+
+if 1911 < 1909
+    bad[0] = bad[0] + 1
+if 1911 > 1913
+    bad[0] = bad[0] + 1
+if 1913 < 1911
+    bad[0] = bad[0] + 1
+if 1913 > 1915
+    bad[0] = bad[0] + 1
+if 1913 < 1911
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,6 @@
+let my_add(a, b) = a + b
+
+let my_test() =
+    let a = my_add(3, 5)
+    let b = my_add(10, 20)
+    a + b

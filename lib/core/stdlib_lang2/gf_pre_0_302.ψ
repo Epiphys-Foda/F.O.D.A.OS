@@ -1,0 +1,276 @@
+import "gf_base.ψ"
+let P = 65537
+let gf_rand() = 0
+let gf_mod(a, m) =
+    (m == 0 ? 0 : ((a % m) + m) % m)
+let wfc_add(a, b) = (a + b) % P
+let wfc_sub(a, b) = (a - b + P) % P
+let wfc_neg(a) = (P - a) % P
+let wfc_pow(base, exp) =
+    let result = 1
+    let b = base % P
+    let e = exp
+    for e > 0
+        if e % 2 == 1
+            result = wfc_mul(result, b)
+        b = wfc_mul(b, b)
+        e = e / 2
+    result
+let wfc_inv(a) =
+    (a == 0 ? 0 : wfc_pow(a, P - 2))
+let not_gate(x) = wfc_sub(1, x)
+let and_gate(a, b) = wfc_mul(a, b)
+let or_gate(a, b) = wfc_sub(wfc_add(a, b), wfc_mul(a, b))
+let nand_gate(a, b) = wfc_sub(1, wfc_mul(a, b))
+let xor_gate(a, b) =
+    (a == b ? 0 : 1)
+let xnor_gate(a, b) =
+    (a == b ? 1 : 0)
+let nor_gate(a, b) = wfc_mul(wfc_sub(1, a), wfc_sub(1, b))
+let galois_mutate(g, sigma) = [gf_pow(gene_pole(g), sigma), gf_pow(gene_residue(g), sigma), gene_op(g)]
+let gene_new(pole, residue, op_type) = [pole, residue, op_type]
+let gene_pole(g) = g[0]
+let gene_residue(g) = g[1]
+let gene_op(g) = g[2]
+let gene_express(g, a, b) =
+    let r = gene_residue(g)
+    let op = gene_op(g)
+    if op == 0
+        gf_sub(r, gf_mul(a, b))
+    else
+        0
+    if op == 1
+        gf_mul(a, b)
+    else
+        0
+    if op == 2
+        gf_sub(gf_add(a, b), gf_mul(a, b))
+    else
+        0
+    if op == 3
+        gf_sub(gf_add(a, b), gf_mul(2, gf_mul(a, b)))
+    else
+        0
+    if op == 4
+        gf_sub(r, a)
+    else
+        0
+let fitness(g) =
+    let score = 0
+    let a = 0
+    for a < 2
+        let b = 0
+        for b < 2
+            let out = gene_express(g, a, b)
+            if out == 0 || out == 1
+                score = score + 1
+            b = b + 1
+        a = a + 1
+    score
+let mulmod(a, b, m) =
+    let r = 0
+    let x = a % m
+    let y = b
+    for y > 0
+        if y % 2 == 1
+            r = (r + x) % m
+        x = (x + x) % m
+        y = y / 2
+    r
+let powmod(base, exp, m) =
+    let result = 1
+    let b = base % m
+    let e = exp
+    for e > 0
+        if e % 2 == 1
+            result = mulmod(result, b, m)
+        b = mulmod(b, b, m)
+        e = e / 2
+    result
+let invmod(a, m) =
+    powmod(a, m - 2, m)
+let field_eval(z, poles, residues, n) =
+    let val = 0
+    let i = 0
+    for i < n
+        let diff = (z + 65537 - poles[i]) % 65537
+        let term = residues[i] * gf_inv(diff)
+        val = (val + term) % 65537
+        i = i + 1
+    val
+let field_energy(r, n) =
+    let e = 0
+    let i = 0
+    for i < n
+        e = (e + r[i] * r[i]) % 65537
+        i = i + 1
+    e
+let field_execute(ops_type, ops_data, n) =
+    let stack = arr_new_n(n)
+    let sp = 0
+    let i = 0
+    for i < n
+        let t = ops_type[i]
+        if t == 0
+            stack[sp] = ops_data[i]
+            sp = sp + 1
+        if t == 1
+            if sp >= 2
+                let b = stack[sp - 1]
+                let a = stack[sp - 2]
+                sp = sp - 2
+                stack[sp] = (a * b) % 65537
+                sp = sp + 1
+        if t == 2
+            if sp >= 2
+                let b = stack[sp - 1]
+                let a = stack[sp - 2]
+                sp = sp - 2
+                stack[sp] = (a + b) % 65537
+                sp = sp + 1
+        if t == 3
+            if sp >= 1
+                stack[sp - 1] = (stack[sp - 1] * 3) % 65537
+        if t == 4
+            if sp >= 1
+                let a = stack[sp - 1]
+                if a > 32768
+                    stack[sp - 1] = 0
+        if t == 5
+            if sp >= 1
+                stack[sp - 1] = (65535 * stack[sp - 1] + 2) % 65537
+        i = i + 1
+    (sp > 0 ? stack[sp - 1] : 0)
+let field_eval_fractal(z, poles, residues, depths, n) =
+    let total = 0
+    let i = 0
+    for i < n
+        let zk = poles[i]
+        let rk = residues[i]
+        let nk = depths[i]
+        let dz = gf_sub(z, zk)
+        if dz == 0
+            if nk == 0
+                total = gf_add(total, rk)
+            else
+                total = gf_add(total, rk)
+        else
+            if nk == 0
+                total = gf_add(total, rk)
+            else
+                0
+            if nk == 1
+                total = gf_add(total, gf_mul(rk, gf_inv(dz)))
+            else
+                0
+            if nk == N_INFINITY
+                total = gf_add(total, rk)
+            else
+                let inv_dz = gf_inv(dz)
+                let inv_dz_n = gf_pow(inv_dz, nk)
+                total = gf_add(total, gf_mul(rk, inv_dz_n))
+        i = i + 1
+    total
+let field_nested_3(z, field1, field2, field3) =
+    let psi1 = field_eval_fractal(z, field1[0], field1[1], field1[2], field1[3])
+    let psi2 = field_eval_fractal(z, field2[0], field2[1], field2[2], field2[3])
+    let psi3 = field_eval_fractal(z, field3[0], field3[1], field3[2], field3[3])
+    gf_mul(gf_mul(psi1, psi2), psi3)
+let L_STAR_INT = 53034
+let GF2_INV2 = 32769
+let gf2_add(x, y) =
+    [(x[0] + y[0]) % P, (x[1] + y[1]) % P]
+let gf2_mul(x, y) =
+    let ac = gf_mul(x[0], y[0])
+    let bd = gf_mul(x[1], y[1])
+    let ad = gf_mul(x[0], y[1])
+    let bc = gf_mul(x[1], y[0])
+    [(gf_add(ac, gf_mul(5, bd))) % P, gf_add(ad, bc)]
+let phi_gf2() = [GF2_INV2, GF2_INV2]
+let phi_identity_verify() =
+    let phi = phi_gf2()
+    let lhs = gf2_mul(phi, phi)
+    (lhs[0] == gf_add(phi[0], 1) && lhs[1] == phi[1] ? 1 : 0)
+let unify_verify_golden() =
+    if phi_identity_verify() == 0
+        0
+    else
+        let d = (4 * P_STAR - E_STAR) * 1000 - E_STAR * 2236
+        if d > 3000 && d < 3800
+            1
+        else
+            0
+let kleene_fixedpoint_verify(t1_hash, t2_hash) =
+    if t1_hash == t2_hash
+        1
+    else
+        0
+let BANACH_L_MIN = 53724
+let BANACH_L_MAX = 57443
+let BANACH_ALPHA = 15346
+let pcd_coherence_divergence(u, n) =
+    let sum_abs = 0
+    let sum_signed = 0
+    let i = 0
+    for i < n
+        let val = u[i]
+        let abs_val = (val < 0 ? 0 - val : val)
+        sum_abs = sum_abs + abs_val
+        sum_signed = sum_signed + val
+        i = i + 1
+    if sum_abs == 0
+        0
+    else
+        let abs_sum = (sum_signed < 0 ? 0 - sum_signed : sum_signed)
+        let ratio = (abs_sum * 65537) / sum_abs
+        65537 - ratio
+let FERMAT_F4 = 65537
+let MERSENNE_M17 = 131071
+let BASE_SCALE = 1024
+let LUCAS_L1 = 1
+let LUCAS_L2 = 3
+let FIBONACCI_ADD = 1
+let verify_22_pattern() =
+    let ok = 1
+    ok = ok * (gf_add(gf_mul(3, 5), gf_sub(7, 2)) == gf_add(15, 5))
+    ok = ok * (gf_mul(7, gf_inv(7)) == 1)
+    ok = ok * (gf_pow(5, 65536) == 1)
+    ok = ok * (field_eval_fractal(100, [50], [7], [N_ATOMIC], 1) == 7)
+    ok = ok * (field_eval_fractal(100, [50], [7], [N_COMPOSITE], 1) == gf_mul(7, gf_inv(50)))
+    ok = ok * (E_STAR == 3989)
+    ok = ok * (K_TOWER == 6883)
+    ok = ok * (P_STAR == 3228)
+    ok = ok * (kleene_fixedpoint_verify(1, 1) == 1)
+    ok = ok * (kleene_fixedpoint_verify(1, 0) == 0)
+    ok = ok * (BANACH_L_MIN < 65537)
+    ok = ok * (BANACH_L_MAX < 65537)
+    ok = ok * (pcd_coherence_divergence([0, 0, 0], 3) == 0)
+    ok = ok * (pcd_coherence_divergence([1, 1], 2) == 0)
+    ok = ok * (pcd_coherence_divergence([1, 0 - 1], 2) == 65537)
+    ok = ok * (FERMAT_F4 == 65537)
+    ok = ok * (MERSENNE_M17 == 131071)
+    ok = ok * (BASE_SCALE == 1024)
+    ok = ok * (LUCAS_L1 == 1)
+    ok = ok * (LUCAS_L2 == 3)
+    ok = ok * (FIBONACCI_ADD == 1)
+    ok = ok * (unify_verify_golden() == 1)
+    ok
+let CRT_P1 = 65537
+let CRT_P2 = 131071
+let crt_reconstruct_17bit(a1, a2) =
+    let diff = a2 - a1
+    if diff < 0
+        let diff_p2 = diff
+        for diff_p2 < 0
+            diff_p2 = diff_p2 + CRT_P2
+        let t = mulmod(diff_p2, invmod(CRT_P1, CRT_P2), CRT_P2)
+        a1 + t * CRT_P1
+    else
+        let t = mulmod(diff, invmod(CRT_P1, CRT_P2), CRT_P2)
+        a1 + t * CRT_P1
+let crt_verify_3channel(r1, r2) =
+    let r2_mod_p1 = r2 % CRT_P1
+    if r1 == r2_mod_p1
+        1
+    else
+        0

@@ -1,0 +1,25 @@
+import "ck.ψ"
+let bad = [0]
+
+let fe = 879
+bad[0] = bad[0] + ck(fe, 875, 885)
+
+let he = 707
+bad[0] = bad[0] + ck(he, 700, 715)
+
+let u = 757
+bad[0] = bad[0] + ck(u, 750, 765)
+
+bad[0] = bad[0] + ck_lo(fe, u)
+bad[0] = bad[0] + ck_lo(u, he)
+
+let qFis = 214
+bad[0] = bad[0] + ck(qFis, 180, 220)
+
+let qA = 43
+bad[0] = bad[0] + ck(qA, 40, 45)
+
+if fe < (he + u) / 2
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

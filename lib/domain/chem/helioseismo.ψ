@@ -1,0 +1,25 @@
+import "ck.ψ"
+let bad = [0]
+
+let per = 300
+bad[0] = bad[0] + ck(per, 290, 310)
+
+let csMax = 500
+bad[0] = bad[0] + ck(csMax, 480, 520)
+
+let tach = 71
+bad[0] = bad[0] + ck(tach, 70, 72)
+
+if 98 * 154 > 157 * 100
+    bad[0] = bad[0] + 1
+if 157 * 100 > 105 * 154
+    bad[0] = bad[0] + 1
+
+let verdict = 1
+if verdict != 1
+    bad[0] = bad[0] + 1
+
+let disc = 1962
+bad[0] = bad[0] + ck(disc, 1960, 1965)
+
+arr_get(arr_new_n(1), bad[0])

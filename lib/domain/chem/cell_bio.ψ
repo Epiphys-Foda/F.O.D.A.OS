@@ -1,0 +1,47 @@
+let bad = [0]
+
+let o_pct = 6500
+let c_pct = 1800
+let h_pct = 1000
+let n_pct = 300
+let ca_pct = 150
+let p_pct = 100
+let d_o = o_pct - 6500
+bad[0] = bad[0] + d_o * d_o
+let d_c = c_pct - 1800
+bad[0] = bad[0] + d_c * d_c
+let d_h = h_pct - 1000
+bad[0] = bad[0] + d_h * d_h
+
+let total_m = 3100000000 * 2 * 34 / 100
+let dna_per_cell = 3100000000 * 2 * 34 / 100
+let dna_nm = 3100000000 * 34 / 100
+let ddna = dna_nm - 1054000000
+bad[0] = bad[0] + ddna * ddna
+
+let h2o = 2 * 1008 + 15999
+let dh2o = h2o - 18015
+bad[0] = bad[0] + dh2o * dh2o
+
+let eco_bp = 4600000
+let eco_da = eco_bp * 660 / 100 / 100 / 100
+let deco = eco_da - 3036
+bad[0] = bad[0] + deco * deco
+
+let deg_sum = 4 + 6 + 2 + 2 + 2 + 2 + 2 + 4 + 2 + 3 + 6 + 2 + 1 + 2 + 4 + 6 + 4 + 1 + 2 + 4
+let ddeg = deg_sum - 61
+bad[0] = bad[0] + ddeg * ddeg
+
+let lo_au = 52400 * 1496
+let num_au = 37200 * 2108
+let hi_au = 52500 * 1496
+let v_au = 0
+let e_au = num_au - lo_au
+if e_au < 0
+    v_au = v_au + 1
+let f_au = hi_au - num_au
+if f_au < 0
+    v_au = v_au + 1
+bad[0] = bad[0] + v_au * v_au
+
+arr_get(arr_new_n(1), bad[0])

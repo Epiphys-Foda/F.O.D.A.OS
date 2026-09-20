@@ -1,0 +1,91 @@
+let pid_new(kp, ki, kd) =
+    [kp, ki, kd, 0, 0, 0]
+
+let pid_set_setpoint(pid, sp) =
+    pid[5] = sp
+    pid
+
+let pid_update(pid, measurement, dt) =
+    let error = pid[5] - measurement
+    let p = pid[0] * error / 1000
+    pid[3] = pid[3] + error * dt / 1000
+    let max_integral = 1000000
+    if pid[3] > max_integral
+        pid[3] = max_integral
+    else
+        0
+    if pid[3] < -max_integral
+        pid[3] = -max_integral
+    let i = pid[1] * pid[3] / 1000
+    let derivative = 0
+    if dt > 0
+        derivative = (error - pid[4]) * 1000 / dt
+    let d = pid[2] * derivative / 1000
+    pid[4] = error
+    p + i + d
+
+let pid_update_clamped(pid, measurement, dt, min_out, max_out) =
+    let output = pid_update(pid, measurement, dt)
+    if output > max_out
+        output = max_out
+    else
+        0
+    if output < min_out
+        output = min_out
+    output
+
+let pid_reset(pid) =
+    pid[3] = 0
+    pid[4] = 0
+    pid
+
+let pid_tune_ziegler_nichols(ku, pu) =
+    let kp = 600 * ku / 1000
+    let ti = 500 * pu / 1000
+    let td = 125 * pu / 1000
+    let ki = kp * 1000 / ti
+    let kd = kp * td / 1000
+    [kp, ki, kd]
+
+let pid_tune_cohen_coon(k, tau, dead_time) =
+    let r = tau / dead_time
+    let kp = (r + 333) * 1000 / k
+    let ti = dead_time * (27 * tau + 10 * dead_time) / (25 * tau + 10 * dead_time)
+    let td = dead_time * tau / (25 * tau + 10 * dead_time) * 10
+    let ki = kp * 1000 / ti
+    let kd = kp * td / 1000
+    [kp, ki, kd]
+
+let cascade_pid(outer_pid, inner_pid, measurement, inner_measurement, dt) =
+    let inner_sp = pid_update(outer_pid, measurement, dt)
+    pid_set_setpoint(inner_pid, inner_sp)
+    pid_update(inner_pid, inner_measurement, dt)
+
+let feedforward(disturbance, k_ff) =
+    k_ff * disturbance / 1000
+
+let two_degree_of_freedom(pid, setpoint, measurement, dt, beta) =
+    let error = setpoint - measurement
+    let sp_weighted = beta * setpoint / 1000
+    let p = pid[0] * (sp_weighted - measurement) / 1000
+    pid[3] = pid[3] + error * dt / 1000
+    let i = pid[1] * pid[3] / 1000
+    let derivative = 0
+    if dt > 0
+        derivative = (error - pid[4]) * 1000 / dt
+    let d = pid[2] * derivative / 1000
+    pid[4] = error
+    p + i + d
+
+let main() =
+    let pid = pid_new(1000, 100, 50)
+    pid = pid_set_setpoint(pid, 1000)
+    let v1 = pid_update(pid, 900, 100)
+    print(v1)
+    let v2 = pid_update(pid, 950, 100)
+    print(v2)
+    let v3 = pid_update(pid, 990, 100)
+    print(v3)
+    let zn = pid_tune_ziegler_nichols(500, 200)
+    print(zn)
+    0

@@ -1,0 +1,30 @@
+import "ck.ψ"
+let bad = [0]
+
+let v = 40
+bad[0] = bad[0] + ck(v, 35, 45)
+let theta = v * 1 * 2 * 573 / 100
+bad[0] = bad[0] + ck(theta, 420, 480)
+
+let rot = 45
+let rtrip = rot + rot - 90
+bad[0] = bad[0] + ck(rtrip, 0, 0)
+let hwp = 45 - 45
+bad[0] = bad[0] + ck(hwp, 0, 0)
+
+let iso = 3 * 10
+bad[0] = bad[0] + ck(iso, 25, 35)
+
+let vratio = 40 * 1000 / 3
+bad[0] = bad[0] + ck(vratio, 10000, 14000)
+
+if 1845 < 1843
+    bad[0] = bad[0] + 1
+if 1845 > 1847
+    bad[0] = bad[0] + 1
+if 1865 < 1863
+    bad[0] = bad[0] + 1
+if 1865 > 1867
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

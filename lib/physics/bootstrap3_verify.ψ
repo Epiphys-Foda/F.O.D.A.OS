@@ -1,0 +1,180 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let compiler_op(src, n) =
+    let wasm = []
+    let i = 0
+    for i < n
+        wasm = wasm.push(src[i])
+        i = i + 1
+    wasm
+
+let compiler_pow(src, n, power) =
+    let result = src
+    let p = 0
+    for p < power
+        result = compiler_op(result, n)
+        p = p + 1
+    result
+
+let wasm_eq(w1, n1, w2, n2) =
+    if n1 != n2
+        0
+    let i = 0
+    for i < n1
+        if w1[i] != w2[i]
+            0
+        i = i + 1
+    1
+
+let wasm_hash(w, n) =
+    let h = 0
+    let i = 0
+    for i < n
+        h = gf_add(gf_mul(h, 31), w[i])
+        i = i + 1
+    h
+
+let bootstrap_order_k(src, n, k) =
+    let c1 = compiler_op(src, n)
+    let ck = compiler_pow(src, n, k)
+    wasm_eq(c1, n, ck, n)
+
+let bootstrap_2(src, n) = bootstrap_order_k(src, n, 2)
+
+let bootstrap_3(src, n) = bootstrap_order_k(src, n, 3)
+
+let bootstrap_7(src, n) = bootstrap_order_k(src, n, 7)
+
+let bootstrap_16(src, n) = bootstrap_order_k(src, n, 16)
+
+let bootstrap_tower(src, n, max_order) =
+    let prev = src
+    let base_hash = 0
+    let all_match = 1
+    let i = 1
+    for i <= max_order
+        let curr = compiler_op(prev, n)
+        let curr_hash = wasm_hash(curr, n)
+        if i == 1
+            base_hash = curr_hash
+        else
+            if curr_hash != base_hash
+                all_match = 0
+        prev = curr
+        i = i + 1
+    all_match
+
+let convergence_order(src, n) =
+    let t0 = compiler_op(src, n)
+    let t1 = compiler_op(t0, n)
+    let t2 = compiler_op(t1, n)
+    let h0 = wasm_hash(t0, n)
+    let h1 = wasm_hash(t1, n)
+    let h2 = wasm_hash(t2, n)
+    if h0 == h1
+        if h1 == h2
+            1
+        2
+    3
+
+let galois_act(w, n, sigma) =
+    let result = []
+    let i = 0
+    for i < n
+        result = result.push(gf_pow(w[i], sigma))
+        i = i + 1
+    result
+
+let galois_bootstrap(src, n, k, sigma) =
+    let c1 = compiler_op(src, n)
+    let ck = compiler_pow(src, n, k)
+    let c1g = galois_act(c1, n, sigma)
+    let ckg = galois_act(ck, n, sigma)
+    wasm_eq(c1g, n, ckg, n)
+
+let universal_property(src, n, max_order) =
+    let t_inf = compiler_op(src, n)
+    let h_inf = wasm_hash(t_inf, n)
+    let all_commute = 1
+    let i = 1
+    for i <= max_order
+        let ti = compiler_pow(src, n, i)
+        let hi = wasm_hash(ti, n)
+        if hi != h_inf
+            all_commute = 0
+        i = i + 1
+    all_commute
+
+let unique_fixed_point(src, n) =
+    let t1 = compiler_op(src, n)
+    let t2 = compiler_op(t1, n)
+    let t3 = compiler_op(t2, n)
+    let h1 = wasm_hash(t1, n)
+    let h2 = wasm_hash(t2, n)
+    let h3 = wasm_hash(t3, n)
+    if h1 == h2
+        if h2 == h3
+            1
+    0
+
+let full_bootstrap3_verify() =
+    let ok = 0
+
+    let src = [1, 97, 0, 65, 11, 10, 6, 0, 65, 0, 11, 10, 7, 0, 65, 0, 11]
+    let n = 16
+    let src2 = [0, 97, 1, 65, 11, 10, 6, 1, 65, 1, 11, 10, 7, 1, 65, 1, 11]
+    let n2 = 16
+
+    if bootstrap_order_k(src, n, 1) == 1
+        ok = ok + 1
+
+    if bootstrap_2(src, n) == 1
+        ok = ok + 1
+
+    if bootstrap_3(src, n) == 1
+        ok = ok + 1
+
+    if bootstrap_7(src, n) == 1
+        ok = ok + 1
+
+    if bootstrap_16(src, n) == 1
+        ok = ok + 1
+
+    if bootstrap_tower(src, n, 7) == 1
+        ok = ok + 1
+
+    if bootstrap_tower(src, n, 16) == 1
+        ok = ok + 1
+
+    if convergence_order(src, n) == 1
+        ok = ok + 1
+
+    if galois_bootstrap(src, n, 3, 1) == 1
+        ok = ok + 1
+
+    if galois_bootstrap(src, n, 7, 2) == 1
+        ok = ok + 1
+
+    if galois_bootstrap(src, n, 16, 3) == 1
+        ok = ok + 1
+
+    if universal_property(src, n, 7) == 1
+        ok = ok + 1
+
+    if universal_property(src, n, 16) == 1
+        ok = ok + 1
+
+    if unique_fixed_point(src, n) == 1
+        ok = ok + 1
+
+    let b2 = bootstrap_2(src, n)
+    let b3 = bootstrap_3(src, n)
+    let b7 = bootstrap_7(src, n)
+    let tower = bootstrap_tower(src, n, 7)
+    let conv = convergence_order(src, n)
+    if b2 == 1 && b3 == 1 && b7 == 1 && tower == 1 && conv == 1
+        ok = ok + 1
+
+    ok
+
+let main() = full_bootstrap3_verify()

@@ -1,0 +1,37 @@
+import "ck.ψ"
+let bad = [0]
+
+let q0 = 1
+let q1 = q0 * 2
+let q2 = q1 * 2
+let q3 = q2 * 2
+let q4 = q3 * 2
+let q5 = q4 * 2
+let q6 = q5 * 2
+let q7 = q6 * 2
+
+let tbE = 40 + 30 * q1
+let tbM = 40 + 30 * q2
+let tbC = 40 + 30 * q3
+let tbJ = 40 + 30 * q4
+let tbU = 40 + 30 * q6
+let tbN = 40 + 30 * q7
+
+if tbE != 100
+    bad[0] = bad[0] + 1
+
+bad[0] = bad[0] + ck(tbM, 148, 164)
+
+bad[0] = bad[0] + ck(tbC, 270, 284)
+
+bad[0] = bad[0] + ck(tbJ, 515, 525)
+
+bad[0] = bad[0] + ck(tbU, 1880, 1970)
+
+if 3007 * 100 > 80 * 3880
+    bad[0] = bad[0] + 1
+
+if 3007 > tbN
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

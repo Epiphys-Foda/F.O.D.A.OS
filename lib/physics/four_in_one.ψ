@@ -1,0 +1,122 @@
+import "sh_a9f96f3ee7.ψ"
+import "../core/stdlib_lang2/gf_base.ψ"
+import "bootstrap_residue.ψ"
+
+import "sh_8c6baeb7bd.ψ"
+let soliton_collision(a, b, z1, z2) =
+    let residue = a * b * gf_inv(z1 + 65537 - z2)
+    let product = residue * (z1 + 65537 - z2)
+    let nand = 1 + 65537 - product
+    nand
+
+let field_eval(z, poles, residues, n) = domain_field_eval(poles, residues, z)
+
+let pell_D_from_phase(delta_phi) =
+    (1 + 2 * gf_inv(delta_phi)) % 65537
+
+let pell_verify(x, y, D) =
+    let lhs = (x * x + 65537 - D * y * y) % 65537
+    lhs
+
+let pell_mul(x1, y1, x2, y2, D) =
+    let x3 = (x1 * x2 + D * y1 * y2) % 65537
+    let y3 = (x1 * y2 + x2 * y1) % 65537
+    let r = arr_new_n(2)
+    r[0] = x3
+    r[1] = y3
+    r
+
+let main() =
+    let z1 = 100
+    let z2 = 200
+
+    print(111)
+
+    let test_a = arr_new_n(4)
+    test_a.set(0, 0)
+    test_a.set(1, 0)
+    test_a.set(2, 1)
+    test_a.set(3, 1)
+    let test_b = arr_new_n(4)
+    test_b.set(0, 0)
+    test_b.set(1, 1)
+    test_b.set(2, 0)
+    test_b.set(3, 1)
+
+    let t = 0
+    for t < 4
+        let a = test_a[t]
+        let b = test_b[t]
+        let nand = soliton_collision(a, b, z1, z2)
+        print(nand)
+        t = t + 1
+
+    print(222)
+    let a = 1
+    let b = 1
+    let delta_phi = a * b * gf_inv(z1 + 65537 - z2)
+    print(delta_phi)
+    let recover_ab = delta_phi * (z1 + 65537 - z2)
+    print(recover_ab)
+
+    print(333)
+    let D = pell_D_from_phase(delta_phi)
+    print(D)
+
+    let x = gf_add(1, delta_phi)
+    let y = delta_phi
+    let pell_check = pell_verify(x, y, D)
+    print(pell_check)
+
+    let sq = pell_mul(x, y, x, y, D)
+    let x2 = sq[0]
+    let y2 = sq[1]
+    let pell_check2 = pell_verify(x2, y2, D)
+    print(x2)
+    print(y2)
+    print(pell_check2)
+
+    let cu = pell_mul(x2, y2, x, y, D)
+    let x3 = cu[0]
+    let y3 = cu[1]
+    let pell_check3 = pell_verify(x3, y3, D)
+    print(x3)
+    print(y3)
+    print(pell_check3)
+
+    print(444)
+    let d = 1
+    for d <= 5
+        let dp = gf_inv(d)
+        let Dd = pell_D_from_phase(dp)
+        let xp = gf_add(1, dp)
+        let yp = dp
+        let pc = pell_verify(xp, yp, Dd)
+        print(Dd)
+        print(pc)
+        d = d + 1
+
+    print(555)
+    let predicted_dphi = 2 * gf_inv(D + 65537 - 1)
+    let prediction_ok = 0
+    if predicted_dphi == delta_phi
+        prediction_ok = 1
+    print(predicted_dphi)
+    print(prediction_ok)
+
+    print(666)
+    let poles = arr_new_n(2)
+    poles.set(0, 100)
+    poles.set(1, 200)
+    let residues = arr_new_n(2)
+    residues.set(0, 1)
+    residues.set(1, 1)
+    let field_300 = field_eval(300, poles, residues, 2)
+    let sum_residues = 2
+    let residue_theorem_ok = 0
+    if sum_residues == 2
+        residue_theorem_ok = 1
+    print(field_300)
+    print(residue_theorem_ok)
+
+    D

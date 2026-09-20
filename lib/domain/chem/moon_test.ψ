@@ -1,0 +1,24 @@
+import "ck.ψ"
+let bad = [0]
+
+let gS = 982
+bad[0] = bad[0] + ck(gS, 970, 995)
+
+let gM = 27
+bad[0] = bad[0] + ck(gM, 25, 29)
+
+let ratio = 3640
+bad[0] = bad[0] + ck(ratio, 3500, 3700)
+
+let dR = 603
+bad[0] = bad[0] + ck(dR, 590, 620)
+
+if dR * dR < 3600 * 100
+    bad[0] = bad[0] + 1
+if dR * dR > 3680 * 100
+    bad[0] = bad[0] + 1
+
+if 27 > gS
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

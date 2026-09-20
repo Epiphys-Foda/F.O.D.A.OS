@@ -1,0 +1,79 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let VORTEX_MAX = 4096
+
+let vortex_create(x, y, strength) = [x, y, strength, 1]
+let vortex_field_create() = [[], 0]
+let vortex_field_add(vf, vortex) =
+    let vortices = vf[0]
+    vortices.push(vortex)
+    [vortices, vf[1] + 1]
+let vortex_velocity(vortex, x, y) =
+    let dx = gf_sub(x, vortex[0])
+    let dy = gf_sub(y, vortex[1])
+    let r_sq = gf_add(gf_mul(dx, dx), gf_mul(dy, dy))
+    let r_sq_safe = gf_add(r_sq, vortex[3])
+    let vx = gf_div(gf_mul(gf_neg(vortex[2]), dy), r_sq_safe)
+    let vy = gf_div(gf_mul(vortex[2], dx), r_sq_safe)
+    [vx, vy]
+let vortex_field_velocity(vf, x, y) =
+    let vortices = vf[0]
+    let vx = 0
+    let vy = 0
+    let i = 0
+    let n = vf[1]
+    for i < n
+        let v = vortex_velocity(vortices[i], x, y)
+        vx = gf_add(vx, v[0])
+        vy = gf_add(vy, v[1])
+        i = i + 1
+    [vx, vy]
+let vorticity(vf, x, y, h) =
+    let v_right = vortex_field_velocity(vf, gf_add(x, h), y)
+    let v_left = vortex_field_velocity(vf, gf_sub(x, h), y)
+    let v_up = vortex_field_velocity(vf, x, gf_add(y, h))
+    let v_down = vortex_field_velocity(vf, x, gf_sub(y, h))
+    let dvx_dy = gf_div(gf_sub(v_up[0], v_down[0]), gf_mul(2, h))
+    let dvy_dx = gf_div(gf_sub(v_right[1], v_left[1]), gf_mul(2, h))
+    gf_sub(dvx_dy, dvy_dx)
+let total_circulation(vf) =
+    let vortices = vf[0]
+    let total = 0
+    let i = 0
+    let n = vf[1]
+    for i < n
+        total = gf_add(total, vortices[i][2])
+        i = i + 1
+    total
+let vortex_merge(v1, v2) =
+    let total_strength = gf_add(v1[2], v2[2])
+    let x = gf_div(gf_add(gf_mul(v1[0], v1[2]), gf_mul(v2[0], v2[2])), total_strength)
+    let y = gf_div(gf_add(gf_mul(v1[1], v1[2]), gf_mul(v2[1], v2[2])), total_strength)
+    [x, y, total_strength, v1[3]]
+let biot_savart(vortex, x, y) =
+    let dx = gf_sub(x, vortex[0])
+    let dy = gf_sub(y, vortex[1])
+    let r_sq = gf_add(gf_add(gf_mul(dx, dx), gf_mul(dy, dy)), 1)
+    [gf_div(gf_mul(gf_neg(vortex[2]), dy), gf_mul(2, r_sq)), gf_div(gf_mul(vortex[2], dx), gf_mul(2, r_sq))]
+let field_vortex(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = gf_sub(z, pole)
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let vortex_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_vortex(test_data, 3, 500)
+    let ok = 0
+    if result != 0
+        ok = 1
+    else
+        ok = 0
+    ok

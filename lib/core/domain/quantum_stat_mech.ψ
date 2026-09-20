@@ -1,0 +1,169 @@
+import "../stdlib/gf65537.ψ"
+
+let gibbs_weight(energy, beta, r_base) =
+    let exponent = gf_mul(beta, energy)
+    gf_inv(gf_pow(r_base, exponent))
+
+let partition_function(energies, beta, r_base) =
+    let z = 0
+    for n in 0..len(energies)
+        z = gf_add(z, gibbs_weight(energies[n], beta, r_base))
+    z
+
+let gibbs_state(energies, beta, r_base) =
+    let z = partition_function(energies, beta, r_base)
+    let rho = [0] * len(energies)
+    for n in 0..len(energies)
+        let w = gibbs_weight(energies[n], beta, r_base)
+        rho[n] = gf_div(w, z)
+    rho
+
+let free_energy_algebraic(z, temperature) =
+    let rank = (z == 0 ? 0 : 1)
+    gf_neg(gf_mul(temperature, rank))
+
+let free_energy_from_spectrum(energies, beta, r_base, temperature) =
+    let z = partition_function(energies, beta, r_base)
+    free_energy_algebraic(z, temperature)
+
+let entropy_algebraic(rho) =
+    let rank = 0
+    for n in 0..len(rho)
+        if rho[n] != 0
+            rank = rank + 1
+    rank
+
+let boltzmann_entropy_algebraic(n_microstates) =
+    n_microstates
+
+let max_entropy_algebraic(energies, target_energy, beta_max, r_base) =
+    let best_s = 0
+    let best_beta = 0
+    for beta in 0..beta_max
+        let rho = gibbs_state(energies, beta, r_base)
+        let s = entropy_algebraic(rho)
+        if s > best_s
+            best_s = s
+            best_beta = beta
+    [best_s, best_beta]
+
+let kms_condition_check(omega, a, b, delta, t) =
+    let sigma_t_b = gf_mul(gf_mul(gf_pow(delta, t), b), gf_inv(gf_pow(delta, t)))
+    let lhs = gf_mul(omega, gf_mul(a, sigma_t_b))
+    let rhs = gf_mul(omega, gf_mul(b, a))
+    (lhs == rhs ? 1 : 0)
+
+let kms_state(energies, beta, r_base) =
+    gibbs_state(energies, beta, r_base)
+
+let modular_hamiltonian(delta) =
+    gf_neg((delta == 0 ? 0 : 1))
+
+let microcanonical_ensemble(energies, target_energy) =
+    let count = 0
+    for n in 0..len(energies)
+        if energies[n] == target_energy
+            count = count + 1
+    let inv_count = gf_inv(count)
+    let rho = [0] * len(energies)
+    for n in 0..len(energies)
+        if energies[n] == target_energy
+            rho[n] = inv_count
+    rho
+
+let canonical_ensemble(energies, beta, r_base) =
+    gibbs_state(energies, beta, r_base)
+
+let grand_canonical_ensemble(energies, beta, mu, n_max, r_base) =
+    let xi = 0
+    for n in 0..n_max
+        let z_n = gf_pow(r_base, gf_mul(gf_mul(beta, mu), n))
+        let z_n_part = gibbs_weight(energies[n], beta, r_base)
+        xi = gf_add(xi, gf_mul(z_n, z_n_part))
+    xi
+
+let grand_potential_algebraic(xi, temperature) =
+    free_energy_algebraic(xi, temperature)
+
+let phase_transition_detect(f_before, f_after) =
+    (f_before != f_after ? 1 : 0)
+
+let first_order_transition(f_prev, f_curr, f_next) =
+    let slope_before = gf_sub(f_curr, f_prev)
+    let slope_after = gf_sub(f_next, f_curr)
+    (slope_before != slope_after ? 1 : 0)
+
+let second_order_transition(f_prev, f_curr, f_next, f_next2) =
+    let d2_before = gf_sub(gf_add(f_prev, f_next), gf_mul(2, f_curr))
+    let d2_after = gf_sub(gf_add(f_curr, f_next2), gf_mul(2, f_next))
+    (d2_before != d2_after ? 1 : 0)
+
+let critical_temperature(temperatures, free_energies) =
+    for t in 1..len(temperatures)
+        if phase_transition_detect(free_energies[t - 1], free_energies[t]) == 1
+            temperatures[t]
+    0
+
+let critical_exponent(observable, t, t_critical, exponent) =
+    let dt = gf_sub(t, t_critical)
+    let dt_abs = (dt > 32768 ? gf_neg(dt) : dt)
+    gf_inv(gf_pow(dt_abs, exponent))
+
+let rushbrooke_scaling(alpha, beta, gamma) =
+    let lhs = gf_add(gf_add(alpha, gf_mul(2, beta)), gamma)
+    (lhs == 2 ? 1 : 0)
+
+let fisher_scaling(gamma, nu, eta) =
+    let rhs = gf_mul(nu, gf_sub(2, eta))
+    (gamma == rhs ? 1 : 0)
+
+let susceptibility_algebraic(beta, m_squared) =
+    gf_mul(beta, m_squared)
+
+let heat_capacity_algebraic(e_at_t1, e_at_t2, t1, t2) =
+    gf_div(gf_sub(e_at_t2, e_at_t1), gf_sub(t2, t1))
+
+let energy_fluctuation(e_squared, e_mean_squared) =
+    gf_sub(e_squared, e_mean_squared)
+
+let onsager_reciprocity(l_matrix, i, j) =
+    (l_matrix[i][j] == l_matrix[j][i] ? 1 : 0)
+
+let onsager_matrix(l11, l12, l22) =
+    [
+        [l11, l12],
+        [l12, l22]
+    ]
+
+let internal_energy(energies, rho) =
+    let e = 0
+    for n in 0..len(energies)
+        e = gf_add(e, gf_mul(rho[n], energies[n]))
+    e
+
+let helmholtz_free_energy(energy, temperature, entropy) =
+    gf_sub(energy, gf_mul(temperature, entropy))
+
+let gibbs_free_energy(f, pressure, volume) =
+    gf_add(f, gf_mul(pressure, volume))
+
+let grand_potential(f, mu, n_particles) =
+    gf_sub(f, gf_mul(mu, n_particles))
+
+let chemical_potential(f_at_n, f_at_n_plus_1) =
+    gf_sub(f_at_n_plus_1, f_at_n)
+
+let correlation_function(distance, xi, r_base) =
+    let exponent = gf_div(distance, xi)
+    gf_inv(gf_pow(r_base, exponent))
+
+let correlation_length(t, t_critical, nu, r_base) =
+    let dt = gf_sub(t, t_critical)
+    let dt_abs = (dt > 32768 ? gf_neg(dt) : dt)
+    gf_inv(gf_pow(dt_abs, nu))
+
+let thermodynamic_limit() =
+    65536
+
+let finite_volume_phase_transition(f_before, f_after) =
+    phase_transition_detect(f_before, f_after)

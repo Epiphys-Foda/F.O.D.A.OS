@@ -1,0 +1,46 @@
+import "ck.ψ"
+let bad = [0]
+
+let cop_h = 293 * 100 / 20
+let dz1 = cop_h - 1465
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let cop_c = 273 * 100 / 20
+let dz2 = cop_c - 1365
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let gain = cop_h - cop_c
+let dz3 = gain - 100
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let eta = 20 * 1000 / 293
+let dz4 = eta - 68
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let idem = 293 * 20
+let dz5 = idem - 20 * 293
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let delivered = 4000
+let socket = delivered / 4
+let dz6 = socket - 1000
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+let res = 1000 / 1000
+let dz7 = res - 1
+bad[0] = bad[0] + ck(dz7, 0, 0)
+
+let bill = 300 / 4
+let dz8 = bill - 75
+bad[0] = bad[0] + ck(dz8, 0, 0)
+
+if 1824 < 1822
+    bad[0] = bad[0] + 1
+if 1824 > 1826
+    bad[0] = bad[0] + 1
+if 1852 < 1850
+    bad[0] = bad[0] + 1
+if 1852 > 1854
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

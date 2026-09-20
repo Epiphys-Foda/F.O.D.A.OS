@@ -1,0 +1,294 @@
+import "sh_a9f96f3ee7.ψ"
+import "../core/stdlib/arr.ψ"
+import "../core/stdlib/gf65537.ψ"
+import "bootstrap_residue.ψ"
+
+let _fft_pow(base, exp, acc) =
+    if exp == 0
+      acc
+    else
+        0
+    if (exp & 1) == 1
+      _fft_pow(gfmul(base, base), exp >> 1, gfmul(acc, base))
+    else
+      _fft_pow(gfmul(base, base), exp >> 1, acc)
+let fft_root(n) = _fft_pow(3, 65536 / n, 1)
+
+let _ntt_inner(x, n, w, k, j, acc) =
+      if j >= n
+        acc
+      else
+        let wjk = _fft_pow(w, j * k, 1)
+        let term = gfmul(x[j], wjk)
+        _ntt_inner(x, n, w, k, j + 1, (acc + term) % 65537)
+let _ntt_outer(x, n, w, k, X) =
+      if k >= n
+        X
+      else
+        X[k] = _ntt_inner(x, n, w, k, 0, 0)
+        _ntt_outer(x, n, w, k + 1, X)
+let ntt(x, n) =
+    let w = fft_root(n)
+    let X = arr_new_n(n)
+    _ntt_outer(x, n, w, 0, X)
+    X
+
+let ntt_into(x, n, out) =
+    let X = ntt(x, n)
+    let _cp = _fft_copy_to(X, out, n, 0)
+let _fft_copy_to(src, dst, n, i) =
+    if i >= n
+      dst
+    else
+      dst[i] = src[i]
+      _fft_copy_to(src, dst, n, i + 1)
+let intt_into(X, n, out) =
+    let x = intt(X, n)
+    let _cp = _fft_copy_to(x, out, n, 0)
+
+let _intt_inner(X, n, w_inv, j, k, acc) =
+      if k >= n
+        acc
+      else
+        let wjk = _fft_pow(w_inv, j * k, 1)
+        let term = gfmul(X[k], wjk)
+        _intt_inner(X, n, w_inv, j, k + 1, (acc + term) % 65537)
+let _intt_outer(X, n, w_inv, n_inv, j, x) =
+      if j >= n
+        x
+      else
+        x[j] = gfmul(n_inv, _intt_inner(X, n, w_inv, j, 0, 0))
+        _intt_outer(X, n, w_inv, n_inv, j + 1, x)
+let intt(X, n) =
+    let w = fft_root(n)
+    let w_inv = gfinv(w)
+    let n_inv = gfinv(n)
+    let x = arr_new_n(n)
+    _intt_outer(X, n, w_inv, n_inv, 0, x)
+    x
+
+let cyclic_convolve(a, b, n) =
+    let A = ntt(a, n)
+    let B = ntt(b, n)
+    let C = arr_new_n(n)
+    _convolve_pointwise(A, B, C, n, 0)
+    intt(C, n)
+let _convolve_pointwise(A, B, C, n, i) =
+      if i >= n
+        C
+      else
+        C[i] = gfmul(A[i], B[i])
+        _convolve_pointwise(A, B, C, n, i + 1)
+
+let _ntt_with_w_inner(x, n, w, k, j, acc) =
+    if j >= n
+      acc
+    else
+      let wjk = _fft_pow(w, j * k, 1)
+      let term = gfmul(x[j], wjk)
+      _ntt_with_w_inner(x, n, w, k, j + 1, (acc + term) % 65537)
+let _ntt_with_w_outer(x, n, w, k, X) =
+    if k >= n
+      X
+    else
+      X[k] = _ntt_with_w_inner(x, n, w, k, 0, 0)
+      _ntt_with_w_outer(x, n, w, k + 1, X)
+let ntt_with_w(x, n, w) =
+    let X = arr_new_n(n)
+    _ntt_with_w_outer(x, n, w, 0, X)
+    X
+
+let ntt_transform(x) = ntt(x, arr_len(x))
+let intt_transform(X) = intt(X, arr_len(X))
+
+let _bit_reverse(x, n) =
+    let result = arr_new_n(n)
+    _bit_rev_copy(x, result, n, 0)
+    result
+let _bit_rev_copy(src, dst, n, i) =
+    if i >= n
+      dst
+    else
+      dst[i] = src[_rev_bits(i, n)]
+      _bit_rev_copy(src, dst, n, i + 1)
+let _rev_bits(i, n) = _rev_acc(i, n >> 1, 0, n >> 1)
+let _rev_acc(i, n, rev, bits) =
+    if bits == 0
+      rev
+    else
+      let new_rev = (rev << 1) | (i & 1)
+      _rev_acc(i >> 1, n >> 1, new_rev, bits >> 1)
+let ntt_butterfly(a, invert) =
+    let n = arr_len(a)
+    let x = _bit_reverse(a, n)
+    _ntt_butterfly_stages(x, n, 1, invert)
+    if invert == 1
+      _ntt_butterfly_scale_inv(x, n, 0)
+      x
+    else
+      x
+let _ntt_butterfly_stages(x, n, len, invert) =
+    if len > n
+      x
+    else
+      let wlen = _fft_pow(3, 65536 / len, 1)
+      let wlen_final = (invert == 1 ? gfinv(wlen) : wlen)
+      _ntt_butterfly_one_stage(x, n, len, wlen_final, 0)
+      _ntt_butterfly_stages(x, n, len * 2, invert)
+let _ntt_butterfly_one_stage(x, n, len, wlen, i2) =
+    if i2 >= n
+      x
+    else
+      _ntt_butterfly_inner(x, n, len, wlen, i2, 1, 0)
+      _ntt_butterfly_one_stage(x, n, len, wlen, i2 + len * 2)
+let _ntt_butterfly_inner(x, n, len, wlen, i2, w, j2) =
+    if j2 >= len / 2
+      x
+    else
+      let u = x[i2 + j2]
+      let v = gfmul(w, x[i2 + j2 + len / 2])
+      x[i2 + j2] = gfadd(u, v)
+      x[i2 + j2 + len / 2] = gfsub(u, v)
+      let new_w = gfmul(w, wlen)
+      _ntt_butterfly_inner(x, n, len, wlen, i2, new_w, j2 + 1)
+let _ntt_butterfly_scale_inv(x, n, i) =
+    if i >= n
+      x
+    else
+      let n_inv = gfinv(n)
+      x[i] = gfmul(x[i], n_inv)
+      _ntt_butterfly_scale_inv(x, n, i + 1)
+
+let test_fft() =
+    let w = fft_root(4)
+    assert_eq(_fft_pow(w, 4, 1), 1)
+    let x = arr_new_n(4)
+    x[0] = 1
+    x[1] = 2
+    x[2] = 3
+    x[3] = 4
+    let X = ntt(x, 4)
+    let x_rec = intt(X, 4)
+    assert_eq(x_rec[0], 1)
+    assert_eq(x_rec[1], 2)
+    assert_eq(x_rec[2], 3)
+    assert_eq(x_rec[3], 4)
+    0
+
+let vec_add(a, b, n) =
+    let r = arr_new_n(n)
+    let i = 0
+    for i < n
+        r[i] = (a[i] + b[i]) % 65537
+        i = i + 1
+    r
+
+let vec_scale(a, s, n) =
+    let r = arr_new_n(n)
+    let i = 0
+    for i < n
+        r[i] = a[i] * s
+        i = i + 1
+    r
+
+let vec_eq(a, b, n) =
+    let ok = 1
+    let i = 0
+    for i < n
+        if a[i] != b[i]
+            ok = 0
+        i = i + 1
+    ok
+
+let main() =
+    let x = arr_new_n(8)
+    x[0] = 65
+    x[1] = 42
+    x[2] = 65
+    x[3] = 58
+    x[4] = 106
+    x[5] = 65
+    x[6] = 0
+    x[7] = 70
+
+    let w = gf_pow(3, 8192)
+    let inv4 = gf_inv(4)
+    let img = 256
+    let neg = 65536
+
+    let sqrtN = 8160
+    let check_sqrt = sqrtN * sqrtN
+    print(check_sqrt)
+
+    let inv_sqrtN = gf_inv(sqrtN)
+    let inv_N = gf_inv(8)
+
+    let x0 = x
+    let x1 = ntt_with_w(x0, 8, w)
+    let x2 = ntt_with_w(x1, 8, w)
+    let x3 = ntt_with_w(x2, 8, w)
+    let x4 = ntt_with_w(x3, 8, w)
+
+    let x4_expected = vec_scale(x0, 64, 8)
+    let ntt4_ok = vec_eq(x4, x4_expected, 8)
+    print(ntt4_ok)
+
+    let nx0 = x0
+    let nx1 = vec_scale(x1, inv_sqrtN, 8)
+    let nx2 = vec_scale(x2, inv_N, 8)
+    let nx3 = vec_scale(x3, inv_N * inv_sqrtN, 8)
+
+    let s01 = vec_add(nx0, nx1, 8)
+    let s23 = vec_add(nx2, nx3, 8)
+    let s0123 = vec_add(s01, s23, 8)
+    let fp = vec_scale(s0123, inv4, 8)
+
+    let ntt_fp = ntt_with_w(fp, 8, w)
+    let sqrtN_fp = vec_scale(fp, sqrtN, 8)
+    let is_fixed = vec_eq(ntt_fp, sqrtN_fp, 8)
+    print(is_fixed)
+
+    let i = 0
+    for i < 8
+        print(fp[i])
+        i = i + 1
+
+    let neg_nx1 = vec_scale(nx1, neg, 8)
+    let neg_nx3 = vec_scale(nx3, neg, 8)
+    let sn01 = vec_add(nx0, neg_nx1, 8)
+    let sn23 = vec_add(nx2, neg_nx3, 8)
+    let p_neg1 = vec_scale(vec_add(sn01, sn23, 8), inv4, 8)
+
+    let ntt_pn1 = ntt_with_w(p_neg1, 8, w)
+    let neg_sqrtN_pn1 = vec_scale(p_neg1, neg * sqrtN, 8)
+    let is_eig_neg1 = vec_eq(ntt_pn1, neg_sqrtN_pn1, 8)
+    print(is_eig_neg1)
+
+    let neg_img = 65281
+    let i_nx1 = vec_scale(nx1, neg_img, 8)
+    let neg_nx2 = vec_scale(nx2, neg, 8)
+    let i_nx3 = vec_scale(nx3, img, 8)
+    let pi_s = vec_add(vec_add(nx0, i_nx1, 8), vec_add(neg_nx2, i_nx3, 8), 8)
+    let p_i = vec_scale(pi_s, inv4, 8)
+
+    let ntt_pi = ntt_with_w(p_i, 8, w)
+    let i_sqrtN_pi = vec_scale(p_i, img * sqrtN, 8)
+    let is_eig_i = vec_eq(ntt_pi, i_sqrtN_pi, 8)
+    print(is_eig_i)
+
+    let p1_pn1 = vec_add(fp, p_neg1, 8)
+    let p1_pn1_pi = vec_add(p1_pn1, p_i, 8)
+    let p_mi = vec_add(nx0, vec_scale(p1_pn1_pi, neg, 8), 8)
+    let recon = vec_add(vec_add(fp, p_neg1, 8), vec_add(p_i, p_mi, 8), 8)
+    let decomp_ok = vec_eq(recon, nx0, 8)
+    print(decomp_ok)
+
+    let fp_energy = 0
+    let j = 0
+    for j < 8
+        let v = fp[j]
+        fp_energy = fp_energy + v * v
+        j = j + 1
+    print(fp_energy)
+
+    w

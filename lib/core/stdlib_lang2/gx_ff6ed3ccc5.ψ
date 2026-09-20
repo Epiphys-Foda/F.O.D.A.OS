@@ -1,0 +1,36 @@
+let frozen8_perdrift2(YY, n, P, K) =
+    let D = YY[n - 1] - 2 * YY[n - 1 - P] + YY[n - 1 - 2 * P]
+    let W = arr_new_n(n + K)
+    let i = 0
+    for i < n
+        W[i] = YY[i]
+        i = i + 1
+    let ok = 1
+    let k = 0
+    for k < K
+        let idx = n + k
+        let own1 = 0
+        if idx - P >= n
+            own1 = 1
+        let s1 = 0
+        if own1 == 0
+            s1 = YY[idx - P]
+        if own1 == 1
+            s1 = W[idx - P]
+        let own2 = 0
+        if idx - 2 * P >= n
+            own2 = 1
+        let s2 = 0
+        if own2 == 0
+            s2 = YY[idx - 2 * P]
+        if own2 == 1
+            s2 = W[idx - 2 * P]
+        let pred = 2 * s1 - s2 + D
+        W[idx] = pred
+        let bad = 0
+        if rel_permille(pred, 1, YY[idx]) > QTOL
+            bad = 1
+        ok = ok * (1 - bad)
+        k = k + 1
+    ok
+

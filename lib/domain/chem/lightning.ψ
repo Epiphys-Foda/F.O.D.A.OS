@@ -1,0 +1,35 @@
+import "ck.ψ"
+let bad = [0]
+
+let s = 3
+let dist_m = 1020
+let dz1 = dist_m - s * 340
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let sound_us = 3000000
+let light_us = 3
+if sound_us < light_us * 100000
+    bad[0] = bad[0] + 1
+
+let e_break = 30
+bad[0] = bad[0] + ck(e_break, 25, 35)
+let v_cloud = 100
+bad[0] = bad[0] + ck(v_cloud, 50, 200)
+
+let i_ka = 30
+bad[0] = bad[0] + ck(i_ka, 10, 50)
+let t_ch = 30000
+let t_sun = 5778
+if t_ch < t_sun * 5
+    bad[0] = bad[0] + 1
+
+if 1752 < 1750
+    bad[0] = bad[0] + 1
+if 1752 > 1754
+    bad[0] = bad[0] + 1
+if 1753 < 1752
+    bad[0] = bad[0] + 1
+if 1753 > 1755
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

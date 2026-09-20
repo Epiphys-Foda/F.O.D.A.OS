@@ -1,0 +1,102 @@
+import "../stdlib/gf65537.ψ"
+
+let qsim_init(n_qubits) =
+    let n = 1
+    let size = _qsim_pow2(n_qubits)
+    let state = arr_new_n(size)
+    state[0] = 1
+    state
+let _qsim_pow2(k) =
+    (k <= 0 ? 1 : 2 * _qsim_pow2(k - 1))
+
+let _qsim_x_loop(state, size, q, i) =
+      if i >= size
+        state
+      else
+        let mask = 1 << q
+        if (i & mask) == 0
+          let j = i | mask
+          let tmp = state[i]
+          state[i] = state[j]
+          state[j] = tmp
+        _qsim_x_loop(state, size, q, i + 1)
+let qsim_x(state, size, q) = _qsim_x_loop(state, size, q, 0)
+
+let _qsim_z_loop(state, size, q, i) =
+      if i >= size
+        state
+      else
+        let mask = 1 << q
+        if (i & mask) != 0
+          state[i] = gf_neg(state[i])
+        _qsim_z_loop(state, size, q, i + 1)
+let qsim_z(state, size, q) = _qsim_z_loop(state, size, q, 0)
+
+let _qsim_h_loop(state, size, q, h, i) =
+      if i >= size
+        state
+      else
+        let mask = 1 << q
+        if (i & mask) == 0
+          let j = i | mask
+          let a = state[i]
+          let b = state[j]
+          let sum = gf_add(a, b)
+          let diff = gf_sub(a, b)
+          state[i] = gf_mul(sum, h)
+          state[j] = gf_mul(diff, h)
+        _qsim_h_loop(state, size, q, h, i + 1)
+let qsim_h(state, size, q) =
+    let sqrt2 = gf_tonelli_shanks(2)
+    let h = gf_inv(sqrt2)
+    _qsim_h_loop(state, size, q, h, 0)
+
+let _qsim_cnot_loop(state, size, ctrl, targ, i) =
+      if i >= size
+        state
+      else
+        let cmask = 1 << ctrl
+        let tmask = 1 << targ
+        if (i & cmask) != 0
+          if (i & tmask) != 0
+            let j = i ^ tmask
+            let tmp = state[i]
+            state[i] = state[j]
+            state[j] = tmp
+        _qsim_cnot_loop(state, size, ctrl, targ, i + 1)
+let qsim_cnot(state, size, ctrl, targ) = _qsim_cnot_loop(state, size, ctrl, targ, 0)
+
+let _qsim_prob_loop(state, size, q, i, acc) =
+      if i >= size
+        acc
+      else
+        let mask = 1 << q
+        if (i & mask) != 0
+          let amp = state[i]
+          let prob = gf_mul(amp, amp)
+          _qsim_prob_loop(state, size, q, i + 1, gf_add(acc, prob))
+        else
+          _qsim_prob_loop(state, size, q, i + 1, acc)
+let qsim_measure_prob(state, size, q) = _qsim_prob_loop(state, size, q, 0, 0)
+
+let _qsim_entangled_loop(state, size, i, is_classical) =
+      if i >= size
+        is_classical
+      else
+        let a = state[i]
+        let classical = (a == 0 || a == 1) ? 1 : 0
+        _qsim_entangled_loop(state, size, i + 1, is_classical & classical)
+let qsim_is_entangled(state, size) =
+    let classical = _qsim_entangled_loop(state, size, 0, 1)
+    (classical == 1 ? 0 : 1)
+
+let test_quantum_sim() =
+    let state = qsim_init(1)
+    assert_eq(state[0], 1)
+    assert_eq(state[1], 0)
+    qsim_x(state, 2, 0)
+    assert_eq(state[0], 0)
+    assert_eq(state[1], 1)
+    qsim_z(state, 2, 0)
+    assert_eq(state[1], 65536)
+    0

@@ -1,0 +1,103 @@
+import "pe_dispatch.ψ"
+import "dag_scheduler.ψ"
+
+let dag_view_abstract(dag) =
+    let result = []
+    let i = 0
+    let n = dag.node_count
+    let done = false
+    for !done
+      if i < n
+        let node = dag.nodes[i]
+        result = result.push(node.opcode)
+        i = i + 1
+      else
+        done = true
+    result
+
+let dag_role_derive(dag, node_id) =
+    let in_deg = 0
+    let out_deg = 0
+    let ei = 0
+    let en = dag.len(edges)
+    let done = false
+    for !done
+      if ei < en
+        let e = dag.edges[ei]
+        if e.dst_node == node_id
+          in_deg = in_deg + 1
+        else
+          0
+        if e.src_node == node_id
+          out_deg = out_deg + 1
+        else
+          0
+        ei = ei + 1
+      else
+        done = true
+    if in_deg == 0
+        "source"
+    else
+      if out_deg == 0
+          "sink"
+      else
+          "compute"
+
+let dag_view_cgra(dag) =
+    let result = []
+    let i = 0
+    let n = dag.node_count
+    let done = false
+    for !done
+      if i < n
+        let node = dag.nodes[i]
+        let role = dag_role_derive(dag, i)
+        result = result.push({ pe_id: i, pe_type: node.pe_type, opcode: node.opcode, role: role })
+        i = i + 1
+      else
+        done = true
+    result
+
+let dag_view_backend(dag) =
+    let result = []
+    let i = 0
+    let n = dag.node_count
+    let done = false
+    for !done
+      if i < n
+        let node = dag.nodes[i]
+        result = result.push({ node_id: i, backend: pe_dispatch(node.opcode) })
+        i = i + 1
+      else
+        done = true
+    result
+
+let dag_to_linear(dag) =
+    let depth = sched_depth_arr(dag)
+    let max_depth = sched_critical_path(dag)
+    let result = []
+    let k = 1
+    let done = false
+    for !done
+      if k <= max_depth
+        let layer = sched_layer_nodes(dag, depth, k)
+        result = [result, layer].flat()
+        k = k + 1
+      else
+        done = true
+    result
+
+let dag_cgra_export(dag) =
+    let pes = dag_view_cgra(dag)
+    let fifos = []
+    let ei = 0
+    let en = dag.len(edges)
+    let done = false
+    for !done
+      if ei < en
+        let e = dag.edges[ei]
+        fifos = fifos.push({ fifo_id: ei, src_pe: e.src_node, dst_pe: e.dst_node, depth: e.fifo_depth })
+        ei = ei + 1
+      else
+        done = true
+    { pe_count: len(pes), fifo_count: len(fifos), pes: pes, fifos: fifos }

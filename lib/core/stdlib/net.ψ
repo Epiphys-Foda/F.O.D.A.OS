@@ -1,0 +1,140 @@
+import "str.ψ"
+
+let url_parse(url) =
+    let protocol = ""
+    let host = ""
+    let port = 80
+    let path = "/"
+    let colon_slash = str_find(url, "://")
+    if colon_slash >= 0
+        protocol = str_substring(url, 0, colon_slash)
+        let rest = str_substring(url, colon_slash + 3, url.len() - colon_slash - 3)
+        let colon = str_find(rest, ":")
+        let slash = str_find(rest, "/")
+        if colon >= 0 && (slash < 0 || colon < slash)
+            host = str_substring(rest, 0, colon)
+            let after_colon = str_substring(rest, colon + 1, rest.len() - colon - 1)
+            let slash2 = str_find(after_colon, "/")
+            if slash2 >= 0
+                port = str_to_int(str_substring(after_colon, 0, slash2))
+                path = str_substring(after_colon, slash2, after_colon.len() - slash2)
+            else
+                port = str_to_int(after_colon)
+        else
+            0
+        if slash >= 0
+            host = str_substring(rest, 0, slash)
+            path = str_substring(rest, slash, rest.len() - slash)
+        else
+            host = rest
+    [protocol, host, port, path]
+
+let http_get(url) =
+    host_call(40, url)
+
+let http_post(url, body) =
+    host_call(41, url, body)
+
+let http_put(url, body) =
+    host_call(42, url, body)
+
+let http_delete(url) =
+    host_call(43, url)
+
+let http_head(url) =
+    host_call(44, url)
+
+let socket_connect(host, port) =
+    host_call(50, host, port)
+
+let socket_send(sock, data) =
+    host_call(51, sock, data)
+
+let socket_recv(sock, n) =
+    host_call(52, sock, n)
+
+let socket_close(sock) =
+    host_call(53, sock)
+
+let url_encode(s) =
+    let result = ""
+    let i = 0
+    for i < s.len()
+        let c = str_char_at(s, i)
+        if c == " "
+            result = str_append(result, "%20")
+        else
+            0
+        if c == "/"
+            result = str_append(result, "%2F")
+        else
+            0
+        if c == "?"
+            result = str_append(result, "%3F")
+        else
+            0
+        if c == "&"
+            result = str_append(result, "%26")
+        else
+            0
+        if c == "="
+            result = str_append(result, "%3D")
+        else
+            result = str_append(result, str_from_char(c))
+        i = i + 1
+    result
+
+let url_decode(s) =
+    let result = ""
+    let i = 0
+    for i < s.len()
+        let c = str_char_at(s, i)
+        if c == "%" && i + 2 < s.len()
+            let hex = str_substring(s, i + 1, 2)
+            if hex == "20"
+                result = str_append(result, " ")
+            else
+                0
+            if hex == "2F"
+                result = str_append(result, "/")
+            else
+                0
+            if hex == "3F"
+                result = str_append(result, "?")
+            else
+                0
+            if hex == "26"
+                result = str_append(result, "&")
+            else
+                0
+            if hex == "3D"
+                result = str_append(result, "=")
+            else
+                result = str_append(result, str_from_char(c))
+            i = i + 2
+        else
+            result = str_append(result, str_from_char(c))
+        i = i + 1
+    result
+
+let query_string_parse(qs) =
+    let result = []
+    let pairs = str_split(qs, "&")
+    let i = 0
+    for i < pairs.len()
+        let kv = str_split(pairs[i], "=")
+        result = arr_concat(result, [kv[0]])
+        if kv.len() > 1
+            result = arr_concat(result, [kv[1]])
+        else
+            result = arr_concat(result, [""])
+        i = i + 1
+    result
+
+let main() =
+    let url = "http://localhost:8080/api/test"
+    let parsed = url_parse(url)
+    print(parsed)
+    let encoded = url_encode("hello world?foo=bar")
+    print(encoded)
+    0

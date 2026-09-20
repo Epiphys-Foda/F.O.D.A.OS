@@ -1,0 +1,97 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let TRAIN_MAX_EPOCHS = 65536
+let TRAIN_BATCH_SIZE = 32
+
+let opt_sgd(lr) = [1, lr, 0, []]
+let opt_momentum(lr, momentum) = [2, lr, momentum, []]
+let opt_adam(lr) = [3, lr, 0, [0, 0, 1]]
+let opt_step(optimizer, grad) =
+    let opt_type = optimizer[0]
+    let lr = optimizer[1]
+    if opt_type == 1
+        gf_mul(lr, grad)
+    if opt_type == 2
+        let state = optimizer[3]
+        let vel = gf_mul(optimizer[2], state[0])
+        vel = gf_add(vel, grad)
+        let new_state = [vel]
+        gf_mul(lr, vel)
+    if opt_type == 3
+        let state = optimizer[3]
+        let m = gf_add(gf_mul(9, state[0]), gf_mul(1, grad))
+        let v = gf_add(gf_mul(999, state[1]), gf_mul(1, gf_mul(grad, grad)))
+        let t = state[2] + 1
+        let m_hat = gf_div(m, gf_sub(1, gf_pow(9, t)))
+        let v_hat = gf_div(v, gf_sub(1, gf_pow(999, t)))
+        gf_div(gf_mul(lr, m_hat), gf_add(gf_sqrt(v_hat), 1))
+    gf_mul(lr, grad)
+let loss_mse(pred, target) =
+    let diff = gf_sub(pred, target)
+    gf_mul(diff, diff)
+let loss_mse_batch(preds, targets) =
+    let total = 0
+    let i = 0
+    let n = len(preds)
+    for i < n
+        total = gf_add(total, loss_mse(preds[i], targets[i]))
+        i = i + 1
+    gf_div(total, n)
+let loss_cross_entropy(pred, target) =
+    gf_neg(gf_mul(target, gf_inv(pred)))
+let loss_hinge(pred, target) =
+    let margin = gf_sub(1, gf_mul(target, pred))
+    (margin > 0 ? margin : 0)
+let train_step(state, data, labels) =
+    let model = state[0]
+    let optimizer = state[1]
+    let lr = state[2]
+    let i = 0
+    let n = len(data)
+    let total_loss = 0
+    for i < n
+        let pred = model[0]
+        let loss = loss_mse(pred, labels[i])
+        total_loss = gf_add(total_loss, loss)
+        let grad = gf_sub(pred, labels[i])
+        let update = opt_step([optimizer, lr, 0, []], grad)
+        model[0] = gf_sub(model[0], update)
+        i = i + 1
+    [model, optimizer, lr, state[3] + 1, gf_div(total_loss, n)]
+let train_loop(state, data, labels, epochs) =
+    let s = state
+    let e = 0
+    for e < epochs
+        s = train_step(s, data, labels)
+        e = e + 1
+    s
+let lr_schedule_constant(lr, step) = lr
+let lr_schedule_linear(lr, step, max_steps) = gf_mul(lr, gf_sub(1, gf_div(step, max_steps)))
+let lr_schedule_cosine(lr, step, max_steps) =
+    let progress = gf_div(step, max_steps)
+    gf_div(gf_add(lr, gf_mul(lr, gf_sub(1, gf_mul(2, progress)))), 2)
+let train_field_sculpt(weights, targets, n, lr) =
+    let new_weights = arr_new_n(n)
+    let i = 0
+    for i < n
+        let w = weights[i]
+        let t = targets[i]
+        let grad = gf_mul(t, gf_inv(w + 1))
+        new_weights[i] = gf_add(w, gf_mul(lr, grad))
+        i = i + 1
+    new_weights
+
+let train_verify() =
+    let weights = arr_new_n(3)
+    weights[0] = 100
+    weights[1] = 200
+    weights[2] = 300
+    let targets = arr_new_n(3)
+    targets[0] = 50
+    targets[1] = 60
+    targets[2] = 70
+    let new_w = train_field_sculpt(weights, targets, 3, 1)
+    let ok = 0
+    (new_w[0] != weights[0] ? (ok = 1) : (ok = 0))
+    ok
+

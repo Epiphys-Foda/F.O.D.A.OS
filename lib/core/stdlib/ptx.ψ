@@ -1,0 +1,747 @@
+let PT_LI = 1
+let PT_ADD = 2
+let PT_SUB = 3
+let PT_MUL = 4
+let PT_DIV = 5
+let PT_MOD = 6
+let PT_AND = 7
+let PT_OR = 8
+let PT_XOR = 9
+let PT_SLL = 10
+let PT_SRL = 11
+let PT_SRA = 12
+let PT_ADDI = 13
+let PT_LW = 14
+let PT_STW = 15
+let PT_BEQ = 16
+let PT_BNE = 17
+let PT_BLT = 18
+let PT_BGE = 19
+let PT_B = 20
+let PT_CALL = 21
+let PT_RET = 22
+let PT_CMP = 23
+let PT_MOV = 24
+let PT_NEG = 25
+
+let PT_R0 = 0
+let PT_R1 = 1
+let PT_R2 = 2
+let PT_R3 = 3
+let PT_R4 = 4
+let PT_R5 = 5
+let PT_R6 = 6
+let PT_R7 = 7
+let PT_R8 = 8
+let PT_R9 = 9
+let PT_R10 = 10
+let PT_R11 = 11
+let PT_R12 = 12
+let PT_R13 = 13
+let PT_R14 = 14
+let PT_R15 = 15
+let PT_R16 = 16
+let PT_R17 = 17
+let PT_R18 = 18
+let PT_R19 = 19
+let PT_R20 = 20
+let PT_R21 = 21
+let PT_R22 = 22
+let PT_R23 = 23
+let PT_R24 = 24
+let PT_R25 = 25
+let PT_R26 = 26
+let PT_R27 = 27
+let PT_R28 = 28
+let PT_R29 = 29
+let PT_R30 = 30
+let PT_R31 = 31
+let PT_ZERO = PT_R0
+let PT_V0 = PT_R1
+let PT_A0 = PT_R2
+let PT_A1 = PT_R3
+let PT_A2 = PT_R4
+let PT_T0 = PT_R5
+let PT_T1 = PT_R6
+let PT_T2 = PT_R7
+let PT_T3 = PT_R8
+let PT_SP = PT_R9
+let PT_RA = PT_R10
+let PT_L0 = 32
+let PT_L1 = 33
+let PT_L2 = 34
+let PT_L3 = 35
+let PT_L4 = 36
+let PT_L5 = 37
+let PT_L6 = 38
+let PT_L7 = 39
+let PT_L8 = 40
+let PT_L9 = 41
+let PT_L10 = 42
+let PT_L11 = 43
+let PT_L12 = 44
+let PT_L13 = 45
+let PT_L14 = 46
+let PT_L15 = 47
+
+let pt_new_reg() =
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+let pt_set_arr(arr, idx, val) =
+    let n = len(arr)
+    let front = arr.slice(0, idx)
+    let back = arr.slice(idx + 1, n)
+    [front, [val], back].flat()
+
+let pt_asr(v, count) =
+    let r = v
+    let i = 0
+    for i < count
+      r = (r < 0 ? (r - 1) / 2 : r / 2)
+      i = i + 1
+    r
+
+let pt_lsr(v, count) =
+    let u = v
+    if u < 0
+      u = u + 9223372036854775808
+    else
+      0
+    let i = 0
+    for i < count
+      u = u / 2
+      i = i + 1
+    u
+
+let pt_bit_and(a, b) =
+    let result = 0
+    let bit = 1
+    let aa = a
+    let bb = b
+    let i = 0
+    for i < 32
+      let la_a = aa - (aa / 2) * 2
+      let la_b = bb - (bb / 2) * 2
+      if (la_a == 1) && (la_b == 1)
+        result = result + bit
+      else
+        0
+      aa = (aa < 0 ? (aa - 1) / 2 : aa / 2)
+      bb = (bb < 0 ? (bb - 1) / 2 : bb / 2)
+      bit = bit * 2
+      i = i + 1
+    result
+
+let pt_bit_or(a, b) =
+    let result = 0
+    let bit = 1
+    let aa = a
+    let bb = b
+    let i = 0
+    for i < 32
+      let la_a = aa - (aa / 2) * 2
+      let la_b = bb - (bb / 2) * 2
+      if (la_a == 1) || (la_b == 1)
+        result = result + bit
+      else
+        0
+      aa = (aa < 0 ? (aa - 1) / 2 : aa / 2)
+      bb = (bb < 0 ? (bb - 1) / 2 : bb / 2)
+      bit = bit * 2
+      i = i + 1
+    result
+
+let pt_bit_xor(a, b) =
+    let result = 0
+    let bit = 1
+    let aa = a
+    let bb = b
+    let i = 0
+    for i < 32
+      let la_a = aa - (aa / 2) * 2
+      let la_b = bb - (bb / 2) * 2
+      if la_a != la_b
+        result = result + bit
+      else
+        0
+      aa = (aa < 0 ? (aa - 1) / 2 : aa / 2)
+      bb = (bb < 0 ? (bb - 1) / 2 : bb / 2)
+      bit = bit * 2
+      i = i + 1
+    result
+
+let ptx_exec(code, arg) =
+    let reg = pt_new_reg()
+    let mem = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    reg = pt_set_arr(reg, PT_A0, arg)
+    reg = pt_set_arr(reg, PT_SP, 4096)
+    let pc = 0
+    let done = 0
+    for done == 0
+      if pc < len(code)
+        let insn = code[pc]
+        let op = insn[0]
+        let rd = insn[1]
+        let rn = insn[2]
+        let rm = insn[3]
+        let imm = insn[4]
+        let next = pc + 1
+        if op == PT_LI
+          reg = pt_set_arr(reg, rd, imm)
+        else
+          0
+        if op == PT_ADD
+          reg = pt_set_arr(reg, rd, reg[rn] + reg[rm])
+        else
+          0
+        if op == PT_SUB
+          reg = pt_set_arr(reg, rd, reg[rn] - reg[rm])
+        else
+          0
+        if op == PT_MUL
+          reg = pt_set_arr(reg, rd, reg[rn] * reg[rm])
+        else
+          0
+        if op == PT_DIV
+          reg = pt_set_arr(reg, rd, (reg[rm] == 0 ? 0 : reg[rn] / reg[rm]))
+        else
+          0
+        if op == PT_MOD
+          reg = pt_set_arr(reg, rd, (reg[rm] == 0 ? 0 : reg[rn] - (reg[rn] / reg[rm]) * reg[rm]))
+        else
+          0
+        if op == PT_AND
+          reg = pt_set_arr(reg, rd, pt_bit_and(reg[rn], reg[rm]))
+        else
+          0
+        if op == PT_OR
+          reg = pt_set_arr(reg, rd, pt_bit_or(reg[rn], reg[rm]))
+        else
+          0
+        if op == PT_XOR
+          reg = pt_set_arr(reg, rd, pt_bit_xor(reg[rn], reg[rm]))
+        else
+          0
+        if op == PT_SLL
+          reg = pt_set_arr(reg, rd, reg[rn] * (1 << reg[rm]))
+        else
+          0
+        if op == PT_SRL
+          reg = pt_set_arr(reg, rd, pt_lsr(reg[rn], reg[rm]))
+        else
+          0
+        if op == PT_SRA
+          reg = pt_set_arr(reg, rd, pt_asr(reg[rn], reg[rm]))
+        else
+          0
+        if op == PT_ADDI
+          reg = pt_set_arr(reg, rd, reg[rn] + imm)
+        else
+          0
+        if op == PT_LW
+          let addr = reg[rn] + imm
+          let m2 = if addr < len(mem)
+            mem
+          else
+            let m = mem
+            let i = len(mem)
+            for i <= addr
+              m = m.push(0)
+              i = i + 1
+            m
+          reg = pt_set_arr(reg, rd, m2[addr])
+        else
+          0
+        if op == PT_STW
+          let addr = rn + imm
+          let m2 = if addr < len(mem)
+            mem
+          else
+            let m = mem
+            let i = len(mem)
+            for i <= addr
+              m = m.push(0)
+              i = i + 1
+            m
+          mem = pt_set_arr(m2, addr, reg[rd])
+        else
+          0
+        if op == PT_BEQ
+          if reg[rn] == reg[rm]
+            next = pc + imm
+          else
+            0
+        else
+          0
+        if op == PT_BNE
+          if reg[rn] != reg[rm]
+            next = pc + imm
+          else
+            0
+        else
+          0
+        if op == PT_BLT
+          if reg[rn] < reg[rm]
+            next = pc + imm
+          else
+            0
+        else
+          0
+        if op == PT_BGE
+          if reg[rn] >= reg[rm]
+            next = pc + imm
+          else
+            0
+        else
+          0
+        if op == PT_B
+          next = pc + imm
+        else
+          0
+        if op == PT_CALL
+          reg = pt_set_arr(reg, PT_RA, next)
+          next = imm
+        else
+          0
+        if op == PT_RET
+          next = reg[PT_RA]
+        else
+          0
+        if op == PT_CMP
+          reg = pt_set_arr(reg, rd, (reg[rn] < reg[rm] ? 1 : 0))
+        else
+          0
+        if op == PT_MOV
+          reg = pt_set_arr(reg, rd, reg[rn])
+        else
+          0
+        if op == PT_NEG
+          reg = pt_set_arr(reg, rd, 0 - reg[rn])
+        else
+          0
+        pc = next
+      else
+        done = 1
+    reg[PT_V0]
+
+let pt_alloc_slot(ctx, name) =
+    let slots = ctx[1]
+    let nslots = ctx[2]
+    let reg = PT_L0 + nslots
+    let new_slots = slots.push([name, reg])
+    [ctx[0], new_slots, nslots + 1, ctx[3], ctx[4]]
+
+let pt_lookup_slot(ctx, name) =
+    let slots = ctx[1]
+    let reg = PT_ZERO
+    let found = 0
+    let i = 0
+    for i < len(slots)
+      if (found == 0) && (slots[i][0] == name)
+        reg = slots[i][1]
+        found = 1
+      else
+        0
+      i = i + 1
+    reg
+
+let pt_compile_expr(ast, ctx) =
+    let tag = ast[0]
+    if tag == "lit"
+      ctx[0] = ctx[0].push([PT_LI, PT_V0, 0, 0, ast[1]])
+    else
+      0
+    if tag == "var"
+      let r = pt_lookup_slot(ctx, ast[1])
+      ctx[0] = ctx[0].push([PT_MOV, PT_V0, r, 0, 0])
+    else
+      0
+    if tag == "binop"
+      let op_name = ast[1]
+      let left = ast[2]
+      let right = ast[3]
+      pt_compile_expr(left, ctx)
+      ctx[0] = ctx[0].push([PT_MOV, PT_T0, PT_V0, 0, 0])
+      pt_compile_expr(right, ctx)
+      ctx[0] = ctx[0].push([PT_MOV, PT_T1, PT_V0, 0, 0])
+      if op_name == "+"
+        ctx[0] = ctx[0].push([PT_ADD, PT_V0, PT_T0, PT_T1, 0])
+      else
+        0
+      if op_name == "-"
+        ctx[0] = ctx[0].push([PT_SUB, PT_V0, PT_T0, PT_T1, 0])
+      else
+        0
+      if op_name == "*"
+        ctx[0] = ctx[0].push([PT_MUL, PT_V0, PT_T0, PT_T1, 0])
+      else
+        0
+      if op_name == "/"
+        ctx[0] = ctx[0].push([PT_DIV, PT_V0, PT_T0, PT_T1, 0])
+      else
+        0
+      if op_name == "%"
+        ctx[0] = ctx[0].push([PT_MOD, PT_V0, PT_T0, PT_T1, 0])
+      else
+        0
+      if op_name == "&"
+        ctx[0] = ctx[0].push([PT_AND, PT_V0, PT_T0, PT_T1, 0])
+      else
+        0
+      if op_name == "|"
+        ctx[0] = ctx[0].push([PT_OR, PT_V0, PT_T0, PT_T1, 0])
+      else
+        0
+      if op_name == "^"
+        ctx[0] = ctx[0].push([PT_XOR, PT_V0, PT_T0, PT_T1, 0])
+      else
+        0
+      if op_name == "<<"
+        ctx[0] = ctx[0].push([PT_SLL, PT_V0, PT_T0, PT_T1, 0])
+      else
+        0
+      if op_name == ">>"
+        ctx[0] = ctx[0].push([PT_SRA, PT_V0, PT_T0, PT_T1, 0])
+      else
+        0
+      if op_name == "<"
+        ctx[0] = ctx[0].push([PT_CMP, PT_V0, PT_T0, PT_T1, 0])
+      else
+        0
+      if op_name == ">"
+        ctx[0] = ctx[0].push([PT_CMP, PT_V0, PT_T1, PT_T0, 0])
+      else
+        0
+      if op_name == "<="
+        ctx[0] = ctx[0].push([PT_CMP, PT_V0, PT_T0, PT_T1, 0])
+        ctx[0] = ctx[0].push([PT_CMP, PT_T1, PT_T0, PT_T1, 0])
+        ctx[0] = ctx[0].push([PT_BEQ, PT_V0, PT_T1, 0, 2])
+        ctx[0] = ctx[0].push([PT_LI, PT_V0, 0, 0, 1])
+      else
+        0
+      if op_name == ">="
+        ctx[0] = ctx[0].push([PT_CMP, PT_V0, PT_T1, PT_T0, 0])
+        ctx[0] = ctx[0].push([PT_CMP, PT_T1, PT_T0, PT_T1, 0])
+        ctx[0] = ctx[0].push([PT_BEQ, PT_V0, PT_T1, 0, 2])
+        ctx[0] = ctx[0].push([PT_LI, PT_V0, 0, 0, 1])
+      else
+        0
+      if op_name == "=="
+        ctx[0] = ctx[0].push([PT_SUB, PT_V0, PT_T0, PT_T1, 0])
+        ctx[0] = ctx[0].push([PT_LI, PT_T1, 0, 0, 1])
+        ctx[0] = ctx[0].push([PT_BEQ, PT_V0, PT_ZERO, 0, 2])
+        ctx[0] = ctx[0].push([PT_LI, PT_T1, 0, 0, 0])
+        ctx[0] = ctx[0].push([PT_MOV, PT_V0, PT_T1, 0, 0])
+      else
+        0
+      if op_name == "!="
+        ctx[0] = ctx[0].push([PT_SUB, PT_V0, PT_T0, PT_T1, 0])
+        ctx[0] = ctx[0].push([PT_LI, PT_T1, 0, 0, 0])
+        ctx[0] = ctx[0].push([PT_BEQ, PT_V0, PT_ZERO, 0, 2])
+        ctx[0] = ctx[0].push([PT_LI, PT_T1, 0, 0, 1])
+        ctx[0] = ctx[0].push([PT_MOV, PT_V0, PT_T1, 0, 0])
+      else
+        0
+    else
+      0
+    if tag == "call"
+      let fn_name = ast[1]
+      let args = ast[2]
+      let i = 0
+      for i < len(args)
+        pt_compile_expr(args[i], ctx)
+        let arg_reg = if i == 0
+          PT_A0
+        else
+          if i == 1
+            PT_A1
+          else
+            PT_A2
+        ctx[0] = ctx[0].push([PT_MOV, arg_reg, PT_V0, 0, 0])
+        i = i + 1
+      let call_pos = len(ctx[0])
+      ctx[0] = ctx[0].push([PT_CALL, 0, 0, 0, 0])
+      ctx[4] = ctx[4].push([call_pos, fn_name])
+      ctx[0] = ctx[0].push([PT_MOV, PT_V0, PT_V0, 0, 0])
+    else
+      0
+    ctx
+
+let pt_compile_stmt(ast, ctx) =
+    let tag = ast[0]
+    if tag == "lit"
+      pt_compile_expr(ast, ctx)
+    else
+      0
+    if tag == "var"
+      pt_compile_expr(ast, ctx)
+    else
+      0
+    if tag == "binop"
+      pt_compile_expr(ast, ctx)
+    else
+      0
+    if tag == "call"
+      pt_compile_expr(ast, ctx)
+    else
+      0
+    if tag == "let"
+      let var_name = ast[1]
+      let val = ast[2]
+      pt_compile_expr(val, ctx)
+      ctx = pt_alloc_slot(ctx, var_name)
+      let r = pt_lookup_slot(ctx, var_name)
+      ctx[0] = ctx[0].push([PT_MOV, r, PT_V0, 0, 0])
+    else
+      0
+    if tag == "assign"
+      let var_name = ast[1]
+      let val = ast[2]
+      pt_compile_expr(val, ctx)
+      let r = pt_lookup_slot(ctx, var_name)
+      ctx[0] = ctx[0].push([PT_MOV, r, PT_V0, 0, 0])
+    else
+      0
+    if tag == "if"
+      let cond = ast[1]
+      let then_body = ast[2]
+      let else_body = ast[3]
+      pt_compile_expr(cond, ctx)
+      let beq_pos = len(ctx[0])
+      ctx[0] = ctx[0].push([PT_BEQ, PT_V0, PT_ZERO, 0, 0])
+      pt_compile_stmt(then_body, ctx)
+      let b_pos = len(ctx[0])
+      ctx[0] = ctx[0].push([PT_B, 0, 0, 0, 0])
+      let else_start = len(ctx[0])
+      ctx[0] = pt_set_arr(ctx[0], beq_pos, [PT_BEQ, PT_V0, PT_ZERO, 0, else_start - beq_pos])
+      if else_body[0] != "null"
+        pt_compile_stmt(else_body, ctx)
+      else
+        0
+      let else_end = len(ctx[0])
+      ctx[0] = pt_set_arr(ctx[0], b_pos, [PT_B, 0, 0, 0, else_end - b_pos])
+    else
+      0
+    if tag == "for"
+      let var_name = ast[1]
+      let count_expr = ast[2]
+      let body = ast[3]
+      pt_compile_expr(count_expr, ctx)
+      ctx = pt_alloc_slot(ctx, var_name)
+      let loop_var = pt_lookup_slot(ctx, var_name)
+      ctx[0] = ctx[0].push([PT_LI, loop_var, 0, 0, 0])
+      let loop_start = len(ctx[0])
+      ctx[0] = ctx[0].push([PT_BGE, loop_var, PT_V0, 0, 0])
+      let bge_pos = len(ctx[0]) - 1
+      pt_compile_stmt(body, ctx)
+      ctx[0] = ctx[0].push([PT_ADDI, loop_var, loop_var, 0, 1])
+      ctx[0] = ctx[0].push([PT_B, 0, 0, 0, loop_start - len(ctx[0]) - 1])
+      let loop_end = len(ctx[0])
+      ctx[0] = pt_set_arr(ctx[0], bge_pos, [PT_BGE, loop_var, PT_V0, 0, loop_end - bge_pos])
+    else
+      0
+    if tag == "return"
+      let val = ast[1]
+      pt_compile_expr(val, ctx)
+      ctx[0] = ctx[0].push([PT_RET, 0, 0, 0, 0])
+    else
+      0
+    if tag == "seq"
+      let stmts = ast.slice(1, len(ast))
+      let i = 0
+      for i < len(stmts)
+        pt_compile_stmt(stmts[i], ctx)
+        i = i + 1
+    else
+      0
+    ctx
+
+let pt_compile_fn(ast, ctx) =
+    let fn_name = ast[1]
+    let params = ast[2]
+    let body = ast[3]
+    let fn_offset = len(ctx[0])
+    ctx[3] = ctx[3].push([fn_name, fn_offset])
+    let saved_slots = ctx[1]
+    let saved_nslots = ctx[2]
+    ctx[1] = []
+    ctx[2] = 0
+    let i = 0
+    for i < len(params)
+      ctx = pt_alloc_slot(ctx, params[i])
+      let r = pt_lookup_slot(ctx, params[i])
+      let arg_reg = if i == 0
+        PT_A0
+      else
+        if i == 1
+          PT_A1
+        else
+          PT_A2
+      ctx[0] = ctx[0].push([PT_MOV, r, arg_reg, 0, 0])
+      i = i + 1
+    pt_compile_stmt(body, ctx)
+    ctx[0] = ctx[0].push([PT_RET, 0, 0, 0, 0])
+    ctx[1] = saved_slots
+    ctx[2] = saved_nslots
+    ctx
+
+let ptx_compile(ast) =
+    let code = []
+    let ctx = [code, [], 0, [], []]
+    let stmts = if ast[0] == "seq"
+      ast.slice(1, len(ast))
+    else
+      [ast]
+    let user_fns = []
+    let other_stmts = []
+    let i = 0
+    for i < len(stmts)
+      if stmts[i][0] == "fn"
+        user_fns = user_fns.push(stmts[i])
+      else
+        other_stmts = other_stmts.push(stmts[i])
+      i = i + 1
+    let j = 0
+    for j < len(other_stmts)
+      pt_compile_stmt(other_stmts[j], ctx)
+      j = j + 1
+    ctx[0] = ctx[0].push([PT_LI, PT_V0, 0, 0, 0])
+    ctx[0] = ctx[0].push([PT_RET, 0, 0, 0, 0])
+    let k = 0
+    for k < len(user_fns)
+      pt_compile_fn(user_fns[k], ctx)
+      k = k + 1
+    let m = 0
+    for m < len(ctx[4])
+      let patch = ctx[4][m]
+      let call_pos = patch[0]
+      let fn_name = patch[1]
+      let n = 0
+      let found = 0
+      for n < len(ctx[3])
+        if (found == 0) && (ctx[3][n][0] == fn_name)
+          ctx[0] = pt_set_arr(ctx[0], call_pos, [PT_CALL, 0, 0, 0, ctx[3][n][1]])
+          found = 1
+        else
+          0
+        n = n + 1
+      m = m + 1
+    ctx[0]
+
+let pt_test_add() =
+    let ast = ["seq", ["let", "a", ["binop", "+", ["lit", 3], ["lit", 4]]]]
+    let code = ptx_compile(ast)
+    ptx_exec(code, 0)
+
+let pt_test_sub() =
+    let ast = ["seq", ["let", "a", ["binop", "-", ["lit", 10], ["lit", 3]]]]
+    let code = ptx_compile(ast)
+    ptx_exec(code, 0)
+
+let pt_test_mul() =
+    let ast = ["seq", ["let", "a", ["binop", "*", ["lit", 6], ["lit", 7]]]]
+    let code = ptx_compile(ast)
+    ptx_exec(code, 0)
+
+let pt_test_div() =
+    let ast = ["seq", ["let", "a", ["binop", "/", ["lit", 84], ["lit", 2]]]]
+    let code = ptx_compile(ast)
+    ptx_exec(code, 0)
+
+let pt_test_mod() =
+    let ast = ["seq", ["let", "a", ["binop", "%", ["lit", 10], ["lit", 3]]]]
+    let code = ptx_compile(ast)
+    ptx_exec(code, 0)
+
+let pt_test_var_ref() =
+    let ast = ["seq", ["let", "x", ["lit", 7]], ["let", "a", ["binop", "+", ["var", "x"], ["lit", 4]]]]
+    let code = ptx_compile(ast)
+    ptx_exec(code, 0)
+
+let pt_test_chain() =
+    let ast = ["seq", ["let", "x", ["lit", 2]], ["let", "y", ["binop", "+", ["var", "x"], ["lit", 1]]], ["let", "a", ["binop", "+", ["var", "y"], ["lit", 2]]]]
+    let code = ptx_compile(ast)
+    ptx_exec(code, 0)
+
+let pt_test_if_true() =
+    let ast = ["seq", ["let", "x", ["lit", 1]], ["if", ["binop", "<", ["var", "x"], ["lit", 2]], ["assign", "x", ["lit", 10]], ["assign", "x", ["lit", 20]]]]
+    let code = ptx_compile(ast)
+    ptx_exec(code, 0)
+
+let pt_test_if_false() =
+    let ast = ["seq", ["let", "x", ["lit", 5]], ["if", ["binop", "<", ["var", "x"], ["lit", 2]], ["assign", "x", ["lit", 10]], ["assign", "x", ["lit", 20]]]]
+    let code = ptx_compile(ast)
+    ptx_exec(code, 0)
+
+let pt_test_for_loop() =
+    let ast = ["seq", ["let", "s", ["lit", 0]], ["for", "i", ["lit", 5], ["assign", "s", ["binop", "+", ["var", "s"], ["var", "i"]]]]]
+    let code = ptx_compile(ast)
+    ptx_exec(code, 0)
+
+let pt_test_for_loop_10() =
+    let ast = ["seq", ["let", "s", ["lit", 0]], ["for", "i", ["lit", 10], ["assign", "s", ["binop", "+", ["var", "s"], ["var", "i"]]]]]
+    let code = ptx_compile(ast)
+    ptx_exec(code, 0)
+
+let pt_test_fn_call() =
+    let ast = ["seq", ["fn", "double", ["x"], ["binop", "*", ["var", "x"], ["lit", 2]]], ["let", "r", ["call", "double", [["lit", 21]]]]]
+    let code = ptx_compile(ast)
+    ptx_exec(code, 0)
+
+let pt_test_fn_add() =
+    let ast = ["seq", ["fn", "add", ["a", "b"], ["binop", "+", ["var", "a"], ["var", "b"]]], ["let", "r", ["call", "add", [["lit", 17], ["lit", 25]]]]]
+    let code = ptx_compile(ast)
+    ptx_exec(code, 0)
+
+let pt_test_nested_fn() =
+    let ast = ["seq", ["fn", "sq", ["x"], ["binop", "*", ["var", "x"], ["var", "x"]]], ["let", "r", ["call", "sq", [["lit", 7]]]]]
+    let code = ptx_compile(ast)
+    ptx_exec(code, 0)
+
+let pt_test_negative() =
+    let ast = ["seq", ["let", "a", ["binop", "-", ["lit", 0], ["lit", 5]]]]
+    let code = ptx_compile(ast)
+    ptx_exec(code, 0)
+
+let pt_test_bitwise() =
+    let ast = ["seq", ["let", "a", ["binop", "&", ["lit", 12], ["lit", 10]]]]
+    let code = ptx_compile(ast)
+    ptx_exec(code, 0)
+
+let pt_test_shift() =
+    let ast = ["seq", ["let", "a", ["binop", "<<", ["lit", 1], ["lit", 4]]]]
+    let code = ptx_compile(ast)
+    ptx_exec(code, 0)
+
+let pt_run_all_tests() =
+    let results = []
+    results = results.push(["add", pt_test_add(), 7])
+    results = results.push(["sub", pt_test_sub(), 7])
+    results = results.push(["mul", pt_test_mul(), 42])
+    results = results.push(["div", pt_test_div(), 42])
+    results = results.push(["mod", pt_test_mod(), 1])
+    results = results.push(["var_ref", pt_test_var_ref(), 11])
+    results = results.push(["chain", pt_test_chain(), 5])
+    results = results.push(["if_true", pt_test_if_true(), 10])
+    results = results.push(["if_false", pt_test_if_false(), 20])
+    results = results.push(["for_loop", pt_test_for_loop(), 10])
+    results = results.push(["for_loop_10", pt_test_for_loop_10(), 45])
+    results = results.push(["fn_call", pt_test_fn_call(), 42])
+    results = results.push(["fn_add", pt_test_fn_add(), 42])
+    results = results.push(["nested_fn", pt_test_nested_fn(), 49])
+    results = results.push(["negative", pt_test_negative(), -5])
+    results = results.push(["bitwise", pt_test_bitwise(), 8])
+    results = results.push(["shift", pt_test_shift(), 16])
+    let pass = 0
+    let fail = 0
+    let i = 0
+    for i < len(results)
+      let name = results[i][0]
+      let got = results[i][1]
+      let want = results[i][2]
+      if got == want
+        pass = pass + 1
+      else
+        fail = fail + 1
+      i = i + 1
+    [pass, fail, results]

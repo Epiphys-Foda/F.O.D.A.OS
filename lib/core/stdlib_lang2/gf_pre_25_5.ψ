@@ -1,0 +1,5 @@
+    let result = 1
+    let b = base % P
+    let e = exp
+    for e > 0
+        if e % 2 == 1

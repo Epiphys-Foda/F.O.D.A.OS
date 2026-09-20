@@ -1,0 +1,445 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let TERM_MAX_COLS = 256
+let TERM_MAX_ROWS = 128
+let TERM_MAX_HISTORY = 65536
+
+let ATTR_NORMAL = 0
+let ATTR_BOLD = 1
+let ATTR_FAINT = 2
+let ATTR_ITALIC = 4
+let ATTR_UNDERLINE = 8
+let ATTR_BLINK = 16
+let ATTR_REVERSE = 32
+let ATTR_STRIKE = 64
+
+let COLOR_BLACK = 0
+let COLOR_RED = 1
+let COLOR_GREEN = 2
+let COLOR_YELLOW = 3
+let COLOR_BLUE = 4
+let COLOR_MAGENTA = 5
+let COLOR_CYAN = 6
+let COLOR_WHITE = 7
+let COLOR_BRIGHT_BLACK = 8
+let COLOR_BRIGHT_RED = 9
+let COLOR_BRIGHT_GREEN = 10
+let COLOR_BRIGHT_YELLOW = 11
+let COLOR_BRIGHT_BLUE = 12
+let COLOR_BRIGHT_MAGENTA = 13
+let COLOR_BRIGHT_CYAN = 14
+let COLOR_BRIGHT_WHITE = 15
+
+let color_to_rgb565(c) =
+    if c == COLOR_BLACK
+        0
+    if c == COLOR_RED
+        63488
+    if c == COLOR_GREEN
+        2016
+    if c == COLOR_YELLOW
+        65504
+    if c == COLOR_BLUE
+        31
+    if c == COLOR_MAGENTA
+        63519
+    if c == COLOR_CYAN
+        2047
+    if c == COLOR_WHITE
+        65535
+    if c == COLOR_BRIGHT_BLACK
+        8210
+    if c == COLOR_BRIGHT_RED
+        64512
+    if c == COLOR_BRIGHT_GREEN
+        4095
+    if c == COLOR_BRIGHT_YELLOW
+        65535
+    if c == COLOR_BRIGHT_BLUE
+        1055
+    if c == COLOR_BRIGHT_MAGENTA
+        64543
+    if c == COLOR_BRIGHT_CYAN
+        4127
+    if c == COLOR_BRIGHT_WHITE
+        65535
+    65535
+
+let cell_create(ch, fg, bg, attr) = [ch, fg, bg, attr]
+let cell_default() = [0, COLOR_WHITE, COLOR_BLACK, ATTR_NORMAL]
+
+let term_create(cols, rows) =
+    let cells = []
+    let i = 0
+    for i < gf_mul(cols, rows)
+        cells.push(cell_default())
+        i = i + 1
+    [cells, cols, rows, 0, 0, 0, COLOR_WHITE, COLOR_BLACK, ATTR_NORMAL, [], []]
+let term_cell_get(term, x, y) =
+    let cols = term[1]
+    term[0][gf_add(gf_mul(y, cols), x)]
+let term_cell_set(term, x, y, cell) =
+    let cells = term[0]
+    let cols = term[1]
+    cells[gf_add(gf_mul(y, cols), x)] = cell
+    [cells, cols, term[2], term[3], term[4], term[5], term[6], term[7], term[8], term[9], term[10]]
+
+let term_write_char(term, ch) =
+    let x = term[3]
+    let y = term[4]
+    let cols = term[1]
+    let rows = term[2]
+    let fg = term[6]
+    let bg = term[7]
+    let attr = term[8]
+    let cells = term[0]
+    cells[gf_add(gf_mul(y, cols), x)] = [ch, fg, bg, attr]
+    let nx = gf_add(x, 1)
+    let ny = y
+    if nx >= cols
+        nx = 0
+    ny = gf_add(y, 1)
+    if ny >= rows
+        ny = gf_sub(rows, 1)
+    [cells, cols, rows, nx, ny, term[5], fg, bg, attr, term[9], term[10]]
+
+let term_write_str(term, str) =
+    let i = 0
+    let n = str.length
+    for i < n
+        term = term_write_char(term, str[i])
+        i = i + 1
+    term
+
+let term_cursor_move(term, x, y) = [term[0], term[1], term[2], x, y, term[5], term[6], term[7], term[8], term[9], term[10]]
+let term_cursor_up(term, n) = [term[0], term[1], term[2], term[3], gf_sub(term[4], n), term[5], term[6], term[7], term[8], term[9], term[10]]
+let term_cursor_down(term, n) = [term[0], term[1], term[2], term[3], gf_add(term[4], n), term[5], term[6], term[7], term[8], term[9], term[10]]
+let term_cursor_left(term, n) = [term[0], term[1], term[2], gf_sub(term[3], n), term[4], term[5], term[6], term[7], term[8], term[9], term[10]]
+let term_cursor_right(term, n) = [term[0], term[1], term[2], gf_add(term[3], n), term[4], term[5], term[6], term[7], term[8], term[9], term[10]]
+let term_cursor_home(term) = term_cursor_move(term, 0, 0)
+let term_cursor_save(term) = [term[0], term[1], term[2], term[3], term[4], term[3], term[6], term[7], term[8], term[9], term[10]]
+let term_cursor_restore(term) = [term[0], term[1], term[2], term[5], term[4], term[5], term[6], term[7], term[8], term[9], term[10]]
+
+let term_sgr(term, params, n) =
+    let fg = term[6]
+    let bg = term[7]
+    let attr = term[8]
+    let i = 0
+    for i < n
+        let p = params[i]
+        if p == 0
+            fg = COLOR_WHITE
+        bg = COLOR_BLACK
+        attr = ATTR_NORMAL
+        if p == 1
+            attr = gf_add(attr, ATTR_BOLD)
+        if p == 2
+            attr = gf_add(attr, ATTR_FAINT)
+        if p == 3
+            attr = gf_add(attr, ATTR_ITALIC)
+        if p == 4
+            attr = gf_add(attr, ATTR_UNDERLINE)
+        if p == 5
+            attr = gf_add(attr, ATTR_BLINK)
+        if p == 7
+            attr = gf_add(attr, ATTR_REVERSE)
+        if p == 9
+            attr = gf_add(attr, ATTR_STRIKE)
+        if p == 22
+            attr = gf_sub(attr, ATTR_BOLD)
+        attr = gf_sub(attr, ATTR_FAINT)
+        if p == 23
+            attr = gf_sub(attr, ATTR_ITALIC)
+        if p == 24
+            attr = gf_sub(attr, ATTR_UNDERLINE)
+        if p == 25
+            attr = gf_sub(attr, ATTR_BLINK)
+        if p == 27
+            attr = gf_sub(attr, ATTR_REVERSE)
+        if p == 29
+            attr = gf_sub(attr, ATTR_STRIKE)
+        if p >= 30
+            if p <= 37
+                fg = gf_sub(p, 30)
+        if p == 39
+            fg = COLOR_WHITE
+        if p >= 40
+            if p <= 47
+                bg = gf_sub(p, 40)
+        if p == 49
+            bg = COLOR_BLACK
+        if p >= 90
+            if p <= 97
+                fg = gf_add(gf_sub(p, 90), 8)
+        if p >= 100
+            if p <= 107
+                bg = gf_add(gf_sub(p, 100), 8)
+        i = i + 1
+    [term[0], term[1], term[2], term[3], term[4], term[5], fg, bg, attr, term[9], term[10]]
+
+let ansi_parse_csi(seq, len) =
+    if len < 2
+        [0, [], 0]
+    let final = seq[gf_sub(len, 1)]
+    let params = []
+    let cur = 0
+    let has_param = 0
+    let i = 2
+    for i < gf_sub(len, 1)
+        let c = seq[i]
+        if c == 59
+            params.push(cur)
+            cur = 0
+            has_param = 1
+        else
+            if c >= 48
+                if c <= 57
+                    cur = gf_add(gf_mul(cur, 10), gf_sub(c, 48))
+                has_param = 1
+        i = i + 1
+    if has_param == 1
+        params.push(cur)
+    [final, params, params.length]
+
+let term_handle_csi(term, cmd, params, n_params) =
+    let p0 = 0
+    if n_params > 0
+        p0 = params[0]
+    if cmd == 65
+        term_cursor_up(term, p0)
+    if cmd == 66
+        term_cursor_down(term, p0)
+    if cmd == 67
+        term_cursor_right(term, p0)
+    if cmd == 68
+        term_cursor_left(term, p0)
+    if cmd == 72
+        term_cursor_move(term, p0, params[1])
+    if cmd == 102
+        term_cursor_move(term, p0, params[1])
+    if cmd == 72
+        term_cursor_home(term)
+    if cmd == 74
+        term_erase_display(term, p0)
+    if cmd == 75
+        term_erase_line(term, p0)
+    if cmd == 109
+        term_sgr(term, params, n_params)
+    if cmd == 100
+        term_cursor_down(term, 1)
+    if cmd == 83
+        term_scroll_up(term, 1)
+    if cmd == 84
+        term_scroll_down(term, 1)
+    term
+
+let term_erase_display(term, mode) =
+    let cells = term[0]
+    let cols = term[1]
+    let rows = term[2]
+    let cx = term[3]
+    let cy = term[4]
+    if mode == 0
+        let i = gf_add(gf_mul(cy, cols), cx)
+        let total = gf_mul(cols, rows)
+        for i < total
+            cells[i] = cell_default()
+            i = i + 1
+    if mode == 1
+        let i = 0
+        let end = gf_add(gf_mul(cy, cols), cx)
+        for i <= end
+            cells[i] = cell_default()
+            i = i + 1
+    if mode == 2
+        let i = 0
+        let total = gf_mul(cols, rows)
+        for i < total
+            cells[i] = cell_default()
+            i = i + 1
+    [cells, cols, rows, cx, cy, term[5], term[6], term[7], term[8], term[9], term[10]]
+let term_erase_line(term, mode) =
+    let cells = term[0]
+    let cols = term[1]
+    let cy = term[4]
+    let cx = term[3]
+    if mode == 0
+        let i = gf_add(gf_mul(cy, cols), cx)
+        let end = gf_add(gf_mul(cy, cols), cols)
+        for i < end
+            cells[i] = cell_default()
+            i = i + 1
+    if mode == 1
+        let i = gf_mul(cy, cols)
+        let end = gf_add(gf_mul(cy, cols), cx)
+        for i <= end
+            cells[i] = cell_default()
+            i = i + 1
+    if mode == 2
+        let i = gf_mul(cy, cols)
+        let end = gf_add(gf_mul(cy, cols), cols)
+        for i < end
+            cells[i] = cell_default()
+            i = i + 1
+    [cells, cols, term[2], cx, cy, term[5], term[6], term[7], term[8], term[9], term[10]]
+
+let term_scroll_up(term, n) =
+    let cells = term[0]
+    let cols = term[1]
+    let rows = term[2]
+    let i = 0
+    let limit = gf_mul(gf_sub(rows, n), cols)
+    for i < limit
+        cells[i] = cells[gf_add(i, gf_mul(n, cols))]
+        i = i + 1
+    i = limit
+    let total = gf_mul(rows, cols)
+    for i < total
+        cells[i] = cell_default()
+        i = i + 1
+    [cells, cols, rows, term[3], term[4], term[5], term[6], term[7], term[8], term[9], term[10]]
+let term_scroll_down(term, n) =
+    let cells = term[0]
+    let cols = term[1]
+    let rows = term[2]
+    let total = gf_mul(rows, cols)
+    let i = gf_sub(total, 1)
+    for i >= gf_mul(n, cols)
+        cells[i] = cells[gf_sub(i, gf_mul(n, cols))]
+        i = i - 1
+    i = 0
+    let limit = gf_mul(n, cols)
+    for i < limit
+        cells[i] = cell_default()
+        i = i + 1
+    [cells, cols, rows, term[3], term[4], term[5], term[6], term[7], term[8], term[9], term[10]]
+
+let term_push_history(term) =
+    let history = term[10]
+    let cells = term[0]
+    let cols = term[1]
+    let row = []
+    let i = 0
+    for i < cols
+        row.push(cells[i])
+        i = i + 1
+    history.push(row)
+    if history.length > TERM_MAX_HISTORY
+        let new_hist = []
+        let j = 1
+        for j < history.length
+            new_hist.push(history[j])
+            j = j + 1
+        history = new_hist
+    [term[0], cols, term[2], term[3], term[4], term[5], term[6], term[7], term[8], term[9], history]
+
+let term_clear(term) =
+    let cells = []
+    let i = 0
+    let n = gf_mul(term[1], term[2])
+    for i < n
+        cells.push(cell_default())
+        i = i + 1
+    [cells, term[1], term[2], 0, 0, term[5], term[6], term[7], term[8], term[9], term[10]]
+
+let term_render_to_fb(term, fb, font, cell_w, cell_h) =
+    let cells = term[0]
+    let cols = term[1]
+    let rows = term[2]
+    let fb_w = fb[0]
+    let fb_h = fb[1]
+    let pixels = fb[2]
+    let cy = 0
+    for cy < rows
+        let cx = 0
+        for cx < cols
+            let cell = cells[gf_add(gf_mul(cy, cols), cx)]
+            let ch = cell[0]
+            let fg = cell[1]
+            let bg = cell[2]
+            let attr = cell[3]
+            let fg_color = color_to_rgb565(fg)
+            let bg_color = color_to_rgb565(bg)
+            if attr == ATTR_REVERSE
+                let tmp = fg_color
+                fg_color = bg_color
+                bg_color = tmp
+            let py = 0
+            for py < cell_h
+                let px = 0
+                for px < cell_w
+                    let screen_x = gf_add(gf_mul(cx, cell_w), px)
+                    let screen_y = gf_add(gf_mul(cy, cell_h), py)
+                    if screen_x < fb_w
+                        if screen_y < fb_h
+                            let glyph_pixel = 0
+                            let font_idx = gf_add(gf_mul(ch, gf_mul(cell_w, cell_h)), gf_add(gf_mul(py, cell_w), px))
+                            if font_idx < font.length
+                                glyph_pixel = font[font_idx]
+                            let color = bg_color
+                            if glyph_pixel != 0
+                                color = fg_color
+                            pixels[gf_add(gf_mul(screen_y, fb_w), screen_x)] = color
+                    px = px + 1
+                py = py + 1
+            cx = cx + 1
+        cy = cy + 1
+
+let term_render_row_to_fb(term, fb, font, row, cell_w, cell_h) =
+    let cells = term[0]
+    let cols = term[1]
+    let fb_w = fb[0]
+    let fb_h = fb[1]
+    let pixels = fb[2]
+    let cx = 0
+    for cx < cols
+        let cell = cells[gf_add(gf_mul(row, cols), cx)]
+        let ch = cell[0]
+        let fg = cell[1]
+        let bg = cell[2]
+        let attr = cell[3]
+        let fg_color = color_to_rgb565(fg)
+        let bg_color = color_to_rgb565(bg)
+        if attr == ATTR_REVERSE
+            let tmp = fg_color
+            fg_color = bg_color
+            bg_color = tmp
+        let py = 0
+        for py < cell_h
+            let px = 0
+            for px < cell_w
+                let screen_x = gf_add(gf_mul(cx, cell_w), px)
+                let screen_y = gf_add(gf_mul(row, cell_h), py)
+                if screen_x < fb_w
+                    if screen_y < fb_h
+                        let glyph_pixel = 0
+                        let font_idx = gf_add(gf_mul(ch, gf_mul(cell_w, cell_h)), gf_add(gf_mul(py, cell_w), px))
+                        if font_idx < font.length
+                            glyph_pixel = font[font_idx]
+                        let color = bg_color
+                        if glyph_pixel != 0
+                            color = fg_color
+                        pixels[gf_add(gf_mul(screen_y, fb_w), screen_x)] = color
+                px = px + 1
+            py = py + 1
+        cx = cx + 1
+
+let term_tab(term) =
+    let x = term[3]
+    let cols = term[1]
+    let next_tab = gf_add(gf_sub(x, x % 8), 8)
+    if next_tab >= cols
+        next_tab = gf_sub(cols, 1)
+    [term[0], cols, term[2], next_tab, term[4], term[5], term[6], term[7], term[8], term[9], term[10]]
+
+let term_newline(term) =
+    let cols = term[1]
+    let rows = term[2]
+    let y = gf_add(term[4], 1)
+    if y >= rows
+        term = term_push_history(term)
+        term = term_scroll_up(term, 1)
+        y = gf_sub(rows, 1)
+    [term[0], cols, rows, 0, y, term[5], term[6], term[7], term[8], term[9], term[10]]
+
+let term_verify() = 1

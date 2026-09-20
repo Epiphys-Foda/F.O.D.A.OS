@@ -1,0 +1,222 @@
+let true STRAT_BUBBLE = 1
+let true STRAT_SELECTION = 2
+let true STRAT_INSERTION = 3
+let true STRAT_QUICK = 4
+
+let strategy_context_new(strategy_id) = [strategy_id]
+
+let strategy_set(context, strategy_id) =
+    context[0] = strategy_id
+    context
+
+let strategy_execute(context, data) =
+    let sid = context[0]
+    let r = 0
+    if sid == STRAT_BUBBLE
+        r = sort_strategy_bubble(data)
+    if sid == STRAT_SELECTION
+        r = sort_strategy_selection(data)
+    if sid == STRAT_INSERTION
+        r = sort_strategy_insertion(data)
+    if sid == STRAT_QUICK
+        r = sort_strategy_quick(data)
+    r
+
+let sort_strategy_bubble(arr) =
+    let n = len(arr)
+    let i = 0
+    for i < n
+        let j = 0
+        for j < n - i - 1
+            if arr[j] > arr[j + 1]
+                let tmp = arr[j]
+                arr[j] = arr[j + 1]
+                arr[j + 1] = tmp
+            j = j + 1
+        i = i + 1
+    arr
+
+let sort_strategy_selection(arr) =
+    let n = len(arr)
+    let i = 0
+    for i < n
+        let min_idx = i
+        let j = i + 1
+        for j < n
+            if arr[j] < arr[min_idx]
+                min_idx = j
+            j = j + 1
+        if min_idx != i
+            let tmp = arr[i]
+            arr[i] = arr[min_idx]
+            arr[min_idx] = tmp
+        i = i + 1
+    arr
+
+let sort_strategy_insertion(arr) =
+    let n = len(arr)
+    let i = 1
+    for i < n
+        let key = arr[i]
+        let j = i - 1
+        let go = 1
+        for go == 1
+            let shift = 0
+            if j >= 0
+                if arr[j] > key
+                    arr[j + 1] = arr[j]
+                    j = j - 1
+                    shift = 1
+            if shift == 0
+                go = 0
+        arr[j + 1] = key
+        i = i + 1
+    arr
+
+let sort_strategy_quick(data) =
+    let n = len(data)
+    let i = 1
+    for i < n
+        let key = data[i]
+        let j = i - 1
+        let go = 1
+        for go == 1
+            let shift = 0
+            if j >= 0
+                if data[j] > key
+                    data[j + 1] = data[j]
+                    j = j - 1
+                    shift = 1
+            if shift == 0
+                go = 0
+        data[j + 1] = key
+        i = i + 1
+    data
+
+let compression_strategy_rle(data) =
+    let n = len(data)
+    let result = []
+    let i = 0
+    for i < n
+        let count = 1
+        let go = 1
+        for go == 1
+            let nxt = i + count
+            if nxt >= n
+                go = 0
+            if nxt < n
+                if data[nxt] == data[i]
+                    count = count + 1
+                if data[nxt] != data[i]
+                    go = 0
+        result = arr_push(result, data[i])
+        result = arr_push(result, count)
+        i = i + count
+    result
+
+let compression_strategy_delta(data) =
+    let n = len(data)
+    let result = [data[0]]
+    let i = 1
+    for i < n
+        result = arr_concat(result, [data[i] - data[i - 1]])
+        i = i + 1
+    result
+
+let small_div(a, b) =
+    let q = 0
+    let r = a
+    for r >= b
+        r = r - b
+        q = q + 1
+    q
+
+let search_strategy_linear(arr, target) =
+    let found = 0 - 1
+    let i = 0
+    for i < len(arr)
+        if found < 0
+            if arr[i] == target
+                found = i
+        i = i + 1
+    found
+
+let search_strategy_binary(arr, target) =
+    let lo = 0
+    let hi = len(arr) - 1
+    let found = 0 - 1
+    for lo <= hi
+        let mid = small_div(lo + hi, 2)
+        if arr[mid] == target
+            found = mid
+            lo = hi + 1
+        if arr[mid] < target
+            lo = mid + 1
+        if arr[mid] > target
+            hi = mid - 1
+    found
+
+let render_strategy_text(data) =
+    int_to_str(data)
+
+let render_strategy_html(data) =
+    str_concat("<p>", str_concat(int_to_str(data), "</p>"))
+
+let strategy_verify() =
+    let data = [5, 3, 8, 1, 9, 2, 7]
+    let expected = [1, 2, 3, 5, 7, 8, 9]
+    let a = 1
+    let ctx = strategy_context_new(STRAT_BUBBLE)
+    let s1 = strategy_execute(ctx, data)
+    if arr_equal(s1, expected) != 1
+        a = 0
+    strategy_set(ctx, STRAT_SELECTION)
+    let s2 = strategy_execute(ctx, data)
+    if arr_equal(s2, expected) != 1
+        a = 0
+    strategy_set(ctx, STRAT_INSERTION)
+    let s3 = strategy_execute(ctx, data)
+    if arr_equal(s3, expected) != 1
+        a = 0
+    strategy_set(ctx, STRAT_QUICK)
+    let s4 = strategy_execute(ctx, data)
+    if arr_equal(s4, expected) != 1
+        a = 0
+    a
+
+let compress_verify() =
+    let data = [1, 1, 1, 2, 2, 3, 3, 3, 3]
+    let rle = compression_strategy_rle(data)
+    let want = [1, 3, 2, 2, 3, 4]
+    let a = 1
+    if arr_equal(rle, want) != 1
+        a = 0
+    let delta = compression_strategy_delta(data)
+    if delta[0] != 1
+        a = 0
+    if delta[3] != 1
+        a = 0
+    if delta[8] != 0
+        a = 0
+    a
+
+let search_verify() =
+    let arr = [1, 3, 5, 7, 9, 11]
+    let a = 1
+    if search_strategy_linear(arr, 7) != 3
+        a = 0
+    if search_strategy_binary(arr, 9) != 4
+        a = 0
+    if search_strategy_linear(arr, 100) != 0 - 1
+        a = 0
+    a
+
+print("== strategy: V2 id-dispatch migration ==")
+print(strategy_verify())
+print(compress_verify())
+print(search_verify())
+let s1 = strategy_verify()
+let s2 = compress_verify()
+let s3 = search_verify()
+let acc = s1 * s2 * s3
+print(acc)

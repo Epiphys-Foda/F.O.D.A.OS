@@ -1,0 +1,112 @@
+let prof_data_create(n_opcodes) =
+    let data = arr_new_n(5)
+    let counts = arr_new_n(n_opcodes)
+    let i = 0
+    for i < n_opcodes
+        counts[i] = 0
+        i = i + 1
+    data[0] = counts
+    data[1] = arr_new()
+    data[2] = 0
+    data[3] = 0
+    data[4] = 0
+    data
+
+let prof_record(data, opcode) =
+    let counts = data[0]
+    if opcode < counts.len()
+        counts[opcode] = counts[opcode] + 1
+    data[2] = data[2] + 1
+
+let prof_alloc(data, size) =
+    data[3] = data[3] + size
+
+let prof_stack(data, depth) =
+    if depth > data[4]
+        data[4] = depth
+
+let prof_call(data, caller, callee) =
+    let edge = arr_new_n(2)
+    edge[0] = caller
+    edge[1] = callee
+    data[1] = arr_push(data[1], edge)
+
+let prof_hot_opcodes(data, threshold) =
+    let hot = arr_new()
+    let counts = data[0]
+    let i = 0
+    for i < counts.len()
+        if counts[i] >= threshold
+            let entry = arr_new_n(2)
+            entry[0] = i
+            entry[1] = counts[i]
+            hot = arr_push(hot, entry)
+        i = i + 1
+    let n = hot.len()
+    let swapped = 1
+    for swapped == 1
+        swapped = 0
+        let i = 0
+        for i < n - 1
+            if hot[i][1] < hot[i + 1][1]
+                let tmp = hot[i]
+                hot[i] = hot[i + 1]
+                hot[i + 1] = tmp
+                swapped = 1
+            i = i + 1
+    hot
+
+let prof_summary(data) =
+    let summary = arr_new_n(5)
+    summary[0] = data[2]
+    summary[1] = data[3]
+    summary[2] = data[4]
+    let d1 = data[1]
+    summary[3] = d1.len()
+    let max_count = 0
+    let max_op = 0
+    let counts = data[0]
+    let i = 0
+    for i < counts.len()
+        if counts[i] > max_count
+            max_count = counts[i]
+            max_op = i
+        i = i + 1
+    summary[4] = max_op
+    summary
+
+let prof_time_estimate(data, weights) =
+    let total = 0
+    let counts = data[0]
+    let i = 0
+    for i < counts.len()
+        let w = 1
+        if i < weights.len()
+            w = weights[i]
+        total = total + counts[i] * w
+        i = i + 1
+    total
+
+let prof_default_weights() =
+    let w = arr_new_n(27)
+    let i = 0
+    for i < 27
+        w[i] = 1
+        i = i + 1
+    w[5] = 3
+    w[6] = 10
+    w[7] = 5
+    w[9] = 8
+    w[14] = 7
+    w[16] = 8
+    w
+
+let prof_memory_profile(data) =
+    let profile = arr_new_n(3)
+    profile[0] = data[3]
+    profile[1] = data[4]
+    if data[2] > 0
+        profile[2] = data[3] / data[2]
+    else
+        profile[2] = 0
+    profile

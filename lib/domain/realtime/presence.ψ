@@ -1,0 +1,266 @@
+import "../domain_field.ψ"
+
+let PR_P = 65537
+
+let PR_STATE_ONLINE  = 1
+let PR_STATE_AWAY    = 2
+let PR_STATE_OFFLINE = 3
+
+let PR_DIFF_JOIN   = 1
+let PR_DIFF_LEAVE  = 2
+let PR_DIFF_UPDATE = 3
+
+let PR_HEARTBEAT_INTERVAL = 5000
+let PR_OFFLINE_TIMEOUT    = 15000
+
+let pe_new(node_id, state, ts, meta) =
+    [node_id, state, ts, meta, 0]
+
+let pe_node(p)    = p[0]
+let pe_state(p)   = p[1]
+let pe_ts(p)      = p[2]
+let pe_meta(p)    = p[3]
+let pe_vc(p)      = p[4]
+
+let pe_set_state(p, s, ts) =
+    let vc = pe_vc(p) + 1
+    [pe_node(p), s, ts, pe_meta(p), vc]
+
+let pe_heartbeat(p, ts) =
+    let vc = pe_vc(p) + 1
+    [pe_node(p), pe_state(p), ts, pe_meta(p), vc]
+
+let pt_new(timeout) =
+    [{}, {}, {}, {}, 0, timeout]
+
+let pt_entries(t)  = t[0]
+let pt_joins(t)    = t[1]
+let pt_leaves(t)   = t[2]
+let pt_updates(t)  = t[3]
+let pt_last(t)     = t[4]
+let pt_timeout(t)  = t[5]
+
+let pt_heartbeat(t, node_id, ts, meta) =
+    let entries = pt_entries(t)
+    let existing = entries[node_id]
+    let joins = pt_joins(t)
+    let updates = pt_updates(t)
+    if existing == 0
+        let e = pe_new(node_id, PR_STATE_ONLINE, ts, meta)
+        entries[node_id] = e
+        joins[node_id] = e
+    else
+        let e = pe_heartbeat(existing, ts)
+        if meta != pe_meta(existing)
+            e = [pe_node(e), pe_state(e), ts, meta, pe_vc(e)]
+        entries[node_id] = e
+        updates[node_id] = e
+    [entries, joins, pt_leaves(t), updates, ts, pt_timeout(t)]
+
+let pt_set_state(t, node_id, state, ts) =
+    let entries = pt_entries(t)
+    let e = entries[node_id]
+    if e == 0
+        t
+    else
+        e = pe_set_state(e, state, ts)
+        entries[node_id] = e
+        let updates = pt_updates(t)
+        updates[node_id] = e
+        [entries, pt_joins(t), pt_leaves(t), updates, pt_last(t), pt_timeout(t)]
+
+let pt_scan_timeout(t, current_ts) =
+    let entries = pt_entries(t)
+    let keys = keys_of(entries)
+    let n = len(keys)
+    let leaves = []
+    let i = 0
+    let timeout = pt_timeout(t)
+    for i < n
+        let nid = keys[i]
+        let e = entries[nid]
+        if current_ts - pe_ts(e) > timeout
+            e = pe_set_state(e, PR_STATE_OFFLINE, current_ts)
+            entries[nid] = e
+            leaves.push(nid)
+        i = i + 1
+    let leaves_map = pt_leaves(t)
+    let j = 0
+    let nl = len(leaves)
+    for j < nl
+        let nid = leaves[j]
+        leaves_map[nid] = entries[nid]
+        j = j + 1
+    [[entries, pt_joins(t), leaves_map, pt_updates(t), current_ts, timeout], leaves]
+
+let pt_clear_diff(t) =
+    [pt_entries(t), {}, {}, {}, pt_last(t), pt_timeout(t)]
+
+let pt_get_diff(t) =
+    let j_keys = keys_of(pt_joins(t))
+    let l_keys = keys_of(pt_leaves(t))
+    let u_keys = keys_of(pt_updates(t))
+    [j_keys, l_keys, u_keys]
+
+let mv_new() =
+    [{}, 0]
+
+let mv_values(m) = m[0]
+let mv_ts(m)     = m[1]
+
+let mv_set(m, node_id, value, ts) =
+    let vals = mv_values(m)
+    vals[node_id] = [value, ts]
+    [vals, ts]
+
+let mv_merge(a, b) =
+    let va = mv_values(a)
+    let vb = mv_values(b)
+    let keys_a = keys_of(va)
+    let keys_b = keys_of(vb)
+    let merged = {}
+    let i = 0
+    let na = len(keys_a)
+    for i < na
+        let k = keys_a[i]
+        merged[k] = va[k]
+        i = i + 1
+    i = 0
+    let nb = len(keys_b)
+    for i < nb
+        let k = keys_b[i]
+        let bv = vb[k]
+        let av = merged[k]
+        if av == 0
+            merged[k] = bv
+        else
+            if bv[1] > av[1]
+                merged[k] = bv
+            else
+                if bv[1] < av[1]
+                    merged[k] = av
+                else
+                    merged[k] = [av[0], bv[0], av[1]]
+        i = i + 1
+    let new_ts = mv_ts(a)
+    if mv_ts(b) > new_ts
+        new_ts = mv_ts(b)
+    [merged, new_ts]
+
+let mv_collapse(m) =
+    let vals = mv_values(m)
+    let keys = keys_of(vals)
+    let n = len(keys)
+    let best_val = 0
+    let best_ts = 0
+    let i = 0
+    for i < n
+        let entry = vals[keys[i]]
+        let v = entry[0]
+        let ts = entry[1]
+        if ts > best_ts
+            best_ts = ts
+            best_val = v
+        i = i + 1
+    best_val
+
+let pb_new() =
+    [[], [[], [], []]]
+
+let pb_subs(b)    = b[0]
+let pb_lastdiff(b) = b[1]
+
+let pb_subscribe(b, sub_id) =
+    let subs = pb_subs(b)
+    subs.push(sub_id)
+    [subs, pb_lastdiff(b)]
+
+let pb_unsubscribe(b, sub_id) =
+    let subs = pb_subs(b)
+    let new_subs = []
+    let i = 0
+    let n = len(subs)
+    for i < n
+        if subs[i] != sub_id
+            new_subs.push(subs[i])
+        i = i + 1
+    [new_subs, pb_lastdiff(b)]
+
+let pb_broadcast(b, diff) =
+    [pb_subs(b), diff]
+
+let pr_self_test() =
+    let t = pt_new(PR_OFFLINE_TIMEOUT)
+    t = pt_heartbeat(t, 1, 1000, 0)
+    t = pt_heartbeat(t, 2, 1001, 0)
+    let entries = pt_entries(t)
+    let e1 = entries[1]
+    let t_join = 0
+    if pe_state(e1) == PR_STATE_ONLINE
+        if pe_node(e1) == 1
+            t_join = 1
+
+    let scan_res = pt_scan_timeout(t, 1000 + PR_OFFLINE_TIMEOUT + 1)
+    let t2 = scan_res[0]
+    let leaves = scan_res[1]
+    let t_timeout = 0
+    if len(leaves) == 2
+        t_timeout = 1
+    let e1_after = pt_entries(t2)[1]
+    let t_offline = 0
+    if pe_state(e1_after) == PR_STATE_OFFLINE
+        t_offline = 1
+
+    let t3 = pt_new(PR_OFFLINE_TIMEOUT)
+    t3 = pt_heartbeat(t3, 10, 1000, 0)
+    t3 = pt_heartbeat(t3, 20, 1001, 0)
+    let diff = pt_get_diff(t3)
+    let joins_list = diff[0]
+    let t_diff = 0
+    if len(joins_list) == 2
+        t_diff = 1
+
+    let m1 = mv_new()
+    m1 = mv_set(m1, 1, 100, 1000)
+    let m2 = mv_new()
+    m2 = mv_set(m2, 2, 200, 2000)
+    let merged = mv_merge(m1, m2)
+    let collapsed = mv_collapse(merged)
+    let t_mv = 0
+    if collapsed == 200
+        t_mv = 1
+
+    let m3 = mv_new()
+    m3 = mv_set(m3, 1, 100, 5000)
+    let m4 = mv_new()
+    m4 = mv_set(m4, 2, 200, 5000)
+    let merged2 = mv_merge(m3, m4)
+    let collapsed2 = mv_collapse(merged2)
+    let t_mv_concurrent = 0
+    if collapsed2 == 100
+        t_mv_concurrent = 1
+
+    let b = pb_new()
+    b = pb_subscribe(b, 100)
+    b = pb_subscribe(b, 200)
+    let broadcast_res = pb_broadcast(b, [[1], [2], [3]])
+    let subs_notified = broadcast_res[0]
+    let t_broadcast = 0
+    if len(subs_notified) == 2
+        t_broadcast = 1
+
+    let t5 = pt_new(PR_OFFLINE_TIMEOUT)
+    t5 = pt_heartbeat(t5, 5, 1000, 0)
+    t5 = pt_set_state(t5, 5, PR_STATE_AWAY, 1001)
+    let e5 = pt_entries(t5)[5]
+    let t_away = 0
+    if pe_state(e5) == PR_STATE_AWAY
+        t_away = 1
+
+    [t_join, t_timeout, t_offline, t_diff, t_mv, t_mv_concurrent, t_broadcast, t_away]
+
+let pr_default_tracker() =
+    pt_new(PR_OFFLINE_TIMEOUT)
+
+let pr_default_broadcast() =
+    pb_new()

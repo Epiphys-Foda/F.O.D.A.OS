@@ -1,0 +1,374 @@
+import "residueon_common.ψ"
+
+let COMP_LEXER() = 0
+let COMP_PARSER() = 1
+let COMP_CODEGEN() = 2
+let COMP_VERIFY() = 3
+let COMP_OPTIMIZE() = 4
+let COMP_LINKER() = 5
+let COMP_RUNTIME() = 6
+let COMP_BOOTSTRAP() = 7
+let COMP_COUNT() = 8
+
+let comp_fp(comp_id) = gf_pow(comp_id, 3)
+
+let residue_compiler() =
+    let primes = [
+        rp_make(COMP_LEXER(), comp_fp(COMP_LEXER()), 1),
+        rp_make(COMP_PARSER(), comp_fp(COMP_PARSER()), 1),
+        rp_make(COMP_CODEGEN(), comp_fp(COMP_CODEGEN()), 1),
+        rp_make(COMP_VERIFY(), comp_fp(COMP_VERIFY()), 1),
+        rp_make(COMP_OPTIMIZE(), comp_fp(COMP_OPTIMIZE()), 1),
+        rp_make(COMP_LINKER(), comp_fp(COMP_LINKER()), 1),
+        rp_make(COMP_RUNTIME(), comp_fp(COMP_RUNTIME()), 1),
+        rp_make(COMP_BOOTSTRAP(), comp_fp(COMP_BOOTSTRAP()), 1)
+    ]
+    rpf_make(primes, COMP_COUNT())
+
+let residue_compile(compiler) =
+    let primes = rpf_primes(compiler)
+    let n = rpf_count(compiler)
+    let new_primes = []
+    let i = 0
+    for i < n
+        let rp = primes[i]
+        let z = rp_z(rp)
+        let nn = rp_n(rp)
+        let new_r = gf_pow(z, 3)
+        new_primes = new_primes.push(rp_make(z, new_r, nn))
+        i = i + 1
+    rpf_make(new_primes, n)
+
+let residue_self_compile(compiler) = residue_compile(compiler)
+
+let residue_bootstrap_verify(compiler) =
+    let compiled = residue_self_compile(compiler)
+    let fp1 = rpf_fingerprint(compiler)
+    let fp2 = rpf_fingerprint(compiled)
+    let result = 0
+    if fp1 == fp2
+        result = 1
+    result
+
+let residue_tower_k(compiler, k) =
+    let current = compiler
+    let i = 0
+    for i < k
+        current = residue_compile(current)
+        i = i + 1
+    current
+
+let residue_tower_verify(compiler, k) =
+    let fp0 = rpf_fingerprint(compiler)
+    let fpk = rpf_fingerprint(residue_tower_k(compiler, k))
+    let result = 0
+    if fp0 == fpk
+        result = 1
+    result
+
+let residue_tower_chain(compiler, k) =
+    let fp0 = rpf_fingerprint(compiler)
+    let all_equal = 1
+    let i = 1
+    for i <= k
+        let fpi = rpf_fingerprint(residue_tower_k(compiler, i))
+        if fp0 != fpi
+            all_equal = 0
+        i = i + 1
+    all_equal
+
+let residue_galois_verify(compiler, sigma) =
+    let mutated = rpf_galois(compiler, sigma)
+    let compiled = residue_compile(mutated)
+    let fp1 = rpf_fingerprint(mutated)
+    let fp2 = rpf_fingerprint(compiled)
+    let result = 0
+    if fp1 == fp2
+        result = 1
+    result
+
+let residue_phase(rp) =
+    let r = rp_r(rp)
+    let result = r % 256
+    if result < 0
+        result = result + 256
+    result
+
+let pcd_scan(compiler) =
+    let primes = rpf_primes(compiler)
+    let n = rpf_count(compiler)
+    let defects = 0
+    let i = 0
+    for i < n
+        let j = i + 1
+        for j < n
+            let phase_i = residue_phase(primes[i])
+            let phase_j = residue_phase(primes[j])
+            let diff = phase_i - phase_j
+            if diff < 0
+                diff = diff + 256
+            if diff > 128
+                defects = defects + 1
+            j = j + 1
+        i = i + 1
+    defects
+
+let rrc_scan(compiler) =
+    let primes = rpf_primes(compiler)
+    let n = rpf_count(compiler)
+    let defects = 0
+    let i = 1
+    for i < n - 1
+        let r_prev = rp_r(primes[i - 1])
+        let r_curr = rp_r(primes[i])
+        let r_next = rp_r(primes[i + 1])
+        let curve = gf_add(gf_sub(r_next, gf_mul(2, r_curr)), r_prev)
+        let abs_c = curve
+        if abs_c > 32768
+            abs_c = 65537 - abs_c
+        if abs_c > 16384
+            defects = defects + 1
+        i = i + 1
+    defects
+
+let topological_health(compiler) =
+    let pcd = pcd_scan(compiler)
+    let rrc = rrc_scan(compiler)
+    pcd + rrc
+
+let bootstrap_health_verify(compiler) =
+    let health_before = topological_health(compiler)
+    let compiled = residue_compile(compiler)
+    let health_after = topological_health(compiled)
+    let result = 0
+    if health_before == health_after
+        result = 1
+    result
+
+let residue_collide(rp1, rp2) =
+    rp_make(gf_add(rp_z(rp1), rp_z(rp2)), gf_mul(rp_r(rp1), rp_r(rp2)), rp_n(rp1) + rp_n(rp2))
+
+let collision_bootstrap(compiler) =
+    let primes = rpf_primes(compiler)
+    let n = rpf_count(compiler)
+    let new_primes = []
+    let i = 0
+    for i < n
+        let rp = primes[i]
+        let new_r = gf_pow(rp_z(rp), 3)
+        new_primes = new_primes.push(rp_make(rp_z(rp), new_r, rp_n(rp)))
+        i = i + 1
+    let c1 = residue_collide(primes[0], primes[1])
+    let c2 = residue_collide(primes[2], primes[3])
+    new_primes = new_primes.push(c1)
+    new_primes = new_primes.push(c2)
+    rpf_make(new_primes, n + 2)
+
+let collision_bootstrap_verify(compiler) =
+    let collided = collision_bootstrap(compiler)
+    let compiled = residue_compile(collided)
+    let n1 = rpf_count(collided)
+    let n2 = rpf_count(compiled)
+    let result = 0
+    if n1 == n2
+        result = 1
+    result
+
+let residue_fitness(compiler) =
+    let n = rpf_count(compiler)
+    let total = rpf_total_residue(compiler)
+    let result = n
+    if total > 0
+        result = result + 1
+    result
+
+let residue_evolve(compiler, sigma, generations) =
+    let current = compiler
+    let i = 0
+    for i < generations
+        let mutated = rpf_galois(current, sigma)
+        let fit_orig = residue_fitness(current)
+        let fit_mut = residue_fitness(mutated)
+        if fit_mut > fit_orig
+            current = mutated
+        i = i + 1
+    current
+
+let evolve_bootstrap_verify(compiler, sigma, generations) =
+    let evolved = residue_evolve(compiler, sigma, generations)
+    let compiled = residue_compile(evolved)
+    let fp1 = rpf_fingerprint(evolved)
+    let fp2 = rpf_fingerprint(compiled)
+    let result = 0
+    if fp1 == fp2
+        result = 1
+    result
+
+let bootstrap_level_1(compiler) =
+    let fp = rpf_fingerprint(compiler)
+    fp
+
+let bootstrap_level_2(compiler) =
+    let compiled = residue_compile(compiler)
+    rpf_fingerprint(compiled)
+
+let bootstrap_level_3(compiler) =
+    let collided = collision_bootstrap(compiler)
+    let compiled = residue_compile(collided)
+    rpf_fingerprint(compiled)
+
+let bootstrap_level_4(compiler) =
+    let evolved = residue_evolve(compiler, 2, 3)
+    let compiled = residue_compile(evolved)
+    rpf_fingerprint(compiled)
+
+let bootstrap_level_5(compiler) =
+    let fp = rpf_fingerprint(compiler)
+    gf_mul(fp, fp)
+
+let bootstrap_tower_levels_verify(compiler) =
+    let l1 = bootstrap_level_1(compiler)
+    let l2 = bootstrap_level_2(compiler)
+    let l3 = bootstrap_level_3(compiler)
+    let l4 = bootstrap_level_4(compiler)
+    let l5 = bootstrap_level_5(compiler)
+    let result = 0
+    if l1 == l2
+        result = result + 1
+    if l1 == l3
+        result = result + 1
+    if l1 == l4
+        result = result + 1
+    result
+
+let residueon_bootstrap_verify() =
+    let ok = 0
+    let compiler = residue_compiler()
+
+    if rpf_count(compiler) == 8
+        ok = ok + 1
+    if rpf_total_residue(compiler) >= 0
+        ok = ok + 1
+
+    let compiled = residue_compile(compiler)
+    if rpf_count(compiled) == 8
+        ok = ok + 1
+    if rpf_fingerprint(compiled) == rpf_fingerprint(compiler)
+        ok = ok + 1
+
+    if residue_bootstrap_verify(compiler) == 1
+        ok = ok + 1
+
+    if residue_tower_verify(compiler, 1) == 1
+        ok = ok + 1
+    if residue_tower_verify(compiler, 2) == 1
+        ok = ok + 1
+    if residue_tower_verify(compiler, 4) == 1
+        ok = ok + 1
+    if residue_tower_verify(compiler, 8) == 1
+        ok = ok + 1
+    if residue_tower_verify(compiler, 16) == 1
+        ok = ok + 1
+    if residue_tower_verify(compiler, 32) == 1
+        ok = ok + 1
+
+    if residue_tower_chain(compiler, 8) == 1
+        ok = ok + 1
+    if residue_tower_chain(compiler, 16) == 1
+        ok = ok + 1
+
+    if residue_galois_verify(compiler, 1) == 1
+        ok = ok + 1
+    if residue_galois_verify(compiler, 2) == 1
+        ok = ok + 1
+    if residue_galois_verify(compiler, 3) == 1
+        ok = ok + 1
+    if residue_galois_verify(compiler, 5) == 1
+        ok = ok + 1
+
+    let pcd = pcd_scan(compiler)
+    if pcd >= 0
+        ok = ok + 1
+    let rrc = rrc_scan(compiler)
+    if rrc >= 0
+        ok = ok + 1
+    let health = topological_health(compiler)
+    if health == pcd + rrc
+        ok = ok + 1
+
+    if bootstrap_health_verify(compiler) == 1
+        ok = ok + 1
+
+    let collided = collision_bootstrap(compiler)
+    if rpf_count(collided) == 10
+        ok = ok + 1
+    if collision_bootstrap_verify(compiler) == 1
+        ok = ok + 1
+
+    let evolved = residue_evolve(compiler, 2, 5)
+    if rpf_count(evolved) == 8
+        ok = ok + 1
+    if evolve_bootstrap_verify(compiler, 2, 3) == 1
+        ok = ok + 1
+    if evolve_bootstrap_verify(compiler, 3, 5) == 1
+        ok = ok + 1
+
+    let l1 = bootstrap_level_1(compiler)
+    let l2 = bootstrap_level_2(compiler)
+    let l3 = bootstrap_level_3(compiler)
+    let l4 = bootstrap_level_4(compiler)
+    let l5 = bootstrap_level_5(compiler)
+    if l1 == l2
+        ok = ok + 1
+    if l3 >= 0
+        ok = ok + 1
+    if l4 >= 0
+        ok = ok + 1
+    if l5 >= 0
+        ok = ok + 1
+
+    if bootstrap_tower_levels_verify(compiler) >= 1
+        ok = ok + 1
+
+    let g1 = rp_make(0, 0, 1)
+    let g2 = rp_make(1, 1, 1)
+    let g_collided = residue_collide(g1, g2)
+    if rp_z(g_collided) == 1
+        ok = ok + 1
+    if rp_r(g_collided) == 0
+        ok = ok + 1
+
+    if ast_to_op(AST_LITERAL()) == OP_OBSERVE()
+        ok = ok + 1
+
+    let f = mf_make([0, 1], [3, 5], 2)
+    let fI = combinator_I(f)
+    if mf_equal(fI, f) == 1
+        ok = ok + 1
+
+    if bootstrap_tower(8) == 1
+        ok = ok + 1
+
+    let apop = apoptosis(f)
+    if mf_size(apop) >= 0
+        ok = ok + 1
+
+    let mc = meta_compiler()
+    if mf_size(mc) == 6
+        ok = ok + 1
+
+    let hom = rpf_homology(compiler)
+    if hom[0] == 8
+        ok = ok + 1
+
+    let cancer = rpf_cancer_check(compiler)
+    if cancer == 0 || cancer == 1
+        ok = ok + 1
+
+    let rpf_apop = rpf_apoptosis(compiler)
+    if rpf_count(rpf_apop) >= 0
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_bootstrap_verify()

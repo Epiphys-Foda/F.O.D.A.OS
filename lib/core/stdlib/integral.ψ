@@ -1,0 +1,136 @@
+let trapezoidal(f, a, b, n) =
+    let h = (b - a) / n
+    let sum = (f(a) + f(b)) / 2
+    let i = 1
+    for i < n
+        sum = sum + f(a + i * h)
+        i = i + 1
+    sum * h
+
+let simpson(f, a, b, n) =
+    if n % 2 == 1
+        n = n + 1
+    let h = (b - a) / n
+    let sum = f(a) + f(b)
+    let i = 1
+    for i < n
+        let w = (i % 2 == 1 ? 4 : 2)
+        sum = sum + w * f(a + i * h)
+        i = i + 1
+    sum * h / 3
+
+let simpson38(f, a, b, n) =
+    if n % 3 != 0
+        n = n + (3 - n % 3)
+    let h = (b - a) / n
+    let sum = f(a) + f(b)
+    let i = 1
+    for i < n
+        let w = (i % 3 == 0 ? 2 : 3)
+        sum = sum + w * f(a + i * h)
+        i = i + 1
+    sum * 3 * h / 8
+
+let romberg(f, a, b, max_iter) =
+    let r = []
+    let i = 0
+    for i < max_iter
+        r = arr_concat(r, [[0]])
+        i = i + 1
+    r[0][0] = (b - a) * (f(a) + f(b)) / 2
+    let k = 1
+    for k < max_iter
+        let n = 1
+        let p = 0
+        for p < k
+            n = n * 2
+            p = p + 1
+        let h = (b - a) / n
+        let sum = 0
+        let i = 1
+        for i < n
+            if i % 2 == 1
+                sum = sum + f(a + i * h)
+            i = i + 1
+        r[k] = [r[k - 1][0] / 2 + h * sum]
+        let j = 1
+        for j <= k
+            let pow4 = 1
+            let p = 0
+            for p < j
+                pow4 = pow4 * 4
+                p = p + 1
+            let val = (pow4 * r[k][j - 1] - r[k - 1][j - 1]) / (pow4 - 1)
+            r[k] = arr_concat(r[k], [val])
+            j = j + 1
+        k = k + 1
+    r[max_iter - 1][max_iter - 1]
+
+let midpoint(f, a, b, n) =
+    let h = (b - a) / n
+    let sum = 0
+    let i = 0
+    for i < n
+        sum = sum + f(a + (i + 0) * h + h / 2)
+        i = i + 1
+    sum * h
+
+let composite_gauss3(f, a, b, n) =
+    let h = (b - a) / n
+    let sqrt35 = 7745966692 / 10000000000
+    let w1 = 5
+    let w2 = 8
+    let w3 = 5
+    let sum = 0
+    let i = 0
+    for i < n
+        let mid = a + (i * 2 + 1) * h / 2
+        let half = h / 2
+        sum = sum + w1 * f(mid - half * sqrt35)
+        sum = sum + w2 * f(mid)
+        sum = sum + w3 * f(mid + half * sqrt35)
+        i = i + 1
+    sum * h / 18
+
+let monte_carlo(f, a, b, n, seed) =
+    let s = seed
+    let sum = 0
+    let i = 0
+    for i < n
+        s = (s * 1103515245 + 12345) % 2147483648
+        let x = a + (b - a) * s / 2147483648
+        sum = sum + f(x)
+        i = i + 1
+    (b - a) * sum / n
+
+let adaptive_simpson(f, a, b, tol) =
+    let c = (a + b) / 2
+    let fa = f(a)
+    let fb = f(b)
+    let fc = f(c)
+    let whole = (b - a) * (fa + 4 * fc + fb) / 6
+    let d = (a + c) / 2
+    let e = (c + b) / 2
+    let fd = f(d)
+    let fe = f(e)
+    let left = (c - a) * (fa + 4 * fd + fc) / 6
+    let right = (b - c) * (fc + 4 * fe + fb) / 6
+    if abs(left + right - whole) <= 15 * tol
+        left + right + (left + right - whole) / 15
+    else
+        adaptive_simpson(f, a, c, tol / 2) + adaptive_simpson(f, c, b, tol / 2)
+
+let abs(x) =
+    (x < 0 ? -x : x)
+
+let main() =
+    let f(x) = x * x
+    let v1 = trapezoidal(f, 0, 10, 100)
+    print(v1)
+    let v2 = simpson(f, 0, 10, 100)
+    print(v2)
+    let v3 = midpoint(f, 0, 10, 100)
+    print(v3)
+    let v4 = monte_carlo(f, 0, 10, 1000, 42)
+    print(v4)
+    0

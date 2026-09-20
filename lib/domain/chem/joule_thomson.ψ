@@ -1,0 +1,63 @@
+import "ck.ψ"
+let bad = [0]
+
+let t_n2_inv = 623
+let t_h2_inv = 202
+let t_he_inv = 45
+let rt = 300
+bad[0] = bad[0] + ck(t_n2_inv, 610, 640)
+bad[0] = bad[0] + ck(t_h2_inv, 195, 215)
+bad[0] = bad[0] + ck(t_he_inv, 40, 50)
+bad[0] = bad[0] + ck(rt, 290, 310)
+bad[0] = bad[0] + ck_lo(t_n2_inv, rt)
+bad[0] = bad[0] + ck_hi(t_h2_inv, rt)
+bad[0] = bad[0] + ck_hi(t_he_inv, rt)
+
+let mu_x100 = 25
+let dp = 200
+let dt_k = 50
+bad[0] = bad[0] + ck(mu_x100, 23, 27)
+bad[0] = bad[0] + ck(dp, 190, 210)
+bad[0] = bad[0] + ck(dt_k, 40, 60)
+let dz1 = dt_k * 100 - mu_x100 * dp
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+bad[0] = bad[0] + ck_hi(t_he_inv, t_h2_inv)
+bad[0] = bad[0] + ck_hi(t_h2_inv, t_n2_inv)
+
+let t_ln2 = 77
+let t_lh2 = 20
+let t_lhe = 4
+bad[0] = bad[0] + ck(t_ln2, 75, 79)
+bad[0] = bad[0] + ck(t_lh2, 18, 22)
+bad[0] = bad[0] + ck(t_lhe, 4, 5)
+bad[0] = bad[0] + ck_lo(t_ln2, t_lh2)
+bad[0] = bad[0] + ck_lo(t_lh2, t_lhe)
+
+bad[0] = bad[0] + ck_hi(t_ln2, t_h2_inv)
+bad[0] = bad[0] + ck_hi(t_lh2, t_he_inv)
+
+if 1852 < 1850
+    bad[0] = bad[0] + 1
+if 1852 > 1854
+    bad[0] = bad[0] + 1
+if 1895 < 1893
+    bad[0] = bad[0] + 1
+if 1895 > 1897
+    bad[0] = bad[0] + 1
+if 1895 < 1852
+    bad[0] = bad[0] + 1
+if 1898 < 1896
+    bad[0] = bad[0] + 1
+if 1898 > 1900
+    bad[0] = bad[0] + 1
+if 1898 < 1895
+    bad[0] = bad[0] + 1
+if 1908 < 1906
+    bad[0] = bad[0] + 1
+if 1908 > 1910
+    bad[0] = bad[0] + 1
+if 1908 < 1898
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

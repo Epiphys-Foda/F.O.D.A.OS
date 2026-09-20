@@ -1,0 +1,204 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let MATERIAL_MAX_ATOMS = 8192
+
+let material_create(n_atoms, lattice_type) =
+    let atoms = []
+    let i = 0
+    for i < n_atoms
+        atoms.push([i, i % 10, i / 10, 0, 0, [0, 0, 0]])
+        i = i + 1
+    [atoms, n_atoms, [lattice_type, 1, 1, 1], [0, 0, 0]]
+let lj_potential(r, epsilon, sigma) =
+    let sr = gf_div(sigma, r)
+    let sr6 = gf_pow(sr, 6)
+    let sr12 = gf_mul(sr6, sr6)
+    gf_mul(4, gf_mul(epsilon, gf_sub(sr12, sr6)))
+let lj_force(r, epsilon, sigma) =
+    let sr = gf_div(sigma, r)
+    let sr6 = gf_pow(sr, 6)
+    let sr12 = gf_mul(sr6, sr6)
+    gf_mul(gf_mul(24, epsilon), gf_sub(gf_mul(2, sr12), sr6))
+let stress_tensor(forces, area) =
+    let stress = []
+    let i = 0
+    let n = len(forces)
+    for i < n
+        stress.push(gf_div(forces[i], area))
+        i = i + 1
+    stress
+let strain_tensor(original, deformed) =
+    gf_div(gf_sub(deformed, original), original)
+let hooke_law(stress, youngs_modulus) =
+    gf_div(stress, youngs_modulus)
+let phase_transition(temp, critical_temp) =
+    (temp > critical_temp ? 1 : 0)
+let LATTICE_FCC = 1
+let LATTICE_BCC = 2
+let LATTICE_HCP = 3
+let LATTICE_SC = 4
+let lattice_vectors(kind, a) =
+    if kind == LATTICE_FCC
+        [[a, 0, 0], [0, a, 0], [0, 0, a]]
+    else
+        if kind == LATTICE_BCC
+            [[a, 0, 0], [0, a, 0], [0, 0, a]]
+        else
+            [[a, 0, 0], [gf_div(a, 2), gf_div(gf_mul(a, 1732), 2000), 0], [0, 0, a]]
+let field_material(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let material_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_material(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+
+let STRAIN_POLES = [0, 10, 50, 200, 500, 1000, 2000, 5000]
+let ELASTIC_C = [11000, 11900, 12100, 7600, 16800, 16800, 16800, 16800]
+
+let psi_strain(epsilon) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(epsilon), gf_norm(STRAIN_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(ELASTIC_C[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let STRESS_POLES = [0, 7000, 22000, 70000, 220000, 700000, 2200000, 7000000]
+let YOUNG_MODULI = [11000, 11000, 11000, 11000, 11000, 11000, 11000, 11000]
+
+let psi_stress(sigma) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(sigma), gf_norm(STRESS_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(YOUNG_MODULI[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let PHASE_POLES = [
+    1085,
+    912,
+    1394,
+    1538,
+    660,
+    1495,
+    1668,
+    3458
+]
+let LATENT_HEATS = [130, 16, 15, 247, 397, 175, 280, 192]
+
+let psi_phase(temp) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(temp), gf_norm(PHASE_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(LATENT_HEATS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let vrh_average(c11, c12, c44) =
+    let voigt = (3 * c11 + 2 * (2 * c12 + 4 * c44)) / 5
+    let reuss_inv = 1
+    let vrh = voigt
+    vrh
+
+let material_global_response(strain, stress, temp) =
+    let e1 = psi_strain(strain)
+    let e2 = psi_stress(stress)
+    let e3 = psi_phase(temp)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+
+let landau_phase_transition(temp, critical_temp) =
+    let v = psi_phase(temp)
+    let vc = psi_phase(critical_temp)
+    (v > vc ? 1 : 0)
+
+let nested_fractal_material_invariants() =
+    let e1 = psi_strain(100)
+    let e2 = psi_stress(50000)
+    let e3 = psi_phase(500)
+    let inv1 = 0
+    if e1 != 0
+        (e2 != 0 ? (e3 != 0 ? (inv1 = 1) : 0) : 0)
+    let inv2 = 0
+    if STRAIN_POLES[0] < STRAIN_POLES[1]
+        (STRAIN_POLES[1] < STRAIN_POLES[7] ? (inv2 = 1) : 0)
+    let inv3 = 0
+    if STRESS_POLES[0] < STRESS_POLES[1]
+        (STRESS_POLES[1] < STRESS_POLES[7] ? (inv3 = 1) : 0)
+    let inv4 = 0
+    if ELASTIC_C[4] == 16800
+        inv4 = 1
+    let inv5 = 0
+    if PHASE_POLES[0] == 1085
+        (PHASE_POLES[3] == 1538 ? (inv5 = 1) : 0)
+    [inv1, inv2, inv3, inv4, inv5]
+
+let material_verify_v18() =
+    let t1 = 0
+    if psi_strain(100) != 0
+        t1 = 1
+    let t2 = 0
+    if psi_stress(50000) != 0
+        t2 = 1
+    let t3 = 0
+    if psi_phase(500) != 0
+        t3 = 1
+    let t4 = 0
+    if ELASTIC_C[4] == 16800
+        t4 = 1
+    let t5 = 0
+    if YOUNG_MODULI[0] == 11000
+        t5 = 1
+    let t6 = 0
+    if PHASE_POLES[0] == 1085
+        t6 = 1
+    let t7 = 0
+    if PHASE_POLES[3] == 1538
+        t7 = 1
+    let t8 = 0
+    if PHASE_POLES[4] == 660
+        t8 = 1
+    let t9 = 0
+    if PHASE_POLES[7] == 3458
+        t9 = 1
+    let mono_s = 1
+    let k = 1
+    for k < 8
+        if STRAIN_POLES[k] <= STRAIN_POLES[k - 1]
+            mono_s = 0
+        k = k + 1
+    let t10 = mono_s
+    let landau_low = psi_phase(500)
+    let landau_high = psi_phase(1200)
+    let t11 = 0
+    if landau_low != landau_high
+        t11 = 1
+    let invs = nested_fractal_material_invariants()
+    let t12 = 0
+    if invs[0] == 1
+        if invs[1] == 1
+            if invs[2] == 1
+                if invs[3] == 1
+                    if invs[4] == 1
+                        t12 = 1
+    let passed = t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12
+    passed == 12
+

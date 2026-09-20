@@ -1,0 +1,33 @@
+import "ck.ψ"
+let bad = [0]
+
+let ph7 = 700
+
+let e_asp = 390 - 700
+bad[0] = bad[0] + ck_hi(e_asp, 0)
+let e_glu = 420 - 700
+bad[0] = bad[0] + ck_hi(e_glu, 0)
+let e_his = 600 - 700
+bad[0] = bad[0] + ck_hi(e_his, 0)
+let e_cys = 830 - 700
+bad[0] = bad[0] + ck_lo(e_cys, 1)
+let e_lys = 1050 - 700
+bad[0] = bad[0] + ck_lo(e_lys, 1)
+let e_arg = 1250 - 700
+bad[0] = bad[0] + ck_lo(e_arg, 1)
+
+let qa = 1 - 1 - 1
+let dqa = qa - (0 - 1)
+let adqa =
+    if dqa < 0
+        0 - dqa
+    else
+        dqa
+bad[0] = bad[0] + adqa * adqa
+
+let qb = 2
+let dqb = qb - 2
+bad[0] = bad[0] + dqb * dqb
+
+print(bad[0])
+arr_get(arr_new_n(1), bad[0])

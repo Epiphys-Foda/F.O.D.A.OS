@@ -1,0 +1,183 @@
+let RFIT_P1 = 65537
+let RFIT_P2 = 131071
+
+let rfit_powmod(b, e, m) =
+    let r = 1
+    let base = b % m
+    let ex = e
+    for ex > 0
+        if ex % 2 == 1
+            r = r * base % m
+        base = base * base % m
+        ex = ex / 2
+    r
+
+let rfit_minv(a, m) =
+    rfit_powmod(a, m - 2, m)
+
+let rfit_eval(z, poles, w, m, p) =
+    let s = 0
+    let k = 0
+    for k < m
+        s = (s + w[k] * rfit_minv((z - poles[k]) % p, p)) % p
+        k = k + 1
+    s
+
+let rfit_elim(A, b, c, r, n, pinv, p) =
+    let f = A[r * n + c] * pinv % p
+    let j = c
+    for j < n
+        A[r * n + j] = (A[r * n + j] - f * A[c * n + j]) % p
+        j = j + 1
+    b[r] = (b[r] - f * b[c]) % p
+    0
+
+let rfit_pole_solve(xs, ys, poles, n, m, p) =
+    let A = arr_new_n(m * m)
+    let i = 0
+    for i < m
+        let k = 0
+        for k < m
+            A[i * m + k] = rfit_minv((xs[i] - poles[k]) % p, p)
+            k = k + 1
+        i = i + 1
+    let b = arr_new_n(m)
+    let i2 = 0
+    for i2 < m
+        b[i2] = ys[i2]
+        i2 = i2 + 1
+    let c = 0
+    for c < m
+        let piv = 0 - 1
+        let r = c
+        for r < m
+            if piv == 0 - 1
+                if A[r * m + c] % p != 0
+                    piv = r
+            r = r + 1
+        if piv != c
+            let j = 0
+            for j < m
+                let t = A[c * m + j]
+                A[c * m + j] = A[piv * m + j]
+                A[piv * m + j] = t
+                j = j + 1
+            let tb = b[c]
+            b[c] = b[piv]
+            b[piv] = tb
+        let pinv = rfit_minv(A[c * m + c], p)
+        let r2 = c + 1
+        for r2 < m
+            if A[r2 * m + c] % p != 0
+                rfit_elim(A, b, c, r2, m, pinv, p)
+            r2 = r2 + 1
+        c = c + 1
+    let w = arr_new_n(m)
+    let i3 = m - 1
+    for i3 >= 0
+        let s = b[i3]
+        let j3 = i3 + 1
+        for j3 < m
+            s = (s - A[i3 * m + j3] * w[j3]) % p
+            j3 = j3 + 1
+        w[i3] = s * rfit_minv(A[i3 * m + i3], p) % p
+        i3 = i3 - 1
+    w
+
+let rfit_resid(xs, ys, poles, w, m, n, p, i) =
+    (ys[i] - rfit_eval(xs[i], poles, w, m, p) + p) % p
+
+let rfit_worst(xs, ys, poles, w, m, n, p) =
+    let idx = 0 - 1
+    let best = 0 - 1
+    let i = 0
+    for i < n
+        let r = rfit_resid(xs, ys, poles, w, m, n, p, i)
+        if r > best
+            best = r
+            idx = i
+        i = i + 1
+    idx
+
+let rfit_exact(xs, ys, poles, w, m, n, p) =
+    let ok = 1
+    let i = 0
+    for i < n
+        if rfit_resid(xs, ys, poles, w, m, n, p, i) != 0
+            ok = 0
+        i = i + 1
+    ok
+
+let rfit_fit(xs, ys, poles, m, n, p, max_iter) =
+    let out = arr_new_n(m + 2)
+    let it = 0
+    let done = 0
+    let w = arr_new_n(m)
+    for it < max_iter
+        if done == 0
+            w = rfit_pole_solve(xs, ys, poles, m, m, p)
+            if rfit_exact(xs, ys, poles, w, m, n, p) == 1
+                done = 1
+            else
+                let worst = rfit_worst(xs, ys, poles, w, m, n, p)
+                let cand = (xs[worst] + 911 * (it + 1)) % p
+                let clash = 1
+                let guard = 0
+                for guard < 1
+                    let t = 0
+                    for t < m
+                        if poles[t] == cand
+                            cand = (cand + 977) % p
+                        if xs[t] == cand
+                            cand = (cand + 977) % p
+                        t = t + 1
+                    clash = 0
+                let t2 = 0
+                for t2 < m - 1
+                    poles[t2] = poles[t2 + 1]
+                    t2 = t2 + 1
+                poles[m - 1] = cand
+        it = it + 1
+    out[0] = done
+    out[1] = it
+    let k = 0
+    for k < m
+        out[k + 2] = w[k]
+        k = k + 1
+    out
+
+let rfit_v_all() =
+    let ok = 1
+    let nodes = [7, 9, 11, 13, 15, 17, 19, 21]
+    let p1 = RFIT_P1
+    let ys1 = arr_new_n(8)
+    let i = 0
+    for i < 8
+        let s = 0
+        s = (s + 5 * rfit_minv((nodes[i] - 101) % p1, p1)) % p1
+        s = (s + 9 * rfit_minv((nodes[i] - 211) % p1, p1)) % p1
+        s = (s + 13 * rfit_minv((nodes[i] - 307) % p1, p1)) % p1
+        ys1[i] = s
+        i = i + 1
+    let poles1 = [101, 211, 307]
+    let r1 = rfit_fit(nodes, ys1, poles1, 3, 8, p1, 8)
+    ok = ok * (r1[0] == 1 ? 1 : 0)
+    ok = ok * (r1[2] == 5 && r1[3] == 9 && r1[4] == 13 ? 1 : 0)
+    let poles2 = [101, 211]
+    let r2 = rfit_fit(nodes, ys1, poles2, 2, 8, p1, 8)
+    ok = ok * (r2[0] == 0 ? 1 : 0)
+    let p2v = RFIT_P2
+    let ys2 = arr_new_n(8)
+    let i2 = 0
+    for i2 < 8
+        let s2 = 0
+        s2 = (s2 + 5 * rfit_minv((nodes[i2] - 101) % p2v, p2v)) % p2v
+        s2 = (s2 + 9 * rfit_minv((nodes[i2] - 211) % p2v, p2v)) % p2v
+        s2 = (s2 + 13 * rfit_minv((nodes[i2] - 307) % p2v, p2v)) % p2v
+        ys2[i2] = s2
+        i2 = i2 + 1
+    let poles3 = [101, 211, 307]
+    let r3 = rfit_fit(nodes, ys2, poles3, 3, 8, p2v, 8)
+    ok = ok * (r3[0] == 1 ? 1 : 0)
+    ok = ok * (r3[2] == 5 && r3[3] == 9 && r3[4] == 13 ? 1 : 0)
+    ok

@@ -1,0 +1,295 @@
+import "../../core/stdlib/gf65537.ψ"
+
+let _bm_init(n) =
+    let C = []
+    let B = []
+    let i = 0
+    for i < n
+        C.push(0)
+        B.push(0)
+        i = i + 1
+    C[0] = 1
+    B[0] = 1
+    [C, B, 0, 1, 1]
+
+let _bm_discrepancy(C, sequence, n, L) =
+    let d = sequence[n]
+    let i = 1
+    for i <= L
+        d = gf_add(d, gf_mul(C[i], sequence[n - i]))
+        i = i + 1
+    d
+
+let _bm_step(state, sequence, n) =
+    let C = state[0]
+    let B = state[1]
+    let L = state[2]
+    let b = state[3]
+    let m = state[4]
+
+    let d = _bm_discrepancy(C, sequence, n, L)
+
+    if d == 0
+        [C, B, L, b, m + 1]
+    else
+        let t = []
+        let i = 0
+        let cn = len(C)
+        for i < cn
+            t.push(C[i])
+            i = i + 1
+
+        let coeff = gf_div(d, b)
+        let i = 0
+        let bn = len(B)
+        for i < bn
+            if i + m < cn
+                C[i + m] = gf_sub(C[i + m], gf_mul(coeff, B[i]))
+            else
+                C.push(gf_neg(gf_mul(coeff, B[i])))
+            i = i + 1
+
+        let new_L = n + 1 - L
+        if new_L > L
+            [C, t, new_L, d, 1]
+        else
+            [C, B, L, b, m + 1]
+
+let berlekamp_massey(sequence) =
+    let n = len(sequence)
+    if n == 0
+        [1]
+    else
+        if n == 1
+            if sequence[0] == 0
+                [1]
+            else
+                [0, 1]
+        else
+            let state = _bm_init(n)
+            let i = 0
+            for i < n
+                state = _bm_step(state, sequence, i)
+                i = i + 1
+            let C = state[0]
+            let L = state[2]
+            let result = []
+            let j = 0
+            for j <= L
+                result.push(C[j])
+                j = j + 1
+            result
+
+let poly_eval(coeffs, x) =
+    let n = len(coeffs)
+    let result = coeffs[n - 1]
+    let i = n - 2
+    for i >= 0
+        result = gf_add(gf_mul(result, x), coeffs[i])
+        i = i - 1
+    result
+
+let find_poles(coeffs) =
+    let poles = []
+    let x = 0
+    let limit = 1000
+    for x < limit
+        if poly_eval(coeffs, x) == 0
+            poles.push(x)
+        x = x + 1
+    poles
+
+let residue_recovery(sequence, poles) =
+    let n_poles = len(poles)
+    let residues = []
+    let k = 0
+    for k < n_poles
+        let z = poles[k]
+        if z == 0
+            residues.push(sequence[0])
+        else
+            let r = gf_div(sequence[0], gf_pow(z, 0))
+            if n_poles > 1
+                let correction = 0
+                let j = 0
+                for j < n_poles
+                    if j != k
+                        let zj = poles[j]
+                        if zj != z
+                            correction = gf_add(correction, gf_div(sequence[0], gf_sub(z, zj)))
+                    j = j + 1
+                r = gf_sub(r, gf_div(correction, n_poles))
+            residues.push(r)
+        k = k + 1
+    residues
+
+let learn_field_law(observations) =
+    let min_poly = berlekamp_massey(observations)
+    let L = len(min_poly) - 1
+    let poles = find_poles(min_poly)
+    let residues = residue_recovery(observations, poles)
+    [min_poly, poles, residues, L]
+
+let _rff_error(poles, residues, data) =
+    let n = len(data)
+    let total_err = 0
+    let i = 0
+    for i < n
+        let x = data[i][0]
+        let y = data[i][1]
+        let pred = 0
+        let k = 0
+        let np = len(poles)
+        for k < np
+            let diff = gf_sub(x, poles[k])
+            if diff != 0
+                pred = gf_add(pred, gf_div(residues[k], diff))
+            k = k + 1
+        let err = gf_abs(gf_sub(y, pred))
+        total_err = gf_add(total_err, err)
+        i = i + 1
+    total_err
+
+let residue_field_fit(data, n_poles) =
+    let n_data = len(data)
+    let best_poles = []
+    let best_residues = []
+    let best_error = 65537
+
+    let p1 = 1
+    let p1_limit = n_poles * 10
+    for p1 < p1_limit
+        let p2 = p1 + 1
+        for p2 < p1_limit
+            if n_poles >= 2
+                let poles = [p1, p2]
+                let r0 = data[0][1]
+                let r1 = data[1][1]
+                let residues = [r0, r1]
+                let err = _rff_error(poles, residues, data)
+                if err < best_error
+                    best_error = err
+                    best_poles = poles
+                    best_residues = residues
+            p2 = p2 + 1
+        p1 = p1 + 1
+
+    if n_poles == 1
+        let p1 = 1
+        for p1 < 100
+            let poles = [p1]
+            let r0 = data[0][1]
+            let residues = [r0]
+            let err = _rff_error(poles, residues, data)
+            if err < best_error
+                best_error = err
+                best_poles = poles
+                best_residues = residues
+            p1 = p1 + 1
+
+    [best_poles, best_residues, best_error]
+
+let compute_moments(sequence, max_k) =
+    let moments = []
+    let i = 0
+    let n = len(sequence)
+    let k = 0
+    for k < max_k
+        if k < n
+            moments.push(sequence[k])
+        else
+            let L = len(moments)
+            if L > 0
+                let val = 0
+                let j = 0
+                for j < L
+                    val = gf_add(val, moments[j])
+                    j = j + 1
+                moments.push(val)
+            else
+                moments.push(0)
+        k = k + 1
+    moments
+
+let predict_future(min_poly, sequence, n_predict) =
+    let L = len(min_poly) - 1
+    let result = []
+    let work = []
+    let i = 0
+    let sn = len(sequence)
+    for i < sn
+        work.push(sequence[i])
+        i = i + 1
+
+    let p = 0
+    for p < n_predict
+        let n = len(work)
+        let val = 0
+        let j = 1
+        for j <= L
+            let coeff = min_poly[j]
+            if n - j >= 0
+                val = gf_add(val, gf_mul(gf_neg(coeff), work[n - j]))
+            j = j + 1
+        work.push(val)
+        result.push(val)
+        p = p + 1
+    result
+
+let bm_self_test() =
+    let pass = 0
+
+    let fib = [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
+    let fib_gf = []
+    let i = 0
+    for i < 10
+        fib_gf.push(gf_reduce(fib[i]))
+        i = i + 1
+    let fib_poly = berlekamp_massey(fib_gf)
+    let fib_L = len(fib_poly) - 1
+    if fib_L == 2
+        pass = pass + 1
+
+    let geo = []
+    let j = 0
+    for j < 10
+        geo.push(gf_pow(2, j))
+        j = j + 1
+    let geo_poly = berlekamp_massey(geo)
+    let geo_L = len(geo_poly) - 1
+    if geo_L == 1
+        pass = pass + 1
+
+    let const_seq = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5]
+    let const_gf = []
+    let k = 0
+    for k < 10
+        const_gf.push(gf_reduce(5))
+        k = k + 1
+    let const_poly = berlekamp_massey(const_gf)
+    let const_L = len(const_poly) - 1
+    if const_L == 1
+        pass = pass + 1
+
+    pass
+
+let learn_predict_verify() =
+    let geo = []
+    let i = 0
+    for i < 8
+        geo.push(gf_pow(3, i))
+        i = i + 1
+
+    let law = learn_field_law(geo)
+    let min_poly = law[0]
+    let L = law[3]
+
+    let predicted = predict_future(min_poly, geo, 2)
+    let expected_8 = gf_pow(3, 8)
+    let expected_9 = gf_pow(3, 9)
+
+    let ok = 0
+    if predicted[0] == expected_8
+        if predicted[1] == expected_9
+            ok = 1
+    ok

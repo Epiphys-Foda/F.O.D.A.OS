@@ -1,0 +1,12 @@
+import "../lib/domain/chem/periodic.ψ"
+
+let ok = periodic_verify()
+let stats = periodic_stats()
+print("periodic_verify:")
+print(ok)
+print("stats [total, known, predicted, poles]:")
+print(stats[0])
+print(stats[1])
+print(stats[2])
+print(stats[3])
+ok

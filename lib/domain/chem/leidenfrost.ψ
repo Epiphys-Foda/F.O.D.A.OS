@@ -1,0 +1,41 @@
+import "ck.ψ"
+let bad = [0]
+
+let lfp = 193
+let dzl = lfp - 193
+bad[0] = bad[0] + ck(dzl, 0, 0)
+bad[0] = bad[0] + ck(lfp, 185, 200)
+
+let lt150 = 5
+let lt250 = 60
+let pin150 = lt150 - 5
+let pin250 = lt250 - 60
+bad[0] = bad[0] + ck(pin150, 0, 0)
+bad[0] = bad[0] + ck(pin250, 0, 0)
+let dz1 = lt250 - lt150
+bad[0] = bad[0] + ck_lo(dz1, 1)
+
+let sizzle = 150
+bad[0] = bad[0] + ck_hi(sizzle, lfp)
+
+let dance = 250
+bad[0] = bad[0] + ck_lo(dance, lfp)
+
+let room = 293
+let ln2 = 77
+let flip = room - ln2
+let dz2 = flip - 216
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let iron_x10 = 800
+let coal_x10 = 3
+let ratio = iron_x10 / coal_x10
+let dz3 = ratio - 266
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+if 1751 < 1749
+    bad[0] = bad[0] + 1
+if 1751 > 1753
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

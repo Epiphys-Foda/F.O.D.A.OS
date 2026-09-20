@@ -1,0 +1,29 @@
+import "ck.ψ"
+let bad = [0]
+
+let exp_shift = 40
+bad[0] = bad[0] + ck(exp_shift, 35, 45)
+
+let meas = 1
+bad[0] = bad[0] + ck(meas, 1, 3)
+
+let aether = 0
+bad[0] = bad[0] + ck(aether, 0, 0)
+
+let c_const = 1
+bad[0] = bad[0] + ck_lo(c_const, 1)
+
+if 1881 < 1879
+    bad[0] = bad[0] + 1
+if 1881 > 1883
+    bad[0] = bad[0] + 1
+if 1887 < 1885
+    bad[0] = bad[0] + 1
+if 1887 > 1889
+    bad[0] = bad[0] + 1
+if 1905 < 1903
+    bad[0] = bad[0] + 1
+if 1905 > 1907
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

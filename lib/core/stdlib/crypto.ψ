@@ -1,0 +1,150 @@
+let CRYPTO_P = 65537
+
+let cr_gf_add(a, b) =
+    let s = a + b
+    (s >= CRYPTO_P ? s - CRYPTO_P : s)
+
+let cr_mulmod(a, b, m) =
+    let r = 0
+    let x = a % m
+    let y = b
+    for y > 0
+        if (y & 1) == 1
+            r = (r + x) % m
+        x = (x + x) % m
+        y = y >> 1
+    r
+
+let cr_gf_mul(a, b) = cr_mulmod(a, b, CRYPTO_P)
+
+let cr_mod_pow(base, exp, p) =
+    let result = 1
+    let b = base % p
+    let e = exp
+    for e > 0
+        if (e & 1) == 1
+            result = cr_mulmod(result, b, p)
+        b = cr_mulmod(b, b, p)
+        e = e >> 1
+    result
+
+let cr_mod_inv(a, p) = cr_mod_pow(a, p - 2, p)
+
+let cr_is_prime(n) =
+    if n < 2
+        0
+    else
+        0
+    if n == 2
+        1
+    else
+        0
+    if n == 3
+        1
+    else
+        0
+    if (n & 1) == 0
+        0
+    else
+        let d = n - 1
+        let r = 0
+        for (d & 1) == 0
+            d = d >> 1
+            r = r + 1
+        let witnesses = arr_new()
+        witnesses = arr_push(witnesses, 2)
+        witnesses = arr_push(witnesses, 3)
+        witnesses = arr_push(witnesses, 5)
+        witnesses = arr_push(witnesses, 7)
+        witnesses = arr_push(witnesses, 11)
+        witnesses = arr_push(witnesses, 13)
+        let is_composite = 0
+        let wi = 0
+        for wi < witnesses.len() && is_composite == 0
+            let a = witnesses[wi]
+            let x = cr_mod_pow(a, d, n)
+            if x != 1 && x != n - 1
+                let cont = 1
+                let ri = 1
+                for ri < r && cont == 1
+                    x = cr_mulmod(x, x, n)
+                    if x == n - 1
+                        cont = 0
+                    ri = ri + 1
+                if cont == 1
+                    is_composite = 1
+            wi = wi + 1
+        (is_composite == 1 ? 0 : 1)
+
+let cr_hash(data) =
+    let h = 5381
+    let i = 0
+    for i < data.len()
+        h = ((h << 5) + h + data[i]) % 65537
+        i = i + 1
+    h
+
+let cr_hmac(key, msg) =
+    let block_size = 64
+    let k = key
+    if k.len() > block_size
+        k = cr_hash(key)
+    for k.len() < block_size
+        k = arr_push(k, 0)
+    let inner = arr_new()
+    let outer = arr_new()
+    let i = 0
+    for i < block_size
+        inner = arr_push(inner, k[i] ^ 54)
+        outer = arr_push(outer, k[i] ^ 92)
+        i = i + 1
+    let i = 0
+    for i < msg.len()
+        inner = arr_push(inner, msg[i])
+        i = i + 1
+    let h_inner = cr_hash(inner)
+    outer = arr_push(outer, h_inner)
+    cr_hash(outer)
+
+let cr_gcd(a, b) =
+    let x = a
+    let y = b
+    for y != 0
+        let t = y
+        y = x % y
+        x = t
+    x
+
+let cr_ext_gcd(a, b) =
+    let old_r = a
+    let r = b
+    let old_s = 1
+    let s = 0
+    let old_t = 0
+    let t = 1
+    for r != 0
+        let q = old_r / r
+        let tmp = old_r - q * r
+        old_r = r
+        r = tmp
+        tmp = old_s - q * s
+        old_s = s
+        s = tmp
+        tmp = old_t - q * t
+        old_t = t
+        t = tmp
+    let result = arr_new_n(3)
+    result[0] = old_r
+    result[1] = old_s
+    result[2] = old_t
+    result
+
+let cr_crt_pair(r1, m1, r2, m2) =
+    let e = cr_ext_gcd(m1, m2)
+    let g = e[0]
+    let p = e[1]
+    let diff = r2 - r1
+    let t = cr_mulmod(diff, p, m2)
+    let m = m1 * m2
+    let x = r1 + m1 * t
+    x % m

@@ -1,0 +1,159 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let MUL_GF = 10
+let ADD_ALU = 11
+let NTT_OP = 12
+let PROJ_BR = 13
+let LAP_HE = 14
+let NOP_DATA = 15
+
+let op_to_micro(op_type) =
+    if op_type == 0
+        NOP_DATA
+    else
+        0
+    if op_type == 1
+        MUL_GF
+    else
+        0
+    if op_type == 2
+        ADD_ALU
+    else
+        0
+    if op_type == 3
+        NTT_OP
+    else
+        0
+    if op_type == 4
+        PROJ_BR
+    else
+        0
+    if op_type == 5
+        LAP_HE
+    else
+        NOP_DATA
+
+let field_to_micro(ops_type, ops_data, n, micro_op, micro_a, micro_b, micro_out) =
+    let i = 0
+    for i < n
+        micro_op[i] = op_to_micro(ops_type[i])
+        micro_a[i] = ops_data[i]
+        micro_b[i] = 0
+        micro_out[i] = 0
+        i = i + 1
+
+let micro_execute(micro_op, micro_a, micro_b, n) =
+    let stack = arr_new_n(n)
+    let sp = 0
+    let i = 0
+    for i < n
+        let op = micro_op[i]
+        if op == NOP_DATA
+            stack[sp] = micro_a[i]
+            sp = sp + 1
+        if op == MUL_GF
+            if sp >= 2
+                let b = stack[sp - 1]
+                let a = stack[sp - 2]
+                sp = sp - 2
+                stack[sp] = gf_mul(a, b)
+                sp = sp + 1
+        if op == ADD_ALU
+            if sp >= 2
+                let b = stack[sp - 1]
+                let a = stack[sp - 2]
+                sp = sp - 2
+                stack[sp] = gf_add(a, b)
+                sp = sp + 1
+        if op == NTT_OP
+            if sp >= 1
+                stack[sp - 1] = (stack[sp - 1] * 3) % 65537
+        if op == PROJ_BR
+            if sp >= 1
+                let a = stack[sp - 1]
+                if a > 32768
+                    stack[sp - 1] = 0
+        if op == LAP_HE
+            if sp >= 1
+                stack[sp - 1] = (65535 * stack[sp - 1] + 2) % 65537
+        i = i + 1
+    (sp > 0 ? stack[sp - 1] : 0)
+
+let main() =
+    print(111)
+    let n = 3
+    let ops_type = arr_new_n(n)
+    ops_type[0] = 0
+    ops_type[1] = 0
+    ops_type[2] = 1
+    let ops_data = arr_new_n(n)
+    ops_data[0] = 3
+    ops_data[1] = 5
+    ops_data[2] = 0
+
+    let micro_op = arr_new_n(n)
+    let micro_a = arr_new_n(n)
+    let micro_b = arr_new_n(n)
+    let micro_out = arr_new_n(n)
+    field_to_micro(ops_type, ops_data, n, micro_op, micro_a, micro_b, micro_out)
+
+    let i = 0
+    for i < n
+        print(micro_op[i])
+        print(micro_a[i])
+        i = i + 1
+
+    print(222)
+    let field_r = field_execute(ops_type, ops_data, n)
+    let micro_r = micro_execute(micro_op, micro_a, micro_b, n)
+    print(field_r)
+    print(micro_r)
+    let ok = 0
+    if field_r == micro_r
+        ok = 1
+    print(ok)
+
+    print(333)
+    let all_ops = arr_new_n(6)
+    all_ops[0] = 0
+    all_ops[1] = 1
+    all_ops[2] = 2
+    all_ops[3] = 3
+    all_ops[4] = 4
+    all_ops[5] = 5
+    let j = 0
+    for j < 6
+        print(op_to_micro(all_ops[j]))
+        j = j + 1
+
+    print(444)
+    let n4 = 5
+    let ops4_type = arr_new_n(n4)
+    ops4_type[0] = 0
+    ops4_type[1] = 5
+    ops4_type[2] = 4
+    ops4_type[3] = 0
+    ops4_type[4] = 1
+    let ops4_data = arr_new_n(n4)
+    ops4_data[0] = 42
+    ops4_data[1] = 0
+    ops4_data[2] = 0
+    ops4_data[3] = 2
+    ops4_data[4] = 0
+
+    let m4_op = arr_new_n(n4)
+    let m4_a = arr_new_n(n4)
+    let m4_b = arr_new_n(n4)
+    let m4_out = arr_new_n(n4)
+    field_to_micro(ops4_type, ops4_data, n4, m4_op, m4_a, m4_b, m4_out)
+
+    let f4 = field_execute(ops4_type, ops4_data, n4)
+    let m4 = micro_execute(m4_op, m4_a, m4_b, n4)
+    print(f4)
+    print(m4)
+    let ok4 = 0
+    if f4 == m4
+        ok4 = 1
+    print(ok4)
+
+    ok

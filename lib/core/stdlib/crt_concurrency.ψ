@@ -1,0 +1,220 @@
+let TOKEN_TYPE_UNKNOWN    = 0
+let TOKEN_TYPE_GF_ELEMENT = 1
+let TOKEN_TYPE_CL_MULTI   = 2
+let TOKEN_TYPE_HOMO_COORD = 3
+let TOKEN_TYPE_FREQ_SPEC  = 4
+
+let DEFAULT_FIFO_DEPTH = 4
+let NO_FUSION_GROUP     = -1
+let DEFAULT_LAYER       = 0
+
+let crt_dag_add_node(dag, opcode, pe_type) =
+    let nid = dag.node_count
+    let node = { node_id: nid, opcode: opcode, pe_type: pe_type, in_edges: [], out_edges: [], fusion_group: NO_FUSION_GROUP, layer: DEFAULT_LAYER }
+    let new_nodes = arr_push(dag.nodes, node)
+    { nodes: new_nodes, edges: dag.edges, node_count: nid + 1, edge_count: dag.edge_count }
+
+let crt_dag_add_edge(dag, src, dst) =
+    let edge = { src: src, dst: dst, token_type: TOKEN_TYPE_UNKNOWN, fifo_depth: DEFAULT_FIFO_DEPTH }
+    let new_edges = arr_push(dag.edges, edge)
+    { nodes: dag.nodes, edges: new_edges, node_count: dag.node_count, edge_count: dag.edge_count + 1 }
+
+let dc_count_indeg(edges, idx, edge_count, indeg) =
+        if idx < edge_count
+            let e = arr_get(edges, idx)
+            let cur = arr_get(indeg, e.dst)
+            arr_set(indeg, e.dst, cur + 1)
+            dc_count_indeg(edges, idx + 1, edge_count, indeg)
+        else
+            indeg
+
+let dc_kahn_find_layer(indeg, k, n, layer) =
+    if k < n
+        let new_layer = layer
+        if arr_get(indeg, k) == 0
+            arr_set(indeg, k, -1)
+            new_layer = arr_push(layer, k)
+        dc_kahn_find_layer(indeg, k + 1, n, new_layer)
+    else
+        layer
+
+let dc_kahn_dec_out(dag, node, ei, edge_count, indeg) =
+    if ei < edge_count
+        let e2 = arr_get(dag.edges, ei)
+        if e2.src == node
+            let cur = arr_get(indeg, e2.dst)
+            arr_set(indeg, e2.dst, cur - 1)
+        else
+            0
+        dc_kahn_dec_out(dag, node, ei + 1, edge_count, indeg)
+    else
+        indeg
+
+let dc_kahn_dec_layer(dag, layer, li, layer_len, edge_count, indeg) =
+        if li < layer_len
+            let node = arr_get(layer, li)
+            dc_kahn_dec_layer(dag, layer, li + 1, layer_len, edge_count, dc_kahn_dec_out(dag, node, 0, edge_count, indeg))
+        else
+            indeg
+
+let dc_kahn_main(dag, indeg, n, remaining, layers) =
+        if remaining > 0
+            let layer = dc_kahn_find_layer(indeg, 0, n, [])
+            let layer_len = arr_len(layer)
+            let new_layers = arr_push(layers, layer)
+            if layer_len > 0
+                dc_kahn_dec_layer(dag, layer, 0, layer_len, dag.edge_count, indeg)
+                dc_kahn_main(dag, indeg, n, remaining - layer_len, new_layers)
+            else
+                new_layers
+        else
+            layers
+
+let dag_topo_layers(dag) =
+    let n = dag.node_count
+    let indeg = arr_new_n(n)
+    dc_count_indeg(dag.edges, 0, dag.edge_count, indeg)
+    dc_kahn_main(dag, indeg, n, n, [])
+
+let dc_bfs_neighbors(dag, cur, ei, edge_count, queue, visited) =
+    if ei < edge_count
+        let e = arr_get(dag.edges, ei)
+        let new_queue = queue
+        if e.src == cur && arr_get(visited, e.dst) == 0
+            arr_set(visited, e.dst, 1)
+            new_queue = arr_push(queue, e.dst)
+        dc_bfs_neighbors(dag, cur, ei + 1, edge_count, new_queue, visited)
+    else
+        [queue, visited]
+
+let dc_bfs_loop(dag, queue, visited, b, found) =
+        if found == 0 && arr_len(queue) > 0
+            let cur = arr_get(queue, 0)
+            let rest = arr_slice_from(queue, 1)
+            let new_found = (cur == b ? 1 : 0)
+            let nv = dc_bfs_neighbors(dag, cur, 0, dag.edge_count, rest, visited)
+            dc_bfs_loop(dag, arr_get(nv, 0), arr_get(nv, 1), b, new_found)
+        else
+            found
+
+let dc_depends(dag, a, b) =
+    let n = dag.node_count
+    let visited = arr_new_n(n)
+    arr_set(visited, a, 1)
+    let queue0 = arr_new()
+    let queue = arr_push(queue0, a)
+    dc_bfs_loop(dag, queue, visited, b, 0)
+
+let dc_commute(dag, a, b) =
+    if dc_depends(dag, a, b) == 1
+        0
+    else
+        if dc_depends(dag, b, a) == 1
+            0
+        else
+            1
+
+let dc_pairs_row(dag, n, i, j, acc) =
+        if j < n
+            dc_pairs_row(dag, n, i, j + 1, arr_push(acc, dc_commute(dag, i, j)))
+        else
+            acc
+
+let dc_pairs_rows(dag, n, i, result) =
+        if i < n
+            dc_pairs_rows(dag, n, i + 1, dc_pairs_row(dag, n, i, i + 1, result))
+        else
+            result
+
+let dc_parallel_pairs(dag) =
+    dc_pairs_rows(dag, dag.node_count, 0, arr_new())
+
+let dc_count_inner(pairs, i, n, acc) =
+        if i < n
+            dc_count_inner(pairs, i + 1, n, acc + arr_get(pairs, i))
+        else
+            acc
+
+let dc_parallel_count(dag) =
+    let pairs = dc_parallel_pairs(dag)
+    dc_count_inner(pairs, 0, arr_len(pairs), 0)
+
+let dc_max_parallel_set(dag) =
+    if dag.node_count == 0
+        arr_new()
+    else
+        arr_get(dag_topo_layers(dag), 0)
+
+let channel_create(capacity) =
+    { buffer: arr_new(), capacity: capacity, sender_wait: arr_new(), receiver_wait: arr_new() }
+
+let channel_send(ch, msg, sender_id) =
+        if arr_len(ch.receiver_wait) > 0
+            let recv_id = arr_get(ch.receiver_wait, 0)
+            let rest_recv = arr_slice_from(ch.receiver_wait, 1)
+            let new_buf = arr_push(ch.buffer, { msg: msg, target: recv_id, from: sender_id })
+            { buffer: new_buf, capacity: ch.capacity, sender_wait: ch.sender_wait, receiver_wait: rest_recv }
+        else
+            if arr_len(ch.buffer) < ch.capacity || ch.capacity == 0
+                let new_buf = arr_push(ch.buffer, { msg: msg, target: -1, from: sender_id })
+                { buffer: new_buf, capacity: ch.capacity, sender_wait: ch.sender_wait, receiver_wait: ch.receiver_wait }
+            else
+                let new_sw = arr_push(ch.sender_wait, sender_id)
+                { buffer: ch.buffer, capacity: ch.capacity, sender_wait: new_sw, receiver_wait: ch.receiver_wait }
+
+let channel_recv(ch, receiver_id) =
+    if arr_len(ch.buffer) > 0
+        let item = arr_get(ch.buffer, 0)
+        let rest = arr_slice_from(ch.buffer, 1)
+        let new_sw = if arr_len(ch.sender_wait) > 0 && arr_len(rest) < ch.capacity
+            arr_slice_from(ch.sender_wait, 1)
+        else
+            ch.sender_wait
+        let out = [{ buffer: rest, capacity: ch.capacity, sender_wait: new_sw, receiver_wait: ch.receiver_wait }, item.msg]
+        out
+    else
+        let new_rw = arr_push(ch.receiver_wait, receiver_id)
+        let out = [{ buffer: ch.buffer, capacity: ch.capacity, sender_wait: ch.sender_wait, receiver_wait: new_rw }, null]
+        out
+
+let scheduler_new() =
+    { dag: null, actors: arr_new(), channels: arr_new(), layers: arr_new(), current_layer: 0, completed: arr_new() }
+
+let scheduler_create(dag) =
+    let layers = dag_topo_layers(dag)
+    { dag: dag, actors: arr_new(), channels: arr_new(), layers: layers, current_layer: 0, completed: arr_new() }
+
+let sched_step_layer(layer, li, layer_len, completed) =
+        if li < layer_len
+            let node = arr_get(layer, li)
+            sched_step_layer(layer, li + 1, layer_len, arr_push(completed, node))
+        else
+            completed
+
+let scheduler_step(sched) =
+        if sched.current_layer >= arr_len(sched.layers)
+            sched
+        else
+            let layer = arr_get(sched.layers, sched.current_layer)
+            let new_completed = sched_step_layer(layer, 0, arr_len(layer), sched.completed)
+            { dag: sched.dag, actors: sched.actors, channels: sched.channels, layers: sched.layers, current_layer: sched.current_layer + 1, completed: new_completed }
+
+let scheduler_is_done(sched) =
+    sched.current_layer >= arr_len(sched.layers)
+
+let dag_parallel_count_inner(layers, li, n_layers, max_p) =
+        if li < n_layers
+            let layer = arr_get(layers, li)
+            let layer_len = arr_len(layer)
+            let new_max = (layer_len > max_p ? layer_len : max_p)
+            dag_parallel_count_inner(layers, li + 1, n_layers, new_max)
+        else
+            max_p
+
+let dag_parallel_count(dag) =
+    let layers = dag_topo_layers(dag)
+    dag_parallel_count_inner(layers, 0, arr_len(layers), 0)
+
+let dag_stats(dag) =
+    let layers = dag_topo_layers(dag)
+    { node_count: dag.node_count, edge_count: dag.edge_count, layer_count: arr_len(layers), max_parallel: dag_parallel_count(dag), critical_path_len: arr_len(layers) }

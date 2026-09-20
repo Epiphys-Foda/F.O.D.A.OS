@@ -1,0 +1,30 @@
+import "ck.ψ"
+let bad = [0]
+
+let ph = 1823
+let phlo = 1822 * 680
+let phhi = 1824 * 680
+let phc = 1239800
+bad[0] = bad[0] + ck_hi(phlo, phc)
+bad[0] = bad[0] + ck_hi(phc, phhi)
+
+let per_o2 = 4 * 2
+let per_glc = per_o2 * 6
+let dpg = per_glc - 48
+bad[0] = bad[0] + dpg * dpg
+
+let inp = 48 * 1823
+let dinp = inp - 87504
+bad[0] = bad[0] + dinp * dinp
+
+let stored = 2975
+
+if 4 * stored * 1000 < inp * 100
+    bad[0] = bad[0] + 1
+if 5 * stored * 1000 > 2 * inp * 100
+    bad[0] = bad[0] + 1
+
+let dst = stored - 2975
+bad[0] = bad[0] + dst * dst
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,197 @@
+import "../domain_field.ψ"
+
+let BH_DEFAULT_POOL_SIZE = 10
+let BH_DEFAULT_MAX_QUEUE = 20
+let BH_DEFAULT_TIMEOUT_MS = 5000
+
+let bh_pool_new(name, capacity, max_wait, timeout_ms) =
+    [name, capacity, 0, [], max_wait, timeout_ms, 0, 0, 0]
+
+let bh_pool_default(name) = bh_pool_new(name, BH_DEFAULT_POOL_SIZE, BH_DEFAULT_MAX_QUEUE, BH_DEFAULT_TIMEOUT_MS)
+
+let bh_pool_name(p) = p[0]
+let bh_pool_capacity(p) = p[1]
+let bh_pool_in_use(p) = p[2]
+let bh_pool_wait_queue(p) = p[3]
+let bh_pool_max_wait(p) = p[4]
+let bh_pool_timeout_ms(p) = p[5]
+let bh_pool_total_acquired(p) = p[6]
+let bh_pool_total_rejected(p) = p[7]
+let bh_pool_total_timeout(p) = p[8]
+
+let bh_pool_set_in_use(p, n) = [p[0], p[1], n, p[3], p[4], p[5], p[6], p[7], p[8]]
+let bh_pool_set_wait_queue(p, w) = [p[0], p[1], p[2], w, p[4], p[5], p[6], p[7], p[8]]
+let bh_pool_inc_acquired(p) = [p[0], p[1], p[2], p[3], p[4], p[5], p[6] + 1, p[7], p[8]]
+let bh_pool_inc_rejected(p) = [p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7] + 1, p[8]]
+let bh_pool_inc_timeout(p) = [p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8] + 1]
+
+let bh_pool_acquire(p, request_id, now_ms) =
+    if bh_pool_in_use(p) < bh_pool_capacity(p)
+        let p2 = bh_pool_set_in_use(p, bh_pool_in_use(p) + 1)
+        p2 = bh_pool_inc_acquired(p2)
+        [p2, 0, request_id]
+    else
+        let queue = bh_pool_wait_queue(p)
+        if len(queue) < bh_pool_max_wait(p)
+            queue.push([request_id, now_ms])
+            let p2 = bh_pool_set_wait_queue(p, queue)
+            [p2, 1, request_id]
+        else
+            let p2 = bh_pool_inc_rejected(p)
+            [p2, 2, request_id]
+
+let bh_pool_release(p) =
+    if bh_pool_in_use(p) > 0
+        let queue = bh_pool_wait_queue(p)
+        if len(queue) > 0
+            let head = queue[0]
+            let awakened_id = head[0]
+            let new_queue = []
+            let i = 1
+            let n = len(queue)
+            for i < n
+                new_queue.push(queue[i])
+                i = i + 1
+            let p2 = bh_pool_set_wait_queue(p, new_queue)
+            [p2, awakened_id, 1]
+        else
+            [bh_pool_set_in_use(p, bh_pool_in_use(p) - 1), 0, 0]
+    else
+        [p, 0, 0]
+
+let bh_pool_clean_timeouts(p, now_ms) =
+    let queue = bh_pool_wait_queue(p)
+    let new_queue = []
+    let timeout_count = 0
+    let i = 0
+    let n = len(queue)
+    for i < n
+        let item = queue[i]
+        let req_id = item[0]
+        let enqueue_time = item[1]
+        if now_ms - enqueue_time > bh_pool_timeout_ms(p)
+            timeout_count = timeout_count + 1
+        else
+            new_queue.push(item)
+        i = i + 1
+    let p2 = bh_pool_set_wait_queue(p, new_queue)
+    if timeout_count > 0
+        p2 = bh_pool_inc_timeout(p2)
+        let k = 1
+        for k < timeout_count
+            p2 = bh_pool_inc_timeout(p2)
+            k = k + 1
+    [p2, timeout_count]
+
+let bh_new(default_cap, default_wait, default_timeout) =
+    [{}, default_cap, default_wait, default_timeout]
+
+let bh_default() = bh_new(BH_DEFAULT_POOL_SIZE, BH_DEFAULT_MAX_QUEUE, BH_DEFAULT_TIMEOUT_MS)
+
+let bh_pools(b) = b[0]
+let bh_default_cap(b) = b[1]
+let bh_default_wait(b) = b[2]
+let bh_default_timeout(b) = b[3]
+
+let bh_set_pools(b, p) = [p, b[1], b[2], b[3]]
+
+let bh_get_or_create_pool(b, name) =
+    let pools = bh_pools(b)
+    let p = pools[name]
+    if p == 0
+        p = bh_pool_new(name, bh_default_cap(b), bh_default_wait(b), bh_default_timeout(b))
+        pools[name] = p
+        b = bh_set_pools(b, pools)
+    [b, p]
+
+let bh_acquire(b, name, request_id, now_ms) =
+    let res = bh_get_or_create_pool(b, name)
+    b = res[0]
+    let p = res[1]
+    let acquire_res = bh_pool_acquire(p, request_id, now_ms)
+    let p2 = acquire_res[0]
+    let status = acquire_res[1]
+    let pools = bh_pools(b)
+    pools[name] = p2
+    b = bh_set_pools(b, pools)
+    [b, status]
+
+let bh_release(b, name) =
+    let pools = bh_pools(b)
+    let p = pools[name]
+    if p == 0
+        [b, 0, 0]
+    else
+        let release_res = bh_pool_release(p)
+        let p2 = release_res[0]
+        let awakened = release_res[1]
+        let has_awakened = release_res[2]
+        pools[name] = p2
+        b = bh_set_pools(b, pools)
+        [b, awakened, has_awakened]
+
+let bh_bragg_verify_isolation(b) =
+    let pools = bh_pools(b)
+    let keys = keys_of(pools)
+    let i = 0
+    let n = len(keys)
+    let pass = 1
+    for i < n
+        let p = pools[keys[i]]
+        if bh_pool_in_use(p) > bh_pool_capacity(p)
+            pass = 0
+            i = n
+        i = i + 1
+    pass
+
+let bh_bragg_verify_no_leak(b, expected_total_in_use) =
+    let pools = bh_pools(b)
+    let keys = keys_of(pools)
+    let actual = 0
+    let i = 0
+    let n = len(keys)
+    for i < n
+        actual = actual + bh_pool_in_use(pools[keys[i]])
+        i = i + 1
+    if actual == expected_total_in_use
+        1
+    else
+        0
+
+let bh_self_test() =
+    let results = []
+
+    let p = bh_pool_default("test")
+    let i = 0
+    for i < 15
+        let res = bh_pool_acquire(p, i, 0)
+        p = res[0]
+        i = i + 1
+    results.push(bh_pool_in_use(p) == 10)
+    results.push(bh_pool_total_acquired(p) == 10)
+    results.push(bh_pool_total_rejected(p) == 0)
+
+    let release_res = bh_pool_release(p)
+    p = release_res[0]
+    results.push(release_res[2] == 1)
+
+    let b = bh_default()
+    let res1 = bh_acquire(b, "db", 1, 0)
+    b = res1[0]
+    let res2 = bh_acquire(b, "api", 2, 0)
+    b = res2[0]
+    let res3 = bh_acquire(b, "db", 3, 0)
+    b = res3[0]
+    let pools = bh_pools(b)
+    let db_pool = pools["db"]
+    let api_pool = pools["api"]
+    results.push(bh_pool_in_use(db_pool) == 2)
+    results.push(bh_pool_in_use(api_pool) == 1)
+
+    results.push(bh_bragg_verify_isolation(b))
+
+    results.push(bh_bragg_verify_no_leak(b, 3))
+
+    results
+
+let bh_default_bulkhead() = bh_default()

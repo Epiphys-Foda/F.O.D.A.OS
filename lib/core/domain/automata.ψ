@@ -1,0 +1,482 @@
+import "../stdlib/gf65537.ψ"
+import "../../math/builtin_ext.ψ"
+import "domain_list.ψ"
+
+let dfa_step_gf(T, q, a) =
+    let row = T[a]
+    gf_dot_gf(row, q)
+
+let dfa_run_gf(T, q0, input) =
+    dfa_run_rec_gf(T, q0, input, 0)
+
+let dfa_run_rec_gf(T, q, input, i) =
+        if i >= len(input)
+            q
+        else
+            let a = input[i]
+            let q_next = dfa_step_gf(T, q, a)
+            dfa_run_rec_gf(T, q_next, input, i + 1)
+
+let dfa_accept_gf(T, q0, f, input) =
+    let q_final = dfa_run_gf(T, q0, input)
+    let result = gf_dot_gf(q_final, f)
+    (result == 1) ? 1 : 0
+
+let nfa_to_dfa_gf(Q_size) =
+        if Q_size >= 16
+            65537
+        else
+            nfa_subset_count_gf(Q_size)
+
+let nfa_subset_count_gf(n) =
+    gf_pow(2, n)
+
+let nfa_subset_step_gf(delta, S, a) =
+    nfa_subset_step_rec_gf(delta, S, a, 0, 0)
+
+let nfa_subset_step_rec_gf(delta, S, a, q, acc) =
+        if q >= 16
+            acc
+        else
+            let bit = (S >> q) & 1
+            if bit == 1
+                let delta_q = delta[q][a]
+                nfa_subset_step_rec_gf(delta, S, a, q + 1, gf_add(acc, delta_q))
+            else
+                nfa_subset_step_rec_gf(delta, S, a, q + 1, acc)
+
+let pda_push_gf(stack, symbol) =
+    gf_add(gf_mul(stack, 3), symbol)
+
+let pda_pop_gf(stack) =
+    let symbol = stack % 3
+    let new_stack = gf_div(stack, 3)
+    [new_stack, symbol]
+
+let pda_step_gf(delta, q, a, stack) =
+    let popped = pda_pop_gf(stack)
+    let new_stack = popped[0]
+    let Z = popped[1]
+    let transition = delta[q][a][Z]
+    let q_next = transition[0]
+    let push_symbol = transition[1]
+    let final_stack = pda_push_gf(new_stack, push_symbol)
+    [q_next, final_stack]
+
+let pda_accept_gf(delta, q0, input) =
+    pda_accept_rec_gf(delta, q0, 0, input, 0)
+
+let pda_accept_rec_gf(delta, q, stack, input, i) =
+        if i >= len(input)
+            (stack == 0) ? 1 : 0
+        else
+            let a = input[i]
+            let result = pda_step_gf(delta, q, a, stack)
+            pda_accept_rec_gf(delta, result[0], result[1], input, i + 1)
+
+let tm_read_gf(tape, head) =
+    tape[head]
+
+let tm_write_gf(tape, head, symbol) =
+    tape[head] = symbol
+    tape
+
+let tm_step_gf(delta, q, tape, head) =
+    let a = tm_read_gf(tape, head)
+    let transition = delta[q][a]
+    let q_next = transition[0]
+    let b = transition[1]
+    let D = transition[2]
+    let tape_new = tm_write_gf(tape, head, b)
+    let head_new = (D == 0) ? (head - 1) : (head + 1)
+    [q_next, tape_new, head_new]
+
+let halting_check_gf(Q_size, tape_size) =
+    gf_mul(Q_size, gf_pow(65537, tape_size))
+
+let tm_run_gf(delta, q0, tape, head, max_steps) =
+    tm_run_rec_gf(delta, q0, tape, head, 0, max_steps)
+
+let tm_run_rec_gf(delta, q, tape, head, step, max_steps) =
+        if q == 0
+            [1, tape, step]
+        else
+            if step >= max_steps
+                [0, tape, step]
+            else
+                let result = tm_step_gf(delta, q, tape, head)
+                tm_run_rec_gf(delta, result[0], result[1], result[2], step + 1, max_steps)
+
+let regex_union_gf(R1, R2) =
+    gf_add(R1, R2)
+
+let regex_concat_gf(R1, R2) =
+    gf_mul(R1, R2)
+
+let regex_star_gf(R) =
+    let one_minus_R = gf_sub(1, R)
+    gf_div(1, one_minus_R)
+
+let regex_match_gf(R, w) =
+    let result = regex_eval_gf(R, w)
+    (result == 1) ? 1 : 0
+
+let regex_eval_gf(R, w) =
+    R(w)
+
+let pumping_lemma_gf(L, w) =
+        let p_len = 65537
+        if len(w) < p_len
+            1
+        else
+            pumping_search_gf(L, w, p_len)
+
+let pumping_search_gf(L, w, p_len) =
+    pumping_search_rec_gf(L, w, p_len, 1, 1)
+
+let pumping_search_rec_gf(L, w, p_len, x_len, y_len) =
+        if x_len + y_len > p_len
+            1
+        else
+            let x = substring(w, 0, x_len)
+            let y = substring(w, x_len, x_len + y_len)
+            let z = substring(w, x_len + y_len, len(w))
+            if pumping_verify_k_gf(L, x, y, z, 0) == 0
+                0
+            else
+                let next_y = y_len + 1
+                let next_x = (next_y > p_len) ? (x_len + 1) : x_len
+                let reset_y = (next_y > p_len) ? 1 : next_y
+                pumping_search_rec_gf(L, w, p_len, next_x, reset_y)
+
+let pumping_verify_k_gf(L, x, y, z, k) =
+        if k > 65537
+            1
+        else
+            let pumped = concat_gf(x, concat_gf(repeat_gf(y, k), z))
+            if L(pumped) == 0
+                0
+            else
+                pumping_verify_k_gf(L, x, y, z, k + 1)
+
+let cyk_parse_gf(G, w) =
+    let n = len(w)
+    let table = cyk_init_gf(G, w, n)
+    cyk_fill_gf(G, table, n, 1)
+
+let cyk_init_gf(G, w, n) =
+    cyk_init_rec_gf(G, w, n, 0, [])
+
+let cyk_init_rec_gf(G, w, n, i, table) =
+        if i >= n
+            table
+        else
+            let cell = cyk_find_unit_gf(G, w[i])
+            cyk_init_rec_gf(G, w, n, i + 1, append(table, cell))
+
+let cyk_find_unit_gf(G, a) =
+    G[a]
+
+let cyk_fill_gf(G, table, n, length) =
+        if length >= n
+            table
+        else
+            let new_table = cyk_fill_length_gf(G, table, n, length)
+            cyk_fill_gf(G, new_table, n, length + 1)
+
+let cyk_fill_length_gf(G, table, n, len) =
+    cyk_fill_length_rec_gf(G, table, n, len, 0, table)
+
+let cyk_fill_length_rec_gf(G, table, n, len, i, acc) =
+        if i + len >= n
+            acc
+        else
+            let cell = cyk_split_gf(G, table, i, i + len)
+            let new_acc = cyk_set_cell_gf(acc, i, i + len, cell)
+            cyk_fill_length_rec_gf(G, table, n, len, i + 1, new_acc)
+
+let cyk_split_gf(G, table, i, j) =
+    cyk_split_rec_gf(G, table, i, j, i, 0)
+
+let cyk_split_rec_gf(G, table, i, j, k, acc) =
+        if k >= j
+            acc
+        else
+            let B_set = cyk_get_cell_gf(table, i, k)
+            let C_set = cyk_get_cell_gf(table, k + 1, j)
+            let A_set = cyk_find_binary_gf(G, B_set, C_set)
+            let new_acc = gf_add(acc, A_set)
+            cyk_split_rec_gf(G, table, i, j, k + 1, new_acc)
+
+let cyk_find_binary_gf(G, B_set, C_set) =
+    G[B_set][C_set]
+
+let cyk_accept_gf(table, S, n) =
+    let final_cell = cyk_get_cell_gf(table, 0, n - 1)
+    gf_mul(final_cell, S)
+
+let chomsky_type3_gf(T, q0, f, w) =
+    dfa_accept_gf(T, q0, f, w)
+
+let chomsky_type2_gf(G, S, w) =
+    let table = cyk_parse_gf(G, w)
+    cyk_accept_gf(table, S, len(w))
+
+let chomsky_type1_gf(delta, q0, w) =
+    let tape_size = len(w)
+    let max_steps = halting_check_gf(len(delta), tape_size)
+    let tape = w
+    let result = tm_run_gf(delta, q0, tape, 0, max_steps)
+    result[0]
+
+let chomsky_type0_gf(delta, q0, w) =
+    let max_steps = halting_check_gf(len(delta), 100)
+    let tape = w
+    let result = tm_run_gf(delta, q0, tape, 0, max_steps)
+    result[0]
+
+let probabilistic_automaton_gf(T, q, a) =
+    probabilistic_step_rec_gf(T, q, a, 0, 0)
+
+let probabilistic_step_rec_gf(T, q, a, q_next, acc) =
+        if q_next >= len(T)
+            acc
+        else
+            let weight = T[q][a][q_next]
+            let contribution = gf_mul(weight, q_next)
+            probabilistic_step_rec_gf(T, q, a, q_next + 1, gf_add(acc, contribution))
+
+let dfa_minimize_gf(T, F) =
+    let char_poly = characteristic_polynomial_gf(T)
+    let min_poly = minimal_polynomial_gf(char_poly)
+    degree_gf(min_poly)
+
+let characteristic_polynomial_gf(T) =
+    det_gf(subtract_lambda_I_gf(T))
+
+let minimal_polynomial_gf(char_poly) =
+    let deriv = polynomial_derivative_gf(char_poly)
+    let g = polynomial_gcd_gf(char_poly, deriv)
+    polynomial_div_gf(char_poly, g)
+
+let myhill_nerode_gf(L, x, y) =
+    myhill_nerode_search_gf(L, x, y, 0)
+
+let myhill_nerode_search_gf(L, x, y, z) =
+        if z >= 65537
+            1
+        else
+            let xz = concat_gf(x, z)
+            let yz = concat_gf(y, z)
+            if L(xz) != L(yz)
+                0
+            else
+                myhill_nerode_search_gf(L, x, y, z + 1)
+
+let myhill_nerode_index_gf(L) =
+    myhill_nerode_count_gf(L, 0, 0)
+
+let myhill_nerode_count_gf(L, i, count) =
+        if i >= 65537
+            count
+        else
+            let is_new = myhill_nerode_is_new_gf(L, i, 0)
+            let new_count = (is_new == 1) ? (count + 1) : count
+            myhill_nerode_count_gf(L, i + 1, new_count)
+
+let myhill_nerode_is_new_gf(L, i, j) =
+        if j >= i
+            1
+        else
+            if myhill_nerode_gf(L, i, j) == 1
+                0
+            else
+                myhill_nerode_is_new_gf(L, i, j + 1)
+
+let automaton_learn_gf(positive, negative) =
+    let table = learn_init_table_gf(positive, negative)
+    let closed_table = learn_close_table_gf(table)
+    let hypothesis = learn_build_dfa_gf(closed_table)
+    hypothesis
+
+let learn_init_table_gf(positive, negative) =
+    let S = [""]
+    let E = [""]
+    let T = learn_fill_table_gf(S, E, positive, negative)
+    [S, E, T]
+
+let learn_fill_table_gf(S, E, positive, negative) =
+    learn_fill_rec_gf(S, E, positive, negative, 0, 0, [])
+
+let learn_fill_rec_gf(S, E, positive, negative, i, j, T) =
+        if i >= len(S)
+            T
+        else
+            if j >= len(E)
+                learn_fill_rec_gf(S, E, positive, negative, i + 1, 0, T)
+            else
+                let se = concat_gf(S[i], E[j])
+                let val = (contains_gf(positive, se)) ? 1 : 0
+                let new_T = append(T, val)
+                learn_fill_rec_gf(S, E, positive, negative, i, j + 1, new_T)
+
+let learn_close_table_gf(table) =
+    table
+
+let learn_build_dfa_gf(table) =
+    table
+
+let gf_dot_gf(v1, v2) = vec_dot_gf(v1, v2)
+
+let concat_gf(s1, s2) =
+    concat_rec_gf(s1, s2, 0, s1)
+
+let concat_rec_gf(s1, s2, i, acc) =
+        if s2[i] == -1
+            acc
+        else
+            let new_acc = append(acc, s2[i])
+            concat_rec_gf(s1, s2, i + 1, new_acc)
+
+let repeat_gf(s, k) =
+    repeat_rec_gf(s, k, 0, [])
+
+let repeat_rec_gf(s, k, i, acc) =
+        if i >= k
+            acc
+        else
+            repeat_rec_gf(s, k, i + 1, concat_gf(acc, s))
+
+let substring(s, start, end) =
+    substring_rec(s, start, end, start, [])
+
+let substring_rec(s, start, end, i, acc) =
+        if i >= end
+            acc
+        else
+            substring_rec(s, start, end, i + 1, append(acc, s[i]))
+
+let cyk_get_cell_gf(table, i, j) =
+    table[i][j]
+
+let cyk_set_cell_gf(table, i, j, val) =
+    table[i][j] = val
+    table
+
+let polynomial_derivative_gf(poly) =
+    polynomial_derivative_rec_gf(poly, 1, [])
+
+let polynomial_derivative_rec_gf(poly, i, acc) =
+        if i >= len(poly)
+            acc
+        else
+            let coeff = gf_mul(i, poly[i])
+            polynomial_derivative_rec_gf(poly, i + 1, append(acc, coeff))
+
+let polynomial_gcd_gf(a, b) =
+        if degree_gf(b) < 0
+            a
+        else
+            let r = polynomial_mod_gf(a, b)
+            polynomial_gcd_gf(b, r)
+
+let polynomial_div_gf(a, b) =
+    polynomial_div_rec_gf(a, b, 0)
+
+let polynomial_div_rec_gf(a, b, q) =
+        if degree_gf(a) < degree_gf(b)
+            q
+        else
+            let lead_a = lead_coeff_gf(a)
+            let lead_b = lead_coeff_gf(b)
+            let coeff = gf_div(lead_a, lead_b)
+            let deg_diff = degree_gf(a) - degree_gf(b)
+            let term = scale_poly_gf(shift_poly_gf(b, deg_diff), coeff)
+            let new_a = polynomial_sub_gf(a, term)
+            polynomial_div_rec_gf(new_a, b, polynomial_add_gf(q, term))
+
+let polynomial_mod_gf(a, b) =
+    let q = polynomial_div_gf(a, b)
+    polynomial_sub_gf(a, polynomial_mul_gf(q, b))
+
+let polynomial_add_gf(a, b) =
+    polynomial_add_rec_gf(a, b, 0, [])
+
+let polynomial_add_rec_gf(a, b, i, acc) =
+        if i >= max(len(a), len(b))
+            acc
+        else
+            let ai = (i < len(a)) ? a[i] : 0
+            let bi = (i < len(b)) ? b[i] : 0
+            polynomial_add_rec_gf(a, b, i + 1, append(acc, gf_add(ai, bi)))
+
+let polynomial_sub_gf(a, b) =
+    polynomial_sub_rec_gf(a, b, 0, [])
+
+let polynomial_sub_rec_gf(a, b, i, acc) =
+        if i >= max(len(a), len(b))
+            acc
+        else
+            let ai = (i < len(a)) ? a[i] : 0
+            let bi = (i < len(b)) ? b[i] : 0
+            polynomial_sub_rec_gf(a, b, i + 1, append(acc, gf_sub(ai, bi)))
+
+let polynomial_mul_gf(a, b) =
+    polynomial_mul_rec_gf(a, b, 0, [])
+
+let polynomial_mul_rec_gf(a, b, i, acc) =
+        if i >= len(a) + len(b) - 1
+            acc
+        else
+            let coeff = polynomial_mul_coeff_gf(a, b, i, 0, 0)
+            polynomial_mul_rec_gf(a, b, i + 1, append(acc, coeff))
+
+let polynomial_mul_coeff_gf(a, b, k, j, acc) =
+        if j > k || j >= len(a)
+            acc
+        else
+            if k - j >= len(b)
+                polynomial_mul_coeff_gf(a, b, k, j + 1, acc)
+            else
+                let term = gf_mul(a[j], b[k - j])
+                polynomial_mul_coeff_gf(a, b, k, j + 1, gf_add(acc, term))
+
+let degree_gf(poly) =
+    degree_rec_gf(poly, len(poly) - 1)
+
+let degree_rec_gf(poly, i) =
+        if i < 0
+            -1
+        else
+            if poly[i] != 0
+                i
+            else
+                degree_rec_gf(poly, i - 1)
+
+let lead_coeff_gf(poly) =
+    poly[degree_gf(poly)]
+
+let scale_poly_gf(poly, c) =
+    scale_poly_rec_gf(poly, c, 0, [])
+
+let scale_poly_rec_gf(poly, c, i, acc) =
+        if i >= len(poly)
+            acc
+        else
+            scale_poly_rec_gf(poly, c, i + 1, append(acc, gf_mul(c, poly[i])))
+
+let shift_poly_gf(poly, n) =
+    shift_poly_rec_gf(poly, n, 0, [])
+
+let shift_poly_rec_gf(poly, n, i, acc) =
+        if i >= n + len(poly)
+            acc
+        else
+            if i < n
+                shift_poly_rec_gf(poly, n, i + 1, append(acc, 0))
+            else
+                shift_poly_rec_gf(poly, n, i + 1, append(acc, poly[i - n]))
+
+let subtract_lambda_I_gf(T) =
+    T
+

@@ -1,0 +1,102 @@
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let s1 = 2
+let s2 = 8
+let s3 = 8
+let s4 = 18
+let s5 = 18
+let s6 = 32
+let s7 = 32
+
+let n1 = s1
+let n2 = n1 + s2
+let n3 = n2 + s3
+let n4 = n3 + s4
+let n5 = n4 + s5
+let n6 = n5 + s6
+let n7 = n6 + s7
+
+if n1 != 2
+    bad[0] = bad[0] + 1
+if n2 != 10
+    bad[0] = bad[0] + 1
+if n3 != 18
+    bad[0] = bad[0] + 1
+if n4 != 36
+    bad[0] = bad[0] + 1
+if n5 != 54
+    bad[0] = bad[0] + 1
+if n6 != 86
+    bad[0] = bad[0] + 1
+if n7 != 118
+    bad[0] = bad[0] + 1
+
+let total = s1 + s2 + s3 + s4 + s5 + s6 + s7
+if total != n7
+    bad[0] = bad[0] + 1
+
+let li = n1 + 1
+let na = n2 + 1
+let k_ = n3 + 1
+let rb = n4 + 1
+let cs = n5 + 1
+let fr = n6 + 1
+if li != 3
+    bad[0] = bad[0] + 1
+if na != 11
+    bad[0] = bad[0] + 1
+if k_ != 19
+    bad[0] = bad[0] + 1
+if rb != 37
+    bad[0] = bad[0] + 1
+if cs != 55
+    bad[0] = bad[0] + 1
+if fr != 87
+    bad[0] = bad[0] + 1
+
+let f9 = n2 - 1
+let cl = n3 - 1
+let br = n4 - 1
+let i53 = n5 - 1
+let at = n6 - 1
+let ts = n7 - 1
+if f9 != 9
+    bad[0] = bad[0] + 1
+if cl != 17
+    bad[0] = bad[0] + 1
+if br != 35
+    bad[0] = bad[0] + 1
+if i53 != 53
+    bad[0] = bad[0] + 1
+if at != 85
+    bad[0] = bad[0] + 1
+if ts != 117
+    bad[0] = bad[0] + 1
+
+if ts - f9 < 100
+    bad[0] = bad[0] + 1
+
+let lan = n5 + 3
+let act = n6 + 3
+if lan != 57
+    bad[0] = bad[0] + 1
+if act != 89
+    bad[0] = bad[0] + 1
+
+if 1875 < 1869
+    bad[0] = bad[0] + 1
+if 1886 < 1869
+    bad[0] = bad[0] + 1
+
+if 1869 < 1867
+    bad[0] = bad[0] + 1
+if 1869 > 1871
+    bad[0] = bad[0] + 1
+if 1913 < 1911
+    bad[0] = bad[0] + 1
+if 1913 > 1915
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

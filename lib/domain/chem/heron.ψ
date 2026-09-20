@@ -1,0 +1,59 @@
+import "ck.ψ"
+let bad = [0]
+
+let t1 = 3 + 4 + 5
+let s1 = t1 / 2
+let a11 = s1 - 3
+let a12 = s1 - 4
+let a13 = s1 - 5
+let p1 = s1 * a11 * a12 * a13
+let dz1 = p1 - 6 * 6
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let t2 = 5 + 12 + 13
+let s2 = t2 / 2
+let a21 = s2 - 5
+let a22 = s2 - 12
+let a23 = s2 - 13
+let p2 = s2 * a21 * a22 * a23
+let dz2 = p2 - 30 * 30
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let t3 = 8 + 15 + 17
+let s3 = t3 / 2
+let a31 = s3 - 8
+let a32 = s3 - 15
+let a33 = s3 - 17
+let p3 = s3 * a31 * a32 * a33
+let dz3 = p3 - 60 * 60
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let t4 = 7 + 24 + 25
+let s4 = t4 / 2
+let a41 = s4 - 7
+let a42 = s4 - 24
+let a43 = s4 - 25
+let p4 = s4 * a41 * a42 * a43
+let dz4 = p4 - 84 * 84
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let t5 = 5 + 5 + 6
+let s5 = t5 / 2
+let a51 = s5 - 5
+let a52 = s5 - 6
+let p5 = s5 * a51 * a51 * a52
+let dz5 = p5 - 12 * 12
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let peq = 9 * 3 * 3 * 3
+let psc = 9 * 6 * 2 * 1
+let margin = peq - psc
+let dz6 = margin - 135
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+if 62 < 60
+    bad[0] = bad[0] + 1
+if 62 > 64
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

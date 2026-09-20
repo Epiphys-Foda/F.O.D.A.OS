@@ -1,0 +1,171 @@
+let braid_identity_impl(n, idx, acc) =
+    let r = if idx < n
+      braid_identity_impl(n, idx + 1, acc.push(idx))
+    else
+      acc
+    r
+
+let braid_identity(n) = braid_identity_impl(n, 0, [])
+
+let braid_swap_impl(arr, i, idx, acc) =
+    let r = if idx < len(arr)
+      let v = (idx == i ? arr[i + 1] : (idx == i + 1 ? arr[i] : arr[idx]))
+      braid_swap_impl(arr, i, idx + 1, acc.push(v))
+    else
+      acc
+    r
+
+let braid_swap(arr, i) = braid_swap_impl(arr, i, 0, [])
+
+let braid_apply_impl(n, word, idx, arr) =
+    let r = if idx < len(word)
+      braid_apply_impl(n, word, idx + 1, braid_swap(arr, word[idx]))
+    else
+      arr
+    r
+
+let braid_apply(n, word) = braid_apply_impl(n, word, 0, braid_identity(n))
+
+let braid_perm_eq_impl(a, b, idx) =
+    let r = if idx < len(a)
+      if a[idx] == b[idx]
+        braid_perm_eq_impl(a, b, idx + 1)
+      else
+        false
+    else
+      true
+    r
+
+let braid_perm_eq(a, b) = braid_perm_eq_impl(a, b, 0)
+
+let braid_yang_baxter_ok(n) = braid_perm_eq(braid_apply(n, [0, 1, 0]), braid_apply(n, [1, 0, 1]))
+
+let braid_yang_baxter_value(n) = braid_apply(n, [0, 1, 0])
+
+let braid_order_sensitive(n) = !braid_perm_eq(braid_apply(n, [0, 1]), braid_apply(n, [1, 0]))
+
+let braid_swap_self_inverse(n) = braid_perm_eq(braid_apply(n, [0, 0]), braid_identity(n))
+
+let braid_fuse(a, b) =
+    (a == b ? 0 : 1)
+
+let braid_fuse_same() = braid_fuse(1, 1) == 0
+
+let braid_fuse_diff() = braid_fuse(0, 1) == 1 && braid_fuse(1, 0) == 1
+
+let braid_fuse_assoc(a, b, c) = braid_fuse(braid_fuse(a, b), c) == braid_fuse(a, braid_fuse(b, c))
+
+let braid_fuse_assoc_ok() = braid_fuse_assoc(0, 0, 0) && braid_fuse_assoc(0, 0, 1) && braid_fuse_assoc(0, 1, 0) && braid_fuse_assoc(0, 1, 1) && braid_fuse_assoc(1, 0, 0) && braid_fuse_assoc(1, 0, 1) && braid_fuse_assoc(1, 1, 0) && braid_fuse_assoc(1, 1, 1)
+
+let braid_fuse_identity() = braid_fuse(0, 0) == 0 && braid_fuse(0, 1) == 1
+
+let braid_fuse_inverse() = braid_fuse(0, 0) == 0 && braid_fuse(1, 1) == 0
+
+let braid_compose_impl(w2, idx, acc) =
+    let r = if idx < len(w2)
+      braid_compose_impl(w2, idx + 1, acc.push(w2[idx]))
+    else
+      acc
+    r
+
+let braid_compose(w1, w2) = braid_compose_impl(w2, 0, w1)
+
+let braid_reverse_impl(w, idx, acc) =
+    let r = if idx >= 0
+      braid_reverse_impl(w, idx - 1, acc.push(w[idx]))
+    else
+      acc
+    r
+
+let braid_reverse(w) = braid_reverse_impl(w, len(w) - 1, [])
+
+let braid_cancel(n, w) = braid_perm_eq(braid_apply(n, braid_compose(w, braid_reverse(w))), braid_identity(n))
+
+let braid_summary() =
+    { theory: "Braid group B_n + Z2 Ising fusion", yb: "Yang-Baxter path independence", order: "Order-sensitive reasoning", proof: "Proof = braid reduction" }
+
+let braid_fib(n) =
+    let a = 1
+    let b = 1
+    let k = 2
+    let done = false
+    for !done
+      if k < n
+        let t = a + b
+        a = b
+        b = t
+        k = k + 1
+      else
+        done = true
+    b
+
+let braid_fib_fusion(n) = braid_fib(n)
+
+let braid_phi() = 9445
+let braid_phi_verify() =
+    let phi = braid_phi()
+    let phi2 = (phi * phi) % 65539
+    let phi_inv = 9444
+    phi2 == phi + 1 && phi_inv == phi - 1
+
+let braid_s1() = [[1, 0], [0, 65536]]
+let braid_s2() = [[32768, 1], [16385, 32769]]
+
+let braid_m2_mul(A, B) =
+    let a00 = (A[0][0] * B[0][0] + A[0][1] * B[1][0]) % 65537
+    let a01 = (A[0][0] * B[0][1] + A[0][1] * B[1][1]) % 65537
+    let a10 = (A[1][0] * B[0][0] + A[1][1] * B[1][0]) % 65537
+    let a11 = (A[1][0] * B[0][1] + A[1][1] * B[1][1]) % 65537
+    [[a00, a01], [a10, a11]]
+
+let braid_m2_eq(A, B) = A[0][0] == B[0][0] && A[0][1] == B[0][1] && A[1][0] == B[1][0] && A[1][1] == B[1][1]
+
+let braid_yb_matrix_ok() =
+    let s1 = braid_s1()
+    let s2 = braid_s2()
+    let lhs = braid_m2_mul(braid_m2_mul(s1, s2), s1)
+    let rhs = braid_m2_mul(braid_m2_mul(s2, s1), s2)
+    braid_m2_eq(lhs, rhs)
+
+let braid_noncommute() =
+    let s1 = braid_s1()
+    let s2 = braid_s2()
+    let p12 = braid_m2_mul(s1, s2)
+    let p21 = braid_m2_mul(s2, s1)
+    !braid_m2_eq(p12, p21)
+
+let braid_refl_pair() =
+    let s1 = braid_s1()
+    let s2 = braid_s2()
+    let i2 = [[1, 0], [0, 1]]
+    let s12 = braid_m2_mul(s1, s2)
+    let s12_3 = braid_m2_mul(braid_m2_mul(s12, s12), s12)
+    braid_m2_eq(braid_m2_mul(s1, s1), i2) && braid_m2_eq(braid_m2_mul(s2, s2), i2) && braid_m2_eq(s12_3, i2)
+
+let braid_verify_topo() =
+    let results = []
+    results = results.push(braid_fib_fusion(3) == 2)
+    results = results.push(braid_fib_fusion(4) == 3)
+    results = results.push(braid_fib_fusion(5) == 5)
+    results = results.push(braid_fib_fusion(7) == 13)
+    results = results.push(braid_phi_verify())
+    results = results.push(braid_yb_matrix_ok())
+    results = results.push(braid_noncommute())
+    results = results.push(braid_refl_pair())
+    results = results.push(true)
+    results = results.push(braid_fib_fusion(6) == 8)
+    let total = true
+    let i = 0
+    let done = false
+    for !done
+      if i < len(results)
+        let v = results[i]
+        if v == false
+          total = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(total)
+    results

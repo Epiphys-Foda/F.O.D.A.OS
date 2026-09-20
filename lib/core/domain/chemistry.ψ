@@ -1,0 +1,347 @@
+import "../stdlib/gf65537.ψ"
+
+let huckel_h2(alpha, beta) =
+    [[alpha, beta], [beta, alpha]]
+
+let huckel_ethylene(alpha, beta) =
+    [[alpha, beta], [beta, alpha]]
+
+let _huckel_benzene_loop(alpha, beta, n, i, rows) =
+        if i >= n
+            rows
+        else
+            let row = _huckel_benzeli_row(alpha, beta, n, i, 0, [])
+            _huckel_benzene_loop(alpha, beta, n, i + 1, arr_concat(rows, [row]))
+let _huckel_benzeli_row(alpha, beta, n, i, j, row) =
+        if j >= n
+            row
+        else
+            let val = if i == j
+                alpha
+            else
+                0
+            if (i + 1) % n == j || (j + 1) % n == i
+                beta
+            else
+                0
+            _huckel_benzeli_row(alpha, beta, n, i, j + 1, arr_concat(row, [val]))
+let huckel_benzene(alpha, beta) =
+    _huckel_benzene_loop(alpha, beta, 6, 0, [])
+
+let huckel_cyclopentadienyl(alpha, beta) =
+    _huckel_benzene_loop(alpha, beta, 5, 0, [])
+
+let huckel_butadiene(alpha, beta) =
+    [[alpha, beta, 0, 0],
+     [beta, alpha, beta, 0],
+     [0, beta, alpha, beta],
+     [0, 0, beta, alpha]]
+
+let huckel_h2_eigenvalues(alpha, beta) =
+    let e_bonding = gf_add(alpha, beta)
+    let e_antibonding = gf_sub(alpha, beta)
+    [e_bonding, e_antibonding]
+
+let huckel_benzene_eigenvalues(alpha, beta) =
+    let two_beta = gf_mul(2, beta)
+    let e1 = gf_add(alpha, two_beta)
+    let e2 = gf_add(alpha, beta)
+    let e3 = gf_sub(alpha, beta)
+    let e4 = gf_sub(alpha, two_beta)
+    [e1, e2, e2, e3, e3, e4]
+
+let huckel_butadiene_eigenvalues(alpha, beta) =
+    let e1 = [alpha, beta]
+    let e2 = [gf_sub(alpha, beta), beta]
+    let e3 = [gf_add(alpha, beta), gf_neg(beta)]
+    let e4 = [alpha, gf_neg(beta)]
+    [e1, e2, e3, e4]
+
+let huckel_cyclopentadienyl_eigenvalues(alpha, beta) =
+    let two_beta = gf_mul(2, beta)
+    let e1 = gf_add(alpha, two_beta)
+    let inv2 = gf_inv(2)
+    let half_beta = gf_mul(beta, inv2)
+    let e2_real = gf_add(alpha, half_beta)
+    let e2_imag = half_beta
+    let e2 = [e2_real, e2_imag]
+    let e3 = [e2_real, gf_neg(half_beta)]
+    [e1, e2, e2, e3, e3]
+
+let huckel_h2_total_energy(alpha, beta) =
+    let evals = huckel_h2_eigenvalues(alpha, beta)
+    gf_mul(2, evals[0])
+
+let huckel_benzene_total_energy(alpha, beta) =
+    let six_alpha = gf_mul(6, alpha)
+    let eight_beta = gf_mul(8, beta)
+    gf_add(six_alpha, eight_beta)
+
+let huckel_benzene_delocalization_energy(beta) =
+    gf_mul(2, beta)
+
+let fock_h2(h, k, g1111, g1122, g1212, d11, d12, d22) =
+    let g11 = gf_add(gf_mul(d11, g1111), gf_mul(d22, g1122))
+    let g22 = gf_add(gf_mul(d22, g1111), gf_mul(d11, g1122))
+    let two_g1212 = gf_mul(2, g1212)
+    let g12_coeff = gf_sub(two_g1212, g1122)
+    let g12 = gf_mul(d12, g12_coeff)
+    let f11 = gf_add(h, g11)
+    let f12 = gf_add(k, g12)
+    let f22 = gf_add(h, g22)
+    [[f11, f12], [f12, f22]]
+
+let scf_h2_eigenvalues(f11, f12, f22, s) =
+    let s_sq = gf_mul(s, s)
+    let a = gf_sub(1, s_sq)
+    let two_f12_s = gf_mul(gf_mul(2, f12), s)
+    let b = gf_sub(two_f12_s, gf_add(f11, f22))
+    let f11_f22 = gf_mul(f11, f22)
+    let f12_sq = gf_mul(f12, f12)
+    let c = gf_sub(f11_f22, f12_sq)
+    let b_sq = gf_mul(b, b)
+    let four_ac = gf_mul(gf_mul(4, a), c)
+    let delta = gf_sub(b_sq, four_ac)
+    [a, b, c, delta]
+
+let scf_extract_eigenvalues(a, b, delta) =
+    let legendre = gf_legendre(delta)
+    let neg_b = gf_neg(b)
+    let inv_2a = gf_inv(gf_mul(2, a))
+    if legendre == 1
+        let sqrt_delta = gf_sqrt(delta)
+        let e1 = gf_mul(gf_add(neg_b, sqrt_delta), inv_2a)
+        let e2 = gf_mul(gf_sub(neg_b, sqrt_delta), inv_2a)
+        [e1, e2, 1]
+    else
+        0
+    if legendre == 0
+        let e = gf_mul(neg_b, inv_2a)
+        [e, e, 0]
+    else
+        let real_part = gf_mul(neg_b, inv_2a)
+        let imag_part = inv_2a
+        [real_part, imag_part, 65536]
+
+let scf_h2_step(h, k, g1111, g1122, g1212, s, d11, d12, d22) =
+    let F = fock_h2(h, k, g1111, g1122, g1212, d11, d12, d22)
+    let f11 = F[0][0]
+    let f12 = F[0][1]
+    let f22 = F[1][1]
+    let coeffs = scf_h2_eigenvalues(f11, f12, f22, s)
+    let a = coeffs[0]
+    let b = coeffs[1]
+    let delta = coeffs[3]
+    let evals = scf_extract_eigenvalues(a, b, delta)
+    [f11, f12, f22, evals[0], evals[1], evals[2]]
+
+let mulliken_charge_h2(d11, s11, z_h) =
+    let pop = gf_mul(d11, s11)
+    gf_sub(z_h, pop)
+
+let bond_order_h2(d12, s) =
+    let two_d12_s = gf_mul(gf_mul(2, d12), s)
+    two_d12_s
+
+let sym_bonding() = 1
+let sym_antibonding() = 0
+let sym_nonbonding() = 2
+
+let h2_orbital_symmetry() =
+    [sym_bonding(), sym_antibonding()]
+
+let benzene_orbital_symmetry() =
+    [1, 2, 2, 3, 3, 0]
+
+let h2_electron_config() =
+    [[0, 2, 1]]
+
+let benzene_electron_config() =
+    [[0, 2, 1], [1, 2, 1], [2, 2, 1]]
+
+let butadiene_electron_config() =
+    [[0, 2, 1], [1, 2, 1]]
+
+let h2_homo_lumo_gap(alpha, beta) =
+    gf_neg(gf_mul(2, beta))
+
+let benzene_homo_lumo_gap(beta) =
+    gf_neg(gf_mul(2, beta))
+
+let huckel_aromaticity(n_pi_electrons) =
+    let r = n_pi_electrons % 4
+    if r == 2
+        1
+    else
+        0
+    if r == 0
+        65536
+    else
+        0
+
+let h2_bde(beta) =
+    gf_mul(2, beta)
+
+let bond_polarity(chi_a, chi_b) =
+    let diff = gf_sub(chi_a, chi_b)
+    let sum = gf_add(chi_a, chi_b)
+    gf_div(diff, sum)
+
+let polarity_class(chi_a, chi_b) =
+    let diff = gf_sub(chi_a, chi_b)
+    let abs_diff = (diff > 32768 ? gf_neg(diff) : diff)
+    if abs_diff < 5
+        0
+    else
+        0
+    if abs_diff < 15
+        1
+    else
+        0
+    if abs_diff < 30
+        2
+    else
+        0
+    if abs_diff < 50
+        3
+    else
+        4
+
+let rhf_total_energy(occupied_evals, n_occupied) =
+    _rhf_energy_loop(occupied_evals, n_occupied, 0, 0)
+let _rhf_energy_loop(evals, n, i, acc) =
+        if i >= n
+            gf_mul(2, acc)
+        else
+            _rhf_energy_loop(evals, n, i + 1, gf_add(acc, evals[i]))
+
+let h2_mo_coefficients() =
+    let inv_sqrt2 = 2040
+    let neg_inv_sqrt2 = gf_neg(2040)
+    let bonding = [inv_sqrt2, inv_sqrt2]
+    let antibonding = [inv_sqrt2, neg_inv_sqrt2]
+    [bonding, antibonding]
+
+let ethylene_mo_coefficients() =
+    h2_mo_coefficients()
+
+let verify_orthogonality_h2() =
+    let mos = h2_mo_coefficients()
+    let c1 = mos[0]
+    let c2 = mos[1]
+    let dot = gf_add(gf_mul(c1[0], c2[0]), gf_mul(c1[1], c2[1]))
+    dot
+
+let verify_normalization_h2() =
+    let mos = h2_mo_coefficients()
+    let c1 = mos[0]
+    let norm = gf_add(gf_mul(c1[0], c1[0]), gf_mul(c1[1], c1[1]))
+    norm
+
+let bond_type(double_bond_order) =
+    if double_bond_order < 1
+        0
+    else
+        0
+    if double_bond_order < 3
+        1
+    else
+        0
+    if double_bond_order < 5
+        2
+    else
+        0
+    if double_bond_order < 7
+        3
+    else
+        4
+
+let reaction_energy(e_products, e_reactants) =
+    gf_sub(e_products, e_reactants)
+
+let is_exothermic(delta_e) =
+    delta_e > 32768
+
+let is_closed_shell(n_electrons) =
+    n_electrons % 2 == 0
+
+let is_stable(homo_lumo_gap, delocalization_energy) =
+    let gap_stable = homo_lumo_gap > 32768
+    let deloc_stable = delocalization_energy > 32768
+    if gap_stable && deloc_stable
+        1
+    else
+        0
+    if gap_stable
+        2
+    else
+        0
+
+let vibrational_frequency_sq(force_const, reduced_mass) =
+    gf_div(force_const, reduced_mass)
+
+let vibrational_frequency(force_const, reduced_mass) =
+    let omega_sq = vibrational_frequency_sq(force_const, reduced_mass)
+    let legendre = gf_legendre(omega_sq)
+    if legendre == 1
+        let omega = gf_sqrt(omega_sq)
+        [omega, 1]
+    else
+        0
+    if legendre == 0
+        [0, 0]
+    else
+        [omega_sq, 65536]
+
+let partition_function(energies, degeneracies, n, r) =
+    _pf_loop(energies, degeneracies, n, r, 0, 0)
+let _pf_loop(energies, degeneracies, n, r, i, acc) =
+        if i >= n
+            acc
+        else
+            let boltzmann = gf_pow(r, energies[i])
+            let term = gf_mul(degeneracies[i], boltzmann)
+            _pf_loop(energies, degeneracies, n, r, i + 1, gf_add(acc, term))
+
+let internal_energy(energies, occupations, n) =
+    _ue_loop(energies, occupations, n, 0, 0)
+let _ue_loop(energies, occ, n, i, acc) =
+        if i >= n
+            acc
+        else
+            let term = gf_mul(occ[i], energies[i])
+            _ue_loop(energies, occ, n, i + 1, gf_add(acc, term))
+
+let transition_energy(e_initial, e_final) =
+    gf_sub(e_final, e_initial)
+
+let h2_first_excitation(beta) =
+    gf_neg(gf_mul(2, beta))
+
+let benzene_pi_pi_star(beta) =
+    gf_neg(gf_mul(2, beta))
+
+let transition_allowed(sym_initial, sym_final) =
+        let g_to_u = sym_initial == 1 && sym_final == 0
+        let u_to_g = sym_initial == 0 && sym_final == 1
+        if g_to_u || u_to_g
+            1
+        else
+            0
+
+let charge_transfer(q_a_complex, q_a_free) =
+    gf_sub(q_a_complex, q_a_free)
+
+let h2_energy_levels(alpha, beta) =
+    let e_bonding = gf_add(alpha, beta)
+    let e_antibonding = gf_sub(alpha, beta)
+    [[e_bonding, 2], [e_antibonding, 0]]
+
+let benzene_energy_levels(alpha, beta) =
+    let two_beta = gf_mul(2, beta)
+    [[gf_add(alpha, two_beta), 2],
+     [gf_add(alpha, beta), 2],
+     [gf_add(alpha, beta), 2],
+     [gf_sub(alpha, beta), 0],
+     [gf_sub(alpha, beta), 0],
+     [gf_sub(alpha, two_beta), 0]]

@@ -1,0 +1,353 @@
+import "../core/stdlib/arr.ψ"
+import "../core/stdlib/gf65537.ψ"
+import "bootstrap_residue.ψ"
+
+import "sh_a9f96f3ee7.ψ"
+
+let cplx_add(u1, u2) = [gf_add(u1[0], u2[0]), gf_add(u1[1], u2[1])]
+
+let cplx_sub(u1, u2) = [gf_sub(u1[0], u2[0]), gf_sub(u1[1], u2[1])]
+
+let cplx_mul(u1, u2) =
+    let re = gf_sub(gf_mul(u1[0], u2[0]), gf_mul(u1[1], u2[1]))
+    let im = gf_add(gf_mul(u1[0], u2[1]), gf_mul(u1[1], u2[0]))
+    [re, im]
+
+let cplx_norm_sq(u) = gf_add(gf_mul(u[0], u[0]), gf_mul(u[1], u[1]))
+
+let cplx_l1_norm(u) = gf_add(gf_abs(u[0]), gf_abs(u[1]))
+
+let cplx_from_polar(s, cos_phi, sin_phi) =
+    [gf_mul(s, cos_phi), gf_mul(s, sin_phi)]
+
+let pcd_compute(edges, n) =
+    if n == 0
+        0
+    else
+        let sum_re = 0
+        let sum_im = 0
+        let sum_abs = 0
+        let i = 0
+        for i < n
+            sum_re = gf_add(sum_re, edges[i][0])
+            sum_im = gf_add(sum_im, edges[i][1])
+            sum_abs = gf_add(sum_abs, cplx_l1_norm(edges[i]))
+            i = i + 1
+        let sum_u = [sum_re, sum_im]
+        let numer = cplx_l1_norm(sum_u)
+        if sum_abs == 0
+            0
+        else
+            gf_div(gf_sub(sum_abs, numer), sum_abs)
+
+let pcd_compute_norm(edges, n) =
+    if n == 0
+        0
+    else
+        let sum_re = 0
+        let sum_im = 0
+        let sum_abs = 0
+        let i = 0
+        for i < n
+            sum_re = gf_add(sum_re, edges[i][0])
+            sum_im = gf_add(sum_im, edges[i][1])
+            sum_abs = gf_add(sum_abs, cplx_l1_norm(edges[i]))
+            i = i + 1
+        let norm_sq = gf_add(gf_mul(sum_re, sum_re), gf_mul(sum_im, sum_im))
+        let denom = gf_mul(sum_abs, sum_abs)
+        if denom == 0
+            0
+        else
+            gf_div(gf_sub(denom, norm_sq), denom)
+
+let law1_pcd_range_test() =
+    let edges = [[100, 0], [200, 0], [300, 0]]
+    let d = pcd_compute(edges, 3)
+    if d == 0
+        1
+    else
+        (gf_abs(d) <= 1 ? 1 : 0)
+
+let law2_inphase_min_test() =
+    let edges = [[100, 0], [200, 0], [300, 0]]
+    let d = pcd_compute(edges, 3)
+    (d == 0 ? 1 : 0)
+
+let law3_cancellation_max_test() =
+    let edges = [[1, 0], [gf_neg(1), 0]]
+    let d = pcd_compute(edges, 2)
+    (d == 1 ? 1 : 0)
+
+let SIGMOID_ALPHA = 10
+let SIGMOID_BETA = 3
+let sigmoid_transmittance(pcd_val) =
+    let x = gf_sub(SIGMOID_BETA, gf_mul(SIGMOID_ALPHA, pcd_val))
+    if x > 32768
+        0
+    else
+        if x < 32768
+            65536
+        else
+            gf_div(1, 2)
+
+let law4_sigmoid_center_test() =
+    let pcd_center = gf_div(SIGMOID_BETA, SIGMOID_ALPHA)
+    let t = sigmoid_transmittance(pcd_center)
+    (gf_abs(gf_sub(t, gf_div(1, 2))) <= 1 ? 1 : 0)
+
+let waveguide_compensation(h) =
+    if h <= 1
+        1
+    else
+        0
+    if h == 2
+        gf_div(1, 2)
+    else
+        0
+    if h == 3
+        gf_div(1, 2)
+    else
+        gf_div(1, 4)
+
+let law5_waveguide_decay_test() =
+    let c1 = waveguide_compensation(1)
+    let c2 = waveguide_compensation(2)
+    let c4 = waveguide_compensation(4)
+    if c1 > c2
+        (c2 > c4 ? 1 : 0)
+    else
+        0
+
+let gradient_bias(pcd_val) =
+    gf_add(1, gf_mul(2, gf_sub(1, pcd_val)))
+
+let law6_gradient_monotone_test() =
+    let g_low = gradient_bias(0)
+    let g_high = gradient_bias(1)
+    (g_low > g_high ? 1 : 0)
+
+let resonance_amplify(n, g) =
+    if n <= 0
+        1
+    else
+        let log_n = 0
+        let temp = n
+        for temp > 1
+            temp = temp / 2
+            log_n = log_n + 1
+        gf_add(1, gf_mul(g, gf_sub(log_n, 1)))
+
+let law7_resonance_log_test() =
+    let r1 = resonance_amplify(1, 1)
+    let r10 = resonance_amplify(10, 1)
+    (r10 >= r1 ? 1 : 0)
+
+let crystallization_potential(pcd_val, freq, strength) =
+    let c = gf_sub(1, pcd_val)
+    gf_add(gf_add(gf_mul(gf_div(1, 2), c), gf_mul(gf_div(3, 10), freq)), gf_mul(gf_div(1, 5), strength))
+
+let law8_crystal_bounded_test() =
+    let p = crystallization_potential(0, 1, 1)
+    (p <= 1 ? 1 : 0)
+
+let law9_contradiction_not_crystal_test() =
+    let high_pcd = gf_div(1, 10)
+    let p = crystallization_potential(high_pcd, 1, 1)
+    let p_coherent = crystallization_potential(0, 1, 1)
+    (p < p_coherent ? 1 : 0)
+
+let law10_asymptotic_convergence_test() =
+    let p1 = crystallization_potential(0, gf_div(1, 1), 1)
+    let p10 = crystallization_potential(0, gf_div(10, 10), 1)
+    let p100 = crystallization_potential(0, gf_div(100, 100), 1)
+    if p1 <= p10
+        (p10 <= p100 ? 1 : 0)
+    else
+        0
+
+let pcd_verify_all_laws() =
+    let l1 = law1_pcd_range_test()
+    let l2 = law2_inphase_min_test()
+    let l3 = law3_cancellation_max_test()
+    let l4 = law4_sigmoid_center_test()
+    let l5 = law5_waveguide_decay_test()
+    let l6 = law6_gradient_monotone_test()
+    let l7 = law7_resonance_log_test()
+    let l8 = law8_crystal_bounded_test()
+    let l9 = law9_contradiction_not_crystal_test()
+    let l10 = law10_asymptotic_convergence_test()
+    l1 + l2 + l3 + l4 + l5 + l6 + l7 + l8 + l9 + l10
+
+let PHASE_GAS = 0
+let PHASE_LIQUID = 1
+let PHASE_SOLID = 2
+
+let phase_modulation(phase) =
+    if phase == PHASE_GAS
+        gf_div(3, 10)
+    else
+        0
+    if phase == PHASE_LIQUID
+        gf_div(3, 5)
+    else
+        1
+
+let controlled_transmittance(pcd_val, phase) =
+    gf_mul(sigmoid_transmittance(pcd_val), phase_modulation(phase))
+
+let phase_transition(pcd_val, freq, strength, current_phase) =
+    let pot = crystallization_potential(pcd_val, freq, strength)
+    if pcd_val > gf_div(1, 20)
+        PHASE_GAS
+    else
+        0
+    if pot > gf_div(4, 5)
+        PHASE_SOLID
+    else
+        0
+    if pot > gf_div(2, 5)
+        PHASE_LIQUID
+    else
+        PHASE_GAS
+
+let forgetting_mechanism(phase, ticks) =
+    if phase == PHASE_SOLID
+        (ticks > 1000 ? PHASE_LIQUID : PHASE_SOLID)
+    else
+        0
+    if phase == PHASE_LIQUID
+        (ticks > 500 ? PHASE_GAS : PHASE_LIQUID)
+    else
+        PHASE_GAS
+
+let wave_propagate_step(neighbor_amps, edge_strengths, hops, pcd_val, phase, n) =
+    let result = 0
+    let t_ctrl = controlled_transmittance(pcd_val, phase)
+    let i = 0
+    for i < n
+        let amp = neighbor_amps[i]
+        let s = edge_strengths[i]
+        let h = hops[i]
+        let c = waveguide_compensation(h)
+        let g = gradient_bias(pcd_val)
+        let term = gf_mul(amp, s)
+        term = gf_mul(term, t_ctrl)
+        term = gf_mul(term, c)
+        term = gf_mul(term, g)
+        result = gf_add(result, term)
+        i = i + 1
+    result
+
+let saturate(amp, n_resonance, g_resonance) =
+    let amplified = gf_mul(amp, resonance_amplify(n_resonance, g_resonance))
+    let five_a = gf_mul(5, amplified)
+    let denom = gf_add(1, gf_abs(five_a))
+    (denom == 0 ? 0 : gf_div(five_a, denom))
+
+let HEIS_EXCITE = 0
+let HEIS_FLOW = 1
+let HEIS_SOLIDIFY = 2
+
+let broadband_wavepacket(k, cos_phi, sin_phi) =
+    if k == 0
+        [0, 0]
+    else
+        let inv_sqrt_k = gf_inv(gf_sqrt(k))
+        [gf_mul(inv_sqrt_k, cos_phi), gf_mul(inv_sqrt_k, sin_phi)]
+
+let dynamic_conductance(pcd_val, activation, phase_factor) =
+    let g_pcd = gf_sub(1, pcd_val)
+    gf_mul(gf_mul(g_pcd, activation), phase_factor)
+
+let quantum_tunnel_probability(barrier, delta_phi, amp_combined) =
+    let sqrt_a = gf_sqrt(amp_combined)
+    if sqrt_a == 0
+        0
+    else
+        let exponent = gf_div(gf_mul(barrier, gf_abs(delta_phi)), sqrt_a)
+        gf_div(1, gf_add(1, exponent))
+
+let cognitive_annealing_temp(t, t0, sigma_anneal, t_cognitive) =
+    if t_cognitive == 0
+        0
+    else
+        let ratio = gf_div(t, t_cognitive)
+        let decay = gf_div(1, gf_add(1, ratio))
+        gf_mul(gf_mul(t0, sigma_anneal), decay)
+
+let pcd_curvature(d_neighbor_avg, d_vertex, d_neighbor_var) =
+    let diff = gf_abs(gf_sub(d_neighbor_avg, d_vertex))
+    let var_sqrt = gf_sqrt(d_neighbor_var)
+    gf_add(diff, var_sqrt)
+
+let affect_modulation(arousal, valence) =
+    gf_mul(arousal, gf_div(gf_add(1, valence), 2))
+
+let FIREWALL_BLOCK = 0
+let FIREWALL_WARN = 1
+let FIREWALL_PASS = 2
+
+let logic_firewall(pcd_val) =
+    if pcd_val > gf_div(1, 2)
+        FIREWALL_BLOCK
+    else
+        0
+    if pcd_val > gf_div(1, 5)
+        FIREWALL_WARN
+    else
+        FIREWALL_PASS
+
+let sllas_state(edges, n, freq, strength, phase, ticks) =
+    let l1_wave = edges
+    let l2_pcd = pcd_compute(l1_wave, n)
+    let l3_gate = controlled_transmittance(l2_pcd, phase)
+    let l5_phase = phase_transition(l2_pcd, freq, strength, phase)
+    let l5_forget = forgetting_mechanism(l5_phase, ticks)
+    let l7_meaning = logic_firewall(l2_pcd)
+    [l2_pcd, l3_gate, l5_forget, l7_meaning]
+
+let darwin_select(pcd_val, fitness) =
+    gf_mul(gf_sub(1, pcd_val), fitness)
+
+let darwin_mutate(pcd_val, barrier, delta_phi, amp) =
+    let p_tunnel = quantum_tunnel_probability(barrier, delta_phi, amp)
+    gf_mul(pcd_val, p_tunnel)
+
+let darwin_inherit(phase, pcd_val, fitness) =
+    if phase == PHASE_SOLID
+        darwin_select(pcd_val, fitness)
+    else
+        0
+
+let field_pcd(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 200 + i * 300
+        let diff = gf_sub(z, pole)
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let pcd_verify() =
+    let edges1 = [[100, 0], [200, 0], [300, 0]]
+    let d1 = pcd_compute(edges1, 3)
+    let ok1 = (d1 == 0 ? 1 : 0)
+
+    let edges2 = [[1, 0], [gf_neg(1), 0]]
+    let d2 = pcd_compute(edges2, 2)
+    let ok2 = (d2 == 1 ? 1 : 0)
+
+    let edges3 = [[100, 0], [0, 100]]
+    let d3 = pcd_compute(edges3, 2)
+    let ok3 = (d3 > 0 ? (d3 < 1 ? 1 : 0) : 0)
+
+    let laws = pcd_verify_all_laws()
+
+    let fw_block = logic_firewall(gf_div(3, 5))
+    let ok5 = (fw_block == FIREWALL_BLOCK ? 1 : 0)
+
+    let fw_pass = logic_firewall(gf_div(1, 10))
+    let ok6 = (fw_pass == FIREWALL_PASS ? 1 : 0)
+
+    ok1 + ok2 + ok3 + ok5 + ok6

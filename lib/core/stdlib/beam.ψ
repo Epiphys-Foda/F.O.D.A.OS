@@ -1,0 +1,70 @@
+let BM_P = 65537
+
+let bm_phase(i, theta) =
+    let r = i * theta
+    r - r / BM_P * BM_P
+
+let bm_term(w, x, i, theta) =
+    let t1 = w * x
+    let t2 = t1 - t1 / BM_P * BM_P
+    let t3 = t2 * bm_phase(i, theta)
+    t3 - t3 / BM_P * BM_P
+
+let bm_beam_impl(ws, xs, theta, idx, acc) =
+    if idx < len(ws)
+      let acc2 = acc + bm_term(ws[idx], xs[idx], idx, theta)
+      bm_beam_impl(ws, xs, theta, idx + 1, acc2 - acc2 / BM_P * BM_P)
+    else
+        acc
+
+let bm_beam(ws, xs, theta) = bm_beam_impl(ws, xs, theta, 0, 0)
+
+let bm_scan_impl(ws, xs, thetas, idx, acc) =
+    if idx < len(thetas)
+      bm_scan_impl(ws, xs, thetas, idx + 1, acc.push(bm_beam(ws, xs, thetas[idx])))
+    else
+        acc
+
+let beam_bm_scan(ws, xs, thetas) = bm_scan_impl(ws, xs, thetas, 0, [])
+
+let bm_query_count(rs) = len(rs)
+
+let bm_peak_impl(rs, idx, best_idx, best_val) =
+    if idx < len(rs)
+      if rs[idx] > best_val
+        bm_peak_impl(rs, idx + 1, idx, rs[idx])
+      else
+        bm_peak_impl(rs, idx + 1, best_idx, best_val)
+    else
+        best_idx
+
+let bm_peak(rs) = bm_peak_impl(rs, 0, 0, 0)
+
+let bm_second_impl(rs, exclude, idx, best) =
+    if idx < len(rs)
+      if idx == exclude
+        bm_second_impl(rs, exclude, idx + 1, best)
+      else
+          0
+      if rs[idx] > best
+          bm_second_impl(rs, exclude, idx + 1, rs[idx])
+      else
+          bm_second_impl(rs, exclude, idx + 1, best)
+    else
+        best
+
+let bm_second(rs, exclude) = bm_second_impl(rs, exclude, 0, 0)
+
+let bm_resolvable(r1, r2, threshold) =
+    let d = r1 - r2
+    let d2 = (d < 0 ? 0 - d : d)
+    d2 > threshold
+
+let bm_resolve_scan(rs) =
+    let peak = bm_peak(rs)
+    let pv = rs[peak]
+    let sv = bm_second(rs, peak)
+    pv > sv
+
+let bm_summary() =
+    { theory: "Beamforming (DBF: O(N) in place of O(N^2) attention)", beam: "B(theta) = Sum w*x*phase(i,theta) mod p (pure integer over GF)", scan: "Parallel multi-query injection (new session structure)", resolve: "Main-lobe localization + resolution assertion (MUSIC style)", principle: "Phase gradient = reasoning direction" }

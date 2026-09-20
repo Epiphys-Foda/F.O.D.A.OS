@@ -1,0 +1,75 @@
+import "../stdlib/gf65537.ψ"
+
+let _poly_horner(coeffs, n, x, i, acc) =
+      if i < 0
+        acc
+      else
+        let term = (acc * x + coeffs[i]) % 65537
+        _poly_horner(coeffs, n, x, i - 1, term)
+let poly_eval(coeffs, n, x) = _poly_horner(coeffs, n, x, n - 1, 0)
+
+let mahler_measure_approx(coeffs, n) =
+    let p1 = poly_eval(coeffs, n, 1)
+    let p_neg1 = poly_eval(coeffs, n, 65536)
+    let p_omega = poly_eval(coeffs, n, 3)
+    let m1 = (p1 < 0) ? (65537 + p1) : p1
+    let m2 = (p_neg1 < 0) ? (65537 + p_neg1) : p_neg1
+    let m3 = (p_omega < 0) ? (65537 + p_omega) : p_omega
+    gfmul(gfmul(m1, m2), m3)
+
+let is_cyclotomic_simple(coeffs, n) =
+      let p1 = poly_eval(coeffs, n, 1)
+      if p1 == 0
+        1
+      else
+        0
+
+let lehmer_poly_coeffs() =
+    let c = arr_new_n(11)
+    c[0] = 1
+    c[1] = 1
+    c[2] = 0
+    c[3] = 65536
+    c[4] = 65536
+    c[5] = 65536
+    c[6] = 65536
+    c[7] = 65536
+    c[8] = 0
+    c[9] = 1
+    c[10] = 1
+    c
+
+let lehmer_verify() =
+      let coeffs = lehmer_poly_coeffs()
+      let is_cyclo = is_cyclotomic_simple(coeffs, 11)
+      if is_cyclo == 1
+        0
+      else
+        let m = mahler_measure_approx(coeffs, 11)
+        if m > 1
+          1
+        else
+          0
+
+let _min_mahler_loop(poly_array, n_polys, degree, i, min_m) =
+      if i >= n_polys
+        min_m
+      else
+        let m = mahler_measure_approx(poly_array[i], degree)
+        let new_min = (m < min_m) ? m : min_m
+        _min_mahler_loop(poly_array, n_polys, degree, i + 1, new_min)
+let min_mahler_measure(poly_array, n_polys, degree) =
+    _min_mahler_loop(poly_array, n_polys, degree, 0, 65537)
+
+let test_lehmer() =
+    let c = arr_new_n(3)
+    c[0] = 1
+    c[1] = 0
+    c[2] = 65536
+    let p1 = poly_eval(c, 3, 1)
+    assert_eq(p1, 0)
+    let cyclo = is_cyclotomic_simple(c, 3)
+    assert_eq(cyclo, 1)
+    let v = lehmer_verify()
+    assert_eq(v, 1)
+    0

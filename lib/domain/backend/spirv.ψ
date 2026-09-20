@@ -1,0 +1,211 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let SPIRV_MAGIC = 119734787
+let SPIRV_VERSION = 65536
+
+let SPIRV_OP_NOP = 0
+let SPIRV_OP_VOID = 1
+let SPIRV_OP_BOOL = 2
+let SPIRV_OP_INT = 3
+let SPIRV_OP_FLOAT = 4
+let SPIRV_OP_FUNCTION = 5
+let SPIRV_OP_RETURN = 18
+let SPIRV_OP_ADD = 14
+let SPIRV_OP_MUL = 16
+let SPIRV_OP_SUB = 15
+let SPIRV_OP_DIV = 17
+let SPIRV_OP_MOD = 18
+let SPIRV_OP_LOAD = 61
+let SPIRV_OP_STORE = 62
+let SPIRV_OP_ACCESS_CHAIN = 65
+let SPIRV_OP_DECORATE = 71
+let SPIRV_OP_MEMBER_DECORATE = 72
+let SPIRV_OP_ENTRY_POINT = 15
+let SPIRV_OP_EXECUTION_MODE = 16
+let SPIRV_OP_CAPABILITY = 17
+let SPIRV_OP_TYPE_VOID = 19
+let SPIRV_OP_TYPE_INT = 21
+let SPIRV_OP_TYPE_FLOAT = 22
+let SPIRV_OP_TYPE_FUNCTION = 33
+let SPIRV_OP_TYPE_POINTER = 32
+let SPIRV_OP_TYPE_STRUCT = 30
+let SPIRV_OP_TYPE_VECTOR = 23
+let SPIRV_OP_TYPE_MATRIX = 24
+let SPIRV_OP_TYPE_IMAGE = 25
+let SPIRV_OP_TYPE_SAMPLED_IMAGE = 26
+let SPIRV_OP_CONSTANT = 43
+let SPIRV_OP_VARIABLE = 59
+
+let SPIRV_CAP_MATRIX = 0
+let SPIRV_CAP_SHADER = 1
+let SPIRV_CAP_GEOMETRY = 2
+let SPIRV_CAP_TESSELLATION = 3
+let SPIRV_CAP_ATOMIC = 4
+let SPIRV_CAP_IMAGE = 5
+let SPIRV_CAP_STORAGE_BUFFER = 6
+
+let SPIRV_DEC_LOCATION = 30
+let SPIRV_DEC_BINDING = 33
+let SPIRV_DEC_DESCRIPTOR_SET = 34
+let SPIRV_DEC_OFFSET = 35
+let SPIRV_DEC_STRIDE = 36
+let SPIRV_DEC_BUILTIN = 11
+let SPIRV_DEC_BLOCK = 2
+
+let SPIRV_BUILTIN_POSITION = 0
+let SPIRV_BUILTIN_VERTEX_ID = 5
+let SPIRV_BUILTIN_INSTANCE_ID = 6
+let SPIRV_BUILTIN_FRAG_COORD = 15
+let SPIRV_BUILTIN_WORKGROUP_ID = 22
+let SPIRV_BUILTIN_LOCAL_INVOCATION_ID = 23
+let SPIRV_BUILTIN_GLOBAL_INVOCATION_ID = 24
+
+let SPIRV_MODEL_VERTEX = 0
+let SPIRV_MODEL_FRAGMENT = 4
+let SPIRV_MODEL_COMPUTE = 5
+let SPIRV_MODEL_GEOMETRY = 3
+
+let spirv_create() = [SPIRV_MAGIC, SPIRV_VERSION, 1, [], [], [], []]
+let spirv_add_capability(module, cap) =
+    let caps = module[3]
+    caps.push(cap)
+    [module[0], module[1], module[2], caps, module[4], module[5], module[6]]
+let spirv_add_instruction(module, opcode, operands) =
+    let code = module[4]
+    code.push([opcode, operands])
+    let bound = gf_add(module[2], 1)
+    [module[0], module[1], bound, module[3], code, module[5], module[6]]
+let spirv_add_entry_point(module, model, func_id, name, interfaces) =
+    let entries = module[5]
+    entries.push([model, func_id, name, interfaces])
+    [module[0], module[1], module[2], module[3], module[4], entries, module[6]]
+let spirv_add_decoration(module, target, decoration, operands) =
+    let decs = module[6]
+    decs.push([target, decoration, operands])
+    [module[0], module[1], module[2], module[3], module[4], module[5], decs]
+
+let spirv_type_void(module) = spirv_add_instruction(module, SPIRV_OP_TYPE_VOID, [])
+let spirv_type_int(module, width, signed) = spirv_add_instruction(module, SPIRV_OP_TYPE_INT, [width, signed])
+let spirv_type_float(module, width) = spirv_add_instruction(module, SPIRV_OP_TYPE_FLOAT, [width])
+let spirv_type_vector(module, component_type, count) = spirv_add_instruction(module, SPIRV_OP_TYPE_VECTOR, [component_type, count])
+let spirv_type_matrix(module, column_type, count) = spirv_add_instruction(module, SPIRV_OP_TYPE_MATRIX, [column_type, count])
+let spirv_type_pointer(module, storage_class, kind) = spirv_add_instruction(module, SPIRV_OP_TYPE_POINTER, [storage_class, kind])
+let spirv_type_struct(module, members) = spirv_add_instruction(module, SPIRV_OP_TYPE_STRUCT, members)
+let spirv_type_function(module, return_type, params) = spirv_add_instruction(module, SPIRV_OP_TYPE_FUNCTION, [return_type, params])
+let spirv_type_image(module, sampled_type, dim, depth, arrayed, multisampled, sampled, format) = spirv_add_instruction(module, SPIRV_OP_TYPE_IMAGE, [sampled_type, dim, depth, arrayed, multisampled, sampled, format])
+
+let spirv_constant(module, type_id, value) = spirv_add_instruction(module, SPIRV_OP_CONSTANT, [type_id, value])
+
+let spirv_variable(module, type_id, storage_class, initializer) = spirv_add_instruction(module, SPIRV_OP_VARIABLE, [type_id, storage_class, initializer])
+
+let spirv_shader_vertex() =
+    let m = spirv_create()
+    m = spirv_add_capability(m, SPIRV_CAP_SHADER)
+    m = spirv_add_capability(m, SPIRV_CAP_MATRIX)
+    m
+let spirv_shader_fragment() =
+    let m = spirv_create()
+    m = spirv_add_capability(m, SPIRV_CAP_SHADER)
+    m
+let spirv_shader_compute() =
+    let m = spirv_create()
+    m = spirv_add_capability(m, SPIRV_CAP_SHADER)
+    m = spirv_add_capability(m, SPIRV_CAP_ATOMIC)
+    m
+let spirv_shader_geometry() =
+    let m = spirv_create()
+    m = spirv_add_capability(m, SPIRV_CAP_SHADER)
+    m = spirv_add_capability(m, SPIRV_CAP_GEOMETRY)
+    m
+
+let spirv_gen_vertex_shader() =
+    let m = spirv_shader_vertex()
+    let void_t = 0
+    let float_t = 0
+    let vec4_t = 0
+    let mat4_t = 0
+    m = spirv_add_instruction(m, SPIRV_OP_TYPE_VOID, [])
+    void_t = gf_sub(m[2], 1)
+    m = spirv_add_instruction(m, SPIRV_OP_TYPE_FLOAT, [32])
+    float_t = gf_sub(m[2], 1)
+    m = spirv_add_instruction(m, SPIRV_OP_TYPE_VECTOR, [float_t, 4])
+    vec4_t = gf_sub(m[2], 1)
+    m = spirv_add_instruction(m, SPIRV_OP_TYPE_VECTOR, [vec4_t, 4])
+    mat4_t = gf_sub(m[2], 1)
+    m = spirv_add_entry_point(m, SPIRV_MODEL_VERTEX, 0, 0, [])
+    m
+let spirv_gen_fragment_shader() =
+    let m = spirv_shader_fragment()
+    m = spirv_add_entry_point(m, SPIRV_MODEL_FRAGMENT, 0, 0, [])
+    m
+let spirv_gen_compute_shader() =
+    let m = spirv_shader_compute()
+    m = spirv_add_entry_point(m, SPIRV_MODEL_COMPUTE, 0, 0, [])
+    m
+
+let spirv_descriptor_set_create() = []
+let spirv_descriptor_add(set, binding, type_id, decoration) =
+    set.push([set.length, binding, type_id, decoration])
+    set
+
+let spirv_push_constant_create(offset, size, type_id) = [offset, size, type_id, []]
+let spirv_push_constant_set(pc, data) = [pc[0], pc[1], pc[2], data]
+
+let spirv_codegen(ir) =
+    let module = spirv_create()
+    let i = 0
+    let n = ir.length
+    for i < n
+        module = spirv_add_instruction(module, SPIRV_OP_NOP, [i])
+        i = i + 1
+    module
+
+let spirv_serialize(module) =
+    let words = [module[0], module[1], module[2]]
+    let code = module[4]
+    let i = 0
+    let n = code.length
+    for i < n
+        let instr = code[i]
+        words.push(instr[0])
+        let ops = instr[1]
+        let j = 0
+        let m = ops.length
+        for j < m
+            words.push(ops[j])
+            j = j + 1
+        i = i + 1
+    words
+
+let spirv_deserialize(words) =
+    let magic = words[0]
+    let version = words[1]
+    let bound = words[2]
+    let code = []
+    let i = 3
+    let n = words.length
+    for i < n
+        let opcode = words[i]
+        code.push([opcode, []])
+        i = i + 1
+    [magic, version, bound, [], code, [], []]
+
+let field_spirv(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let spirv_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_spirv(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok

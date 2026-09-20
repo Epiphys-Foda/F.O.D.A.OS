@@ -1,0 +1,179 @@
+import "../domain_field.ψ"
+let TO_TYPE_DEADLINE = 0
+let TO_TYPE_DURATION = 1
+let TO_TYPE_HIERARCHICAL = 2
+
+let TO_DEFAULT_TIMEOUT_MS = 5000
+
+let to_new(kind, deadline_ms, duration_ms, parent) =
+    [kind, deadline_ms, duration_ms, parent, 0, 0]
+
+let to_deadline(timeout_ms) =
+    to_new(TO_TYPE_DEADLINE, timeout_ms, 0, 0)
+
+let to_duration(timeout_ms) =
+    to_new(TO_TYPE_DURATION, 0, timeout_ms, 0)
+
+let to_hierarchical(parent, timeout_ms, now_ms) =
+    let my_deadline = now_ms + timeout_ms
+    if parent != 0
+        let parent_deadline = to_deadline_ms(parent)
+        if parent_deadline > 0
+            if parent_deadline < my_deadline
+                my_deadline = parent_deadline
+    to_new(TO_TYPE_HIERARCHICAL, my_deadline, timeout_ms, parent)
+
+let to_type(t) = t[0]
+let to_deadline_ms(t) = t[1]
+let to_duration_ms(t) = t[2]
+let to_parent(t) = t[3]
+let to_cancelled(t) = t[4]
+let to_fired(t) = t[5]
+
+let to_set_cancelled(t, c) = [t[0], t[1], t[2], t[3], c, t[5]]
+let to_set_fired(t, f) = [t[0], t[1], t[2], t[3], t[4], f]
+
+let to_is_expired(t, now_ms) =
+    if to_cancelled(t) == 1
+        0
+    else
+        if to_fired(t) == 1
+            1
+        else
+            let deadline = to_deadline_ms(t)
+            if deadline == 0
+                0
+            else
+                if now_ms >= deadline
+                    1
+                else
+                    0
+
+let to_remaining(t, now_ms) =
+    if to_cancelled(t) == 1
+        0
+    else
+        let deadline = to_deadline_ms(t)
+        if deadline == 0
+            to_duration_ms(t)
+        else
+            let rem = deadline - now_ms
+            if rem < 0
+                0
+            else
+                rem
+
+let to_fire(t) = to_set_fired(t, 1)
+
+let to_cancel(t) = to_set_cancelled(t, 1)
+
+let to_mgr_new() = [{}, 0, 0, 0]
+
+let to_mgr_timeouts(m) = m[0]
+let to_mgr_next_id(m) = m[1]
+let to_mgr_fired_count(m) = m[2]
+let to_mgr_cancelled_count(m) = m[3]
+
+let to_mgr_set_timeouts(m, t) = [t, m[1], m[2], m[3]]
+let to_mgr_set_next_id(m, n) = [m[0], n, m[2], m[3]]
+let to_mgr_inc_fired(m) = [m[0], m[1], m[2] + 1, m[3]]
+let to_mgr_inc_cancelled(m) = [m[0], m[1], m[2], m[3] + 1]
+
+let to_mgr_register(m, timeout) =
+    let id = to_mgr_next_id(m)
+    let timeouts = to_mgr_timeouts(m)
+    timeouts[id] = timeout
+    let m2 = to_mgr_set_timeouts(m, timeouts)
+    m2 = to_mgr_set_next_id(m2, id + 1)
+    [m2, id]
+
+let to_mgr_check(m, now_ms) =
+    let timeouts = to_mgr_timeouts(m)
+    let keys = keys_of(timeouts)
+    let fired_ids = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let id = keys[i]
+        let t = timeouts[id]
+        if to_is_expired(t, now_ms) == 1
+            if to_fired(t) == 0
+                fired_ids.push(id)
+                timeouts[id] = to_fire(t)
+        i = i + 1
+    let m2 = to_mgr_set_timeouts(m, timeouts)
+    let k = 0
+    let fn_ = len(fired_ids)
+    for k < fn_
+        m2 = to_mgr_inc_fired(m2)
+        k = k + 1
+    [m2, fired_ids]
+
+let to_mgr_cancel(m, id) =
+    let timeouts = to_mgr_timeouts(m)
+    let t = timeouts[id]
+    if t == 0
+        m
+    else
+        if to_cancelled(t) == 0
+            timeouts[id] = to_cancel(t)
+            let m2 = to_mgr_set_timeouts(m, timeouts)
+            to_mgr_inc_cancelled(m2)
+        else
+            m
+
+let to_bragg_verify_deadline(t, expected_deadline) =
+    if to_deadline_ms(t) == expected_deadline
+        1
+    else
+        0
+
+let to_bragg_verify_hierarchical(child, parent) =
+    let child_deadline = to_deadline_ms(child)
+    let parent_deadline = to_deadline_ms(parent)
+    if child_deadline <= parent_deadline
+        1
+    else
+        0
+
+let to_self_test() =
+    let results = []
+
+    let t = to_deadline(5000)
+    results.push(to_is_expired(t, 4000) == 0)
+    results.push(to_is_expired(t, 5000) == 1)
+    results.push(to_is_expired(t, 6000) == 1)
+
+    t = to_duration(1000)
+    results.push(to_remaining(t, 0) == 1000)
+
+    let parent = to_deadline(10000)
+    let child = to_hierarchical(parent, 5000, 0)
+    results.push(to_bragg_verify_hierarchical(child, parent))
+    results.push(to_deadline_ms(child) == 5000)
+
+    parent = to_deadline(3000)
+    child = to_hierarchical(parent, 5000, 0)
+    results.push(to_deadline_ms(child) == 3000)
+    results.push(to_bragg_verify_hierarchical(child, parent))
+
+    t = to_deadline(5000)
+    t = to_cancel(t)
+    results.push(to_is_expired(t, 6000) == 0)
+
+    let m = to_mgr_new()
+    let reg1 = to_mgr_register(m, to_deadline(1000))
+    m = reg1[0]
+    let reg2 = to_mgr_register(m, to_deadline(2000))
+    m = reg2[0]
+    let check1 = to_mgr_check(m, 1500)
+    results.push(len(check1[1]) == 1)
+    m = check1[0]
+    results.push(to_mgr_fired_count(m) == 1)
+
+    t = to_deadline(5000)
+    results.push(to_bragg_verify_deadline(t, 5000))
+
+    results
+
+let to_default_timeout() = to_deadline(TO_DEFAULT_TIMEOUT_MS)

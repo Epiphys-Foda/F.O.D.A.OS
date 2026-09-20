@@ -1,0 +1,161 @@
+import "numtheor.ψ"
+let gradient_descent(f_grad, x0, lr, n_iter) =
+    let x = x0
+    let i = 0
+    for i < n_iter
+        let g = f_grad(x)
+        x = x - lr * g / 1000
+        i = i + 1
+    x
+
+let gradient_descent_momentum(f_grad, x0, lr, momentum, n_iter) =
+    let x = x0
+    let v = 0
+    let i = 0
+    for i < n_iter
+        let g = f_grad(x)
+        v = momentum * v / 1000 + lr * g / 1000
+        x = x - v
+        i = i + 1
+    x
+
+let adam(f_grad, x0, lr, beta1, beta2, eps, n_iter) =
+    let x = x0
+    let m = 0
+    let v = 0
+    let i = 1
+    for i <= n_iter
+        let g = f_grad(x)
+        m = beta1 * m / 1000 + (1000 - beta1) * g / 1000
+        v = beta2 * v / 1000 + (1000 - beta2) * g * g / 1000000
+        let m_hat = m * 1000 / (1000 - pow_milli(beta1, i))
+        let v_hat = v * 1000 / (1000 - pow_milli(beta2, i))
+        let sqrt_v = isqrt(v_hat)
+        x = x - lr * m_hat / (sqrt_v + eps)
+        i = i + 1
+    x
+
+let pow_milli(base, exp) =
+    let result = 1000
+    let i = 0
+    for i < exp
+        result = result * base / 1000
+        i = i + 1
+    result
+
+let newton_1d(f, f_prime, x0, n_iter) =
+    let x = x0
+    let i = 0
+    for i < n_iter
+        let fx = f(x)
+        let fpx = f_prime(x)
+        if fpx == 0
+            i = n_iter
+        else
+            x = x - fx / fpx
+            i = i + 1
+    x
+
+let newton_min(f_grad, f_hess, x0, n_iter) =
+    let x = x0
+    let i = 0
+    for i < n_iter
+        let g = f_grad(x)
+        let h = f_hess(x)
+        if h == 0
+            i = n_iter
+        else
+            x = x - g / h
+            i = i + 1
+    x
+
+let binary_search(f, lo, hi, n_iter) =
+    let i = 0
+    for i < n_iter
+        let mid = (lo + hi) / 2
+        let fmid = f(mid)
+        if fmid == 0
+            return mid
+        else
+            0
+        if fmid > 0
+            hi = mid
+        else
+            lo = mid
+        i = i + 1
+    (lo + hi) / 2
+
+let golden_section_search(f, a, b, n_iter) =
+    let phi = 618
+    let tol = 1
+    let c = b - (b - a) * phi / 1000
+    let d = a + (b - a) * phi / 1000
+    let i = 0
+    for i < n_iter
+        if f(c) < f(d)
+            b = d
+            d = c
+            c = b - (b - a) * phi / 1000
+        else
+            a = c
+            c = d
+            d = a + (b - a) * phi / 1000
+        i = i + 1
+    (a + b) / 2
+
+let coordinate_descent(f_grad, x0, lr, n_iter, n_dims) =
+    let x = x0
+    let iter = 0
+    for iter < n_iter
+        let d = 0
+        for d < n_dims
+            let g = f_grad(x, d)
+            x[d] = x[d] - lr * g / 1000
+            d = d + 1
+        iter = iter + 1
+    x
+
+let simulated_annealing(f, x0, x_min, x_max, t0, t_min, alpha, n_iter, seed) =
+    let x = x0
+    let fx = f(x)
+    let T = t0
+    let s = seed
+    let i = 0
+    for i < n_iter && T > t_min
+        s = (s * 1103515245 + 12345) % 2147483648
+        let x_new = x + (s % 200 - 100) * T / 100000
+        if x_new < x_min
+            x_new = x_min
+        else
+            0
+        if x_new > x_max
+            x_new = x_max
+        let fx_new = f(x_new)
+        let delta = fx_new - fx
+        if delta < 0
+            x = x_new
+            fx = fx_new
+        else
+            s = (s * 1103515245 + 12345) % 2147483648
+            let prob = 1000 - delta * 1000 / T
+            if prob < 0
+                prob = 0
+            if s % 1000 < prob
+                x = x_new
+                fx = fx_new
+        T = T * alpha / 1000
+        i = i + 1
+    x
+
+let main() =
+    let f(x) = x * x - 4 * x + 4
+    let fp(x) = 2 * x - 4
+    let v1 = newton_1d(f, fp, 10, 20)
+    print(v1)
+    let v2 = gradient_descent(fp, 10, 100, 50)
+    print(v2)
+    let v3 = binary_search(f, 0, 10, 50)
+    print(v3)
+    let v4 = golden_section_search(f, 0, 10, 30)
+    print(v4)
+    0

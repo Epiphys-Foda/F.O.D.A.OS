@@ -1,0 +1,52 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let kd = [78, 92, 15, 15, 18, 88, 75, 46, 42, 18, 88, 92, 15, 68, 88, 37, 88, 92, 75, 46, 15, 5, 46, 78, 78, 37, 43, 34, 11, 43]
+
+let i = 0
+let sum_shift = 0
+let hc = 0
+for i < 30
+    let j = i * 1
+    sum_shift = sum_shift + kd[j]
+    if kd[j] > 50
+        hc = hc + 1
+    i = i + 1
+
+if sum_shift != 1566
+    bad[0] = bad[0] + 1
+
+let hyd = sum_shift - 1500
+bad[0] = bad[0] + ck(hyd, 55, 75)
+
+if hc != 13
+    bad[0] = bad[0] + 1
+let pct = small_div(hc * 100, 30)
+bad[0] = bad[0] + ck(pct, 35, 50)
+
+let mean = small_div(hyd, 30)
+bad[0] = bad[0] + ck(mean, 1, 4)
+
+bad[0] = bad[0] + ck_lo(mean, 0)
+
+let cys = 2
+if cys != 2
+    bad[0] = bad[0] + 1
+
+let aromatic = 5
+bad[0] = bad[0] + ck(aromatic, 4, 6)
+let charged = 4
+bad[0] = bad[0] + ck(charged, 3, 5)
+
+if 1921 < 1919
+    bad[0] = bad[0] + 1
+if 1921 > 1923
+    bad[0] = bad[0] + 1
+if 1955 < 1953
+    bad[0] = bad[0] + 1
+if 1955 > 1957
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

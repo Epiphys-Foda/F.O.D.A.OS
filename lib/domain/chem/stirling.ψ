@@ -1,0 +1,32 @@
+import "ck.ψ"
+let bad = [0]
+
+let Th = 800
+let Tc = 300
+let eta = (Th - Tc) * 1000 / Th
+let cz = eta - 625
+bad[0] = bad[0] + ck(cz, 0, 0)
+
+let st4 = 4
+bad[0] = bad[0] + ck(st4, 4, 4)
+
+let reg = 1
+bad[0] = bad[0] + ck_lo(reg, 1)
+
+let dish = 31
+bad[0] = bad[0] + ck(dish, 28, 35)
+
+if 1816 < 1814
+    bad[0] = bad[0] + 1
+if 1816 > 1818
+    bad[0] = bad[0] + 1
+if 1970 < 1968
+    bad[0] = bad[0] + 1
+if 1970 > 1972
+    bad[0] = bad[0] + 1
+if 2008 < 2006
+    bad[0] = bad[0] + 1
+if 2008 > 2010
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

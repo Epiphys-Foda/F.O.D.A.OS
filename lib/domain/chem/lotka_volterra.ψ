@@ -1,0 +1,40 @@
+import "ck.ψ"
+let bad = [0]
+
+let alpha = 1
+let beta = 1
+let gamma = 2
+let delta = 1
+let x_eq = 2
+let y_eq = 1
+let dx_eq = alpha * x_eq - beta * x_eq * y_eq
+let dy_eq = delta * x_eq * y_eq - gamma * y_eq
+let dz1 = dx_eq
+let dz2 = dy_eq
+bad[0] = bad[0] + ck(dz1, 0, 0)
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let x_off = 4
+let y_off = 1
+let dx_off = alpha * x_off - beta * x_off * y_off
+let dy_off = delta * x_off * y_off - gamma * y_off
+let evolve = dx_off * dx_off + dy_off * dy_off
+bad[0] = bad[0] + ck_lo(evolve, 1)
+
+let ratio = x_eq / y_eq
+bad[0] = bad[0] + ck(ratio, 2, 2)
+
+if 1925 < 1923
+    bad[0] = bad[0] + 1
+if 1925 > 1927
+    bad[0] = bad[0] + 1
+if 1926 < 1924
+    bad[0] = bad[0] + 1
+if 1926 > 1928
+    bad[0] = bad[0] + 1
+if 1926 < 1924
+    bad[0] = bad[0] + 1
+if 1926 > 1928
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

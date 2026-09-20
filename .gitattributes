@@ -1,0 +1,7 @@
+* text=auto
+*.ψ text
+*.psi text
+*.wgsl text
+*.md text
+*.json text
+bin/qlc2.exe binary

@@ -1,0 +1,346 @@
+import "ck.ψ"
+let smod_fast(x, m) =
+    let cnt = 0
+    let s = m
+    for s <= x
+        cnt = cnt + 1
+        s = s + s
+    let steps = arr_new_n(cnt)
+    let k = 0
+    let s2 = m
+    for k < cnt
+        let kx = k * 1
+        steps[kx] = s2
+        s2 = s2 + s2
+        k = k + 1
+    let i = cnt
+    let r = x
+    for i > 0
+        let jx = i - 1
+        let st = steps[jx]
+        if r >= st
+            r = r - st
+        i = i - 1
+    r
+
+let bad = [0]
+
+let codon_table = [
+    14, 14, 11, 11, 16, 16, 16, 16, 19, 19, 0, 0, 5, 5, 0, 18,
+    11, 11, 11, 11, 15, 15, 15, 15, 9, 9, 6, 6, 2, 2, 2, 2,
+    10, 10, 10, 13, 17, 17, 17, 17, 3, 3, 12, 12, 16, 16, 2, 2,
+    20, 20, 20, 20, 1, 1, 1, 1, 4, 4, 7, 7, 8, 8, 8, 8,
+]
+
+let mass_table = [
+    147177, 147177, 113159, 113159, 87078, 87078, 87078, 87078, 163176, 163176, 0, 0,
+    103139, 103139, 0, 186213, 113159, 113159, 113159, 113159, 97117, 97117, 97117, 97117,
+    137141, 137141, 128130, 128130, 156188, 156188, 156188, 156188, 113159, 113159, 113159, 131192,
+    101105, 101105, 101105, 101105, 114104, 114104, 128174, 128174, 87078, 87078, 156188, 156188,
+    99133, 99133, 99133, 99133, 71079, 71079, 71079, 71079, 115088, 115088, 129116, 129116,
+    57052, 57052, 57052, 57052,
+]
+
+let z_spec = [
+    1, 1, 2, 2, 3, 3, 4, 5, 5, 6, 6, 7, 7, 8,
+    8, 8, 9, 10, 10, 10, 11, 12, 12, 12, 13, 14, 14, 14,
+    15, 16, 16, 16, 16, 17, 17, 18, 18, 18, 19, 19, 20, 20,
+    20, 20, 20, 21, 22, 22, 22, 22, 22, 23, 24, 24, 24, 24,
+    25, 26, 26, 26, 26, 27, 28, 28, 28, 28, 28, 29, 29, 30,
+    30, 30, 30, 30, 31, 31, 32, 32, 32, 32, 33, 34, 34, 34,
+    34, 34, 35, 35, 36, 36, 36, 36, 36, 36, 37, 38, 38, 38,
+    38, 39, 40, 40, 40, 40, 41, 42, 42, 42, 42, 42, 42, 44,
+    44, 44, 44, 44, 44, 44, 45, 46, 46, 46, 46, 46, 46, 47,
+    47, 48, 48, 48, 48, 48, 48, 49, 50, 50, 50, 50, 50, 50,
+    50, 50, 50, 50, 51, 51, 52, 52, 52, 52, 52, 52, 53, 54,
+    54, 54, 54, 54, 54, 54, 55, 56, 56, 56, 56, 56, 56, 57,
+    58, 58, 58, 58, 59, 60, 60, 60, 60, 60, 62, 62, 62, 62,
+    62, 63, 64, 64, 64, 64, 64, 64, 65, 66, 66, 66, 66, 66,
+    66, 66, 67, 68, 68, 68, 68, 68, 68, 69, 70, 70, 70, 70,
+    70, 70, 70, 71, 72, 72, 72, 72, 72, 73, 73, 74, 74, 74,
+    74, 75, 76, 76, 76, 76, 76, 77, 77, 78, 78, 78, 78, 78,
+    79, 80, 80, 80, 80, 80, 80, 80, 81, 81, 82, 82, 82, 82,
+]
+
+let aa_table = [
+    71079, 156188, 114104, 115088, 103139, 128130, 129116, 57052, 137141, 113159,
+    113159, 128174, 131192, 147177, 97117, 87078, 101105, 186213, 163176, 99133,
+]
+
+let magic_table = [2, 8, 20, 28, 50, 82, 126, 184]
+
+let mol_table = [18015, 44009, 16043, 17031, 180156, 75067, 78114, 58443]
+
+let chkCodon1 = [0]
+let rCodon1 = 1
+let j = 0
+for j < 64
+    let jx = j * 1
+    let vr = smod_fast(codon_table[jx] * rCodon1, 65537)
+    chkCodon1[0] = smod_fast(chkCodon1[0] + vr, 65537)
+    let rn = smod_fast(rCodon1 * 3, 65537)
+    rCodon1 = rn
+    j = j + 1
+let dCodon1 = chkCodon1[0] - 20892
+let aCodon1 =
+    if dCodon1 < 0
+        0 - dCodon1
+    else
+        dCodon1
+let mCodon1 = smod_fast(aCodon1, 65537)
+bad[0] = bad[0] + mCodon1
+let chkCodon2 = [0]
+let rCodon2 = 1
+let j = 0
+for j < 64
+    let jx = j * 1
+    let vr = smod_fast(codon_table[jx] * rCodon2, 131071)
+    chkCodon2[0] = smod_fast(chkCodon2[0] + vr, 131071)
+    let rn = smod_fast(rCodon2 * 3, 131071)
+    rCodon2 = rn
+    j = j + 1
+let dCodon2 = chkCodon2[0] - 66835
+let aCodon2 =
+    if dCodon2 < 0
+        0 - dCodon2
+    else
+        dCodon2
+let mCodon2 = smod_fast(aCodon2, 131071)
+bad[0] = bad[0] + mCodon2
+
+let chkMass1 = [0]
+let rMass1 = 1
+let j = 0
+for j < 64
+    let jx = j * 1
+    let vr = smod_fast(mass_table[jx] * rMass1, 65537)
+    chkMass1[0] = smod_fast(chkMass1[0] + vr, 65537)
+    let rn = smod_fast(rMass1 * 3, 65537)
+    rMass1 = rn
+    j = j + 1
+let dMass1 = chkMass1[0] - 26176
+let aMass1 =
+    if dMass1 < 0
+        0 - dMass1
+    else
+        dMass1
+let mMass1 = smod_fast(aMass1, 65537)
+bad[0] = bad[0] + mMass1
+let chkMass2 = [0]
+let rMass2 = 1
+let j = 0
+for j < 64
+    let jx = j * 1
+    let vr = smod_fast(mass_table[jx] * rMass2, 131071)
+    chkMass2[0] = smod_fast(chkMass2[0] + vr, 131071)
+    let rn = smod_fast(rMass2 * 3, 131071)
+    rMass2 = rn
+    j = j + 1
+let dMass2 = chkMass2[0] - 126465
+let aMass2 =
+    if dMass2 < 0
+        0 - dMass2
+    else
+        dMass2
+let mMass2 = smod_fast(aMass2, 131071)
+bad[0] = bad[0] + mMass2
+
+let chkZsp1 = [0]
+let rZsp1 = 1
+let j = 0
+for j < 252
+    let jx = j * 1
+    let vr = smod_fast(z_spec[jx] * rZsp1, 65537)
+    chkZsp1[0] = smod_fast(chkZsp1[0] + vr, 65537)
+    let rn = smod_fast(rZsp1 * 3, 65537)
+    rZsp1 = rn
+    j = j + 1
+let dZsp1 = chkZsp1[0] - 47876
+let aZsp1 =
+    if dZsp1 < 0
+        0 - dZsp1
+    else
+        dZsp1
+let mZsp1 = smod_fast(aZsp1, 65537)
+bad[0] = bad[0] + mZsp1
+let chkZsp2 = [0]
+let rZsp2 = 1
+let j = 0
+for j < 252
+    let jx = j * 1
+    let vr = smod_fast(z_spec[jx] * rZsp2, 131071)
+    chkZsp2[0] = smod_fast(chkZsp2[0] + vr, 131071)
+    let rn = smod_fast(rZsp2 * 3, 131071)
+    rZsp2 = rn
+    j = j + 1
+let dZsp2 = chkZsp2[0] - 107582
+let aZsp2 =
+    if dZsp2 < 0
+        0 - dZsp2
+    else
+        dZsp2
+let mZsp2 = smod_fast(aZsp2, 131071)
+bad[0] = bad[0] + mZsp2
+
+let chkAA1 = [0]
+let rAA1 = 1
+let j = 0
+for j < 20
+    let jx = j * 1
+    let vr = smod_fast(aa_table[jx] * rAA1, 65537)
+    chkAA1[0] = smod_fast(chkAA1[0] + vr, 65537)
+    let rn = smod_fast(rAA1 * 3, 65537)
+    rAA1 = rn
+    j = j + 1
+let dAA1 = chkAA1[0] - 38872
+let aAA1 =
+    if dAA1 < 0
+        0 - dAA1
+    else
+        dAA1
+let mAA1 = smod_fast(aAA1, 65537)
+bad[0] = bad[0] + mAA1
+let chkAA2 = [0]
+let rAA2 = 1
+let j = 0
+for j < 20
+    let jx = j * 1
+    let vr = smod_fast(aa_table[jx] * rAA2, 131071)
+    chkAA2[0] = smod_fast(chkAA2[0] + vr, 131071)
+    let rn = smod_fast(rAA2 * 3, 131071)
+    rAA2 = rn
+    j = j + 1
+let dAA2 = chkAA2[0] - 67232
+let aAA2 =
+    if dAA2 < 0
+        0 - dAA2
+    else
+        dAA2
+let mAA2 = smod_fast(aAA2, 131071)
+bad[0] = bad[0] + mAA2
+
+let chkMagic1 = [0]
+let rMagic1 = 1
+let j = 0
+for j < 8
+    let jx = j * 1
+    let vr = smod_fast(magic_table[jx] * rMagic1, 65537)
+    chkMagic1[0] = smod_fast(chkMagic1[0] + vr, 65537)
+    let rn = smod_fast(rMagic1 * 3, 65537)
+    rMagic1 = rn
+    j = j + 1
+let dMagic1 = chkMagic1[0] - 60441
+let aMagic1 =
+    if dMagic1 < 0
+        0 - dMagic1
+    else
+        dMagic1
+let mMagic1 = smod_fast(aMagic1, 65537)
+bad[0] = bad[0] + mMagic1
+let chkMagic2 = [0]
+let rMagic2 = 1
+let j = 0
+for j < 8
+    let jx = j * 1
+    let vr = smod_fast(magic_table[jx] * rMagic2, 131071)
+    chkMagic2[0] = smod_fast(chkMagic2[0] + vr, 131071)
+    let rn = smod_fast(rMagic2 * 3, 131071)
+    rMagic2 = rn
+    j = j + 1
+let dMagic2 = chkMagic2[0] - 125987
+let aMagic2 =
+    if dMagic2 < 0
+        0 - dMagic2
+    else
+        dMagic2
+let mMagic2 = smod_fast(aMagic2, 131071)
+bad[0] = bad[0] + mMagic2
+
+let chkMol1 = [0]
+let rMol1 = 1
+let j = 0
+for j < 8
+    let jx = j * 1
+    let vr = smod_fast(mol_table[jx] * rMol1, 65537)
+    chkMol1[0] = smod_fast(chkMol1[0] + vr, 65537)
+    let rn = smod_fast(rMol1 * 3, 65537)
+    rMol1 = rn
+    j = j + 1
+let dMol1 = chkMol1[0] - 44383
+let aMol1 =
+    if dMol1 < 0
+        0 - dMol1
+    else
+        dMol1
+let mMol1 = smod_fast(aMol1, 65537)
+bad[0] = bad[0] + mMol1
+let chkMol2 = [0]
+let rMol2 = 1
+let j = 0
+for j < 8
+    let jx = j * 1
+    let vr = smod_fast(mol_table[jx] * rMol2, 131071)
+    chkMol2[0] = smod_fast(chkMol2[0] + vr, 131071)
+    let rn = smod_fast(rMol2 * 3, 131071)
+    rMol2 = rn
+    j = j + 1
+let dMol2 = chkMol2[0] - 114915
+let aMol2 =
+    if dMol2 < 0
+        0 - dMol2
+    else
+        dMol2
+let mMol2 = smod_fast(aMol2, 131071)
+bad[0] = bad[0] + mMol2
+
+let mass_tamp = [
+    186213, 186213, 186213, 186213, 186213, 186213, 186213, 186213, 186213, 186213, 186213, 186213,
+    186213, 186213, 186213, 120676, 186213, 186213, 186213, 186213, 186213, 186213, 186213, 186213,
+    186213, 186213, 186213, 186213, 186213, 186213, 186213, 186213, 186213, 186213, 186213, 186213,
+    186213, 186213, 186213, 186213, 186213, 186213, 186213, 186213, 186213, 186213, 186213, 186213,
+    186213, 186213, 186213, 186213, 186213, 186213, 186213, 186213, 186213, 186213, 186213, 186213,
+    186213, 186213, 186213, 186213,
+]
+
+let chkMT1 = [0]
+let rMT1 = 1
+let j = 0
+for j < 64
+    let jx = j * 1
+    let vr = smod_fast(mass_tamp[jx] * rMT1, 65537)
+    chkMT1[0] = smod_fast(chkMT1[0] + vr, 65537)
+    let rn = smod_fast(rMT1 * 3, 65537)
+    rMT1 = rn
+    j = j + 1
+let ddM1 = chkMT1[0] - chkMass1[0]
+let adM1 =
+    if ddM1 < 0
+        0 - ddM1
+    else
+        ddM1
+bad[0] = bad[0] + ck_lo(adM1, 1)
+let chkMT2 = [0]
+let rMT2 = 1
+let j = 0
+for j < 64
+    let jx = j * 1
+    let vr = smod_fast(mass_tamp[jx] * rMT2, 131071)
+    chkMT2[0] = smod_fast(chkMT2[0] + vr, 131071)
+    let rn = smod_fast(rMT2 * 3, 131071)
+    rMT2 = rn
+    j = j + 1
+let ddM2 = chkMT2[0] - chkMass2[0]
+let adM2 =
+    if ddM2 < 0
+        0 - ddM2
+    else
+        ddM2
+let tdM2 = adM2 - 1
+let wdM2 =
+    if tdM2 < 0
+        0 - tdM2
+    else
+        tdM2
+bad[0] = bad[0] + ck_lo(adM2, 1)
+
+arr_get(arr_new_n(1), bad[0])

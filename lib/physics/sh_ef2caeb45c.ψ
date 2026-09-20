@@ -1,0 +1,15 @@
+let rp_mul(rp1, rp2) =
+    let z1 = rp_z(rp1)
+    let z2 = rp_z(rp2)
+    let r1 = rp_r(rp1)
+    let r2 = rp_r(rp2)
+    let n1 = rp_n(rp1)
+    let n2 = rp_n(rp2)
+    let result = rp_make(z1, 0, 1)
+    if z1 == z2
+        result = rp_make(z1, gf_mul(r1, r2), gf_add(gf_add(n1, n2), gf_sub(0, 1)))
+    if z1 != z2
+        let dz = gf_sub(z1, z2)
+        result = rp_make(z1, gf_mul(gf_mul(r1, r2), gf_inv(dz)), 1)
+    result
+

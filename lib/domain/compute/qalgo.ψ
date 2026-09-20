@@ -1,0 +1,93 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let QALGO_MAX_QUBITS = 20
+
+let shor_period_finding(a, N) =
+    let r = 1
+    let val = a
+    for val != 1 && r < N
+        val = gf_mul(val, a) % N
+        r = r + 1
+    r
+let shor_factor(N) =
+    let a = 2
+    for a < N
+        let r = shor_period_finding(a, N)
+        if r > 0 && r % 2 == 0
+            let half_r = r / 2
+            let a_r = gf_pow(a, half_r)
+            let factor1 = gcd(a_r - 1, N)
+            let factor2 = gcd(a_r + 1, N)
+            if factor1 > 1 && factor1 < N
+                factor1
+            if factor2 > 1 && factor2 < N
+                factor2
+        a = a + 1
+    0
+let gcd(a, b) =
+    for b != 0
+        let t = b
+        b = a % b
+        a = t
+    a
+let grover_oracle(state, target) =
+    let n = len(state)
+    let result = []
+    let i = 0
+    for i < n
+        (i == target ? result.push(gf_neg(state[i])) : result.push(state[i]))
+        i = i + 1
+    result
+let grover_diffusion(state) =
+    let n = len(state)
+    let mean = 0
+    let i = 0
+    for i < n
+        mean = gf_add(mean, state[i])
+        i = i + 1
+    mean = gf_div(mean, n)
+    let result = []
+    i = 0
+    for i < n
+        result.push(gf_sub(gf_mul(2, mean), state[i]))
+        i = i + 1
+    result
+let grover_iterate(state, target) =
+    let s = grover_oracle(state, target)
+    grover_diffusion(s)
+let grover_search(state, target, iterations) =
+    let s = state
+    let i = 0
+    for i < iterations
+        s = grover_iterate(s, target)
+        i = i + 1
+    s
+let phase_estimate(unitary_eigenvalue, precision) =
+    let phase = 0
+    let i = 0
+    for i < precision
+        phase = gf_add(phase, gf_mul(unitary_eigenvalue, gf_pow(2, i)))
+        i = i + 1
+    phase
+let qalgo_grover_field(database, n, target) =
+    let iterations = 1
+    let found = 0
+    let i = 0
+    for i < n
+        if database[i] == target
+            found = i
+            i = n
+        i = i + 1
+    found
+
+let qalgo_verify() =
+    let db = arr_new_n(4)
+    db[0] = 10
+    db[1] = 20
+    db[2] = 30
+    db[3] = 40
+    let found = qalgo_grover_field(db, 4, 30)
+    let ok = 0
+    (found == 2 ? (ok = 1) : (ok = 0))
+    ok
+

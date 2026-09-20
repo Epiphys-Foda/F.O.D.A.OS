@@ -1,0 +1,36 @@
+let bad = [0]
+
+let turns = 18 * 10 / 36
+let dt = turns - 5
+bad[0] = bad[0] + dt * dt
+
+let hb = 18 - 4
+let dh = hb - 14
+bad[0] = bad[0] + dh * dh
+
+let tl = 18 * 15 / 10
+let dtl = tl - 27
+bad[0] = bad[0] + dtl * dtl
+
+let hpro = 14 - 3
+let dhp = hpro - 11
+bad[0] = bad[0] + dhp * dhp
+
+let tm = 20 * 15 / 10
+let dtm = tm - 30
+bad[0] = bad[0] + dtm * dtm
+
+let amph = 180 / 36
+let dam = amph - 5
+bad[0] = bad[0] + dam * dam
+
+let ss_bonds = 3
+let ss_energy = ss_bonds * 2
+let dss = ss_energy - 6
+bad[0] = bad[0] + dss * dss
+
+let urea = 8
+let dur = urea - 8
+bad[0] = bad[0] + dur * dur
+
+arr_get(arr_new_n(1), bad[0])

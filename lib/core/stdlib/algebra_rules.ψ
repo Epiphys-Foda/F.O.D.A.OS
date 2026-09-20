@@ -1,0 +1,172 @@
+let algebra_gf_mul(a, b) =
+    let prod = a * b
+    let abs_prod = (prod < 0 ? 0 - prod : prod)
+    abs_prod - (abs_prod / 65537) * 65537
+
+let rule_gf_identity(node) =
+    if node.op == 1
+      let b = node.args[0]
+      if b == 1
+          { simplified: true, drop: true, replacement: null }
+      else
+          { simplified: false, drop: false, replacement: null }
+    else
+      { simplified: false, drop: false, replacement: null }
+
+let rule_gf_zero(node) =
+    if node.op == 1
+      let b = node.args[0]
+      if b == 0
+          { simplified: true, drop: false, replacement: { op: 0, args: [0], name: "0" } }
+      else
+          { simplified: false, drop: false, replacement: null }
+    else
+      { simplified: false, drop: false, replacement: null }
+
+let rule_gf_associativity(nodes, idx) =
+    if idx + 1 < len(nodes)
+      let n1 = nodes[idx]
+      let n2 = nodes[idx + 1]
+      if n1.op == 1 && n2.op == 1
+        let a = n1.args[0]
+        let b = n2.args[0]
+        let combined = algebra_gf_mul(a, b)
+        { matched: true, replacement: { op: 1, args: [combined], name: "⊙" }, skip_next: true }
+      else
+        { matched: false, replacement: null, skip_next: false }
+    else
+      { matched: false, replacement: null, skip_next: false }
+
+let rule_clifford_self_annihilate(nodes, idx) =
+    { matched: false, replacement: null, skip_next: false }
+
+let rule_ntt_identity(node) =
+    if node.op == 3
+      let b = node.args[0]
+      if b == 0
+          { simplified: true, drop: true, replacement: null }
+      else
+          { simplified: false, drop: false, replacement: null }
+    else
+      { simplified: false, drop: false, replacement: null }
+
+let rule_born_zero_arg(node) =
+    if node.op == 4
+      let then_v = node.args[0]
+      if then_v == 0
+          { simplified: true, drop: false, replacement: { op: 0, args: [0], name: "0" } }
+      else
+          { simplified: false, drop: false, replacement: null }
+    else
+      { simplified: false, drop: false, replacement: null }
+
+let rule_hebbian_identity(node) =
+    if node.op == 5
+      let delta = node.args[0]
+      if delta == 0
+          { simplified: true, drop: true, replacement: null }
+      else
+          { simplified: false, drop: false, replacement: null }
+    else
+      { simplified: false, drop: false, replacement: null }
+
+let rule_hebbian_associativity(nodes, idx) =
+    if idx + 1 < len(nodes)
+      let n1 = nodes[idx]
+      let n2 = nodes[idx + 1]
+      if n1.op == 5 && n2.op == 5
+        let d1 = n1.args[0]
+        let d2 = n2.args[0]
+        { matched: true, replacement: { op: 5, args: [d1 + d2], name: "∆" }, skip_next: true }
+      else
+        { matched: false, replacement: null, skip_next: false }
+    else
+      { matched: false, replacement: null, skip_next: false }
+
+let apply_single_node_rules(node) =
+    let r1 = rule_gf_identity(node)
+    if r1.simplified
+      r1
+    else
+      let r2 = rule_gf_zero(node)
+      if r2.simplified
+        r2
+      else
+        let r3 = rule_ntt_identity(node)
+        if r3.simplified
+          r3
+        else
+          let r4 = rule_born_zero_arg(node)
+          if r4.simplified
+            r4
+          else
+            let r5 = rule_hebbian_identity(node)
+            if r5.simplified
+              r5
+            else
+              { simplified: false, drop: false, replacement: null }
+
+let apply_pair_rules(nodes, idx) =
+    let r1 = rule_gf_associativity(nodes, idx)
+    if r1.matched
+      r1
+    else
+      let r2 = rule_hebbian_associativity(nodes, idx)
+      if r2.matched
+        r2
+      else
+        rule_clifford_self_annihilate(nodes, idx)
+
+let pass_algebra_simplify_ext(nodes) =
+    let out = []
+    let i = 0
+    let n = len(nodes)
+    let done = false
+    for !done
+      if i < n
+        let pair_r = apply_pair_rules(nodes, i)
+        if pair_r.matched
+          out = out.push(pair_r.replacement)
+          if pair_r.skip_next
+            i = i + 2
+          else
+            i = i + 1
+        else
+          let node = nodes[i]
+          let single_r = apply_single_node_rules(node)
+          if single_r.simplified
+            if single_r.drop
+              i = i + 1
+            else
+              out = out.push(single_r.replacement)
+              i = i + 1
+          else
+            out = out.push(node)
+            i = i + 1
+      else
+        done = true
+    out
+
+let pass_algebra_fixpoint_impl(nodes, iter) =
+    if iter >= 10
+      nodes
+    else
+      let simplified = pass_algebra_simplify_ext(nodes)
+      if len(simplified) == len(nodes)
+        simplified
+      else
+        pass_algebra_fixpoint_impl(simplified, iter + 1)
+
+let pass_algebra_fixpoint(nodes) = pass_algebra_fixpoint_impl(nodes, 0)
+
+let algebra_rule_count() = 7
+
+let algebra_rule_list() =
+    [ { name: "gf_identity",         target: "⊙", pattern: "a ⊙ 1 → a",     physics: "vacuum identity" },
+      { name: "gf_zero",              target: "⊙", pattern: "a ⊙ 0 → 0",     physics: "annihilator" },
+      { name: "gf_associativity",     target: "⊙", pattern: "[⊙(a),⊙(b)] → [⊙(a*b)]", physics: "contraction order invariant" },
+      { name: "ntt_identity",         target: "≋", pattern: "a ≋ 0 → a",     physics: "degenerate identity" },
+      { name: "born_zero_arg",       target: "↡", pattern: "↡(cond, 0) → 0", physics: "zero projection" },
+      { name: "hebbian_identity",    target: "∆", pattern: "a ∆ 0 → a",     physics: "zero delta identity" },
+      { name: "hebbian_associativity", target: "∆", pattern: "[∆(d1),∆(d2)] → [∆(d1+d2)]", physics: "delta merge" }
+    ]

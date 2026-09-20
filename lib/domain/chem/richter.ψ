@@ -1,0 +1,51 @@
+import "ck.ψ"
+let bad = [0]
+
+let a3 = 1000
+let a6 = 1000000
+let ladder = a6 / a3
+let dec = 10
+let ladder2 = dec * dec * dec
+let dz1 = ladder - ladder2
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let e6 = 63
+let e8 = 63000
+let dz2 = e8 - e6 * dec * dec * dec
+bad[0] = bad[0] + ck(dz2, 0, 0)
+let em1 = 31623
+bad[0] = bad[0] + ck(em1, 31620, 31630)
+
+let n6 = 134
+let n7 = 15
+let n8 = 1
+let bfac = n6 / n7
+bad[0] = bad[0] + ck(bfac, 7, 12)
+bad[0] = bad[0] + ck(n7, 10, 20)
+bad[0] = bad[0] + ck(n8, 1, 2)
+
+let m_chile = 95
+let m_sf = 79
+bad[0] = bad[0] + ck(m_chile, 94, 96)
+bad[0] = bad[0] + ck(m_sf, 77, 81)
+bad[0] = bad[0] + ck_lo(m_chile, m_sf)
+
+let sat = 1
+bad[0] = bad[0] + ck_lo(sat, 1)
+
+if 1935 < 1933
+    bad[0] = bad[0] + 1
+if 1935 > 1937
+    bad[0] = bad[0] + 1
+if 1942 < 1940
+    bad[0] = bad[0] + 1
+if 1942 > 1944
+    bad[0] = bad[0] + 1
+if 1942 < 1935
+    bad[0] = bad[0] + 1
+if 1979 < 1977
+    bad[0] = bad[0] + 1
+if 1979 > 1981
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

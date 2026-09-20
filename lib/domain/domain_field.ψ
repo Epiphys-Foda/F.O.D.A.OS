@@ -1,0 +1,190 @@
+import "../core/stdlib/gf65537.ψ"
+import "../core/stdlib_lang2/gf_base.ψ"
+
+let DOMAIN_P = 65537
+
+let domain_gf_mod(x) = gf_reduce(x)
+let domain_gf_add(a, b) = gf_add(a, b)
+let domain_gf_sub(a, b) = gf_sub(a, b)
+let domain_gf_mul(a, b) = gf_mul(a, b)
+let domain_gf_neg(a) = gf_neg(a)
+let domain_gf_inv(a) = gf_inv(a)
+let domain_gf_pow(base, exp) = gf_pow(base, exp)
+let domain_gf_div(a, b) = gf_div(a, b)
+
+let domain_field_encode(records, n, pole_scale, pole_offset) =
+    let poles = []
+    let residues = []
+    let depths = []
+    let i = 0
+    for i < n
+        let rec = records[i]
+        poles.push(domain_gf_mod(rec[0] * pole_scale + pole_offset))
+        residues.push(domain_gf_mod(rec[1]))
+        depths.push(domain_depth_default(rec, i))
+        i = i + 1
+    [poles, residues, depths]
+
+let domain_depth_default(rec, i) =
+    if i == 0
+        0
+    else
+        0
+    if i == 1
+        1
+    else
+        0
+    if i < 4
+        2
+    else
+        0
+    if i < 16
+        3
+    else
+        65535
+
+let domain_field_eval(poles, residues, z) =
+    let sum = 0
+    let n = len(poles)
+    let i = 0
+    for i < n
+        let diff = domain_gf_mod(z - poles[i])
+        if diff == 0
+            sum = domain_gf_add(sum, residues[i])
+        else
+            let inv = domain_gf_inv(diff)
+            sum = domain_gf_add(sum, domain_gf_mul(residues[i], inv))
+        i = i + 1
+    sum
+
+let domain_field_eval_fractal(poles, residues, depths, z) =
+    let sum = 0
+    let n = len(poles)
+    let i = 0
+    for i < n
+        let zk = poles[i]
+        let rk = residues[i]
+        let nk = 1
+        if i < len(depths)
+            nk = depths[i]
+        let dz = domain_gf_mod(z - zk)
+        if dz == 0
+            sum = domain_gf_add(sum, rk)
+        else
+            if nk == 0
+                sum = domain_gf_add(sum, rk)
+            else
+                0
+            if nk == 1
+                sum = domain_gf_add(sum, domain_gf_mul(rk, domain_gf_inv(dz)))
+            else
+                0
+            if nk == 65535
+                sum = domain_gf_add(sum, rk)
+            else
+                let inv_dz = domain_gf_inv(dz)
+                let inv_dz_n = domain_gf_pow(inv_dz, nk)
+                sum = domain_gf_add(sum, domain_gf_mul(rk, inv_dz_n))
+        i = i + 1
+    sum
+
+let BRAGG_Z1 = 256
+let BRAGG_Z2 = 512
+let BRAGG_Z3 = 1024
+let BRAGG_Z4 = 2048
+
+let domain_bragg_verify(d1_poles, d1_residues, r1_poles, r1_residues) =
+    let ok = 1
+    let z1 = BRAGG_Z1
+    let d1 = domain_field_eval(d1_poles, d1_residues, z1)
+    let r1 = domain_field_eval(r1_poles, r1_residues, z1)
+    if d1 != r1
+        ok = 0
+    let z2 = BRAGG_Z2
+    let d2 = domain_field_eval(d1_poles, d1_residues, z2)
+    let r2 = domain_field_eval(r1_poles, r1_residues, z2)
+    if d2 != r2
+        ok = 0
+    let z3 = BRAGG_Z3
+    let d3 = domain_field_eval(d1_poles, d1_residues, z3)
+    let r3 = domain_field_eval(r1_poles, r1_residues, z3)
+    if d3 != r3
+        ok = 0
+    let z4 = BRAGG_Z4
+    let d4 = domain_field_eval(d1_poles, d1_residues, z4)
+    let r4 = domain_field_eval(r1_poles, r1_residues, z4)
+    if d4 != r4
+        ok = 0
+    ok
+
+let domain_bragg_verify_fractal(d1_poles, d1_residues, d1_depths, r1_poles, r1_residues, r1_depths) =
+    let ok = 1
+    let z1 = BRAGG_Z1
+    let d1 = domain_field_eval_fractal(d1_poles, d1_residues, d1_depths, z1)
+    let r1 = domain_field_eval_fractal(r1_poles, r1_residues, r1_depths, z1)
+    if d1 != r1
+        ok = 0
+    let z2 = BRAGG_Z2
+    let d2 = domain_field_eval_fractal(d1_poles, d1_residues, d1_depths, z2)
+    let r2 = domain_field_eval_fractal(r1_poles, r1_residues, r1_depths, z2)
+    if d2 != r2
+        ok = 0
+    let z3 = BRAGG_Z3
+    let d3 = domain_field_eval_fractal(d1_poles, d1_residues, d1_depths, z3)
+    let r3 = domain_field_eval_fractal(r1_poles, r1_residues, r1_depths, z3)
+    if d3 != r3
+        ok = 0
+    let z4 = BRAGG_Z4
+    let d4 = domain_field_eval_fractal(d1_poles, d1_residues, d1_depths, z4)
+    let r4 = domain_field_eval_fractal(r1_poles, r1_residues, r1_depths, z4)
+    if d4 != r4
+        ok = 0
+    ok
+
+let domain_kleene_verify(t1, t2) =
+    if t1 == t2
+        1
+    else
+        0
+
+let domain_pcd_divergence(u, n) =
+    let sa = 0
+    let ss = 0
+    let i = 0
+    for i < n
+        let v = u[i]
+        let av = (v < 0 ? 0 - v : v)
+        sa = sa + av
+        ss = ss + v
+        i = i + 1
+    if sa == 0
+        0
+    else
+        let a = (ss < 0 ? 0 - ss : ss)
+        65537 - (a * 65537) / sa
+
+let domain_field_selftest() =
+    let ok = 1
+    ok = ok * (domain_gf_mod(70000) == 4463)
+    ok = ok * (domain_gf_add(3, 5) == 8)
+    ok = ok * (domain_gf_mul(7, domain_gf_inv(7)) == 1)
+    ok = ok * (domain_gf_pow(5, 65536) == 1)
+    ok = ok * (domain_field_eval([], [], 100) == 0)
+    ok = ok * (domain_bragg_verify([], [], [], []) == 1)
+    ok = ok * (domain_bragg_verify([50], [7], [50], [7]) == 1)
+    ok = ok * (domain_bragg_verify([50], [7], [50], [8]) == 0)
+    ok = ok * (domain_kleene_verify(1, 1) == 1)
+    ok = ok * (domain_kleene_verify(1, 0) == 0)
+    ok = ok * (domain_pcd_divergence([0, 0], 2) == 0)
+    ok = ok * (domain_pcd_divergence([1, 1], 2) == 0)
+    ok = ok * (E_STAR == 3989)
+    ok = ok * (K_TOWER == 6883)
+    ok = ok * (domain_depth_default(0, 0) == 0)
+    ok = ok * (domain_depth_default(0, 1) == 1)
+    ok = ok * (domain_depth_default(0, 2) == 2)
+    ok = ok * (domain_depth_default(0, 4) == 3)
+    ok = ok * (domain_depth_default(0, 16) == 65535)
+    ok = ok * (domain_gf_mod(0 - 5) == 65532)
+    ok = ok * (domain_gf_sub(10, 3) == 7)
+    ok = ok * (domain_gf_div(10, 2) == 5)
+    ok

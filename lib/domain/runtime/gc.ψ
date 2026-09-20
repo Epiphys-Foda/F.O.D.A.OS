@@ -1,0 +1,370 @@
+let GC_P = 65537
+let GC_GEN_YOUNG = 0
+let GC_GEN_OLD = 1
+let GC_GEN_PERM = 2
+let GC_MARK_WHITE = 0
+let GC_MARK_GRAY = 1
+let GC_MARK_BLACK = 2
+let GC_DEFAULT_YOUNG_THRESHOLD = 2
+let GC_DEFAULT_OLD_THRESHOLD = 4
+let GC_DEFAULT_PERM_THRESHOLD = 65536
+let GC_OBJ_ID = 0
+let GC_OBJ_REF_COUNT = 1
+let GC_OBJ_MARKED = 2
+let GC_OBJ_GENERATION = 3
+let GC_OBJ_SIZE = 4
+let GC_OBJ_PTRS = 5
+let GC_GEN_LEVEL = 0
+let GC_GEN_OBJECTS = 1
+let GC_GEN_THRESHOLD = 2
+let GC_GEN_GC_COUNT = 3
+let GC_HEAP_OBJECTS = 0
+let GC_HEAP_GENERATIONS = 1
+let GC_HEAP_ROOTS = 2
+let GC_HEAP_FREE_LIST = 3
+let GC_HEAP_TOTAL_ALLOC = 4
+let GC_HEAP_TOTAL_FREED = 5
+let GC_HEAP_LOG = 6
+
+let gc_obj_new(obj_id, size, generation) =
+    [obj_id, 0, GC_MARK_WHITE, generation, size, []]
+let gc_gen_new(level, threshold) =
+    [level, {}, threshold, 0]
+let gc_default_heap() =
+    let young = gc_gen_new(GC_GEN_YOUNG, GC_DEFAULT_YOUNG_THRESHOLD)
+    let old = gc_gen_new(GC_GEN_OLD, GC_DEFAULT_OLD_THRESHOLD)
+    let perm = gc_gen_new(GC_GEN_PERM, GC_DEFAULT_PERM_THRESHOLD)
+    [{}, [young, old, perm], [], [], 0, 0, []]
+
+let gc_heap_set_objects(h, objs) =
+    h[GC_HEAP_OBJECTS] = objs
+    h
+let gc_heap_append_log(h, entry) =
+    let log = h[GC_HEAP_LOG]
+    log.push(entry)
+    h[GC_HEAP_LOG] = log
+    h
+let gc_heap_generation(h, level) =
+    h[GC_HEAP_GENERATIONS][level]
+let gc_heap_set_generation(h, level, gen) =
+    let gens = h[GC_HEAP_GENERATIONS]
+    gens[level] = gen
+    h[GC_HEAP_GENERATIONS] = gens
+    h
+let gc_alloc(heap, obj_id, size, generation, ts) =
+    let obj = gc_obj_new(obj_id, size, generation)
+    let objs = heap[GC_HEAP_OBJECTS]
+    objs[obj_id] = obj
+    heap = gc_heap_set_objects(heap, objs)
+    let gen = gc_heap_generation(heap, generation)
+    let gen_objs = gen[GC_GEN_OBJECTS]
+    gen_objs[obj_id] = obj
+    gen[GC_GEN_OBJECTS] = gen_objs
+    heap = gc_heap_set_generation(heap, generation, gen)
+    heap[GC_HEAP_TOTAL_ALLOC] = heap[GC_HEAP_TOTAL_ALLOC] + 1
+    heap = gc_heap_append_log(heap, ["alloc", obj_id, size, generation, ts])
+    heap
+
+let gc_set_root(heap, obj_id, ts) =
+    let roots = heap[GC_HEAP_ROOTS]
+    let exists = 0
+    let i = 0
+    let n = len(roots)
+    for i < n
+        if roots[i] == obj_id
+            exists = 1
+            i = n
+        i = i + 1
+    if exists == 0
+        roots.push(obj_id)
+        heap[GC_HEAP_ROOTS] = roots
+    heap = gc_heap_append_log(heap, ["set_root", obj_id, ts])
+    heap
+
+let gc_unset_root(heap, obj_id, ts) =
+    let roots = heap[GC_HEAP_ROOTS]
+    let new_roots = []
+    let i = 0
+    let n = len(roots)
+    for i < n
+        if roots[i] != obj_id
+            new_roots.push(roots[i])
+        i = i + 1
+    heap[GC_HEAP_ROOTS] = new_roots
+    heap = gc_heap_append_log(heap, ["unset_root", obj_id, ts])
+    heap
+
+let gc_add_ref(heap, from_id, to_id, ts) =
+    let objs = heap[GC_HEAP_OBJECTS]
+    let from_obj = objs[from_id]
+    if from_obj != 0
+        let to_obj = objs[to_id]
+        if to_obj != 0
+            let ptrs = from_obj[GC_OBJ_PTRS]
+            ptrs.push(to_id)
+            from_obj[GC_OBJ_PTRS] = ptrs
+            to_obj[GC_OBJ_REF_COUNT] = to_obj[GC_OBJ_REF_COUNT] + 1
+            objs[from_id] = from_obj
+            objs[to_id] = to_obj
+            heap = gc_heap_set_objects(heap, objs)
+    heap = gc_heap_append_log(heap, ["add_ref", from_id, to_id, ts])
+    heap
+
+let gc_mark_phase(heap, ts) =
+    let objs = heap[GC_HEAP_OBJECTS]
+    let ids = keys_of(objs)
+    let i = 0
+    let n = len(ids)
+    for i < n
+        let o = objs[ids[i]]
+        if o != 0
+            o[GC_OBJ_MARKED] = GC_MARK_WHITE
+        i = i + 1
+    let queue = []
+    let roots = heap[GC_HEAP_ROOTS]
+    let ri = 0
+    let rn = len(roots)
+    for ri < rn
+        let rid = roots[ri]
+        let ro = objs[rid]
+        if ro != 0
+            if ro[GC_OBJ_MARKED] == GC_MARK_WHITE
+                ro[GC_OBJ_MARKED] = GC_MARK_GRAY
+                queue.push(rid)
+        ri = ri + 1
+    let head = 0
+    for head < len(queue)
+        let cur = objs[queue[head]]
+        if cur != 0
+            cur[GC_OBJ_MARKED] = GC_MARK_BLACK
+            let ptrs = cur[GC_OBJ_PTRS]
+            let pi = 0
+            let pn = len(ptrs)
+            for pi < pn
+                let tobj = objs[ptrs[pi]]
+                if tobj != 0
+                    if tobj[GC_OBJ_MARKED] == GC_MARK_WHITE
+                        tobj[GC_OBJ_MARKED] = GC_MARK_GRAY
+                        queue.push(ptrs[pi])
+                pi = pi + 1
+        head = head + 1
+    heap = gc_heap_set_objects(heap, objs)
+    heap = gc_heap_append_log(heap, ["mark", ts])
+    heap
+
+let gc_sweep_phase(heap, generation, ts) =
+    let objs = heap[GC_HEAP_OBJECTS]
+    let gen = gc_heap_generation(heap, generation)
+    let gen_objs = gen[GC_GEN_OBJECTS]
+    let gids = keys_of(gen_objs)
+    let i = 0
+    let n = len(gids)
+    let freed = 0
+    for i < n
+        let oid = gids[i]
+        let o = objs[oid]
+        if o != 0
+            if o[GC_OBJ_MARKED] == GC_MARK_WHITE
+                objs[oid] = 0
+                gen_objs[oid] = 0
+                heap[GC_HEAP_FREE_LIST].push(oid)
+                heap[GC_HEAP_TOTAL_FREED] = heap[GC_HEAP_TOTAL_FREED] + 1
+                freed = freed + 1
+            else
+                o[GC_OBJ_MARKED] = GC_MARK_WHITE
+        i = i + 1
+    gen[GC_GEN_OBJECTS] = gen_objs
+    heap = gc_heap_set_generation(heap, generation, gen)
+    heap = gc_heap_set_objects(heap, objs)
+    gen[GC_GEN_GC_COUNT] = gen[GC_GEN_GC_COUNT] + 1
+    heap = gc_heap_set_generation(heap, generation, gen)
+    heap = gc_heap_append_log(heap, ["sweep", generation, freed, ts])
+    heap
+
+let gc_promote_gen(heap, obj_id, from_gen, to_gen, ts) =
+    let objs = heap[GC_HEAP_OBJECTS]
+    let o = objs[obj_id]
+    let from_g = gc_heap_generation(heap, from_gen)
+    let fo = from_g[GC_GEN_OBJECTS]
+    fo[obj_id] = 0
+    from_g[GC_GEN_OBJECTS] = fo
+    heap = gc_heap_set_generation(heap, from_gen, from_g)
+    o[GC_OBJ_GENERATION] = to_gen
+    objs[obj_id] = o
+    heap = gc_heap_set_objects(heap, objs)
+    let to_g = gc_heap_generation(heap, to_gen)
+    let to_o = to_g[GC_GEN_OBJECTS]
+    to_o[obj_id] = o
+    to_g[GC_GEN_OBJECTS] = to_o
+    heap = gc_heap_set_generation(heap, to_gen, to_g)
+    heap = gc_heap_append_log(heap, ["promote", obj_id, to_gen, ts])
+    heap
+
+let gc_promote(heap, obj_id, ts) =
+    let o = heap[GC_HEAP_OBJECTS][obj_id]
+    if o != 0
+        let gen_lvl = o[GC_OBJ_GENERATION]
+        if gen_lvl == GC_GEN_YOUNG
+            gc_promote_gen(heap, obj_id, GC_GEN_YOUNG, GC_GEN_OLD, ts)
+        else
+            0
+        if gen_lvl == GC_GEN_OLD
+            gc_promote_gen(heap, obj_id, GC_GEN_OLD, GC_GEN_PERM, ts)
+        else
+            heap
+    else
+        heap
+
+let gc_minor_gc(heap, ts) =
+    heap = gc_mark_phase(heap, ts)
+    let young = gc_heap_generation(heap, GC_GEN_YOUNG)
+    let yo = young[GC_GEN_OBJECTS]
+    let threshold = young[GC_GEN_THRESHOLD]
+    let ids = keys_of(yo)
+    let i = 0
+    let n = len(ids)
+    for i < n
+        let oid = ids[i]
+        let o = yo[oid]
+        if o != 0
+            if o[GC_OBJ_MARKED] == GC_MARK_BLACK
+                if young[GC_GEN_GC_COUNT] + 1 >= threshold
+                    heap = gc_promote(heap, oid, ts)
+        i = i + 1
+    heap = gc_sweep_phase(heap, GC_GEN_YOUNG, ts)
+    heap = gc_heap_append_log(heap, ["minor_gc", ts])
+    heap
+
+let gc_major_gc(heap, ts) =
+    heap = gc_mark_phase(heap, ts)
+    let old = gc_heap_generation(heap, GC_GEN_OLD)
+    let oo = old[GC_GEN_OBJECTS]
+    let threshold = old[GC_GEN_THRESHOLD]
+    let ids = keys_of(oo)
+    let i = 0
+    let n = len(ids)
+    for i < n
+        let oid = ids[i]
+        let o = oo[oid]
+        if o != 0
+            if o[GC_OBJ_MARKED] == GC_MARK_BLACK
+                if old[GC_GEN_GC_COUNT] + 1 >= threshold
+                    heap = gc_promote(heap, oid, ts)
+        i = i + 1
+    heap = gc_sweep_phase(heap, GC_GEN_OLD, ts)
+    heap = gc_sweep_phase(heap, GC_GEN_YOUNG, ts)
+    heap = gc_heap_append_log(heap, ["major_gc", ts])
+    heap
+
+let gc_replay_ops(ops_seq) =
+    let heap = gc_default_heap()
+    let i = 0
+    let n = len(ops_seq)
+    for i < n
+        let op = ops_seq[i]
+        let kind = op[0]
+        if kind == "alloc"
+            heap = gc_alloc(heap, op[1], op[2], op[3], op[4])
+        else
+            0
+        if kind == "set_root"
+            heap = gc_set_root(heap, op[1], op[2])
+        else
+            0
+        if kind == "add_ref"
+            heap = gc_add_ref(heap, op[1], op[2], op[3])
+        else
+            0
+        if kind == "unset_root"
+            heap = gc_unset_root(heap, op[1], op[2])
+        else
+            0
+        if kind == "minor_gc"
+            heap = gc_minor_gc(heap, op[1])
+        else
+            0
+        if kind == "major_gc"
+            heap = gc_major_gc(heap, op[1])
+        i = i + 1
+    heap
+let gc_heap_state_hash(heap) =
+    let objs = heap[GC_HEAP_OBJECTS]
+    let ids = keys_of(objs)
+    let h = 0
+    let i = 0
+    let n = len(ids)
+    for i < n
+        let o = objs[ids[i]]
+        if o != 0
+            h = (h * 31 + o[GC_OBJ_ID]) % GC_P
+            h = (h * 31 + o[GC_OBJ_REF_COUNT]) % GC_P
+            h = (h * 31 + o[GC_OBJ_MARKED]) % GC_P
+            h = (h * 31 + o[GC_OBJ_GENERATION]) % GC_P
+        i = i + 1
+    h = (h + heap[GC_HEAP_TOTAL_ALLOC] * 97) % GC_P
+    h = (h + heap[GC_HEAP_TOTAL_FREED] * 89) % GC_P
+    h
+let gc_bragg_verify(heap, ops_seq) =
+    let d1 = gc_replay_ops(ops_seq)
+    let r1 = gc_replay_ops(ops_seq)
+    let dh = gc_heap_state_hash(d1)
+    let rh = gc_heap_state_hash(r1)
+    let ok = 1
+    if dh != rh
+        ok = 0
+    [ok, dh, rh]
+
+let gc_test_basic() =
+    let ok = 1
+    let heap = gc_default_heap()
+    heap = gc_alloc(heap, 1, 16, GC_GEN_YOUNG, 100)
+    heap = gc_alloc(heap, 2, 32, GC_GEN_YOUNG, 101)
+    heap = gc_alloc(heap, 3, 64, GC_GEN_YOUNG, 102)
+    heap = gc_set_root(heap, 1, 103)
+    heap = gc_add_ref(heap, 1, 2, 104)
+    heap = gc_add_ref(heap, 2, 3, 105)
+    if heap[GC_HEAP_TOTAL_ALLOC] != 3
+        ok = 0
+    heap = gc_mark_phase(heap, 106)
+    let objs = heap[GC_HEAP_OBJECTS]
+    if objs[1][GC_OBJ_MARKED] != GC_MARK_BLACK
+        ok = 0
+    if objs[3][GC_OBJ_MARKED] != GC_MARK_BLACK
+        ok = 0
+    heap = gc_unset_root(heap, 1, 107)
+    heap = gc_minor_gc(heap, 108)
+    if heap[GC_HEAP_TOTAL_FREED] == 0
+        ok = 0
+    let ops = [["alloc", 10, 16, GC_GEN_YOUNG, 200],
+               ["set_root", 10, 201],
+               ["add_ref", 10, 11, 203]]
+    if gc_bragg_verify(heap, ops)[0] != 1
+        ok = 0
+    ok
+
+let gc_test_self() =
+    let ok = gc_test_basic()
+    if ok == 1
+        print("gc: ALL PASS")
+    else
+        print("gc: FAIL")
+    ok
+
+import "../domain_field.ψ"
+
+let gc_gf_mod(x) = domain_gf_mod(x)
+
+let gc_gf_inv(a) = domain_gf_inv(a)
+
+let gc_field_encode(items, n) =
+    let records = []
+    let _i = 0
+    for _i < n
+        records.push([items[_i], items[_i]])
+        _i = _i + 1
+    domain_field_encode(records, n, 256, 1)
+
+let gc_field_eval(poles, residues, z) = domain_field_eval(poles, residues, z)
+
+let gc_field_bragg_verify(current, replay) = domain_bragg_verify(current[0], current[1], replay[0], replay[1])
+

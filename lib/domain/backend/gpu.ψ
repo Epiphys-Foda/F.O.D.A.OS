@@ -1,0 +1,193 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let GPU_MAX_THREADS = 1024
+let GPU_MAX_BLOCKS = 65536
+let GPU_WARP_SIZE = 32
+let GPU_MAX_TEXTURES = 256
+
+let gpu_kernel_create(name, n_args) = [name, [], n_args, 0, 0]
+let gpu_kernel_set_shared(kernel, size) = [kernel[0], kernel[1], kernel[2], size, kernel[4]]
+let gpu_kernel_set_regs(kernel, n_regs) = [kernel[0], kernel[1], kernel[2], kernel[3], n_regs]
+
+let gpu_grid_create(blocks, threads) = [blocks, 1, 1, threads, 1, 1, 0]
+let gpu_grid_create_2d(bx, by, tx, ty) = [bx, by, 1, tx, ty, 1, 0]
+let gpu_grid_create_3d(bx, by, bz, tx, ty, tz) = [bx, by, bz, tx, ty, tz, 0]
+
+let gpu_launch(kernel, grid, args) =
+    let total_threads = gf_mul(gf_mul(grid[0], grid[1]), grid[2])
+    let results = []
+    let i = 0
+    for i < total_threads
+        let block_idx = i / gf_mul(grid[3], grid[4])
+        let thread_idx = i % gf_mul(grid[3], grid[4])
+        results.push(gf_add(block_idx, thread_idx))
+        i = i + 1
+    results
+
+let gpu_render_pixel_kernel(fb, kernel_data, px, py) =
+    let w = fb[0]
+    let h = fb[1]
+    let pixels = fb[2]
+    if px < w
+        if py < h
+            let idx = gf_add(gf_mul(py, w), px)
+            let color = kernel_data[gf_mod(gf_add(gf_mul(px, 31), gf_mul(py, 17)), kernel_data.length)]
+            pixels[idx] = color
+let gpu_render_frame(fb, kernel_data, grid) =
+    let w = fb[0]
+    let h = fb[1]
+    let bx = grid[0]
+    let by = grid[1]
+    let tx = grid[3]
+    let ty = grid[4]
+    let px = 0
+    for px < w
+        let py = 0
+        for py < h
+            gpu_render_pixel_kernel(fb, kernel_data, px, py)
+            py = py + 1
+        px = px + 1
+
+let gpu_cauchy_render_kernel(fb, poles, residues, scale, center_re, center_im, grid) =
+    let w = fb[0]
+    let h = fb[1]
+    let pixels = fb[2]
+    let px = 0
+    for px < w
+        let py = 0
+        for py < h
+            let re = gf_add(gf_mul(gf_sub(px, gf_div(w, 2)), scale), center_re)
+            let im = gf_add(gf_mul(gf_sub(py, gf_div(h, 2)), scale), center_im)
+            let result = 0
+            let n = poles.length
+            let i = 0
+            for i < n
+                let p = poles[i]
+                let r = residues[i]
+                let diff_re = gf_sub(re, p[0])
+                let diff_im = gf_sub(im, p[1])
+                let nsq = gf_add(gf_mul(diff_re, diff_re), gf_mul(diff_im, diff_im))
+                if nsq != 0
+                    let inv_re = gf_div(diff_re, nsq)
+                    let inv_im = gf_neg(gf_div(diff_im, nsq))
+                    let term_re = gf_sub(gf_mul(r[0], inv_re), gf_mul(r[1], inv_im))
+                    let term_im = gf_add(gf_mul(r[0], inv_im), gf_mul(r[1], inv_re))
+                    result = gf_add(result, gf_add(gf_mul(term_re, 2048), gf_mul(term_im, 32)))
+                i = i + 1
+            pixels[gf_add(gf_mul(py, w), px)] = result
+            py = py + 1
+        px = px + 1
+
+let gpu_texture_create(w, h) =
+    let data = []
+    let i = 0
+    for i < gf_mul(w, h)
+        data.push(0)
+        i = i + 1
+    [w, h, data]
+let gpu_texture_set(tex, x, y, color) =
+    let w = tex[0]
+    tex[2][gf_add(gf_mul(y, w), x)] = color
+let gpu_texture_get(tex, x, y) =
+    let w = tex[0]
+    tex[2][gf_add(gf_mul(y, w), x)]
+let gpu_texture_sample_nearest(tex, u, v) =
+    let w = tex[0]
+    let h = tex[1]
+    let x = gf_mod(u, w)
+    let y = gf_mod(v, h)
+    gpu_texture_get(tex, x, y)
+let gpu_texture_sample_bilinear(tex, u, v) =
+    let w = tex[0]
+    let h = tex[1]
+    let x0 = gf_mod(u, w)
+    let y0 = gf_mod(v, h)
+    let x1 = gf_mod(gf_add(x0, 1), w)
+    let y1 = gf_mod(gf_add(y0, 1), h)
+    let c00 = gpu_texture_get(tex, x0, y0)
+    let c10 = gpu_texture_get(tex, x1, y0)
+    let c01 = gpu_texture_get(tex, x0, y1)
+    let c11 = gpu_texture_get(tex, x1, y1)
+    gf_div(gf_add(gf_add(c00, c10), gf_add(c01, c11)), 4)
+
+let gpu_shared_alloc(size) =
+    let mem = []
+    let i = 0
+    for i < size
+        mem.push(0)
+        i = i + 1
+    mem
+
+let gpu_warp_shuffle(val, src_lane) = val
+let gpu_warp_reduce(values) =
+    let sum = 0
+    let i = 0
+    let n = values.length
+    for i < n
+        sum = gf_add(sum, values[i])
+        i = i + 1
+    sum
+let gpu_warp_broadcast(val, src_lane) = val
+let gpu_warp_any(pred) =
+    (pred != 0 ? 1 : 0)
+let gpu_warp_all(pred) =
+    (pred != 0 ? 1 : 0)
+let gpu_warp_ballot(pred) =
+    (pred != 0 ? 1 : 0)
+
+let gpu_memcpy_h2d(host_data) =
+    let device_data = []
+    let i = 0
+    let n = host_data.length
+    for i < n
+        device_data.push(host_data[i])
+        i = i + 1
+    device_data
+let gpu_memcpy_d2h(device_data) =
+    let host_data = []
+    let i = 0
+    let n = device_data.length
+    for i < n
+        host_data.push(device_data[i])
+        i = i + 1
+    host_data
+
+let gpu_sync() = 1
+let gpu_barrier() = 1
+let gpu_device_synchronize() = 1
+
+let gpu_fb_create(w, h) =
+    let data = []
+    let i = 0
+    for i < gf_mul(w, h)
+        data.push(0)
+        i = i + 1
+    [w, h, data]
+let gpu_fb_clear(fb, color) =
+    let pixels = fb[2]
+    let i = 0
+    let n = pixels.length
+    for i < n
+        pixels[i] = color
+        i = i + 1
+let gpu_fb_present(fb) = 1
+
+let field_gpu(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let gpu_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_gpu(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok

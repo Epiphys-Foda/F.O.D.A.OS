@@ -1,0 +1,31 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let dv1 = small_div(3000 * 2303, 1000)
+bad[0] = bad[0] + ck(dv1, 6500, 7500)
+
+let v_esc = 11200
+bad[0] = bad[0] + ck(v_esc, 11000, 11500)
+
+let m_ratio = 42
+bad[0] = bad[0] + ck(m_ratio, 35, 50)
+
+let fuel_pct = small_div(m_ratio * 100 - 100, m_ratio)
+bad[0] = bad[0] + ck_lo(fuel_pct, 90)
+
+let stage1 = 5
+let stage2 = 5
+let total = stage1 * stage2
+if total != 25
+    bad[0] = bad[0] + 1
+
+bad[0] = bad[0] + ck_lo(total, 5)
+
+if 1903 < 1901
+    bad[0] = bad[0] + 1
+if 1903 > 1905
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

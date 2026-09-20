@@ -1,0 +1,26 @@
+import "ck.ψ"
+let bad = [0]
+
+let rho = 1000
+let g = 10
+let depth = 10
+let dP_10 = rho * g * depth
+let dz1 = dP_10 - 100000
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let depth_50 = 50
+let dP_50 = rho * g * depth_50
+let dz2 = dP_50 - 500000
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let dP_20 = rho * g * 20
+let dP_10_check = rho * g * 10
+let dz3 = dP_20 - dP_10_check * 2
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+if 1648 < 1646
+    bad[0] = bad[0] + 1
+if 1648 > 1650
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

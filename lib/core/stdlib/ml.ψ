@@ -1,0 +1,332 @@
+let ml_dist_sq(a, b) =
+    let n = a.len()
+    let sum = 0
+    let i = 0
+    for i < n
+        let d = a[i] - b[i]
+        sum = sum + d * d
+        i = i + 1
+    sum
+
+let ml_dist_manhattan(a, b) =
+    let n = a.len()
+    let sum = 0
+    let i = 0
+    for i < n
+        let d = a[i] - b[i]
+        if d < 0
+            d = 0 - d
+        sum = sum + d
+        i = i + 1
+    sum
+
+let ml_linear_regression(x, y) =
+    let n = x.len()
+    if n == 0
+        return arr_new()
+    let sum_x = 0
+    let sum_y = 0
+    let sum_xy = 0
+    let sum_x2 = 0
+    let i = 0
+    for i < n
+        sum_x = sum_x + x[i]
+        sum_y = sum_y + y[i]
+        sum_xy = sum_xy + x[i] * y[i]
+        sum_x2 = sum_x2 + x[i] * x[i]
+        i = i + 1
+    let denom = n * sum_x2 - sum_x * sum_x
+    let result = arr_new()
+    if denom == 0
+        result = arr_push(result, 0)
+        result = arr_push(result, sum_y / n)
+    else
+        let slope = (n * sum_xy - sum_x * sum_y) / denom
+        let intercept = (sum_y - slope * sum_x) / n
+        result = arr_push(result, slope)
+        result = arr_push(result, intercept)
+    result
+
+let ml_kmeans_step(points, centroids) =
+    let n = points.len()
+    let k = centroids.len()
+    let new_centroids = arr_new()
+    let c = 0
+    for c < k
+        let sum = arr_new()
+        let dim = 0
+        let p0 = points[0]
+        dim = p0.len()
+        let d = 0
+        for d < dim
+            sum = arr_push(sum, 0)
+            d = d + 1
+        let count = 0
+        let i = 0
+        for i < n
+            let p = points[i]
+            let nearest = 0
+            let min_dist = ml_dist_sq(p, centroids[0])
+            let j = 1
+            for j < k
+                let dist = ml_dist_sq(p, centroids[j])
+                if dist < min_dist
+                    min_dist = dist
+                    nearest = j
+                j = j + 1
+            if nearest == c
+                d = 0
+                for d < dim
+                    sum[d] = sum[d] + p[d]
+                    d = d + 1
+                count = count + 1
+            i = i + 1
+        let avg = arr_new()
+        d = 0
+        for d < dim
+            if count > 0
+                avg = arr_push(avg, sum[d] / count)
+            else
+                let cc = centroids[c]
+                avg = arr_push(avg, cc[d])
+            d = d + 1
+        new_centroids = arr_push(new_centroids, avg)
+        c = c + 1
+    new_centroids
+
+let ml_knn(train_x, train_y, query, k) =
+    let n = train_x.len()
+    let distances = arr_new()
+    let i = 0
+    for i < n
+        let d = ml_dist_sq(train_x[i], query)
+        let pair = arr_new()
+        pair = arr_push(pair, d)
+        pair = arr_push(pair, train_y[i])
+        distances = arr_push(distances, pair)
+        i = i + 1
+    let i = 0
+    for i < k && i < n
+        let min_idx = i
+        let j = i + 1
+        for j < n
+            let dj = distances[j]
+            let dm = distances[min_idx]
+            if dj[0] < dm[0]
+                min_idx = j
+            j = j + 1
+        if min_idx != i
+            let tmp = distances[i]
+            distances[i] = distances[min_idx]
+            distances[min_idx] = tmp
+        i = i + 1
+    let votes = arr_new()
+    let labels = arr_new()
+    i = 0
+    for i < k
+        let label = distances[i][1]
+        let found = 0 - 1
+        let j = 0
+        let m = labels.len()
+        for j < m
+            if labels[j] == label
+                found = j
+            j = j + 1
+        if found >= 0
+            votes[found] = votes[found] + 1
+        else
+            labels = arr_push(labels, label)
+            votes = arr_push(votes, 1)
+        i = i + 1
+    let best_label = labels[0]
+    let best_votes = votes[0]
+    i = 1
+    let m = labels.len()
+    for i < m
+        if votes[i] > best_votes
+            best_votes = votes[i]
+            best_label = labels[i]
+        i = i + 1
+    best_label
+
+let ml_scale_minmax(data, new_min, new_max) =
+    let n = data.len()
+    if n == 0
+        return arr_new()
+    let min_val = data[0]
+    let max_val = data[0]
+    let i = 1
+    for i < n
+        if data[i] < min_val
+            min_val = data[i]
+        if data[i] > max_val
+            max_val = data[i]
+        i = i + 1
+    let range = max_val - min_val
+    let result = arr_new()
+    if range == 0
+        i = 0
+        for i < n
+            result = arr_push(result, new_min)
+            i = i + 1
+    else
+        i = 0
+        for i < n
+            let scaled = new_min + (data[i] - min_val) * (new_max - new_min) / range
+            result = arr_push(result, scaled)
+            i = i + 1
+    result
+
+let ml_standardize(data) =
+    let n = data.len()
+    if n == 0
+        return arr_new()
+    let mean = 0
+    let i = 0
+    for i < n
+        mean = mean + data[i]
+        i = i + 1
+    mean = mean / n
+    let v = 0
+    i = 0
+    for i < n
+        let d = data[i] - mean
+        v = v + d * d
+        i = i + 1
+    v = v / n
+    let stddev = 1
+    for stddev * stddev <= v
+        stddev = stddev + 1
+    stddev = stddev - 1
+    let result = arr_new()
+    if stddev == 0
+        i = 0
+        for i < n
+            result = arr_push(result, 0)
+            i = i + 1
+    else
+        i = 0
+        for i < n
+            result = arr_push(result, (data[i] - mean) / stddev)
+            i = i + 1
+    result
+
+let ml_accuracy(predictions, labels) =
+    let n = predictions.len()
+    if n == 0
+        return 0
+    let correct = 0
+    let i = 0
+    for i < n
+        if predictions[i] == labels[i]
+            correct = correct + 1
+        i = i + 1
+    (correct * 100) / n
+
+let ml_confusion_matrix(predictions, labels) =
+    let tp = 0
+    let fp = 0
+    let tn = 0
+    let false_neg = 0
+    let n = predictions.len()
+    let i = 0
+    for i < n
+        if predictions[i] == 1 && labels[i] == 1
+            tp = tp + 1
+        else
+            0
+        if predictions[i] == 1 && labels[i] == 0
+            fp = fp + 1
+        else
+            0
+        if predictions[i] == 0 && labels[i] == 0
+            tn = tn + 1
+        else
+            false_neg = false_neg + 1
+        i = i + 1
+    let result = arr_new()
+    result = arr_push(result, tp)
+    result = arr_push(result, fp)
+    result = arr_push(result, tn)
+    result = arr_push(result, false_neg)
+    result
+
+let ml_precision(tp, fp) =
+    if tp + fp == 0
+        return 0
+    (tp * 100) / (tp + fp)
+
+let ml_recall(tp, false_neg) =
+    if tp + false_neg == 0
+        return 0
+    (tp * 100) / (tp + false_neg)
+
+let ml_f1(precision, recall) =
+    if precision + recall == 0
+        return 0
+    (2 * precision * recall) / (precision + recall)
+
+let ml_mse(predictions, labels) =
+    let n = predictions.len()
+    if n == 0
+        return 0
+    let sum = 0
+    let i = 0
+    for i < n
+        let d = predictions[i] - labels[i]
+        sum = sum + d * d
+        i = i + 1
+    sum / n
+
+let ml_mae(predictions, labels) =
+    let n = predictions.len()
+    if n == 0
+        return 0
+    let sum = 0
+    let i = 0
+    for i < n
+        let d = predictions[i] - labels[i]
+        if d < 0
+            d = 0 - d
+        sum = sum + d
+        i = i + 1
+    sum / n
+
+let ml_r_squared(predictions, labels) =
+    let n = labels.len()
+    if n == 0
+        return 0
+    let mean = 0
+    let i = 0
+    for i < n
+        mean = mean + labels[i]
+        i = i + 1
+    mean = mean / n
+    let ss_res = 0
+    let ss_tot = 0
+    i = 0
+    for i < n
+        let res = labels[i] - predictions[i]
+        let tot = labels[i] - mean
+        ss_res = ss_res + res * res
+        ss_tot = ss_tot + tot * tot
+        i = i + 1
+    if ss_tot == 0
+        return 0
+    1 - ss_res / ss_tot
+
+let main() =
+    let x = arr_new()
+    x = arr_push(x, 1)
+    x = arr_push(x, 2)
+    x = arr_push(x, 3)
+    x = arr_push(x, 4)
+    let y = arr_new()
+    y = arr_push(y, 2)
+    y = arr_push(y, 4)
+    y = arr_push(y, 6)
+    y = arr_push(y, 8)
+    let reg = ml_linear_regression(x, y)
+    print(reg[0])
+    print(reg[1])
+    0

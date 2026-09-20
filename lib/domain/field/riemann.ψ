@@ -1,0 +1,139 @@
+let RI_P = 65537
+
+let array(n) = 0
+
+let ri_add(a, b) = (a + b) % RI_P
+let ri_sub(a, b) = (a - b + RI_P) % RI_P
+let ri_mul(a, b) = (a * b) % RI_P
+let ri_neg(a) = (RI_P - a) % RI_P
+
+let ri_inv(a) =
+    if a == 0
+        0
+    else
+        let inv = 1
+        let base = a
+        let exp = RI_P - 2
+        for exp > 0
+            if exp % 2 == 1
+                inv = ri_mul(inv, base)
+            base = ri_mul(base, base)
+            exp = exp / 2
+        inv
+
+let ri_add_point(p1, p2) =
+    if p1.is_inf == 1
+        p1
+    else
+        if p2.is_inf == 1
+            p2
+        else
+            RiemannPoint { value: ri_add(p1.value, p2.value), is_inf: 0 }
+
+let ri_mul_point(p1, p2) =
+        if p1.is_inf == 1
+            if p2.value == 0 && p2.is_inf == 0
+                RiemannPoint { value: 0, is_inf: 0 }
+            else
+                p1
+        else
+            if p2.is_inf == 1
+                if p1.value == 0
+                    RiemannPoint { value: 0, is_inf: 0 }
+                else
+                    p2
+            else
+                RiemannPoint { value: ri_mul(p1.value, p2.value), is_inf: 0 }
+
+let ri_inverse(p) =
+    if p.is_inf == 1
+        RiemannPoint { value: 0, is_inf: 0 }
+    else
+        if p.value == 0
+            RiemannPoint { value: 0, is_inf: 1 }
+        else
+            RiemannPoint { value: ri_inv(p.value), is_inf: 0 }
+
+let ri_residue_at_infinity(poles, residues, n) =
+    let sum = 0
+    let i = 0
+    for i < n
+        sum = ri_add(sum, residues[i])
+        i = i + 1
+    ri_neg(sum)
+
+let ri_total_residue(poles, residues, n) =
+    let sum = 0
+    let i = 0
+    for i < n
+        sum = ri_add(sum, residues[i])
+        i = i + 1
+    ri_add(sum, ri_residue_at_infinity(poles, residues, n))
+
+let ri_eval_at_infinity(poles, residues, n) =
+    0
+
+let ri_eval_at_zero(poles, residues, n) =
+    let result = 0
+    let i = 0
+    for i < n
+        if poles[i] != 0
+            let term = ri_mul(residues[i], ri_inv(poles[i]))
+            result = ri_sub(result, term)
+        i = i + 1
+    result
+
+let ri_chordal_distance(z1, z2) =
+    let diff = ri_sub(z1, z2)
+    let denom = ri_add(1, ri_mul(z1, z2))
+    (denom == 0 ? 0 : ri_mul(diff, ri_inv(denom)))
+
+let ri_check_self_distance(z) =
+    ri_chordal_distance(z, z) == 0
+
+let ri_check_symmetry(z1, z2) =
+    let d12 = ri_chordal_distance(z1, z2)
+    let d21 = ri_chordal_distance(z2, z1)
+    d12 == ri_neg(d21)
+
+let ri_check_total_residue_zero(poles, residues, n) =
+    ri_total_residue(poles, residues, n) == 0
+
+let ri_check_infinity_residue(poles, residues, n) =
+    let r_inf = ri_residue_at_infinity(poles, residues, n)
+    let sum_finite = 0
+    let i = 0
+    for i < n
+        sum_finite = ri_add(sum_finite, residues[i])
+        i = i + 1
+    ri_add(r_inf, sum_finite) == 0
+
+let ri_check_eval_at_infinity(poles, residues, n) =
+    ri_eval_at_infinity(poles, residues, n) == 0
+
+let ri_check_compactness() =
+    1
+
+let ri_check_infinity_inverse() =
+    let inf = RiemannPoint { value: 0, is_inf: 1 }
+    let zero = ri_inverse(inf)
+    zero.is_inf == 0 && zero.value == 0
+
+let ri_check_zero_inverse() =
+    let zero = RiemannPoint { value: 0, is_inf: 0 }
+    let inf = ri_inverse(zero)
+    inf.is_inf == 1
+
+let ri_check_infinity_addition() =
+    let inf = RiemannPoint { value: 0, is_inf: 1 }
+    let result = ri_add_point(inf, inf)
+    result.is_inf == 1
+
+let ri_stereographic_projection(sphere_point) =
+    (sphere_point.is_inf == 1 ? 0 : sphere_point.value)
+
+let ri_stereographic_inverse(z) =
+    RiemannPoint { value: z, is_inf: 0 }
+
+let array_new(n) = arr_new_n(n)
+

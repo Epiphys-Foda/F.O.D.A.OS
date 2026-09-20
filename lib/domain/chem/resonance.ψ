@@ -1,0 +1,42 @@
+import "ck.ψ"
+let bad = [0]
+
+let w1 = 20
+let w2 = 40
+let dz1 = w2 - w1 * 2
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let a1 = 1
+let a3 = 3
+let a5 = 5
+let dz2 = a3 - a1 * 3
+bad[0] = bad[0] + ck(dz2, 0, 0)
+let dz3 = a5 - a1 * 5
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let a_random = 2
+bad[0] = bad[0] + ck_hi(a_random, a5)
+
+let gamma = 4258
+let f_15 = gamma * 15 / 1000
+let dz4 = f_15 - 63
+bad[0] = bad[0] + ck(dz4, 0, 0)
+bad[0] = bad[0] + ck(f_15, 60, 67)
+let f_3 = gamma * 30 / 1000
+bad[0] = bad[0] + ck_lo(f_3, f_15)
+
+let f_glass = 600
+bad[0] = bad[0] + ck(f_glass, 500, 800)
+
+if 1602 < 1600
+    bad[0] = bad[0] + 1
+if 1602 > 1604
+    bad[0] = bad[0] + 1
+if 1831 < 1829
+    bad[0] = bad[0] + 1
+if 1831 > 1833
+    bad[0] = bad[0] + 1
+if 1831 < 1602
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

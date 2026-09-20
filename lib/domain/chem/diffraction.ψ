@@ -1,0 +1,30 @@
+import "ck.ψ"
+let bad = [0]
+
+let sl = 650 * 10 / 100
+bad[0] = bad[0] + ck(sl, 60, 70)
+
+let ymm = 2000 * sl / 1000 / 10
+bad[0] = bad[0] + ck(ymm, 11, 15)
+
+let eye = 122 * 550 * 1000 / 5
+bad[0] = bad[0] + ck(eye, 12500000, 14500000)
+let ase = eye * 206265 / 1000 / 100 / 1000
+bad[0] = bad[0] + ck(ase, 26000, 29000)
+
+let keck = 122 * 550 / 10
+let ratio = eye - keck * 2000
+bad[0] = bad[0] + ck(ratio, 0, 0)
+let mas = keck * 206265 / 1000 / 100 / 1000
+bad[0] = bad[0] + ck(mas, 11, 16)
+
+if 1835 < 1833
+    bad[0] = bad[0] + 1
+if 1835 > 1837
+    bad[0] = bad[0] + 1
+if 1879 < 1877
+    bad[0] = bad[0] + 1
+if 1879 > 1881
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

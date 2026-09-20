@@ -1,0 +1,26 @@
+import "ck.ψ"
+let bad = [0]
+
+let vfull = 100
+bad[0] = bad[0] + ck_lo(vfull, 90)
+
+let vwp = 0
+let dv = vwp - 0
+bad[0] = bad[0] + ck(dv, 0, 0)
+
+let r35 = 35
+bad[0] = bad[0] + ck(r35, 33, 37)
+
+let mol = 26
+bad[0] = bad[0] + ck(mol, 24, 28)
+
+if 1935 < 1933
+    bad[0] = bad[0] + 1
+if 1935 > 1937
+    bad[0] = bad[0] + 1
+if 1991 < 1989
+    bad[0] = bad[0] + 1
+if 1991 > 1993
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

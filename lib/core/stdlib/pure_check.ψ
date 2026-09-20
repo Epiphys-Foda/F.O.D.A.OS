@@ -1,0 +1,46 @@
+let PC_SIDE_EFFECTS = ["print", "write_file", "append_file", "read_file", "host_call", "syscall_linux", "syscall_windows", "arc_save", "wasm_save"]
+
+let pc_is_side_effect(name) =
+    let found = false
+    let i = 0
+    let n = len(PC_SIDE_EFFECTS)
+    let done = false
+    for !done
+      if i < n
+        if PC_SIDE_EFFECTS[i] == name
+          found = true
+          done = true
+        else
+          i = i + 1
+      else
+        done = true
+    found
+
+let pc_scan(ast) =
+    let result = []
+    let done = false
+    for !done
+      if ast == null
+        done = true
+      else
+        done = true
+        0
+      0
+    result
+
+let pc_check_source(src) =
+    let violations = []
+    let i = 0
+    let n = len(PC_SIDE_EFFECTS)
+    let done = false
+    for !done
+      if i < n
+        let name = PC_SIDE_EFFECTS[i]
+        if src.contains(name)
+          violations = violations.push(name)
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    { is_pure: len(violations) == 0, violations: violations }

@@ -1,0 +1,368 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let op_type_to_pole(op_type) =
+    if op_type == 0
+        127
+    else
+        0
+    if op_type == 1
+        101
+    else
+        0
+    if op_type == 2
+        103
+    else
+        0
+    if op_type == 3
+        107
+    else
+        0
+    if op_type == 4
+        109
+    else
+        0
+    if op_type == 5
+        113
+    else
+        127
+
+let pole_to_op_type(base) =
+    if base == 127
+        0
+    else
+        0
+    if base == 101
+        1
+    else
+        0
+    if base == 103
+        2
+    else
+        0
+    if base == 107
+        3
+    else
+        0
+    if base == 109
+        4
+    else
+        0
+    if base == 113
+        5
+    else
+        0
+
+let ops_to_field(ops_type, ops_data, n, poles, residues) =
+    let i = 0
+    for i < n
+        let base = op_type_to_pole(ops_type[i])
+        let pole = base + i * 1000
+        poles[i] = pole
+        residues[i] = ops_data[i]
+        i = i + 1
+
+let extract_residue(poles, residues, n, z_k) =
+    let i = 0
+    for i < n
+        if poles[i] == z_k
+            residues[i]
+        i = i + 1
+    0
+
+let field_multiply(p1, r1, n1, p2, r2, n2, out_poles, out_residues) =
+    let k = 0
+    let i = 0
+    for i < n1
+        let collision_residue = 0
+        let j = 0
+        for j < n2
+            let diff = (p1[i] + 65537 - p2[j]) % 65537
+            let cross = r1[i] * r2[j] * gf_inv(diff)
+            collision_residue = gf_add(collision_residue, cross)
+            j = j + 1
+        out_poles[k] = p1[i]
+        out_residues[k] = collision_residue
+        k = k + 1
+        i = i + 1
+    k
+
+let field_add(p1, r1, n1, p2, r2, n2, out_poles, out_residues) =
+    let k = 0
+    let i = 0
+    for i < n1
+        out_poles[k] = p1[i]
+        out_residues[k] = r1[i]
+        k = k + 1
+        i = i + 1
+    let j = 0
+    for j < n2
+        out_poles[k] = p2[j]
+        out_residues[k] = r2[j]
+        k = k + 1
+        j = j + 1
+    k
+
+let field_to_ops(poles, residues, n, out_type, out_data) =
+    let i = 0
+    for i < n
+        let pole = poles[i]
+        let base = pole % 1000
+        let index = pole / 1000
+        let op_type = pole_to_op_type(base)
+        out_type[index] = op_type
+        out_data[index] = residues[i]
+        i = i + 1
+
+let simulate(ops_type, ops_data, n) =
+    let stack = arr_new_n(n)
+    let sp = 0
+    let i = 0
+    for i < n
+        let t = ops_type[i]
+        if t == 0
+            stack[sp] = ops_data[i]
+            sp = sp + 1
+        if t == 1
+            if sp >= 2
+                let b = stack[sp - 1]
+                let a = stack[sp - 2]
+                sp = sp - 2
+                stack[sp] = gf_mul(a, b)
+                sp = sp + 1
+        if t == 2
+            if sp >= 2
+                let b = stack[sp - 1]
+                let a = stack[sp - 2]
+                sp = sp - 2
+                stack[sp] = gf_add(a, b)
+                sp = sp + 1
+        if t == 3
+            if sp >= 1
+                let a = stack[sp - 1]
+                stack[sp - 1] = gf_mul(a, 3)
+        if t == 4
+            if sp >= 1
+                let a = stack[sp - 1]
+                let projected = a
+                if a > 32768
+                    projected = 0
+                stack[sp - 1] = projected
+        if t == 5
+            if sp >= 1
+                let a = stack[sp - 1]
+                stack[sp - 1] = (a * 65535 + 2) % 65537
+        i = i + 1
+    (sp > 0 ? stack[sp - 1] : 0)
+
+let field_energy(residues, n) =
+    let e = 0
+    let i = 0
+    for i < n
+        let r = residues[i]
+        e = (e + r * r) % 65537
+        i = i + 1
+    e
+
+let field_ntt_fingerprint(residues, n) =
+    let energy = 0
+    let k = 0
+    for k < n
+        let re = 0
+        let im = 0
+        let j = 0
+        for j < n
+            let angle = (k * j) % n
+            let w = gf_pow(3, angle * 65536 / n)
+            re = (re + residues[j] * w) % 65537
+            im = (im + residues[j] * gf_pow(256, angle * 65536 / n)) % 65537
+            j = j + 1
+        energy = (energy + re * re + im * im) % 65537
+        k = k + 1
+    energy
+
+let main() =
+    print(111)
+    let n = 3
+    let ops_type = arr_new_n(n)
+    ops_type[0] = 0
+    ops_type[1] = 0
+    ops_type[2] = 1
+    let ops_data = arr_new_n(n)
+    ops_data[0] = 3
+    ops_data[1] = 5
+    ops_data[2] = 0
+
+    let poles = arr_new_n(n)
+    let residues = arr_new_n(n)
+    ops_to_field(ops_type, ops_data, n, poles, residues)
+
+    let i = 0
+    for i < n
+        print(poles[i])
+        print(residues[i])
+        i = i + 1
+
+    print(222)
+    let z = 500
+    for z <= 900
+        print(field_eval(z, poles, residues, n))
+        z = z + 100
+
+    print(333)
+    let rev_type = arr_new_n(n)
+    let rev_data = arr_new_n(n)
+    field_to_ops(poles, residues, n, rev_type, rev_data)
+    let roundtrip_ok = 1
+    let j = 0
+    for j < n
+        if rev_type[j] != ops_type[j]
+            roundtrip_ok = 0
+        if rev_data[j] != ops_data[j]
+            roundtrip_ok = 0
+        print(rev_type[j])
+        print(rev_data[j])
+        j = j + 1
+    print(roundtrip_ok)
+
+    print(444)
+    let n2 = 3
+    let ops2_type = arr_new_n(n2)
+    ops2_type[0] = 0
+    ops2_type[1] = 0
+    ops2_type[2] = 1
+    let ops2_data = arr_new_n(n2)
+    ops2_data[0] = 7
+    ops2_data[1] = 11
+    ops2_data[2] = 0
+
+    let poles2 = arr_new_n(n2)
+    let residues2 = arr_new_n(n2)
+    ops_to_field(ops2_type, ops2_data, n2, poles2, residues2)
+
+    let prod_poles = arr_new_n(n)
+    let prod_residues = arr_new_n(n)
+    let prod_n = field_multiply(poles, residues, n, poles2, residues2, n2, prod_poles, prod_residues)
+
+    let k = 0
+    for k < prod_n
+        print(prod_poles[k])
+        print(prod_residues[k])
+        k = k + 1
+
+    print(555)
+    let n3 = 5
+    let ops3_type = arr_new_n(n3)
+    ops3_type[0] = 0
+    ops3_type[1] = 5
+    ops3_type[2] = 4
+    ops3_type[3] = 0
+    ops3_type[4] = 1
+    let ops3_data = arr_new_n(n3)
+    ops3_data[0] = 42
+    ops3_data[1] = 0
+    ops3_data[2] = 0
+    ops3_data[3] = 2
+    ops3_data[4] = 0
+
+    let poles3 = arr_new_n(n3)
+    let residues3 = arr_new_n(n3)
+    ops_to_field(ops3_type, ops3_data, n3, poles3, residues3)
+
+    let m = 0
+    for m < n3
+        print(poles3[m])
+        print(residues3[m])
+        m = m + 1
+
+    let sim_result = simulate(ops3_type, ops3_data, n3)
+    print(sim_result)
+
+    print(666)
+    let energy1 = field_energy(residues, n)
+    let energy3 = field_energy(residues3, n3)
+    print(energy1)
+    print(energy3)
+
+    let fp1 = field_ntt_fingerprint(residues, n)
+    let fp3 = field_ntt_fingerprint(residues3, n3)
+    print(fp1)
+    print(fp3)
+
+    print(777)
+    let sum_residues = 0
+    let s = 0
+    for s < n
+        sum_residues = (sum_residues + residues[s]) % 65537
+        s = s + 1
+    let large_z = 60000
+    let field_at_inf = field_eval(large_z, poles, residues, n)
+    let residue_theorem = gf_mul(field_at_inf, large_z)
+    print(sum_residues)
+    print(residue_theorem)
+
+    print(888)
+    let n_delta = 2
+    let delta_type = arr_new_n(n_delta)
+    delta_type[0] = 0
+    delta_type[1] = 5
+    let delta_data = arr_new_n(n_delta)
+    delta_data[0] = 42
+    delta_data[1] = 0
+    let delta_poles = arr_new_n(n_delta)
+    let delta_residues = arr_new_n(n_delta)
+    ops_to_field(delta_type, delta_data, n_delta, delta_poles, delta_residues)
+
+    let n_born = 1
+    let born_type = arr_new_n(n_born)
+    born_type[0] = 4
+    let born_data = arr_new_n(n_born)
+    born_data[0] = 0
+    let born_poles = arr_new_n(n_born)
+    let born_residues = arr_new_n(n_born)
+    ops_to_field(born_type, born_data, n_born, born_poles, born_residues)
+
+    let comp_poles = arr_new_n(n_delta)
+    let comp_residues = arr_new_n(n_delta)
+    let comp_n = field_multiply(delta_poles, delta_residues, n_delta, born_poles, born_residues, n_born, comp_poles, comp_residues)
+
+    let c = 0
+    for c < comp_n
+        print(comp_poles[c])
+        print(comp_residues[c])
+        c = c + 1
+
+    print(999)
+    let n4 = 4
+    let test_type = arr_new_n(n4)
+    test_type[0] = 0
+    test_type[1] = 0
+    test_type[2] = 3
+    test_type[3] = 4
+    let test_data = arr_new_n(n4)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 0
+    test_data[3] = 0
+
+    let test_poles = arr_new_n(n4)
+    let test_residues = arr_new_n(n4)
+    ops_to_field(test_type, test_data, n4, test_poles, test_residues)
+
+    let rt_type = arr_new_n(n4)
+    let rt_data = arr_new_n(n4)
+    field_to_ops(test_poles, test_residues, n4, rt_type, rt_data)
+
+    let bijection_ok = 1
+    let b = 0
+    for b < n4
+        if rt_type[b] != test_type[b]
+            bijection_ok = 0
+        if rt_data[b] != test_data[b]
+            bijection_ok = 0
+        b = b + 1
+    print(bijection_ok)
+
+    let sim1 = simulate(test_type, test_data, n4)
+    print(sim1)
+
+    roundtrip_ok

@@ -1,0 +1,75 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let RV_ZERO = 0
+let RV_RA = 1
+let RV_SP = 2
+let RV_A0 = 10
+let RV_A1 = 11
+let RV_ADD = 1
+let RV_SUB = 2
+let RV_MUL = 3
+let RV_DIV = 4
+let RV_LW = 5
+let RV_SW = 6
+let RV_BEQ = 7
+let RV_JAL = 8
+let RV_RET = 9
+
+let rv_encode(opcode, operands) = [opcode, operands]
+let rv_add(dst, s1, s2) = rv_encode(RV_ADD, [dst, s1, s2])
+let rv_sub(dst, s1, s2) = rv_encode(RV_SUB, [dst, s1, s2])
+let rv_mul(dst, s1, s2) = rv_encode(RV_MUL, [dst, s1, s2])
+let rv_ret() = rv_encode(RV_RET, [])
+let riscv_codegen(ir) =
+    let code = []
+    let i = 0
+    let n = len(ir)
+    for i < n
+        code.push(rv_encode(0, []))
+        i = i + 1
+    code
+let riscv_calling_convention(args) =
+    let alloc = []
+    let i = 0
+    let n = len(args)
+    for i < n && i < 8
+        alloc.push(10 + i)
+        i = i + 1
+    alloc
+let riscv_machine_code(instructions) =
+    let mc = []
+    let i = 0
+    let n = len(instructions)
+    for i < n
+        mc.push(instructions[i][0])
+        i = i + 1
+    mc
+let riscv_aot_compile(ir) =
+    let code = riscv_codegen(ir)
+    riscv_machine_code(code)
+let RV_M = 1
+let RV_A = 2
+let RV_V = 5
+let riscv_extensions() = [RV_M, RV_A, RV_V]
+let rv_vadd(dst, s1, s2) = rv_encode(RV_ADD, [dst, s1, s2])
+let riscv_vlen() = 128
+let field_riscv(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let riscv_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_riscv(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+

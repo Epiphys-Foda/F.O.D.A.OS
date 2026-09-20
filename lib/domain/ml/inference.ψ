@@ -1,0 +1,291 @@
+import "model.ψ"
+let MEDIUM_DEFAULT_SCALE = 128
+
+let medium_new(params, dim, n_heads, head_dim) =
+    [params, dim, n_heads, head_dim, MEDIUM_DEFAULT_SCALE]
+
+let med_params(m) = m[0]
+let med_dim(m) = m[1]
+let med_n_heads(m) = m[2]
+let med_head_dim(m) = m[3]
+let med_scale(m) = m[4]
+
+let kvcache_new(dim, n_heads, head_dim) =
+    [[], [], 0, dim, n_heads, head_dim]
+
+let kvc_keys(c) = c[0]
+let kvc_values(c) = c[1]
+let kvc_len(c) = c[2]
+let kvc_dim(c) = c[3]
+let kvc_n_heads(c) = c[4]
+let kvc_head_dim(c) = c[5]
+
+let kvc_append(c, key, value) =
+    let keys = kvc_keys(c)
+    let values = kvc_values(c)
+    keys.push(key)
+    values.push(value)
+    c[0] = keys
+    c[1] = values
+    c[2] = kvc_len(c) + 1
+    c
+
+let kvc_resonance(c, query, head_idx) =
+    let keys = kvc_keys(c)
+    let n = kvc_len(c)
+    let head_dim = kvc_head_dim(c)
+    let scale = MEDIUM_DEFAULT_SCALE
+    if n == 0
+        0
+    else
+        let interference = []
+        let i = 0
+        for i < n
+            let k = keys[i]
+            let phase = 0
+            let j = 0
+            for j < head_dim
+                phase = phase + query[head_idx * head_dim + j] * k[head_idx * head_dim + j]
+                j = j + 1
+            phase = phase * scale / 256
+            interference.push(phase)
+            i = i + 1
+        interference
+
+let full_field_inject(medium, input_tokens, kvcache) =
+    let params = med_params(medium)
+    let dim = med_dim(medium)
+    let n_heads = med_n_heads(medium)
+    let head_dim = med_head_dim(medium)
+    let seq = len(input_tokens)
+    let wave_field = []
+    let i = 0
+    for i < seq
+        let tok = input_tokens[i]
+        let wave = []
+        let j = 0
+        for j < dim
+            let amp = 0
+            let k = 0
+            for k < dim
+                amp = amp + params[tok * dim + k] * params[j * dim + k]
+                k = k + 1
+            wave.push(amp)
+            j = j + 1
+        kvcache = kvc_append(kvcache, wave, wave)
+        wave_field.push(wave)
+        i = i + 1
+    [wave_field, kvcache]
+
+let global_resonance(wave_field, n_heads, head_dim) =
+    let seq = len(wave_field)
+    if seq == 0
+        []
+    else
+        let dim = len(wave_field[0])
+        let interference = []
+        let i = 0
+        for i < n_heads
+            let head_pattern = []
+            let j = 0
+            for j < head_dim
+                let amp = 0
+                let k = 0
+                for k < seq
+                    amp = amp + wave_field[k][i * head_dim + j]
+                    k = k + 1
+                head_pattern.push(amp)
+                j = j + 1
+            interference.push(head_pattern)
+            i = i + 1
+        interference
+
+let VORTEX_SHED_PERIOD = 4
+
+let vortex_street_form(interference, n_heads, head_dim) =
+    let vortices = []
+    let i = 0
+    for i < n_heads
+        let pattern = interference[i]
+        let vortices_head = []
+        let j = 0
+        let n = len(pattern)
+        for j < n
+            let phase = j / VORTEX_SHED_PERIOD
+            let sign = 1
+            if phase % 2 == 1
+                sign = 0 - 1
+            let vort = pattern[j] * sign
+            vortices_head.push(vort)
+            j = j + 1
+        vortices.push(vortices_head)
+        i = i + 1
+    vortices
+
+let vortex_readout(vortices, output_proj, n_heads, head_dim, vocab_size) =
+    let logits = []
+    let i = 0
+    for i < vocab_size
+        let logit = 0
+        let h = 0
+        for h < n_heads
+            let j = 0
+            for j < head_dim
+                logit = logit + vortices[h][j] * output_proj[j * vocab_size + i]
+                j = j + 1
+            h = h + 1
+        logits.push(logit)
+        i = i + 1
+    logits
+
+let born_select(logits) =
+    let best_idx = 0
+    let best_val = logits[0]
+    let i = 1
+    let n = len(logits)
+    for i < n
+        if logits[i] > best_val
+            best_val = logits[i]
+            best_idx = i
+        i = i + 1
+    [best_idx, best_val]
+
+let bragg_verify(input_wave, output_wave) =
+    let n = len(input_wave)
+    let m = len(output_wave)
+    if n != m
+        0
+    else
+        let d1 = 0
+        let r1 = 0
+        let i = 0
+        for i < n
+            d1 = d1 + input_wave[i]
+            r1 = r1 + output_wave[i]
+            i = i + 1
+        if d1 == r1
+            1
+        else
+            0
+
+let inference_engine_new(model) =
+    let config = m_config(model)
+    let dim = cfg_dim(config)
+    let n_heads = cfg_n_heads(config)
+    let head_dim = dim / n_heads
+    let medium = medium_new([], dim, n_heads, head_dim)
+    let kvc = kvcache_new(dim, n_heads, head_dim)
+    [model, kvc, medium, [1, 1, 1, 1]]
+
+let ie_model(e) = e[0]
+let ie_kvcache(e) = e[1]
+let ie_medium(e) = e[2]
+let ie_config(e) = e[3]
+
+let ie_pfs_disabled(e) = ie_config(e)[0]
+let ie_infinite_ctx(e) = ie_config(e)[1]
+let ie_infinite_kvc(e) = ie_config(e)[2]
+let ie_int8_default(e) = ie_config(e)[3]
+
+let ie_step(e, input_tokens) =
+    let model = ie_model(e)
+    let kvc = ie_kvcache(e)
+    let medium = ie_medium(e)
+    let config = m_config(model)
+    let dim = cfg_dim(config)
+    let n_heads = cfg_n_heads(config)
+    let head_dim = dim / n_heads
+    let vocab = cfg_vocab(config)
+    let inject_result = full_field_inject(medium, input_tokens, kvc)
+    let wave_field = inject_result[0]
+    kvc = inject_result[1]
+    let interference = global_resonance(wave_field, n_heads, head_dim)
+    let vortices = vortex_street_form(interference, n_heads, head_dim)
+    let output_proj = med_params(medium)
+    let logits = vortex_readout(vortices, output_proj, n_heads, head_dim, vocab)
+    let selected = born_select(logits)
+    let token_id = selected[0]
+    let wf_len = len(wave_field)
+    let v_len = len(vortices)
+    let input_wave = []
+    if wf_len > 0
+        input_wave = wave_field[wf_len - 1]
+    let output_wave = []
+    if v_len > 0
+        output_wave = vortices[0]
+    let bragg_ok = bragg_verify(input_wave, output_wave)
+    e[1] = kvc
+    [e, token_id, bragg_ok]
+
+let ie_generate(e, prompt_tokens, max_tokens) =
+    let output_tokens = []
+    let input_tokens = prompt_tokens
+    let i = 0
+    for i < max_tokens
+        let result = ie_step(e, input_tokens)
+        e = result[0]
+        let new_token = result[1]
+        let bragg_ok = result[2]
+        if bragg_ok == 0
+            i = max_tokens
+        else
+            output_tokens.push(new_token)
+            input_tokens = [new_token]
+            i = i + 1
+    [e, output_tokens]
+
+let ie_stats(e) =
+    let model = ie_model(e)
+    let kvc = ie_kvcache(e)
+    [
+        "kvcache_len", kvc_len(kvc),
+        "kvcache_dim", kvc_dim(kvc),
+        "n_heads", kvc_n_heads(kvc),
+        "pfs_disabled", ie_pfs_disabled(e),
+        "infinite_context", ie_infinite_ctx(e),
+        "infinite_kvcache", ie_infinite_kvc(e),
+        "int8_default", ie_int8_default(e),
+        "model_params", model_param_count(model)
+    ]
+
+let wave_field_amplitude(wave_field) =
+    let amps = []
+    let i = 0
+    let n = len(wave_field)
+    for i < n
+        let wave = wave_field[i]
+        let amp = 0
+        let j = 0
+        let m = len(wave)
+        for j < m
+            if wave[j] > 0
+                amp = amp + wave[j]
+            else
+                amp = amp - wave[j]
+            j = j + 1
+        amps.push(amp)
+        i = i + 1
+    amps
+
+let vortex_pattern_to_string(vortices) =
+    let s = ""
+    let i = 0
+    let n = len(vortices)
+    for i < n
+        let head = vortices[i]
+        let j = 0
+        let m = len(head)
+        for j < m
+            let v = head[j]
+            if v > 0
+                s = s + "+"
+            else
+                0
+            if v < 0
+                s = s + "-"
+            else
+                s = s + "0"
+            j = j + 1
+        s = s + "|"
+        i = i + 1
+    s

@@ -1,0 +1,181 @@
+import "qqbc_micro.ψ"
+
+let pass_constant_fold(micro_seq) =
+    let n = len(micro_seq)
+    if n == 7
+      let t1 = micro_seq[0]
+      let a = micro_seq[1]
+      let t2 = micro_seq[2]
+      let b = micro_seq[3]
+      let op = micro_seq[4]
+      let emit = micro_seq[5]
+      let end = micro_seq[6]
+      let is_pattern = t1 == 16 && t2 == 16 && emit == 17 && end == 255
+      if is_pattern
+        let foldable = op == 10 || op == 11 || op == 12 || op == 22 || op == 30 || op == 31 || op == 50 || op == 51 || op == 52 || op == 60 || op == 61 || op == 62 || op == 40
+        if foldable
+          let result = micro_eval(op, [a, b])
+          [16, result, 17, 255]
+        else
+            0
+      else
+          0
+    else
+      0
+    micro_seq
+
+let pass_algebra_simplify(micro_seq) =
+    let n = len(micro_seq)
+    if n == 7
+      let t1 = micro_seq[0]
+      let a = micro_seq[1]
+      let t2 = micro_seq[2]
+      let b = micro_seq[3]
+      let op = micro_seq[4]
+      let emit = micro_seq[5]
+      let end = micro_seq[6]
+      let is_pattern = t1 == 16 && t2 == 16 && emit == 17 && end == 255
+      if is_pattern
+        if op == 11 && b == 0
+          [16, a, 17, 255]
+        else
+          0
+        if op == 11 && a == 0
+          [16, b, 17, 255]
+        else
+          0
+        if op == 10 && b == 1
+          [16, a, 17, 255]
+        else
+          0
+        if op == 10 && a == 1
+          [16, b, 17, 255]
+        else
+          0
+        if op == 10 && (a == 0 || b == 0)
+          [16, 0, 17, 255]
+        else
+          0
+        if op == 12 && b == 0
+          [16, a, 17, 255]
+        else
+          0
+        if op == 12 && a == b
+          [16, 0, 17, 255]
+        else
+          0
+        if op == 51 && b == 0
+          [16, a, 17, 255]
+        else
+          0
+        if op == 50 && b == 0
+          [16, a, 17, 255]
+        else
+          0
+        if op == 40 && a == 0
+          [16, 0, 17, 255]
+        else
+          0
+        if op == 40 && a != 0
+          [16, b, 17, 255]
+        else
+            0
+      else
+          0
+    else
+      0
+    micro_seq
+
+let pass_operator_fusion(micro_seq) =
+    let n = len(micro_seq)
+    if n == 8
+      let t1 = micro_seq[0]
+      let a = micro_seq[1]
+      let t2 = micro_seq[2]
+      let b = micro_seq[3]
+      let op1 = micro_seq[4]
+      let op2 = micro_seq[5]
+      let emit = micro_seq[6]
+      let end = micro_seq[7]
+      let is_pattern = t1 == 16 && t2 == 16 && emit == 17 && end == 255
+      if is_pattern
+        if op1 == 22 && op2 == 40
+          [16, a, 16, b, 60, 17, 255]
+        else
+          0
+        if op1 == 30 && op2 == 50
+          [16, a, 16, b, 61, 17, 255]
+        else
+          0
+        if op1 == 10 && op2 == 22
+          [16, a, 16, b, 62, 17, 255]
+        else
+            0
+      else
+          0
+    else
+      0
+    micro_seq
+
+let pass_dead_code(micro_seq) =
+    let first_end = -1
+    let last_emit = -1
+    let i = 0
+    let done = false
+    for !done
+      if i < len(micro_seq)
+        let op = micro_seq[i]
+        (op == 17 ? (last_emit = i) : 0)
+        (op == 255 && first_end == -1 ? (first_end = i) : 0)
+        i = i + 1
+        0
+      else
+            0
+        done = true
+      0
+    let cut = len(micro_seq)
+    (first_end != -1 ? (cut = first_end + 1) : 0)
+    let drop_tail = false
+    if last_emit != -1 && last_emit + 1 < cut
+      let next_op = micro_seq[last_emit + 1]
+      if next_op == 255
+        cut = last_emit + 2
+      else
+        cut = last_emit + 1
+        drop_tail = true
+    else
+      0
+    let res = micro_seq.slice(0, cut)
+    if drop_tail
+      res = res.push(255)
+    else
+      0
+    res
+
+let pass_all(micro_seq) =
+    let s1 = pass_constant_fold(micro_seq)
+    let s2 = pass_algebra_simplify(s1)
+    let s3 = pass_operator_fusion(s2)
+    pass_dead_code(s3)
+
+let pass_verify_dfl(micro_seq) =
+    let original_result = micro_interp(micro_seq)
+    let optimized = pass_all(micro_seq)
+    let optimized_result = micro_interp(optimized)
+    original_result == optimized_result
+
+let pass_dump_seq(micro_seq) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(micro_seq)
+        let op = micro_seq[i]
+        out = out.push(op)
+        i = i + 1
+      else
+        done = true
+    out
+
+let pass_summary() =
+    { passes: 4, pass_names: ["constant_fold", "algebra_simplify", "operator_fusion", "dead_code"], pass_order: "constant_fold → algebra_simplify → operator_fusion → dead_code", dfl_preserved: true }

@@ -1,0 +1,347 @@
+import "../domain_field.ψ"
+
+let MS_WORKING = 0
+let MS_EPISODIC = 1
+let MS_SEMANTIC = 2
+let MS_PROCEDURAL = 3
+
+let ms_entry_new(id, content, embedding, tags, ts, mtype) =
+    [id, content, embedding, tags, ts, 0, mtype]
+
+let ms_e_id(e) = e[0]
+let ms_e_content(e) = e[1]
+let ms_e_emb(e) = e[2]
+let ms_e_tags(e) = e[3]
+let ms_e_ts(e) = e[4]
+let ms_e_access(e) = e[5]
+let ms_e_type(e) = e[6]
+
+let ms_e_set_access(e, v) = [e[0], e[1], e[2], e[3], e[4], v, e[6]]
+
+let ms_new(working_max) = [{}, [], working_max, {}, {}, 1, 0]
+
+let ms_entries(s) = s[0]
+let ms_lru(s) = s[1]
+let ms_wmax(s) = s[2]
+let ms_tags(s) = s[3]
+let ms_types(s) = s[4]
+let ms_next(s) = s[5]
+let ms_consolidated(s) = s[6]
+
+let ms_set_entries(s, v) = [v, s[1], s[2], s[3], s[4], s[5], s[6]]
+let ms_set_lru(s, v) = [s[0], v, s[2], s[3], s[4], s[5], s[6]]
+let ms_set_tags(s, v) = [s[0], s[1], s[2], v, s[4], s[5], s[6]]
+let ms_set_types(s, v) = [s[0], s[1], s[2], s[3], v, s[5], s[6]]
+let ms_set_next(s, v) = [s[0], s[1], s[2], s[3], s[4], v, s[6]]
+let ms_set_consolidated(s, v) = [s[0], s[1], s[2], s[3], s[4], s[5], v]
+
+let ms_store(s, content, embedding, tags, ts, mtype) =
+    let id = ms_next(s)
+    s = ms_set_next(s, id + 1)
+    let entry = ms_entry_new(id, content, embedding, tags, ts, mtype)
+    let entries = ms_entries(s)
+    entries[id] = entry
+    s = ms_set_entries(s, entries)
+    let tag_idx = ms_tags(s)
+    let i = 0
+    let n = len(tags)
+    for i < n
+        let lst = tag_idx[tags[i]]
+        if lst == 0
+            lst = []
+        lst.push(id)
+        tag_idx[tags[i]] = lst
+        i = i + 1
+    s = ms_set_tags(s, tag_idx)
+    let type_idx = ms_types(s)
+    let tlst = type_idx[mtype]
+    if tlst == 0
+        tlst = []
+    tlst.push(id)
+    type_idx[mtype] = tlst
+    s = ms_set_types(s, type_idx)
+    if mtype == MS_WORKING
+        let lru = ms_lru(s)
+        lru.push(id)
+        for len(lru) > ms_wmax(s)
+            let victim = lru[0]
+            let new_lru = []
+            let j = 1
+            let m = len(lru)
+            for j < m
+                new_lru.push(lru[j])
+                j = j + 1
+            lru = new_lru
+            let entries2 = ms_entries(s)
+            entries2[victim] = 0
+            s = ms_set_entries(s, entries2)
+        s = ms_set_lru(s, lru)
+    [s, id]
+
+let ms_access(s, id) =
+    let entries = ms_entries(s)
+    let e = entries[id]
+    if e == 0
+        [s, 0]
+    else
+        e = ms_e_set_access(e, ms_e_access(e) + 1)
+        entries[id] = e
+        s = ms_set_entries(s, entries)
+        if ms_e_type(e) == MS_WORKING
+            let lru = ms_lru(s)
+            let new_lru = []
+            let i = 0
+            let n = len(lru)
+            for i < n
+                if lru[i] != id
+                    new_lru.push(lru[i])
+                i = i + 1
+            new_lru.push(id)
+            s = ms_set_lru(s, new_lru)
+        [s, e]
+
+let ms_recall_by_vector(s, query_vec, k) =
+    let entries = ms_entries(s)
+    let keys = keys_of(entries)
+    let scored = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let e = entries[keys[i]]
+        if e != 0
+            let emb = ms_e_emb(e)
+            if emb != 0
+                let d = 0
+                let j = 0
+                let m = len(query_vec)
+                for j < m
+                    d = d + query_vec[j] * emb[j]
+                    j = j + 1
+                scored.push([d, ms_e_id(e)])
+        i = i + 1
+    let result = []
+    let j = 0
+    for j < k && j < len(scored)
+        let max_idx = j
+        let m = j + 1
+        for m < len(scored)
+            if scored[m][0] > scored[max_idx][0]
+                max_idx = m
+            m = m + 1
+        let tmp = scored[j]
+        scored[j] = scored[max_idx]
+        scored[max_idx] = tmp
+        result.push(scored[j][1])
+        j = j + 1
+    result
+
+let ms_recall_by_tag(s, tag) =
+    let tag_idx = ms_tags(s)
+    let ids = tag_idx[tag]
+    let result = []
+    if ids != 0
+        let entries = ms_entries(s)
+        let i = 0
+        let n = len(ids)
+        for i < n
+            let e = entries[ids[i]]
+            if e != 0
+                result.push(e)
+            i = i + 1
+    result
+
+let ms_recall_by_time(s, start_ts, end_ts) =
+    let entries = ms_entries(s)
+    let keys = keys_of(entries)
+    let result = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let e = entries[keys[i]]
+        if e != 0
+            let ts = ms_e_ts(e)
+            if ts >= start_ts && ts <= end_ts
+                result.push(e)
+        i = i + 1
+    result
+
+let ms_recall_by_type(s, mtype) =
+    let type_idx = ms_types(s)
+    let ids = type_idx[mtype]
+    let result = []
+    if ids != 0
+        let entries = ms_entries(s)
+        let i = 0
+        let n = len(ids)
+        for i < n
+            let e = entries[ids[i]]
+            if e != 0
+                result.push(e)
+            i = i + 1
+    result
+
+let ms_consolidate(s) =
+    let entries = ms_entries(s)
+    let type_idx = ms_types(s)
+    let working_ids = type_idx[MS_WORKING]
+    let consolidated = 0
+    if working_ids != 0
+        let i = 0
+        let n = len(working_ids)
+        for i < n
+            let id = working_ids[i]
+            let e = entries[id]
+            if e != 0
+                let new_e = [ms_e_id(e), ms_e_content(e), ms_e_emb(e), ms_e_tags(e), ms_e_ts(e), ms_e_access(e), MS_EPISODIC]
+                entries[id] = new_e
+                consolidated = consolidated + 1
+            i = i + 1
+        let epi_ids = type_idx[MS_EPISODIC]
+        if epi_ids == 0
+            epi_ids = []
+        let j = 0
+        n = len(working_ids)
+        for j < n
+            epi_ids.push(working_ids[j])
+            j = j + 1
+        type_idx[MS_EPISODIC] = epi_ids
+        type_idx[MS_WORKING] = []
+        s = ms_set_entries(s, entries)
+        s = ms_set_types(s, type_idx)
+        s = ms_set_lru(s, [])
+        s = ms_set_consolidated(s, ms_consolidated(s) + consolidated)
+    [s, consolidated]
+
+let ms_forget(s, threshold_access, older_than_ts) =
+    let entries = ms_entries(s)
+    let keys = keys_of(entries)
+    let forgotten = 0
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let id = keys[i]
+        let e = entries[id]
+        if e != 0
+            if ms_e_access(e) < threshold_access && ms_e_ts(e) < older_than_ts
+                if ms_e_type(e) != MS_SEMANTIC
+                    entries[id] = 0
+                    forgotten = forgotten + 1
+        i = i + 1
+    s = ms_set_entries(s, entries)
+    [s, forgotten]
+
+let ms_bragg_check(s) =
+    let entries = ms_entries(s)
+    let type_idx = ms_types(s)
+    let keys = keys_of(entries)
+    let total_in_entries = 0
+    let i = 0
+    let n = len(keys)
+    for i < n
+        if entries[keys[i]] != 0
+            total_in_entries = total_in_entries + 1
+        i = i + 1
+    let total_in_types = 0
+    let tkeys = keys_of(type_idx)
+    i = 0
+    n = len(tkeys)
+    for i < n
+        let lst = type_idx[tkeys[i]]
+        if lst != 0
+            total_in_types = total_in_types + len(lst)
+        i = i + 1
+    if total_in_entries <= total_in_types
+        1
+    else
+        0
+
+let ms_test_basic() =
+    let s = ms_new(3)
+    let ok1 = 1
+    if ms_next(s) != 1
+        ok1 = 0
+
+    let r1 = ms_store(s, "msg1", [1, 2, 3], ["work"], 100, MS_WORKING)
+    s = r1[0]
+    let r2 = ms_store(s, "msg2", [4, 5, 6], ["work"], 200, MS_WORKING)
+    s = r2[0]
+    let r3 = ms_store(s, "msg3", [2, 3, 4], ["test"], 300, MS_WORKING)
+    s = r3[0]
+    let r4 = ms_store(s, "msg4", [3, 4, 5], ["test"], 400, MS_WORKING)
+    s = r4[0]
+    let ok2 = 1
+    let entries = ms_entries(s)
+    if entries[1] != 0
+        ok2 = 0
+    if entries[2] == 0
+        ok2 = 0
+
+    let r5 = ms_store(s, "epi1", [10, 20, 30], ["history"], 500, MS_EPISODIC)
+    s = r5[0]
+
+    let r6 = ms_store(s, "fact1", [100, 200, 300], ["knowledge"], 600, MS_SEMANTIC)
+    s = r6[0]
+
+    let recalled = ms_recall_by_vector(s, [1, 2, 3], 5)
+    let ok3 = 1
+    if len(recalled) == 0
+        ok3 = 0
+
+    let test_msgs = ms_recall_by_tag(s, "test")
+    let ok4 = 1
+    if len(test_msgs) != 2
+        ok4 = 0
+
+    let time_msgs = ms_recall_by_time(s, 100, 350)
+    let ok5 = 1
+    if len(time_msgs) != 2
+        ok5 = 0
+
+    let epi_msgs = ms_recall_by_type(s, MS_EPISODIC)
+    let ok6 = 1
+    if len(epi_msgs) != 1
+        ok6 = 0
+
+    let ar = ms_access(s, 5)
+    s = ar[0]
+    let ok7 = 1
+    if ar[1] == 0
+        ok7 = 0
+    let e = ms_entries(s)[5]
+    if ms_e_access(e) != 1
+        ok7 = 0
+
+    let cr = ms_consolidate(s)
+    s = cr[0]
+    let ok8 = 1
+    if cr[1] != 3
+        ok8 = 0
+    if ms_consolidated(s) != 3
+        ok8 = 0
+    let type_idx = ms_types(s)
+    if len(type_idx[MS_WORKING]) != 0
+        ok8 = 0
+    if len(type_idx[MS_EPISODIC]) != 4
+        ok8 = 0
+
+    let fr = ms_forget(s, 1, 600)
+    s = fr[0]
+    let ok9 = 1
+    if fr[1] < 0
+        ok9 = 0
+
+    let ok10 = 1
+    if ms_bragg_check(s) != 1
+        ok10 = 0
+
+    ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7 * ok8 * ok9 * ok10
+
+let ms_test_self() =
+        let ok = ms_test_basic()
+        if ok == 1
+            print("memory_store: ALL PASS")
+        else
+            print("memory_store: FAIL")
+        ok
+
+    ms_test_self()

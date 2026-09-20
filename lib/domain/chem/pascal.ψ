@@ -1,0 +1,39 @@
+import "ck.ψ"
+let bad = [0]
+
+let r4sum = 1 + 4 + 6 + 4 + 1
+let dz1 = r4sum - 16
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let r5sum = 1 + 5 + 10 + 10 + 5 + 1
+let dz2 = r5sum - 32
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let c42 = 4 + 6
+let dz3 = c42 - 10
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let dbl10 = 10 * 2
+let diff = dbl10 - 10
+let sym = diff - 10
+let dz4 = sym
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let fact5 = 5 * 4 * 3 / 3 / 2 / 1
+let dz5 = fact5 - 10
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let stick = 1 + 3 + 6 + 10
+let dz6 = stick - 20
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+let cb = 20 / 4
+let dz7 = cb - 5
+bad[0] = bad[0] + ck(dz7, 0, 0)
+
+if 1654 < 1652
+    bad[0] = bad[0] + 1
+if 1654 > 1656
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,89 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let ORGAN_HEART_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let ORGAN_HEART_RESIDUES = [100, 800, 1200, 1000, 500, 50, 80, 100]
+
+let psi_organ_heart(phase_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(phase_idx), gf_norm(ORGAN_HEART_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(ORGAN_HEART_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let ORGAN_LIVER_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let ORGAN_LIVER_RESIDUES = [800, 300, 100, 500, 200, 400, 150, 250]
+
+let psi_organ_liver(func_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(func_idx), gf_norm(ORGAN_LIVER_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(ORGAN_LIVER_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let ORGAN_KIDNEY_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let ORGAN_KIDNEY_RESIDUES = [650, 100, 50, 150, 50, 20, 50, 0]
+
+let psi_organ_kidney(seg_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(seg_idx), gf_norm(ORGAN_KIDNEY_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(ORGAN_KIDNEY_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let ORGAN_BRAIN_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let ORGAN_BRAIN_RESIDUES = [500, 480, 450, 520, 400, 350, 300, 450]
+
+let psi_organ_brain(region_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(region_idx), gf_norm(ORGAN_BRAIN_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(ORGAN_BRAIN_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let ORGAN_CO_BASE = 5000
+let ORGAN_CO_SCALE = 1000
+
+let organ_fit_cardiac_output(phase_idx) =
+    let h_term = gf_div(psi_organ_heart(phase_idx), ORGAN_CO_SCALE)
+    gf_add(ORGAN_CO_BASE, h_term)
+
+let ORGAN_CLH_BASE = 800
+let ORGAN_CLH_SCALE = 100
+
+let organ_fit_hepatic_clearance(func_idx) =
+    let l_term = gf_div(psi_organ_liver(func_idx), ORGAN_CLH_SCALE)
+    gf_add(ORGAN_CLH_BASE, l_term)
+
+let ORGAN_GFR_BASE = 12500
+let ORGAN_GFR_SCALE = 100
+
+let organ_fit_GFR(seg_idx) =
+    let k_term = gf_div(psi_organ_kidney(seg_idx), ORGAN_GFR_SCALE)
+    gf_add(ORGAN_GFR_BASE, k_term)
+
+let ORGAN_CBF_BASE = 500
+let ORGAN_CBF_SCALE = 100
+
+let organ_fit_CBF(region_idx) =
+    let b_term = gf_div(psi_organ_brain(region_idx), ORGAN_CBF_SCALE)
+    gf_add(ORGAN_CBF_BASE, b_term)
+
+let organ_global_response(phase_idx, func_idx, seg_idx, region_idx) =
+    let e1 = psi_organ_heart(phase_idx)
+    let e2 = psi_organ_liver(func_idx)
+    let e3 = psi_organ_kidney(seg_idx)
+    let e4 = psi_organ_brain(region_idx)
+    gf_add(gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3)), gf_mul(e4, e4))
+

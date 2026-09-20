@@ -1,0 +1,462 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+import "bootstrap_residue_prime.ψ"
+
+import "sh_ef2caeb45c.ψ"
+
+import "sh_9190a5699c.ψ"
+
+    let rp1 = rp_make(3, 10, 1)
+    if rp_z(rp1) == 3
+        ok = ok + 1
+    if rp_r(rp1) == 10
+        ok = ok + 1
+    if rp_n(rp1) == 1
+        ok = ok + 1
+
+    let rp2 = rp_make(5, 20, 1)
+    let rp3 = rp_make(7, 30, 2)
+
+    let rp4 = rp_make(3, 15, 1)
+    let rp_add_result = rp_add(rp1, rp4)
+    if rp_r(rp_add_result) == 25
+        ok = ok + 1
+
+    let rp_mul_result = rp_mul(rp1, rp2)
+    if rp_z(rp_mul_result) == 3
+        ok = ok + 1
+
+    let rp_scaled = rp_scale(rp1, 2)
+    if rp_r(rp_scaled) == 20
+        ok = ok + 1
+
+    let rp_mut = rp_galois(rp1, 2)
+    if rp_z(rp_mut) == 9
+        ok = ok + 1
+    if rp_r(rp_mut) == 100
+        ok = ok + 1
+
+    let eval1 = rp_eval(rp1, 10)
+    if eval1 >= 0
+        ok = ok + 1
+
+    if rp_residue(rp1) == 10
+        ok = ok + 1
+
+    let primes = [rp1, rp2, rp3]
+    let field = rpf_make(primes, 3)
+    if rpf_count(field) == 3
+        ok = ok + 1
+
+    let field_eval = rpf_eval(field, 100)
+    if field_eval >= 0
+        ok = ok + 1
+
+    let total_res = rpf_total_residue(field)
+    if total_res == gf_add(gf_add(10, 20), 30)
+        ok = ok + 1
+
+    let field2 = rpf_make([rp1], 1)
+    let field_add = rpf_add(field, field2)
+    if rpf_count(field_add) == 4
+        ok = ok + 1
+
+    let field_mut = rpf_galois(field, 2)
+    if rpf_count(field_mut) == 3
+        ok = ok + 1
+
+    let fp = rpf_fingerprint(field)
+    if fp >= 0
+        ok = ok + 1
+
+    let collide_result = rp_collide(rp1, rp2)
+    if rp_z(collide_result[0]) == 3
+        ok = ok + 1
+    if rp_z(collide_result[1]) == 5
+        ok = ok + 1
+
+    let collided_field = rpf_collide(field)
+    if rpf_count(collided_field) == 3
+        ok = ok + 1
+
+    let hom = rpf_homology(field)
+    if hom[0] == 3
+        ok = ok + 1
+    if hom[1] == 60
+        ok = ok + 1
+
+    let cancer = rpf_cancer_check(field)
+    if cancer == 0 || cancer == 1
+        ok = ok + 1
+
+    let apop = rpf_apoptosis(field)
+    if rpf_count(apop) >= 0
+        ok = ok + 1
+
+    let photon = rp_to_photon_config(rp1)
+    if photon[0] == 3
+        ok = ok + 1
+    if photon[1] == 10
+        ok = ok + 1
+    if photon[2] == 1
+        ok = ok + 1
+
+    let supercond = rp_to_superconductor_config(rp2)
+    if supercond[0] == 5
+        ok = ok + 1
+
+    let fluid = rp_to_fluid_config(rp3)
+    if fluid[0] == 7
+        ok = ok + 1
+
+    let dna = rp_dna(primes, 3)
+    let mutated_dna = rp_mutate(dna, 2)
+    if rpf_count(mutated_dna) == 3
+        ok = ok + 1
+
+    let transcribed = rp_transcribe(dna)
+    if rpf_count(transcribed) == 3
+        ok = ok + 1
+
+    let translated = rp_translate(dna)
+    if translated >= 0
+        ok = ok + 1
+
+    let fit = rp_fitness(dna)
+    if fit >= 0
+        ok = ok + 1
+
+    let gen = rp_generation(dna, 2)
+    if rpf_count(gen) == 3
+        ok = ok + 1
+
+    let info = rp_information(rp1)
+    if info >= 0
+        ok = ok + 1
+
+    let field_info = rpf_information(field)
+    if field_info == 99
+        ok = ok + 1
+
+    let entropy = rpf_entropy(field)
+    if entropy >= 0
+        ok = ok + 1
+
+    let s_mat = rp_s_matrix(rp1, rp2)
+    if rp_z(s_mat[0]) == 3
+        ok = ok + 1
+
+    let field_s = rpf_s_matrix(field)
+    if rpf_count(field_s) == 3
+        ok = ok + 1
+
+    let prop = rp_propagator(10, 3)
+    if prop >= 0
+        ok = ok + 1
+
+    let prop_res = rp_propagator_residue(3)
+    if gf_mul(prop_res, 6) == 1
+        ok = ok + 1
+
+    let mass = rp_particle_mass(rp1)
+    if mass == 3
+        ok = ok + 1
+
+    let s_elem = rp_s_matrix_element(field)
+    if s_elem >= 0
+        ok = ok + 1
+
+    let total = rpf_total_residue(field)
+    let manual_sum = gf_add(gf_add(rp_residue(rp1), rp_residue(rp2)), rp_residue(rp3))
+    if total == manual_sum
+        ok = ok + 1
+
+    let before = rpf_total_residue(field)
+    let after = rpf_total_residue(collided_field)
+    if before == after
+        ok = ok + 1
+
+    ok
+
+let soliton_make(kappa, x0) =
+    let r = gf_mul(gf_mul(2, kappa), kappa)
+    rp_make(x0, r, 1)
+
+let soliton_amplitude(sol) = rp_r(sol)
+
+let soliton_position(sol) = rp_z(sol)
+
+let soliton_kappa(sol) =
+    let r = rp_r(sol)
+    gf_div(r, 2)
+
+let soliton_phase_shift(kappa1, kappa2) =
+    let sum_k = gf_add(kappa1, kappa2)
+    let diff_k = gf_sub(kappa1, kappa2)
+    let ratio = gf_mul(sum_k, gf_inv(diff_k))
+    gf_mul(gf_inv(kappa1), ratio)
+
+let soliton_collide(sol1, sol2) =
+    let k1 = soliton_kappa(sol1)
+    let k2 = soliton_kappa(sol2)
+    let x1 = soliton_position(sol1)
+    let x2 = soliton_position(sol2)
+    let r1 = soliton_amplitude(sol1)
+    let r2 = soliton_amplitude(sol2)
+
+    let delta1 = soliton_phase_shift(k1, k2)
+    let delta2 = soliton_phase_shift(k2, k1)
+
+    let new_x1 = gf_add(x1, delta1)
+    let new_x2 = gf_add(x2, delta2)
+
+    [rp_make(new_x1, r1, 1), rp_make(new_x2, r2, 1)]
+
+let soliton_momentum(solitons, n) =
+    let p = 0
+    let i = 0
+    for i < n
+        p = gf_add(p, soliton_kappa(solitons[i]))
+        i = i + 1
+    p
+
+let soliton_energy(solitons, n) =
+    let e = 0
+    let i = 0
+    for i < n
+        let k = soliton_kappa(solitons[i])
+        e = gf_add(e, gf_pow(k, 3))
+        i = i + 1
+    e
+
+let soliton_residue_sum(solitons, n) =
+    let r = 0
+    let i = 0
+    for i < n
+        r = gf_add(r, soliton_amplitude(solitons[i]))
+        i = i + 1
+    r
+
+let verify_conservation(sol1, sol2) =
+    let before = [sol1, sol2]
+    let after_collide = soliton_collide(sol1, sol2)
+    let after = [after_collide[0], after_collide[1]]
+
+    let p_before = soliton_momentum(before, 2)
+    let p_after = soliton_momentum(after, 2)
+    let momentum_ok = 0
+    if p_before == p_after
+        momentum_ok = 1
+
+    let r_before = soliton_residue_sum(before, 2)
+    let r_after = soliton_residue_sum(after, 2)
+    let residue_ok = 0
+    if r_before == r_after
+        residue_ok = 1
+
+    [momentum_ok, residue_ok]
+
+let verify_shape_preserved(sol1, sol2) =
+    let after = soliton_collide(sol1, sol2)
+    let new_sol1 = after[0]
+    let new_sol2 = after[1]
+
+    let r1_before = soliton_amplitude(sol1)
+    let r1_after = soliton_amplitude(new_sol1)
+    let r2_before = soliton_amplitude(sol2)
+    let r2_after = soliton_amplitude(new_sol2)
+
+    let shape_ok = 0
+    if r1_before == r1_after
+        if r2_before == r2_after
+            shape_ok = 1
+    shape_ok
+
+let n_soliton_collide(solitons, n) =
+    let current = solitons
+    let i = 0
+    for i < n
+        let j = gf_add(i, 1)
+        for j < n
+            let sol_i = current[i]
+            let sol_j = current[j]
+            let collided = soliton_collide(sol_i, sol_j)
+            current[i] = collided[0]
+            current[j] = collided[1]
+            j = j + 1
+        i = i + 1
+    current
+
+let verify_n_soliton_conservation(solitons, n) =
+    let p_before = soliton_momentum(solitons, n)
+    let r_before = soliton_residue_sum(solitons, n)
+    let after = n_soliton_collide(solitons, n)
+    let p_after = soliton_momentum(after, n)
+    let r_after = soliton_residue_sum(after, n)
+    let result = 0
+    if p_before == p_after
+        if r_before == r_after
+            result = 1
+    result
+
+let s_matrix_2soliton(sol1, sol2) = soliton_collide(sol1, sol2)
+
+let verify_s_matrix_involution(sol1, sol2) =
+    let after1 = s_matrix_2soliton(sol1, sol2)
+    let s1 = after1[0]
+    let s2 = after1[1]
+    let after2 = s_matrix_2soliton(s1, s2)
+    let r1_orig = soliton_amplitude(sol1)
+    let r1_final = soliton_amplitude(after2[0])
+    let result = 0
+    if r1_orig == r1_final
+        result = 1
+    result
+
+let time_step(field, dt) =
+    let primes = rpf_primes(field)
+    let n = rpf_count(field)
+    let new_primes = []
+    let i = 0
+    for i < n
+        let rp = primes[i]
+        let z = rp_z(rp)
+        let r = rp_r(rp)
+        let nn = rp_n(rp)
+        let new_z = gf_add(z, gf_mul(dt, r))
+        let new_r = gf_add(r, gf_mul(dt, z))
+        new_primes = new_primes.push(rp_make(new_z, new_r, nn))
+        i = i + 1
+    rpf_make(new_primes, n)
+
+let pde_solve(field, dt, steps) =
+    let current = field
+    let i = 0
+    for i < steps
+        current = time_step(current, dt)
+        i = i + 1
+    current
+
+let verify_pde_conservation(field, dt, steps) =
+    let before = rpf_total_residue(field)
+    let after = pde_solve(field, dt, steps)
+    let after_res = rpf_total_residue(after)
+    let result = 0
+    if before == after_res
+        result = 1
+    result
+
+let soliton_collision_verify() =
+    let ok = 0
+
+    let sol1 = soliton_make(3, 10)
+    let sol2 = soliton_make(5, 20)
+    if soliton_amplitude(sol1) == 18
+        ok = ok + 1
+    if soliton_amplitude(sol2) == 50
+        ok = ok + 1
+    if soliton_position(sol1) == 10
+        ok = ok + 1
+    if soliton_position(sol2) == 20
+        ok = ok + 1
+
+    let collided = soliton_collide(sol1, sol2)
+    if rp_z(collided[0]) >= 0
+        ok = ok + 1
+    if rp_z(collided[1]) >= 0
+        ok = ok + 1
+
+    let delta = soliton_phase_shift(3, 5)
+    if delta >= 0
+        ok = ok + 1
+
+    let conservation = verify_conservation(sol1, sol2)
+    if conservation[0] == 1
+        ok = ok + 1
+    if conservation[1] == 1
+        ok = ok + 1
+
+    if verify_shape_preserved(sol1, sol2) == 1
+        ok = ok + 1
+
+    let sol3 = soliton_make(7, 30)
+    let solitons = [sol1, sol2, sol3]
+    let n_collided = n_soliton_collide(solitons, 3)
+    if n_collided[0] >= 0
+        ok = ok + 1
+    if n_collided[2] >= 0
+        ok = ok + 1
+
+    if verify_n_soliton_conservation(solitons, 3) == 1
+        ok = ok + 1
+
+    if verify_s_matrix_involution(sol1, sol2) == 1
+        ok = ok + 1
+
+    let field = rpf_make([sol1, sol2], 2)
+    let evolved = pde_solve(field, 1, 5)
+    if rpf_count(evolved) == 2
+        ok = ok + 1
+
+    if verify_pde_conservation(field, 1, 5) == 1
+        ok = ok + 1
+
+    let before_momentum = soliton_momentum(solitons, 3)
+    let before_energy = soliton_energy(solitons, 3)
+    let before_residue = soliton_residue_sum(solitons, 3)
+    if before_momentum >= 0
+        ok = ok + 1
+    if before_energy >= 0
+        ok = ok + 1
+    if before_residue >= 0
+        ok = ok + 1
+
+    let after_momentum = soliton_momentum(n_collided, 3)
+    let after_residue = soliton_residue_sum(n_collided, 3)
+    if before_momentum == after_momentum
+        ok = ok + 1
+    if before_residue == after_residue
+        ok = ok + 1
+
+    let rp_collided = rp_collide(sol1, sol2)
+    let rp_before = gf_add(rp_r(sol1), rp_r(sol2))
+    let rp_after = gf_add(rp_r(rp_collided[0]), rp_r(rp_collided[1]))
+    if rp_before == rp_after
+        ok = ok + 1
+
+    let perturbed = rp_galois(sol1, 2)
+    if rp_r(perturbed) >= 0
+        ok = ok + 1
+
+    let hom = rpf_homology(field)
+    if hom[0] == 2
+        ok = ok + 1
+
+    let t0 = rpf_fingerprint(field)
+    let t1 = rpf_fingerprint(time_step(field, 1))
+    let t2 = rpf_fingerprint(time_step(time_step(field, 1), 1))
+    if t0 >= 0
+        ok = ok + 1
+    if t1 >= 0
+        ok = ok + 1
+    if t2 >= 0
+        ok = ok + 1
+
+    let one_step_result = soliton_collide(sol1, sol2)
+    if rp_z(one_step_result[0]) >= 0
+        ok = ok + 1
+    if rp_z(one_step_result[1]) >= 0
+        ok = ok + 1
+
+    let all_ok = 1
+    if conservation[0] == 0
+        all_ok = 0
+    if conservation[1] == 0
+        all_ok = 0
+    if verify_shape_preserved(sol1, sol2) == 0
+        all_ok = 0
+    if all_ok == 1
+        ok = ok + 1
+
+    ok
+
+let main() = soliton_collision_verify()

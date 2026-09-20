@@ -1,0 +1,78 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let WS_MAX_FRAME = 1048576
+
+let WS_OPCODE_CONTINUATION = 0
+let WS_OPCODE_TEXT = 1
+let WS_OPCODE_BINARY = 2
+let WS_OPCODE_CLOSE = 8
+let WS_OPCODE_PING = 9
+let WS_OPCODE_PONG = 10
+
+let ws_frame_create(opcode, payload) = [1, opcode, 0, payload]
+let ws_frame_parse(data) =
+    if len(data) < 2
+        [0, 0, 0, []]
+    let b0 = data[0]
+    let b1 = data[1]
+    let fin = b0 / 128
+    let opcode = b0 % 16
+    let mask = b1 / 128
+    let len = b1 % 128
+    let payload = []
+    let i = 0
+    for i < len && i + 2 < len(data)
+        payload.push(data[i + 2])
+        i = i + 1
+    [fin, opcode, mask, payload]
+let ws_frame_serialize(frame) =
+    let fin = frame[0]
+    let opcode = frame[1]
+    let mask = frame[2]
+    let payload = frame[3]
+    let len = len(payload)
+    let data = [fin * 128 + opcode, mask * 128 + len]
+    let i = 0
+    for i < len
+        data.push(payload[i])
+        i = i + 1
+    data
+let ws_conn_create(id) = [id, 0, [], 0]
+let ws_conn_send(conn, frame) =
+    let buffer = conn[2]
+    let data = ws_frame_serialize(frame)
+    let i = 0
+    let n = len(data)
+    for i < n
+        buffer.push(data[i])
+        i = i + 1
+    [conn[0], conn[1], buffer, conn[3]]
+let ws_conn_recv(conn, data) =
+    let buffer = conn[2]
+    let i = 0
+    let n = len(data)
+    for i < n
+        buffer.push(data[i])
+        i = i + 1
+    let frame = ws_frame_parse(buffer)
+    [conn[0], conn[1], [], conn[3]]
+let ws_ping(conn) = ws_conn_send(conn, ws_frame_create(WS_OPCODE_PING, []))
+let ws_pong(conn) = ws_conn_send(conn, ws_frame_create(WS_OPCODE_PONG, []))
+let ws_close(conn) = ws_conn_send(conn, ws_frame_create(WS_OPCODE_CLOSE, []))
+let ws_field_channel(data, n, poles, residues) =
+    let i = 0
+    for i < n
+        poles[i] = 127 + i * 1000
+        residues[i] = data[i]
+        i = i + 1
+
+let ws_verify() =
+    let frame = ws_frame_create(WS_OPCODE_TEXT, arr_new_n(2))
+    let data = ws_frame_serialize(frame)
+    let parsed = ws_frame_parse(data)
+    let conn = ws_conn_create(1)
+    let conn2 = ws_conn_send(conn, frame)
+    let ok = 0
+    (parsed[1] == WS_OPCODE_TEXT ? (ok = 1) : (ok = 0))
+    ok
+

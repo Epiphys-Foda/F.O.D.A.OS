@@ -1,0 +1,33 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let phi0 = 207
+bad[0] = bad[0] + ck(phi0, 200, 215)
+
+let i_min = 0
+if i_min != 0
+    bad[0] = bad[0] + 1
+
+let kj = 483598
+bad[0] = bad[0] + ck(kj, 483500, 483700)
+
+let v_std = small_div(60 * 80, 484)
+bad[0] = bad[0] + ck(v_std, 8, 11)
+
+let brain = 100
+let sense = 1
+bad[0] = bad[0] + ck_hi(brain, 500)
+bad[0] = bad[0] + ck_hi(sense, brain)
+
+if 1962 < 1960
+    bad[0] = bad[0] + 1
+if 1962 > 1964
+    bad[0] = bad[0] + 1
+if 1990 < 1988
+    bad[0] = bad[0] + 1
+if 1990 > 1992
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

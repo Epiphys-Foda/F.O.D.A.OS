@@ -1,0 +1,22 @@
+import "ck.ψ"
+let bad = [0]
+
+let pO2Sea = 21
+bad[0] = bad[0] + ck(pO2Sea, 20, 22)
+
+let pLasa = 65
+bad[0] = bad[0] + ck(pLasa, 60, 70)
+
+let pEver = 35
+bad[0] = bad[0] + ck(pEver, 30, 40)
+
+if 35 > 40
+    bad[0] = bad[0] + 1
+
+let ozone = 25
+bad[0] = bad[0] + ck(ozone, 20, 30)
+
+let karman = 100
+bad[0] = bad[0] + ck(karman, 90, 110)
+
+arr_get(arr_new_n(1), bad[0])

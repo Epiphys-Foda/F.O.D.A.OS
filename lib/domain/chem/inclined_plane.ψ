@@ -1,0 +1,36 @@
+import "ck.ψ"
+let bad = [0]
+
+let w_load = 300
+let f_gentle = w_load * 2 / 6
+let dz1 = f_gentle - 100
+bad[0] = bad[0] + ck(dz1, 0, 0)
+let ma_gentle = 6 / 2
+let dz2 = ma_gentle - 3
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let dz3 = f_gentle * 6 - w_load * 2
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let f_steep = w_load * 2 / 4
+let dz4 = f_steep - 150
+bad[0] = bad[0] + ck(dz4, 0, 0)
+let dz5 = f_steep * 4 - w_load * 2
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+bad[0] = bad[0] + ck_lo(f_steep, f_gentle)
+
+let wf_ratio = w_load / f_gentle
+let dz6 = wf_ratio - ma_gentle
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+let a_ramp = 10 * 3 / 5
+let dz7 = a_ramp - 6
+bad[0] = bad[0] + ck(dz7, 0, 0)
+
+if 1604 < 1602
+    bad[0] = bad[0] + 1
+if 1604 > 1606
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

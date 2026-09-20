@@ -1,0 +1,172 @@
+import "pki.ψ"
+
+let KE_P = 65537
+let KE_G = 3
+
+let ke_mulmod(a, b, m) =
+    let r = 0
+    let x = a % m
+    let y = b % m
+    for y > 0
+        if y % 2 == 1
+            r = (r + x) % m
+        x = (x + x) % m
+        y = y / 2
+    r
+
+let mod_pow(base, exp, mod_) =
+    let result = 1
+    let b = base % mod_
+    let e = exp
+    for e > 0
+        if e % 2 == 1
+            result = ke_mulmod(result, b, mod_)
+        b = ke_mulmod(b, b, mod_)
+        e = e / 2
+    result
+
+let dh_generate_private(seed) =
+    let h = 0
+    let i = 0
+    let n = len(seed)
+    for i < n
+        h = (h * 31 + seed[i]) % (KE_P - 2)
+        i = i + 1
+    h + 1
+
+let dh_compute_public(private_key) =
+    mod_pow(KE_G, private_key, KE_P)
+
+let dh_compute_shared(self_private, other_public) =
+    mod_pow(other_public, self_private, KE_P)
+
+let dh_party_new(name, seed) =
+    let priv = dh_generate_private(seed)
+    let pubkey = dh_compute_public(priv)
+    [name, priv, pubkey, 0, 0]
+
+let dp_name(p) = p[0]
+let dp_priv(p) = p[1]
+let dp_pub(p) = p[2]
+let dp_peer_pub(p) = p[3]
+let dp_shared(p) = p[4]
+
+let dp_set_peer_pub(p, peer_pub) =
+    p[3] = peer_pub
+    p
+
+let dp_compute_shared(p) =
+    let s = dh_compute_shared(dp_priv(p), dp_peer_pub(p))
+    p[4] = s
+    p
+
+let dh_handshake(alice, bob) =
+    alice = dp_set_peer_pub(alice, dp_pub(bob))
+    bob = dp_set_peer_pub(bob, dp_pub(alice))
+    alice = dp_compute_shared(alice)
+    bob = dp_compute_shared(bob)
+    [alice, bob]
+
+let dh_verify_shared(alice, bob) =
+    if dp_shared(alice) == dp_shared(bob)
+        1
+    else
+        0
+
+let group_dh_3party(seed_a, seed_b, seed_c) =
+    let a = dh_generate_private(seed_a)
+    let b = dh_generate_private(seed_b)
+    let c = dh_generate_private(seed_c)
+    let pa = mod_pow(KE_G, a, KE_P)
+    let pb = mod_pow(KE_G, b, KE_P)
+    let pc = mod_pow(KE_G, c, KE_P)
+    let alice_inter = mod_pow(pb, c, KE_P)
+    let shared = mod_pow(mod_pow(pa, b, KE_P), c, KE_P)
+    let shared2 = mod_pow(mod_pow(pc, a, KE_P), b, KE_P)
+    let ok = 0
+    if shared == shared2
+        ok = 1
+    [shared, ok]
+
+let kdf_derive(shared_secret, info, length) =
+    let derived = []
+    let counter = 1
+    for len(derived) < length
+        let h = shared_secret
+        let i = 0
+        let ni = len(info)
+        for i < ni
+            h = (h * 31 + info[i]) % KE_P
+            i = i + 1
+        h = (h * 31 + counter) % KE_P
+        derived.push(h % 256)
+        counter = counter + 1
+    derived
+
+let kdf_derive_keys(shared_secret) =
+    let enc_key = kdf_derive(shared_secret, "encryption", 32)
+    let mac_key = kdf_derive(shared_secret, "mac", 32)
+    let iv = kdf_derive(shared_secret, "iv", 16)
+    [enc_key, mac_key, iv]
+
+let ephemeral_session_new(seed_a, seed_b) =
+    let alice_eph = dh_party_new("alice_eph", seed_a)
+    let bob_eph = dh_party_new("bob_eph", seed_b)
+    let result = dh_handshake(alice_eph, bob_eph)
+    alice_eph = result[0]
+    bob_eph = result[1]
+    if dh_verify_shared(alice_eph, bob_eph) != 1
+        0
+    else
+        let session_keys = kdf_derive_keys(dp_shared(alice_eph))
+        [alice_eph, bob_eph, session_keys]
+
+let ephemeral_session_destroy(session) =
+    if session != 0
+        session[0] = 0
+        session[1] = 0
+        session[2] = 0
+    1
+
+let dh_signed_public(party, signing_keypair) =
+    let pubkey = dp_pub(party)
+    let sig = pki_sign(signing_keypair, [dp_name(party), pubkey])
+    [dp_name(party), pubkey, sig]
+
+let dh_verify_signed_public(signed_pub, verifying_keypair) =
+    let name = signed_pub[0]
+    let pubkey = signed_pub[1]
+    let sig = signed_pub[2]
+    pki_verify(verifying_keypair, [name, pubkey], sig)
+
+let dh_handshake_signed(alice, bob, alice_sign_kp, bob_sign_kp) =
+    let alice_signed = dh_signed_public(alice, alice_sign_kp)
+    let bob_signed = dh_signed_public(bob, bob_sign_kp)
+    let alice_ok = dh_verify_signed_public(bob_signed, bob_sign_kp)
+    let bob_ok = dh_verify_signed_public(alice_signed, alice_sign_kp)
+    if alice_ok != 1 || bob_ok != 1
+        0
+    else
+        let result = dh_handshake(alice, bob)
+        [result[0], result[1], 1]
+
+let psk_save(shared_secret) =
+    kdf_derive(shared_secret, "psk", 32)
+
+let psk_resume(psk, info, length) =
+    kdf_derive(psk, info, length)
+
+let key_rotation(current_key, rotation_counter) =
+    let new_key = []
+    let h = 0
+    let i = 0
+    let n = len(current_key)
+    for i < n
+        h = (h * 31 + current_key[i]) % KE_P
+        i = i + 1
+    h = (h * 31 + rotation_counter) % KE_P
+    i = 0
+    for i < 32
+        new_key.push((h + i * 17) % 256)
+        i = i + 1
+    new_key

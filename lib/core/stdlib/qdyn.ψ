@@ -1,0 +1,211 @@
+let qd_orbit(n, p1, p2, p3, p4) =
+    let out = []
+    let x = 1
+    let y = 1
+    let i = 0
+    let done = false
+    for !done
+      if i < n
+        let nx = (p1 * x + p2 * y) % 65537
+        let ny = (p3 * x + p4 * y) % 65537
+        out = out.push(nx)
+        x = nx
+        y = ny
+        i = i + 1
+      else
+        done = true
+    out
+
+let qd_orbit3(n) = qd_orbit(n, 6, 14, 65535, 6)
+
+let qd_hit_seq(iters) =
+    let out = []
+    let a = 1
+    let b = 1
+    let i = 0
+    let done = false
+    for !done
+      if i < iters
+        let na = (6 * a + 14 * b) % 65537
+        let nb = (65535 * a + 6 * b) % 65537
+        let aa = (na * na) % 65537
+        let bb = (nb * nb) % 65537
+        let hit = aa > bb
+        if hit
+          out = out.push(1)
+        else
+          out = out.push(0)
+        a = na
+        b = nb
+        i = i + 1
+      else
+        done = true
+    out
+
+let qd_track(K) =
+    let out = []
+    let a = 1
+    let b = 1
+    let i = 0
+    let done = false
+    for !done
+      if i < K
+        let na = (6 * a + 14 * b) % 65537
+        let nb = (65535 * a + 6 * b) % 65537
+        out = out.push(na)
+        a = na
+        b = nb
+        i = i + 1
+      else
+        done = true
+    out
+
+let qd_on_track(k, value, track) = track[k] == value
+
+let qd_sync_seq(n, family) =
+    let out = []
+    let x = 1
+    let y = 1
+    let i = 0
+    let done = false
+    for !done
+      if i < n
+        if family == 1
+          let nx = (6 * x + 14 * y) % 65537
+          let ny = (65535 * x + 6 * y) % 65537
+          out = out.push(nx % 2)
+          x = nx
+          y = ny
+        else
+          let nx = (14 * x + 30 * y) % 65537
+          let ny = (65535 * x + 14 * y) % 65537
+          out = out.push(nx % 2)
+          x = nx
+          y = ny
+        i = i + 1
+      else
+        done = true
+    out
+
+let qd_autocorr(seq, k) =
+    let acc = 0
+    let i = 0
+    let done = false
+    for !done
+      if i < len(seq)
+        let same = seq[i] == seq[(i + k) % len(seq)]
+        if same
+          acc = acc + 1
+        else
+          acc = acc - 1
+        i = i + 1
+      else
+        done = true
+    acc
+
+let qd_frame_sync(frame, seq) =
+    let best_k = 0
+    let best_v = 0
+    let k = 0
+    let done = false
+    for !done
+      if k <= len(frame) - len(seq)
+        let acc = 0
+        let i = 0
+        let idone = false
+        for !idone
+          if i < len(seq)
+            let same = frame[k + i] == seq[i]
+            if same
+              acc = acc + 1
+            else
+              acc = acc - 1
+            i = i + 1
+          else
+            idone = true
+        if acc > best_v
+          best_v = acc
+          best_k = k
+        else
+          0
+        k = k + 1
+      else
+        done = true
+    [best_k, best_v]
+
+let qd_spread(bit, seq) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(seq)
+        if bit == 0
+          out = out.push(seq[i])
+        else
+          out = out.push(1 - seq[i])
+        i = i + 1
+      else
+        done = true
+    out
+
+let qd_verify() =
+    let results = []
+    let orb = qd_orbit3(4)
+    results = results.push(orb[0] == 20 && orb[1] == 176 && orb[2] == 832)
+    let hits = qd_hit_seq(8)
+    results = results.push(hits[0] == 1 && hits[4] == 1 && hits[5] == 0 && hits[7] == 1)
+    let track = qd_track(4)
+    results = results.push(qd_on_track(2, 832, track))
+    results = results.push(!qd_on_track(2, 831, track))
+    let seq = qd_sync_seq(64, 1)
+    let r0 = qd_autocorr(seq, 0)
+    results = results.push(r0 == 64)
+    let sidelobe_max = 0
+    let k = 1
+    let done = false
+    for !done
+      if k < 32
+        let r = qd_autocorr(seq, k)
+        if r > sidelobe_max
+          sidelobe_max = r
+        else
+          0
+        k = k + 1
+      else
+        done = true
+    results = results.push(sidelobe_max < 20)
+    let frame = [0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    let fs = qd_frame_sync(frame, [1, 0, 0, 1, 0, 1, 0, 0])
+    results = results.push(fs[0] == 4)
+    let s0 = qd_spread(0, seq)
+    let s1 = qd_spread(1, seq)
+    results = results.push(s0[0] == seq[0] && s1[0] == 1 - seq[0])
+    let seq2 = qd_sync_seq(64, 2)
+    let seq_diff = false
+    let sd = 0
+    let sdone = false
+    for !sdone
+      if sd < 64
+        if seq[sd] != seq2[sd]
+          seq_diff = true
+        else
+          0
+        sd = sd + 1
+      else
+        sdone = true
+    results = results.push(seq_diff)
+    let total = true
+    let i = 0
+    let done2 = false
+    for !done2
+      if i < len(results)
+        let v = results[i]
+        if v == false
+          total = false
+        else
+          0
+        i = i + 1
+      else
+        done2 = true
+    results = results.push(total)
+    results

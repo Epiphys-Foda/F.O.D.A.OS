@@ -1,0 +1,69 @@
+import "../stdlib/gf65537.ψ"
+
+let lotka_volterra_gf(x, y, alpha, beta, delta, gamma) =
+    let dx = gf_sub(gf_mul(alpha, x), gf_mul(gf_mul(beta, x), y))
+    let dy = gf_sub(gf_mul(gf_mul(delta, x), y), gf_mul(gamma, y))
+    [dx, dy]
+
+let logistic_growth_gf(x, r, K) =
+    let carrying = gf_sub(1, gf_div(x, K))
+    gf_mul(gf_mul(r, x), carrying)
+
+let hardy_weinberg_gf(p, q) =
+    let total = gf_add(p, q)
+    gf_mul(total, total)
+
+let genotype_frequencies_gf(p, q) =
+    [gf_mul(p, p), gf_mul(2, gf_mul(p, q)), gf_mul(q, q)]
+
+let fitness_gf(genotype, fitness_values) =
+    fitness_values[genotype]
+
+let selection_gf(population, fitness_values) =
+    let total_fitness = 0
+    for i in 0..len(population)
+        total_fitness = gf_add(total_fitness, fitness_gf(population[i], fitness_values))
+    total_fitness
+
+let recombination_gf(parent1, parent2, recombination_rate) =
+    gf_add(gf_mul(recombination_rate, parent1), gf_mul(gf_sub(1, recombination_rate), parent2))
+
+let mutation_gf(gene, mutation_rate) =
+    gf_add(gene, mutation_rate)
+
+let dna_encode_gf(sequence) =
+    let encoded = 0
+    for i in 0..len(sequence)
+        encoded = gf_add(gf_mul(encoded, 4), sequence[i])
+    encoded
+
+let dna_align_gf(seq1, seq2) =
+    let distance = 0
+    for i in 0..len(seq1)
+        if seq1[i] != seq2[i]
+            distance = gf_add(distance, 1)
+    distance
+
+let sir_model_gf(S, I, R, beta, gamma) =
+    let dS = gf_neg(gf_mul(gf_mul(beta, S), I))
+    let dI = gf_sub(gf_mul(gf_mul(beta, S), I), gf_mul(gamma, I))
+    let dR = gf_mul(gamma, I)
+    [dS, dI, dR]
+
+let basic_reproduction_number_gf(beta, N, gamma) =
+    gf_div(gf_mul(beta, N), gamma)
+
+let gene_expression_gf(expression, regulation_factor, target_level) =
+    let diff = gf_sub(target_level, expression)
+    gf_mul(regulation_factor, diff)
+
+let food_web_gf(species, interactions, n_species) =
+    let population_change = 0
+    for i in 0..n_species
+        population_change = gf_add(population_change, gf_mul(interactions, species[i]))
+    population_change
+
+let neuron_activate_gf(input, weight, bias) =
+    let z = gf_add(gf_mul(weight, input), bias)
+    gf_pow(3, z)
+

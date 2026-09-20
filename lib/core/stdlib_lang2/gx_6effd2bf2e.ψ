@@ -1,0 +1,50 @@
+let crystal_verdict(XX, YY, n, outk) =
+    let ki = verdict_core8(XX, YY, n, 8, outk)
+    outk[21] = ki
+    let w = outk[20]
+    let gs = outk[w]
+    outk[13] = 0
+    let gate = 0
+    if gs < 50
+        gate = 1
+    let avail = outk[12]
+    let act = 0
+    if avail >= 3
+        act = 1
+    if act == 1
+        let ok6 = 0
+        if w == 0
+            ok6 = frozen0_bm(YY, n, 3)
+        if w == 1
+            ok6 = frozen1_poly(YY, n, 3)
+        if w == 2
+            ok6 = frozen2_harm(XX, YY, n, 3)
+        if w == 3
+            ok6 = frozen3_pow(XX, YY, n, ki, 3)
+        if w == 4
+            ok6 = frozen4_exp(YY, n, 3)
+        if w == 5
+            ok6 = frozen5_period(YY, n, outk[9], 3)
+        if w == 6
+            ok6 = frozen6_perdrift(YY, n, outk[10], 3)
+        if w == 7
+            ok6 = frozen7_pergeo(YY, n, outk[11], 3)
+        if w == 8
+            ok6 = frozen8_perdrift2(YY, n, outk[14], 3)
+        if w == 9
+            ok6 = frozen9_hyp(YY, n, 3)
+        let keep = 0
+        if ok6 == 1
+            keep = 1
+        gate = gate * keep
+        outk[13] = 1
+    outk[22] = gate
+    let KB = arr_new_n(4)
+    KB[0] = w + 1
+    KB[1] = ki + 1
+    KB[2] = gs
+    KB[3] = n + 1
+    outk[23] = rrns_chain(KB, 4, P)
+    outk[24] = rrns_chain(KB, 4, 131071)
+    0
+

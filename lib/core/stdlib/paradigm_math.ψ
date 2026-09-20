@@ -1,0 +1,202 @@
+import "gf65537.ψ"
+import "arr.ψ"
+import "algebraic_replacements.ψ"
+import "numtheor.ψ"
+
+let gf_legendre_symbol(a) = gf_legendre(a)
+
+let gf_sqrt_tonelli(a) = gf_sqrt(a)
+
+let gf_min(a, b) =
+    if gf_sub(a, b) > 32768
+        a
+    b
+
+let gf_max(a, b) =
+    if gf_sub(a, b) > 32768
+        b
+    a
+
+let gf_diff1(f_vals, x) = gf_deriv(f_vals, x)
+let gf_diff2(f_vals, x) = gf_deriv2(f_vals, x)
+
+let gf_euler_step(f, y, t) = gf_add(y, f)
+
+let gf_rk4_step(f, y, t) =
+    let k1 = f
+    let k2 = f
+    let k3 = f
+    let k4 = f
+    let sum = gf_add(gf_add(k1, gf_mul(2, k2)), gf_add(gf_mul(2, k3), k4))
+    gf_add(y, gf_mul(sum, 10923))
+
+let gf_bessel_j(n, x) =
+    if n == 0
+        1
+    if n == 1
+        gf_mul(2, gf_inv(x))
+    let j_prev = gf_bessel_j(n - 1, x)
+    let j_prev2 = gf_bessel_j(n - 2, x)
+    let coeff = gf_mul(2 * (n - 1), gf_inv(x))
+    gf_sub(gf_mul(coeff, j_prev), j_prev2)
+
+let gf_legendre_p(n, x) =
+    if n == 0
+        1
+    if n == 1
+        x
+    let p_prev = gf_legendre_p(n - 1, x)
+    let p_prev2 = gf_legendre_p(n - 2, x)
+    let num = gf_sub(gf_mul(gf_mul(2 * n - 1, x), p_prev), gf_mul(n - 1, p_prev2))
+    gf_mul(num, gf_inv(n))
+
+let gf_hermite_h(n, x) =
+    if n == 0
+        1
+    if n == 1
+        gf_mul(2, x)
+    let h_prev = gf_hermite_h(n - 1, x)
+    let h_prev2 = gf_hermite_h(n - 2, x)
+    gf_sub(gf_mul(gf_mul(2, x), h_prev), gf_mul(2 * (n - 1), h_prev2))
+
+let gf_schrodinger_step(H, psi) =
+    gf_add(psi, H)
+
+let gf_heat_step(u, alpha, u_prev, u_next) =
+    let laplacian = gf_add(gf_sub(u_next, gf_mul(2, u)), u_prev)
+    gf_add(u, gf_mul(alpha, laplacian))
+
+let _gf_fs_argmin_acc(f_vals, i, n, best_x, best_y) =
+      if i >= n
+          best_x
+      let y = arr_get(f_vals, i)
+      if gf_sub(y, best_y) > 32768
+        _gf_fs_argmin_acc(f_vals, i + 1, n, i, y)
+      else
+        _gf_fs_argmin_acc(f_vals, i + 1, n, best_x, best_y)
+let gf_finite_search_argmin(f_vals) = _gf_fs_argmin_acc(f_vals, 1, arr_len(f_vals), 0, arr_get(f_vals, 0))
+
+let _gf_fs_min_acc(f_vals, i, n, best_y) =
+      if i >= n
+          best_y
+      let y = arr_get(f_vals, i)
+      if gf_sub(y, best_y) > 32768
+        _gf_fs_min_acc(f_vals, i + 1, n, y)
+      else
+        _gf_fs_min_acc(f_vals, i + 1, n, best_y)
+let gf_finite_search_min(f_vals) = _gf_fs_min_acc(f_vals, 1, arr_len(f_vals), arr_get(f_vals, 0))
+
+let _gf_fs_argmax_acc(f_vals, i, n, best_x, best_y) =
+      if i >= n
+          best_x
+      let y = arr_get(f_vals, i)
+      if gf_sub(y, best_y) < 32768
+        if y != best_y
+          _gf_fs_argmax_acc(f_vals, i + 1, n, i, y)
+        else
+          _gf_fs_argmax_acc(f_vals, i + 1, n, best_x, best_y)
+      else
+        _gf_fs_argmax_acc(f_vals, i + 1, n, best_x, best_y)
+let gf_finite_search_argmax(f_vals) = _gf_fs_argmax_acc(f_vals, 1, arr_len(f_vals), 0, arr_get(f_vals, 0))
+
+let _gf_convex_acc(f_vals, i, n) =
+    if i >= n - 1
+        1
+    let d2 = gf_diff2(f_vals, i)
+    if d2 > 32768
+        0
+    _gf_convex_acc(f_vals, i + 1, n)
+let gf_convex_check(f_vals) = _gf_convex_acc(f_vals, 1, arr_len(f_vals) - 1)
+
+let gf_newton_step(f_val, df_val, x) =
+    gf_sub(x, gf_mul(f_val, gf_inv(df_val)))
+
+let _gf_pareto_dominated(f_vals, g_vals, i, j, n) =
+    if j >= n
+        0
+    if j == i
+        _gf_pareto_dominated(f_vals, g_vals, i, j + 1, n)
+    let fj = arr_get(f_vals, j)
+    let fi = arr_get(f_vals, i)
+    let gj = arr_get(g_vals, j)
+    let gi = arr_get(g_vals, i)
+    if gf_sub(fj, fi) <= 32768
+      if gf_sub(gj, gi) <= 32768
+        1
+    _gf_pareto_dominated(f_vals, g_vals, i, j + 1, n)
+let _gf_pareto_count_acc(f_vals, g_vals, i, n, count) =
+      if i >= n
+          count
+      let dominated = _gf_pareto_dominated(f_vals, g_vals, i, 0, n)
+      if dominated == 1
+        _gf_pareto_count_acc(f_vals, g_vals, i + 1, n, count)
+      else
+        _gf_pareto_count_acc(f_vals, g_vals, i + 1, n, count + 1)
+let gf_pareto_front_size(f_vals, g_vals) = _gf_pareto_count_acc(f_vals, g_vals, 0, arr_len(f_vals), 0)
+
+let gf_binomial(n, k) =
+    if k < 0
+        0
+    if k > n
+        0
+    if k == 0
+        1
+    if k == n
+        1
+    let num = gf_factorial(n)
+    let den = gf_mul(gf_factorial(k), gf_factorial(n - k))
+    gf_mul(num, gf_inv(den))
+
+let gf_catalan(n) =
+    gf_mul(gf_binomial(2 * n, n), gf_inv(n + 1))
+
+let _gf_entropy_acc(dist, i, n, count) =
+      if i >= n
+          count
+      if arr_get(dist, i) != 0
+        _gf_entropy_acc(dist, i + 1, n, count + 1)
+      else
+        _gf_entropy_acc(dist, i + 1, n, count)
+let gf_shannon_entropy(dist) = _gf_entropy_acc(dist, 0, arr_len(dist), 0)
+
+let _gf_kl_acc(P, Q, i, n, count) =
+      if i >= n
+          count
+      if arr_get(P, i) != 0
+        if arr_get(Q, i) == 0
+          _gf_kl_acc(P, Q, i + 1, n, count + 1)
+        else
+          _gf_kl_acc(P, Q, i + 1, n, count)
+      else
+        _gf_kl_acc(P, Q, i + 1, n, count)
+let gf_kl_divergence(P, Q) = _gf_kl_acc(P, Q, 0, arr_len(P), 0)
+
+let gf_regex_star(R) = gf_inv(gf_sub(1, R))
+
+let gf_ssa_phi(v1, v2) = gf_add(v1, v2)
+
+let _gf_fixpoint_acc(transfer_fn_id, current, i) =
+    if i >= 65537
+        current
+    let next = host_call(transfer_fn_id, current, 0)
+    if next == current
+        current
+    _gf_fixpoint_acc(transfer_fn_id, next, i + 1)
+let gf_dataflow_fixpoint(transfer_fn_id, initial) = _gf_fixpoint_acc(transfer_fn_id, initial, 0)
+
+let _gf_partfn_acc(E_vals, r, i, n, acc) =
+    if i >= n
+        acc
+    let e_neg = gf_neg(arr_get(E_vals, i))
+    let term = gf_pow(r, e_neg)
+    _gf_partfn_acc(E_vals, r, i + 1, n, gf_add(acc, term))
+let gf_partition_function(E_vals, T) =
+    let r = gf_pow(3, gf_inv(T))
+    _gf_partfn_acc(E_vals, r, 0, arr_len(E_vals), 0)
+
+let gf_gibbs_state(H, T) =
+    let r = gf_pow(3, gf_inv(T))
+    gf_pow(r, gf_neg(H))
+
+let paradigm_math_layer_id() = 80
+let paradigm_math_module_count() = 25

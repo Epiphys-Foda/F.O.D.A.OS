@@ -1,0 +1,59 @@
+import "ck.ψ"
+let bad = [0]
+
+let nuc_x = 70
+let atom_x = 1440000
+bad[0] = bad[0] + ck(nuc_x, 60, 90)
+bad[0] = bad[0] + ck(atom_x, 1400000, 1500000)
+let ratio = atom_x / nuc_x
+bad[0] = bad[0] + ck(ratio, 18000, 23000)
+if atom_x < nuc_x * 1000
+    bad[0] = bad[0] + 1
+
+let rmin_x = 295
+bad[0] = bad[0] + ck(rmin_x, 280, 310)
+bad[0] = bad[0] + ck(rmin_x, nuc_x, atom_x)
+
+let n60 = 16
+let n90 = 4
+let dz1 = n60 - n90 * 4
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let theta_pp = 1
+bad[0] = bad[0] + ck(theta_pp, 0, 2)
+let theta_obs = 150
+bad[0] = bad[0] + ck(theta_obs, 140, 160)
+if theta_obs < theta_pp * 100
+    bad[0] = bad[0] + 1
+
+let gold_d = 19300
+bad[0] = bad[0] + ck(gold_d, 19000, 20000)
+let nuc_d = 23
+bad[0] = bad[0] + ck(nuc_d, 20, 26)
+let cm3_ton = 230
+bad[0] = bad[0] + ck(cm3_ton, 200, 260)
+
+if 1904 < 1902
+    bad[0] = bad[0] + 1
+if 1904 > 1906
+    bad[0] = bad[0] + 1
+if 1908 < 1906
+    bad[0] = bad[0] + 1
+if 1908 > 1910
+    bad[0] = bad[0] + 1
+if 1908 < 1904
+    bad[0] = bad[0] + 1
+if 1909 < 1907
+    bad[0] = bad[0] + 1
+if 1909 > 1911
+    bad[0] = bad[0] + 1
+if 1909 < 1904
+    bad[0] = bad[0] + 1
+if 1911 < 1909
+    bad[0] = bad[0] + 1
+if 1911 > 1913
+    bad[0] = bad[0] + 1
+if 1911 < 1909
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

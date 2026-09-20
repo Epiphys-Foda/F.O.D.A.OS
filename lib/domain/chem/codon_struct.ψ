@@ -1,0 +1,321 @@
+let bad = [0]
+let codon_table = [
+    14, 14, 11, 11, 16, 16, 16, 16,
+    19, 19, 0, 0, 5, 5, 0, 18,
+    11, 11, 11, 11, 15, 15, 15, 15,
+    9, 9, 6, 6, 2, 2, 2, 2,
+    10, 10, 10, 13, 17, 17, 17, 17,
+    3, 3, 12, 12, 16, 16, 2, 2,
+    20, 20, 20, 20, 1, 1, 1, 1,
+    4, 4, 7, 7, 8, 8, 8, 8,
+]
+
+let s0 = codon_table[0] + codon_table[1] + codon_table[2] + codon_table[3]
+let ds0 = s0 - 50
+bad[0] = bad[0] + ds0 * ds0
+let zc0 = [0]
+let q00 = codon_table[0] - 1
+if q00 < 0
+    zc0[0] = zc0[0] + 1
+let q01 = codon_table[1] - 1
+if q01 < 0
+    zc0[0] = zc0[0] + 1
+let q02 = codon_table[2] - 1
+if q02 < 0
+    zc0[0] = zc0[0] + 1
+let q03 = codon_table[3] - 1
+if q03 < 0
+    zc0[0] = zc0[0] + 1
+let dz0 = zc0[0] - 0
+bad[0] = bad[0] + dz0 * dz0
+
+let s1 = codon_table[4] + codon_table[5] + codon_table[6] + codon_table[7]
+let ds1 = s1 - 64
+bad[0] = bad[0] + ds1 * ds1
+let zc1 = [0]
+let q10 = codon_table[4] - 1
+if q10 < 0
+    zc1[0] = zc1[0] + 1
+let q11 = codon_table[5] - 1
+if q11 < 0
+    zc1[0] = zc1[0] + 1
+let q12 = codon_table[6] - 1
+if q12 < 0
+    zc1[0] = zc1[0] + 1
+let q13 = codon_table[7] - 1
+if q13 < 0
+    zc1[0] = zc1[0] + 1
+let dz1 = zc1[0] - 0
+bad[0] = bad[0] + dz1 * dz1
+
+let s2 = codon_table[8] + codon_table[9] + codon_table[10] + codon_table[11]
+let ds2 = s2 - 38
+bad[0] = bad[0] + ds2 * ds2
+let zc2 = [0]
+let q20 = codon_table[8] - 1
+if q20 < 0
+    zc2[0] = zc2[0] + 1
+let q21 = codon_table[9] - 1
+if q21 < 0
+    zc2[0] = zc2[0] + 1
+let q22 = codon_table[10] - 1
+if q22 < 0
+    zc2[0] = zc2[0] + 1
+let q23 = codon_table[11] - 1
+if q23 < 0
+    zc2[0] = zc2[0] + 1
+let dz2 = zc2[0] - 2
+bad[0] = bad[0] + dz2 * dz2
+
+let s3 = codon_table[12] + codon_table[13] + codon_table[14] + codon_table[15]
+let ds3 = s3 - 28
+bad[0] = bad[0] + ds3 * ds3
+let zc3 = [0]
+let q30 = codon_table[12] - 1
+if q30 < 0
+    zc3[0] = zc3[0] + 1
+let q31 = codon_table[13] - 1
+if q31 < 0
+    zc3[0] = zc3[0] + 1
+let q32 = codon_table[14] - 1
+if q32 < 0
+    zc3[0] = zc3[0] + 1
+let q33 = codon_table[15] - 1
+if q33 < 0
+    zc3[0] = zc3[0] + 1
+let dz3 = zc3[0] - 1
+bad[0] = bad[0] + dz3 * dz3
+
+let s4 = codon_table[16] + codon_table[17] + codon_table[18] + codon_table[19]
+let ds4 = s4 - 44
+bad[0] = bad[0] + ds4 * ds4
+let zc4 = [0]
+let q40 = codon_table[16] - 1
+if q40 < 0
+    zc4[0] = zc4[0] + 1
+let q41 = codon_table[17] - 1
+if q41 < 0
+    zc4[0] = zc4[0] + 1
+let q42 = codon_table[18] - 1
+if q42 < 0
+    zc4[0] = zc4[0] + 1
+let q43 = codon_table[19] - 1
+if q43 < 0
+    zc4[0] = zc4[0] + 1
+let dz4 = zc4[0] - 0
+bad[0] = bad[0] + dz4 * dz4
+
+let s5 = codon_table[20] + codon_table[21] + codon_table[22] + codon_table[23]
+let ds5 = s5 - 60
+bad[0] = bad[0] + ds5 * ds5
+let zc5 = [0]
+let q50 = codon_table[20] - 1
+if q50 < 0
+    zc5[0] = zc5[0] + 1
+let q51 = codon_table[21] - 1
+if q51 < 0
+    zc5[0] = zc5[0] + 1
+let q52 = codon_table[22] - 1
+if q52 < 0
+    zc5[0] = zc5[0] + 1
+let q53 = codon_table[23] - 1
+if q53 < 0
+    zc5[0] = zc5[0] + 1
+let dz5 = zc5[0] - 0
+bad[0] = bad[0] + dz5 * dz5
+
+let s6 = codon_table[24] + codon_table[25] + codon_table[26] + codon_table[27]
+let ds6 = s6 - 30
+bad[0] = bad[0] + ds6 * ds6
+let zc6 = [0]
+let q60 = codon_table[24] - 1
+if q60 < 0
+    zc6[0] = zc6[0] + 1
+let q61 = codon_table[25] - 1
+if q61 < 0
+    zc6[0] = zc6[0] + 1
+let q62 = codon_table[26] - 1
+if q62 < 0
+    zc6[0] = zc6[0] + 1
+let q63 = codon_table[27] - 1
+if q63 < 0
+    zc6[0] = zc6[0] + 1
+let dz6 = zc6[0] - 0
+bad[0] = bad[0] + dz6 * dz6
+
+let s7 = codon_table[28] + codon_table[29] + codon_table[30] + codon_table[31]
+let ds7 = s7 - 8
+bad[0] = bad[0] + ds7 * ds7
+let zc7 = [0]
+let q70 = codon_table[28] - 1
+if q70 < 0
+    zc7[0] = zc7[0] + 1
+let q71 = codon_table[29] - 1
+if q71 < 0
+    zc7[0] = zc7[0] + 1
+let q72 = codon_table[30] - 1
+if q72 < 0
+    zc7[0] = zc7[0] + 1
+let q73 = codon_table[31] - 1
+if q73 < 0
+    zc7[0] = zc7[0] + 1
+let dz7 = zc7[0] - 0
+bad[0] = bad[0] + dz7 * dz7
+
+let s8 = codon_table[32] + codon_table[33] + codon_table[34] + codon_table[35]
+let ds8 = s8 - 43
+bad[0] = bad[0] + ds8 * ds8
+let zc8 = [0]
+let q80 = codon_table[32] - 1
+if q80 < 0
+    zc8[0] = zc8[0] + 1
+let q81 = codon_table[33] - 1
+if q81 < 0
+    zc8[0] = zc8[0] + 1
+let q82 = codon_table[34] - 1
+if q82 < 0
+    zc8[0] = zc8[0] + 1
+let q83 = codon_table[35] - 1
+if q83 < 0
+    zc8[0] = zc8[0] + 1
+let dz8 = zc8[0] - 0
+bad[0] = bad[0] + dz8 * dz8
+
+let s9 = codon_table[36] + codon_table[37] + codon_table[38] + codon_table[39]
+let ds9 = s9 - 68
+bad[0] = bad[0] + ds9 * ds9
+let zc9 = [0]
+let q90 = codon_table[36] - 1
+if q90 < 0
+    zc9[0] = zc9[0] + 1
+let q91 = codon_table[37] - 1
+if q91 < 0
+    zc9[0] = zc9[0] + 1
+let q92 = codon_table[38] - 1
+if q92 < 0
+    zc9[0] = zc9[0] + 1
+let q93 = codon_table[39] - 1
+if q93 < 0
+    zc9[0] = zc9[0] + 1
+let dz9 = zc9[0] - 0
+bad[0] = bad[0] + dz9 * dz9
+
+let s10 = codon_table[40] + codon_table[41] + codon_table[42] + codon_table[43]
+let ds10 = s10 - 30
+bad[0] = bad[0] + ds10 * ds10
+let zc10 = [0]
+let q100 = codon_table[40] - 1
+if q100 < 0
+    zc10[0] = zc10[0] + 1
+let q101 = codon_table[41] - 1
+if q101 < 0
+    zc10[0] = zc10[0] + 1
+let q102 = codon_table[42] - 1
+if q102 < 0
+    zc10[0] = zc10[0] + 1
+let q103 = codon_table[43] - 1
+if q103 < 0
+    zc10[0] = zc10[0] + 1
+let dz10 = zc10[0] - 0
+bad[0] = bad[0] + dz10 * dz10
+
+let s11 = codon_table[44] + codon_table[45] + codon_table[46] + codon_table[47]
+let ds11 = s11 - 36
+bad[0] = bad[0] + ds11 * ds11
+let zc11 = [0]
+let q110 = codon_table[44] - 1
+if q110 < 0
+    zc11[0] = zc11[0] + 1
+let q111 = codon_table[45] - 1
+if q111 < 0
+    zc11[0] = zc11[0] + 1
+let q112 = codon_table[46] - 1
+if q112 < 0
+    zc11[0] = zc11[0] + 1
+let q113 = codon_table[47] - 1
+if q113 < 0
+    zc11[0] = zc11[0] + 1
+let dz11 = zc11[0] - 0
+bad[0] = bad[0] + dz11 * dz11
+
+let s12 = codon_table[48] + codon_table[49] + codon_table[50] + codon_table[51]
+let ds12 = s12 - 80
+bad[0] = bad[0] + ds12 * ds12
+let zc12 = [0]
+let q120 = codon_table[48] - 1
+if q120 < 0
+    zc12[0] = zc12[0] + 1
+let q121 = codon_table[49] - 1
+if q121 < 0
+    zc12[0] = zc12[0] + 1
+let q122 = codon_table[50] - 1
+if q122 < 0
+    zc12[0] = zc12[0] + 1
+let q123 = codon_table[51] - 1
+if q123 < 0
+    zc12[0] = zc12[0] + 1
+let dz12 = zc12[0] - 0
+bad[0] = bad[0] + dz12 * dz12
+
+let s13 = codon_table[52] + codon_table[53] + codon_table[54] + codon_table[55]
+let ds13 = s13 - 4
+bad[0] = bad[0] + ds13 * ds13
+let zc13 = [0]
+let q130 = codon_table[52] - 1
+if q130 < 0
+    zc13[0] = zc13[0] + 1
+let q131 = codon_table[53] - 1
+if q131 < 0
+    zc13[0] = zc13[0] + 1
+let q132 = codon_table[54] - 1
+if q132 < 0
+    zc13[0] = zc13[0] + 1
+let q133 = codon_table[55] - 1
+if q133 < 0
+    zc13[0] = zc13[0] + 1
+let dz13 = zc13[0] - 0
+bad[0] = bad[0] + dz13 * dz13
+
+let s14 = codon_table[56] + codon_table[57] + codon_table[58] + codon_table[59]
+let ds14 = s14 - 22
+bad[0] = bad[0] + ds14 * ds14
+let zc14 = [0]
+let q140 = codon_table[56] - 1
+if q140 < 0
+    zc14[0] = zc14[0] + 1
+let q141 = codon_table[57] - 1
+if q141 < 0
+    zc14[0] = zc14[0] + 1
+let q142 = codon_table[58] - 1
+if q142 < 0
+    zc14[0] = zc14[0] + 1
+let q143 = codon_table[59] - 1
+if q143 < 0
+    zc14[0] = zc14[0] + 1
+let dz14 = zc14[0] - 0
+bad[0] = bad[0] + dz14 * dz14
+
+let s15 = codon_table[60] + codon_table[61] + codon_table[62] + codon_table[63]
+let ds15 = s15 - 32
+bad[0] = bad[0] + ds15 * ds15
+let zc15 = [0]
+let q150 = codon_table[60] - 1
+if q150 < 0
+    zc15[0] = zc15[0] + 1
+let q151 = codon_table[61] - 1
+if q151 < 0
+    zc15[0] = zc15[0] + 1
+let q152 = codon_table[62] - 1
+if q152 < 0
+    zc15[0] = zc15[0] + 1
+let q153 = codon_table[63] - 1
+if q153 < 0
+    zc15[0] = zc15[0] + 1
+let dz15 = zc15[0] - 0
+bad[0] = bad[0] + dz15 * dz15
+
+let tot = codon_table[0] + codon_table[1] + codon_table[2] + codon_table[3] + codon_table[4] + codon_table[5] + codon_table[6] + codon_table[7] + codon_table[8] + codon_table[9] + codon_table[10] + codon_table[11] + codon_table[12] + codon_table[13] + codon_table[14] + codon_table[15] + codon_table[16] + codon_table[17] + codon_table[18] + codon_table[19] + codon_table[20] + codon_table[21] + codon_table[22] + codon_table[23] + codon_table[24] + codon_table[25] + codon_table[26] + codon_table[27] + codon_table[28] + codon_table[29] + codon_table[30] + codon_table[31] + codon_table[32] + codon_table[33] + codon_table[34] + codon_table[35] + codon_table[36] + codon_table[37] + codon_table[38] + codon_table[39] + codon_table[40] + codon_table[41] + codon_table[42] + codon_table[43] + codon_table[44] + codon_table[45] + codon_table[46] + codon_table[47] + codon_table[48] + codon_table[49] + codon_table[50] + codon_table[51] + codon_table[52] + codon_table[53] + codon_table[54] + codon_table[55] + codon_table[56] + codon_table[57] + codon_table[58] + codon_table[59] + codon_table[60] + codon_table[61] + codon_table[62] + codon_table[63]
+let dtot = tot - 637
+bad[0] = bad[0] + dtot * dtot
+
+arr_get(arr_new_n(1), bad[0])

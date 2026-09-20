@@ -1,0 +1,510 @@
+let OP_PUSH_INT = 0
+let OP_PUSH_STR = 2
+let OP_LOAD_VAR = 3
+let OP_PUSH_BOOL = 4
+let OP_ALU_BINOP = 5
+let OP_CALL = 6
+let OP_IF = 7
+let OP_ARR_NEW = 8
+let OP_WHILE = 9
+let OP_LET_BIND = 12
+let OP_LET_FN = 13
+let OP_MATCH = 14
+let OP_MATCH_ARM = 15
+let OP_FOR = 16
+let OP_SEQ = 17
+let OP_ASSIGN = 18
+let OP_DOT_GET = 19
+let OP_OBJ_NEW = 20
+let OP_PUSH_FLOAT = 22
+let OP_PRINT = 23
+let OP_IMPORT = 24
+let OP_ALU_UNARYOP = 26
+
+let BINOP_ADD = 43
+let BINOP_SUB = 45
+let BINOP_MUL = 42
+let BINOP_DIV = 47
+let BINOP_MOD = 37
+let BINOP_EQ = 13
+let BINOP_NE = 14
+let BINOP_LT = 60
+let BINOP_GT = 62
+let BINOP_LE = 15
+let BINOP_GE = 16
+let BINOP_AND = 38
+let BINOP_OR = 124
+let BINOP_XOR = 94
+let BINOP_SHL = 17
+let BINOP_SHR = 18
+
+let ri_emit(op, op1, op2) =
+    let entry = arr_new_n(3)
+    entry[0] = op
+    entry[1] = op1
+    entry[2] = op2
+    entry
+
+let ri_push_int(val) = ri_emit(OP_PUSH_INT, val, 0)
+
+let ri_push_str(str_id) = ri_emit(OP_PUSH_STR, str_id, 0)
+
+let ri_load_var(var_idx) = ri_emit(OP_LOAD_VAR, var_idx, 0)
+
+let ri_binop(op_code) = ri_emit(OP_ALU_BINOP, op_code, 0)
+
+let ri_call(fn_idx, n_args) = ri_emit(OP_CALL, fn_idx, n_args)
+
+let ri_if(then_target, else_target) = ri_emit(OP_IF, then_target, else_target)
+
+let ri_while(body_target, end_target) = ri_emit(OP_WHILE, body_target, end_target)
+
+let ri_let_bind(var_idx, is_fn) =
+    if is_fn == 1
+        ri_emit(OP_LET_FN, var_idx, 0)
+    else
+        ri_emit(OP_LET_BIND, var_idx, 0)
+
+let ri_assign(var_idx) = ri_emit(OP_ASSIGN, var_idx, 0)
+
+let ri_arr_new(n_elements) = ri_emit(OP_ARR_NEW, n_elements, 0)
+
+let ri_print() = ri_emit(OP_PRINT, 0, 0)
+
+let ri_seq() = ri_emit(OP_SEQ, 0, 0)
+
+let AST_INT = 0
+let AST_STR = 1
+let AST_VAR = 2
+let AST_BOOL = 3
+let AST_BINOP = 4
+let AST_UNOP = 5
+let AST_CALL = 6
+let AST_IF = 7
+let AST_WHILE = 8
+let AST_LET = 9
+let AST_ASSIGN = 10
+let AST_ARR = 11
+let AST_INDEX = 12
+let AST_FN = 13
+let AST_MATCH = 14
+let AST_FOR = 15
+let AST_PRINT = 16
+let AST_SEQ = 17
+
+let ast_to_residue(node, var_map) =
+    let entries = arr_new()
+    let node_type = node[0]
+    if node_type == AST_INT
+        entries = arr_push(entries, ri_push_int(node[1]))
+    else
+        if node_type == AST_STR
+            entries = arr_push(entries, ri_push_str(node[1]))
+        else
+            if node_type == AST_VAR
+                let var_name = node[1]
+                let var_idx = 0
+                let i = 0
+                for i < var_map.len()
+                    if var_map[i][0] == var_name
+                        var_idx = var_map[i][1]
+                        i = var_map.len()
+                    i = i + 1
+                entries = arr_push(entries, ri_load_var(var_idx))
+            else
+                if node_type == AST_BINOP
+                    let left_result = ast_to_residue(node[1], var_map)
+                    let left_entries = left_result[0]
+                    let i = 0
+                    for i < left_entries.len()
+                        entries = arr_push(entries, left_entries[i])
+                        i = i + 1
+                    let right_result = ast_to_residue(node[2], var_map)
+                    let right_entries = right_result[0]
+                    let i = 0
+                    for i < right_entries.len()
+                        entries = arr_push(entries, right_entries[i])
+                        i = i + 1
+                    let op_code = node[3]
+                    entries = arr_push(entries, ri_binop(op_code))
+                else
+                    if node_type == AST_IF
+                        let cond_result = ast_to_residue(node[1], var_map)
+                        let cond_entries = cond_result[0]
+                        let i = 0
+                        for i < cond_entries.len()
+                            entries = arr_push(entries, cond_entries[i])
+                            i = i + 1
+                        entries = arr_push(entries, ri_if(0, 0))
+                        let then_result = ast_to_residue(node[2], var_map)
+                        let then_entries = then_result[0]
+                        let i = 0
+                        for i < then_entries.len()
+                            entries = arr_push(entries, then_entries[i])
+                            i = i + 1
+                        if node.len() > 3 && node[3] != 0
+                            let else_result = ast_to_residue(node[3], var_map)
+                            let else_entries = else_result[0]
+                            let i = 0
+                            for i < else_entries.len()
+                                entries = arr_push(entries, else_entries[i])
+                                i = i + 1
+                    else
+                        if node_type == AST_WHILE
+                            let cond_result = ast_to_residue(node[1], var_map)
+                            let cond_entries = cond_result[0]
+                            let i = 0
+                            for i < cond_entries.len()
+                                entries = arr_push(entries, cond_entries[i])
+                                i = i + 1
+                            entries = arr_push(entries, ri_while(0, 0))
+                            let body_result = ast_to_residue(node[2], var_map)
+                            let body_entries = body_result[0]
+                            let i = 0
+                            for i < body_entries.len()
+                                entries = arr_push(entries, body_entries[i])
+                                i = i + 1
+                        else
+                            if node_type == AST_LET
+                                let val_result = ast_to_residue(node[2], var_map)
+                                let val_entries = val_result[0]
+                                let i = 0
+                                for i < val_entries.len()
+                                    entries = arr_push(entries, val_entries[i])
+                                    i = i + 1
+                                let var_name = node[1]
+                                let var_idx = var_map.len()
+                                let new_entry = arr_new_n(2)
+                                new_entry[0] = var_name
+                                new_entry[1] = var_idx
+                                var_map = arr_push(var_map, new_entry)
+                                let is_fn = 0
+                                if node.len() > 3 && node[3] == AST_FN
+                                    is_fn = 1
+                                entries = arr_push(entries, ri_let_bind(var_idx, is_fn))
+                            else
+                                if node_type == AST_ASSIGN
+                                    let val_result = ast_to_residue(node[2], var_map)
+                                    let val_entries = val_result[0]
+                                    let i = 0
+                                    for i < val_entries.len()
+                                        entries = arr_push(entries, val_entries[i])
+                                        i = i + 1
+                                    let var_name = node[1]
+                                    let var_idx = 0
+                                    let i = 0
+                                    for i < var_map.len()
+                                        if var_map[i][0] == var_name
+                                            var_idx = var_map[i][1]
+                                            i = var_map.len()
+                                        i = i + 1
+                                    entries = arr_push(entries, ri_assign(var_idx))
+                                else
+                                    if node_type == AST_CALL
+                                        let args = node[2]
+                                        let i = 0
+                                        for i < args.len()
+                                            let arg_result = ast_to_residue(args[i], var_map)
+                                            let arg_entries = arg_result[0]
+                                            let j = 0
+                                            for j < arg_entries.len()
+                                                entries = arr_push(entries, arg_entries[j])
+                                                j = j + 1
+                                            i = i + 1
+                                        entries = arr_push(entries, ri_call(node[1], args.len()))
+                                    else
+                                        if node_type == AST_PRINT
+                                            let val_result = ast_to_residue(node[1], var_map)
+                                            let val_entries = val_result[0]
+                                            let i = 0
+                                            for i < val_entries.len()
+                                                entries = arr_push(entries, val_entries[i])
+                                                i = i + 1
+                                            entries = arr_push(entries, ri_print())
+                                        else
+                                            if node_type == AST_SEQ
+                                                let stmts = node[1]
+                                                let i = 0
+                                                for i < stmts.len()
+                                                    let stmt_result = ast_to_residue(stmts[i], var_map)
+                                                    let stmt_entries = stmt_result[0]
+                                                    let j = 0
+                                                    for j < stmt_entries.len()
+                                                        entries = arr_push(entries, stmt_entries[j])
+                                                        j = j + 1
+                                                    entries = arr_push(entries, ri_seq())
+                                                    i = i + 1
+    let result = arr_new_n(2)
+    result[0] = entries
+    result[1] = var_map
+    result
+let ri_opt_dead_code(table) =
+    let result = arr_new()
+    let i = 0
+    for i < table.len()
+        let entry = table[i]
+        if entry[0] == OP_SEQ
+            if result.len() > 0
+                let prev = result[result.len() - 1]
+                if prev[0] != OP_SEQ
+                    result = arr_push(result, entry)
+                else
+                    0
+            result = arr_push(result, entry)
+        i = i + 1
+    result
+
+let ri_opt_const_fold(table) =
+    let result = arr_new()
+    let i = 0
+    for i < table.len()
+        if i + 2 < table.len()
+            let e0 = table[i]
+            let e1 = table[i + 1]
+            let e2 = table[i + 2]
+            if e0[0] == OP_PUSH_INT && e1[0] == OP_PUSH_INT && e2[0] == OP_ALU_BINOP
+                let a = e0[1]
+                let b = e1[1]
+                let op = e2[1]
+                let folded = 0
+                if op == BINOP_ADD
+                    folded = a + b
+                else
+                    0
+                if op == BINOP_SUB
+                    folded = a - b
+                else
+                    0
+                if op == BINOP_MUL
+                    folded = a * b
+                else
+                    0
+                if op == BINOP_EQ
+                    (a == b ? (folded = 1) : (folded = 0))
+                else
+                        0
+                if op == BINOP_NE
+                    (a != b ? (folded = 1) : (folded = 0))
+                else
+                        0
+                if op == BINOP_LT
+                    (a < b ? (folded = 1) : (folded = 0))
+                else
+                        0
+                if op == BINOP_GT
+                    (a > b ? (folded = 1) : (folded = 0))
+                else
+                        0
+                    folded = -1
+                if folded != -1
+                    result = arr_push(result, ri_push_int(folded))
+                    i = i + 3
+                else
+                    result = arr_push(result, e0)
+                    i = i + 1
+            else
+                        0
+                result = arr_push(result, e0)
+                i = i + 1
+        else
+                    0
+            result = arr_push(result, table[i])
+            i = i + 1
+    result
+
+let ri_opt_peephole(table) =
+    let result = arr_new()
+    let i = 0
+    for i < table.len()
+        if i + 1 < table.len()
+            let e0 = table[i]
+            let e1 = table[i + 1]
+            if e0[0] == OP_PUSH_INT && e0[1] == 0 && e1[0] == OP_ALU_BINOP && e1[1] == BINOP_ADD
+                i = i + 2
+            else
+                0
+            if e0[0] == OP_PUSH_INT && e0[1] == 1 && e1[0] == OP_ALU_BINOP && e1[1] == BINOP_MUL
+                i = i + 2
+            else
+                result = arr_push(result, e0)
+                i = i + 1
+        else
+            result = arr_push(result, table[i])
+            i = i + 1
+    result
+
+let ri_optimize(table) =
+    let t1 = ri_opt_dead_code(table)
+    let t2 = ri_opt_const_fold(t1)
+    let t3 = ri_opt_peephole(t2)
+    t3
+
+let WASM_I32_CONST = 65
+let WASM_I32_ADD = 106
+let WASM_I32_SUB = 107
+let WASM_I32_MUL = 108
+let WASM_I32_DIV = 109
+let WASM_I32_REM = 110
+let WASM_I32_EQ = 70
+let WASM_I32_NE = 71
+let WASM_I32_LT = 72
+let WASM_I32_GT = 74
+let WASM_I32_AND = 113
+let WASM_I32_OR = 114
+let WASM_I32_XOR = 115
+let WASM_I32_SHL = 116
+let WASM_I32_SHR = 118
+let WASM_LOCAL_GET = 32
+let WASM_LOCAL_SET = 33
+let WASM_CALL = 16
+let WASM_DROP = 26
+
+let ri_binop_to_wasm(op) =
+    if op == BINOP_ADD
+        WASM_I32_ADD
+    else
+        0
+    if op == BINOP_SUB
+        WASM_I32_SUB
+    else
+        0
+    if op == BINOP_MUL
+        WASM_I32_MUL
+    else
+        0
+    if op == BINOP_DIV
+        WASM_I32_DIV
+    else
+        0
+    if op == BINOP_MOD
+        WASM_I32_REM
+    else
+        0
+    if op == BINOP_EQ
+        WASM_I32_EQ
+    else
+        0
+    if op == BINOP_NE
+        WASM_I32_NE
+    else
+        0
+    if op == BINOP_LT
+        WASM_I32_LT
+    else
+        0
+    if op == BINOP_GT
+        WASM_I32_GT
+    else
+        0
+    if op == BINOP_AND
+        WASM_I32_AND
+    else
+        0
+    if op == BINOP_OR
+        WASM_I32_OR
+    else
+        0
+    if op == BINOP_XOR
+        WASM_I32_XOR
+    else
+        0
+    if op == BINOP_SHL
+        WASM_I32_SHL
+    else
+        0
+    if op == BINOP_SHR
+        WASM_I32_SHR
+    else
+        WASM_I32_ADD
+
+let ri_uleb128(n) =
+    let result = arr_new()
+    let val = n
+    let done = 0
+    for done == 0
+        let byte = val & 127
+        val = val >> 7
+        if val == 0
+            result = arr_push(result, byte)
+            done = 1
+        else
+            result = arr_push(result, byte | 128)
+    result
+
+let ri_to_wasm(table) =
+    let wasm = arr_new()
+    let i = 0
+    for i < table.len()
+        let entry = table[i]
+        let op = entry[0]
+        let op1 = entry[1]
+        let op2 = entry[2]
+
+        if op == OP_PUSH_INT
+            wasm = arr_push(wasm, WASM_I32_CONST)
+            let leb = ri_uleb128(op1)
+            let j = 0
+            for j < leb.len()
+                wasm = arr_push(wasm, leb[j])
+                j = j + 1
+
+        else
+            0
+        if op == OP_LOAD_VAR
+            wasm = arr_push(wasm, WASM_LOCAL_GET)
+            let leb = ri_uleb128(op1)
+            let j = 0
+            for j < leb.len()
+                wasm = arr_push(wasm, leb[j])
+                j = j + 1
+
+        else
+            0
+        if op == OP_ALU_BINOP
+            wasm = arr_push(wasm, ri_binop_to_wasm(op1))
+
+        else
+            0
+        if op == OP_LET_BIND || op == OP_ASSIGN
+            wasm = arr_push(wasm, WASM_LOCAL_SET)
+            let leb = ri_uleb128(op1)
+            let j = 0
+            for j < leb.len()
+                wasm = arr_push(wasm, leb[j])
+                j = j + 1
+
+        else
+            0
+        if op == OP_CALL
+            wasm = arr_push(wasm, WASM_CALL)
+            let leb = ri_uleb128(op1)
+            let j = 0
+            for j < leb.len()
+                wasm = arr_push(wasm, leb[j])
+                j = j + 1
+
+        else
+            0
+        if op == OP_PRINT || op == OP_SEQ
+            wasm = arr_push(wasm, WASM_DROP)
+
+        i = i + 1
+    wasm
+
+let compile_ast_to_wasm(ast) =
+    let empty_var_map = arr_new()
+    let phase1 = ast_to_residue(ast, empty_var_map)
+    let residue_table = phase1[0]
+    let optimized = ri_optimize(residue_table)
+    let wasm_bytes = ri_to_wasm(optimized)
+    wasm_bytes
+
+let ri_stats(table) =
+    let counts = arr_new_n(27)
+    let i = 0
+    for i < table.len()
+        let op = table[i][0]
+        if op < 27
+            counts[op] = counts[op] + 1
+        i = i + 1
+    counts

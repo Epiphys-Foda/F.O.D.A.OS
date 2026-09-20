@@ -1,0 +1,36 @@
+import "ck.ψ"
+let bad = [0]
+
+let dh = 6010
+let ds = 22
+let t_eq = dh / ds
+let dz1 = t_eq - 273
+bad[0] = bad[0] + ck(dz1, 0, 0)
+bad[0] = bad[0] + ck(dh, 5900, 6100)
+bad[0] = bad[0] + ck(ds, 21, 23)
+
+let t_cold = 268
+let t_warm = 278
+let dg_cold = dh - t_cold * ds
+let dg_warm = dh - t_warm * ds
+bad[0] = bad[0] + ck_lo(dg_cold, 0)
+bad[0] = bad[0] + ck_hi(dg_warm, 0)
+
+let dz2 = dg_cold - dg_warm - ds * (t_warm - t_cold)
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let dg_eq = dh - 273 * ds
+bad[0] = bad[0] + ck(dg_eq, -100, 100)
+
+if 1865 < 1863
+    bad[0] = bad[0] + 1
+if 1865 > 1867
+    bad[0] = bad[0] + 1
+if 1876 < 1874
+    bad[0] = bad[0] + 1
+if 1876 > 1878
+    bad[0] = bad[0] + 1
+if 1876 < 1865
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

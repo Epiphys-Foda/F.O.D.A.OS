@@ -1,0 +1,131 @@
+let RRNS_MS = [13, 17, 19, 29, 31]
+let RRNS_B1 = 4199
+let RRNS_M5 = 3774901
+
+let rrns_powmod(b, e, m) =
+    let r = 1
+    let base = b % m
+    let ex = e
+    for ex > 0
+        if ex % 2 == 1
+            r = r * base % m
+        base = base * base % m
+        ex = ex / 2
+    r
+
+let rrns_encode(v) =
+    let r = arr_new_n(5)
+    let i = 0
+    for i < 5
+        r[i] = v % RRNS_MS[i]
+        i = i + 1
+    r
+
+let rrns_garner(r, skip, cnt) =
+    let rr = arr_new_n(5)
+    let mm = arr_new_n(5)
+    let j = 0
+    let ci = 0
+    for ci < 5
+        if ci != skip
+            rr[j] = r[ci]
+            mm[j] = RRNS_MS[ci]
+            j = j + 1
+        ci = ci + 1
+    let x = rr[0]
+    let M = mm[0]
+    let i = 1
+    for i < cnt
+        let mi = mm[i]
+        let t = ((rr[i] - x) % mi + mi) % mi
+        let minv = rrns_powmod(M % mi, mi - 2, mi)
+        t = t * minv % mi
+        x = x + M * t
+        M = M * mi
+        i = i + 1
+    x
+
+let rrns_consistent(r, v, skip) =
+    let ok = 1
+    let i = 0
+    for i < 5
+        if i != skip
+            if v % RRNS_MS[i] != r[i]
+                ok = 0
+        i = i + 1
+    ok
+
+let rrns_correct(r) =
+    let full = rrns_garner(r, 5, 5)
+    if full < RRNS_B1
+        return 100000 + full * 10
+    let e = 0
+    for e < 5
+        let v = rrns_garner(r, e, 4)
+        if v < RRNS_B1
+            if rrns_consistent(r, v, e) == 1
+                return 200000 + v * 10 + e + 1
+        e = e + 1
+    0
+
+let rrns_detect2(r) =
+    rrns_garner(r, 5, 5) >= RRNS_B1 ? 1 : 0
+
+let rrns_case(v, e, delta) =
+    let r = rrns_encode(v)
+    r[e] = (r[e] + delta) % RRNS_MS[e]
+    let res = rrns_correct(r)
+    let flag = res / 100000
+    let val = res % 100000 / 10
+    flag == 2 ? (val == v ? 1 : 0) : 0
+
+let rrns_case2(v, e1, d1, e2, d2) =
+    let r = rrns_encode(v)
+    r[e1] = (r[e1] + d1) % RRNS_MS[e1]
+    r[e2] = (r[e2] + d2) % RRNS_MS[e2]
+    if rrns_detect2(r) == 1
+        rrns_correct(r) == 0 ? 1 : 0
+    else
+        0
+
+let rrns_v_all() =
+    let ok = 1
+    ok = ok * (RRNS_B1 == 13 * 17 * 19 ? 1 : 0)
+    ok = ok * (RRNS_M5 == 13 * 17 * 19 * 29 * 31 ? 1 : 0)
+    ok = ok * (RRNS_M5 / (29 * 31) == RRNS_B1 ? 1 : 0)
+    let vs = [0, 1, 1234, 4198]
+    let t = 0
+    for t < 4
+        let r = rrns_encode(vs[t])
+        let res = rrns_correct(r)
+        ok = ok * (res / 100000 == 1 && res % 100000 / 10 == vs[t] ? 1 : 0)
+        t = t + 1
+    let v = 0
+    for v < RRNS_B1
+        let e = 0
+        for e < 5
+            let d = 1
+            for d < RRNS_MS[e]
+                if v % 13 == 0
+                    ok = ok * rrns_case(v, e, d)
+                d = d + 1
+            e = e + 1
+        let d0 = 1
+        for d0 < RRNS_MS[0]
+            ok = ok * rrns_case(v, 0, d0)
+            d0 = d0 + 1
+        v = v + 1
+    let vv = 0
+    for vv < 100
+        let d1 = 1
+        for d1 < 13
+            let d2 = 1
+            for d2 < 17
+                ok = ok * rrns_case2(vv, 0, d1, 1, d2)
+                d2 = d2 + 1
+            d1 = d1 + 1
+        ok = ok * rrns_case2(vv, 2, 3, 4, 5)
+        ok = ok * rrns_case2(vv, 1, 7, 3, 11)
+        ok = ok * rrns_case2(vv, 3, 2, 4, 29)
+        vv = vv + 1
+    ok

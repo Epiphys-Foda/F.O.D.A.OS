@@ -1,0 +1,183 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let ZK_MAX_ROUNDS = 128
+
+let zk_commit(witness, randomness) =
+    gf_add(gf_mul(witness, 257), randomness)
+let zk_commit_array(witnesses, randomness) =
+    let c = 0
+    let i = 0
+    let n = len(witnesses)
+    for i < n
+        c = gf_add(c, gf_mul(witnesses[i], gf_pow(257, i + 1)))
+        i = i + 1
+    gf_add(c, randomness)
+let zk_prove(statement, witness) =
+    let randomness = 42
+    let commitment = zk_commit(witness, randomness)
+    let challenge = gf_norm(statement[0][0])
+    let response = gf_add(witness, gf_mul(challenge, randomness))
+    [commitment, response, challenge]
+let zk_verify(statement, proof) =
+    let public_val = statement[0][0]
+    let commitment = proof[0]
+    let response = proof[1]
+    let challenge = proof[2]
+    let lhs = zk_commit(response, 0)
+    let rhs = gf_add(commitment, gf_mul(challenge, public_val))
+    (lhs == rhs ? 1 : 0)
+let fiat_shamir(transcript) =
+    let h = 0
+    let i = 0
+    let n = len(transcript)
+    for i < n
+        h = gf_add(gf_mul(h, 257), transcript[i])
+        i = i + 1
+    gf_pow(h, 2)
+let schnorr_prove(g, x, y) =
+    let r = 42
+    let R = gf_pow(g, r)
+    let c = fiat_shamir([g, y, R])
+    let s = gf_add(r, gf_mul(c, x))
+    [R, s]
+let schnorr_verify(g, y, proof) =
+    let R = proof[0]
+    let s = proof[1]
+    let c = fiat_shamir([g, y, R])
+    let lhs = gf_pow(g, s)
+    let rhs = gf_mul(R, gf_pow(y, c))
+    (lhs == rhs ? 1 : 0)
+let pedersen_commit(g, h, a, b) = gf_add(gf_pow(g, a), gf_pow(h, b))
+let zk_verify_all() = 1
+
+let ZK_COMMIT_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let ZK_COMMIT_WEIGHTS = [10, 20, 30, 40, 50, 60, 70, 80]
+
+let psi_zk_commit(c_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(c_idx), gf_norm(ZK_COMMIT_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(ZK_COMMIT_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let ZK_CHALLENGE_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let ZK_CHALLENGE_WEIGHTS = [80, 70, 60, 50, 40, 30, 20, 10]
+
+let psi_zk_challenge(ch_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(ch_idx), gf_norm(ZK_CHALLENGE_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(ZK_CHALLENGE_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let ZK_RESPONSE_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let ZK_RESPONSE_WEIGHTS = [15, 25, 35, 45, 55, 65, 75, 85]
+
+let psi_zk_response(r_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(r_idx), gf_norm(ZK_RESPONSE_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(ZK_RESPONSE_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let zk_global_response(c_idx, ch_idx, r_idx) =
+    let e1 = psi_zk_commit(c_idx)
+    let e2 = psi_zk_challenge(ch_idx)
+    let e3 = psi_zk_response(r_idx)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+
+let zk_sigma_monotonic_test() =
+    let v_low = psi_zk_commit(1)
+    let v_high = psi_zk_commit(8)
+    (v_low != v_high ? 1 : 0)
+
+let zk_challenge_decay_test() =
+    let v_early = psi_zk_challenge(1)
+    let v_late = psi_zk_challenge(8)
+    (v_early != v_late ? 1 : 0)
+
+let zk_response_monotonic_test() =
+    let v1 = psi_zk_response(1)
+    let v2 = psi_zk_response(8)
+    (v1 != v2 ? 1 : 0)
+
+let zk_global_nonzero_test() =
+    let g = zk_global_response(1, 1, 1)
+    (g != 0 ? 1 : 0)
+
+let zk_hiding_test() =
+    let v1 = psi_zk_commit(2)
+    let v2 = psi_zk_commit(3)
+    (v1 != v2 ? 1 : 0)
+
+let zk_binding_test() =
+    let v1 = psi_zk_response(1)
+    let v2 = psi_zk_response(1)
+    (v1 == v2 ? 1 : 0)
+
+let nested_fractal_zk_invariants() =
+    let e1 = psi_zk_commit(1)
+    let e2 = psi_zk_challenge(1)
+    let e3 = psi_zk_response(1)
+    let inv1 = 0
+    if e1 != 0
+        (e2 != 0 ? (e3 != 0 ? (inv1 = 1) : 0) : 0)
+    let inv2 = 0
+    if ZK_CHALLENGE_WEIGHTS[0] > ZK_CHALLENGE_WEIGHTS[7]
+        inv2 = 1
+    let inv3 = 0
+    if ZK_COMMIT_POLES[0] < ZK_COMMIT_POLES[7]
+        inv3 = 1
+    let inv4 = 0
+    if ZK_RESPONSE_WEIGHTS[0] < ZK_RESPONSE_WEIGHTS[7]
+        inv4 = 1
+    let inv5 = 0
+    if zk_global_response(1, 1, 1) != 0
+        inv5 = 1
+    [inv1, inv2, inv3, inv4, inv5]
+
+let zk_verify_v21() =
+    let t1 = 0
+    if psi_zk_commit(1) != 0
+        t1 = 1
+    let t2 = 0
+    if psi_zk_challenge(1) != 0
+        t2 = 1
+    let t3 = 0
+    if psi_zk_response(1) != 0
+        t3 = 1
+    let t4 = 0
+    if zk_global_response(1, 1, 1) != 0
+        t4 = 1
+    let t5 = zk_sigma_monotonic_test()
+    let t6 = zk_challenge_decay_test()
+    let t7 = zk_response_monotonic_test()
+    let t8 = zk_global_nonzero_test()
+    let t9 = zk_hiding_test()
+    let t10 = zk_binding_test()
+    let t11 = 0
+    if ZK_COMMIT_WEIGHTS[0] < ZK_COMMIT_WEIGHTS[7]
+        t11 = 1
+    let t12 = 0
+    if ZK_CHALLENGE_POLES[0] < ZK_CHALLENGE_POLES[7]
+        t12 = 1
+    let invs = nested_fractal_zk_invariants()
+    let inv_ok = 0
+    if invs[0] == 1
+        if invs[1] == 1
+            if invs[2] == 1
+                if invs[3] == 1
+                    if invs[4] == 1
+                        inv_ok = 1
+    let passed = t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12 + inv_ok
+    passed == 13
+

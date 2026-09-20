@@ -1,0 +1,117 @@
+import "arr.ψ"
+
+let gf_sqrt_pow2(k) =
+    if (k & 1) == 0
+        gf_pow(2, k >> 1)
+    else
+        gf_tonelli_shanks(gf_pow(2, k))
+
+let _ts_find_i(t, i, M) =
+    if i >= M
+        0
+    else
+        if gf_pow(t, 1 << i) == 1
+            i
+        else
+            _ts_find_i(t, i + 1, M)
+let _ts_loop(M, c, t, R) =
+    if t == 1
+        R
+    else
+        let i = _ts_find_i(t, 1, M)
+        let b = gf_pow(c, 1 << (M - i - 1))
+        let b2 = gf_mul(b, b)
+        _ts_loop(i, b2, gf_mul(t, b2), gf_mul(R, b))
+let gf_tonelli_shanks(n) =
+    let nr = gf_reduce(n)
+    if nr == 0
+        0
+    else
+        0
+    if gf_legendre(nr) != 1
+        0
+    else
+        0
+    if nr == 1
+        1
+    else
+        _ts_loop(16, gf_reduce(3), nr, nr)
+let GF_P2_NONRES = 3
+let gf_p2_make(re, im) =
+    let v = arr_new_n(2)
+    arr_set(v, 0, gf_reduce(re))
+    arr_set(v, 1, gf_reduce(im))
+    v
+let gf_p2_re(a) = arr_get(a, 0)
+let gf_p2_im(a) = arr_get(a, 1)
+let gf_p2_add(a, b) = gf_p2_make(gf_add(gf_p2_re(a), gf_p2_re(b)), gf_add(gf_p2_im(a), gf_p2_im(b)))
+let gf_p2_sub(a, b) = gf_p2_make(gf_sub(gf_p2_re(a), gf_p2_re(b)), gf_sub(gf_p2_im(a), gf_p2_im(b)))
+let gf_p2_mul(a, b) =
+    let ar = gf_p2_re(a)
+    let ai = gf_p2_im(a)
+    let br = gf_p2_re(b)
+    let bi = gf_p2_im(b)
+    let re = gf_add(gf_mul(ar, br), gf_mul(GF_P2_NONRES, gf_mul(ai, bi)))
+    let im = gf_add(gf_mul(ar, bi), gf_mul(ai, br))
+    gf_p2_make(re, im)
+let gf_p2_norm(a) = gf_sub(gf_mul(gf_p2_re(a), gf_p2_re(a)), gf_mul(GF_P2_NONRES, gf_mul(gf_p2_im(a), gf_p2_im(a))))
+let gf_p2_conj(a) = gf_p2_make(gf_p2_re(a), gf_neg(gf_p2_im(a)))
+let gf_p2_inv(a) =
+    let n = gf_p2_norm(a)
+    if n == 0
+        gf_p2_make(0, 0)
+    else
+        let n_inv = gf_inv(n)
+        let c = gf_p2_conj(a)
+        gf_p2_make(gf_mul(gf_p2_re(c), n_inv), gf_mul(gf_p2_im(c), n_inv))
+let gf_p2_zero() = gf_p2_make(0, 0)
+let gf_p2_one() = gf_p2_make(1, 0)
+let _gf_p2_pow_acc(a, n, acc) =
+    if n == 0
+        acc
+    else
+        let new_acc = ((n & 1) == 1 ? gf_p2_mul(acc, a) : acc)
+        _gf_p2_pow_acc(gf_p2_mul(a, a), n >> 1, new_acc)
+let gf_p2_pow(a, n) = _gf_p2_pow_acc(a, n, gf_p2_one())
+let gf_p2_eq(a, b) = (gf_p2_re(a) == gf_p2_re(b)) && (gf_p2_im(a) == gf_p2_im(b))
+let gf_p2_x() = gf_p2_make(0, 1)
+
+let conway_poly_p2() =
+    let v = arr_new_n(3)
+    arr_set(v, 0, gf_neg(GF_P2_NONRES))
+    arr_set(v, 1, 0)
+    arr_set(v, 2, 1)
+    v
+let _conway_poly_eval_acc(coeffs, x, n, i, acc, xp) =
+    if i >= n
+        acc
+    else
+        let term = gf_mul(arr_get(coeffs, i), xp)
+        _conway_poly_eval_acc(coeffs, x, n, i + 1, gf_add(acc, term), gf_mul(xp, x))
+let conway_poly_eval(coeffs, x) = _conway_poly_eval_acc(coeffs, x, arr_len(coeffs), 0, 0, 1)
+let conway_poly_irreducible_p2() =
+    let leg = gf_legendre(GF_P2_NONRES)
+    (leg == 65536) || (leg == -1)
+let conway_poly_primitive_root() =
+    let x = gf_p2_x()
+    let xp1 = gf_p2_pow(x, 65536)
+    let xp2 = gf_p2_pow(x, 65536 * 2)
+    gf_p2_eq(xp1, gf_p2_make(65536, 0)) && gf_p2_eq(xp2, gf_p2_one())
+let conway_poly_verify() =
+    let poly = conway_poly_p2()
+    let v3 = (arr_get(poly, 0) == 65534) && (arr_get(poly, 2) == 1)
+    (conway_poly_irreducible_p2() && conway_poly_primitive_root() && v3) ? 1 : 0
+
+let GF_P = 65537
+let GF_P_MINUS_1 = 65536
+let GF_G = 3
+let GF_I = 256
+let GF_PI = 52011
+let GF_E = 556
+let GF_LN2 = 45426
+let GF_INFINITY = 65535
+let GF_EPSILON = 1
+let GF_HALF_P = 32768
+let GF_INV_2 = 32769
+let GF_NEG_ONE = 65536
+let GF_LOG2_INV = 32769

@@ -1,0 +1,155 @@
+let true P = 65537
+
+let obs_dispatch(obs_id, event, collector) =
+    let r = 0
+    if obs_id == 1
+        print(event)
+        r = 1
+    if obs_id == 2
+        print(event * 2)
+        r = 2
+    if obs_id == 3
+        collector[0] = collector[0] + event
+        r = 3
+    r
+
+let v_notify() =
+    let subject = [[], 0]
+    subject[0] = arr_concat(subject[0], [1])
+    subject[0] = arr_concat(subject[0], [2])
+    subject[0] = arr_concat(subject[0], [3])
+    let collector = [0]
+    let n = len(subject[0])
+    let i = 0
+    let count = 0
+    for i < n
+        obs_dispatch(subject[0][i], 5, collector)
+        count = count + 1
+        i = i + 1
+    let a = 1
+    if count != 3
+        a = 0
+    if collector[0] != 5
+        a = 0
+    a
+
+let v_unsub() =
+    let subject = [[], 0]
+    let i = 0
+    for i < 3
+        subject[0] = arr_concat(subject[0], [i + 1])
+        i = i + 1
+    let new_obs = []
+    let j = 0
+    for j < 3
+        if j != 1
+            new_obs = arr_concat(new_obs, [subject[0][j]])
+        j = j + 1
+    subject[0] = new_obs
+    let a = 1
+    if len(subject[0]) != 2
+        a = 0
+    let collector = [0]
+    let m = 0
+    for m < 2
+        obs_dispatch(subject[0][m], 7, collector)
+        m = m + 1
+    if collector[0] != 7
+        a = 0
+    a
+
+let v_state() =
+    let subject = [[], 0]
+    subject[0] = arr_concat(subject[0], [3])
+    subject[1] = 42
+    let collector = [0]
+    let i = 0
+    for i < len(subject[0])
+        obs_dispatch(subject[0][i], subject[1], collector)
+        i = i + 1
+    let a = 1
+    if collector[0] != 42
+        a = 0
+    if subject[1] != 42
+        a = 0
+    a
+
+let emitter_on(emitter, event_id, handler_id) =
+    emitter[0] = arr_push(emitter[0], event_id)
+    emitter[1] = arr_push(emitter[1], handler_id)
+    emitter
+
+let emitter_emit(emitter, event_id, data, collector) =
+    let n = len(emitter[0])
+    let count = 0
+    let i = 0
+    for i < n
+        if emitter[0][i] == event_id
+            obs_dispatch(emitter[1][i], data, collector)
+            count = count + 1
+        i = i + 1
+    count
+
+let v_emitter() =
+    let em = [[], []]
+    em = emitter_on(em, 1, 1)
+    em = emitter_on(em, 1, 3)
+    em = emitter_on(em, 2, 2)
+    let col1 = [0]
+    let c1 = emitter_emit(em, 1, 5, col1)
+    let col2 = [0]
+    let c2 = emitter_emit(em, 2, 7, col2)
+    let a = 1
+    if c1 != 2
+        a = 0
+    if c2 != 1
+        a = 0
+    if col2[0] != 0
+        a = 0
+    a
+
+let run_fp() =
+    let subject = [[], 0]
+    let i = 0
+    for i < 4
+        subject[0] = arr_push(subject[0], i + 1)
+        i = i + 1
+    let collector = [0]
+    let acc = 7
+    let k = 0
+    for k < 16
+        let event_val = k * 3
+        let m = 0
+        for m < len(subject[0])
+            obs_dispatch(subject[0][m], event_val, collector)
+            m = m + 1
+        acc = (acc + (event_val + 2) * (k + 1)) % P
+        k = k + 1
+    (acc + collector[0]) % P
+
+let v_det() =
+    let f1 = run_fp()
+    let f2 = run_fp()
+    let a = 1
+    if f1 != f2
+        a = 0
+    if f1 == 0
+        a = 0
+    a
+
+print("== observer: V2 id-dispatch migration ==")
+print(v_notify())
+print(v_unsub())
+print(v_state())
+print(v_emitter())
+print(v_det())
+let q1 = v_notify()
+let q2 = v_unsub()
+let q3 = v_state()
+let q4 = v_emitter()
+let q5 = v_det()
+let acc = q1 * q2
+acc = acc * q3
+acc = acc * q4
+acc = acc * q5
+print(acc)

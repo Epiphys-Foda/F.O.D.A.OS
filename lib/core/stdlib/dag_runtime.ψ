@@ -1,0 +1,105 @@
+import "dag_scheduler.ψ"
+import "psi_dataflow.ψ"
+import "dag_view.ψ"
+import "dag_transfer.ψ"
+import "crt_concurrency.ψ"
+import "dag_fs.ψ"
+
+let dr_create() = dag_create()
+
+let dr_add_node(dag, opcode, pe_type) = dag_add_node_v13_1(dag, opcode, pe_type, -1, dag.node_count)
+
+let dr_add_edge(dag, src, dst) = dag_add_edge_v13_1(dag, src, 0, dst, 0, 0, 4)
+
+let dr_run(dag, eval_fn) = sched_run(dag, eval_fn)
+
+let dr_critical_path(dag) = sched_critical_path(dag)
+
+let dr_profile(dag) = sched_parallelism_profile(dag)
+
+let dr_abstract(dag) = dag_view_abstract(dag)
+
+let dr_cgra(dag) = dag_view_cgra(dag)
+
+let dr_backend(dag) = dag_view_backend(dag)
+
+let dr_full_frame(dag) = dt_full_dag_frame(dag)
+
+let dr_rebuild(payload) = dt_rebuild(payload)
+
+let dr_delta(a, b) = dt_delta(a, b)
+
+let dr_sync(full_payload, deltas) = dt_sync(full_payload, deltas)
+
+let dr_commute(dag, a, b) = dc_commute(dag, a, b)
+
+let dr_parallel_count(dag) = dc_parallel_count(dag)
+
+let dr_write(fs, name, dag) = dagfs_write(fs, name, dag)
+
+let dr_read(fs, name) = dagfs_read(fs, name)
+
+let dr_version(fs, name) = dagfs_version(fs, name)
+
+let dr_patch(fs, name, delta) = dagfs_patch(fs, name, delta)
+
+let dr_from_qir(tree) = qir_to_dag(tree)
+
+let dr_dag_to_bytes(dag) = dt_full_dag_frame(dag)
+
+let dr_bytes_to_dag(frame) =
+    let payload = psi_frame_decode(frame).payload
+    dt_rebuild(payload)
+
+let dr_save_dag(fs, name, dag) = dagfs_write(fs, name, dag)
+
+let dr_load_dag(fs, name) = dagfs_read(fs, name)
+
+let dr_serialize(dag) =
+    let payload = psi_frame_decode(dt_full_dag_frame(dag)).payload
+    let text = str(payload[0]).concat(":").concat(str(payload[1])).concat(":")
+    let i = 2
+    let n = len(payload)
+    let done = false
+    for !done
+      if i < n
+        if i > 2
+          text = text.concat(",")
+        else
+          0
+        text = text.concat(str(payload[i]))
+        i = i + 1
+      else
+        done = true
+    text
+
+let dr_self_check() =
+    let results = []
+    results = results.push(dr_critical_path(build_check_dag()) == 3)
+    results = results.push(dr_roundtrip_check())
+    results = results.push(dr_commute_check())
+    results
+
+let build_check_dag() =
+    let d = dr_create()
+    d = dr_add_node(d, 16, 16)
+    d = dr_add_node(d, 1, 1)
+    d = dr_add_node(d, 17, 17)
+    d = dr_add_edge(d, 0, 1)
+    d = dr_add_edge(d, 1, 2)
+    d
+
+let dr_roundtrip_check() =
+    let frame = dr_full_frame(build_check_dag())
+    let rebuilt = dr_bytes_to_dag(frame)
+    rebuilt.node_count == 3 && rebuilt.edge_count == 2
+
+let dr_commute_check() =
+    let d = dr_create()
+    d = dr_add_node(d, 1, 1)
+    d = dr_add_node(d, 2, 2)
+    d = dr_add_node(d, 3, 3)
+    d = dr_add_edge(d, 0, 2)
+    d = dr_add_edge(d, 1, 2)
+    d
+    dr_commute(d, 0, 1)

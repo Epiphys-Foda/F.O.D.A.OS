@@ -1,0 +1,258 @@
+import "../domain_field.ψ"
+
+let ot_key_new(group, topic, partition) = [group, topic, partition]
+let ot_k_group(k) = k[0]
+let ot_k_topic(k) = k[1]
+let ot_k_pid(k) = k[2]
+
+let ot_key_hash(k) =
+    let h = 0
+    let s = "" + ot_k_group(k) + ot_k_topic(k) + ot_k_pid(k)
+    let i = 0
+    let n = len(s)
+    for i < n
+        h = (h * 31 + s[i]) % 65537
+        i = i + 1
+    h
+
+let ot_record_new(offset, metadata, committed_at, leader_epoch) =
+    [offset, metadata, committed_at, leader_epoch]
+
+let ot_r_offset(r) = r[0]
+let ot_r_meta(r) = r[1]
+let ot_r_ts(r) = r[2]
+let ot_r_epoch(r) = r[3]
+
+let ot_r_set_offset(r, v) = [v, r[1], r[2], r[3]]
+let ot_r_set_meta(r, v) = [r[0], v, r[2], r[3]]
+let ot_r_set_ts(r, v) = [r[0], r[1], v, r[3]]
+
+let ot_new(session_timeout) = [{}, {}, {}, session_timeout, 0, 0, 0]
+
+let ot_offsets(t) = t[0]
+let ot_keys(t) = t[1]
+let ot_hb(t) = t[2]
+let ot_st(t) = t[3]
+let ot_commits(t) = t[4]
+let ot_resets(t) = t[5]
+let ot_reb(t) = t[6]
+
+let ot_set_offsets(t, v) = [v, t[1], t[2], t[3], t[4], t[5], t[6]]
+let ot_set_keys(t, v) = [t[0], v, t[2], t[3], t[4], t[5], t[6]]
+let ot_set_hb(t, v) = [t[0], t[1], v, t[3], t[4], t[5], t[6]]
+let ot_set_commits(t, v) = [t[0], t[1], t[2], t[3], v, t[5], t[6]]
+let ot_set_resets(t, v) = [t[0], t[1], t[2], t[3], t[4], v, t[6]]
+let ot_set_reb(t, v) = [t[0], t[1], t[2], t[3], t[4], t[5], v]
+
+let ot_commit(t, key, offset, metadata, ts, leader_epoch) =
+    let h = ot_key_hash(key)
+    let offsets = ot_offsets(t)
+    let keys = ot_keys(t)
+    let record = offsets[h]
+    if record != 0
+        if ot_r_epoch(record) > leader_epoch
+            [t, 0]
+        else
+            record = ot_record_new(offset, metadata, ts, leader_epoch)
+            offsets[h] = record
+            t = ot_set_offsets(t, offsets)
+            t = ot_set_commits(t, ot_commits(t) + 1)
+            [t, 1]
+    else
+        record = ot_record_new(offset, metadata, ts, leader_epoch)
+        offsets[h] = record
+        keys[h] = key
+        t = ot_set_offsets(t, offsets)
+        t = ot_set_keys(t, keys)
+        t = ot_set_commits(t, ot_commits(t) + 1)
+        [t, 1]
+
+let ot_get(t, key) =
+    let h = ot_key_hash(key)
+    let offsets = ot_offsets(t)
+    let r = offsets[h]
+    if r == 0
+        0
+    else
+        ot_r_offset(r)
+
+let OT_RESET_EARLIEST = 0
+let OT_RESET_LATEST = 1
+let OT_RESET_NONE = 2
+
+let ot_reset(t, key, strategy, earliest_offset, latest_offset, ts) =
+    let h = ot_key_hash(key)
+    let offsets = ot_offsets(t)
+    let new_offset = 0
+    if strategy == OT_RESET_EARLIEST
+        new_offset = earliest_offset
+    else
+        0
+    if strategy == OT_RESET_LATEST
+        new_offset = latest_offset
+    else
+        return [t, 0]
+    let record = ot_record_new(new_offset, "reset", ts, 0)
+    offsets[h] = record
+    let keys = ot_keys(t)
+    keys[h] = key
+    t = ot_set_offsets(t, offsets)
+    t = ot_set_keys(t, keys)
+    t = ot_set_resets(t, ot_resets(t) + 1)
+    [t, 1]
+
+let ot_heartbeat(t, group, ts) =
+    let hbs = ot_hb(t)
+    hbs[group] = ts
+    ot_set_hb(t, hbs)
+
+let ot_check_timeouts(t, now) =
+    let hbs = ot_hb(t)
+    let keys = keys_of(hbs)
+    let timed_out = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let g = keys[i]
+        let last = hbs[g]
+        if now - last > ot_st(t)
+            timed_out.push(g)
+            hbs[g] = 0
+            t = ot_set_reb(t, ot_reb(t) + 1)
+        i = i + 1
+    t = ot_set_hb(t, hbs)
+    [t, timed_out]
+
+let ot_serialize(t) =
+    let offsets = ot_offsets(t)
+    let keys = ot_keys(t)
+    let all_keys = keys_of(offsets)
+    let out = []
+    let i = 0
+    let n = len(all_keys)
+    for i < n
+        let h = all_keys[i]
+        let key = keys[h]
+        let record = offsets[h]
+        out.push([key, record])
+        i = i + 1
+    out
+
+let ot_deserialize(t, list) =
+    let i = 0
+    let n = len(list)
+    for i < n
+        let entry = list[i]
+        let key = entry[0]
+        let record = entry[1]
+        let h = ot_key_hash(key)
+        let offsets = ot_offsets(t)
+        let keys = ot_keys(t)
+        offsets[h] = record
+        keys[h] = key
+        t = ot_set_offsets(t, offsets)
+        t = ot_set_keys(t, keys)
+        i = i + 1
+    t
+
+let ot_bragg_check(t) =
+    let offsets = ot_offsets(t)
+    let keys = ot_keys(t)
+    let offset_count = len(keys_of(offsets))
+    let key_count = len(keys_of(keys))
+    if offset_count == key_count
+        1
+    else
+        0
+
+let ot_test_basic() =
+    let t = ot_new(300)
+    let ok1 = 1
+    if ot_commits(t) != 0
+        ok1 = 0
+
+    let key1 = ot_key_new("g1", "t1", 0)
+    let r1 = ot_commit(t, key1, 5, "meta1", 1000, 1)
+    t = r1[0]
+    let ok2 = 1
+    if r1[1] != 1
+        ok2 = 0
+    if ot_commits(t) != 1
+        ok2 = 0
+    if ot_get(t, key1) != 5
+        ok2 = 0
+
+    let key2 = ot_key_new("g1", "t1", 1)
+    let r2 = ot_commit(t, key2, 3, "meta2", 1100, 1)
+    t = r2[0]
+    let r3 = ot_commit(t, key1, 6, "meta1", 1200, 1)
+    t = r3[0]
+    let ok3 = 1
+    if ot_get(t, key1) != 6
+        ok3 = 0
+    if ot_get(t, key2) != 3
+        ok3 = 0
+
+    let r4 = ot_commit(t, key1, 10, "stale", 1300, 0)
+    t = r4[0]
+    let ok4 = 1
+    if r4[1] != 0
+        ok4 = 0
+    if ot_get(t, key1) != 6
+        ok4 = 0
+
+    let r5 = ot_reset(t, key1, OT_RESET_EARLIEST, 0, 100, 1400)
+    t = r5[0]
+    let ok5 = 1
+    if r5[1] != 1
+        ok5 = 0
+    if ot_get(t, key1) != 0
+        ok5 = 0
+
+    let r6 = ot_reset(t, key1, OT_RESET_LATEST, 0, 100, 1500)
+    t = r6[0]
+    let ok6 = 1
+    if ot_get(t, key1) != 100
+        ok6 = 0
+
+    ot_heartbeat(t, "g1", 1000)
+    ot_heartbeat(t, "g2", 2000)
+    let ok7 = 1
+    let hbs = ot_hb(t)
+    if hbs["g1"] != 1000
+        ok7 = 0
+
+    let timeout_check = ot_check_timeouts(t, 3500)
+    t = timeout_check[0]
+    let ok8 = 1
+    if len(timeout_check[1]) != 1
+        ok8 = 0
+    else
+        0
+    if timeout_check[1][0] != "g1"
+        ok8 = 0
+    if ot_reb(t) != 1
+        ok8 = 0
+
+    let serialized = ot_serialize(t)
+    let t2 = ot_new(300)
+    t2 = ot_deserialize(t2, serialized)
+    let ok9 = 1
+    if ot_get(t2, key2) != 3
+        ok9 = 0
+
+    let ok10 = 1
+    if ot_bragg_check(t) != 1
+        ok10 = 0
+
+    ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7 * ok8 * ok9 * ok10
+
+let ot_test_self() =
+        let ok = ot_test_basic()
+        if ok == 1
+            print("offset_tracker: ALL PASS")
+        else
+            print("offset_tracker: FAIL")
+        ok
+
+    ot_test_self()

@@ -1,0 +1,77 @@
+import "../domain_field.ψ"
+
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let MQ_MAX_QUEUES = 256
+let MQ_MAX_MSG = 65536
+
+let queue_create(id, topic) = [id, topic, [], [], 0]
+let queue_publish(queue, msg) =
+    let messages = queue[2]
+    messages.push(msg)
+    [queue[0], queue[1], messages, queue[3], queue[4]]
+let queue_subscribe(queue, sub_id) =
+    let subs = queue[3]
+    subs.push(sub_id)
+    [queue[0], queue[1], queue[2], subs, queue[4]]
+let queue_unsubscribe(queue, sub_id) =
+    let subs = queue[3]
+    let new_subs = []
+    let i = 0
+    let n = len(subs)
+    for i < n
+        if subs[i] != sub_id
+            new_subs.push(subs[i])
+        i = i + 1
+    [queue[0], queue[1], queue[2], new_subs, queue[4]]
+let queue_consume(queue) =
+        let messages = queue[2]
+        let offset = queue[4]
+        if offset < len(messages)
+            let msg = messages[offset]
+            [msg, [queue[0], queue[1], messages, queue[3], offset + 1]]
+        else
+            [0, queue]
+let msg_create(id, topic, payload, timestamp, priority) = [id, topic, payload, timestamp, priority]
+let msg_priority_compare(a, b) =
+    if a[4] > b[4]
+        1
+    else
+        (a[4] == b[4] ? 0 : 2)
+let pq_insert(queue, msg) =
+    let messages = queue[2]
+    let pos = len(messages)
+    let i = 0
+    let n = len(messages)
+    for i < n
+        if msg_priority_compare(msg, messages[i]) == 1
+            pos = i
+        i = n
+        i = i + 1
+    messages.insert(pos, msg)
+    [queue[0], queue[1], messages, queue[3], queue[4]]
+let topic_match(pattern, topic) =
+    (pattern == topic ? 1 : 0)
+let topic_hash(topic) = gf_norm(topic) % MQ_MAX_QUEUES
+let msg_ack(queue, msg_id) =
+    1
+let msg_nack(queue, msg_id) =
+    0
+let mq_field_encode(payload, n, poles, residues) =
+    let records = []
+    let _i = 0
+    for _i < n
+        records.push([payload[_i], payload[_i]])
+        _i = _i + 1
+    domain_field_encode(records, n, 1000, 0)
+let mq_verify() =
+    let q = queue_create(1, 100)
+    let msg = msg_create(1, 100, arr_new_n(2), 1000, 1)
+    let q1 = queue_publish(q, msg)
+    let q2 = queue_subscribe(q1, 200)
+    let result = queue_consume(q2)
+    let consumed_msg = result[0]
+    let ok = 0
+    (consumed_msg[0] == 1 ? (ok = 1) : (ok = 0))
+    ok
+

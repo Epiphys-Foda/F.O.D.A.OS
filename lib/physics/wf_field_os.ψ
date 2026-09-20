@@ -1,0 +1,100 @@
+let P = 65537
+let P2 = 131071
+
+import "../core/stdlib_lang2/gf_canon_shared.ψ"
+import "sh_d39d441e28.ψ"
+import "wf_brain.ψ"
+import "../core/stdlib_lang2/bm_canon.ψ"
+import "sh_ee308d734f.ψ"
+import "sh_bffc56f968.ψ"
+import "sh_0fe08dee05.ψ"
+let mem_pow(b, e) =
+    let r = 1
+    let base = b % P
+    let ex = e
+    for ex > 0
+        if ex % 2 == 1
+            r = r * base % P
+        base = base * base % P
+        ex = ex / 2
+    r
+
+let mem_inv(a) = mem_pow(a, P - 2)
+
+let cauchy_attention(query, keys, values, n) =
+    let num = 0
+    let den = 0
+    let j = 0
+    for j < n
+        let diff = gf_sub(query, keys[j])
+        if diff != 0
+            let w = gf_inv(diff)
+            num = gf_add(num, gf_mul(w, values[j]))
+            den = gf_add(den, w)
+        j = j + 1
+    gf_div(num, den)
+
+let weinstein_gate(L, n, fit_ok) =
+    let half = 0
+    if 2 * L < n
+        half = 1
+    let ok = 0
+    if fit_ok == 1
+        ok = 1
+    half * ok
+
+let innovation_check(C, L, s, n) =
+    let pred = bm_predict(C, L, s, n - 1)
+    let diff = gf_sub(s[n - 1], pred)
+    let surprised = 0
+    if diff != 0
+        surprised = 1
+    surprised
+
+let rrns_audit(arr, n) =
+    let c1 = rrns_chain(arr, n, P)
+    let c2 = rrns_chain(arr, n, P2)
+    [c1, c2]
+
+let field_learn_cycle(s, n, T, C, PRED, TRUE_NEXT) =
+    let L = bm_discover(s, n, T, C)
+    let fit_ok = bm_verify_law(C, L, s, n)
+    let gate = weinstein_gate(L, n, fit_ok)
+    let pred = bm_predict(C, L, s, n)
+    let hit = 0
+    if pred == TRUE_NEXT
+        hit = 1
+    let KB = arr_new_n(4)
+    KB[0] = L
+    KB[1] = C[1]
+    KB[2] = fit_ok
+    KB[3] = hit
+    let audit = rrns_audit(KB, 4)
+    [L, fit_ok, gate, hit, audit[0], audit[1]]
+
+let hyp_discover(s, N, out4) =
+    let r0 = gf_div(s[1], s[0])
+    let r1 = gf_div(s[2], s[1])
+    let r2 = gf_div(s[3], s[2])
+    let e1 = gf_sub(r1, r0)
+    let e2 = gf_sub(r2, r0)
+    let den = gf_sub(r1, r2)
+    let i2 = gf_div(1, 2)
+    let c = gf_mul(gf_sub(gf_mul(e2, i2), e1), gf_inv(den))
+    let a = gf_add(e1, gf_mul(c, r1))
+    let bq = r0
+    let ok = 1
+    let n = 0
+    for n < N - 1
+        let lhs = gf_mul(s[n + 1], gf_add(gf_mul(c, n), 1))
+        let rhs = gf_mul(s[n], gf_add(gf_mul(a, n), bq))
+        let eq = 0
+        if lhs == rhs
+            eq = 1
+        ok = ok * eq
+        n = n + 1
+    out4[0] = a
+    out4[1] = bq
+    out4[2] = c
+    out4[3] = 1
+    ok

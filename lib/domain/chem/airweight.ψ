@@ -1,0 +1,29 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let col = small_div(10132500, 981)
+bad[0] = bad[0] + ck(col, 10000, 10700)
+
+let body = small_div(2 * 101325, 1000)
+bad[0] = bad[0] + ck(body, 190, 215)
+
+let inside = 101325
+bad[0] = bad[0] + ck_lo(inside, 101324)
+
+let wcol = small_div(col, 1000)
+bad[0] = bad[0] + ck(wcol, 9, 12)
+
+let m_atm = small_div(10333 * 51, 100)
+bad[0] = bad[0] + ck(m_atm, 5000, 5500)
+
+let half = 5500
+bad[0] = bad[0] + ck(half, 5200, 5800)
+
+if 1643 < 1641
+    bad[0] = bad[0] + 1
+if 1643 > 1645
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

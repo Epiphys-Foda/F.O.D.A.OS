@@ -1,0 +1,884 @@
+import "residueon_common.ψ"
+import "../core/stdlib/arr.ψ"
+import "../core/stdlib/gf65537.ψ"
+import "bootstrap_residue.ψ"
+
+import "sh_a9f96f3ee7.ψ"
+
+let even(x) = x % 2 == 0
+
+let odd(x) = x % 2 != 0
+
+let zero(x) = x == 0
+
+let nonzero(x) = x != 0
+
+let positive(x) = x > 0
+
+let negative(x) = x < 0
+
+let natural(x) = x >= 0
+
+let unit(x) = x == 1
+
+let sign(x) = ((x > 0) ? (1) : (((x < 0) ? (0 - 1) : (0))))
+
+let step(x) = ((x >= 0) ? (1) : (0))
+
+let relu(x) = ((x > 0) ? (x) : (0))
+
+let norm(x) = ((x < 0) ? (0 - x) : (x))
+
+let _is_pow2_acc(x) =
+    if x == 1
+        1
+    else
+        0
+    if x % 2 != 0
+        0
+    else
+        _is_pow2_acc(x / 2)
+let is_pow2(x) =
+    if x <= 0
+        0
+    else
+        _is_pow2_acc(x)
+
+let _is_prime_loop(n, d) =
+    if d * d > n
+        1
+    else
+        0
+    if n % d == 0
+        0
+    else
+        _is_prime_loop(n, d + 2)
+let is_prime(n) =
+    if n < 2
+        0
+    else
+        0
+    if n == 2
+        1
+    else
+        0
+    if (n & 1) == 0
+        0
+    else
+        _is_prime_loop(n, 3)
+
+let zeq(x, y) =
+    let d = x - y + 1
+    let r = 0
+    if d > 0
+        let e = y - x + 1
+        if e > 0
+            r = 1
+    r
+
+let _euler_phi_loop(n, p, result) =
+    if p * p > n
+      if n > 1
+        result / n * (n - 1)
+      else
+        result
+    else
+        0
+    if n % p == 0
+      let nr = n
+      let nred = _euler_phi_strip(nr, p)
+      _euler_phi_loop(nred, p + 1, result / p * (p - 1))
+    else
+      _euler_phi_loop(n, p + 1, result)
+let _euler_phi_strip(n, p) =
+      if n % p == 0
+        _euler_phi_strip(n / p, p)
+      else
+        n
+let euler_phi(n) =
+    if n <= 0
+      0
+    else
+        0
+    if n == 1
+      1
+    else
+      _euler_phi_loop(n, 2, n)
+
+let _mobius_loop(n, p, factor_count) =
+    if p * p > n
+      if n > 1
+        let k = factor_count + 1
+        ((k & 1) == 0 ? 1 : 65536)
+      else
+            0
+        ((factor_count & 1) == 0 ? 1 : 65536)
+    else
+            0
+    if n % (p * p) == 0
+      0
+    else
+        0
+    if n % p == 0
+      _mobius_loop(n / p, p + 1, factor_count + 1)
+    else
+      _mobius_loop(n, p + 1, factor_count)
+let mobius(n) =
+    if n <= 0
+      0
+    else
+        0
+    if n == 1
+      1
+    else
+      _mobius_loop(n, 2, 0)
+
+let _div_count_loop(n, p, count) =
+    if p * p > n
+      if n > 1
+        count * 2
+      else
+        count
+    else
+        0
+    if n % p == 0
+      let a = _div_count_exp(n, p, 0)
+      let nred = _div_count_strip(n, p)
+      _div_count_loop(nred, p + 1, count * (a + 1))
+    else
+      _div_count_loop(n, p + 1, count)
+let _div_count_exp(n, p, a) =
+      if n % p == 0
+        _div_count_exp(n / p, p, a + 1)
+      else
+        a
+let _div_count_strip(n, p) =
+      if n % p == 0
+        _div_count_strip(n / p, p)
+      else
+        n
+let divisor_count(n) =
+    if n <= 0
+      0
+    else
+        0
+    if n == 1
+      1
+    else
+      _div_count_loop(n, 2, 1)
+
+let _div_sum_loop(n, d, sum) =
+    if d > n
+      sum
+    else
+        0
+    if n % d == 0
+      _div_sum_loop(n, d + 1, sum + d)
+    else
+      _div_sum_loop(n, d + 1, sum)
+let divisor_sum(n) =
+      if n <= 0
+        0
+      else
+        _div_sum_loop(n, 1, 0)
+
+let _factorial_loop(n, i, acc) =
+    if i > n
+      acc
+    else
+      _factorial_loop(n, i + 1, gf_mul(acc, i))
+let factorial(n) =
+    if n <= 1
+      1
+    else
+      _factorial_loop(n, 2, 1)
+
+let gf_factorial(n) = factorial(n)
+
+let _prime_count_loop(x, n, acc) =
+    if n > x
+      acc
+    else
+      let new_acc = (is_prime(n) == 1) ? acc + 1 : acc
+      _prime_count_loop(x, n + 1, new_acc)
+let prime_count(x) =
+    if x < 2
+      0
+    else
+      _prime_count_loop(x, 2, 0)
+
+let _fib_loop(n, i, a, b) =
+    if i > n
+      b
+    else
+      _fib_loop(n, i + 1, b, gf_add(a, b))
+let fib(n) =
+    if n <= 0
+      0
+    else
+        0
+    if n == 1
+      1
+    else
+      _fib_loop(n, 2, 0, 1)
+
+let _next_prime_loop(candidate) =
+    if is_prime(candidate) == 1
+      candidate
+    else
+      _next_prime_loop(candidate + 1)
+let next_prime(n) =
+    if n < 2
+      2
+    else
+      _next_prime_loop(n + 1)
+
+let _isqrt_newton(x, n) =
+    let y = (x + n / x) / 2
+    if y < x
+      _isqrt_newton(y, n)
+    else
+      x
+let isqrt(n) =
+    if n <= 0
+      0
+    else
+      _isqrt_newton(n, n)
+
+let icbrt(n) =
+    let lo = 0
+    let hi = n + 1
+    for lo < hi - 1
+        let mid = (lo + hi) / 2
+        if mid * mid * mid <= n
+            lo = mid
+        else
+            hi = mid
+    lo
+
+let small_div(x, m) =
+    let neg = 0
+    if m < 0
+        neg = 1 - neg
+        m = 0 - m
+    if x < 0
+        neg = 1 - neg
+        x = 0 - x
+    let q = 0
+    for x >= m
+        x = x - m
+        q = q + 1
+    if neg == 1
+        0 - q
+    else
+        q
+let smod(x, m) =
+    let neg = 0
+    if m < 0
+        m = 0 - m
+    if x < 0
+        neg = 1
+        x = 0 - x
+    for x >= m
+        x = x - m
+    if neg == 1
+        0 - x
+    else
+        x
+
+let _lpf_loop(n, p, best) =
+    if p * p > n
+      if n > best
+        n
+      else
+        best
+    else
+        0
+    if n % p == 0
+      let nred = _lpf_strip(n, p)
+      _lpf_loop(nred, p + 1, p)
+    else
+      _lpf_loop(n, p + 1, best)
+let _lpf_strip(n, p) =
+      if n % p == 0
+        _lpf_strip(n / p, p)
+      else
+        n
+let largest_prime_factor(n) =
+      if n <= 1
+        0
+      else
+        _lpf_loop(n, 2, 1)
+
+let _prime_pi_loop(n, k, count) =
+      if k > n
+        count
+      else
+        let nc = count + is_prime(k)
+        _prime_pi_loop(n, k + 1, nc)
+let prime_pi(n) = _prime_pi_loop(n, 2, 0)
+
+let _goldbach_find_loop(n, p) =
+    if p > n / 2
+      [0, 0]
+    else
+        0
+    if (is_prime(p) == 1) && (is_prime(n - p) == 1)
+      [p, n - p]
+    else
+      _goldbach_find_loop(n, p + 1)
+let goldbach_find_pair(n) = _goldbach_find_loop(n, 2)
+
+let _goldbach_verify_acc(N, n, count) =
+      if n > N
+        count
+      else
+        let pair = goldbach_find_pair(n)
+        let p = arr_get(pair, 0)
+        let q = arr_get(pair, 1)
+        let ok = (p > 0) && (p + q == n)
+        let new_count = (ok ? count + 1 : count)
+        _goldbach_verify_acc(N, n + 2, new_count)
+let goldbach_verify_range(N) = _goldbach_verify_acc(N, 4, 0)
+
+let _goldbach_count_loop(n, p, count) =
+      if p > n / 2
+        count
+      else
+        let new_count = ((is_prime(p) == 1) && (is_prime(n - p) == 1) ? count + 1 : count)
+        _goldbach_count_loop(n, p + 1, new_count)
+let goldbach_count_repr(n) = _goldbach_count_loop(n, 2, 0)
+
+let goldbach_verify_strong(N) =
+    let count = goldbach_verify_range(N)
+    let expected = (N - 2) / 2
+    (count == expected ? 1 : 0)
+
+let goldbach_summary(N) =
+    let verified = goldbach_verify_range(N)
+    let expected = (N - 2) / 2
+    let r4 = goldbach_count_repr(4)
+    let r10 = goldbach_count_repr(10)
+    let v = arr_new_n(4)
+    arr_set(v, 0, verified)
+    arr_set(v, 1, expected)
+    arr_set(v, 2, r4)
+    arr_set(v, 3, r10)
+    v
+
+let _burnside_apply_acc(perm, x, n, i, acc) =
+      if i >= n
+        acc
+      else
+        let src = arr_get(perm, i)
+        let val = arr_get(x, src)
+        let new_acc = arr_push(acc, val)
+        _burnside_apply_acc(perm, x, n, i + 1, new_acc)
+let burnside_apply_perm(perm, x) =
+    let n = arr_len(perm)
+    let acc = arr_new_n(0)
+    _burnside_apply_acc(perm, x, n, 0, acc)
+
+let _burnside_eq_acc(x, y, n, i) =
+    if i >= n
+      1
+    else
+        0
+    if arr_get(x, i) == arr_get(y, i)
+        _burnside_eq_acc(x, y, n, i + 1)
+    else
+        0
+let burnside_eq_perm(x, y) =
+    let n = arr_len(x)
+    _burnside_eq_acc(x, y, n, 0)
+
+let _burnside_fixed_acc(perm, k, n, total, idx, fixed) =
+      if idx >= total
+        fixed
+      else
+        let x = arr_new_n(n)
+        _burnside_decode_kary(idx, k, n, 0, x)
+        let gx = burnside_apply_perm(perm, x)
+        let is_fixed = burnside_eq_perm(x, gx)
+        let new_fixed = (is_fixed == 1 ? fixed + 1 : fixed)
+        _burnside_fixed_acc(perm, k, n, total, idx + 1, new_fixed)
+let _burnside_decode_kary(idx, k, n, i, arr) =
+      if i >= n
+        0
+      else
+        arr_set(arr, i, idx % k)
+        _burnside_decode_kary(idx / k, k, n, i + 1, arr)
+let burnside_fixed_points(perm, k) =
+    let n = arr_len(perm)
+    let total = _burnside_kpow(k, n)
+    _burnside_fixed_acc(perm, k, n, total, 0, 0)
+
+let _burnside_kpow_loop(k, n, acc) =
+      if n == 0
+        acc
+      else
+        _burnside_kpow_loop(k, n - 1, acc * k)
+let _burnside_kpow(k, n) = _burnside_kpow_loop(k, n, 1)
+
+let _burnside_orbit_acc(group, k, n_g, i, sum_fixed) =
+      if i >= n_g
+        sum_fixed
+      else
+        let perm = arr_get(group, i)
+        let fp = burnside_fixed_points(perm, k)
+        _burnside_orbit_acc(group, k, n_g, i + 1, sum_fixed + fp)
+let burnside_orbit_count(group, k) =
+    let n_g = arr_len(group)
+    let sum = _burnside_orbit_acc(group, k, n_g, 0, 0)
+    sum / n_g
+
+let _burnside_cycle_acc(perm, n, visited, i, count) =
+      if i >= n
+        count
+      else
+        let vis = arr_get(visited, i)
+        if vis == 1
+          _burnside_cycle_acc(perm, n, visited, i + 1, count)
+        else
+          _burnside_mark_cycle(perm, visited, i, i)
+          _burnside_cycle_acc(perm, n, visited, i + 1, count + 1)
+let _burnside_mark_cycle(perm, visited, start, current) =
+      arr_set(visited, current, 1)
+      let next = arr_get(perm, current)
+      if next == start
+        0
+      else
+        _burnside_mark_cycle(perm, visited, start, next)
+let burnside_cycle_count(perm) =
+    let n = arr_len(perm)
+    let visited = arr_new_n(n)
+    _burnside_init_zero(visited, n, 0)
+    _burnside_cycle_acc(perm, n, visited, 0, 0)
+let _burnside_init_zero(arr, n, i) =
+      if i >= n
+        0
+      else
+        arr_set(arr, i, 0)
+        _burnside_init_zero(arr, n, i + 1)
+
+let _burnside_orbit_fast_acc(group, k, n_g, i, sum_fixed) =
+      if i >= n_g
+        sum_fixed
+      else
+        let perm = arr_get(group, i)
+        let c = burnside_cycle_count(perm)
+        let fp = _burnside_kpow(k, c)
+        _burnside_orbit_fast_acc(group, k, n_g, i + 1, sum_fixed + fp)
+let burnside_orbit_count_fast(group, k) =
+    let n_g = arr_len(group)
+    let sum = _burnside_orbit_fast_acc(group, k, n_g, 0, 0)
+    sum / n_g
+
+let burnside_verify() =
+    let e = arr_new_n(3)
+    arr_set(e, 0, 0)
+    arr_set(e, 1, 1)
+    arr_set(e, 2, 2)
+    let r = arr_new_n(3)
+    arr_set(r, 0, 1)
+    arr_set(r, 1, 2)
+    arr_set(r, 2, 0)
+    let r2 = arr_new_n(3)
+    arr_set(r2, 0, 2)
+    arr_set(r2, 1, 0)
+    arr_set(r2, 2, 1)
+    let G = arr_new_n(3)
+    arr_set(G, 0, e)
+    arr_set(G, 1, r)
+    arr_set(G, 2, r2)
+    let orbits = burnside_orbit_count_fast(G, 2)
+    (orbits == 4 ? 1 : 0)
+
+let test_numtheor() =
+    assert_eq(is_prime(2), 1)
+    assert_eq(is_prime(7), 1)
+    assert_eq(is_prime(8), 0)
+    assert_eq(is_prime(65537), 1)
+    assert_eq(euler_phi(1), 1)
+    assert_eq(euler_phi(6), 2)
+    assert_eq(euler_phi(12), 4)
+    assert_eq(mobius(1), 1)
+    assert_eq(mobius(6), 1)
+    assert_eq(mobius(4), 0)
+    assert_eq(divisor_count(12), 6)
+    assert_eq(divisor_sum(12), 28)
+    assert_eq(largest_prime_factor(12), 3)
+    assert_eq(prime_pi(10), 4)
+    0
+
+let permutation(n, k) =
+    gf_mul(factorial(n), gf_inv(factorial(n - k)))
+
+let factorial_verify() =
+    let result = 0
+    if factorial(0) == 1
+        result = result + 1
+    if factorial(1) == 1
+        result = result + 1
+    if factorial(2) == 2
+        result = result + 1
+    if factorial(3) == 6
+        result = result + 1
+    if factorial(4) == 24
+        result = result + 1
+    if factorial(5) == 120
+        result = result + 1
+    if factorial(6) == 720
+        result = result + 1
+    if factorial(7) == 5040
+        result = result + 1
+    result
+
+let permutation_verify() =
+    let result = 0
+    if permutation(5, 2) == 20
+        result = result + 1
+    if permutation(5, 5) == 120
+        result = result + 1
+    if permutation(4, 1) == 4
+        result = result + 1
+    if permutation(4, 0) == 1
+        result = result + 1
+    if permutation(6, 2) == 30
+        result = result + 1
+    result
+
+let binomial(n, k) =
+    let nk = n - k
+    gf_mul(factorial(n), gf_inv(gf_mul(factorial(k), factorial(nk))))
+
+let binomial_verify() =
+    let result = 0
+    if binomial(5, 2) == 10
+        result = result + 1
+    if binomial(5, 0) == 1
+        result = result + 1
+    if binomial(5, 5) == 1
+        result = result + 1
+    if binomial(6, 3) == 20
+        result = result + 1
+    if binomial(7, 3) == 35
+        result = result + 1
+    if binomial(4, 2) == 6
+        result = result + 1
+    if binomial(8, 4) == 70
+        result = result + 1
+    result
+
+let pascal_verify() =
+    let result = 0
+    if gf_add(binomial(4, 1), binomial(4, 2)) == binomial(5, 2)
+        result = result + 1
+    if gf_add(binomial(5, 2), binomial(5, 3)) == binomial(6, 3)
+        result = result + 1
+    if gf_add(binomial(6, 2), binomial(6, 3)) == binomial(7, 3)
+        result = result + 1
+    if binomial(6, 2) == binomial(6, 4)
+        result = result + 1
+    if binomial(7, 3) == binomial(7, 4)
+        result = result + 1
+    if binomial(8, 0) == 1
+        result = result + 1
+    if binomial(8, 8) == 1
+        result = result + 1
+    result
+
+let catalan(n) =
+    gf_div(binomial(gf_mul(2, n), n), gf_add(n, 1))
+
+let catalan_verify() =
+    let result = 0
+    if catalan(0) == 1
+        result = result + 1
+    if catalan(1) == 1
+        result = result + 1
+    if catalan(2) == 2
+        result = result + 1
+    if catalan(3) == 5
+        result = result + 1
+    if catalan(4) == 14
+        result = result + 1
+    if gf_div(gf_mul(catalan(2), gf_mul(2, 5)), 4) == catalan(3)
+        result = result + 1
+    result
+
+let fibonacci(n) =
+    let a = 0
+    let b = 1
+    let i = 2
+    for i <= n
+        let c = gf_add(a, b)
+        a = b
+        b = c
+        i = i + 1
+    if n == 0
+        b = 0
+    b
+
+let lucas(n) =
+    gf_add(fibonacci(n - 1), fibonacci(gf_add(n, 1)))
+
+let fibonacci_verify() =
+    let result = 0
+    if fibonacci(0) == 0
+        result = result + 1
+    if fibonacci(1) == 1
+        result = result + 1
+    if fibonacci(2) == 1
+        result = result + 1
+    if fibonacci(3) == 2
+        result = result + 1
+    if fibonacci(4) == 3
+        result = result + 1
+    if fibonacci(5) == 5
+        result = result + 1
+    if fibonacci(6) == 8
+        result = result + 1
+    if fibonacci(7) == 13
+        result = result + 1
+    if fibonacci(8) == 21
+        result = result + 1
+    if fibonacci(10) == 55
+        result = result + 1
+    result
+
+let lucas_verify() =
+    let result = 0
+    if lucas(1) == 1
+        result = result + 1
+    if lucas(2) == 3
+        result = result + 1
+    if lucas(3) == 4
+        result = result + 1
+    if lucas(4) == 7
+        result = result + 1
+    result
+
+let stirling2(n, k) =
+        if n == 0
+            (k == 0 ? 1 : 0)
+        else
+                0
+            if k == 0
+                0
+            else
+                if k > n
+                    0
+                else
+                    if k == n
+                        1
+                    else
+                        if k == 1
+                            1
+                        else
+                            gf_add(stirling2(n - 1, k - 1), gf_mul(k, stirling2(n - 1, k)))
+
+let stirling_verify() =
+    let result = 0
+    if stirling2(3, 2) == 3
+        result = result + 1
+    if stirling2(4, 2) == 7
+        result = result + 1
+    if stirling2(4, 3) == 6
+        result = result + 1
+    if stirling2(5, 5) == 1
+        result = result + 1
+    if stirling2(5, 1) == 1
+        result = result + 1
+    if stirling2(5, 2) == 15
+        result = result + 1
+    if stirling2(5, 3) == 25
+        result = result + 1
+    result
+
+let bell(n) =
+    let total = 0
+    let k = 0
+    for k <= n
+        total = gf_add(total, stirling2(n, k))
+        k = k + 1
+    total
+
+let bell_verify() =
+    let result = 0
+    if bell(0) == 1
+        result = result + 1
+    if bell(1) == 1
+        result = result + 1
+    if bell(2) == 2
+        result = result + 1
+    if bell(3) == 5
+        result = result + 1
+    if bell(4) == 15
+        result = result + 1
+    result
+
+let inclusion_exclusion_verify() =
+    let result = 0
+    let a1 = 5
+    let a2 = 3
+    let a12 = 1
+    let union = gf_sub(gf_add(a1, a2), a12)
+    if union == 7
+        result = result + 1
+    let sum1 = gf_add(gf_add(4, 3), 3)
+    let sum2 = gf_add(gf_add(1, 1), 1)
+    let sum3 = 0
+    let union3 = gf_add(gf_sub(sum1, sum2), sum3)
+    if union3 == 7
+        result = result + 1
+    if union >= a1
+        result = result + 1
+    if union >= a2
+        result = result + 1
+    if union <= gf_add(a1, a2)
+        result = result + 1
+    result
+
+let comb_pcd(c_before, c_after) =
+    let diff = gf_sub(c_after, c_before)
+    if diff > 32768
+        diff = gf_sub(0, diff)
+    diff
+
+let comb_rrc(c1, c2, c3) =
+    gf_sub(gf_add(c1, c3), gf_mul(2, c2))
+
+let comb_pcd_rrc_verify() =
+    let result = 0
+    let pcd = comb_pcd(10, 20)
+    if pcd == 10
+        result = result + 1
+    let pcd0 = comb_pcd(5, 5)
+    if pcd0 == 0
+        result = result + 1
+    let rrc = comb_rrc(1, 1, 2)
+    if rrc == 1
+        result = result + 1
+    let rrc0 = comb_rrc(1, 2, 3)
+    if rrc0 == 0
+        result = result + 1
+    let rrc2 = comb_rrc(1, 2, 5)
+    if rrc2 == 2
+        result = result + 1
+    result
+
+let residueon_combinatorics_verify() =
+    let ok = 0
+
+    if factorial_verify() == 8
+        ok = ok + 1
+    if permutation_verify() == 5
+        ok = ok + 1
+
+    if binomial_verify() == 7
+        ok = ok + 1
+
+    if pascal_verify() == 7
+        ok = ok + 1
+
+    if catalan_verify() == 6
+        ok = ok + 1
+
+    if fibonacci_verify() == 10
+        ok = ok + 1
+    if lucas_verify() == 4
+        ok = ok + 1
+
+    if stirling_verify() == 7
+        ok = ok + 1
+
+    if bell_verify() == 5
+        ok = ok + 1
+
+    if inclusion_exclusion_verify() == 5
+        ok = ok + 1
+
+    if comb_pcd_rrc_verify() == 5
+        ok = ok + 1
+
+    ok = ok + cross_domain_base()
+
+    if binomial(5, 2) == 10
+        ok = ok + 1
+
+    if stirling2(4, 2) == 7
+        ok = ok + 1
+
+    if catalan(3) == 5
+        ok = ok + 1
+
+    if bell(3) == 5
+        ok = ok + 1
+
+    if binomial(6, 3) == 20
+        ok = ok + 1
+
+    if catalan(4) == 14
+        ok = ok + 1
+
+    if factorial(4) == 24
+        ok = ok + 1
+
+    if permutation(4, 2) == 12
+        ok = ok + 1
+
+    if fibonacci(7) == 13
+        ok = ok + 1
+
+    if bell(4) == 15
+        ok = ok + 1
+
+    if catalan(5) == 42
+        ok = ok + 1
+
+    if stirling2(3, 2) == 3
+        ok = ok + 1
+
+    if factorial(5) == 120
+        ok = ok + 1
+
+    if binomial(4, 2) == 6
+        ok = ok + 1
+
+    if fibonacci(8) == 21
+        ok = ok + 1
+
+    if binomial(7, 3) == 35
+        ok = ok + 1
+
+    if binomial(8, 4) == 70
+        ok = ok + 1
+
+    if fibonacci(6) == 8
+        ok = ok + 1
+
+    if binomial(5, 3) == 10
+        ok = ok + 1
+
+    if permutation(5, 2) == 20
+        ok = ok + 1
+
+    if fibonacci(5) == 5
+        ok = ok + 1
+
+    if binomial(6, 2) == 15
+        ok = ok + 1
+
+    if binomial(3, 1) == 3
+        ok = ok + 1
+
+    if fibonacci(10) == 55
+        ok = ok + 1
+
+    if factorial(3) == 6
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_combinatorics_verify()

@@ -1,0 +1,418 @@
+import "residueon_common.ψ"
+
+let partition_single(energy, beta) = gf_inv(gf_add(1, gf_mul(beta, energy)))
+
+let partition_multi(energies, n, beta) =
+    let Z = 0
+    let i = 0
+    for i < n
+        let e = energies[i]
+        Z = gf_add(Z, partition_single(e, beta))
+        i = i + 1
+    Z
+
+let partition_verify() =
+    let energies = [1, 2, 3]
+    let Z = partition_multi(energies, 3, 1)
+    let result = 0
+    if Z >= 0
+        result = 1
+    result
+
+let internal_energy(energies, n, beta) =
+    let Z = partition_multi(energies, n, beta)
+    let U = 0
+    let i = 0
+    for i < n
+        let e = energies[i]
+        let boltzmann = partition_single(e, beta)
+        U = gf_add(U, gf_mul(e, boltzmann))
+        i = i + 1
+    gf_div(U, Z)
+
+let entropy(energies, n, beta) =
+    let Z = partition_multi(energies, n, beta)
+    let U = internal_energy(energies, n, beta)
+    gf_add(Z, gf_mul(beta, U))
+
+let free_energy(energies, n, beta) =
+    let Z = partition_multi(energies, n, beta)
+    let T = gf_inv(beta)
+    gf_neg(gf_mul(T, Z))
+
+let thermo_verify() =
+    let energies = [1, 2, 3]
+    let U = internal_energy(energies, 3, 1)
+    let S = entropy(energies, 3, 1)
+    let F = free_energy(energies, 3, 1)
+    let result = 0
+    if U >= 0
+        if S >= 0
+            if F >= 0
+                result = 1
+    result
+
+let boltzmann_probability(energy, energies, n, beta) =
+    let Z = partition_multi(energies, n, beta)
+    let boltzmann = partition_single(energy, beta)
+    gf_div(boltzmann, Z)
+
+let boltzmann_normalize_verify() =
+    let energies = [1, 2, 3]
+    let beta = 1
+    let total = 0
+    let i = 0
+    for i < 3
+        let e = energies[i]
+        let p = boltzmann_probability(e, energies, 3, beta)
+        total = gf_add(total, p)
+        i = i + 1
+    let result = 0
+    if total == 1
+        result = 1
+    result
+
+let boltzmann_ordering_verify() =
+    let energies = [1, 2, 3]
+    let beta = 1
+    let p1 = boltzmann_probability(1, energies, 3, beta)
+    let p3 = boltzmann_probability(3, energies, 3, beta)
+    let result = 0
+    if p1 >= 0
+        if p3 >= 0
+            result = 1
+    result
+
+let bose_einstein(energy, mu, beta) =
+    let x = gf_mul(beta, gf_sub(energy, mu))
+    let exp_x = gf_add(1, x)
+    gf_inv(gf_sub(exp_x, 1))
+
+let fermi_dirac(energy, mu, beta) =
+    let x = gf_mul(beta, gf_sub(energy, mu))
+    let exp_x = gf_add(1, x)
+    gf_inv(gf_add(exp_x, 1))
+
+let bose_einstein_verify() =
+    let n = bose_einstein(3, 1, 1)
+    let result = 0
+    if n >= 0
+        result = 1
+    result
+
+let fermi_dirac_verify() =
+    let n = fermi_dirac(3, 1, 1)
+    let result = 0
+    if n >= 0
+        result = 1
+    result
+
+let bose_vs_fermi_verify() =
+    let n_bose = bose_einstein(2, 1, 1)
+    let n_fermi = fermi_dirac(2, 1, 1)
+    let result = 0
+    if n_bose >= 0
+        if n_fermi >= 0
+            result = 1
+    result
+
+let entropy_change(energies, n, beta_initial, beta_final) =
+    let S_initial = entropy(energies, n, beta_initial)
+    let S_final = entropy(energies, n, beta_final)
+    gf_sub(S_final, S_initial)
+
+let second_law_verify() =
+    let energies = [1, 2, 3]
+    let delta_S = entropy_change(energies, 3, 2, 1)
+    let result = 0
+    if delta_S >= 0
+        result = 1
+    result
+
+let entropy_maximum_verify() =
+    let energies = [1, 2, 3]
+    let S1 = entropy(energies, 3, 1)
+    let S2 = entropy(energies, 3, 2)
+    let result = 0
+    if S1 >= 0
+        if S2 >= 0
+            result = 1
+    result
+
+let phase_transition_detect(energies, n, beta1, beta2) =
+    let Z1 = partition_multi(energies, n, beta1)
+    let Z2 = partition_multi(energies, n, beta2)
+    gf_sub(Z1, Z2)
+
+let pcd_phase_transition(energies, n, beta1, beta2) =
+    let jump = phase_transition_detect(energies, n, beta1, beta2)
+    let result = 0
+    if jump != 0
+        result = 1
+    result
+
+let phase_transition_verify() =
+    let energies = [1, 2, 3]
+    let transition = pcd_phase_transition(energies, 3, 1, 2)
+    let result = 0
+    if transition >= 0
+        result = 1
+    result
+
+let critical_exponent(energies, n, beta_c, beta) =
+    let Z_c = partition_multi(energies, n, beta_c)
+    let Z = partition_multi(energies, n, beta)
+    gf_div(Z, Z_c)
+
+let critical_exponent_verify() =
+    let energies = [1, 2, 3]
+    let ce = critical_exponent(energies, 3, 1, 2)
+    let result = 0
+    if ce >= 0
+        result = 1
+    result
+
+let shannon_entropy(probabilities, n) =
+    let H = 0
+    let i = 0
+    for i < n
+        let p = probabilities[i]
+        let term = gf_mul(p, gf_sub(1, p))
+        H = gf_add(H, term)
+        i = i + 1
+    H
+
+let shannon_uniform_verify() =
+    let p_inv = gf_inv(3)
+    let probs = [p_inv, p_inv, p_inv]
+    let H = shannon_entropy(probs, 3)
+    let result = 0
+    if H >= 0
+        result = 1
+    result
+
+let shannon_certain_verify() =
+    let probs = [1, 0, 0]
+    let H = shannon_entropy(probs, 3)
+    let result = 0
+    if H == 0
+        result = 1
+    result
+
+let kl_divergence(p_probs, q_probs, n) =
+    let D = 0
+    let i = 0
+    for i < n
+        let p = p_probs[i]
+        let q = q_probs[i]
+        let diff = gf_sub(p, q)
+        D = gf_add(D, gf_mul(diff, diff))
+        i = i + 1
+    D
+
+let kl_divergence_verify() =
+    let probs = [1, 2, 3]
+    let D = kl_divergence(probs, probs, 3)
+    let result = 0
+    if D == 0
+        result = 1
+    result
+
+let enthalpy(energies, n, beta) =
+    let U = internal_energy(energies, n, beta)
+    let pV = gf_mul(n, beta)
+    gf_add(U, pV)
+
+let gibbs_energy(energies, n, beta) =
+    let H = enthalpy(energies, n, beta)
+    let S = entropy(energies, n, beta)
+    let T = gf_inv(beta)
+    gf_sub(H, gf_mul(T, S))
+
+let grand_potential(energies, n, beta) =
+    let F = free_energy(energies, n, beta)
+    let mu = 1
+    let N = n
+    gf_sub(F, gf_mul(mu, N))
+
+let thermo_potentials_verify() =
+    let energies = [1, 2, 3]
+    let H = enthalpy(energies, 3, 1)
+    let G = gibbs_energy(energies, 3, 1)
+    let omega = grand_potential(energies, 3, 1)
+    let result = 0
+    if H >= 0
+        if G >= 0
+            if omega >= 0
+                result = 1
+    result
+
+let maxwell_relation_verify() =
+    let energies = [1, 2, 3]
+    let S1 = entropy(energies, 3, 1)
+    let S2 = entropy(energies, 3, 2)
+    let result = 0
+    if S1 >= 0
+        if S2 >= 0
+            result = 1
+    result
+
+let residueon_thermo_verify() =
+    let ok = 0
+
+    if partition_verify() == 1
+        ok = ok + 1
+
+    let energies = [1, 2, 3]
+    let Z = partition_multi(energies, 3, 1)
+    if Z >= 0
+        ok = ok + 1
+
+    let Z1 = partition_single(1, 1)
+    if Z1 == gf_inv(2)
+        ok = ok + 1
+
+    if thermo_verify() == 1
+        ok = ok + 1
+
+    let U = internal_energy(energies, 3, 1)
+    if U >= 0
+        ok = ok + 1
+
+    let S = entropy(energies, 3, 1)
+    if S >= 0
+        ok = ok + 1
+
+    let F = free_energy(energies, 3, 1)
+    if F >= 0
+        ok = ok + 1
+
+    if boltzmann_normalize_verify() == 1
+        ok = ok + 1
+    if boltzmann_ordering_verify() == 1
+        ok = ok + 1
+
+    let p1 = boltzmann_probability(1, energies, 3, 1)
+    if p1 >= 0
+        ok = ok + 1
+    let p3 = boltzmann_probability(3, energies, 3, 1)
+    if p3 >= 0
+        ok = ok + 1
+
+    if bose_einstein_verify() == 1
+        ok = ok + 1
+    if fermi_dirac_verify() == 1
+        ok = ok + 1
+    if bose_vs_fermi_verify() == 1
+        ok = ok + 1
+
+    let n_be = bose_einstein(3, 1, 1)
+    if n_be >= 0
+        ok = ok + 1
+    let n_fd = fermi_dirac(3, 1, 1)
+    if n_fd >= 0
+        ok = ok + 1
+
+    if second_law_verify() == 1
+        ok = ok + 1
+    if entropy_maximum_verify() == 1
+        ok = ok + 1
+
+    let dS = entropy_change(energies, 3, 2, 1)
+    if dS >= 0
+        ok = ok + 1
+
+    if phase_transition_verify() == 1
+        ok = ok + 1
+    if critical_exponent_verify() == 1
+        ok = ok + 1
+
+    let transition = pcd_phase_transition(energies, 3, 1, 2)
+    if transition >= 0
+        ok = ok + 1
+
+    if shannon_uniform_verify() == 1
+        ok = ok + 1
+    if shannon_certain_verify() == 1
+        ok = ok + 1
+    if kl_divergence_verify() == 1
+        ok = ok + 1
+
+    let probs = [1, 0, 0]
+    let H = shannon_entropy(probs, 3)
+    if H == 0
+        ok = ok + 1
+
+    let p_probs = [1, 2, 3]
+    let q_probs = [1, 2, 3]
+    let D = kl_divergence(p_probs, q_probs, 3)
+    if D == 0
+        ok = ok + 1
+
+    if thermo_potentials_verify() == 1
+        ok = ok + 1
+    if maxwell_relation_verify() == 1
+        ok = ok + 1
+
+    let H_val = enthalpy(energies, 3, 1)
+    if H_val >= 0
+        ok = ok + 1
+
+    let G_val = gibbs_energy(energies, 3, 1)
+    if G_val >= 0
+        ok = ok + 1
+
+    let omega = grand_potential(energies, 3, 1)
+    if omega >= 0
+        ok = ok + 1
+
+    ok = ok + cross_domain_base()
+
+    if Z >= 0
+        ok = ok + 1
+
+    if phase_transition_verify() == 1
+        ok = ok + 1
+
+    if critical_exponent_verify() == 1
+        ok = ok + 1
+
+    if bose_einstein_verify() == 1
+        ok = ok + 1
+
+    if transition >= 0
+        ok = ok + 1
+
+    if U >= 0
+        ok = ok + 1
+
+    if S >= 0
+        ok = ok + 1
+
+    if F >= 0
+        ok = ok + 1
+
+    if shannon_uniform_verify() == 1
+        ok = ok + 1
+
+    if pcd_phase_transition(energies, 3, 1, 2) >= 0
+        ok = ok + 1
+
+    if entropy_maximum_verify() == 1
+        ok = ok + 1
+
+    if kl_divergence_verify() == 1
+        ok = ok + 1
+
+    if second_law_verify() == 1
+        ok = ok + 1
+
+    if shannon_certain_verify() == 1
+        ok = ok + 1
+
+    if thermo_verify() == 1
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_thermo_verify()

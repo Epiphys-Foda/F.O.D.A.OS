@@ -1,0 +1,396 @@
+import "../../core/stdlib/gf65537.ψ"
+import "../domain_field.ψ"
+
+let make_record_id(table, id) = [table, id]
+
+let record_id_table(rid) = rid[0]
+
+let record_id_id(rid) = rid[1]
+
+let record_id_hash(rid) =
+    let t = rid[0]
+    let i = rid[1]
+    let h = 0
+    let s = "" + t
+    let n = len(s)
+    let k = 0
+    for k < n
+        h = (h * 31 + s[k]) % 65537
+        k = k + 1
+    (h + i) % 65537
+
+let make_record(rid, fields) =
+    [rid, fields, [], [], 0]
+
+let record_id(r) = r[0]
+let record_fields(r) = r[1]
+let record_edges(r) = r[2]
+let record_vector(r) = r[3]
+let record_timestamp(r) = r[4]
+
+let record_set_field(r, key, val) =
+    let fields = record_fields(r)
+    fields[key] = val
+    r[1] = fields
+    r
+
+let record_get_field(r, key) =
+    let fields = record_fields(r)
+    fields[key]
+
+let record_set_vector(r, vec) =
+    r[3] = vec
+    r
+
+let record_set_timestamp(r, ts) =
+    r[4] = ts
+    r
+
+let make_edge(source_rid, edge_type, target_rid) =
+    let eid = make_record_id("edge", record_id_hash([source_rid, target_rid]))
+    [eid, source_rid, target_rid, edge_type, {}, 0]
+
+let edge_id(e) = e[0]
+let edge_source(e) = e[1]
+let edge_target(e) = e[2]
+let edge_type(e) = e[3]
+let edge_props(e) = e[4]
+let edge_timestamp(e) = e[5]
+
+let edge_set_prop(e, key, val) =
+    let props = edge_props(e)
+    props[key] = val
+    e[4] = props
+    e
+
+let engine_new() =
+    [{}, {}, [], [], []]
+
+let engine_records(e) = e[0]
+let engine_edges(e) = e[1]
+let engine_wal(e) = e[2]
+let engine_live_subs(e) = e[3]
+let engine_stats(e) = e[4]
+
+let engine_get_table(engine, table_name) =
+    let tables = engine_records(engine)
+    let t = tables[table_name]
+    if t == 0
+        tables[table_name] = {}
+        t = tables[table_name]
+    t
+
+let engine_create(engine, rid, fields) =
+    let table_name = record_id_table(rid)
+    let id = record_id_id(rid)
+    let table = engine_get_table(engine, table_name)
+    let rec = make_record(rid, fields)
+    table[id] = rec
+    let wal = engine_wal(engine)
+    wal.push(["create", rid, fields])
+    engine_notify_live(engine, table_name, "create", rec)
+    rec
+
+let engine_read(engine, rid) =
+    let table_name = record_id_table(rid)
+    let id = record_id_id(rid)
+    let tables = engine_records(engine)
+    let table = tables[table_name]
+    if table == 0
+        0
+    else
+        table[id]
+
+let engine_update(engine, rid, fields) =
+    let rec = engine_read(engine, rid)
+    if rec == 0
+        0
+    else
+        let k = 0
+        let keys = keys_of(fields)
+        let n = len(keys)
+        for k < n
+            let key = keys[k]
+            rec = record_set_field(rec, key, fields[key])
+            k = k + 1
+        let wal = engine_wal(engine)
+        wal.push(["update", rid, fields])
+        engine_notify_live(engine, record_id_table(rid), "update", rec)
+        rec
+
+let engine_delete(engine, rid) =
+    let table_name = record_id_table(rid)
+    let id = record_id_id(rid)
+    let tables = engine_records(engine)
+    let table = tables[table_name]
+    if table == 0
+        0
+    else
+        let rec = table[id]
+        table[id] = 0
+        let wal = engine_wal(engine)
+        wal.push(["delete", rid])
+        engine_notify_live(engine, table_name, "delete", rec)
+        rec
+
+let engine_relate(engine, source_rid, edge_type, target_rid, props) =
+    let edge = make_edge(source_rid, edge_type, target_rid)
+    let k = 0
+    let keys = keys_of(props)
+    let n = len(keys)
+    for k < n
+        let key = keys[k]
+        edge = edge_set_prop(edge, key, props[key])
+        k = k + 1
+    let edges_map = engine_edges(engine)
+    let src_hash = record_id_hash(source_rid)
+    let adj = edges_map[src_hash]
+    if adj == 0
+        adj = []
+        edges_map[src_hash] = adj
+    adj.push(edge)
+    let wal = engine_wal(engine)
+    wal.push(["relate", source_rid, edge_type, target_rid, props])
+    edge
+
+let engine_traverse_one(engine, source_rid, edge_type) =
+    let edges_map = engine_edges(engine)
+    let src_hash = record_id_hash(source_rid)
+    let adj = edges_map[src_hash]
+    if adj == 0
+        []
+    else
+        let result = []
+        let i = 0
+        let n = len(adj)
+        for i < n
+            let e = adj[i]
+            if edge_type(e) == edge_type
+                result.push(edge_target(e))
+            i = i + 1
+        result
+
+let engine_traverse_n(engine, source_rid, edge_type, depth) =
+    if depth <= 0
+        [source_rid]
+    else
+        let visited = {}
+        visited[record_id_hash(source_rid)] = 1
+        let result = [source_rid]
+        let frontier = [source_rid]
+        let d = 0
+        for d < depth
+            let next_frontier = []
+            let i = 0
+            let n = len(frontier)
+            for i < n
+                let cur = frontier[i]
+                let targets = engine_traverse_one(engine, cur, edge_type)
+                let j = 0
+                let m = len(targets)
+                for j < m
+                    let t = targets[j]
+                    let th = record_id_hash(t)
+                    if visited[th] == 0
+                        visited[th] = 1
+                        result.push(t)
+                        next_frontier.push(t)
+                    j = j + 1
+                i = i + 1
+            frontier = next_frontier
+            d = d + 1
+        result
+
+let vector_dot(a, b) =
+    let n = len(a)
+    if n != len(b)
+        0
+    else
+        let s = 0
+        let i = 0
+        for i < n
+            s = s + a[i] * b[i]
+            i = i + 1
+        s
+
+let vector_norm_sq(a) =
+    let n = len(a)
+    let s = 0
+    let i = 0
+    for i < n
+        s = s + a[i] * a[i]
+        i = i + 1
+    s
+
+let vector_cosine_sim(a, b) =
+    let dot = vector_dot(a, b)
+    let na = vector_norm_sq(a)
+    let nb = vector_norm_sq(b)
+    if na == 0 || nb == 0
+        0
+    else
+        dot * gf_inv(na) * gf_inv(nb)
+
+let engine_vector_search(engine, table_name, query_vec, k) =
+    let tables = engine_records(engine)
+    let table = tables[table_name]
+    if table == 0
+        []
+    else
+        let results = []
+        let ids = keys_of(table)
+        let n = len(ids)
+        let i = 0
+        for i < n
+            let id = ids[i]
+            let rec = table[id]
+            if rec != 0
+                let vec = record_vector(rec)
+                if len(vec) > 0
+                    let sim = vector_cosine_sim(query_vec, vec)
+                    results.push([sim, rec])
+            i = i + 1
+        let top = []
+        let j = 0
+        for j < k && j < len(results)
+            let best_idx = j
+            let best_sim = results[j][0]
+            let l = j + 1
+            for l < len(results)
+                if results[l][0] > best_sim
+                    best_sim = results[l][0]
+                    best_idx = l
+                l = l + 1
+            let tmp = results[j]
+            results[j] = results[best_idx]
+            results[best_idx] = tmp
+            top.push(results[j][1])
+            j = j + 1
+        top
+
+let live_sub_new(sub_id, table, filter) =
+    [sub_id, table, filter]
+
+let live_sub_id(s) = s[0]
+let live_sub_table(s) = s[1]
+let live_sub_filter(s) = s[2]
+
+let engine_live_subscribe(engine, sub_id, table, filter) =
+    let subs = engine_live_subs(engine)
+    let sub = live_sub_new(sub_id, table, filter)
+    subs.push(sub)
+    sub
+
+let engine_live_unsubscribe(engine, sub_id) =
+    let subs = engine_live_subs(engine)
+    let new_subs = []
+    let i = 0
+    let n = len(subs)
+    for i < n
+        let s = subs[i]
+        if live_sub_id(s) != sub_id
+            new_subs.push(s)
+        i = i + 1
+    engine[3] = new_subs
+    new_subs
+
+let engine_notify_live(engine, table_name, action, record) =
+    let subs = engine_live_subs(engine)
+    let notifications = []
+    let i = 0
+    let n = len(subs)
+    for i < n
+        let s = subs[i]
+        if live_sub_table(s) == table_name
+            notifications.push([live_sub_id(s), action, record])
+        i = i + 1
+    notifications
+
+let tx_begin(engine) =
+    let wal = engine_wal(engine)
+    let savepoint = len(wal)
+    [engine, savepoint]
+
+let tx_commit(tx) =
+    1
+
+let tx_rollback(tx) =
+    let engine = tx[0]
+    let savepoint = tx[1]
+    let wal = engine_wal(engine)
+    let i = len(wal) - 1
+    for i >= savepoint
+        let entry = wal[i]
+        let op = entry[0]
+        if op == "create"
+            engine_delete(engine, entry[1])
+        else
+            0
+        if op == "delete"
+            engine_create(engine, entry[1], entry[2])
+        else
+            0
+        if op == "update"
+            engine_update(engine, entry[1], entry[2])
+        else
+            0
+        if op == "relate"
+            1
+        wal.pop()
+        i = i - 1
+    1
+
+let surreal_select(engine, table_name, filter_fn) =
+    let tables = engine_records(engine)
+    let table = tables[table_name]
+    if table == 0
+        []
+    else
+        let result = []
+        let ids = keys_of(table)
+        let n = len(ids)
+        let i = 0
+        for i < n
+            let rec = table[ids[i]]
+            if rec != 0
+                if filter_fn(rec) == 1
+                    result.push(rec)
+            i = i + 1
+        result
+
+let surreal_relate_query(engine, source_rid, edge_type) =
+    engine_traverse_one(engine, source_rid, edge_type)
+
+let surreal_live_select(engine, sub_id, table_name, filter) =
+    engine_live_subscribe(engine, sub_id, table_name, filter)
+
+let surreal_engine_verify() =
+    let engine = engine_new()
+    let alice_id = make_record_id("user", 1)
+    let alice = engine_create(engine, alice_id, {name: "Alice", age: 30})
+    let ok1 = alice != 0
+    let read_alice = engine_read(engine, alice_id)
+    let ok2 = read_alice != 0
+    let updated = engine_update(engine, alice_id, {age: 31})
+    let ok3 = record_get_field(updated, "age") == 31
+    let bob_id = make_record_id("user", 2)
+    engine_create(engine, bob_id, {name: "Bob"})
+    let edge = engine_relate(engine, alice_id, "knows", bob_id, {since: 2026})
+    let ok4 = edge != 0
+    let friends = engine_traverse_one(engine, alice_id, "knows")
+    let ok5 = len(friends) == 1
+    let vec_rec_id = make_record_id("doc", 1)
+    let vec_rec = engine_create(engine, vec_rec_id, {title: "Quantum"})
+    vec_rec = record_set_vector(vec_rec, [1, 2, 3])
+    let results = engine_vector_search(engine, "doc", [1, 2, 3], 1)
+    let ok6 = len(results) == 1
+    let sub = engine_live_subscribe(engine, 1, "user", {})
+    let ok7 = sub != 0
+    let tx = tx_begin(engine)
+    engine_create(engine, make_record_id("user", 3), {name: "Charlie"})
+    tx_rollback(tx)
+    let charlie = engine_read(engine, make_record_id("user", 3))
+    let ok8 = charlie == 0
+    ok1 + ok2 + ok3 + ok4 + ok5 + ok6 + ok7 + ok8
+
+let main() = surreal_engine_verify()

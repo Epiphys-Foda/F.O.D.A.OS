@@ -1,0 +1,33 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let blue = 430
+let red = 662
+let green = 550
+bad[0] = bad[0] + ck(blue, 420, 440)
+bad[0] = bad[0] + ck(red, 655, 670)
+
+bad[0] = bad[0] + ck(green, blue, red)
+
+let mw = 55 * 12 + 72 * 1 + 5 * 16 + 4 * 14 + 24
+bad[0] = bad[0] + ck(mw, 888, 896)
+
+let mg = 24
+bad[0] = bad[0] + ck(mg, 23, 25)
+
+let mwc = 40 * 12 + 56 * 1
+bad[0] = bad[0] + ck(mwc, 530, 545)
+
+let par_lo = 400
+let par_hi = 700
+bad[0] = bad[0] + ck_hi(par_lo, blue)
+bad[0] = bad[0] + ck_lo(par_hi, red)
+
+if 1915 < 1913
+    bad[0] = bad[0] + 1
+if 1915 > 1917
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

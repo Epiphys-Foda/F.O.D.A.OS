@@ -1,0 +1,279 @@
+import "../domain_field.ψ"
+
+let FO_ROLE_MASTER = 0
+let FO_ROLE_REPLICA = 1
+let FO_ROLE_STANDBY = 2
+
+let FO_STATE_HEALTHY = 0
+let FO_STATE_DEGRADED = 1
+let FO_STATE_FAILED = 2
+
+let FO_DEFAULT_HEALTH_CHECK_MS = 3000
+let FO_DEFAULT_MAX_RETRIES = 3
+
+let fo_node_new(id, role, priority, region) =
+    [id, role, FO_STATE_HEALTHY, priority, 0, 1024, 0, region]
+
+let fo_node_id(n) = n[0]
+let fo_node_role(n) = n[1]
+let fo_node_state(n) = n[2]
+let fo_node_priority(n) = n[3]
+let fo_node_last_heartbeat(n) = n[4]
+let fo_node_health_score(n) = n[5]
+let fo_node_fail_count(n) = n[6]
+let fo_node_region(n) = n[7]
+
+let fo_node_set_role(n, r) = [n[0], r, n[2], n[3], n[4], n[5], n[6], n[7]]
+let fo_node_set_state(n, s) = [n[0], n[1], s, n[3], n[4], n[5], n[6], n[7]]
+let fo_node_set_last_heartbeat(n, t) = [n[0], n[1], n[2], n[3], t, n[5], n[6], n[7]]
+let fo_node_set_health_score(n, h) = [n[0], n[1], n[2], n[3], n[4], h, n[6], n[7]]
+let fo_node_set_fail_count(n, c) = [n[0], n[1], n[2], n[3], n[4], n[5], c, n[7]]
+let fo_node_inc_fail(n) = [n[0], n[1], n[2], n[3], n[4], n[5], n[6] + 1, n[7]]
+
+let FO_STRATEGY_ACTIVE_PASSIVE = 0
+let FO_STRATEGY_ACTIVE_ACTIVE = 1
+let FO_STRATEGY_CHAIN = 2
+
+let fo_cluster_new(strategy, health_check_ms, max_retries, quorum) =
+    [{}, 0, strategy, health_check_ms, max_retries, 0, quorum]
+
+let fo_cluster_default() = fo_cluster_new(FO_STRATEGY_ACTIVE_PASSIVE, FO_DEFAULT_HEALTH_CHECK_MS, FO_DEFAULT_MAX_RETRIES, 2)
+
+let fo_cluster_nodes(c) = c[0]
+let fo_cluster_master_id(c) = c[1]
+let fo_cluster_strategy(c) = c[2]
+let fo_cluster_health_check_ms(c) = c[3]
+let fo_cluster_max_retries(c) = c[4]
+let fo_cluster_failover_count(c) = c[5]
+let fo_cluster_quorum(c) = c[6]
+
+let fo_cluster_set_nodes(c, n) = [n, c[1], c[2], c[3], c[4], c[5], c[6]]
+let fo_cluster_set_master_id(c, m) = [c[0], m, c[2], c[3], c[4], c[5], c[6]]
+let fo_cluster_inc_failover(c) = [c[0], c[1], c[2], c[3], c[4], c[5] + 1, c[6]]
+
+let fo_cluster_add_node(c, node) =
+    let nodes = fo_cluster_nodes(c)
+    nodes[fo_node_id(node)] = node
+    if fo_cluster_master_id(c) == 0
+        let node_as_master = fo_node_set_role(node, FO_ROLE_MASTER)
+        nodes[fo_node_id(node)] = node_as_master
+        let c2 = fo_cluster_set_nodes(c, nodes)
+        c2 = fo_cluster_set_master_id(c2, fo_node_id(node))
+        c2
+    else
+        fo_cluster_set_nodes(c, nodes)
+
+let fo_cluster_heartbeat(c, node_id, now_ms, health_delta) =
+    let nodes = fo_cluster_nodes(c)
+    let n = nodes[node_id]
+    if n == 0
+        c
+    else
+        let new_health = fo_node_health_score(n) + health_delta
+        if new_health < 0
+            new_health = 0
+        if new_health > 1024
+            new_health = 1024
+        let n2 = fo_node_set_last_heartbeat(n, now_ms)
+        n2 = fo_node_set_health_score(n2, new_health)
+        if new_health >= 768
+            n2 = fo_node_set_fail_count(n2, 0)
+            n2 = fo_node_set_state(n2, FO_STATE_HEALTHY)
+        else
+            if new_health >= 256
+                n2 = fo_node_set_state(n2, FO_STATE_DEGRADED)
+            else
+                n2 = fo_node_set_state(n2, FO_STATE_FAILED)
+        nodes[node_id] = n2
+        fo_cluster_set_nodes(c, nodes)
+
+let fo_cluster_detect_failure(c, now_ms) =
+    let nodes = fo_cluster_nodes(c)
+    let master_id = fo_cluster_master_id(c)
+    let master = nodes[master_id]
+    if master == 0
+        [c, 0]
+    else
+        let elapsed = now_ms - fo_node_last_heartbeat(master)
+        let check_interval = fo_cluster_health_check_ms(c)
+        let max_retries = fo_cluster_max_retries(c)
+        if elapsed > check_interval * max_retries
+            let master2 = fo_node_set_state(master, FO_STATE_FAILED)
+            master2 = fo_node_set_fail_count(master2, fo_node_fail_count(master2) + 1)
+            nodes[master_id] = master2
+            let c2 = fo_cluster_set_nodes(c, nodes)
+            [c2, 1]
+        else
+            [c, 0]
+
+let fo_cluster_elect_new_master(c) =
+    let nodes = fo_cluster_nodes(c)
+    let keys = keys_of(nodes)
+    let best_id = 0
+    let best_priority = 999999
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let node = nodes[keys[i]]
+        if fo_node_state(node) == FO_STATE_HEALTHY
+            if fo_node_role(node) == FO_ROLE_REPLICA
+                let p = fo_node_priority(node)
+                if p < best_priority
+                    best_priority = p
+                    best_id = fo_node_id(node)
+                else
+                    if p == best_priority
+                        if fo_node_id(node) < best_id
+                            best_id = fo_node_id(node)
+        i = i + 1
+    if best_id == 0
+        i = 0
+        for i < n
+            let node = nodes[keys[i]]
+            if fo_node_state(node) == FO_STATE_HEALTHY
+                if fo_node_role(node) == FO_ROLE_STANDBY
+                    let p = fo_node_priority(node)
+                    if p < best_priority
+                        best_priority = p
+                        best_id = fo_node_id(node)
+                    else
+                        if p == best_priority
+                            if fo_node_id(node) < best_id
+                                best_id = fo_node_id(node)
+            i = i + 1
+    if best_id == 0
+        [c, 0]
+    else
+        let new_master = nodes[best_id]
+        new_master = fo_node_set_role(new_master, FO_ROLE_MASTER)
+        nodes[best_id] = new_master
+        let c2 = fo_cluster_set_nodes(c, nodes)
+        c2 = fo_cluster_set_master_id(c2, best_id)
+        c2 = fo_cluster_inc_failover(c2)
+        [c2, best_id]
+
+let fo_cluster_failover(c, now_ms) =
+    let detect_res = fo_cluster_detect_failure(c, now_ms)
+    let c2 = detect_res[0]
+    let failed = detect_res[1]
+    if failed == 0
+        [c2, 0, 0]
+    else
+        let elect_res = fo_cluster_elect_new_master(c2)
+        let c3 = elect_res[0]
+        let new_master_id = elect_res[1]
+        [c3, 1, new_master_id]
+
+let fo_cluster_chain_failover(c) =
+    let nodes = fo_cluster_nodes(c)
+    let master_id = fo_cluster_master_id(c)
+    let master = nodes[master_id]
+    if master == 0
+        [c, 0]
+    else
+        let keys = keys_of(nodes)
+        let next_id = 0
+        let next_priority = 999999
+        let master_priority = fo_node_priority(master)
+        let i = 0
+        let n = len(keys)
+        for i < n
+            let node = nodes[keys[i]]
+            if fo_node_state(node) == FO_STATE_HEALTHY
+                let p = fo_node_priority(node)
+                if p > master_priority
+                    if p < next_priority
+                        next_priority = p
+                        next_id = fo_node_id(node)
+            i = i + 1
+        if next_id == 0
+            [c, 0]
+        else
+            let new_master = nodes[next_id]
+            new_master = fo_node_set_role(new_master, FO_ROLE_MASTER)
+            nodes[next_id] = new_master
+            let old_master = fo_node_set_role(master, FO_ROLE_REPLICA)
+            nodes[master_id] = old_master
+            let c2 = fo_cluster_set_nodes(c, nodes)
+            c2 = fo_cluster_set_master_id(c2, next_id)
+            c2 = fo_cluster_inc_failover(c2)
+            [c2, next_id]
+
+let fo_bragg_verify_master(c) =
+    let nodes = fo_cluster_nodes(c)
+    let master_id = fo_cluster_master_id(c)
+    let master = nodes[master_id]
+    if master == 0
+        0
+    else
+        if fo_node_role(master) == FO_ROLE_MASTER
+            if fo_node_state(master) != FO_STATE_FAILED
+                1
+            else
+                0
+        else
+            0
+
+let fo_bragg_verify_single_master(c) =
+    let nodes = fo_cluster_nodes(c)
+    let keys = keys_of(nodes)
+    let master_count = 0
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let node = nodes[keys[i]]
+        if fo_node_role(node) == FO_ROLE_MASTER
+            master_count = master_count + 1
+        i = i + 1
+    if master_count == 1
+        1
+    else
+        0
+
+let fo_self_test() =
+    let results = []
+
+    let c = fo_cluster_default()
+    let n1 = fo_node_new(1, FO_ROLE_REPLICA, 10, "us-east")
+    c = fo_cluster_add_node(c, n1)
+    results.push(fo_cluster_master_id(c) == 1)
+    results.push(fo_bragg_verify_master(c))
+
+    c = fo_cluster_default()
+    n1 = fo_node_new(1, FO_ROLE_REPLICA, 10, "us-east")
+    let n2 = fo_node_new(2, FO_ROLE_REPLICA, 20, "us-east")
+    let n3 = fo_node_new(3, FO_ROLE_REPLICA, 30, "us-west")
+    c = fo_cluster_add_node(c, n1)
+    c = fo_cluster_add_node(c, n2)
+    c = fo_cluster_add_node(c, n3)
+    results.push(fo_cluster_master_id(c) == 1)
+    results.push(fo_bragg_verify_single_master(c))
+
+    let now_ms = 10000
+    let hb_res = fo_cluster_heartbeat(c, 1, 0, -1024)
+    c = hb_res
+    let fo_res = fo_cluster_failover(c, 10000)
+    c = fo_res[0]
+    let failed = fo_res[1]
+    let new_master = fo_res[2]
+    results.push(failed == 1)
+    results.push(new_master == 2)
+    results.push(fo_bragg_verify_master(c))
+    results.push(fo_bragg_verify_single_master(c))
+
+    c = fo_cluster_default()
+    n1 = fo_node_new(1, FO_ROLE_REPLICA, 10, "us-east")
+    n2 = fo_node_new(2, FO_ROLE_REPLICA, 20, "us-east")
+    n3 = fo_node_new(3, FO_ROLE_REPLICA, 30, "us-west")
+    c = fo_cluster_add_node(c, n1)
+    c = fo_cluster_add_node(c, n2)
+    c = fo_cluster_add_node(c, n3)
+    let chain_res = fo_cluster_chain_failover(c)
+    c = chain_res[0]
+    results.push(fo_cluster_master_id(c) == 2)
+
+    results.push(fo_bragg_verify_single_master(c))
+
+    results
+
+let fo_default_cluster() = fo_cluster_default()

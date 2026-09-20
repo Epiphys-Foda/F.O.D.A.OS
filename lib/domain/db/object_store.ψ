@@ -1,0 +1,359 @@
+let bucket_new(name, current_ts) =
+    [name, current_ts, 0, {}, {}, []]
+
+let bucket_name(b) = b[0]
+let bucket_created(b) = b[1]
+let bucket_versioning(b) = b[2]
+let bucket_objects(b) = b[3]
+let bucket_multipart(b) = b[4]
+let bucket_lifecycle(b) = b[5]
+
+let bucket_enable_versioning(b) =
+    b[2] = 1
+    b
+
+let bucket_disable_versioning(b) =
+    b[2] = 0
+    b
+
+let object_version_new(vid, data, size, content_type, metadata, ts) =
+    [vid, data, size, content_type, metadata, ts, 1, 0]
+
+let obj_ver_id(v) = v[0]
+let obj_ver_data(v) = v[1]
+let obj_ver_size(v) = v[2]
+let obj_ver_ct(v) = v[3]
+let obj_ver_meta(v) = v[4]
+let obj_ver_ts(v) = v[5]
+let obj_ver_latest(v) = v[6]
+let obj_ver_dm(v) = v[7]
+
+let obj_ver_set_latest(v, flag) =
+    v[6] = flag
+    v
+
+let obj_ver_set_dm(v, flag) =
+    v[7] = flag
+    v
+
+let objstore_new() =
+    [{}, 0]
+
+let objstore_buckets(s) = s[0]
+let objstore_next_vid(s) = s[1]
+
+let objstore_alloc_vid(s) =
+    let id = s[1]
+    s[1] = id + 1
+    id
+
+let objstore_create_bucket(s, name, current_ts) =
+    let buckets = objstore_buckets(s)
+    let b = bucket_new(name, current_ts)
+    buckets[name] = b
+    s[0] = buckets
+    b
+
+let objstore_get_bucket(s, name) =
+    objstore_buckets(s)[name]
+
+let objstore_delete_bucket(s, name) =
+    let buckets = objstore_buckets(s)
+    let existed = 0
+    if buckets[name] != 0
+        existed = 1
+    buckets[name] = 0
+    s[0] = buckets
+    existed
+
+let objstore_list_buckets(s) =
+    let buckets = objstore_buckets(s)
+    let keys = keys_of(buckets)
+    let result = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let b = buckets[keys[i]]
+        if b != 0
+            result.push([bucket_name(b), bucket_created(b)])
+        i = i + 1
+    result
+
+let objstore_put_object(s, bucket_name, key, data, size, content_type, metadata, current_ts) =
+    let b = objstore_get_bucket(s, bucket_name)
+    if b == 0
+        0
+    else
+        let vid = objstore_alloc_vid(s)
+        let new_v = object_version_new(vid, data, size, content_type, metadata, current_ts)
+        let objs = bucket_objects(b)
+        let obj = objs[key]
+        if obj == 0
+            obj = []
+        let i = 0
+        let n = len(obj)
+        for i < n
+            obj[i] = obj_ver_set_latest(obj[i], 0)
+            i = i + 1
+        let new_versions = [new_v]
+        i = 0
+        for i < n
+            new_versions.push(obj[i])
+            i = i + 1
+        objs[key] = new_versions
+        b[3] = objs
+        new_v
+
+let objstore_get_object(s, bucket_name, key, version_id) =
+    let b = objstore_get_bucket(s, bucket_name)
+    if b == 0
+        0
+    else
+        let objs = bucket_objects(b)
+        let obj = objs[key]
+        if obj == 0
+            0
+        else
+            if version_id == 0
+                let result = 0
+                let i = 0
+                let n = len(obj)
+                for i < n
+                    if obj_ver_latest(obj[i]) == 1
+                        result = obj[i]
+                        i = n
+                    i = i + 1
+                result
+                let result = 0
+                let i = 0
+                let n = len(obj)
+                for i < n
+                    if obj_ver_id(obj[i]) == version_id
+                        result = obj[i]
+                        i = n
+                    i = i + 1
+                result
+
+let objstore_delete_object(s, bucket_name, key, current_ts) =
+    let b = objstore_get_bucket(s, bucket_name)
+    if b == 0
+        0
+    else
+        let objs = bucket_objects(b)
+        let obj = objs[key]
+        if obj == 0
+            0
+        else
+            if bucket_versioning(b) == 1
+                let vid = objstore_alloc_vid(s)
+                let dm = [vid, 0, 0, "", {}, current_ts, 1, 1]
+                let i = 0
+                let n = len(obj)
+                for i < n
+                    obj[i] = obj_ver_set_latest(obj[i], 0)
+                    i = i + 1
+                let new_versions = [dm]
+                i = 0
+                for i < n
+                    new_versions.push(obj[i])
+                    i = i + 1
+                objs[key] = new_versions
+                b[3] = objs
+                1
+            else
+                objs[key] = 0
+                b[3] = objs
+                1
+
+let objstore_list_objects(s, bucket_name, prefix, max_keys) =
+    let b = objstore_get_bucket(s, bucket_name)
+    if b == 0
+        []
+    else
+        let objs = bucket_objects(b)
+        let keys = keys_of(objs)
+        let result = []
+        let cnt = 0
+        let i = 0
+        let n = len(keys)
+        for i < n
+            let k = keys[i]
+            if str_starts_with(k, prefix) == 1
+                if cnt < max_keys
+                    let obj = objs[k]
+                    if obj != 0
+                        let latest = 0
+                        let j = 0
+                        let m = len(obj)
+                        for j < m
+                            if obj_ver_latest(obj[j]) == 1
+                                if obj_ver_dm(obj[j]) == 0
+                                    latest = obj[j]
+                                j = m
+                            j = j + 1
+                        if latest != 0
+                            result.push([k, obj_ver_size(latest), obj_ver_ts(latest)])
+                            cnt = cnt + 1
+            i = i + 1
+        result
+
+let multipart_new(upload_id, bucket, key, content_type, metadata, current_ts) =
+    [upload_id, bucket, key, content_type, metadata, current_ts, {}, 0]
+
+let mu_id(m) = m[0]
+let mu_bucket(m) = m[1]
+let mu_key(m) = m[2]
+let mu_ct(m) = m[3]
+let mu_meta(m) = m[4]
+let mu_ts(m) = m[5]
+let mu_parts(m) = m[6]
+let mu_completed(m) = m[7]
+
+let mu_set_completed(m, flag) =
+    m[7] = flag
+    m
+
+let objstore_multipart_initiate(s, bucket_name, key, content_type, metadata, current_ts) =
+    let b = objstore_get_bucket(s, bucket_name)
+    if b == 0
+        0
+    else
+        let upload_id = objstore_alloc_vid(s)
+        let mu = multipart_new(upload_id, bucket_name, key, content_type, metadata, current_ts)
+        let mups = bucket_multipart(b)
+        mups[upload_id] = mu
+        b[4] = mups
+        upload_id
+
+let objstore_multipart_upload_part(s, bucket_name, upload_id, part_number, data, size) =
+    let b = objstore_get_bucket(s, bucket_name)
+    if b == 0
+        0
+    else
+        let mups = bucket_multipart(b)
+        let mu = mups[upload_id]
+        if mu == 0
+            0
+        else
+            let parts = mu_parts(mu)
+            parts[part_number] = [data, size]
+            mu[6] = parts
+            mups[upload_id] = mu
+            b[4] = mups
+            1
+
+let objstore_multipart_complete(s, bucket_name, upload_id, current_ts) =
+    let b = objstore_get_bucket(s, bucket_name)
+    if b == 0
+        0
+    else
+        let mups = bucket_multipart(b)
+        let mu = mups[upload_id]
+        if mu == 0
+            0
+        else
+            let parts = mu_parts(mu)
+            let total_size = 0
+            let combined = ""
+            let keys = keys_of(parts)
+            let i = 0
+            let n = len(keys)
+            for i < n
+                let part = parts[keys[i]]
+                combined = combined + part[0]
+                total_size = total_size + part[1]
+                i = i + 1
+            mu = mu_set_completed(mu, 1)
+            mups[upload_id] = mu
+            b[4] = mups
+            objstore_put_object(s, bucket_name, mu_key(mu), combined, total_size, mu_ct(mu), mu_meta(mu), current_ts)
+
+let objstore_multipart_abort(s, bucket_name, upload_id) =
+    let b = objstore_get_bucket(s, bucket_name)
+    if b == 0
+        0
+    else
+        let mups = bucket_multipart(b)
+        mups[upload_id] = 0
+        b[4] = mups
+        1
+
+let lifecycle_rule_new(prefix, expiration_days) =
+    [prefix, expiration_days, 0, ""]
+
+let lifecycle_prefix(r) = r[0]
+let lifecycle_exp(r) = r[1]
+let lifecycle_trans_days(r) = r[2]
+let lifecycle_trans_target(r) = r[3]
+
+let objstore_add_lifecycle_rule(s, bucket_name, rule) =
+    let b = objstore_get_bucket(s, bucket_name)
+    if b == 0
+        s
+    else
+        let rules = bucket_lifecycle(b)
+        rules.push(rule)
+        b[5] = rules
+        s
+
+let objstore_apply_lifecycle(s, bucket_name, current_ts) =
+    let b = objstore_get_bucket(s, bucket_name)
+    if b == 0
+        s
+    else
+        let rules = bucket_lifecycle(b)
+        let objs = bucket_objects(b)
+        let keys = keys_of(objs)
+        let i = 0
+        let n = len(keys)
+        for i < n
+            let k = keys[i]
+            let obj = objs[k]
+            if obj != 0
+                let latest = 0
+                let j = 0
+                let m = len(obj)
+                for j < m
+                    if obj_ver_latest(obj[j]) == 1
+                        latest = obj[j]
+                        j = m
+                    j = j + 1
+                if latest != 0
+                    let age = current_ts - obj_ver_ts(latest)
+                    let r = 0
+                    let nr = len(rules)
+                    for r < nr
+                        let rule = rules[r]
+                        if str_starts_with(k, lifecycle_prefix(rule)) == 1
+                            if lifecycle_exp(rule) > 0
+                                if age > lifecycle_exp(rule)
+                                    objs[k] = 0
+                                    r = nr
+                        r = r + 1
+            i = i + 1
+        b[3] = objs
+        s
+
+let objstore_presign(s, bucket_name, key, expires_at, secret) =
+    let to_sign = bucket_name + "/" + key + "/" + expires_at + "/" + secret
+    let sig = 0
+    let i = 0
+    let n = len(to_sign)
+    for i < n
+        sig = (sig * 31 + to_sign[i]) % 65537
+        i = i + 1
+    [bucket_name, key, expires_at, sig]
+
+let objstore_verify_presign(s, url, current_ts, secret) =
+    let bucket = url[0]
+    let key = url[1]
+    let expires = url[2]
+    let sig = url[3]
+    if current_ts > expires
+        0
+    else
+        let expected = objstore_presign(s, bucket, key, expires, secret)
+        if expected[3] == sig
+            1
+        else
+            0

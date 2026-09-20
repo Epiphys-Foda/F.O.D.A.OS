@@ -1,0 +1,244 @@
+import "../domain_field.ψ"
+
+let kvstore_new() =
+    [{}, 1, [], []]
+
+let kvstore_map(s) = s[0]
+let kvstore_rev(s) = s[1]
+let kvstore_watchers(s) = s[2]
+let kvstore_leases(s) = s[3]
+
+let kvstore_next_rev(s) =
+    let r = s[1]
+    s[1] = r + 1
+    s[1]
+
+let kvstore_put(s, key, value, lease_id) =
+    let rev = kvstore_next_rev(s)
+    let kvs = kvstore_map(s)
+    let cur = kvs[key]
+    let new_entry = 0
+    if cur == 0
+        new_entry = [value, rev, rev, 1, lease_id]
+    else
+        new_entry = [value, cur[1], rev, cur[3] + 1, lease_id]
+    kvs[key] = new_entry
+    s[0] = kvs
+    s = kvstore_notify(s, key, value, rev, "PUT")
+    s
+
+let kvstore_get(s, key) =
+    let kvs = kvstore_map(s)
+    let entry = kvs[key]
+    if entry == 0
+        0
+    else
+        entry
+
+let kvstore_get_value(s, key) =
+    let entry = kvstore_get(s, key)
+    if entry == 0
+        0
+    else
+        entry[0]
+
+let kvstore_get_rev(s, key) =
+    let entry = kvstore_get(s, key)
+    if entry == 0
+        0
+    else
+        entry[2]
+
+let kvstore_delete(s, key) =
+    let rev = kvstore_next_rev(s)
+    let kvs = kvstore_map(s)
+    let existed = 0
+    if kvs[key] != 0
+        existed = 1
+    kvs[key] = 0
+    s[0] = kvs
+    s = kvstore_notify(s, key, 0, rev, "DELETE")
+    existed
+
+let kvstore_get_prefix(s, prefix) =
+    let kvs = kvstore_map(s)
+    let keys = keys_of(kvs)
+    let result = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let k = keys[i]
+        if str_starts_with(k, prefix) == 1
+            let entry = kvs[k]
+            if entry != 0
+                result.push([k, entry[0], entry[2]])
+        i = i + 1
+    result
+
+let watcher_new(s, prefix) =
+    let id = len(kvstore_watchers(s)) + 1
+    let w = [id, prefix, [], 0]
+    let watchers = kvstore_watchers(s)
+    watchers.push(w)
+    s[2] = watchers
+    w
+
+let watcher_id(w) = w[0]
+let watcher_prefix(w) = w[1]
+let watcher_events(w) = w[2]
+let watcher_last_rev(w) = w[3]
+
+let kvstore_notify(s, key, value, rev, ev_type) =
+    let watchers = kvstore_watchers(s)
+    let i = 0
+    let n = len(watchers)
+    for i < n
+        let w = watchers[i]
+        if str_starts_with(key, watcher_prefix(w)) == 1
+            let events = watcher_events(w)
+            events.push([ev_type, key, value, rev])
+            w[2] = events
+            w[3] = rev
+            watchers[i] = w
+        i = i + 1
+    s[2] = watchers
+    s
+
+let watcher_consume(w) =
+    let events = watcher_events(w)
+    w[2] = []
+    events
+
+let lease_new(s, ttl, current_ts) =
+    let id = len(kvstore_leases(s)) + 1
+    let lease = [id, ttl, current_ts, current_ts, []]
+    let leases = kvstore_leases(s)
+    leases.push(lease)
+    s[3] = leases
+    id
+
+let lease_keepalive(s, lease_id, current_ts) =
+    let leases = kvstore_leases(s)
+    let i = 0
+    let n = len(leases)
+    for i < n
+        if leases[i][0] == lease_id
+            leases[i][3] = current_ts
+        i = i + 1
+    s[3] = leases
+    s
+
+let lease_is_expired(lease, current_ts) =
+    let last = lease[3]
+    let ttl = lease[1]
+    current_ts - last > ttl
+
+let lease_revoke(s, lease_id) =
+    let leases = kvstore_leases(s)
+    let i = 0
+    let n = len(leases)
+    let target = 0
+    for i < n
+        if leases[i][0] == lease_id
+            target = leases[i]
+            leases[i] = 0
+        i = i + 1
+    s[3] = leases
+    if target != 0
+        let keys = target[4]
+        let j = 0
+        let m = len(keys)
+        for j < m
+            s = kvstore_delete(s, keys[j])
+            j = j + 1
+    s
+
+let lease_cleanup(s, current_ts) =
+    let leases = kvstore_leases(s)
+    let i = 0
+    let n = len(leases)
+    for i < n
+        let lease = leases[i]
+        if lease != 0
+            if lease_is_expired(lease, current_ts) == 1
+                s = lease_revoke(s, lease[0])
+        i = i + 1
+    s
+
+let kvstore_cas(s, key, expected_rev, new_value, lease_id) =
+    let cur_rev = kvstore_get_rev(s, key)
+    let success = 0
+    if cur_rev == expected_rev
+        s = kvstore_put(s, key, new_value, lease_id)
+        success = 1
+    success
+
+let kvstore_txn(s, ops) =
+    let all_ok = 1
+    let i = 0
+    let n = len(ops)
+    for i < n
+        let op = ops[i]
+        let op_type = op[0]
+        if op_type == "CAS"
+            let key = op[1]
+            let exp_rev = op[2]
+            if kvstore_get_rev(s, key) != exp_rev
+                all_ok = 0
+        i = i + 1
+    if all_ok == 1
+        i = 0
+        for i < n
+            let op = ops[i]
+            let op_type = op[0]
+            if op_type == "PUT"
+                s = kvstore_put(s, op[1], op[2], op[3])
+            else
+                0
+            if op_type == "DEL"
+                s = kvstore_delete(s, op[1])
+            i = i + 1
+    all_ok
+
+let cfg_path(app, env, service, param) =
+    "/" + app + "/" + env + "/" + service + "/" + param
+
+let cfg_set(s, app, env, service, param, value, lease_id) =
+    let path = cfg_path(app, env, service, param)
+    kvstore_put(s, path, value, lease_id)
+
+let cfg_get(s, app, env, service, param) =
+    let path = cfg_path(app, env, service, param)
+    kvstore_get_value(s, path)
+
+let cfg_list_service(s, app, env, service) =
+    let prefix = "/" + app + "/" + env + "/" + service + "/"
+    kvstore_get_prefix(s, prefix)
+
+let cfg_list_env(s, app, env) =
+    let prefix = "/" + app + "/" + env + "/"
+    kvstore_get_prefix(s, prefix)
+
+let cfg_snapshot(s, prefix) =
+    let kvs = kvstore_map(s)
+    let keys = keys_of(kvs)
+    let result = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let k = keys[i]
+        if str_starts_with(k, prefix) == 1
+            let entry = kvs[k]
+            if entry != 0
+                result.push([k, entry[0], entry[2]])
+        i = i + 1
+    result
+
+let cfg_restore(s, snapshot) =
+    let i = 0
+    let n = len(snapshot)
+    for i < n
+        let item = snapshot[i]
+        s = kvstore_put(s, item[0], item[1], 0)
+        i = i + 1
+    s

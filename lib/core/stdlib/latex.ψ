@@ -1,0 +1,240 @@
+let LEX_OP_PLUS = 43
+let LEX_OP_MINUS = 45
+let LEX_OP_MUL = 42
+let LEX_OP_DIV = 47
+let LEX_OP_POW = 94
+
+let _latex_lookup_var_impl(vars, code, i, n) =
+    if i < n
+      let pair = arr_get(vars, i)
+      if arr_get(pair, 0) == code
+        arr_get(pair, 1)
+      else
+        _latex_lookup_var_impl(vars, code, i + 1, n)
+    else
+        0
+
+let _latex_lookup_var(vars, code) = _latex_lookup_var_impl(vars, code, 0, arr_len(vars))
+
+let _latex_parse_base(tokens, i, n, vars) =
+    if i >= n
+      [0, i]
+    else
+      let tok = arr_get(tokens, i)
+      let tag = arr_get(tok, 0)
+      if tag == 0
+        [arr_get(tok, 1), i + 1]
+      else
+          0
+      if tag == 1
+        let code = arr_get(tok, 1)
+        [_latex_lookup_var(vars, code), i + 1]
+      else
+          0
+      if tag == 3
+        let inner = _latex_parse_expr(tokens, i + 1, n, vars)
+        let val = arr_get(inner, 0)
+        let ni = arr_get(inner, 1)
+        if ni < n
+          let close = arr_get(tokens, ni)
+          if arr_get(close, 0) == 4
+            [val, ni + 1]
+          else
+            [val, ni]
+        else
+          [val, ni]
+      else
+        [0, i + 1]
+
+let _latex_parse_factor(tokens, i, n, vars) =
+    let base_ret = _latex_parse_base(tokens, i, n, vars)
+    let base = arr_get(base_ret, 0)
+    let ni = arr_get(base_ret, 1)
+    if ni < n
+      let tok = arr_get(tokens, ni)
+      let tag = arr_get(tok, 0)
+      if tag == 2
+        let op = arr_get(tok, 1)
+        if op == LEX_OP_POW
+          let exp_ret = _latex_parse_base(tokens, ni + 1, n, vars)
+          let exp = arr_get(exp_ret, 0)
+          let ni2 = arr_get(exp_ret, 1)
+          [base ^ exp, ni2]
+        else
+          [base, ni]
+      else
+        [base, ni]
+    else
+      [base, ni]
+
+let _latex_is_term_op(tag, op) =
+    if tag == 2
+      if op == LEX_OP_MUL
+          1
+      else
+          0
+      if op == LEX_OP_DIV
+          1
+      else
+          0
+    else
+        0
+
+let _latex_is_implicit_mul(tokens, i, n) =
+    if i < n
+      let tok = arr_get(tokens, i)
+      let tag = arr_get(tok, 0)
+      if tag == 1
+          1
+      else
+          0
+      if tag == 3
+          1
+      else
+          0
+    else
+        0
+
+let _latex_parse_term(tokens, i, n, vars) =
+    let fac_ret = _latex_parse_factor(tokens, i, n, vars)
+    let acc = arr_get(fac_ret, 0)
+    let ni = arr_get(fac_ret, 1)
+    if ni < n
+        let tok = arr_get(tokens, ni)
+        let tag = arr_get(tok, 0)
+        let op = arr_get(tok, 1)
+        if _latex_is_term_op(tag, op) == 1
+            let next_ret = _latex_parse_factor(tokens, ni + 1, n, vars)
+            let v2 = arr_get(next_ret, 0)
+            let ni2 = arr_get(next_ret, 1)
+            let nacc = if op == LEX_OP_MUL
+                gfmul(acc, v2)
+            else
+                let v2_inv = v2 ^ 65535
+                gfmul(acc, v2_inv)
+            let term_pair = [_latex_parse_term_continue(tokens, ni2, n, vars, nacc), ni2]
+            term_pair
+        else
+            if _latex_is_implicit_mul(tokens, ni, n) == 1
+                let next_ret = _latex_parse_factor(tokens, ni, n, vars)
+                let v2 = arr_get(next_ret, 0)
+                let ni2 = arr_get(next_ret, 1)
+                let nacc = gfmul(acc, v2)
+                [_latex_parse_term_continue(tokens, ni2, n, vars, nacc), ni2]
+            else
+                [acc, ni]
+    else
+        [acc, ni]
+let _latex_parse_term_continue(tokens, i, n, vars, acc) =
+    if i < n
+        let tok = arr_get(tokens, i)
+        let tag = arr_get(tok, 0)
+        let op = arr_get(tok, 1)
+        if _latex_is_term_op(tag, op) == 1
+            let next_ret = _latex_parse_factor(tokens, i + 1, n, vars)
+            let v2 = arr_get(next_ret, 0)
+            let ni2 = arr_get(next_ret, 1)
+            let nacc = if op == LEX_OP_MUL
+                gfmul(acc, v2)
+            else
+                let v2_inv = v2 ^ 65535
+                gfmul(acc, v2_inv)
+            _latex_parse_term_continue(tokens, ni2, n, vars, nacc)
+        else
+            if _latex_is_implicit_mul(tokens, i, n) == 1
+                let next_ret = _latex_parse_factor(tokens, i, n, vars)
+                let v2 = arr_get(next_ret, 0)
+                let ni2 = arr_get(next_ret, 1)
+                let nacc = gfmul(acc, v2)
+                _latex_parse_term_continue(tokens, ni2, n, vars, nacc)
+            else
+                acc
+    else
+        acc
+let _latex_is_expr_op(tag, op) =
+    if tag == 2
+      if op == LEX_OP_PLUS
+          1
+      else
+          0
+      if op == LEX_OP_MINUS
+          1
+      else
+          0
+    else
+        0
+
+let _latex_parse_expr(tokens, i, n, vars) =
+    let term_ret = _latex_parse_term(tokens, i, n, vars)
+    let acc = arr_get(term_ret, 0)
+    let ni = arr_get(term_ret, 1)
+    if ni < n
+        let tok = arr_get(tokens, ni)
+        let tag = arr_get(tok, 0)
+        let op = arr_get(tok, 1)
+        if _latex_is_expr_op(tag, op) == 1
+            let next_ret = _latex_parse_term(tokens, ni + 1, n, vars)
+            let v2 = arr_get(next_ret, 0)
+            let ni2 = arr_get(next_ret, 1)
+            let nacc = if op == LEX_OP_PLUS
+                let s = acc + v2
+                s - s / 65537 * 65537
+            else
+                let s = acc - v2
+                s - s / 65537 * 65537
+            let expr_pair = [_latex_parse_expr_continue(tokens, ni2, n, vars, nacc), ni2]
+            expr_pair
+        else
+            [acc, ni]
+    else
+        [acc, ni]
+let _latex_parse_expr_continue(tokens, i, n, vars, acc) =
+    if i < n
+        let tok = arr_get(tokens, i)
+        let tag = arr_get(tok, 0)
+        let op = arr_get(tok, 1)
+        if _latex_is_expr_op(tag, op) == 1
+            let next_ret = _latex_parse_term(tokens, i + 1, n, vars)
+            let v2 = arr_get(next_ret, 0)
+            let ni2 = arr_get(next_ret, 1)
+            let nacc = if op == LEX_OP_PLUS
+                let s = acc + v2
+                s - s / 65537 * 65537
+            else
+                let s = acc - v2
+                s - s / 65537 * 65537
+            _latex_parse_expr_continue(tokens, ni2, n, vars, nacc)
+        else
+            acc
+    else
+        acc
+let latex_eval(tokens, vars) =
+    let r = _latex_parse_expr(tokens, 0, arr_len(tokens), vars)
+    arr_get(r, 0)
+
+let latex_E_mc2(m, c) =
+    let tokens = [[1, 109], [1, 99], [2, 94], [0, 2]]
+    let vars = [[109, m], [99, c]]
+    latex_eval(tokens, vars)
+
+let latex_pythagoras(a, b) =
+    let tokens = [[1, 97], [2, 94], [0, 2], [2, 43], [1, 98], [2, 94], [0, 2]]
+    let vars = [[97, a], [98, b]]
+    latex_eval(tokens, vars)
+
+let latex_kinetic(m, v) =
+    let tokens = [[1, 109], [2, 42], [1, 118], [2, 94], [0, 2], [2, 47], [0, 2]]
+    let vars = [[109, m], [118, v]]
+    latex_eval(tokens, vars)
+
+let latex_force(m, a) =
+    let tokens = [[1, 109], [2, 42], [1, 97]]
+    let vars = [[109, m], [97, a]]
+    latex_eval(tokens, vars)
+
+let latex_verify() =
+    let e = latex_E_mc2(2, 5)
+    let py = latex_pythagoras(3, 4)
+    let f = latex_force(3, 4)
+    let k = latex_kinetic(2, 4)
+    (e == 50 && py == 25 && f == 12 && k == 16 ? 1 : 0)

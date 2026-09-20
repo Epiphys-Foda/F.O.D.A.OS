@@ -1,0 +1,15 @@
+let mf_mul(f1, f2) =
+    let n1 = mf_size(f1)
+    let n2 = mf_size(f2)
+    let n = n1
+    if n2 < n1
+        n = n2
+    let out_p = []
+    let out_r = []
+    let i = 0
+    for i < n
+        out_p = out_p.push(mf_poles(f1)[i])
+        out_r = out_r.push(gf_mul(mf_residues(f1)[i], mf_residues(f2)[i]))
+        i = i + 1
+    mf_make(out_p, out_r, n)
+

@@ -1,0 +1,77 @@
+import "../core/stdlib_lang2/gf_pre_0_7.ψ"
+import "../core/stdlib_lang2/gf_base.ψ"
+import "bootstrap3_domain.ψ"
+import "bootstrap_residue_prime.ψ"
+let _ts_find_i(t, i) =
+    if gf_pow(t, 1 << i) == 1
+        i
+    else
+        _ts_find_i(t, i + 1)
+let _ts_loop(M, c, t, R) =
+    if t == 1
+        R
+    else
+        let i = _ts_find_i(t, 1)
+        let b = gf_pow(c, 1 << (M - i - 1))
+        let b2 = gf_mul(b, b)
+        _ts_loop(i, b2, gf_mul(t, b2), gf_mul(R, b))
+let gf_mod(a, m) = (m == 0 ? 0 : ((a % m) + m) % m)
+
+let _poly_hash_acc(arr, n, primes, fp, i) =
+    if i >= n
+        fp
+    else
+        _poly_hash_acc(arr, n, primes, gf_add(gf_mul(fp, primes[i % len(primes)]), arr[i]), i + 1)
+let poly_hash(arr, primes) = _poly_hash_acc(arr, len(arr), primes, 0, 0)
+
+let OP_OBSERVE = 0
+let OP_GALOIS = 1
+let OP_HOMOLOGY = 2
+let OP_COMPILE = 3
+let OP_SELF_VERIFY = 4
+let OP_META_OBSERVE = 5
+
+let OP_COUNT = 6
+
+let AST_LITERAL = 0
+let AST_VARIABLE = 1
+let AST_BINOP = 2
+let AST_UNARYOP = 3
+let AST_IF = 4
+let AST_WHILE = 5
+let AST_LET = 6
+let AST_FUNCTION = 7
+let AST_CALL = 8
+let AST_RETURN = 9
+let AST_IMPORT = 10
+let AST_ARRAY = 11
+let AST_INDEX = 12
+let AST_ASSIGN = 13
+let AST_COUNT = 14
+
+let _g0_interleave_acc(p, r, n, i, out) =
+    if i >= n
+        out
+    else
+        _g0_interleave_acc(p, r, n, i + 1, out.push(p[i]).push(r[i]))
+
+let cross_domain_base() =
+    let p1 = rp_make(1, 2, 0)
+    let p2 = rp_make(3, 4, 1)
+    let p3 = rp_make(5, 6, 2)
+    let field = rpf_make([p1, p2, p3], 3)
+    let hom = rpf_homology(field)
+    let mutated = rpf_galois(field, 2)
+    let f = mf_make([0, 1], [3, 5], 2)
+    let fI = combinator_I(f)
+    let apop = apoptosis(f)
+    let mc = meta_compiler()
+    let ok = 0
+    ok = ok + (hom[0] == 3)
+    ok = ok + (rpf_count(mutated) == 3)
+    ok = ok + (ast_to_op(AST_LITERAL) == OP_OBSERVE)
+    ok = ok + (mf_equal(fI, f) == 1)
+    ok = ok + (bootstrap_tower(8))
+    ok = ok + (mf_size(apop) >= 0)
+    ok = ok + (mf_size(mc) == 6)
+    ok

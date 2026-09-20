@@ -1,0 +1,37 @@
+import "ck.ψ"
+let bad = [0]
+
+let c0 = 1
+let c1 = c0 * 2
+let c2 = c1 * 2
+let c3 = c2 * 2
+let c4 = c3 * 2
+let c5 = c4 * 2
+
+if c5 != 32
+    bad[0] = bad[0] + 1
+
+let gens = 30
+let cells = 1073741824
+
+let N = 10000
+let K = 1000000
+
+let growth = 10000 * (K - N) / K
+let N1 = N + growth
+
+bad[0] = bad[0] + ck(N1, 19000, 21000)
+
+let Nhigh = 90000
+let growthH = Nhigh * (K - Nhigh) / K
+let N1high = Nhigh + growthH
+
+bad[0] = bad[0] + ck_hi(K, 1000000)
+
+let mutPerGen = 46
+bad[0] = bad[0] + ck(mutPerGen, 40, 50)
+
+let life = 6
+bad[0] = bad[0] + ck_lo(life, 6)
+
+arr_get(arr_new_n(1), bad[0])

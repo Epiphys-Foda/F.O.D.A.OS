@@ -1,0 +1,52 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let m_e = 911
+bad[0] = bad[0] + ck(m_e, 905, 915)
+
+let ve = 48
+bad[0] = bad[0] + ck(ve, 40, 60)
+
+let d2 = 49
+bad[0] = bad[0] + ck(d2, 40, 65)
+
+let hbar2 = 1113025
+bad[0] = bad[0] + ck(hbar2, 1110000, 1116000)
+
+let k2 = small_div(8 * m_e * ve * d2 * 10, hbar2)
+bad[0] = bad[0] + ck(k2, 145, 165)
+
+let exp100 = isqrt(k2 * 1000)
+bad[0] = bad[0] + ck(exp100, 370, 410)
+
+let t_el = 197
+bad[0] = bad[0] + ck(t_el, 150, 250)
+
+let meV = 124
+bad[0] = bad[0] + ck(meV, 115, 135)
+
+let nu_ch = 2900
+let nu_cd = 2050
+bad[0] = bad[0] + ck_hi(nu_cd, nu_ch)
+
+let shift = nu_ch - nu_cd
+bad[0] = bad[0] + ck(shift, 800, 900)
+
+bad[0] = bad[0] + ck_lo(meV, 1)
+
+if 1996 < 1994
+    bad[0] = bad[0] + 1
+if 1996 > 1998
+    bad[0] = bad[0] + 1
+if 2011 < 2010
+    bad[0] = bad[0] + 1
+if 2011 > 2013
+    bad[0] = bad[0] + 1
+if 2016 < 2014
+    bad[0] = bad[0] + 1
+if 2016 > 2018
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,309 @@
+import "../domain_field.ψ"
+let SY_P = 65537
+
+let SY_RESOLVE_LWW       = 1
+let SY_RESOLVE_FIELD_MERGE = 2
+let SY_RESOLVE_BRAGG      = 3
+
+let SY_OP_SET    = 1
+let SY_OP_DELETE = 2
+let SY_OP_INC    = 3
+
+let SY_ACK_PENDING = 1
+let SY_ACK_OK      = 2
+let SY_ACK_ROLLBACK = 3
+
+let SY_DEFAULT_VC_DIM = 16
+let SY_MAX_PENDING    = 1024
+
+let vc_new(node_id, dim) =
+    [arr_new_n(dim), node_id]
+
+let vc_clocks(vc)   = vc[0]
+let vc_node(vc)      = vc[1]
+
+let vc_tick(vc) =
+    let clocks = vc_clocks(vc)
+    let nid = vc_node(vc)
+    clocks[nid] = clocks[nid] + 1
+    [clocks, nid]
+
+let vc_merge(vc, other) =
+    let a = vc_clocks(vc)
+    let b = vc_clocks(other)
+    let n = len(a)
+    let i = 0
+    for i < n
+        if b[i] > a[i]
+            a[i] = b[i]
+        i = i + 1
+    [a, vc_node(vc)]
+
+let vc_compare(a, b) =
+    let ca = vc_clocks(a)
+    let cb = vc_clocks(b)
+    let n = len(ca)
+    let a_before = 0
+    let b_before = 0
+    let i = 0
+    for i < n
+        if ca[i] < cb[i]
+            a_before = 1
+        if cb[i] < ca[i]
+            b_before = 1
+        i = i + 1
+    if a_before == 0
+        if b_before == 0
+            0
+        else
+            1
+    else
+        if b_before == 0
+            -1
+        else
+            0
+
+let mu_new(mut_id, ts, op, key, value, prev_value, vc, node_id) =
+    [mut_id, ts, op, key, value, prev_value, vc, node_id, SY_ACK_PENDING]
+
+let mu_id(m)        = m[0]
+let mu_ts(m)        = m[1]
+let mu_op(m)        = m[2]
+let mu_key(m)       = m[3]
+let mu_value(m)     = m[4]
+let mu_prev(m)      = m[5]
+let mu_vc(m)        = m[6]
+let mu_node(m)      = m[7]
+let mu_ack(m)       = m[8]
+
+let mu_set_ack(m, ack) =
+    m[8] = ack
+    m
+
+let ou_new(node_id, dim) =
+    [{}, {}, vc_new(node_id, dim), node_id, 1]
+
+let ou_data(o)        = o[0]
+let ou_pending(o)     = o[1]
+let ou_vc(o)          = o[2]
+let ou_node(o)        = o[3]
+let ou_next_mut(o)    = o[4]
+
+let ou_apply(o, ts, op, key, value) =
+    let data = ou_data(o)
+    let prev = data[key]
+    if prev == 0
+        prev = 0
+    let vc = ou_vc(o)
+    vc = vc_tick(vc)
+    let mid = ou_next_mut(o)
+    let m = mu_new(mid, ts, op, key, value, prev, vc, ou_node(o))
+    if op == SY_OP_SET
+        data[key] = value
+    else
+        if op == SY_OP_DELETE
+            data[key] = 0
+        else
+            if op == SY_OP_INC
+                let cur = data[key]
+                if cur == 0
+                    cur = 0
+                data[key] = cur + value
+    let pend = ou_pending(o)
+    pend[mid] = m
+    [data, pend, vc, ou_node(o), mid + 1]
+
+let ou_ack(o, mut_id, ack_state, server_value) =
+    let pend = ou_pending(o)
+    let m = pend[mut_id]
+    if m == 0
+        o
+    else
+        m = mu_set_ack(m, ack_state)
+        pend[mut_id] = m
+        let data = ou_data(o)
+        if ack_state == SY_ACK_ROLLBACK
+            data[mu_key(m)] = mu_prev(m)
+        else
+            if ack_state == SY_ACK_OK
+                if server_value != 0
+                    data[mu_key(m)] = server_value
+        pend[mut_id] = 0
+        [data, pend, ou_vc(o), ou_node(o), ou_next_mut(o)]
+
+let cr_resolve_lww(client_mut, server_mut) =
+    let tc = mu_ts(client_mut)
+    let ts = mu_ts(server_mut)
+    if tc > ts
+        1
+    else
+        if tc < ts
+            2
+        else
+            if mu_node(client_mut) < mu_node(server_mut)
+                1
+            else
+                2
+
+let cr_resolve_bragg(client_mut, server_mut, ref_value) =
+    let cv = mu_value(client_mut)
+    let sv = mu_value(server_mut)
+    let diff_c = cv - ref_value
+    if diff_c < 0
+        diff_c = -diff_c
+    let diff_s = sv - ref_value
+    if diff_s < 0
+        diff_s = -diff_s
+    if diff_c < diff_s
+        1
+    else
+        if diff_c > diff_s
+            2
+        else
+            cr_resolve_lww(client_mut, server_mut)
+
+let sq_new(max_size) =
+    [[], 0, 0, max_size]
+
+let sq_muts(s)    = s[0]
+let sq_head(s)    = s[1]
+let sq_tail(s)    = s[2]
+let sq_max(s)     = s[3]
+
+let sq_enqueue(s, mutv) =
+    let muts = sq_muts(s)
+    muts.push(mutv)
+    let n = len(muts)
+    let i = n - 1
+    for i > 0
+        if mu_ts(muts[i]) < mu_ts(muts[i - 1])
+            let tmp = muts[i]
+            muts[i] = muts[i - 1]
+            muts[i - 1] = tmp
+        i = i - 1
+    let max_sz = sq_max(s)
+    let tail = sq_tail(s)
+    for len(muts) > max_sz
+        muts = arr_drop(muts, 1)
+        tail = tail + 1
+    [muts, sq_head(s), tail, max_sz]
+
+let sq_drain(s, batch_size) =
+    let muts = sq_muts(s)
+    let n = len(muts)
+    let take = batch_size
+    if n < take
+        take = n
+    let batch = []
+    let i = 0
+    for i < take
+        batch.push(muts[i])
+        i = i + 1
+    let rest = []
+    for i < n
+        rest.push(muts[i])
+        i = i + 1
+    [batch, [rest, sq_head(s) + take, sq_tail(s), sq_max(s)]]
+
+let at_new(timeout) =
+    [{}, {}, timeout]
+
+let at_pending(a)   = a[0]
+let at_acked(a)     = a[1]
+let at_timeout(a)   = a[2]
+
+let at_track(a, mut_id, ts) =
+    let pend = at_pending(a)
+    pend[mut_id] = ts
+    [pend, at_acked(a), at_timeout(a)]
+
+let at_ack(a, mut_id, ack_state) =
+    let pend = at_pending(a)
+    pend[mut_id] = 0
+    let acked = at_acked(a)
+    acked[mut_id] = ack_state
+    [pend, acked, at_timeout(a)]
+
+let at_find_timeouts(a, current_ts) =
+    let pend = at_pending(a)
+    let keys = keys_of(pend)
+    let n = len(keys)
+    let result = []
+    let i = 0
+    for i < n
+        let mid = keys[i]
+        let ts = pend[mid]
+        if ts != 0
+            if current_ts - ts > at_timeout(a)
+                result.push(mid)
+        i = i + 1
+    result
+
+let sy_self_test() =
+    let vc1 = vc_new(0, 4)
+    vc1 = vc_tick(vc1)
+    vc1 = vc_tick(vc1)
+    let vc2 = vc_new(1, 4)
+    vc2 = vc_tick(vc2)
+    let cmp = vc_compare(vc1, vc2)
+    let t_concurrent = 0
+    if cmp == 0
+        t_concurrent = 1
+
+    let vc3 = vc_merge(vc1, vc2)
+    let cmp2 = vc_compare(vc3, vc2)
+    let t_after = 0
+    if cmp2 == 1
+        t_after = 1
+
+    let ou = ou_new(0, 4)
+    ou = ou_apply(ou, 1000, SY_OP_SET, 100, 42)
+    let data = ou_data(ou)
+    let val = data[100]
+    let t_apply = 0
+    if val == 42
+        t_apply = 1
+
+    let mid = 1
+    ou = ou_ack(ou, mid, SY_ACK_ROLLBACK, 0)
+    let val2 = ou_data(ou)[100]
+    let t_rollback = 0
+    if val2 == 0
+        t_rollback = 1
+
+    let mc = mu_new(1, 2000, SY_OP_SET, 100, 50, 0, vc1, 0)
+    let ms = mu_new(2, 3000, SY_OP_SET, 100, 60, 0, vc2, 1)
+    let winner = cr_resolve_lww(mc, ms)
+    let t_lww = 0
+    if winner == 2
+        t_lww = 1
+
+    let wb = cr_resolve_bragg(mc, ms, 55)
+    let t_bragg = 0
+    if wb == 2
+        t_bragg = 1
+
+    let sq = sq_new(16)
+    sq = sq_enqueue(sq, mu_new(2, 3000, SY_OP_SET, 1, 1, 0, vc1, 0))
+    sq = sq_enqueue(sq, mu_new(1, 1000, SY_OP_SET, 1, 1, 0, vc1, 0))
+    let drain_res = sq_drain(sq, 1)
+    let first_batch = drain_res[0]
+    let first_ts = mu_ts(first_batch[0])
+    let t_order = 0
+    if first_ts == 1000
+        t_order = 1
+
+    let at = at_new(500)
+    at = at_track(at, 1, 1000)
+    let timeouts = at_find_timeouts(at, 2000)
+    let t_timeout = 0
+    if len(timeouts) == 1
+        t_timeout = 1
+
+    [t_concurrent, t_after, t_apply, t_rollback, t_lww, t_bragg, t_order, t_timeout]
+
+let sy_default_engine(node_id) =
+    ou_new(node_id, SY_DEFAULT_VC_DIM)
+
+let sy_default_ack_tracker() =
+    at_new(5000)

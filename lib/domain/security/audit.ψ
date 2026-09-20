@@ -1,0 +1,299 @@
+let audit_event_new(id, ts, actor, action, resource, result, ip) =
+    [id, ts, actor, action, resource, result, ip, {}, ""]
+
+let ev_id(e) = e[0]
+let ev_ts(e) = e[1]
+let ev_actor(e) = e[2]
+let ev_action(e) = e[3]
+let ev_resource(e) = e[4]
+let ev_result(e) = e[5]
+let ev_ip(e) = e[6]
+let ev_details(e) = e[7]
+let ev_prev_hash(e) = e[8]
+
+let ev_set_detail(e, key, value) =
+    let d = ev_details(e)
+    d[key] = value
+    e[7] = d
+    e
+
+let ev_get_detail(e, key) =
+    let d = ev_details(e)
+    d[key]
+
+let ev_compute_hash(e) =
+    let s = "" + ev_id(e) + ev_ts(e) + ev_actor(e) + ev_action(e) + ev_resource(e) + ev_result(e) + ev_prev_hash(e)
+    let h = 0
+    let i = 0
+    let n = len(s)
+    for i < n
+        h = (h * 31 + s[i]) % 65537
+        i = i + 1
+    let round = 0
+    for round < 16
+        h = (h * 31 + round) % 65537
+        round = round + 1
+    h
+
+let ev_set_prev_hash(e, prev_hash) =
+    e[8] = prev_hash
+    e
+
+let audit_log_new() =
+    [[], "", 0, 1]
+
+let log_events(l) = l[0]
+let log_last_hash(l) = l[1]
+let log_count(l) = l[2]
+let log_append_only(l) = l[3]
+
+let log_append(l, event) =
+    if log_append_only(l) == 0
+        0
+    else
+        event = ev_set_prev_hash(event, log_last_hash(l))
+        let events = log_events(l)
+        events.push(event)
+        l[0] = events
+        l[2] = log_count(l) + 1
+        let new_hash = ev_compute_hash(event)
+        l[1] = new_hash
+        l
+
+let log_verify_chain(l) =
+    let events = log_events(l)
+    let expected_prev = ""
+    let i = 0
+    let n = len(events)
+    let ok = 1
+    for i < n
+        let e = events[i]
+        if ev_prev_hash(e) != expected_prev
+            ok = 0
+            i = n
+        let computed = ev_compute_hash(e)
+        if i == n - 1
+            if computed != log_last_hash(l)
+                ok = 0
+                i = n
+        expected_prev = computed
+        i = i + 1
+    ok
+
+let log_query(l, filter_actor, filter_action, filter_result, start_ts, end_ts) =
+    let events = log_events(l)
+    let results = []
+    let i = 0
+    let n = len(events)
+    for i < n
+        let e = events[i]
+        let match_ = 1
+        if filter_actor != "*"
+            if ev_actor(e) != filter_actor
+                match_ = 0
+        if filter_action != "*"
+            if ev_action(e) != filter_action
+                match_ = 0
+        if filter_result != -1
+            if ev_result(e) != filter_result
+                match_ = 0
+        if ev_ts(e) < start_ts
+            match_ = 0
+        if ev_ts(e) > end_ts
+            match_ = 0
+        if match_ == 1
+            results.push(e)
+        i = i + 1
+    results
+
+let log_seal(l) =
+    l[3] = 0
+    l
+
+let alert_rule_new(name, condition_fn, threshold, window_sec) =
+    [name, condition_fn, threshold, window_sec, "log_alert"]
+
+let ar_name(r) = r[0]
+let ar_fn(r) = r[1]
+let ar_threshold(r) = r[2]
+let ar_window(r) = r[3]
+let ar_action(r) = r[4]
+
+let alert_engine_new() =
+    [[], [], []]
+
+let ae_rules(ae) = ae[0]
+let ae_alerts(ae) = ae[1]
+let ae_count(ae) = ae[2]
+
+let ae_add_rule(ae, rule) =
+    let rs = ae_rules(ae)
+    rs.push(rule)
+    ae[0] = rs
+    ae
+
+let ae_evaluate(ae, log, current_ts) =
+    let rules = ae_rules(ae)
+    let i = 0
+    let n = len(rules)
+    let triggered = []
+    for i < n
+        let rule = rules[i]
+        let matches = log_query(log, "*", "*", 0, current_ts - ar_window(rule), current_ts)
+        let match_count = len(matches)
+        if match_count >= ar_threshold(rule)
+            let alert = [ar_name(rule), current_ts, match_count, ar_action(rule)]
+            triggered.push(alert)
+        i = i + 1
+    let alerts = ae_alerts(ae)
+    let j = 0
+    let m = len(triggered)
+    for j < m
+        alerts.push(triggered[j])
+        j = j + 1
+    ae[1] = alerts
+    ae[2] = ae_count(ae) + len(triggered)
+    triggered
+
+let ae_get_alerts(ae) = ae_alerts(ae)
+
+let compliance_report_generate(log, period_start, period_end, framework) =
+    let events = log_query(log, "*", "*", -1, period_start, period_end)
+    let total = len(events)
+    let success = 0
+    let failed = 0
+    let i = 0
+    for i < total
+        let e = events[i]
+        if ev_result(e) == 1
+            success = success + 1
+        else
+            failed = failed + 1
+        i = i + 1
+    [framework, period_start, period_end, total, success, failed]
+
+let compliance_framework_name(f) =
+    if f == 0
+        "SOX"
+    else
+        0
+    if f == 1
+        "HIPAA"
+    else
+        0
+    if f == 2
+        "GDPR"
+    else
+        "Unknown"
+
+let audit_verify() =
+    let ok1 = 1
+    let e1 = audit_event_new(1, 1000, "alice", "login", "system", 1, "192.168.1.1")
+    e1 = ev_set_detail(e1, "browser", "Chrome")
+    if ev_id(e1) != 1
+        ok1 = 0
+    if ev_actor(e1) != "alice"
+        ok1 = 0
+    if ev_action(e1) != "login"
+        ok1 = 0
+    if ev_result(e1) != 1
+        ok1 = 0
+    if ev_get_detail(e1, "browser") != "Chrome"
+        ok1 = 0
+    let h1 = ev_compute_hash(e1)
+    if h1 == 0
+        ok1 = 0
+
+    let ok2 = 1
+    let log = audit_log_new()
+    log = log_append(log, e1)
+    if log_count(log) != 1
+        ok2 = 0
+    let e2 = audit_event_new(2, 1100, "bob", "login", "system", 0, "10.0.0.1")
+    log = log_append(log, e2)
+    if log_count(log) != 2
+        ok2 = 0
+    if log_last_hash(log) == ""
+        ok2 = 0
+    if log_verify_chain(log) != 1
+        ok2 = 0
+    let ev1 = log_events(log)[0]
+    if ev_prev_hash(ev1) != ""
+        ok2 = 0
+    let ev2 = log_events(log)[1]
+    if ev_prev_hash(ev2) != ev_compute_hash(ev1)
+        ok2 = 0
+
+    let ok3 = 1
+    let tampered_log = audit_log_new()
+    let e1_t = audit_event_new(1, 1000, "alice", "login", "system", 1, "192.168.1.1")
+    tampered_log = log_append(tampered_log, e1_t)
+    let e2_t = audit_event_new(2, 1100, "bob", "logout", "system", 1, "10.0.0.1")
+    tampered_log = log_append(tampered_log, e2_t)
+    tampered_log[1] = "fake_hash"
+    if log_verify_chain(tampered_log) != 0
+        ok3 = 0
+
+    let ok4 = 1
+    let results = log_query(log, "alice", "*", -1, 0, 2000)
+    if len(results) != 1
+        ok4 = 0
+    let all_results = log_query(log, "*", "*", -1, 0, 2000)
+    if len(all_results) != 2
+        ok4 = 0
+    let failed_results = log_query(log, "*", "*", 0, 0, 2000)
+    if len(failed_results) != 1
+        ok4 = 0
+
+    let ok5 = 1
+    log = log_seal(log)
+    if log_append_only(log) != 0
+        ok5 = 0
+    let append_result = log_append(log, audit_event_new(3, 1200, "eve", "login", "system", 1, "1.1.1.1"))
+    if append_result != 0
+        ok5 = 0
+
+    let ok6 = 1
+    let rule = alert_rule_new("failed_logins", "result==0", 1, 600)
+    let ae = alert_engine_new()
+    ae = ae_add_rule(ae, rule)
+    let alert_log = audit_log_new()
+    alert_log = log_append(alert_log, audit_event_new(1, 1000, "alice", "login", "system", 1, "1.1.1.1"))
+    alert_log = log_append(alert_log, audit_event_new(2, 1100, "bob", "login", "system", 0, "2.2.2.2"))
+    let triggered = ae_evaluate(ae, alert_log, 1200)
+    if len(triggered) == 0
+        ok6 = 0
+    if len(triggered) > 0
+        if triggered[0][0] != "failed_logins"
+            ok6 = 0
+
+    let ok7 = 1
+    let report = compliance_report_generate(alert_log, 0, 2000, 0)
+    if report[0] != 0
+        ok7 = 0
+    if report[3] != 2
+        ok7 = 0
+    if report[4] != 1
+        ok7 = 0
+    if report[5] != 1
+        ok7 = 0
+    if compliance_framework_name(0) != "SOX"
+        ok7 = 0
+    if compliance_framework_name(1) != "HIPAA"
+        ok7 = 0
+    if compliance_framework_name(2) != "GDPR"
+        ok7 = 0
+
+    let all_ok = ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7
+    if all_ok == 1
+        print("audit_verify: ALL 7 PASS")
+    else
+        print("audit_verify: FAIL")
+        print(ok1)
+        print(ok2)
+        print(ok3)
+        print(ok4)
+        print(ok5)
+        print(ok6)
+        print(ok7)
+    all_ok

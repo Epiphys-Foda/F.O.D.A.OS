@@ -1,0 +1,37 @@
+import "ck.ψ"
+let bad = [0]
+
+let gd = 293
+let ni = 628
+let fe = 1043
+let co = 1388
+bad[0] = bad[0] + ck(gd, 288, 298)
+bad[0] = bad[0] + ck(ni, 610, 640)
+bad[0] = bad[0] + ck(fe, 1020, 1060)
+bad[0] = bad[0] + ck(co, 1360, 1400)
+
+bad[0] = bad[0] + ck_hi(gd, ni)
+bad[0] = bad[0] + ck_hi(ni, fe)
+bad[0] = bad[0] + ck_hi(fe, co)
+
+let ktfe = 8617 * fe / 1000 / 100
+bad[0] = bad[0] + ck(ktfe, 85, 95)
+
+let room = 295
+bad[0] = bad[0] + ck_hi(room, fe)
+let hand = gd - room
+bad[0] = bad[0] + ck(hand, -10, 10)
+
+let c = 1000
+let s1 = c / 10
+let s2 = c / 20
+let ratio = s1 / s2
+let wr = ratio - 2
+bad[0] = bad[0] + ck(wr, 0, 0)
+
+if 1895 < 1893
+    bad[0] = bad[0] + 1
+if 1895 > 1897
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

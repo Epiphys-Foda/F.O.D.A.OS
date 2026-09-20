@@ -1,0 +1,190 @@
+import "./scheduler.ψ"
+import "./memory.ψ"
+import "./ipc.ψ"
+import "../fs/core.ψ"
+import "../../physics/ntt_spectrum.ψ"
+
+let SYS_P = 65537
+
+let OP_PRODUCE = 1
+let OP_DESTROY = 2
+let OP_EVOLVE = 3
+let OP_OBSERVE = 4
+let OP_INTERFERE = 5
+
+let SYS_SPAWN = 101
+let SYS_CREATE_CHANNEL = 102
+let SYS_ALLOC = 103
+let SYS_OPEN_FILE = 104
+let SYS_CREATE_DB = 105
+
+let SYS_EXIT = 201
+let SYS_DESTROY_CHANNEL = 202
+let SYS_FREE = 203
+let SYS_CLOSE_FILE = 204
+let SYS_DROP_DB = 205
+
+let SYS_COMPUTE = 301
+let SYS_NTT = 302
+let SYS_MATMUL = 303
+let SYS_QFT = 304
+let SYS_EVOLVE = 305
+
+let SYS_READ = 401
+let SYS_QUERY = 402
+let SYS_MEASURE = 403
+let SYS_STAT = 404
+let SYS_GET_TIME = 405
+
+let SYS_SEND = 501
+let SYS_RECV = 502
+let SYS_BROADCAST = 503
+let SYS_SYNC = 504
+let SYS_JOIN = 505
+
+let syscall_table = array_new(512)
+
+let syscall_init() =
+    syscall_register(SYS_SPAWN, OP_PRODUCE, 2, 0)
+    syscall_register(SYS_CREATE_CHANNEL, OP_PRODUCE, 2, 0)
+    syscall_register(SYS_ALLOC, OP_PRODUCE, 1, 0)
+    syscall_register(SYS_OPEN_FILE, OP_PRODUCE, 2, 0)
+    syscall_register(SYS_CREATE_DB, OP_PRODUCE, 1, 1)
+
+    syscall_register(SYS_EXIT, OP_DESTROY, 1, 0)
+    syscall_register(SYS_DESTROY_CHANNEL, OP_DESTROY, 1, 0)
+    syscall_register(SYS_FREE, OP_DESTROY, 1, 0)
+    syscall_register(SYS_CLOSE_FILE, OP_DESTROY, 1, 0)
+    syscall_register(SYS_DROP_DB, OP_DESTROY, 1, 1)
+
+    syscall_register(SYS_COMPUTE, OP_EVOLVE, 3, 0)
+    syscall_register(SYS_NTT, OP_EVOLVE, 2, 0)
+    syscall_register(SYS_MATMUL, OP_EVOLVE, 3, 0)
+    syscall_register(SYS_QFT, OP_EVOLVE, 2, 0)
+    syscall_register(SYS_EVOLVE, OP_EVOLVE, 3, 0)
+
+    syscall_register(SYS_READ, OP_OBSERVE, 3, 0)
+    syscall_register(SYS_QUERY, OP_OBSERVE, 3, 0)
+    syscall_register(SYS_MEASURE, OP_OBSERVE, 2, 0)
+    syscall_register(SYS_STAT, OP_OBSERVE, 2, 0)
+    syscall_register(SYS_GET_TIME, OP_OBSERVE, 0, 0)
+
+    syscall_register(SYS_SEND, OP_INTERFERE, 4, 0)
+    syscall_register(SYS_RECV, OP_INTERFERE, 1, 0)
+    syscall_register(SYS_BROADCAST, OP_INTERFERE, 4, 0)
+    syscall_register(SYS_SYNC, OP_INTERFERE, 1, 0)
+    syscall_register(SYS_JOIN, OP_INTERFERE, 1, 0)
+
+let syscall_register(num, op, argc, priv) =
+    syscall_table[num] = { num: num, op: op, handler: num, argc: argc, privileged: priv }
+
+let syscall_dispatch(num, args, argc) =
+        let entry = syscall_table[num]
+        if entry == 0
+            -1
+
+        if entry.privileged == 1
+            if syscall_check_privilege() == 0
+                -2
+
+        if argc < entry.argc
+            -3
+
+        if entry.op == OP_PRODUCE
+            syscall_handle_produce(num, args)
+        else
+            if entry.op == OP_DESTROY
+                syscall_handle_destroy(num, args)
+            else
+                if entry.op == OP_EVOLVE
+                    syscall_handle_evolve(num, args)
+                else
+                    if entry.op == OP_OBSERVE
+                        syscall_handle_observe(num, args)
+                    else
+                        if entry.op == OP_INTERFERE
+                            syscall_handle_interfere(num, args)
+                        else
+                            -4
+
+let syscall_handle_produce(num, args) =
+        if num == SYS_SPAWN
+            sched_create(args[0], args[1])
+        else
+            if num == SYS_ALLOC
+                mem_alloc(args[0])
+            else
+                if num == SYS_CREATE_CHANNEL
+                    ipc_create_channel(args[0], args[1])
+                else
+                    0
+
+let syscall_handle_destroy(num, args) =
+        if num == SYS_EXIT
+            sched_exit(args[0])
+        else
+            if num == SYS_FREE
+                mem_free(args[0])
+            else
+                if num == SYS_DESTROY_CHANNEL
+                    ipc_destroy(args[0])
+                else
+                    0
+
+let syscall_handle_evolve(num, args) =
+        if num == SYS_NTT
+            ntt_forward(args[0], args[1], ntt_pow(3, NTT_ROOT_E))
+        else
+            if num == SYS_COMPUTE
+                syscall_compute(args[0], args[1], args[2])
+            else
+                0
+
+let syscall_handle_observe(num, args) =
+        if num == SYS_GET_TIME
+            sched_tick_count
+        else
+            if num == SYS_READ
+                fs_read(args[0], args[1], 0, args[2])
+            else
+                0
+
+let syscall_handle_interfere(num, args) =
+        if num == SYS_SEND
+            ipc_send(args[0], args[1], 0, args[2], args[3])
+        else
+            if num == SYS_RECV
+                ipc_recv(args[0])
+            else
+                0
+
+let syscall_check_privilege() =
+    (sched_current == 0 ? 1 : 0)
+
+let syscall_compute(opcode, input, param) =
+    if opcode == 0
+        (input + param) % SYS_P
+    else
+        if opcode == 1
+            (input - param + SYS_P) % SYS_P
+        else
+            if opcode == 2
+                (input * param) % SYS_P
+            else
+                if opcode == 3
+                    if input == 0
+                        0
+                    else
+                        let inv = 1
+                        let base = input
+                        let exp = SYS_P - 2
+                        for exp > 0
+                            if exp % 2 == 1
+                                inv = (inv * base) % SYS_P
+                            base = (base * base) % SYS_P
+                            exp = exp / 2
+                        inv
+                    0
+
+let array_new(n) = arr_new_n(n)
+

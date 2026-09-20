@@ -1,0 +1,28 @@
+import "ck.ψ"
+let bad = [0]
+
+let n_turns = 100
+let i_amp = 2
+let a_m2 = 1
+let b_x100 = 50
+let tau_max = n_turns * i_amp * a_m2 * b_x100
+let dz1 = tau_max - 10000
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let i_pos = 1
+let b_pos = 1
+bad[0] = bad[0] + ck_lo(i_pos, 1)
+bad[0] = bad[0] + ck_lo(b_pos, 1)
+
+if 1821 < 1819
+    bad[0] = bad[0] + 1
+if 1821 > 1823
+    bad[0] = bad[0] + 1
+if 1888 < 1886
+    bad[0] = bad[0] + 1
+if 1888 > 1890
+    bad[0] = bad[0] + 1
+if 1888 < 1821
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

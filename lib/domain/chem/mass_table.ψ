@@ -1,0 +1,52 @@
+let na = [40, 56, 63, 84, 88, 120, 107, 138, 139, 152, 206, 208, 238]
+let nz = [20, 26, 29, 36, 38, 50, 47, 56, 57, 62, 82, 82, 92]
+let nA13 = [341, 382, 397, 437, 444, 493, 474, 516, 518, 533, 590, 592, 619]
+let nsqA = [63, 74, 79, 91, 93, 109, 103, 117, 117, 123, 143, 144, 154]
+let npr = [1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1]
+let nbm = [8551, 8790, 8752, 8717, 8733, 8505, 8554, 8393, 8379, 8476, 7876, 7868, 7570]
+let nflg = [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]
+
+let bad = [0]
+let out = [0]
+let bmax = [0]
+let bip = [0]
+
+let i = 0
+for i < 13
+    let ix = i * 1
+    let a = na[ix]
+    let z = nz[ix]
+    let t2 = nA13[ix] * nA13[ix] / 100
+    let ast = 18300000 * t2 / 100
+    let act = 714000 * z * (z - 1) * 100 / nA13[ix]
+    let dz = a - 2 * z
+    let aat = 23200000 * dz * dz / a
+    let prt = npr[ix] * (120000000 / nsqA[ix])
+    let b = 15800000 * a - ast - act - aat + prt
+    let d = b - nbm[ix] * a * 1000
+    let ad =
+        if d < 0
+            0 - d
+        else
+            d
+    let tol = 100 * a * 1000
+    if ad > tol
+        let oob = nflg[ix] - 1
+        if oob < 0
+            bad[0] = bad[0] + 1
+        else
+            out[0] = out[0] + 1
+    if nbm[ix] > bmax[0]
+        bmax[0] = nbm[ix]
+        bip[0] = ix
+    i = i + 1
+
+let dout = out[0] - 1
+bad[0] = bad[0] + dout * dout
+
+let dbmax = bmax[0] - 8790
+bad[0] = bad[0] + dbmax * dbmax
+let dbip = bip[0] - 1
+bad[0] = bad[0] + dbip * dbip
+
+arr_get(arr_new_n(1), bad[0])

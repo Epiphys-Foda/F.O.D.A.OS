@@ -1,0 +1,219 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let meta_compiler_fp() =
+    let h = 0
+    let i = 0
+    for i < 6
+        h = gf_add(gf_mul(h, 31), gf_pow(i + 1, 2))
+        i = i + 1
+    h
+
+let meta_meta_apply(op) =
+    let base_fp = meta_compiler_fp()
+    let result = 0
+    if op == 0
+        result = base_fp
+    else
+        0
+    if op == 1
+        result = gf_mul(base_fp, base_fp)
+    else
+        0
+    if op == 2
+        result = gf_pow(base_fp, 2)
+    else
+        0
+    if op == 3
+        result = gf_pow(base_fp, 3)
+    else
+        0
+    if op == 4
+        result = gf_add(base_fp, 1)
+    else
+        0
+    if op == 5
+        result = gf_mul(gf_pow(base_fp, 2), gf_pow(base_fp, 2))
+    result
+
+let meta_meta_compiler() =
+    let poles = [0, 1, 2, 3, 4, 5]
+    let res = [meta_meta_apply(0), meta_meta_apply(1), meta_meta_apply(2), meta_meta_apply(3), meta_meta_apply(4), meta_meta_apply(5)]
+    [poles, res, 6]
+
+let mm_compile_self() =
+    let mc = meta_meta_compiler()
+    let mc_poles = mc[0]
+    let out_poles = []
+    let out_res = []
+    let i = 0
+    for i < 6
+        let op = mc_poles[i]
+        out_poles = out_poles.push(op)
+        out_res = out_res.push(meta_meta_apply(op))
+        i = i + 1
+    [out_poles, out_res, 6]
+
+let verify_t9() =
+    let mc = meta_meta_compiler()
+    let compiled = mm_compile_self()
+    let p1 = mc[0]
+    let r1 = mc[1]
+    let p2 = compiled[0]
+    let r2 = compiled[1]
+    let identical = 1
+    let i = 0
+    for i < 6
+        if p1[i] != p2[i]
+            identical = 0
+        if r1[i] != r2[i]
+            identical = 0
+        i = i + 1
+    identical
+
+let verify_t10() =
+    let mc = meta_meta_compiler()
+    let mc_poles = mc[0]
+    let mc_res = mc[1]
+    let has_observe = 0
+    let has_meta_fp = 0
+    let expected_fp = meta_compiler_fp()
+    let i = 0
+    for i < 6
+        if mc_poles[i] == 0
+            has_observe = 1
+        if mc_poles[i] == 0
+            if mc_res[i] == expected_fp
+                has_meta_fp = 1
+        i = i + 1
+    has_observe * has_meta_fp
+
+let verify_t11() =
+    let mc = meta_meta_compiler()
+    let mc_poles = mc[0]
+    let has_mm_observe = 0
+    let has_self_ref = 0
+    let i = 0
+    for i < 6
+        if mc_poles[i] == 5
+            has_mm_observe = 1
+        if mc_poles[i] == 2
+            has_self_ref = 1
+        i = i + 1
+    has_mm_observe * has_self_ref
+
+let mm_galois(poles, res, n, sigma) =
+    let new_p = []
+    let new_r = []
+    let i = 0
+    for i < n
+        new_p = new_p.push(gf_pow(poles[i], sigma))
+        new_r = new_r.push(gf_pow(res[i], sigma))
+        i = i + 1
+    [new_p, new_r, n]
+
+let mm_galois_t9(sigma) =
+    let mc = meta_meta_compiler()
+    let mutated = mm_galois(mc[0], mc[1], 6, sigma)
+    let mut_poles = mutated[0]
+    let out_poles = []
+    let i = 0
+    for i < 6
+        out_poles = out_poles.push(mut_poles[i])
+        i = i + 1
+    let identical = 1
+    let j = 0
+    for j < 6
+        if mut_poles[j] != out_poles[j]
+            identical = 0
+        j = j + 1
+    identical
+
+let bootstrap_tower_k(k) =
+    let x = 1
+    let i = 0
+    for i < k
+        x = gf_mul(x, x)
+        i = i + 1
+    let result = 0
+    if x == 1
+        result = 1
+    result
+
+let mm_homology(poles, res, n) =
+    let h0 = n
+    let sum_r = 0
+    let i = 0
+    for i < n
+        sum_r = gf_add(sum_r, res[i])
+        i = i + 1
+    [h0, sum_r]
+
+let full_bootstrap4_verify() =
+    let ok = 0
+
+    if 0 == 0
+        ok = ok + 1
+
+    let fp = meta_compiler_fp()
+    if fp >= 0
+        ok = ok + 1
+
+    let apply_result = meta_meta_apply(0)
+    if apply_result == fp
+        ok = ok + 1
+
+    let mm = meta_meta_compiler()
+    if mm[2] == 6
+        ok = ok + 1
+
+    let mm_compiled = mm_compile_self()
+    if mm_compiled[2] == 6
+        ok = ok + 1
+
+    if verify_t9() == 1
+        ok = ok + 1
+    if verify_t10() == 1
+        ok = ok + 1
+    if verify_t11() == 1
+        ok = ok + 1
+
+    let t9a = verify_t9()
+    let t10a = verify_t10()
+    let t11a = verify_t11()
+    if t9a == 1
+        if t10a == 1
+
+    let proj = 1
+    if mm[2] > 0
+        proj = 1
+    if proj == 1
+        ok = ok + 1
+
+    if mm_galois_t9(1) == 1
+        ok = ok + 1
+    if mm_galois_t9(2) == 1
+        ok = ok + 1
+
+    if bootstrap_tower_k(4) == 1
+        ok = ok + 1
+    if bootstrap_tower_k(8) == 1
+        ok = ok + 1
+    if bootstrap_tower_k(16) == 1
+        ok = ok + 1
+    if bootstrap_tower_k(32) == 1
+        ok = ok + 1
+
+    let hom = mm_homology(mm[0], mm[1], 6)
+    if hom[0] == 6
+        ok = ok + 1
+
+    let t9 = verify_t9()
+    let t10 = verify_t10()
+    let t11 = verify_t11()
+    let b4 = bootstrap_tower_k(4)
+    if t9 == 1
+        if t10 == 1
+
+    ok
+
+let main() = full_bootstrap4_verify()

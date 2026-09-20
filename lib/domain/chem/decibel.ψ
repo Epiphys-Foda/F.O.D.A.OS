@@ -1,0 +1,49 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let i0 = 1
+if i0 != 1
+    bad[0] = bad[0] + 1
+
+let lg2 = 301
+let db3 = small_div(10 * lg2, 1000)
+bad[0] = bad[0] + ck(db3, 2, 4)
+
+let p6 = 10 * 10 * 10 * 10 * 10 * 10
+let p12 = p6 * p6
+if p6 != 1000000
+    bad[0] = bad[0] + 1
+if p12 != 1000000000000
+    bad[0] = bad[0] + 1
+
+if 20 * 100 != 2000
+    bad[0] = bad[0] + 1
+
+let i_pain = p12 / p12
+if i_pain != 1
+    bad[0] = bad[0] + 1
+
+let w = 1000
+let c = 1000000
+let s = 1000000000
+bad[0] = bad[0] + ck_lo(c, w)
+bad[0] = bad[0] + ck_lo(s, c)
+
+let t0 = 8
+let t1 = t0 / 2
+let t2 = t1 / 2
+let t3 = t2 / 2
+if t1 != 4
+    bad[0] = bad[0] + 1
+if t3 != 1
+    bad[0] = bad[0] + 1
+bad[0] = bad[0] + ck_hi(t3, t0)
+
+if 1860 < 1858
+    bad[0] = bad[0] + 1
+if 1860 > 1862
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

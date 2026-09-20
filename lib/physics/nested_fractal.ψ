@@ -1,0 +1,523 @@
+import "../core/stdlib/arr.ψ"
+import "../core/stdlib/gf65537.ψ"
+import "bootstrap_residue.ψ"
+
+let nf_gf_add(a, b) = gfadd(a, b)
+let nf_gf_sub(a, b) = gfsub(a, b)
+let nf_gf_neg(a) = (a == 0) ? 0 : (65537 - a)
+
+let nf_gf_mul(a, b) = gfmul(a, b)
+
+let nf_gf_inv(a) = gfinv(a)
+
+let nf_gf_div(a, b) =
+    if b == 0
+        0
+    else
+        gfmul(a, gfinv(b))
+
+let nf_gf_pow(a, n) = gfpow(a, n)
+
+let gf_sqrt_pow2(k) =
+    if (k & 1) == 0
+        nf_gf_pow(2, k >> 1)
+    else
+        gf_tonelli_shanks(nf_gf_pow(2, k))
+
+let gf_legendre(n) =
+    let nr = gf_reduce(n)
+    (nr == 0 ? 0 : nf_gf_pow(nr, 32768))
+let _ts_find_i(t, i, M) =
+    if i >= M
+        0
+    else
+        if nf_gf_pow(t, 1 << i) == 1
+            i
+        else
+            _ts_find_i(t, i + 1, M)
+let _ts_loop(M, c, t, R) =
+    if t == 1
+        R
+    else
+        let i = _ts_find_i(t, 1, M)
+        let b = nf_gf_pow(c, 1 << (M - i - 1))
+        let b2 = nf_gf_mul(b, b)
+        _ts_loop(i, b2, nf_gf_mul(t, b2), nf_gf_mul(R, b))
+import "sh_a9f96f3ee7.ψ"
+let nf_gf_sqrt(n) =
+    let x = gf_tonelli_shanks(n)
+    if x == 0
+        0
+    else
+        0
+    if x > 32768
+        65537 - x
+    else
+        x
+
+let gf_p2_add(a, b) = gf_p2_make(nf_gf_add(gf_p2_re(a), gf_p2_re(b)), nf_gf_add(gf_p2_im(a), gf_p2_im(b)))
+let gf_p2_sub(a, b) = gf_p2_make(nf_gf_sub(gf_p2_re(a), gf_p2_re(b)), nf_gf_sub(gf_p2_im(a), gf_p2_im(b)))
+let gf_p2_mul(a, b) =
+    let ar = gf_p2_re(a)
+    let ai = gf_p2_im(a)
+    let br = gf_p2_re(b)
+    let bi = gf_p2_im(b)
+    let re = nf_gf_add(nf_gf_mul(ar, br), nf_gf_mul(GF_P2_NONRES, nf_gf_mul(ai, bi)))
+    let im = nf_gf_add(nf_gf_mul(ar, bi), nf_gf_mul(ai, br))
+    gf_p2_make(re, im)
+let gf_p2_norm(a) = nf_gf_sub(nf_gf_mul(gf_p2_re(a), gf_p2_re(a)), nf_gf_mul(GF_P2_NONRES, nf_gf_mul(gf_p2_im(a), gf_p2_im(a))))
+let gf_p2_conj(a) = gf_p2_make(gf_p2_re(a), nf_gf_neg(gf_p2_im(a)))
+let gf_p2_inv(a) =
+    let n = gf_p2_norm(a)
+    if n == 0
+        gf_p2_make(0, 0)
+    else
+        let n_inv = nf_gf_inv(n)
+        let c = gf_p2_conj(a)
+        gf_p2_make(nf_gf_mul(gf_p2_re(c), n_inv), nf_gf_mul(gf_p2_im(c), n_inv))
+let conway_poly_p2() =
+    let v = arr_new_n(3)
+    arr_set(v, 0, nf_gf_neg(GF_P2_NONRES))
+    arr_set(v, 1, 0)
+    arr_set(v, 2, 1)
+    v
+let _conway_poly_eval_acc(coeffs, x, n, i, acc, xp) =
+    if i >= n
+        acc
+    else
+        let term = nf_gf_mul(arr_get(coeffs, i), xp)
+        _conway_poly_eval_acc(coeffs, x, n, i + 1, nf_gf_add(acc, term), nf_gf_mul(xp, x))
+
+let prime_make(z, r, n) =
+    let p = []
+    p.push(z)
+    p.push(r)
+    p.push(n)
+    p
+
+let prime_z(p) =
+    p[0]
+let prime_r(p) =
+    p[1]
+let prime_n(p) =
+    p[2]
+
+let field_make_3(z1, r1, n1, z2, r2, n2) =
+    let field = []
+    let p1 = prime_make(z1, r1, n1)
+    field.push(p1)
+    let p2 = prime_make(z2, r2, n2)
+    field.push(p2)
+    field
+
+let field_make_1(z, r, n) =
+    let field = []
+    let p = prime_make(z, r, n)
+    field.push(p)
+    field
+
+let nf_field_eval(field, z0) =
+    let total = 0
+    let i = 0
+    for i < len(field)
+        let p = field[i]
+        let z = p[0]
+        let r = p[1]
+        let order = p[2]
+        if order < 1
+            order = 1
+        let dz = nf_gf_sub(z0, z)
+        if dz == 0
+            total = (total + r) % P
+        if dz != 0
+            let inv_dz = nf_gf_inv(dz)
+            let inv_dz_n = nf_gf_pow(inv_dz, order)
+            let term = r * inv_dz_n % P
+            total = (total + term) % P
+        i = i + 1
+    total
+
+let field_differentiate(field) =
+    let out = []
+    let i = 0
+    for i < len(field)
+        let p = field[i]
+        let z = p[0]
+        let r = p[1]
+        let order = p[2]
+        if order < 1
+            order = 1
+        let new_order = order + 1
+        let neg_order = nf_gf_neg(order)
+        let new_r = r * neg_order % P
+        let np = prime_make(z, new_r, new_order)
+        out.push(np)
+        i = i + 1
+    out
+
+let field_integrate(field) =
+    let out = []
+    let i = 0
+    for i < len(field)
+        let p = field[i]
+        let z = p[0]
+        let r = p[1]
+        let order = p[2]
+        if order > 1
+            let new_order = order - 1
+            let denom = nf_gf_neg(order - 1)
+            let new_r = nf_gf_div(r, denom)
+            let np = prime_make(z, new_r, new_order)
+            out.push(np)
+        i = i + 1
+    out
+
+let field_diff_n(field, times) =
+    let result = field
+    let i = 0
+    for i < times
+        result = field_differentiate(result)
+        i = i + 1
+    result
+
+let nprime_make(z, r, n, inner) =
+    let p = []
+    p.push(z)
+    p.push(r)
+    p.push(n)
+    p.push(inner)
+    p
+
+let field_nest(field) =
+    let out = []
+    let i = 0
+    for i < len(field)
+        let p = field[i]
+        let z = p[0]
+        let r = p[1]
+        let order = p[2]
+        if order < 1
+            order = 1
+        let inner = field
+        if order > 1
+            inner = field_diff_n(field, order - 1)
+        let np = nprime_make(z, r, order, inner)
+        out.push(np)
+        i = i + 1
+    out
+
+let field_unnest(nested_field) =
+    let out = []
+    let i = 0
+    for i < len(nested_field)
+        let p = nested_field[i]
+        let z = p[0]
+        let r = p[1]
+        let order = p[2]
+        let np = prime_make(z, r, order)
+        out.push(np)
+        i = i + 1
+    out
+
+let field_equal(f1, f2) =
+    let match_val = 1
+    if len(f1) != len(f2)
+        match_val = 0
+    let i = 0
+    for i < len(f1)
+        if i < len(f2)
+            let p1 = f1[i]
+            let p2 = f2[i]
+            if p1[0] != p2[0]
+                match_val = 0
+            if p1[1] != p2[1]
+                match_val = 0
+            if p1[2] != p2[2]
+                match_val = 0
+        i = i + 1
+    match_val
+
+let field_spectral(field, k) =
+    field_diff_n(field, k)
+
+let field_spectral_dim(field, k) =
+    let e_k = field_spectral(field, k)
+    len(e_k)
+
+let hausdorff_verify(n_copies, ratio_inv, dim) =
+    let rhs = nf_gf_pow(ratio_inv, dim)
+    (n_copies == rhs ? 1 : 0)
+
+let verify_prime_make() =
+    let p = prime_make(10, 5, 2)
+    let ok = 0
+    if p[0] == 10
+        if p[1] == 5
+    ok
+
+let verify_diff_simple_pole() =
+    let field = field_make_1(10, 3, 1)
+    let dfield = field_differentiate(field)
+    let p = dfield[0]
+    let ok = 0
+    let expected_r = nf_gf_neg(3)
+    if p[0] == 10
+        if p[1] == expected_r
+    ok
+
+let verify_diff_double_pole() =
+    let field = field_make_1(10, 5, 2)
+    let dfield = field_differentiate(field)
+    let p = dfield[0]
+    let ok = 0
+    let expected_r = 5 * nf_gf_neg(2) % P
+    if p[0] == 10
+        if p[1] == expected_r
+    ok
+
+let verify_int_double_pole() =
+    let field = field_make_1(10, nf_gf_neg(3), 2)
+    let ifield = field_integrate(field)
+    let p = ifield[0]
+    let ok = 0
+    if p[0] == 10
+        if p[1] == 3
+    ok
+
+let verify_int_triple_pole() =
+    let field = field_make_1(10, nf_gf_neg(6), 3)
+    let ifield = field_integrate(field)
+    let p = ifield[0]
+    let ok = 0
+    if p[0] == 10
+        if p[1] == 3
+    ok
+
+let verify_diff_int_inverse() =
+    let field = field_make_3(10, 3, 1, 20, 7, 1)
+    let dfield = field_differentiate(field)
+    let ifield = field_integrate(dfield)
+    field_equal(field, ifield)
+
+let verify_diff_n() =
+    let field = field_make_1(5, 2, 1)
+    let d2 = field_diff_n(field, 2)
+    let p = d2[0]
+    let ok = 0
+    if p[2] == 3
+        if p[1] == 4
+    ok
+
+let verify_nest_structure() =
+    let field = field_make_1(10, 5, 2)
+    let nested = field_nest(field)
+    let p = nested[0]
+    let ok = 0
+    if len(p) == 4
+        ok = 1
+    ok
+
+let verify_unnest_structure() =
+    let field = field_make_1(10, 5, 2)
+    let nested = field_nest(field)
+    let unnested = field_unnest(nested)
+    let p = unnested[0]
+    let ok = 0
+    if len(p) == 3
+        ok = 1
+    ok
+
+let verify_nest_unnest_identity() =
+    let field = field_make_3(10, 3, 1, 20, 7, 2)
+    let nested = field_nest(field)
+    let unnested = field_unnest(nested)
+    field_equal(field, unnested)
+
+let verify_spectral_e0() =
+    let field = field_make_3(10, 3, 1, 20, 7, 1)
+    let e0 = field_spectral(field, 0)
+    field_equal(field, e0)
+
+let verify_spectral_e1() =
+    let field = field_make_3(10, 3, 1, 20, 7, 1)
+    let e1 = field_spectral(field, 1)
+    let d1 = field_differentiate(field)
+    field_equal(e1, d1)
+
+let verify_spectral_dim() =
+    let field = field_make_3(10, 3, 1, 20, 7, 1)
+    let d0 = field_spectral_dim(field, 0)
+    let d1 = field_spectral_dim(field, 1)
+    let ok = 0
+    if d0 >= d1
+        ok = 1
+    ok
+
+let verify_fractal_self_similar() =
+    let field = field_make_1(10, 5, 2)
+    let nested = field_nest(field)
+    let np = nested[0]
+    let inner = np[3]
+    let expected_inner = field_differentiate(field)
+    field_equal(inner, expected_inner)
+
+let verify_nest_multi_pole() =
+    let field = field_make_3(10, 3, 1, 20, 7, 3)
+    let nested = field_nest(field)
+    let ok = 0
+    let p1 = nested[0]
+    let inner1 = p1[3]
+    let match1 = field_equal(inner1, field)
+    let p2 = nested[1]
+    let inner2 = p2[3]
+    let expected2 = field_diff_n(field, 2)
+    let match2 = field_equal(inner2, expected2)
+    if match1 == 1
+        if match2 == 1
+    ok
+
+let verify_hausdorff_line() =
+    hausdorff_verify(2, 2, 1)
+
+let verify_hausdorff_square() =
+    hausdorff_verify(4, 2, 2)
+
+let verify_hausdorff_cube() =
+    hausdorff_verify(8, 2, 3)
+
+let verify_eval_simple() =
+    let field = field_make_1(10, 5, 1)
+    let expected = nf_gf_div(5, 2)
+    let val = nf_field_eval(field, 12)
+    let ok = 0
+    if val == expected
+        ok = 1
+    ok
+
+let verify_eval_double() =
+    let field = field_make_1(10, 6, 2)
+    let inv9 = nf_gf_inv(9)
+    let expected = 6 * inv9 % P
+    let val = nf_field_eval(field, 13)
+    let ok = 0
+    if val == expected
+        ok = 1
+    ok
+
+let verify_diff_unnest_commute() =
+    let field = field_make_3(10, 3, 1, 20, 7, 2)
+    let nested = field_nest(field)
+    let unnested = field_unnest(nested)
+    let diff_after = field_differentiate(unnested)
+    let diff_nested = field_differentiate(nested)
+    let unnest_after = field_unnest(diff_nested)
+    field_equal(diff_after, unnest_after)
+
+let verify_compile_closure() =
+    let field = field_make_3(10, 3, 1, 20, 7, 2)
+    let nested = field_nest(field)
+    let unnested = field_unnest(nested)
+    let id1 = field_equal(field, unnested)
+    let dfield = field_differentiate(field)
+    let ifield = field_integrate(dfield)
+    let id2 = field_equal(field, ifield)
+    let ok = 0
+    if id1 == 1
+        if id2 == 1
+    ok
+
+let nested_fractal_verify() =
+        let ok = 0
+        let total = 0
+
+        total = total + 1
+        if verify_prime_make() == 1
+            ok = ok + 1
+
+        total = total + 1
+        if verify_diff_simple_pole() == 1
+            ok = ok + 1
+
+        total = total + 1
+        if verify_diff_double_pole() == 1
+            ok = ok + 1
+
+        total = total + 1
+        if verify_diff_n() == 1
+            ok = ok + 1
+
+        total = total + 1
+        if verify_int_double_pole() == 1
+            ok = ok + 1
+
+        total = total + 1
+        if verify_int_triple_pole() == 1
+            ok = ok + 1
+
+        total = total + 1
+        if verify_diff_int_inverse() == 1
+            ok = ok + 1
+
+        total = total + 1
+        if verify_nest_structure() == 1
+            ok = ok + 1
+
+        total = total + 1
+        if verify_unnest_structure() == 1
+            ok = ok + 1
+
+        total = total + 1
+        if verify_nest_unnest_identity() == 1
+            ok = ok + 1
+
+        total = total + 1
+        if verify_spectral_e0() == 1
+            ok = ok + 1
+
+        total = total + 1
+        if verify_spectral_e1() == 1
+            ok = ok + 1
+
+        total = total + 1
+        if verify_spectral_dim() == 1
+            ok = ok + 1
+
+        total = total + 1
+        if verify_fractal_self_similar() == 1
+            ok = ok + 1
+
+        total = total + 1
+        if verify_nest_multi_pole() == 1
+            ok = ok + 1
+
+        total = total + 1
+        if verify_hausdorff_line() == 1
+            ok = ok + 1
+
+        total = total + 1
+        if verify_hausdorff_square() == 1
+            ok = ok + 1
+
+        total = total + 1
+        if verify_hausdorff_cube() == 1
+            ok = ok + 1
+
+        total = total + 1
+        if verify_eval_simple() == 1
+            ok = ok + 1
+
+        total = total + 1
+        if verify_eval_double() == 1
+            ok = ok + 1
+
+        total = total + 1
+        if verify_diff_unnest_commute() == 1
+            ok = ok + 1
+
+        total = total + 1
+        if verify_compile_closure() == 1
+            ok = ok + 1
+
+        ok * 10000 + total
+
+    nested_fractal_verify()

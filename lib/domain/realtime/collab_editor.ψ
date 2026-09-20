@@ -1,0 +1,284 @@
+import "../domain_field.ψ"
+
+let CE_P = 65537
+
+let CE_OP_INSERT  = 1
+let CE_OP_DELETE  = 2
+let CE_OP_REPLACE = 3
+let CE_FIELD_SCALE  = 256
+let CE_FIELD_OFFSET = 1
+let CE_BRAGG_Z      = 256
+
+let ce_op_new(client_id, seq, op_type, position, content, ts) =
+    [client_id * 65536 + seq, client_id, seq, op_type, position, content, ts]
+
+let ce_op_id(o)      = o[0]
+let ce_op_client(o)  = o[1]
+let ce_op_seq(o)     = o[2]
+let ce_op_type(o)    = o[3]
+let ce_op_pos(o)     = o[4]
+let ce_op_content(o) = o[5]
+let ce_op_ts(o)      = o[6]
+
+let ce_op_with_pos(o, new_pos) =
+    [ce_op_id(o), ce_op_client(o), ce_op_seq(o), ce_op_type(o),
+     new_pos, ce_op_content(o), ce_op_ts(o)]
+
+let ce_default_doc(client_id) =
+    [client_id, [], [], {}, []]
+
+let ce_doc_client(d)    = d[0]
+let ce_doc_ops(d)       = d[1]
+let ce_doc_state(d)     = d[2]
+let ce_doc_versions(d)  = d[3]
+let ce_doc_log(d)       = d[4]
+
+let ce_awareness_new(user_id, cursor, selection, ts) =
+    [user_id, cursor, selection, ts]
+
+let ce_default_session(client_id) =
+    [ce_default_doc(client_id), [], {}, [], []]
+
+let ce_session_doc(s)          = s[0]
+let ce_session_participants(s) = s[1]
+let ce_session_awareness(s)    = s[2]
+let ce_session_history(s)      = s[3]
+let ce_session_log(s)          = s[4]
+
+let ce_transform_concurrent(op1, op2) =
+    let t1 = ce_op_type(op1)
+    let t2 = ce_op_type(op2)
+    let p1 = ce_op_pos(op1)
+    let p2 = ce_op_pos(op2)
+    let new_pos = p2
+    if t1 == CE_OP_INSERT
+        if t2 == CE_OP_INSERT
+            if p1 < p2
+                new_pos = p2 + 1
+            else
+                0
+            if p1 == p2
+                if ce_op_client(op1) < ce_op_client(op2)
+                    new_pos = p2 + 1
+                else
+                    0
+        if t2 == CE_OP_DELETE
+            if p1 <= p2
+                new_pos = p2 + 1
+            else
+                0
+        if t2 == CE_OP_REPLACE
+            if p1 <= p2
+                new_pos = p2 + 1
+            else
+                0
+    if t1 == CE_OP_DELETE
+        if t2 == CE_OP_INSERT
+            if p1 < p2
+                new_pos = p2 - 1
+            else
+                0
+        if t2 == CE_OP_DELETE
+            if p1 < p2
+                new_pos = p2 - 1
+            else
+                0
+        if t2 == CE_OP_REPLACE
+            if p1 < p2
+                new_pos = p2 - 1
+            else
+                0
+    if t1 == CE_OP_REPLACE
+        if t2 == CE_OP_INSERT
+            if p1 < p2
+                new_pos = p2 + 1
+            else
+                0
+        if t2 == CE_OP_DELETE
+            if p1 < p2
+                new_pos = p2 - 1
+            else
+                0
+        if t2 == CE_OP_REPLACE
+            if p1 < p2
+                new_pos = p2 + 1
+    ce_op_with_pos(op2, new_pos)
+
+let ce_apply_to_state(state, op) =
+    let t = ce_op_type(op)
+    let pos = ce_op_pos(op)
+    let content = ce_op_content(op)
+    let new_state = []
+    let n = len(state)
+    let i = 0
+    if t == CE_OP_INSERT
+        i = 0
+        for i < pos
+            if i < n
+                new_state.push(state[i])
+            i = i + 1
+        new_state.push(content)
+        for i < n
+            new_state.push(state[i])
+            i = i + 1
+    if t == CE_OP_DELETE
+        i = 0
+        for i < n
+            if i != pos
+                new_state.push(state[i])
+            i = i + 1
+    if t == CE_OP_REPLACE
+        i = 0
+        for i < n
+            if i == pos
+                new_state.push(content)
+            else
+                new_state.push(state[i])
+            i = i + 1
+    else
+        i = 0
+        for i < n
+            new_state.push(state[i])
+            i = i + 1
+    new_state
+
+let ce_apply_op(session, op) =
+    let doc = ce_session_doc(session)
+    let state = ce_doc_state(doc)
+    let new_state = ce_apply_to_state(state, op)
+    let ops_buf = ce_doc_ops(doc)
+    ops_buf.push(op)
+    let versions = ce_doc_versions(doc)
+    let cid = ce_op_client(op)
+    let cur_seq = versions[cid]
+    let op_seq = ce_op_seq(op)
+    if op_seq > cur_seq
+        versions[cid] = op_seq
+    let history = ce_session_history(session)
+    history.push(op)
+    let new_doc = [ce_doc_client(doc), ops_buf, new_state, versions, ce_doc_log(doc)]
+    [new_doc, ce_session_participants(session), ce_session_awareness(session),
+     history, ce_session_log(session)]
+
+let ce_local_op(session, op_type, position, content, ts) =
+    let doc = ce_session_doc(session)
+    let cid = ce_doc_client(doc)
+    let versions = ce_doc_versions(doc)
+    let seq = versions[cid]
+    seq = seq + 1
+    let op = ce_op_new(cid, seq, op_type, position, content, ts)
+    let new_session = ce_apply_op(session, op)
+    [new_session, op]
+
+let ce_is_concurrent(op, versions) =
+    let ca = ce_op_client(op)
+    let sa = ce_op_seq(op)
+    let va = versions[ca]
+    let concurrent = 1
+    if va >= sa
+        concurrent = 0
+    concurrent
+
+let ce_remote_op(session, op, ts) =
+    let doc = ce_session_doc(session)
+    let versions = ce_doc_versions(doc)
+    let history = ce_session_history(session)
+    let transformed = op
+    let i = 0
+    let n = len(history)
+    for i < n
+        let hop = history[i]
+        let c = ce_is_concurrent(op, versions)
+        if c == 1
+            transformed = ce_transform_concurrent(hop, transformed)
+        i = i + 1
+    ce_apply_op(session, transformed)
+
+let ce_sync_state(session, remote_version_map) =
+    let doc = ce_session_doc(session)
+    let local_versions = ce_doc_versions(doc)
+    let ops_buf = ce_doc_ops(doc)
+    let missing_remote = []
+    let i = 0
+    let n = len(ops_buf)
+    for i < n
+        let op = ops_buf[i]
+        let cid = ce_op_client(op)
+        let rseq = remote_version_map[cid]
+        if rseq < ce_op_seq(op)
+            missing_remote.push(op)
+        i = i + 1
+    let missing_local = []
+    let remote_keys = keys_of(remote_version_map)
+    let j = 0
+    let m = len(remote_keys)
+    for j < m
+        let cid = remote_keys[j]
+        let rseq = remote_version_map[cid]
+        let lseq = local_versions[cid]
+        if rseq > lseq
+            missing_local.push([cid, lseq + 1, rseq])
+        j = j + 1
+    [missing_remote, missing_local]
+
+let ce_update_awareness(session, user_id, cursor, selection, ts) =
+    let aw = ce_session_awareness(session)
+    aw[user_id] = ce_awareness_new(user_id, cursor, selection, ts)
+    [ce_session_doc(session), ce_session_participants(session),
+     aw, ce_session_history(session), ce_session_log(session)]
+
+let ce_get_history(session, from_version) =
+    let history = ce_session_history(session)
+    let result = []
+    let i = 0
+    let n = len(history)
+    for i < n
+        let op = history[i]
+        if ce_op_ts(op) >= from_version
+            result.push(op)
+        i = i + 1
+    result
+
+let ce_state_signature(state) =
+    let sig = 0
+    let i = 0
+    let n = len(state)
+    for i < n
+        sig = (sig + state[i]) % CE_P
+        i = i + 1
+    sig * 65536 + n
+
+let ce_bragg_verify(session, ops_seq) =
+    let s1 = session
+    let i = 0
+    let n = len(ops_seq)
+    for i < n
+        s1 = ce_remote_op(s1, ops_seq[i], 0)
+        i = i + 1
+    let sig1 = ce_state_signature(ce_doc_state(ce_session_doc(s1)))
+    let s2 = session
+    i = n - 1
+    for i >= 0
+        s2 = ce_remote_op(s2, ops_seq[i], 0)
+        i = i - 1
+    let sig2 = ce_state_signature(ce_doc_state(ce_session_doc(s2)))
+    let ok = 0
+    if sig1 == sig2
+        ok = 1
+    ok
+
+let ce_gf_mod(x) = domain_gf_mod(x)
+
+let ce_gf_inv(a) = domain_gf_inv(a)
+
+let ce_field_encode(items, n) =
+    let records = []
+    let _i = 0
+    for _i < n
+        records.push([items[_i], items[_i]])
+        _i = _i + 1
+    domain_field_encode(records, n, 1, 0)
+let ce_field_eval(poles, residues, z) = domain_field_eval(poles, residues, z)
+
+let ce_field_bragg_verify(current, replay) = domain_bragg_verify(current[0], current[1], replay[0], replay[1])
+

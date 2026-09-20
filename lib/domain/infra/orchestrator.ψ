@@ -1,0 +1,390 @@
+import "../domain_field.ψ"
+let ORC_P = 65537
+
+let ORC_SVC_CREATED    = 0
+let ORC_SVC_STARTING   = 1
+let ORC_SVC_RUNNING    = 2
+let ORC_SVC_DEGRADING  = 3
+let ORC_SVC_STOPPING   = 4
+let ORC_SVC_STOPPED    = 5
+let ORC_SVC_FAILED     = 6
+
+let ORC_HEALTH_HEALTHY   = 1
+let ORC_HEALTH_DEGRADED   = 2
+let ORC_HEALTH_UNHEALTHY  = 3
+let ORC_HEALTH_UNKNOWN    = 0
+
+let ORC_ACTION_DEPLOY    = 1
+let ORC_ACTION_START      = 2
+let ORC_ACTION_SCALE      = 3
+let ORC_ACTION_STOP       = 4
+let ORC_ACTION_RESTART    = 5
+let ORC_ACTION_FAILOVER   = 6
+
+let ORC_HEALTH_INTERVAL  = 5000
+let ORC_HEALTH_TIMEOUT   = 3000
+let ORC_HEALTH_FAIL_THRESH = 3
+let ORC_MAX_RETRIES       = 3
+
+let orc_service_new(svc_id, name, version, dependencies, target_replicas) =
+    [svc_id, name, version, dependencies, [], ORC_SVC_CREATED, ORC_HEALTH_UNKNOWN, 100, target_replicas, 0, 0, 0, 0, {}]
+
+let orc_svc_id(s)         = s[0]
+let orc_svc_name(s)       = s[1]
+let orc_svc_version(s)    = s[2]
+let orc_svc_deps(s)       = s[3]
+let orc_svc_instances(s)  = s[4]
+let orc_svc_state(s)      = s[5]
+let orc_svc_health(s)     = s[6]
+let orc_svc_score(s)      = s[7]
+let orc_svc_target(s)     = s[8]
+let orc_svc_actual(s)     = s[9]
+let orc_svc_deploy_ts(s)  = s[10]
+let orc_svc_last_health(s) = s[11]
+let orc_svc_fail_count(s) = s[12]
+let orc_svc_meta(s)       = s[13]
+
+let orc_svc_set_state(s, st) =
+    s[5] = st
+    s
+let orc_svc_set_health(s, h) =
+    s[6] = h
+    s
+let orc_svc_set_score(s, sc) =
+    s[7] = sc
+    s
+let orc_svc_set_target(s, t) =
+    s[8] = t
+    s
+let orc_svc_set_actual(s, a) =
+    s[9] = a
+    s
+let orc_svc_set_deploy_ts(s, ts) =
+    s[10] = ts
+    s
+let orc_svc_set_last_health(s, ts) =
+    s[11] = ts
+    s
+let orc_svc_inc_fail(s) =
+    s[12] = s[12] + 1
+    s
+let orc_svc_reset_fail(s) =
+    s[12] = 0
+    s
+let orc_svc_add_instance(s, iid) =
+    let insts = orc_svc_instances(s)
+    insts.push(iid)
+    s[4] = insts
+    s
+
+let orc_graph_new() =
+    [{}, [], {}, 1]
+
+let orc_sg_services(g)  = g[0]
+let orc_sg_edges(g)     = g[1]
+let orc_sg_name_map(g)  = g[2]
+let orc_sg_next_id(g)   = g[3]
+
+let orc_sg_set_services(g, s) = [s, g[1], g[2], g[3]]
+let orc_sg_set_edges(g, e)    = [g[0], e, g[2], g[3]]
+let orc_sg_set_name_map(g, m) = [g[0], g[1], m, g[3]]
+let orc_sg_set_next_id(g, n)  = [g[0], g[1], g[2], n]
+
+let orc_sg_deploy(g, name, version, dependencies, target_replicas, now_ts) =
+    let sid = orc_sg_next_id(g)
+    let svc = orc_service_new(sid, name, version, dependencies, target_replicas)
+    svc = orc_svc_set_deploy_ts(svc, now_ts)
+    let services = orc_sg_services(g)
+    services[sid] = svc
+    let name_map = orc_sg_name_map(g)
+    name_map[name] = sid
+    let edges = orc_sg_edges(g)
+    let i = 0
+    let nd = len(dependencies)
+    for i < nd
+        let dep_name = dependencies[i]
+        let dep_id = name_map[dep_name]
+        if dep_id != 0
+            edges.push([sid, dep_id])
+        i = i + 1
+    g = orc_sg_set_services(g, services)
+    g = orc_sg_set_name_map(g, name_map)
+    g = orc_sg_set_edges(g, edges)
+    g = orc_sg_set_next_id(g, sid + 1)
+    [g, sid]
+
+let orc_sg_start_service(g, svc_id, now_ts) =
+    let services = orc_sg_services(g)
+    let svc = services[svc_id]
+    if svc == 0
+        [g, 1]
+    else
+        let deps = orc_svc_deps(svc)
+        let name_map = orc_sg_name_map(g)
+        let deps_ok = 1
+        let i = 0
+        let nd = len(deps)
+        for i < nd
+            let dep_id = name_map[deps[i]]
+            if dep_id != 0
+                let dep_svc = services[dep_id]
+                if dep_svc != 0
+                    if orc_svc_state(dep_svc) != ORC_SVC_RUNNING
+                        deps_ok = 0
+            i = i + 1
+        if deps_ok == 0
+            [g, 2]
+        else
+            svc = orc_svc_set_state(svc, ORC_SVC_STARTING)
+            let i2 = 0
+            let target = orc_svc_target(svc)
+            for i2 < target
+                svc = orc_svc_add_instance(svc, svc_id * 1000 + i2)
+                i2 = i2 + 1
+            svc = orc_svc_set_actual(svc, target)
+            svc = orc_svc_set_state(svc, ORC_SVC_RUNNING)
+            svc = orc_svc_set_health(svc, ORC_HEALTH_HEALTHY)
+            svc = orc_svc_set_last_health(svc, now_ts)
+            services[svc_id] = svc
+            g = orc_sg_set_services(g, services)
+            [g, 0]
+
+let orc_sg_start_all(g, now_ts) =
+    let services = orc_sg_services(g)
+    let keys = keys_of(services)
+    let in_degree = {}
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let sid = keys[i]
+        let svc = services[sid]
+        in_degree[sid] = len(orc_svc_deps(svc))
+        i = i + 1
+    let queue = []
+    i = 0
+    for i < n
+        if in_degree[keys[i]] == 0
+            queue.push(keys[i])
+        i = i + 1
+    let started = []
+    for len(queue) > 0
+        let sid = queue[0]
+        queue = arr_drop(queue, 1)
+        let r = orc_sg_start_service(g, sid, now_ts)
+        g = r[0]
+        if r[1] == 0
+            started.push(sid)
+            let edges = orc_sg_edges(g)
+            let i2 = 0
+            let ne = len(edges)
+            for i2 < ne
+                if edges[i2][1] == sid
+                    let dependent = edges[i2][0]
+                    in_degree[dependent] = in_degree[dependent] - 1
+                    if in_degree[dependent] == 0
+                        queue.push(dependent)
+                i2 = i2 + 1
+    [g, started]
+
+let orc_sg_health_check(g, svc_id, success, now_ts) =
+    let services = orc_sg_services(g)
+    let svc = services[svc_id]
+    if svc == 0
+        g
+    else
+        svc = orc_svc_set_last_health(svc, now_ts)
+        if success == 1
+            svc = orc_svc_reset_fail(svc)
+            svc = orc_svc_set_health(svc, ORC_HEALTH_HEALTHY)
+            svc = orc_svc_set_score(svc, 100)
+        else
+            svc = orc_svc_inc_fail(svc)
+            let fails = orc_svc_fail_count(svc)
+            if fails >= ORC_HEALTH_FAIL_THRESH
+                svc = orc_svc_set_health(svc, ORC_HEALTH_UNHEALTHY)
+                svc = orc_svc_set_score(svc, 0)
+                svc = orc_svc_set_state(svc, ORC_SVC_FAILED)
+            else
+                svc = orc_svc_set_health(svc, ORC_HEALTH_DEGRADED)
+                svc = orc_svc_set_score(svc, 100 - fails * 25)
+        services[svc_id] = svc
+        orc_sg_set_services(g, services)
+
+let orc_sg_failover(g, svc_id, now_ts) =
+    let services = orc_sg_services(g)
+    let svc = services[svc_id]
+    if svc == 0
+        [g, 1]
+    else
+        if orc_svc_health(svc) != ORC_HEALTH_UNHEALTHY
+            [g, 2]
+        else
+            svc = orc_svc_set_state(svc, ORC_SVC_STOPPING)
+            svc = orc_svc_set_state(svc, ORC_SVC_STARTING)
+            svc = orc_svc_reset_fail(svc)
+            svc = orc_svc_set_health(svc, ORC_HEALTH_HEALTHY)
+            svc = orc_svc_set_score(svc, 100)
+            svc = orc_svc_set_last_health(svc, now_ts)
+            services[svc_id] = svc
+            g = orc_sg_set_services(g, services)
+            [g, 0]
+
+let orc_sg_scale(g, svc_id, new_target, now_ts) =
+    let services = orc_sg_services(g)
+    let svc = services[svc_id]
+    if svc == 0
+        [g, 1]
+    else
+        svc = orc_svc_set_target(svc, new_target)
+        svc = orc_svc_set_actual(svc, new_target)
+        services[svc_id] = svc
+        g = orc_sg_set_services(g, services)
+        [g, 0]
+
+let orc_sg_stop(g, svc_id, now_ts) =
+    let services = orc_sg_services(g)
+    let svc = services[svc_id]
+    if svc == 0
+        [g, 1]
+    else
+        svc = orc_svc_set_state(svc, ORC_SVC_STOPPING)
+        svc = orc_svc_set_state(svc, ORC_SVC_STOPPED)
+        svc = orc_svc_set_health(svc, ORC_HEALTH_UNKNOWN)
+        svc = orc_svc_set_actual(svc, 0)
+        services[svc_id] = svc
+        g = orc_sg_set_services(g, services)
+        [g, 0]
+
+let orc_compose_new(request_id, stages) =
+    [request_id, stages, [], 0]
+
+let orc_compose_id(c)   = c[0]
+let orc_compose_stages(c) = c[1]
+let orc_compose_results(c) = c[2]
+let orc_compose_status(c) = c[3]
+
+let orc_compose_set_status(c, s) =
+    c[3] = s
+    c
+let orc_compose_add_result(c, r) =
+    let results = orc_compose_results(c)
+    results.push(r)
+    c[2] = results
+    c
+
+let orc_compose_execute(plan, graph, now_ts) =
+    let stages = orc_compose_stages(plan)
+    let ns = len(stages)
+    plan = orc_compose_set_status(plan, 1)
+    let i = 0
+    let failed = 0
+    for i < ns && failed == 0
+        let stage = stages[i]
+        let svc_name = stage[0]
+        let name_map = orc_sg_name_map(graph)
+        let sid = name_map[svc_name]
+        if sid == 0
+            plan = orc_compose_add_result(plan, ["error", "service_not_found"])
+            failed = 1
+        else
+            let services = orc_sg_services(graph)
+            let svc = services[sid]
+            if svc == 0
+                plan = orc_compose_add_result(plan, ["error", "service_missing"])
+                failed = 1
+            else
+                0
+            if orc_svc_state(svc) != ORC_SVC_RUNNING
+                plan = orc_compose_add_result(plan, ["error", "service_not_running"])
+                failed = 1
+            else
+                plan = orc_compose_add_result(plan, ["ok", stage[1]])
+        i = i + 1
+    if failed == 0
+        plan = orc_compose_set_status(plan, 2)
+    else
+        plan = orc_compose_set_status(plan, 3)
+    plan
+
+let orc_sg_bragg_check(g) =
+    let services = orc_sg_services(g)
+    let keys = keys_of(services)
+    let i = 0
+    let n = len(keys)
+    let ok = 1
+    for i < n
+        let svc = services[keys[i]]
+        if svc != 0
+            let state = orc_svc_state(svc)
+            let actual = orc_svc_actual(svc)
+            if state == ORC_SVC_RUNNING
+                if actual == 0
+                    ok = 0
+                else
+                    0
+            if state == ORC_SVC_STOPPED
+                if actual != 0
+                    ok = 0
+        i = i + 1
+    ok
+
+let orc_self_test() =
+    let g = orc_graph_new()
+    let d1 = orc_sg_deploy(g, "svc_a", [1, 0, 0], [], 1, 1000)
+    g = d1[0]
+    let d2 = orc_sg_deploy(g, "svc_b", [1, 0, 0], ["svc_a"], 2, 1001)
+    g = d2[0]
+    let d3 = orc_sg_deploy(g, "svc_c", [1, 0, 0], ["svc_b"], 1, 1002)
+    g = d3[0]
+    let t1 = 0
+    if orc_sg_next_id(g) == 4
+        t1 = 1
+
+    let start = orc_sg_start_all(g, 1003)
+    g = start[0]
+    let t2 = 0
+    if len(start[1]) == 3
+        t2 = 1
+
+    let name_map = orc_sg_name_map(g)
+    let sid_a = name_map["svc_a"]
+    g = orc_sg_health_check(g, sid_a, 1, 1004)
+    let svc_a = orc_sg_services(g)[sid_a]
+    let t3 = 0
+    if orc_svc_health(svc_a) == ORC_HEALTH_HEALTHY
+        t3 = 1
+
+    g = orc_sg_health_check(g, sid_a, 0, 1005)
+    g = orc_sg_health_check(g, sid_a, 0, 1006)
+    g = orc_sg_health_check(g, sid_a, 0, 1007)
+    svc_a = orc_sg_services(g)[sid_a]
+    let t4 = 0
+    if orc_svc_health(svc_a) == ORC_HEALTH_UNHEALTHY
+        t4 = 1
+
+    let fo = orc_sg_failover(g, sid_a, 1008)
+    g = fo[0]
+    svc_a = orc_sg_services(g)[sid_a]
+    let t5 = 0
+    if orc_svc_state(svc_a) == ORC_SVC_RUNNING
+        t5 = 1
+
+    let sc = orc_sg_scale(g, sid_a, 5, 1009)
+    g = sc[0]
+    svc_a = orc_sg_services(g)[sid_a]
+    let t6 = 0
+    if orc_svc_target(svc_a) == 5
+        t6 = 1
+
+    let plan = orc_compose_new(1, [["svc_a", "do_a"], ["svc_b", "do_b"]])
+    plan = orc_compose_execute(plan, g, 1010)
+    let t7 = 0
+    if orc_compose_status(plan) == 2
+        t7 = 1
+
+    let bragg_ok = orc_sg_bragg_check(g)
+
+    [t1, t2, t3, t4, t5, t6, t7, bragg_ok]
+
+let orc_default_graph() =
+    orc_graph_new()

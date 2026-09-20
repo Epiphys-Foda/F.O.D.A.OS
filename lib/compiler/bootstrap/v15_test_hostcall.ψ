@@ -1,0 +1,2 @@
+print(host_call(11, 0, 0))
+print(host_call(10, 0, 0))

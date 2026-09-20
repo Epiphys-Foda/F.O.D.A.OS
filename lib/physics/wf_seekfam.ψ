@@ -1,0 +1,179 @@
+import "wf_brain.ψ"
+
+let P = 65537
+let P2 = 131071
+
+import "../core/stdlib_lang2/gf_canon_shared.ψ"
+import "sh_d39d441e28.ψ"
+import "../core/stdlib_lang2/bm_canon.ψ"
+import "sh_ee308d734f.ψ"
+import "sh_bffc56f968.ψ"
+import "sh_0fe08dee05.ψ"
+let rel_permille(num, den, actual) =
+    let aden = abs_i(den)
+    let diff = abs_i(num - actual * den)
+    diff * 1000 / (aden * actual)
+
+let permille(diff, rhs) =
+    let pm = 0
+    if rhs > 100000
+        pm = diff / (rhs / 1000)
+    if rhs <= 100000
+        pm = diff * 1000 / rhs
+    pm
+
+import "../core/stdlib_lang2/gx_045b40ecf0.ψ"
+
+let score_bm(YY, n) =
+    let T = arr_new_n(n + 1)
+    let C = arr_new_n(n + 1)
+    let L = bm_discover(YY, n, T, C)
+    let pred = bm_predict(C, L, YY, n)
+    rel_permille(pred, 1, YY[n])
+
+let score_poly(XX, YY, n) =
+    let zz = arr_new_n(3)
+    let ee = arr_new_n(3)
+    zz[0] = XX[n - 3]
+    zz[1] = XX[n - 2]
+    zz[2] = XX[n - 1]
+    ee[0] = YY[n - 3]
+    ee[1] = YY[n - 2]
+    ee[2] = YY[n - 1]
+    let RD = arr_new_n(2)
+    let dum = lag3_eval(zz, ee, XX[n], RD)
+    rel_permille(RD[0], RD[1], YY[n])
+
+let score_harm(XX, YY, n) =
+    let nn = arr_new_n(2)
+    let tt = arr_new_n(2)
+    nn[0] = XX[0]
+    nn[1] = XX[1]
+    tt[0] = YY[0]
+    tt[1] = YY[1]
+    let RD = arr_new_n(2)
+    let dum = harm2_eval(nn, tt, XX[n], RD)
+    rel_permille(RD[0], RD[1], YY[n])
+
+let KP_T = [1, 1, 3, 2, 3, 4, 1, 2]
+
+let KQ_T = [2, 1, 2, 1, 1, 1, 1, 1]
+
+let KS_T = [0, 0, 0, 0, 0, 0, 1, 1]
+
+let scan_pow(XX, YY, n, nk, out2) =
+    let best = 1000000000
+    let bki = 0
+    let i = 0
+    for i < nk
+        let p = KP_T[i]
+        let q = KQ_T[i]
+        let sg = KS_T[i]
+        let lhs = 0
+        let rhs = 1
+        if sg == 0
+            lhs = powi(YY[n], q) * powi(XX[0], p)
+            rhs = powi(XX[n], p) * powi(YY[0], q)
+        if sg == 1
+            lhs = powi(YY[n], q) * powi(XX[n], p)
+            rhs = powi(YY[0], q) * powi(XX[0], p)
+        let s = permille(abs_i(lhs - rhs), rhs)
+        let take = 0
+        if s < best
+            take = 1
+        if take == 1
+            best = s
+            bki = i
+        i = i + 1
+    out2[0] = best
+    out2[1] = bki
+    0
+
+let score_exp(YY, n) =
+    let D = arr_new_n(n + 1)
+    let i = 0
+    for i < n - 1
+        D[i] = gf_sub(YY[i + 1], YY[i])
+        i = i + 1
+    let T = arr_new_n(n + 1)
+    let C = arr_new_n(n + 1)
+    let L = bm_discover(D, n - 1, T, C)
+    let dpred = bm_predict(C, L, D, n - 1)
+    let ypred = gf_add(YY[n - 1], dpred)
+    rel_permille(ypred, 1, YY[n])
+
+let verdict_core(XX, YY, n, nk, outk) =
+    outk[0] = score_bm(YY, n)
+    outk[1] = score_poly(XX, YY, n)
+    outk[2] = score_harm(XX, YY, n)
+    let RD = arr_new_n(2)
+    let dum = scan_pow(XX, YY, n, nk, RD)
+    outk[3] = RD[0]
+    let win = 0
+    let bw = outk[0]
+    if outk[1] < bw
+        bw = outk[1]
+        win = 1
+    if outk[2] < bw
+        bw = outk[2]
+        win = 2
+    if outk[3] < bw
+        bw = outk[3]
+        win = 3
+    outk[4] = win
+    RD[1]
+
+let family_verdict(XX, YY, n, outk) =
+    let dum = verdict_core(XX, YY, n, 4, outk)
+    0
+
+import "../core/stdlib_lang2/gx_4baf8f40a2.ψ"
+
+import "../core/stdlib_lang2/gx_3da33b29d3.ψ"
+
+import "../core/stdlib_lang2/gx_f5ba2b9160.ψ"
+
+import "../core/stdlib_lang2/gx_1bc4d1331b.ψ"
+
+import "../core/stdlib_lang2/gx_0576be5a60.ψ"
+
+import "../core/stdlib_lang2/gx_2c07c22bad.ψ"
+
+let QTOL = 10
+
+import "../core/stdlib_lang2/gx_ceffad0757.ψ"
+
+import "../core/stdlib_lang2/gx_f988dc4bf7.ψ"
+
+import "../core/stdlib_lang2/gx_0282f2a55d.ψ"
+
+import "../core/stdlib_lang2/gx_c909803dd2.ψ"
+
+import "../core/stdlib_lang2/gx_2493e8f8c1.ψ"
+
+import "../core/stdlib_lang2/gx_86725c8b95.ψ"
+
+import "../core/stdlib_lang2/gx_b15306b5b5.ψ"
+
+import "../core/stdlib_lang2/gx_a8c374f1a6.ψ"
+
+import "../core/stdlib_lang2/gx_cb1e5bd63e.ψ"
+
+import "../core/stdlib_lang2/gx_e35026eb52.ψ"
+
+import "../core/stdlib_lang2/gx_ff6ed3ccc5.ψ"
+import "../core/stdlib_lang2/gx_6effd2bf2e.ψ"
+
+import "../core/stdlib_lang2/gx_74e81daeb1.ψ"
+
+import "../core/stdlib_lang2/gx_03daed16d0.ψ"
+
+import "../core/stdlib_lang2/gx_0ed4d4670d.ψ"
+
+let ledger_hash(LM, k) =
+    let CC = arr_new_n(k)
+    let i = 0
+    for i < k
+        CC[i] = LM[6 * i + 4]
+        i = i + 1
+    rrns_chain(CC, k, P)

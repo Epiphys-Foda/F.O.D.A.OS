@@ -1,0 +1,364 @@
+import "wasm_interp.ψ"
+
+let OP_CAT_DATA      = "data"
+let OP_CAT_ARITH     = "arith"
+let OP_CAT_BITWISE   = "bitwise"
+let OP_CAT_COMPARE   = "compare"
+let OP_CAT_CONTROL   = "control"
+let OP_CAT_CALL      = "call"
+let OP_CAT_MEM       = "mem"
+let OP_CAT_STRUCT    = "struct"
+let OP_CAT_QUANTUM   = "quantum"
+
+let OPS = [
+  { id: 65, name: "Q_CONST", symbol: "#", arity: 1, category: "data", wasm_byte: [65], x86_64_tmpl: "push_imm32", note: "i32.const / push imm32" },
+  { id: 32, name: "Q_LOAD", symbol: "@", arity: 1, category: "data", wasm_byte: [32], x86_64_tmpl: "push_local", note: "local.get / push slot register" },
+  { id: 33, name: "Q_SET", symbol: "←", arity: 1, category: "data", wasm_byte: [33], x86_64_tmpl: "pop_local", note: "local.set / pop slot register" },
+  { id: 26, name: "Q_DROP", symbol: "▽", arity: 0, category: "data", wasm_byte: [26], x86_64_tmpl: "pop_rax", note: "drop / pop rax (stack balance)" },
+
+  { id: 106, name: "Q_ADD", symbol: "+", arity: 2, category: "arith", wasm_byte: [106], x86_64_tmpl: "pop2_add_push", note: "i32.add / pop2 add push" },
+  { id: 107, name: "Q_SUB", symbol: "-", arity: 2, category: "arith", wasm_byte: [107], x86_64_tmpl: "pop2_sub_push", note: "i32.sub / pop2 sub push (a-b)" },
+  { id: 108, name: "Q_MUL", symbol: "×", arity: 2, category: "arith", wasm_byte: [108], x86_64_tmpl: "pop2_imul_push", note: "i32.mul / imul push" },
+  { id: 109, name: "Q_DIV", symbol: "÷", arity: 2, category: "arith", wasm_byte: [109], x86_64_tmpl: "pop2_idiv_push", note: "i32.div_s / idiv push (signed)" },
+  { id: 111, name: "Q_REM", symbol: "%", arity: 2, category: "arith", wasm_byte: [111], x86_64_tmpl: "pop2_idiv_push_rdx", note: "i32.rem_u / idiv push rdx (remainder)" },
+
+  { id: 113, name: "Q_AND", symbol: "∧", arity: 2, category: "bitwise", wasm_byte: [113], x86_64_tmpl: "pop2_and_push", note: "i32.and" },
+  { id: 114, name: "Q_OR", symbol: "∨", arity: 2, category: "bitwise", wasm_byte: [114], x86_64_tmpl: "pop2_or_push", note: "i32.or" },
+  { id: 115, name: "Q_XOR", symbol: "⊕", arity: 2, category: "bitwise", wasm_byte: [115], x86_64_tmpl: "pop2_xor_push", note: "i32.xor" },
+  { id: 116, name: "Q_SHL", symbol: "<<", arity: 2, category: "bitwise", wasm_byte: [116], x86_64_tmpl: "pop2_shl_push", note: "i32.shl" },
+  { id: 117, name: "Q_SHR_S", symbol: ">>", arity: 2, category: "bitwise", wasm_byte: [117], x86_64_tmpl: "pop2_sar_push", note: "i32.shr_s (arithmetic right shift)" },
+  { id: 118, name: "Q_SHR_U", symbol: ">>>", arity: 2, category: "bitwise", wasm_byte: [118], x86_64_tmpl: "pop2_shr_push", note: "i32.shr_u (logical right shift)" },
+
+  { id: 69, name: "Q_EQZ", symbol: "!=", arity: 1, category: "compare", wasm_byte: [69], x86_64_tmpl: "pop_test_sete", note: "i32.eqz" },
+  { id: 70, name: "Q_EQ", symbol: "==", arity: 2, category: "compare", wasm_byte: [70], x86_64_tmpl: "pop2_cmp_sete", note: "i32.eq" },
+  { id: 71, name: "Q_NE", symbol: "!=", arity: 2, category: "compare", wasm_byte: [71], x86_64_tmpl: "pop2_cmp_setne", note: "i32.ne" },
+  { id: 72, name: "Q_LT", symbol: "<", arity: 2, category: "compare", wasm_byte: [72], x86_64_tmpl: "pop2_cmp_setl", note: "i32.lt_s" },
+  { id: 74, name: "Q_GT", symbol: ">", arity: 2, category: "compare", wasm_byte: [74], x86_64_tmpl: "pop2_cmp_setg", note: "i32.gt_s" },
+  { id: 76, name: "Q_LE", symbol: "<=", arity: 2, category: "compare", wasm_byte: [76], x86_64_tmpl: "pop2_cmp_setle", note: "i32.le_s" },
+  { id: 78, name: "Q_GE", symbol: ">=", arity: 2, category: "compare", wasm_byte: [78], x86_64_tmpl: "pop2_cmp_setge", note: "i32.ge_s" },
+  { id: 27, name: "Q_SELECT", symbol: "?:", arity: 3, category: "compare", wasm_byte: [27], x86_64_tmpl: "pop3_cmov_push", note: "select (then, else, cond)" },
+
+  { id: 4, name: "Q_IF", symbol: "?", arity: 1, category: "control", wasm_byte: [4], x86_64_tmpl: "pop_test_jz_patch", note: "if (condition on stack top)" },
+  { id: 5, name: "Q_ELSE", symbol: "|", arity: 0, category: "control", wasm_byte: [5], x86_64_tmpl: "jmp_patch_back", note: "else" },
+  { id: 11, name: "Q_END", symbol: "■", arity: 0, category: "control", wasm_byte: [11], x86_64_tmpl: "patch_back", note: "end (backpatch jmp)" },
+  { id: 2, name: "Q_BLOCK", symbol: "□", arity: 0, category: "control", wasm_byte: [2], x86_64_tmpl: "block_label", note: "block (label scope)" },
+  { id: 3, name: "Q_LOOP", symbol: "↺", arity: 0, category: "control", wasm_byte: [3], x86_64_tmpl: "loop_label", note: "loop (back-jump label)" },
+  { id: 12, name: "Q_BR", symbol: "→", arity: 1, category: "control", wasm_byte: [12], x86_64_tmpl: "jmp_label", note: "br (unlabeled jump)" },
+  { id: 13, name: "Q_BR_IF", symbol: "↦", arity: 1, category: "control", wasm_byte: [13], x86_64_tmpl: "pop_test_jnz_label", note: "br_if (conditional jump)" },
+
+  { id: 16, name: "Q_CALL", symbol: "↯", arity: 3, category: "call", wasm_byte: [16], x86_64_tmpl: "pop3_call_push", note: "call (id, arg1, arg2 → ret)" },
+
+  { id: 40, name: "Q_LOAD32", symbol: "⌐", arity: 1, category: "mem", wasm_byte: [40], x86_64_tmpl: "pop_addr_load_push", note: "i32.load (address → value)" },
+  { id: 54, name: "Q_STORE32", symbol: "¬", arity: 2, category: "mem", wasm_byte: [54], x86_64_tmpl: "pop2_store", note: "i32.store (addr, val)" },
+
+  { id: 130, name: "Q_LET", symbol: "∆", arity: 3, category: "struct", wasm_byte: [], x86_64_tmpl: "compile_time_expand", note: "let binding (idx, val, body)" },
+  { id: 131, name: "Q_ASSIGN", symbol: "=", arity: 2, category: "struct", wasm_byte: [], x86_64_tmpl: "compile_time_expand", note: "assign (idx, val)" },
+  { id: 132, name: "Q_HEBB", symbol: "Heb", arity: 4, category: "struct", wasm_byte: [], x86_64_tmpl: "compile_time_expand", note: "Hebbian loop (addr, init, delta, count)" },
+  { id: 133, name: "Q_WHILE", symbol: "while", arity: 2, category: "struct", wasm_byte: [], x86_64_tmpl: "compile_time_expand", note: "while loop (cond, body)" },
+  { id: 134, name: "Q_BLOCK_SEQ", symbol: "seq", arity: -1, category: "struct", wasm_byte: [], x86_64_tmpl: "compile_time_expand", note: "sequential block (variadic exprs)" },
+  { id: 135, name: "Q_ARR_NEW", symbol: "[]", arity: -1, category: "struct", wasm_byte: [], x86_64_tmpl: "compile_time_expand", note: "array literal (variadic elems)" },
+  { id: 136, name: "Q_ARR_GET", symbol: ".[]", arity: 2, category: "struct", wasm_byte: [], x86_64_tmpl: "compile_time_expand", note: "arr[i]" },
+  { id: 137, name: "Q_ARR_LEN", symbol: ".len", arity: 1, category: "struct", wasm_byte: [], x86_64_tmpl: "compile_time_expand", note: "len(arr)" },
+  { id: 138, name: "Q_ARR_SET", symbol: ".[]=", arity: 3, category: "struct", wasm_byte: [], x86_64_tmpl: "compile_time_expand", note: "arr[i] = v" },
+  { id: 139, name: "Q_CALL_USER", symbol: "()", arity: -1, category: "struct", wasm_byte: [], x86_64_tmpl: "compile_time_expand", note: "user function call (variadic args)" },
+  { id: 140, name: "Q_ENUMD", symbol: "enum", arity: 1, category: "struct", wasm_byte: [], x86_64_tmpl: "compile_time_expand", note: "enum definition" },
+  { id: 141, name: "Q_ENUMV", symbol: "let", arity: -1, category: "struct", wasm_byte: [], x86_64_tmpl: "compile_time_expand", note: "enum variant" },
+  { id: 142, name: "Q_MATCH", symbol: "match_val", arity: 2, category: "struct", wasm_byte: [], x86_64_tmpl: "compile_time_expand", note: "pattern match" },
+  { id: 143, name: "Q_OBJ", symbol: str_concat(chr(123), chr(125)), arity: -1, category: "struct", wasm_byte: [], x86_64_tmpl: "compile_time_expand", note: "object" },
+  { id: 144, name: "Q_ARR", symbol: "len", arity: 1, category: "struct", wasm_byte: [], x86_64_tmpl: "compile_time_expand", note: "array length marker" },
+  { id: 145, name: "Q_DEFAULT", symbol: "⊥", arity: 0, category: "struct", wasm_byte: [], x86_64_tmpl: "push_zero", note: "unknown node → 0 (DFL safe)" },
+  { id: 146, name: "Q_ARR_PUSH",  symbol: ".push", arity: 2, category: "struct",
+    wasm_byte: [],      x86_64_tmpl: "compile_time_expand", note: "arr.push(v) — dynamic build"
+}]
+
+let QUANTUM_OPS = [
+  { id: -1, name: "ARC_GFMUL", symbol: "⊙", arity: 2, category: "quantum", expansion: ["Q_MUL", "Q_CONST_65537", "Q_REM"], note: "GF(65537) modular multiply — quantum field operator" },
+  { id: -2, name: "ARC_CLIFFORD", symbol: "◦", arity: 2, category: "quantum", expansion: ["Q_XOR", "Q_OR", "Q_AND"], note: "Clifford geometric product — co-product operator" },
+  { id: -3, name: "ARC_NTT", symbol: "≋", arity: 2, category: "quantum", expansion: ["Q_ADD", "Q_SUB", "Q_OR"], note: "NTT butterfly sync operator" },
+  { id: -4, name: "ARC_BORN", symbol: "↡", arity: 3, category: "quantum", expansion: ["Q_IF", "Q_ELSE", "Q_END"], note: "Born projection-select operator" },
+  { id: -5, name: "ARC_HEBBIAN",  symbol: "∆",  arity: 4, category: "quantum",
+    expansion: ["Q_BLOCK", "Q_LOOP", "Q_BR_IF", "Q_MUL", "Q_ADD"],
+    note: "Hebbian online sculpting operator"
+}]
+
+let _op_find_by_id_acc(table, op_id, i, n) =
+    let r = if i >= n
+        null
+    else
+        let spec = arr_get(table, i)
+        if spec.id == op_id
+            spec
+        else
+            _op_find_by_id_acc(table, op_id, i + 1, n)
+    r
+let op_find_by_id(op_id) =
+      let found = _op_find_by_id_acc(OPS, op_id, 0, arr_len(OPS))
+      if found != null
+        found
+      else
+        _op_find_by_id_acc(QUANTUM_OPS, op_id, 0, arr_len(QUANTUM_OPS))
+
+let _op_find_by_name_acc(table, name, i, n) =
+    let r = if i >= n
+        null
+    else
+        let spec = arr_get(table, i)
+        if spec.name == name
+            spec
+        else
+            _op_find_by_name_acc(table, name, i + 1, n)
+    r
+let op_find_by_name(name) =
+    _op_find_by_name_acc(OPS, name, 0, arr_len(OPS))
+
+let op_find_quantum(name) =
+    _op_find_by_name_acc(QUANTUM_OPS, name, 0, arr_len(QUANTUM_OPS))
+
+let _op_filter_cat_acc(table, cat, i, n, out) =
+    let r = if i >= n
+        out
+    else
+        let spec = arr_get(table, i)
+        let new_out = ((spec.category == cat) ? (arr_push(out, spec)) : (out))
+        _op_filter_cat_acc(table, cat, i + 1, n, new_out)
+    r
+let op_filter_by_category(cat) =
+    _op_filter_cat_acc(OPS, cat, 0, arr_len(OPS), [])
+
+let _op_count_acc(table, i, n, acc) =
+    let r = if i >= n
+        acc
+    else
+        _op_count_acc(table, i + 1, n, acc + 1)
+    r
+let op_count() =
+    let n1 = _op_count_acc(OPS, 0, arr_len(OPS), 0)
+    let n2 = _op_count_acc(QUANTUM_OPS, 0, arr_len(QUANTUM_OPS), 0)
+    n1 + n2
+
+let op_arity(op_id) =
+    let spec = op_find_by_id(op_id)
+    (spec == null ? 0 - 1 : spec.arity)
+
+let op_name(op_id) =
+    let spec = op_find_by_id(op_id)
+    (spec == null ? "?" : spec.name)
+
+let op_symbol(op_id) =
+    let spec = op_find_by_id(op_id)
+    (spec == null ? "?" : spec.symbol)
+
+let op_category(op_id) =
+    let spec = op_find_by_id(op_id)
+    (spec == null ? "?" : spec.category)
+
+let op_wasm_byte(op_id) =
+    let spec = op_find_by_id(op_id)
+    (spec == null ? [] : spec.wasm_byte)
+
+let op_is_structural(op_id) =
+    let spec = op_find_by_id(op_id)
+    (spec == null ? 0 : ((spec.category == "struct") ? (1) : (0)))
+
+let op_is_quantum_expansion(op_id) = ((op_id < 0 && op_id >= 0 - 5) ? (1) : (0))
+
+let op_data_ops() = op_filter_by_category("data")
+let op_arith_ops() = op_filter_by_category("arith")
+let op_bitwise_ops() = op_filter_by_category("bitwise")
+let op_compare_ops() = op_filter_by_category("compare")
+let op_control_ops() = op_filter_by_category("control")
+let op_call_ops() = op_filter_by_category("call")
+let op_mem_ops() = op_filter_by_category("mem")
+let op_struct_ops() = op_filter_by_category("struct")
+let op_quantum_ops() = QUANTUM_OPS
+
+let op_eval(op_id, args) =
+      if op_id == 65
+        arr_get(args, 0)
+      else
+          if op_id == 32
+            arr_get(args, 0)
+          else
+              if op_id == 106
+                arr_get(args, 0) + arr_get(args, 1)
+              else
+                  if op_id == 107
+                    arr_get(args, 0) - arr_get(args, 1)
+                  else
+                      if op_id == 108
+                        arr_get(args, 0) * arr_get(args, 1)
+                      else
+                          if op_id == 109
+                            let b = arr_get(args, 1)
+                            if b == 0
+                                0
+                            else
+                              let a = arr_get(args, 0)
+                              a / b
+                          else
+                              if op_id == 111
+                                let b = arr_get(args, 1)
+                                if b == 0
+                                    0
+                                else
+                                  let a = arr_get(args, 0)
+                                  a - (a / b) * b
+                              else
+                                  if op_id == 113
+                                    bit_and(arr_get(args, 0), arr_get(args, 1))
+                                  else
+                                      if op_id == 114
+                                        bit_or(arr_get(args, 0), arr_get(args, 1))
+                                      else
+                                          if op_id == 115
+                                            bit_xor(arr_get(args, 0), arr_get(args, 1))
+                                          else
+                                              if op_id == 116
+                                                let c = arr_get(args, 1)
+                                                bit_shl(arr_get(args, 0), c - (c / 32) * 32)
+                                              else
+                                                  if op_id == 117
+                                                    let c = arr_get(args, 1)
+                                                    bit_shr_s(arr_get(args, 0), c - (c / 32) * 32)
+                                                  else
+                                                      if op_id == 118
+                                                        let c = arr_get(args, 1)
+                                                        bit_shr_u(arr_get(args, 0), c - (c / 32) * 32)
+                                                      else
+                                                          if op_id == 70
+                                                            ((arr_get(args, 0) == arr_get(args, 1)) ? (1) : (0))
+                                                          else
+                                                              if op_id == 71
+                                                                ((arr_get(args, 0) != arr_get(args, 1)) ? (1) : (0))
+                                                              else
+                                                                  if op_id == 72
+                                                                    ((arr_get(args, 0) < arr_get(args, 1)) ? (1) : (0))
+                                                                  else
+                                                                      if op_id == 74
+                                                                        ((arr_get(args, 0) > arr_get(args, 1)) ? (1) : (0))
+                                                                      else
+                                                                          if op_id == 76
+                                                                            ((arr_get(args, 0) <= arr_get(args, 1)) ? (1) : (0))
+                                                                          else
+                                                                              if op_id == 78
+                                                                                ((arr_get(args, 0) >= arr_get(args, 1)) ? (1) : (0))
+                                                                              else
+                                                                                  if op_id == 69
+                                                                                    ((arr_get(args, 0) == 0) ? (1) : (0))
+                                                                                  else
+                                                                                      if op_id == 26
+                                                                                        0
+                                                                                      else
+                                                                                          if op_id == 145
+                                                                                            0
+                                                                                          else
+                                                                                            0
+let _op_dump_all_acc(table, i, n, out) =
+    if i >= n
+        out
+    let spec = arr_get(table, i)
+    let row = [spec.id, spec.name, spec.symbol]
+    _op_dump_all_acc(table, i + 1, n, arr_push(out, row))
+
+let op_dump_all() =
+    let qbc_dump = _op_dump_all_acc(OPS, 0, arr_len(OPS), [])
+    _op_dump_all_acc(QUANTUM_OPS, 0, arr_len(QUANTUM_OPS), qbc_dump)
+
+let op_summary() = {
+    total: arr_len(OPS) + arr_len(QUANTUM_OPS),
+    qbc_ops: arr_len(OPS),
+    quantum_ops: arr_len(QUANTUM_OPS),
+    data: arr_len(op_data_ops()),
+    arith: arr_len(op_arith_ops()),
+    bitwise: arr_len(op_bitwise_ops()),
+    compare: arr_len(op_compare_ops()),
+    control: arr_len(op_control_ops()),
+    call: arr_len(op_call_ops()),
+    mem: arr_len(op_mem_ops()),
+    struct_ops: arr_len(op_struct_ops()),
+    quantum: arr_len(QUANTUM_OPS)
+}
+
+let OP_MICRO_MUL_GF       = 10
+let OP_MICRO_ADD_GF       = 11
+let OP_MICRO_SUB_GF       = 12
+let OP_MICRO_INV_GF       = 13
+let OP_MICRO_PROD_CL      = 22
+let OP_MICRO_FFT_FWD      = 30
+let OP_MICRO_PROJ_HOM     = 40
+let OP_MICRO_PROJ_AFF     = 41
+let OP_MICRO_DIFF_FWD     = 50
+let OP_MICRO_FUSE_GEO_PROJ  = 60
+let OP_MICRO_FUSE_FREQ_DIFF = 61
+let OP_MICRO_FUSE_TEN_GEO   = 62
+
+let OP_SPEC_TABLE = [
+  { op: 1, name: "GFMUL",    symbol: "⊙", micro: 10, micros: [10, 11, 12, 13], arity: 2, sig: "(M,M)→M",   pe: 1, fuse: "TEN_GEO",   opt: "⊙(A,I)→A" },
+  { op: 2, name: "CLIFFORD", symbol: "◦", micro: 22, micros: [22, 20, 21, 23], arity: 2, sig: "(G,G)→G",   pe: 6, fuse: "GEO_PROJ",   opt: "◦(A,A⁻¹)→I" },
+  { op: 3, name: "NTT",      symbol: "≋", micro: 30, micros: [30, 31, 32],      arity: 2, sig: "(V,V)→V",   pe: 3, fuse: "FREQ_DIFF",  opt: "≋(≋(x))→x" },
+  { op: 4, name: "BORN",     symbol: "↡", micro: 40, micros: [40, 41, 42],      arity: 3, sig: "(B,T,T)→T", pe: 6, fuse: "GEO_PROJ",   opt: "↡(↡(x,S1),S2)→↡(x,S1∩S2)" },
+  { op: 5, name: "HEBBIAN",  symbol: "∆", micro: 50, micros: [50, 51, 52],      arity: 4, sig: "(M,M,M,M)→M", pe: 6, fuse: "FREQ_DIFF", opt: "∆(const)→0" }
+]
+
+let _op_spec_find_idx(table, opcode) =
+    let n = arr_len(table)
+    let found = 0 - 1
+    let i = 0
+    for found == 0 - 1 && i < n
+        let row = arr_get(table, i)
+        if row.op == opcode
+            found = i
+        i = i + 1
+    found
+
+let _op_spec_row(table, opcode) =
+    let i = _op_spec_find_idx(table, opcode)
+    (i == 0 - 1 ? null : arr_get(table, i))
+
+let op_micro(opcode) =
+    let row = _op_spec_row(OP_SPEC_TABLE, opcode)
+    (row == null ? 0 : row.micro)
+
+let op_micros(opcode) =
+    let row = _op_spec_row(OP_SPEC_TABLE, opcode)
+    (row == null ? [] : row.micros)
+
+let op_sig(opcode) =
+    let row = _op_spec_row(OP_SPEC_TABLE, opcode)
+    (row == null ? "?" : row.sig)
+
+let op_pe_type(opcode) =
+    let row = _op_spec_row(OP_SPEC_TABLE, opcode)
+    (row == null ? 0 : row.pe)
+
+let op_fuse_rule(opcode) =
+    let row = _op_spec_row(OP_SPEC_TABLE, opcode)
+    (row == null ? "-" : row.fuse)
+
+let op_spec_count() = arr_len(OP_SPEC_TABLE)
+
+let op_optimize(opcode, a, b) =
+    if opcode == 1 && b == 1
+        a
+    if opcode == 1 && a == 1
+        b
+    if opcode == 3 && a == b
+        0
+    0 - 1
+
+let _op_spec_arity(op_id) =
+    let row = _op_spec_row(OP_SPEC_TABLE, op_id)
+    (row == null ? 0 - 1 : row.arity)
+
+let op_self_check() = [
+      op_spec_count() == 5,
+      op_micro(1) == 10,
+      op_micro(2) == 22,
+      op_micro(3) == 30,
+      op_micro(4) == 40,
+      op_micro(5) == 50,
+      _op_spec_arity(1) == 2 && _op_spec_arity(4) == 3 && _op_spec_arity(5) == 4,
+      op_pe_type(3) == 3 && op_pe_type(5) == 6,
+      op_optimize(1, 42, 1) == 42,
+      op_optimize(3, 7, 7) == 0
+    ]

@@ -1,0 +1,170 @@
+import "gf65537.ψ"
+import "gfx.ψ"
+import "ui.ψ"
+
+let rf_poles_rect(x, y, w, h, res) = [x, y, res, x + w, y, res, x + w, y + h, res, x, y + h, res]
+
+let rf_poles_round_rect(x, y, w, h, r, res) =
+    let p = rf_poles_rect(x, y, w, h, res)
+    let cr = (r < w / 4 ? r : w / 4)
+    let cr2 = (cr < h / 4 ? cr : h / 4)
+    p = p.push(x + cr2)
+    p = p.push(y + cr2)
+    p = p.push(res)
+    p = p.push(x + w - cr2)
+    p = p.push(y + cr2)
+    p = p.push(res)
+    p = p.push(x + w - cr2)
+    p = p.push(y + h - cr2)
+    p = p.push(res)
+    p = p.push(x + cr2)
+    p = p.push(y + h - cr2)
+    p = p.push(res)
+    p
+
+let rf_poles_hline(x, y, w, res) = [x, y, res, x + w, y, res]
+
+let rf_poles_label(x, y, text_len, res) =
+    let p = []
+    let i = 0
+    for i < text_len
+      p = p.push(x + i * 8 + 4)
+      p = p.push(y + 4)
+      p = p.push(res)
+      i = i + 1
+    p
+
+let rf_poles_progress(x, y, w, h, value, max_val, bg_res, fill_res) =
+    let p = rf_poles_rect(x, y, w, h, bg_res)
+    let fill_w = w * value / max_val
+    if fill_w > 0
+      let fp = rf_poles_rect(x, y, fill_w, h, fill_res)
+      let j = 0
+      for j < len(fp)
+        p = p.push(fp[j])
+        j = j + 1
+    else
+      0
+    p
+
+let rf_glow_poles(x, y, w, h, res, step) =
+    let p = []
+    let px = x
+    for px < x + w
+      p = p.push(px)
+      p = p.push(y)
+      p = p.push(res)
+      p = p.push(px)
+      p = p.push(y + h)
+      p = p.push(res)
+      px = px + step
+    let py = y
+    for py < y + h
+      p = p.push(x)
+      p = p.push(py)
+      p = p.push(res)
+      p = p.push(x + w)
+      p = p.push(py)
+      p = p.push(res)
+      py = py + step
+    p
+
+let rf_phi_value(v) =
+    let abs_v = (v < 0 ? 0 - v : v)
+    abs_v % 256
+
+let rf_phi_rgb(v, mode) =
+    let nv = rf_phi_value(v)
+    if mode == 0
+      let r = nv * 80 / 255
+      let g = nv * 160 / 255
+      let b = nv
+      [r, g, b]
+    else
+      if mode == 1
+        let angle = nv * 314 / 128
+        let r = 128 + 127 * angle / 65536
+        let g = 128 + 127 * (angle - 2094) / 65536
+        let b = 128 + 127 * (angle + 2094) / 65536
+        [r, g, b]
+      else
+        if mode == 2
+          if v > 0
+            [nv, nv * 6 / 10, 0]
+          else
+            [0, nv * 6 / 10, nv]
+        else
+          [nv, nv, nv]
+
+let rf_field_at(px, py, poles) =
+    let acc_re = 0
+    let acc_im = 0
+    let i = 0
+    let n = len(poles)
+    let done = false
+    for !done
+      if i + 2 < n
+        let xk = poles[i]
+        let yk = poles[i + 1]
+        let rk = poles[i + 2]
+        let dx = gf_sub(gf_reduce(px), gf_reduce(xk))
+        let dy = gf_sub(gf_reduce(py), gf_reduce(yk))
+        let d2 = gf_add(gf_mul(dx, dx), gf_mul(dy, dy))
+        if d2 != 0
+          let inv_d2 = gf_inv(d2)
+          let re_term = gf_mul(gf_mul(rk, dx), inv_d2)
+          let im_term = gf_neg(gf_mul(gf_mul(rk, dy), inv_d2))
+          acc_re = gf_add(acc_re, re_term)
+          acc_im = gf_add(acc_im, im_term)
+        else
+          0
+        i = i + 3
+      else
+        done = true
+    gf_add(gf_mul(acc_re, acc_re), gf_mul(acc_im, acc_im))
+
+let rf_render_glow(fb, w, h, glow_poles, mode) =
+    let fb2 = fb
+    if len(glow_poles) > 0
+      let max_g = 0
+      let py = 0
+      for py < h
+        let px = 0
+        for px < w
+          let v = rf_field_at(px, py, glow_poles)
+          if v > max_g
+            max_g = v
+          else
+            0
+          px = px + 2
+        py = py + 2
+      if max_g > 0
+        let thr = max_g / 6
+        let py2 = 0
+        for py2 < h
+          let px2 = 0
+          for px2 < w
+            let v2 = rf_field_at(px2, py2, glow_poles)
+            if v2 > thr
+              let norm = (v2 * 80) / max_g
+              let rgb = rf_phi_rgb(norm, mode)
+              let existing = gfx_get_pixel(fb2, w, px2, py2)
+              let er = ui_color_r(existing)
+              let eg = ui_color_g(existing)
+              let eb = ui_color_b(existing)
+              let nr = er + norm / 4
+              let ng = eg + norm / 2
+              let nb = eb + norm * 4 / 5
+              let nr2 = (nr > 255 ? 255 : nr)
+              let ng2 = (ng > 255 ? 255 : ng)
+              let nb2 = (nb > 255 ? 255 : nb)
+              fb2 = gfx_set_pixel(fb2, w, px2, py2, gfx_pack_rgb(nr2, ng2, nb2))
+            else
+              0
+            px2 = px2 + 2
+          py2 = py2 + 2
+      else
+          0
+    else
+      0
+    fb2

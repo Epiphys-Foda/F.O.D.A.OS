@@ -1,0 +1,296 @@
+import "../../core/alu.ψ"
+let TIER_INTERPRETER = 0
+let TIER_BASELINE = 1
+let TIER_OPTIMIZED = 2
+
+let jit_function_new(name, body) =
+    [name, body, 0, 0, {}, []]
+
+let jf_name(f) = f[0]
+let jf_body(f) = f[1]
+let jf_tier(f) = f[2]
+let jf_count(f) = f[3]
+let jf_feedback(f) = f[4]
+let jf_compiled(f) = f[5]
+
+let jf_set_tier(f, tier) =
+    f[2] = tier
+    f
+
+let jf_set_compiled(f, code) =
+    f[5] = code
+    f
+
+let jf_record_call(f, arg_types) =
+    f[3] = f[3] + 1
+    let fb = jf_feedback(f)
+    let key = arg_types
+    let c = fb[key]
+    if c == 0
+        c = 0
+    fb[key] = c + 1
+    f[4] = fb
+    f
+
+let jit_new() =
+    [{}, 10, 100, 0]
+
+let jit_funcs(jit) = jit[0]
+let jit_hot_thresh(jit) = jit[1]
+let jit_opt_thresh(jit) = jit[2]
+let jit_deopt_count(jit) = jit[3]
+
+let jit_register(jit, fnc) =
+    let funcs = jit_funcs(jit)
+    funcs[jf_name(fnc)] = fnc
+    jit[0] = funcs
+    jit
+
+let jit_get(jit, name) =
+    let funcs = jit_funcs(jit)
+    funcs[name]
+
+let should_promote(fnc, jit) =
+    let tier = jf_tier(fnc)
+    let count = jf_count(fnc)
+    if tier == TIER_INTERPRETER
+        if count > jit_hot_thresh(jit)
+            1
+        else
+            0
+    else
+        0
+    if tier == TIER_BASELINE
+        if count > jit_opt_thresh(jit)
+            let fb = jf_feedback(fnc)
+            let keys = keys_of(fb)
+            if len(keys) <= 2
+                1
+            else
+                0
+        else
+            0
+    else
+        0
+
+let tier0_execute(fnc, args) =
+    let body = jf_body(fnc)
+    body(args)
+
+let tier1_compile(fnc) =
+    let body = jf_body(fnc)
+    let compiled = body
+    jf_set_compiled(fnc, compiled)
+    jf_set_tier(fnc, TIER_BASELINE)
+    fnc
+
+let tier2_compile(fnc) =
+    let body = jf_body(fnc)
+    let fb = jf_feedback(fnc)
+    let keys = keys_of(fb)
+    let dominant_key = keys[0]
+    let optimized = []
+    let i = 0
+    let n = len(body)
+    for i < n
+        let instr = body[i]
+        optimized.push(instr)
+        i = i + 1
+    jf_set_compiled(fnc, optimized)
+    jf_set_tier(fnc, TIER_OPTIMIZED)
+    fnc
+
+let tier_execute(fnc, args, memory) =
+    let tier = jf_tier(fnc)
+    if tier == TIER_INTERPRETER
+        tier0_execute(fnc, args)
+    else
+        let compiled = jf_compiled(fnc)
+        let result = 0
+        let i = 0
+        let n = len(compiled)
+        for i < n
+            let instr = compiled[i]
+            let z = instr[0]
+            let a = instr[1]
+            if tier == TIER_BASELINE
+                let opcode = residue_to_wasm(z)
+                result = wasm_exec_op(opcode, a, memory)
+            else
+                result = alu_exec(z, a)
+            i = i + 1
+        result
+
+let deoptimize(fnc, jit) =
+    jf_set_tier(fnc, TIER_INTERPRETER)
+    fnc[3] = 0
+    fnc[4] = {}
+    jit[3] = jit[3] + 1
+    fnc
+
+let check_deopt(fnc, arg_types) =
+    let fb = jf_feedback(fnc)
+    let c = fb[arg_types]
+    if c == 0
+        if jf_tier(fnc) == TIER_OPTIMIZED
+            1
+        else
+            0
+    else
+        0
+
+let ic_new() = {}
+
+let ic_record(ic, callsite_id, method) =
+    let entry = ic[callsite_id]
+    if entry == 0
+        entry = [method, 1]
+    else
+        entry[1] = entry[1] + 1
+    ic[callsite_id] = entry
+    ic
+
+let ic_lookup(ic, callsite_id) =
+    let entry = ic[callsite_id]
+    if entry == 0
+        0
+    else
+        entry[0]
+
+let jit_call(jit, func_name, args, arg_types, memory) =
+    let fnc = jit_get(jit, func_name)
+    if fnc == 0
+        0
+    else
+        fnc = jf_record_call(fnc, arg_types)
+        if check_deopt(fnc, arg_types) == 1
+            fnc = deoptimize(fnc, jit)
+        if should_promote(fnc, jit) == 1
+            let tier = jf_tier(fnc)
+            if tier == TIER_INTERPRETER
+                fnc = tier1_compile(fnc)
+            else
+                0
+            if tier == TIER_BASELINE
+                fnc = tier2_compile(fnc)
+        let result = tier_execute(fnc, args, memory)
+        let funcs = jit_funcs(jit)
+        funcs[func_name] = fnc
+        jit[0] = funcs
+        result
+
+let jit_compiler_verify() =
+    let ok1 = 1
+    let jit = jit_new()
+    if jit_hot_thresh(jit) != 10
+        ok1 = 0
+    if jit_opt_thresh(jit) != 100
+        ok1 = 0
+
+    let ok2 = 1
+    let fnc = jit_function_new("add", [[0, [3, 5]]])
+    jit = jit_register(jit, fnc)
+    let f = jit_get(jit, "add")
+    if f == 0
+        ok2 = 0
+    if jf_name(f) != "add"
+        ok2 = 0
+    if jf_tier(f) != TIER_INTERPRETER
+        ok2 = 0
+
+    let ok3 = 1
+    f = jf_record_call(f, "int_int")
+    if jf_count(f) != 1
+        ok3 = 0
+    f = jf_record_call(f, "int_int")
+    if jf_count(f) != 2
+        ok3 = 0
+    let fb = jf_feedback(f)
+    let c = fb["int_int"]
+    if c != 2
+        ok3 = 0
+
+    let ok4 = 1
+    let i = 0
+    for i < 12
+        f = jf_record_call(f, "int_int")
+        i = i + 1
+    if should_promote(f, jit) != 1
+        ok4 = 0
+
+    let ok5 = 1
+    f = tier1_compile(f)
+    if jf_tier(f) != TIER_BASELINE
+        ok5 = 0
+    if len(jf_compiled(f)) == 0
+        ok5 = 0
+
+    let ok6 = 1
+    i = 0
+    for i < 100
+        f = jf_record_call(f, "int_int")
+        i = i + 1
+    if should_promote(f, jit) != 1
+        ok6 = 0
+
+    let ok7 = 1
+    f = tier2_compile(f)
+    if jf_tier(f) != TIER_OPTIMIZED
+        ok7 = 0
+
+    let ok8 = 1
+    f = jf_record_call(f, "str_str")
+    if check_deopt(f, "str_str") != 1
+        ok8 = 0
+    f = deoptimize(f, jit)
+    if jf_tier(f) != TIER_INTERPRETER
+        ok8 = 0
+    if jf_count(f) != 0
+        ok8 = 0
+
+    let ok9 = 1
+    let ic = ic_new()
+    ic = ic_record(ic, "callsite1", "methodA")
+    ic = ic_record(ic, "callsite1", "methodA")
+    ic = ic_record(ic, "callsite2", "methodB")
+    if ic_lookup(ic, "callsite1") != "methodA"
+        ok9 = 0
+    if ic_lookup(ic, "callsite2") != "methodB"
+        ok9 = 0
+    if ic_lookup(ic, "callsite3") != 0
+        ok9 = 0
+
+    let ok10 = 1
+    let jit2 = jit_new()
+    let func2 = jit_function_new("mul", [[1, [3, 5]]])
+    jit2 = jit_register(jit2, func2)
+    let mem = {}
+    i = 0
+    for i < 15
+        let r = jit_call(jit2, "mul", [3, 5], "int_int", mem)
+        i = i + 1
+    let f2 = jit_get(jit2, "mul")
+    if jf_tier(f2) != TIER_BASELINE
+        ok10 = 0
+
+    let ok11 = 1
+    if jit_deopt_count(jit) != 1
+        ok11 = 0
+
+    let all_ok = ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7 * ok8 * ok9 * ok10 * ok11
+    if all_ok == 1
+        print("jit_compiler_verify: ALL PASS")
+    else
+        print("jit_compiler_verify: FAIL")
+        print(ok1)
+        print(ok2)
+        print(ok3)
+        print(ok4)
+        print(ok5)
+        print(ok6)
+        print(ok7)
+        print(ok8)
+        print(ok9)
+        print(ok10)
+        print(ok11)
+    all_ok

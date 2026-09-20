@@ -1,0 +1,17 @@
+import "ck.ψ"
+let bad = [0]
+
+let kt4 = 2348
+bad[0] = bad[0] + ck(kt4, 2340, 2360)
+
+let z3k = 1202
+let dz3 = z3k - 1202
+bad[0] = bad[0] + dz3 * dz3
+
+let kt4b = 18943
+let num2 = kt4b * kt4b * kt4b * 502656
+if 3400000000000000000 > num2
+    bad[0] = bad[0] + 1
+bad[0] = bad[0] + ck_hi(num2, 3420000000000000000)
+
+arr_get(arr_new_n(1), bad[0])

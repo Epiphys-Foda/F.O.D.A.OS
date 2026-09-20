@@ -1,0 +1,63 @@
+import "ck.ψ"
+let bad = [0]
+
+let dz1 = 2 * 2 - 4
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let dz2 = 2 * 29 - 58
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let dz3 = 5 * 17 - 85
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let dz4 = 11 * 11 - 121
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let l58 = 5 + 8
+let f29 = 2 + 9
+let r58 = 2 + f29
+let dz5 = l58 - 13
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let dz6 = r58 - 13
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+let l85 = 8 + 5
+let f17 = 1 + 7
+let r85 = 5 + f17
+let dz7 = l85 - 13
+bad[0] = bad[0] + ck(dz7, 0, 0)
+
+let dz8 = r85 - 13
+bad[0] = bad[0] + ck(dz8, 0, 0)
+
+let l94 = 9 + 4
+let f47 = 4 + 7
+let r94 = 2 + f47
+let dz9 = l94 - 13
+bad[0] = bad[0] + ck(dz9, 0, 0)
+
+let dz10 = r94 - 13
+bad[0] = bad[0] + ck(dz10, 0, 0)
+
+let l121 = 1 + 2 + 1
+let f11 = 1 + 1
+let r121 = f11 + f11
+let dz11 = l121 - 4
+bad[0] = bad[0] + ck(dz11, 0, 0)
+
+let dz12 = r121 - 4
+bad[0] = bad[0] + ck(dz12, 0, 0)
+
+let l18 = 1 + 8
+let r18 = 2 + 3 + 3
+let gap = l18 - r18
+let dz13 = gap - 1
+bad[0] = bad[0] + ck(dz13, 0, 0)
+
+if 1982 < 1980
+    bad[0] = bad[0] + 1
+if 1982 > 1984
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

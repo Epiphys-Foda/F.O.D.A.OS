@@ -1,0 +1,32 @@
+import "ck.ψ"
+let bad = [0]
+
+let ev4 = 2 * 2
+bad[0] = bad[0] + ck(ev4, 4, 4)
+
+let ej = 300
+bad[0] = bad[0] + ck(ej, 200, 400)
+
+let boost = 200
+bad[0] = bad[0] + ck(boost, 150, 250)
+
+let ref = 64
+bad[0] = bad[0] + ck(ref, 50, 80)
+
+let field = 1
+bad[0] = bad[0] + ck_lo(field, 1)
+
+if 1746 < 1744
+    bad[0] = bad[0] + 1
+if 1746 > 1748
+    bad[0] = bad[0] + 1
+if 1752 < 1750
+    bad[0] = bad[0] + 1
+if 1752 > 1754
+    bad[0] = bad[0] + 1
+if 1970 < 1968
+    bad[0] = bad[0] + 1
+if 1970 > 1972
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

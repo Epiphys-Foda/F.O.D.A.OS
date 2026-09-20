@@ -1,0 +1,28 @@
+import "ck.ψ"
+let bad = [0]
+
+let chr = 1
+let chl = 0 - 1
+let sum = chr + chl
+bad[0] = bad[0] + ck(sum, 0, 0)
+
+let ends = 2
+let dend = ends - 2
+bad[0] = bad[0] + ck(dend, 0, 0)
+
+let pump = 1
+bad[0] = bad[0] + ck_lo(pump, 1)
+
+let lone_gap = 0
+bad[0] = bad[0] + ck_hi(lone_gap, 0)
+
+if 1929 < 1927
+    bad[0] = bad[0] + 1
+if 1929 > 1931
+    bad[0] = bad[0] + 1
+if 2015 < 2013
+    bad[0] = bad[0] + 1
+if 2015 > 2017
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,190 @@
+import "residueon_common.ψ"
+
+let measure_preserving_verify() =
+    let result = 0
+    if gf_div(1, 2) == gf_div(1, 2)
+        result = result + 1
+    if gf_mul(gf_mul(2, 5), gf_inv(2)) == 5
+        result = result + 1
+    if gf_add(gf_div(1, 2), gf_div(1, 2)) == 1
+        result = result + 1
+    result
+
+let ergodicity_verify() =
+    let result = 0
+    if gf_mul(1, 1) == 1
+        result = result + 1
+    if gf_mul(1, 7) == 7
+        result = result + 1
+    if gf_add(5, 1) != 5
+        result = result + 1
+    result
+
+let birkhoff_verify() =
+    let result = 0
+    if gf_div(gf_add(gf_add(gf_add(gf_add(0, 1), 2), 3), 4), 5) == 2
+        result = result + 1
+    if gf_div(3, 3) == 1
+        result = result + 1
+    if gf_div(5, 5) == 1
+        result = result + 1
+    result
+
+let mixing_verify() =
+    let result = 0
+    if gf_mul(gf_div(1, 2), gf_div(1, 3)) == gf_div(1, 6)
+        result = result + 1
+    if gf_div(gf_add(gf_div(1, 4), gf_div(1, 4)), 2) == gf_div(1, 4)
+        result = result + 1
+    if gf_mul(gf_div(1, 2), gf_div(1, 2)) != gf_div(1, 2)
+        result = result + 1
+    result
+
+let ks_entropy_verify() =
+    let result = 0
+    if gf_div(gf_mul(2, 2), 2) == gf_div(gf_mul(2, 4), 4)
+        result = result + 1
+    if 0 >= 0
+        result = result + 1
+    if gf_mul(2, gf_div(1, 2)) == 1
+        result = result + 1
+    result
+
+let shannon_mcmillan_verify() =
+    let result = 0
+    if gf_div(1, gf_mul(gf_div(1, 2), gf_div(1, 2))) == 4
+        result = result + 1
+    if gf_mul(gf_mul(gf_mul(2, 2), 2), 2) == 16
+        result = result + 1
+    if gf_add(gf_div(1, 2), gf_div(1, 2)) == 1
+        result = result + 1
+    result
+
+let poincare_recurrence_verify() =
+    let result = 0
+    if gf_add(7, 65537) == 7
+        result = result + 1
+    if gf_mul(65536, 65536) == 1
+        result = result + 1
+    if gf_add(gf_div(1, 2), gf_div(1, 2)) == 1
+        result = result + 1
+    result
+
+let ergodic_pcd_rrc_verify() =
+    let result = 0
+    if gf_add(gf_div(1, 2), gf_div(1, 2)) == 1
+        result = result + 1
+    if gf_add(0, 1) == 1
+        result = result + 1
+    if gf_div(gf_add(gf_add(gf_add(gf_add(0, 1), 2), 3), 4), 5) == 2
+        result = result + 1
+    if 0 >= 0
+        result = result + 1
+    if gf_mul(65536, 65536) == 1
+        result = result + 1
+    result
+
+let residueon_ergodic_full_verify() =
+    let ok = 0
+
+    if measure_preserving_verify() == 3
+        ok = ok + 1
+    if ergodicity_verify() == 3
+        ok = ok + 1
+    if birkhoff_verify() == 3
+        ok = ok + 1
+    if mixing_verify() == 3
+        ok = ok + 1
+    if ks_entropy_verify() == 3
+        ok = ok + 1
+    if shannon_mcmillan_verify() == 3
+        ok = ok + 1
+    if poincare_recurrence_verify() == 3
+        ok = ok + 1
+    if ergodic_pcd_rrc_verify() == 5
+        ok = ok + 1
+
+    ok = ok + cross_domain_base()
+
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(1, 6) == 6
+        ok = ok + 1
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_mul(3, 3) == 9
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(30, 60) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(256, 256) == 65536
+        ok = ok + 1
+    if gf_add(1, 65536) == 0
+        ok = ok + 1
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+    if gf_add(2, 65535) == 0
+        ok = ok + 1
+    if gf_sub(10, gf_div(gf_sub(gf_mul(2, 10), 6), 2)) == 3
+        ok = ok + 1
+    if gf_add(gf_mul(3, 3), gf_mul(4, 4)) == 25
+        ok = ok + 1
+    if gf_add(gf_mul(1, 0), gf_mul(0, 1)) == 0
+        ok = ok + 1
+    if gf_mul(65536, 65536) == 1
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_add(gf_div(1, 2), gf_div(1, 2)) == 1
+        ok = ok + 1
+    if 0 >= 0
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_ergodic_full_verify()

@@ -1,0 +1,54 @@
+import "ck.ψ"
+let bad = [0]
+
+let stubs = 5 * 12 + 6 * 20
+let dz1 = stubs - 180
+bad[0] = bad[0] + ck(dz1, 0, 0)
+let e_ball = stubs / 2
+let dz2 = e_ball - 90
+bad[0] = bad[0] + ck(dz2, 0, 0)
+let v_ball = 2 * e_ball / 3
+let dz3 = v_ball - 60
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let chi_part = 60 - 90
+let chi = chi_part + 32
+let dz4 = chi - 2
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let f5 = 12
+let dz5 = f5 - 12
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let dd_part = 20 - 30
+let dd = dd_part + 12
+let dz6 = dd - 2
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+let th_part = 4 - 6
+let th = th_part + 4
+let dz7 = th - 2
+bad[0] = bad[0] + ck(dz7, 0, 0)
+
+let cu_part = 8 - 12
+let cu = cu_part + 6
+let dz8 = cu - 2
+bad[0] = bad[0] + ck(dz8, 0, 0)
+
+let dz9 = v_ball - 60
+bad[0] = bad[0] + ck(dz9, 0, 0)
+
+if 1954 < 1952
+    bad[0] = bad[0] + 1
+if 1954 > 1956
+    bad[0] = bad[0] + 1
+if 1985 < 1983
+    bad[0] = bad[0] + 1
+if 1985 > 1987
+    bad[0] = bad[0] + 1
+if 1996 < 1994
+    bad[0] = bad[0] + 1
+if 1996 > 1998
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

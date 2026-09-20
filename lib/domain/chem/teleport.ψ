@@ -1,0 +1,27 @@
+import "ck.ψ"
+let bad = [0]
+
+let opts = 2 * 2
+let dops = opts - 2 * 2
+bad[0] = bad[0] + ck(dops, 0, 0)
+
+let copies = 1
+bad[0] = bad[0] + ck_hi(copies, 1)
+
+let cl = 200 / 3
+bad[0] = bad[0] + ck(cl, 64, 68)
+
+let F = 75
+bad[0] = bad[0] + ck(F, 70, 85)
+bad[0] = bad[0] + ck_lo(F, cl)
+
+if 1993 < 1991
+    bad[0] = bad[0] + 1
+if 1993 > 1995
+    bad[0] = bad[0] + 1
+if 1997 < 1995
+    bad[0] = bad[0] + 1
+if 1997 > 1999
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

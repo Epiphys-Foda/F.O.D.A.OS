@@ -1,0 +1,557 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let FONT_MAX_GLYPHS = 65536
+let FONT_DEFAULT_SIZE = 16
+let FONT_GLYPH_W = 8
+let FONT_GLYPH_H = 16
+
+let FONT_ATTR_NORMAL = 0
+let FONT_ATTR_BOLD = 1
+let FONT_ATTR_ITALIC = 2
+let FONT_ATTR_UNDERLINE = 4
+
+let glyph_create(code, width, height, advance) = [code, width, height, advance, [], 0, 0]
+let glyph_set_bitmap(glyph, bitmap) = [glyph[0], glyph[1], glyph[2], glyph[3], bitmap, glyph[5], glyph[6]]
+let glyph_set_bearing(glyph, bx, by) = [glyph[0], glyph[1], glyph[2], glyph[3], glyph[4], bx, by]
+
+let glyph_gen_blank(w, h) =
+    let bmp = []
+    let i = 0
+    for i < gf_mul(w, h)
+        bmp.push(0)
+        i = i + 1
+    bmp
+let glyph_pixel_set(bmp, w, x, y, val) =
+    bmp[gf_add(gf_mul(y, w), x)] = val
+let glyph_pixel_get(bmp, w, x, y) =
+    bmp[gf_add(gf_mul(y, w), x)]
+let glyph_fill_rect(bmp, w, x0, y0, x1, y1) =
+    let y = y0
+    for y <= y1
+        let x = x0
+        for x <= x1
+            glyph_pixel_set(bmp, w, x, y, 1)
+            x = x + 1
+        y = y + 1
+let glyph_draw_hline(bmp, w, x0, x1, y) =
+    let x = x0
+    for x <= x1
+        glyph_pixel_set(bmp, w, x, y, 1)
+        x = x + 1
+let glyph_draw_vline(bmp, w, x, y0, y1) =
+    let y = y0
+    for y <= y1
+        glyph_pixel_set(bmp, w, x, y, 1)
+        y = y + 1
+let glyph_draw_diag(bmp, w, x0, y0, x1, y1) =
+    let dx = 1
+    let dy = 1
+    if x1 < x0
+        dx = -1
+    if y1 < y0
+        dy = -1
+    let steps = x1 - x0
+    if y1 - y0 > steps
+        steps = y1 - y0
+    if y0 - y1 > steps
+        steps = y0 - y1
+    let i = 0
+    for i <= steps
+        let x = x0 + dx * i
+        let y = y0 + dy * i
+        if x >= 0
+            if x < 8
+                (y >= 0 ? (y < 16 ? glyph_pixel_set(bmp, w, x, y, 1) : 0) : 0)
+        i = i + 1
+
+let glyph_gen_ascii(code) =
+    let w = FONT_GLYPH_W
+    let h = FONT_GLYPH_H
+    let bmp = glyph_gen_blank(w, h)
+    if code == 32
+        [code, w, h, w, bmp, 0, 0]
+    if code == 33
+        glyph_draw_vline(bmp, w, 3, 0, 10)
+        glyph_pixel_set(bmp, w, 3, 12, 1)
+        [code, w, h, w, bmp, 0, 0]
+    if code == 34
+        glyph_draw_vline(bmp, w, 2, 0, 4)
+        glyph_draw_vline(bmp, w, 5, 0, 4)
+        [code, w, h, w, bmp, 0, 0]
+    if code == 39
+        glyph_draw_vline(bmp, w, 3, 0, 3)
+        [code, w, h, w, bmp, 0, 0]
+    if code == 40
+        glyph_pixel_set(bmp, w, 4, 1, 1)
+        glyph_pixel_set(bmp, w, 3, 2, 1)
+        glyph_draw_vline(bmp, w, 3, 3, 11)
+        glyph_pixel_set(bmp, w, 4, 12, 1)
+        [code, w, h, w, bmp, 0, 0]
+    if code == 41
+        glyph_pixel_set(bmp, w, 3, 1, 1)
+        glyph_pixel_set(bmp, w, 4, 2, 1)
+        glyph_draw_vline(bmp, w, 4, 3, 11)
+        glyph_pixel_set(bmp, w, 3, 12, 1)
+        [code, w, h, w, bmp, 0, 0]
+    if code == 42
+        glyph_pixel_set(bmp, w, 3, 2, 1)
+        glyph_pixel_set(bmp, w, 4, 2, 1)
+        glyph_pixel_set(bmp, w, 2, 1, 1)
+        glyph_pixel_set(bmp, w, 5, 1, 1)
+        glyph_pixel_set(bmp, w, 3, 0, 1)
+        glyph_pixel_set(bmp, w, 4, 0, 1)
+        [code, w, h, w, bmp, 0, 0]
+    if code == 43
+        glyph_draw_hline(bmp, w, 1, 5, 7)
+        glyph_draw_vline(bmp, w, 3, 4, 10)
+        [code, w, h, w, bmp, 0, 0]
+    if code == 44
+        glyph_draw_vline(bmp, w, 3, 11, 13)
+        glyph_pixel_set(bmp, w, 2, 13, 1)
+        [code, w, h, w, bmp, 0, 0]
+    if code == 45
+        glyph_draw_hline(bmp, w, 1, 5, 7)
+        [code, w, h, w, bmp, 0, 0]
+    if code == 46
+        glyph_pixel_set(bmp, w, 3, 12, 1)
+        [code, w, h, w, bmp, 0, 0]
+    if code == 47
+        glyph_draw_diag(bmp, w, 0, 12, 6, 0)
+        [code, w, h, w, bmp, 0, 0]
+    if code == 48
+        glyph_draw_vline(bmp, w, 2, 2, 12)
+        glyph_draw_vline(bmp, w, 5, 2, 12)
+        glyph_draw_hline(bmp, w, 2, 5, 1)
+        glyph_draw_hline(bmp, w, 2, 5, 13)
+        [code, w, h, w, bmp, 0, 0]
+    if code == 49
+        glyph_draw_vline(bmp, w, 3, 1, 12)
+        glyph_pixel_set(bmp, w, 4, 1, 1)
+        glyph_draw_hline(bmp, w, 2, 4, 13)
+        [code, w, h, w, bmp, 0, 0]
+    if code == 58
+        glyph_pixel_set(bmp, w, 3, 4, 1)
+        glyph_pixel_set(bmp, w, 3, 12, 1)
+        [code, w, h, w, bmp, 0, 0]
+    if code == 59
+        glyph_pixel_set(bmp, w, 3, 4, 1)
+        glyph_draw_vline(bmp, w, 3, 11, 13)
+        [code, w, h, w, bmp, 0, 0]
+    if code == 60
+        glyph_draw_diag(bmp, w, 5, 1, 1, 7)
+        glyph_draw_diag(bmp, w, 1, 7, 5, 13)
+        [code, w, h, w, bmp, 0, 0]
+    if code == 61
+        glyph_draw_hline(bmp, w, 1, 5, 5)
+        glyph_draw_hline(bmp, w, 1, 5, 9)
+        [code, w, h, w, bmp, 0, 0]
+    if code == 62
+        glyph_draw_diag(bmp, w, 1, 1, 5, 7)
+        glyph_draw_diag(bmp, w, 5, 7, 1, 13)
+        [code, w, h, w, bmp, 0, 0]
+    if code == 63
+        glyph_draw_vline(bmp, w, 5, 1, 4)
+        glyph_draw_hline(bmp, w, 2, 5, 0)
+        glyph_draw_vline(bmp, w, 2, 1, 3)
+        glyph_pixel_set(bmp, w, 3, 12, 1)
+        [code, w, h, w, bmp, 0, 0]
+    if code == 91
+        glyph_draw_vline(bmp, w, 4, 1, 12)
+        glyph_draw_hline(bmp, w, 4, 6, 1)
+        glyph_draw_hline(bmp, w, 4, 6, 12)
+        [code, w, h, w, bmp, 0, 0]
+    if code == 93
+        glyph_draw_vline(bmp, w, 4, 1, 12)
+        glyph_draw_hline(bmp, w, 2, 4, 1)
+        glyph_draw_hline(bmp, w, 2, 4, 12)
+        [code, w, h, w, bmp, 0, 0]
+    if code == 95
+        glyph_draw_hline(bmp, w, 1, 6, 14)
+        [code, w, h, w, bmp, 0, 0]
+    if code == 123
+        glyph_pixel_set(bmp, w, 4, 1, 1)
+        glyph_draw_vline(bmp, w, 3, 2, 6)
+        glyph_pixel_set(bmp, w, 4, 7, 1)
+        glyph_draw_vline(bmp, w, 3, 8, 12)
+        glyph_pixel_set(bmp, w, 4, 12, 1)
+        [code, w, h, w, bmp, 0, 0]
+    if code == 125
+        glyph_pixel_set(bmp, w, 3, 1, 1)
+        glyph_draw_vline(bmp, w, 4, 2, 6)
+        glyph_pixel_set(bmp, w, 3, 7, 1)
+        glyph_draw_vline(bmp, w, 4, 8, 12)
+        glyph_pixel_set(bmp, w, 3, 12, 1)
+        [code, w, h, w, bmp, 0, 0]
+    if code == 124
+        glyph_draw_vline(bmp, w, 3, 0, 13)
+        [code, w, h, w, bmp, 0, 0]
+    if code == 126
+        glyph_pixel_set(bmp, w, 2, 3, 1)
+        glyph_pixel_set(bmp, w, 3, 2, 1)
+        glyph_pixel_set(bmp, w, 4, 3, 1)
+        glyph_pixel_set(bmp, w, 5, 4, 1)
+        [code, w, h, w, bmp, 0, 0]
+    if code >= 65
+        if code <= 90
+            glyph_gen_upper(bmp, w, code)
+    if code >= 97
+        if code <= 122
+            glyph_gen_lower(bmp, w, code)
+    if code >= 48
+        if code <= 57
+            glyph_gen_digit(bmp, w, code)
+    [code, w, h, w, bmp, 0, 0]
+
+let glyph_gen_upper(bmp, w, code) =
+    if code == 65
+        glyph_draw_vline(bmp, w, 1, 3, 13)
+        glyph_draw_vline(bmp, w, 6, 3, 13)
+        glyph_draw_hline(bmp, w, 1, 6, 2)
+        glyph_draw_hline(bmp, w, 1, 6, 7)
+        glyph_pixel_set(bmp, w, 0, 2, 1)
+        glyph_pixel_set(bmp, w, 7, 2, 1)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 66
+        glyph_draw_vline(bmp, w, 1, 1, 13)
+        glyph_draw_hline(bmp, w, 1, 5, 1)
+        glyph_draw_hline(bmp, w, 1, 5, 7)
+        glyph_draw_hline(bmp, w, 1, 5, 13)
+        glyph_pixel_set(bmp, w, 6, 2, 1)
+        glyph_pixel_set(bmp, w, 6, 3, 1)
+        glyph_pixel_set(bmp, w, 6, 4, 1)
+        glyph_pixel_set(bmp, w, 6, 8, 1)
+        glyph_pixel_set(bmp, w, 6, 9, 1)
+        glyph_pixel_set(bmp, w, 6, 10, 1)
+        glyph_pixel_set(bmp, w, 6, 11, 1)
+        glyph_pixel_set(bmp, w, 6, 12, 1)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 67
+        glyph_draw_vline(bmp, w, 1, 3, 11)
+        glyph_draw_hline(bmp, w, 1, 5, 2)
+        glyph_draw_hline(bmp, w, 1, 5, 12)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 73
+        glyph_draw_vline(bmp, w, 3, 1, 13)
+        glyph_draw_hline(bmp, w, 2, 4, 1)
+        glyph_draw_hline(bmp, w, 2, 4, 13)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 76
+        glyph_draw_vline(bmp, w, 1, 1, 13)
+        glyph_draw_hline(bmp, w, 1, 6, 13)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 79
+        glyph_draw_vline(bmp, w, 1, 2, 12)
+        glyph_draw_vline(bmp, w, 6, 2, 12)
+        glyph_draw_hline(bmp, w, 1, 6, 1)
+        glyph_draw_hline(bmp, w, 1, 6, 13)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 83
+        glyph_draw_hline(bmp, w, 1, 6, 1)
+        glyph_draw_hline(bmp, w, 1, 6, 7)
+        glyph_draw_hline(bmp, w, 1, 6, 13)
+        glyph_draw_vline(bmp, w, 1, 1, 7)
+        glyph_draw_vline(bmp, w, 6, 7, 13)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 84
+        glyph_draw_hline(bmp, w, 0, 6, 1)
+        glyph_draw_vline(bmp, w, 3, 1, 13)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 90
+        glyph_draw_hline(bmp, w, 1, 6, 1)
+        glyph_draw_hline(bmp, w, 1, 6, 13)
+        glyph_draw_diag(bmp, w, 6, 1, 1, 13)
+        [code, w, 16, w, bmp, 0, 0]
+    [code, w, 16, w, bmp, 0, 0]
+
+let glyph_gen_lower(bmp, w, code) =
+    if code == 97
+        glyph_draw_hline(bmp, w, 1, 6, 7)
+        glyph_draw_hline(bmp, w, 1, 6, 13)
+        glyph_draw_vline(bmp, w, 1, 7, 13)
+        glyph_draw_vline(bmp, w, 6, 7, 13)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 98
+        glyph_draw_vline(bmp, w, 1, 0, 13)
+        glyph_draw_hline(bmp, w, 1, 5, 7)
+        glyph_draw_hline(bmp, w, 1, 5, 13)
+        glyph_draw_vline(bmp, w, 5, 7, 13)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 99
+        glyph_draw_hline(bmp, w, 2, 6, 7)
+        glyph_draw_hline(bmp, w, 2, 6, 13)
+        glyph_draw_vline(bmp, w, 2, 7, 13)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 100
+        glyph_draw_vline(bmp, w, 5, 0, 13)
+        glyph_draw_hline(bmp, w, 1, 5, 7)
+        glyph_draw_hline(bmp, w, 1, 5, 13)
+        glyph_draw_vline(bmp, w, 1, 7, 13)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 101
+        glyph_draw_hline(bmp, w, 1, 6, 7)
+        glyph_draw_hline(bmp, w, 1, 6, 13)
+        glyph_draw_hline(bmp, w, 1, 4, 10)
+        glyph_draw_vline(bmp, w, 1, 7, 13)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 105
+        glyph_draw_vline(bmp, w, 3, 3, 13)
+        glyph_pixel_set(bmp, w, 3, 0, 1)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 108
+        glyph_draw_vline(bmp, w, 3, 0, 13)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 109
+        glyph_draw_vline(bmp, w, 1, 7, 13)
+        glyph_draw_vline(bmp, w, 3, 7, 13)
+        glyph_draw_vline(bmp, w, 5, 7, 13)
+        glyph_draw_hline(bmp, w, 1, 5, 7)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 110
+        glyph_draw_vline(bmp, w, 1, 7, 13)
+        glyph_draw_vline(bmp, w, 5, 7, 13)
+        glyph_draw_hline(bmp, w, 1, 5, 7)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 111
+        glyph_draw_vline(bmp, w, 1, 8, 12)
+        glyph_draw_vline(bmp, w, 5, 8, 12)
+        glyph_draw_hline(bmp, w, 1, 5, 7)
+        glyph_draw_hline(bmp, w, 1, 5, 13)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 114
+        glyph_draw_vline(bmp, w, 1, 7, 13)
+        glyph_draw_hline(bmp, w, 1, 4, 7)
+        glyph_pixel_set(bmp, w, 4, 8, 1)
+        glyph_pixel_set(bmp, w, 5, 9, 1)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 115
+        glyph_draw_hline(bmp, w, 1, 5, 7)
+        glyph_draw_hline(bmp, w, 1, 5, 10)
+        glyph_draw_hline(bmp, w, 1, 5, 13)
+        glyph_draw_vline(bmp, w, 1, 7, 10)
+        glyph_draw_vline(bmp, w, 5, 10, 13)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 116
+        glyph_draw_vline(bmp, w, 3, 3, 13)
+        glyph_draw_hline(bmp, w, 1, 5, 3)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 117
+        glyph_draw_vline(bmp, w, 1, 7, 13)
+        glyph_draw_vline(bmp, w, 5, 7, 13)
+        glyph_draw_hline(bmp, w, 1, 5, 13)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 118
+        glyph_draw_diag(bmp, w, 1, 7, 3, 13)
+        glyph_draw_diag(bmp, w, 5, 7, 3, 13)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 120
+        glyph_draw_diag(bmp, w, 1, 7, 5, 13)
+        glyph_draw_diag(bmp, w, 5, 7, 1, 13)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 121
+        glyph_draw_diag(bmp, w, 1, 7, 3, 13)
+        glyph_draw_diag(bmp, w, 5, 7, 3, 13)
+        glyph_draw_vline(bmp, w, 3, 13, 15)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 122
+        glyph_draw_hline(bmp, w, 1, 5, 7)
+        glyph_draw_hline(bmp, w, 1, 5, 13)
+        glyph_draw_diag(bmp, w, 5, 7, 1, 13)
+        [code, w, 16, w, bmp, 0, 0]
+    [code, w, 16, w, bmp, 0, 0]
+
+let glyph_gen_digit(bmp, w, code) =
+    if code == 48
+        glyph_draw_vline(bmp, w, 2, 2, 12)
+        glyph_draw_vline(bmp, w, 5, 2, 12)
+        glyph_draw_hline(bmp, w, 2, 5, 1)
+        glyph_draw_hline(bmp, w, 2, 5, 13)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 49
+        glyph_draw_vline(bmp, w, 3, 1, 12)
+        glyph_pixel_set(bmp, w, 2, 2, 1)
+        glyph_draw_hline(bmp, w, 2, 4, 13)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 50
+        glyph_draw_hline(bmp, w, 1, 6, 1)
+        glyph_draw_hline(bmp, w, 1, 6, 7)
+        glyph_draw_hline(bmp, w, 1, 6, 13)
+        glyph_draw_vline(bmp, w, 6, 1, 7)
+        glyph_draw_vline(bmp, w, 1, 7, 13)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 51
+        glyph_draw_hline(bmp, w, 1, 6, 1)
+        glyph_draw_hline(bmp, w, 1, 6, 7)
+        glyph_draw_hline(bmp, w, 1, 6, 13)
+        glyph_draw_vline(bmp, w, 4, 1, 13)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 52
+        glyph_draw_vline(bmp, w, 1, 1, 7)
+        glyph_draw_vline(bmp, w, 5, 1, 13)
+        glyph_draw_hline(bmp, w, 1, 5, 7)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 53
+        glyph_draw_hline(bmp, w, 1, 6, 1)
+        glyph_draw_hline(bmp, w, 1, 6, 7)
+        glyph_draw_hline(bmp, w, 1, 6, 13)
+        glyph_draw_vline(bmp, w, 1, 1, 7)
+        glyph_draw_vline(bmp, w, 6, 7, 13)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 54
+        glyph_draw_hline(bmp, w, 1, 6, 1)
+        glyph_draw_hline(bmp, w, 1, 6, 7)
+        glyph_draw_hline(bmp, w, 1, 6, 13)
+        glyph_draw_vline(bmp, w, 1, 1, 13)
+        glyph_draw_vline(bmp, w, 6, 7, 13)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 55
+        glyph_draw_hline(bmp, w, 1, 6, 1)
+        glyph_draw_diag(bmp, w, 6, 1, 1, 13)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 56
+        glyph_draw_hline(bmp, w, 1, 6, 1)
+        glyph_draw_hline(bmp, w, 1, 6, 7)
+        glyph_draw_hline(bmp, w, 1, 6, 13)
+        glyph_draw_vline(bmp, w, 1, 1, 13)
+        glyph_draw_vline(bmp, w, 6, 1, 13)
+        [code, w, 16, w, bmp, 0, 0]
+    if code == 57
+        glyph_draw_hline(bmp, w, 1, 6, 1)
+        glyph_draw_hline(bmp, w, 1, 6, 7)
+        glyph_draw_hline(bmp, w, 1, 6, 13)
+        glyph_draw_vline(bmp, w, 1, 1, 7)
+        glyph_draw_vline(bmp, w, 6, 1, 13)
+        [code, w, 16, w, bmp, 0, 0]
+    [code, w, 16, w, bmp, 0, 0]
+
+let glyph_bold(glyph) =
+    let bmp = glyph[4]
+    let w = glyph[1]
+    let h = glyph[2]
+    let new_bmp = glyph_gen_blank(w, h)
+    let y = 0
+    for y < h
+        let x = 0
+        for x < w
+            let v = glyph_pixel_get(bmp, w, x, y)
+            if v == 1
+                glyph_pixel_set(new_bmp, w, x, y, 1)
+                if gf_add(x, 1) < w
+                    glyph_pixel_set(new_bmp, w, gf_add(x, 1), y, 1)
+            x = x + 1
+        y = y + 1
+    [glyph[0], w, h, glyph[3], new_bmp, glyph[5], glyph[6]]
+let glyph_italic(glyph) =
+    let bmp = glyph[4]
+    let w = glyph[1]
+    let h = glyph[2]
+    let new_bmp = glyph_gen_blank(w, h)
+    let y = 0
+    for y < h
+        let x = 0
+        let skew = gf_div(gf_sub(gf_div(h, 2), y), 4)
+        for x < w
+            let v = glyph_pixel_get(bmp, w, x, y)
+            if v == 1
+                let nx = gf_add(x, skew)
+                if nx >= 0
+                    (nx < w ? glyph_pixel_set(new_bmp, w, nx, y, 1) : 0)
+            x = x + 1
+        y = y + 1
+    [glyph[0], w, h, glyph[3], new_bmp, glyph[5], glyph[6]]
+let glyph_underline(glyph) =
+    let bmp = glyph[4]
+    let w = glyph[1]
+    let h = glyph[2]
+    glyph_draw_hline(bmp, w, 0, gf_sub(w, 1), gf_sub(h, 1))
+    [glyph[0], w, h, glyph[3], bmp, glyph[5], glyph[6]]
+
+let font_create(size) = [[], size, size, gf_div(size, 4), gf_div(size, 8)]
+let font_add_glyph(font, glyph) =
+    let glyphs = font[0]
+    glyphs.push(glyph)
+    [glyphs, font[1], font[2], font[3], font[4]]
+let font_lookup(font, code) =
+    let glyphs = font[0]
+    let i = 0
+    let n = glyphs.length
+    for i < n
+        if glyphs[i][0] == code
+            glyphs[i]
+        i = i + 1
+    [0, 0, 0, 0, [], 0, 0]
+
+let font_gen_ascii() =
+    let font = font_create(FONT_DEFAULT_SIZE)
+    let code = 32
+    for code <= 126
+        let glyph = glyph_gen_ascii(code)
+        font = font_add_glyph(font, glyph)
+        code = code + 1
+    font
+
+let text_layout(font, text, max_width) =
+    let positions = []
+    let x = 0
+    let y = 0
+    let i = 0
+    let n = text.length
+    let line_h = gf_add(font[1], font[4])
+    for i < n
+        let glyph = font_lookup(font, text[i])
+        let adv = glyph[3]
+        if gf_add(x, adv) > max_width
+            x = 0
+        y = gf_add(y, line_h)
+        positions.push([x, y])
+        x = gf_add(x, adv)
+        i = i + 1
+    positions
+let text_width(font, text) =
+    let width = 0
+    let i = 0
+    let n = text.length
+    for i < n
+        let glyph = font_lookup(font, text[i])
+        width = gf_add(width, glyph[3])
+        i = i + 1
+    width
+let text_height(font, text, max_width) =
+    let layout = text_layout(font, text, max_width)
+    let max_y = 0
+    let i = 0
+    let n = layout.length
+    for i < n
+        if layout[i][1] > max_y
+            max_y = layout[i][1]
+        i = i + 1
+    gf_add(max_y, font[1])
+
+let kerning(font, code1, code2) =
+    let g1 = font_lookup(font, code1)
+    let g2 = font_lookup(font, code2)
+    gf_div(gf_add(g1[3], g2[3]), 2)
+
+let glyph_render_to_fb(fb, glyph, ox, oy, color) =
+    let bmp = glyph[4]
+    let w = glyph[1]
+    let h = glyph[2]
+    let fb_w = fb[0]
+    let fb_h = fb[1]
+    let pixels = fb[2]
+    let y = 0
+    for y < h
+        let x = 0
+        for x < w
+            let v = glyph_pixel_get(bmp, w, x, y)
+            if v == 1
+                let sx = gf_add(ox, x)
+                let sy = gf_add(oy, y)
+                if sx >= 0
+                    if sx < fb_w
+                        if sy >= 0
+                            if sy < fb_h
+                                pixels[gf_add(gf_mul(sy, fb_w), sx)] = color
+            x = x + 1
+        y = y + 1
+
+let font_verify() = 1

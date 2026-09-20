@@ -1,0 +1,99 @@
+import "../stdlib/algebraic_replacements.ψ"
+
+import "../stdlib/gf65537.ψ"
+
+let quantum_numbers_gf(n, l, m, s) =
+    [n, l, m, s]
+
+let quantum_number_check_gf(n, l, m, s) =
+        if n >= 1 && l >= 0 && l < n && m >= gf_neg(l) && m <= l && (s == 1 || s == gf_neg(1))
+            1
+        else
+            0
+
+let hydrogen_energy_gf(n) =
+    gf_neg(gf_inv(gf_mul(n, n)))
+
+let atomic_energy_gf(n, Z_eff) =
+    gf_neg(gf_div(gf_mul(Z_eff, Z_eff), gf_mul(n, n)))
+
+let energy_transition_gf(n_initial, n_final) =
+    let E_i = hydrogen_energy_gf(n_initial)
+    let E_f = hydrogen_energy_gf(n_final)
+    gf_sub(E_f, E_i)
+
+let orbital_capacity_gf(l) =
+    gf_mul(2, gf_add(gf_mul(2, l), 1))
+
+let shell_capacity_gf(n) =
+    gf_mul(2, gf_mul(n, n))
+
+let electron_configuration_gf(atomic_number) =
+    let remaining = atomic_number
+    let config = []
+    let n = 1
+    for remaining > 0
+        let capacity = shell_capacity_gf(n)
+        if remaining >= capacity
+            config = arr_concat(config, [capacity])
+            remaining = gf_sub(remaining, capacity)
+        else
+            config = arr_concat(config, [remaining])
+            remaining = 0
+        n = n + 1
+    config
+
+let bond_order_gf(bonding_electrons, antibonding_electrons) =
+    gf_sub(bonding_electrons, antibonding_electrons)
+
+let bond_energy_gf(bond_type) =
+    bond_type
+
+let electronegativity_diff_gf(chi_A, chi_B) =
+    gf_sub(chi_A, chi_B)
+
+let bond_type_classification_gf(chi_A, chi_B) =
+        let delta = electronegativity_diff_gf(chi_A, chi_B)
+        let abs_delta = gf_abs(delta)
+        if abs_delta < 4
+            0
+        else
+            if abs_delta < 17
+                1
+let ionization_energy_gf(atomic_number, n_th) =
+    gf_div(gf_mul(atomic_number, atomic_number), gf_mul(n_th, n_th))
+
+let electron_affinity_gf(atomic_number) =
+    atomic_number
+
+let atomic_radius_gf(atomic_number) =
+    let n = 1
+    gf_div(gf_mul(n, n), atomic_number)
+
+let hybridization_gf(n_orbitals) =
+    n_orbitals
+
+let hybridization_direction_gf(n_orbitals) =
+    n_orbitals
+
+let lcao_gf(c1, phi1, c2, phi2) =
+    gf_add(gf_mul(c1, phi1), gf_mul(c2, phi2))
+
+let bonding_orbital_gf(phi1, phi2) =
+    gf_add(phi1, phi2)
+
+let antibonding_orbital_gf(phi1, phi2) =
+    gf_sub(phi1, phi2)
+
+let spectral_line_gf(transition_energy) =
+    gf_inv(transition_energy)
+
+let spectral_series_gf(n_initial, n_final) =
+    energy_transition_gf(n_initial, n_final)
+
+let element_property_gf(atomic_number, property_type) =
+    gf_mul(atomic_number, property_type)
+
+let periodic_trend_gf(atomic_number, period) =
+    gf_mod(atomic_number, period)
+

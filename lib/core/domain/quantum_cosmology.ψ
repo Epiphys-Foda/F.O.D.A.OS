@@ -1,0 +1,187 @@
+import "../stdlib/gf65537.ψ"
+
+let born(cond, a, b) =
+    if cond != 0
+        a
+    else
+        b
+
+let wheeler_dewitt_flrw(psi_a_plus, psi_a_zero, psi_a_minus, a, lambda, rho_phi) =
+    let d2_psi = gf_sub(gf_add(psi_a_plus, psi_a_minus), gf_mul(2, psi_a_zero))
+    let kinetic = gf_neg(gf_div(d2_psi, gf_mul(2, a)))
+    let a_sq = gf_mul(a, a)
+    let a_cu = gf_mul(a_sq, a)
+    let a_qu = gf_mul(a_cu, a)
+    let potential = gf_add(gf_mul(a, gf_sub(a_sq, gf_div(gf_mul(lambda, a_qu), 3))), gf_mul(a_cu, rho_phi))
+    gf_add(kinetic, gf_mul(potential, psi_a_zero))
+
+let wd_equation_check(psi_a_plus, psi_a_zero, psi_a_minus, a, lambda, rho_phi) =
+    let h_psi = wheeler_dewitt_flrw(psi_a_plus, psi_a_zero, psi_a_minus, a, lambda, rho_phi)
+    (h_psi == 0 ? 1 : 0)
+
+let superspace_dimension(n_metrics) =
+    gf_pow(65537, gf_mul(6, n_metrics))
+
+let euclidean_eh_action(sqrt_g, ricci_scalar, lambda) =
+    gf_mul(sqrt_g, gf_sub(ricci_scalar, gf_mul(2, lambda)))
+
+let hartle_hawking_wave_function(actions, n_geometries, r_param) =
+    _hhwf_loop(actions, n_geometries, r_param, 0, 0)
+let _hhwf_loop(actions, n, r, i, acc) =
+        if i >= n
+            acc
+        else
+            let weight = gf_pow(gf_inv(r), actions[i])
+            _hhwf_loop(actions, n, r, i + 1, gf_add(acc, weight))
+
+let vilenkin_tunneling_wave_function(actions, n_geometries, r_param) =
+    _vilenkin_loop(actions, n_geometries, r_param, 0, 0)
+let _vilenkin_loop(actions, n, r, i, acc) =
+        if i >= n
+            acc
+        else
+            let weight = gf_pow(r, actions[i])
+            _vilenkin_loop(actions, n, r, i + 1, gf_add(acc, weight))
+
+let hh_vs_vilenkin(actions, n, r_param) =
+    let hh = hartle_hawking_wave_function(actions, n, r_param)
+    let v = vilenkin_tunneling_wave_function(actions, n, r_param)
+    [hh, v]
+
+let flrw_action_step(a_t, a_t_plus, lambda, rho_phi) =
+    let delta_a = gf_sub(a_t_plus, a_t)
+    let delta_a_sq = gf_mul(delta_a, delta_a)
+    let a_cu = gf_mul(gf_mul(a_t, a_t), a_t)
+    let kinetic = gf_neg(gf_mul(3, gf_mul(a_t, delta_a_sq)))
+    let potential = gf_add(gf_sub(gf_mul(3, a_t), gf_mul(lambda, a_cu)), gf_mul(a_cu, rho_phi))
+    gf_add(kinetic, potential)
+
+let flrw_total_action(scale_factors, n_steps, lambda, rho_phi) =
+    _flrw_action_loop(scale_factors, n_steps, lambda, rho_phi, 0, 0)
+let _flrw_action_loop(a, n, lam, rho, i, acc) =
+        if i >= n - 1
+            acc
+        else
+            let step = flrw_action_step(a[i], a[i + 1], lam, rho)
+            _flrw_action_loop(a, n, lam, rho, i + 1, gf_add(acc, step))
+
+let scale_factor_evolution(a_t, rho, k_curvature, lambda, g_newton) =
+    let a_sq = gf_mul(a_t, a_t)
+    let matter = gf_mul(gf_div(gf_mul(8, g_newton), 3), gf_mul(rho, a_sq))
+    let curvature = k_curvature
+    let cosmological = gf_div(gf_mul(lambda, a_sq), 3)
+    let delta_a_sq = gf_sub(gf_add(matter, cosmological), curvature)
+    gf_sqrt(delta_a_sq)
+
+let slow_roll_epsilon(a_t, a_t_plus, hubble) =
+    let delta_a = gf_sub(a_t_plus, a_t)
+    gf_div(delta_a, gf_mul(a_t, hubble))
+
+let inflaton_potential(phi, m_sq) =
+    gf_div(gf_mul(m_sq, gf_mul(phi, phi)), 2)
+
+let inflaton_evolution(phi_t, phi_t_minus, m_sq) =
+    let v_prime = gf_mul(m_sq, phi_t)
+    gf_sub(gf_sub(gf_mul(2, phi_t), phi_t_minus), v_prime)
+
+let e_folding_number(scale_factors, n_steps) =
+    _efolding_loop(scale_factors, n_steps, 0, 0)
+let _efolding_loop(a, n, i, acc) =
+        if i >= n - 1
+            acc
+        else
+            let delta_a = gf_sub(a[i + 1], a[i])
+            _efolding_loop(a, n, i + 1, gf_add(acc, gf_div(delta_a, a[i])))
+
+let scalar_spectral_index(epsilon, eta) =
+    gf_sub(gf_add(1, gf_mul(2, eta)), gf_mul(6, epsilon))
+
+let tensor_to_scalar_ratio(epsilon) =
+    gf_mul(16, epsilon)
+
+let inflation_observables(epsilon, eta) =
+    let n_s = scalar_spectral_index(epsilon, eta)
+    let r = tensor_to_scalar_ratio(epsilon)
+    [n_s, r]
+
+let primordial_fluctuation(k, hubble, r_param) =
+    let exponent = gf_div(hubble, 2)
+    gf_pow(r_param, gf_mul(exponent, k))
+
+let cmb_power_spectrum(fluctuations, n_modes, k) =
+    let ntt_val = _cmb_ntt_loop(fluctuations, n_modes, k, 0, 0)
+    gf_mul(ntt_val, ntt_val)
+let _cmb_ntt_loop(delta, n, k, i, acc) =
+        if i >= n
+            acc
+        else
+            let phase = gf_mul(i, k)
+            let term = gf_mul(delta[i], gf_pow(3, phase))
+            _cmb_ntt_loop(delta, n, k, i + 1, gf_add(acc, term))
+
+let power_spectrum_power_law(k, n_s) =
+    gf_pow(k, gf_sub(n_s, 1))
+
+let multiverse_branch(coefficients, branches, n_branches) =
+    _multiverse_loop(coefficients, branches, n_branches, 0, 0)
+let _multiverse_loop(coeffs, branches, n, i, acc) =
+        if i >= n
+            acc
+        else
+            let term = gf_mul(coeffs[i], branches[i])
+            _multiverse_loop(coeffs, branches, n, i + 1, gf_add(acc, term))
+
+let decoherence_check(branch_i, branch_j) =
+    let overlap = gf_mul(branch_i, branch_j)
+    (overlap == 0 ? 1 : 0)
+
+let multiverse_branch_count(n_possible_states) =
+    n_possible_states
+
+let cosmological_constant() =
+    1
+
+let vacuum_energy_density(lambda, g_newton) =
+    gf_div(lambda, gf_mul(8, g_newton))
+
+let cosmological_constant_problem() =
+    0
+
+let emergent_time(action) =
+    action
+
+let intrinsic_volume(sqrt_h_values, n_points) =
+    _volume_loop(sqrt_h_values, n_points, 0, 0)
+let _volume_loop(sqrt_h, n, i, acc) =
+        if i >= n
+            acc
+        else
+            _volume_loop(sqrt_h, n, i + 1, gf_add(acc, sqrt_h[i]))
+
+let bekenstein_bound(entropy, area, g_newton) =
+    let bound = gf_div(area, gf_mul(4, g_newton))
+    (entropy <= bound ? 1 : 0)
+
+let universe_holographic_bound(total_entropy, horizon_area, g_newton) =
+    bekenstein_bound(total_entropy, horizon_area, g_newton)
+
+let density_contrast(rho, rho_mean) =
+    gf_div(gf_sub(rho, rho_mean), rho_mean)
+
+let structure_formation_check(delta_rho_over_rho) =
+    (delta_rho_over_rho > 1 ? 1 : 0)
+
+let press_schechter_mass_function(M, delta_c, sigma_M, r_param) =
+    let m_inv_sq = gf_pow(gf_inv(M), 2)
+    let exponent = gf_div(gf_mul(delta_c, delta_c), gf_mul(sigma_M, sigma_M))
+    let exp_term = gf_pow(gf_inv(r_param), exponent)
+    gf_mul(m_inv_sq, exp_term)
+
+let universe_temperature(scale_factor, t_initial, a_initial) =
+    gf_div(gf_mul(t_initial, a_initial), scale_factor)
+
+let phase_transition_check(temperature, t_critical) =
+    (temperature > t_critical ? 1 : 0)
+
+let cosmic_temperatures() =
+    [100, 10, 1]

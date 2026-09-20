@@ -1,0 +1,75 @@
+import "../stdlib/gf65537.ψ"
+
+let PLATE_INV_EXP = 65535
+
+let plate_new(max_poles) =
+    let cap = 2 * max_poles + 1
+    let plate = arr_new_n(cap)
+    arr_set(plate, 0, 0)
+    plate
+
+let plate_add_pole(plate, z, r) =
+    let count = arr_get(plate, 0)
+    let z_idx = 2 * count + 1
+    let r_idx = 2 * count + 2
+    arr_set(plate, z_idx, z)
+    arr_set(plate, r_idx, r)
+    arr_set(plate, 0, count + 1)
+    plate
+
+let plate_size(plate) = arr_get(plate, 0)
+
+let plate_get_z(plate, idx) = arr_get(plate, 2 * idx + 1)
+
+let plate_get_r(plate, idx) = arr_get(plate, 2 * idx + 2)
+
+let plate_eval_impl(plate, z, i, n, acc) =
+      if i < n
+        let zi = plate_get_z(plate, i)
+        let ri = plate_get_r(plate, i)
+        let dz = gf_sub(z, zi)
+        let is_zero = (dz == 0)
+        let dz_safe = ((is_zero) ? (1) : (dz))
+        let inv_dz = gf_pow(dz_safe, PLATE_INV_EXP)
+        let term_full = gf_mul(ri, inv_dz)
+        let term = ((is_zero) ? (0) : (term_full))
+        let new_acc = gf_add(acc, term)
+        plate_eval_impl(plate, z, i + 1, n, new_acc)
+      else
+        acc
+
+let plate_eval(plate, z) =
+    let n = arr_get(plate, 0)
+    plate_eval_impl(plate, z, 0, n, 0)
+
+let plate_bragg(plate, z) =
+    let d1 = plate_eval(plate, z)
+    let r1 = plate_eval(plate, z)
+    (d1 == r1 ? 1 : 0)
+
+let plate_reset(plate) =
+    arr_set(plate, 0, 0)
+    plate
+
+let plate_born_select(plate, cond, idx_a, idx_b) =
+    let za = plate_get_z(plate, idx_a)
+    let zb = plate_get_z(plate, idx_b)
+    ((cond) ? (za) : (zb))
+
+let plate_hebbian_update(plate, idx, lr, delta) =
+    let r_old = plate_get_r(plate, idx)
+    let dr = gf_mul(lr, delta)
+    let r_new = gf_add(r_old, dr)
+    arr_set(plate, 2 * idx + 2, r_new)
+    plate
+
+let plate_fill_karman_impl(plate, n, i) =
+      if i < n
+        let z = i + 1
+        let r = i * i + 1
+        arr_set(plate, 2 * i + 1, z)
+        arr_set(plate, 2 * i + 2, r)
+        arr_set(plate, 0, i + 1)
+        plate_fill_karman_impl(plate, n, i + 1)
+      else
+        plate

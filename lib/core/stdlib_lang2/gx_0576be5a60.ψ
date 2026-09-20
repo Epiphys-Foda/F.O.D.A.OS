@@ -1,0 +1,22 @@
+let score_hyp(YY, n, out2) =
+    let r0 = gf_div(YY[1], YY[0])
+    let r1 = gf_div(YY[2], YY[1])
+    let r2 = gf_div(YY[3], YY[2])
+    let b = r0
+    let den = gf_mul(2, gf_sub(r2, r1))
+    let z = 0
+    if den == 0
+        z = 1
+    if z == 1
+        out2[0] = 1000000000
+        out2[1] = 0
+    if z == 0
+        let c = gf_div(gf_sub(gf_mul(2, r1), gf_add(b, r2)), den)
+        let a = gf_sub(gf_mul(r1, gf_add(c, 1)), b)
+        let j = n - 1
+        let rr = gf_div(gf_add(gf_mul(a, j), b), gf_add(gf_mul(c, j), 1))
+        let pred = gf_mul(YY[j], rr)
+        out2[0] = rel_permille(pred, 1, YY[n])
+        out2[1] = a
+    0
+

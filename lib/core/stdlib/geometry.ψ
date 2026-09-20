@@ -1,0 +1,235 @@
+let geo_point_create(x, y) =
+    let p = arr_new()
+    p = arr_push(p, x)
+    p = arr_push(p, y)
+    p
+
+let geo_point_x(p) = p[0]
+let geo_point_y(p) = p[1]
+
+let geo_dist_sq(a, b) =
+    let dx = a[0] - b[0]
+    let dy = a[1] - b[1]
+    dx * dx + dy * dy
+
+let geo_dist_manhattan(a, b) =
+    let dx = a[0] - b[0]
+    let dy = a[1] - b[1]
+    if dx < 0
+        dx = 0 - dx
+    if dy < 0
+        dy = 0 - dy
+    dx + dy
+
+let geo_cross(a, b, c) =
+    (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+
+let geo_orientation(a, b, c) =
+    let cross = geo_cross(a, b, c)
+    if cross > 0
+        1
+    else
+        0
+    if cross < 0
+        2
+    else
+        0
+
+let geo_on_segment(p, a, b) =
+    p[0] >= a[0] && p[0] <= b[0] && p[1] >= a[1] && p[1] <= b[1]
+
+let geo_segments_intersect(p1, p2, p3, p4) =
+    let d1 = geo_orientation(p3, p4, p1)
+    let d2 = geo_orientation(p3, p4, p2)
+    let d3 = geo_orientation(p1, p2, p3)
+    let d4 = geo_orientation(p1, p2, p4)
+    if d1 != d2 && d3 != d4
+        return 1
+    if d1 == 0 && geo_on_segment(p1, p3, p4)
+        return 1
+    if d2 == 0 && geo_on_segment(p2, p3, p4)
+        return 1
+    if d3 == 0 && geo_on_segment(p3, p1, p2)
+        return 1
+    if d4 == 0 && geo_on_segment(p4, p1, p2)
+        return 1
+    0
+
+let geo_polygon_area_2(polygon) =
+    let n = polygon.len()
+    if n < 3
+        return 0
+    let area2 = 0
+    let i = 0
+    for i < n
+        let p = polygon[i]
+        let next = polygon[(i + 1) % n]
+        area2 = area2 + p[0] * next[1] - next[0] * p[1]
+        i = i + 1
+    (area2 < 0 ? 0 - area2 : area2)
+
+let geo_polygon_area(polygon) =
+    geo_polygon_area_2(polygon) / 2
+
+let geo_point_in_polygon(point, polygon) =
+    let n = polygon.len()
+    if n < 3
+        return 0
+    let inside = 0
+    let x = point[0]
+    let y = point[1]
+    let i = 0
+    let j = n - 1
+    for i < n
+        let pi = polygon[i]
+        let pj = polygon[j]
+        if (pi[1] > y) != (pj[1] > y)
+            let x_intersect = pi[0] + (y - pi[1]) * (pj[0] - pi[0]) / (pj[1] - pi[1])
+            if x < x_intersect
+                inside = 1 - inside
+        j = i
+        i = i + 1
+    inside
+
+let geo_convex_hull(points) =
+    let n = points.len()
+    if n < 3
+        return points
+    let sorted = arr_new()
+    let i = 0
+    for i < n
+        sorted = arr_push(sorted, points[i])
+        i = i + 1
+    i = 0
+    for i < n - 1
+        let min_idx = i
+        let j = i + 1
+        for j < n
+            let sj = sorted[j]
+            let sm = sorted[min_idx]
+            if sj[0] < sm[0] || (sj[0] == sm[0] && sj[1] < sm[1])
+                min_idx = j
+            j = j + 1
+        if min_idx != i
+            let tmp = sorted[i]
+            sorted[i] = sorted[min_idx]
+            sorted[min_idx] = tmp
+        i = i + 1
+    let hull = arr_new()
+    let h = 0
+    i = 0
+    for i < n
+        for h >= 2
+            let h1 = hull[h - 1]
+            let h2 = hull[h - 2]
+            if geo_cross(h2, h1, sorted[i]) <= 0
+                let new_hull = arr_new()
+                let k = 0
+                for k < h - 1
+                    new_hull = arr_push(new_hull, hull[k])
+                    k = k + 1
+                hull = new_hull
+                h = h - 1
+            else
+                h = 0
+        hull = arr_push(hull, sorted[i])
+        h = h + 1
+        i = i + 1
+    let lower_size = h + 1
+    let t = h + 1
+    i = n - 2
+    for i >= 0
+        for h >= t
+            let h1 = hull[h - 1]
+            let h2 = hull[h - 2]
+            if geo_cross(h2, h1, sorted[i]) <= 0
+                let new_hull = arr_new()
+                let k = 0
+                for k < h - 1
+                    new_hull = arr_push(new_hull, hull[k])
+                    k = k + 1
+                hull = new_hull
+                h = h - 1
+            else
+                h = t - 1
+        hull = arr_push(hull, sorted[i])
+        h = h + 1
+        i = i - 1
+    let result = arr_new()
+    i = 0
+    for i < h - 1
+        result = arr_push(result, hull[i])
+        i = i + 1
+    result
+
+let geo_triangle_area_2(a, b, c) =
+    let cross = geo_cross(a, b, c)
+    (cross < 0 ? 0 - cross : cross)
+
+let geo_are_collinear(a, b, c) =
+    geo_orientation(a, b, c) == 0
+
+let geo_centroid(polygon) =
+    let n = polygon.len()
+    let cx = 0
+    let cy = 0
+    let i = 0
+    for i < n
+        let p = polygon[i]
+        cx = cx + p[0]
+        cy = cy + p[1]
+        i = i + 1
+    let result = arr_new()
+    result = arr_push(result, cx / n)
+    result = arr_push(result, cy / n)
+    result
+
+let geo_bounding_box(polygon) =
+    let n = polygon.len()
+    if n == 0
+        return arr_new()
+    let p0 = polygon[0]
+    let min_x = p0[0]
+    let max_x = p0[0]
+    let min_y = p0[1]
+    let max_y = p0[1]
+    let i = 1
+    for i < n
+        let p = polygon[i]
+        if p[0] < min_x
+            min_x = p[0]
+        if p[0] > max_x
+            max_x = p[0]
+        if p[1] < min_y
+            min_y = p[1]
+        if p[1] > max_y
+            max_y = p[1]
+        i = i + 1
+    let result = arr_new()
+    result = arr_push(result, min_x)
+    result = arr_push(result, min_y)
+    result = arr_push(result, max_x)
+    result = arr_push(result, max_y)
+    result
+
+let geo_perimeter_sq(polygon) =
+    let n = polygon.len()
+    if n < 2
+        return 0
+    let total = 0
+    let i = 0
+    for i < n
+        let p = polygon[i]
+        let q = polygon[(i + 1) % n]
+        total = total + geo_dist_sq(p, q)
+        i = i + 1
+    total
+
+let main() =
+    let a = geo_point_create(0, 0)
+    let b = geo_point_create(4, 0)
+    let c = geo_point_create(0, 3)
+    print(geo_triangle_area_2(a, b, c))
+    print(geo_dist_sq(a, b))
+    print(geo_orientation(a, b, c))
+    0

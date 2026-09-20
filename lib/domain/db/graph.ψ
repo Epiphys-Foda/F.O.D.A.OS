@@ -1,0 +1,366 @@
+import "../domain_field.ψ"
+
+let g_node_new(id, labels, props) =
+    [id, labels, props]
+
+let node_id(n) = n[0]
+let node_labels(n) = n[1]
+let node_props(n) = n[2]
+
+let node_get_prop(n, key) =
+    node_props(n)[key]
+
+let node_set_prop(n, key, val) =
+    let p = node_props(n)
+    p[key] = val
+    n[2] = p
+    n
+
+let node_has_label(n, label) =
+    let labels = node_labels(n)
+    let found = 0
+    let i = 0
+    let n_labels = len(labels)
+    for i < n_labels
+        if labels[i] == label
+            found = 1
+            i = n_labels
+        i = i + 1
+    found
+
+let g_edge_new(id, edge_type, source, target, props) =
+    [id, edge_type, source, target, props]
+
+let edge_id(e) = e[0]
+let edge_type(e) = e[1]
+let edge_source(e) = e[2]
+let edge_target(e) = e[3]
+let edge_props(e) = e[4]
+
+let edge_get_prop(e, key) =
+    edge_props(e)[key]
+
+let graph_new() =
+    [{}, {}, {}, 0]
+
+let graph_nodes(g) = g[0]
+let graph_out_edges(g) = g[1]
+let graph_in_edges(g) = g[2]
+let graph_next_id(g) = g[3]
+
+let graph_alloc_id(g) =
+    let id = g[3]
+    g[3] = id + 1
+    id
+
+let graph_add_node(g, id, labels, props) =
+    let node = g_node_new(id, labels, props)
+    let nodes = graph_nodes(g)
+    nodes[id] = node
+    g[0] = nodes
+    let out_e = graph_out_edges(g)
+    out_e[id] = []
+    g[1] = out_e
+    let in_e = graph_in_edges(g)
+    in_e[id] = []
+    g[2] = in_e
+    node
+
+let graph_get_node(g, id) =
+    graph_nodes(g)[id]
+
+let graph_add_edge(g, id, edge_type, source, target, props) =
+    let edge = g_edge_new(id, edge_type, source, target, props)
+    let out_e = graph_out_edges(g)
+    let src_list = out_e[source]
+    if src_list == 0
+        src_list = []
+    src_list.push(edge)
+    out_e[source] = src_list
+    let in_e = graph_in_edges(g)
+    let tgt_list = in_e[target]
+    if tgt_list == 0
+        tgt_list = []
+    tgt_list.push(edge)
+    in_e[target] = tgt_list
+    g[1] = out_e
+    g[2] = in_e
+    edge
+
+let graph_out_neighbors(g, node_id) =
+    let out_e = graph_out_edges(g)
+    let lst = out_e[node_id]
+    if lst == 0
+        []
+    else
+        let result = []
+        let i = 0
+        let n = len(lst)
+        for i < n
+            result.push(edge_target(lst[i]))
+            i = i + 1
+        result
+
+let graph_in_neighbors(g, node_id) =
+    let in_e = graph_in_edges(g)
+    let lst = in_e[node_id]
+    if lst == 0
+        []
+    else
+        let result = []
+        let i = 0
+        let n = len(lst)
+        for i < n
+            result.push(edge_source(lst[i]))
+            i = i + 1
+        result
+
+let graph_out_edges_of(g, node_id, edge_type) =
+    let out_e = graph_out_edges(g)
+    let lst = out_e[node_id]
+    if lst == 0
+        []
+    else
+        let result = []
+        let i = 0
+        let n = len(lst)
+        for i < n
+            if edge_type(lst[i]) == edge_type
+                result.push(lst[i])
+            i = i + 1
+        result
+
+let graph_bfs(g, start_id, max_depth) =
+    let visited = {}
+    visited[start_id] = 1
+    let queue = [[start_id, 0]]
+    let result = []
+    for len(queue) > 0
+        let head = queue[0]
+        let node = head[0]
+        let depth = head[1]
+        result.push([node, depth])
+        if depth < max_depth
+            let neighbors = graph_out_neighbors(g, node)
+            let i = 0
+            let n = len(neighbors)
+            for i < n
+                let nb = neighbors[i]
+                if visited[nb] == 0
+                    visited[nb] = 1
+                    queue.push([nb, depth + 1])
+                i = i + 1
+        let new_q = []
+        let q = 1
+        let ql = len(queue)
+        for q < ql
+            new_q.push(queue[q])
+            q = q + 1
+        queue = new_q
+    result
+
+let graph_dfs(g, start_id, max_depth) =
+    let visited = {}
+    let result = []
+    let stack = [[start_id, 0]]
+    for len(stack) > 0
+        let top = stack[len(stack) - 1]
+        stack.pop()
+        let node = top[0]
+        let depth = top[1]
+        if visited[node] == 0
+            visited[node] = 1
+            result.push([node, depth])
+            if depth < max_depth
+                let neighbors = graph_out_neighbors(g, node)
+                let i = 0
+                let n = len(neighbors)
+                for i < n
+                    stack.push([neighbors[i], depth + 1])
+                    i = i + 1
+    result
+
+let graph_shortest_path(g, from_id, to_id) =
+    if from_id == to_id
+        [from_id]
+    else
+        let visited = {}
+        visited[from_id] = 1
+        let prev = {}
+        let queue = [from_id]
+        let found = 0
+        for len(queue) > 0
+            let node = queue[0]
+            if node == to_id
+                found = 1
+            else
+                let neighbors = graph_out_neighbors(g, node)
+                let i = 0
+                let n = len(neighbors)
+                for i < n
+                    let nb = neighbors[i]
+                    if visited[nb] == 0
+                        visited[nb] = 1
+                        prev[nb] = node
+                        queue.push(nb)
+                    i = i + 1
+            let new_q = []
+            let q = 1
+            let ql = len(queue)
+            for q < ql
+                new_q.push(queue[q])
+                q = q + 1
+            queue = new_q
+            if found == 1
+                queue = []
+        if visited[to_id] == 0
+            0
+        else
+            let path = [to_id]
+            let cur = to_id
+            for cur != from_id
+                cur = prev[cur]
+                path.push(cur)
+            let reversed = []
+            let i = len(path) - 1
+            for i >= 0
+                reversed.push(path[i])
+                i = i - 1
+            reversed
+
+let graph_pagerank(g, iterations, damping) =
+    let nodes = graph_nodes(g)
+    let ids = keys_of(nodes)
+    let n = len(ids)
+    let pr = {}
+    let i = 0
+    for i < n
+        pr[ids[i]] = 65537 / n
+        i = i + 1
+    let it = 0
+    for it < iterations
+        let new_pr = {}
+        i = 0
+        for i < n
+            let id = ids[i]
+            let rank = (65537 - damping * 65537) / n
+            let in_n = graph_in_neighbors(g, id)
+            let j = 0
+            let m = len(in_n)
+            for j < m
+                let src = in_n[j]
+                let out_n = graph_out_neighbors(g, src)
+                let out_deg = len(out_n)
+                if out_deg > 0
+                    rank = rank + damping * pr[src] / out_deg
+                j = j + 1
+            new_pr[id] = rank
+            i = i + 1
+        pr = new_pr
+        it = it + 1
+    pr
+
+let graph_connected_components(g) =
+    let nodes = graph_nodes(g)
+    let ids = keys_of(nodes)
+    let parent = {}
+    let i = 0
+    let n = len(ids)
+    for i < n
+        parent[ids[i]] = ids[i]
+        i = i + 1
+    let j = 0
+    for j < n
+        let id = ids[j]
+        let neighbors = graph_out_neighbors(g, id)
+        let k = 0
+        let m = len(neighbors)
+        for k < m
+            let nb = neighbors[k]
+            let r1 = id
+            for parent[r1] != r1
+                r1 = parent[r1]
+            let r2 = nb
+            for parent[r2] != r2
+                r2 = parent[r2]
+            if r1 != r2
+                parent[r1] = r2
+            k = k + 1
+        j = j + 1
+    let components = {}
+    i = 0
+    for i < n
+        let id = ids[i]
+        let r = id
+        for parent[r] != r
+            r = parent[r]
+        let comp = components[r]
+        if comp == 0
+            comp = []
+        comp.push(id)
+        components[r] = comp
+        i = i + 1
+    components
+
+let graph_triangle_count(g, node_id) =
+    let neighbors = graph_out_neighbors(g, node_id)
+    let count = 0
+    let i = 0
+    let n = len(neighbors)
+    for i < n
+        let nb = neighbors[i]
+        let nb_neighbors = graph_out_neighbors(g, nb)
+        let j = 0
+        let m = len(nb_neighbors)
+        for j < m
+            let nb_nb = nb_neighbors[j]
+            let k = 0
+            for k < n
+                if neighbors[k] == nb_nb
+                    count = count + 1
+                    k = n
+                k = k + 1
+            j = j + 1
+        i = i + 1
+    count / 2
+
+let graph_match_out(g, node_id, edge_type) =
+    let edges = graph_out_edges_of(g, node_id, edge_type)
+    let result = []
+    let i = 0
+    let n = len(edges)
+    for i < n
+        let e = edges[i]
+        let tgt = graph_get_node(g, edge_target(e))
+        result.push([node_id, edge_type, edge_target(e), edge_props(e), node_props(tgt)])
+        i = i + 1
+    result
+
+let graph_where(matches, prop_key, expected_val) =
+    let result = []
+    let i = 0
+    let n = len(matches)
+    for i < n
+        let m = matches[i]
+        let tgt_props = m[4]
+        if tgt_props[prop_key] == expected_val
+            result.push(m)
+        i = i + 1
+    result
+
+let graph_return(matches, return_cols) =
+    let result = []
+    let i = 0
+    let n = len(matches)
+    for i < n
+        let m = matches[i]
+        let row = {}
+        let j = 0
+        let c = len(return_cols)
+        for j < c
+            let col = return_cols[j]
+            row[col] = m[j]
+            j = j + 1
+        result.push(row)
+        i = i + 1
+    result

@@ -1,0 +1,304 @@
+import "../stdlib/gf65537.ψ"
+import "domain_list.ψ"
+
+let finite_diff_gf(f, x) =
+    gf_sub(f(gf_add(x, 1)), f(x))
+
+let finite_diff2_gf(f, x) =
+    let f_plus = f(gf_add(x, 1))
+    let f_minus = f(gf_sub(x, 1))
+    let f_center = f(x)
+    gf_add(gf_sub(f_plus, gf_mul(2, f_center)), f_minus)
+
+let partial_diff_x_gf(f, x, y) =
+    gf_sub(f(gf_add(x, 1), y), f(x, y))
+
+let partial_diff_y_gf(f, x, y) =
+    gf_sub(f(x, gf_add(y, 1)), f(x, y))
+
+let partial_diff2_x_gf(f, x, y) =
+    let f_plus = f(gf_add(x, 1), y)
+    let f_minus = f(gf_sub(x, 1), y)
+    let f_center = f(x, y)
+    gf_add(gf_sub(f_plus, gf_mul(2, f_center)), f_minus)
+
+let partial_diff2_y_gf(f, x, y) =
+    let f_plus = f(x, gf_add(y, 1))
+    let f_minus = f(x, gf_sub(y, 1))
+    let f_center = f(x, y)
+    gf_add(gf_sub(f_plus, gf_mul(2, f_center)), f_minus)
+
+let ode_first_order_gf(f, y0, n) =
+    ode_rec_gf(f, y0, 0, n, y0)
+
+let ode_rec_gf(f, y, t, n, result) =
+        if t >= n
+            result
+        else
+            let y_next = gf_add(y, f(y, t))
+            ode_rec_gf(f, y_next, t + 1, n, y_next)
+
+let ode_second_order_gf(f, y0, y1, n) =
+    ode2_rec_gf(f, y0, y1, 1, n, [y0, y1])
+
+let ode2_rec_gf(f, y_prev, y_curr, t, n, result) =
+        if t >= n
+            result
+        else
+            let dy = gf_sub(y_curr, y_prev)
+            let y_next = gf_add(gf_sub(gf_mul(2, y_curr), y_prev), f(y_curr, dy, t))
+            ode2_rec_gf(f, y_curr, y_next, t + 1, n, append(result, y_next))
+
+let ode_linear_gf(p, q, y0, n) =
+    ode_linear_rec_gf(p, q, y0, 0, n, [y0])
+
+let ode_linear_rec_gf(p, q, y, t, n, result) =
+        if t >= n
+            result
+        else
+            let y_next = gf_add(y, gf_sub(q(t), gf_mul(p(t), y)))
+            ode_linear_rec_gf(p, q, y_next, t + 1, n, append(result, y_next))
+
+let heat_equation_gf(u0, alpha, n_t, n_x) =
+    heat_rec_gf(u0, alpha, n_t, n_x, 0, [u0])
+
+let heat_rec_gf(u, alpha, n_t, n_x, t, history) =
+        if t >= n_t
+            history
+        else
+            let u_next = heat_step_gf(u, alpha, n_x)
+            heat_rec_gf(u_next, alpha, n_t, n_x, t + 1, append(history, u_next))
+
+let heat_step_gf(u, alpha, n_x) =
+    heat_step_rec_gf(u, alpha, n_x, 0, [])
+
+let heat_step_rec_gf(u, alpha, n_x, x, u_next) =
+        if x >= n_x
+            u_next
+        else
+            let u_center = u[x]
+            let u_left = (x > 0) ? u[x - 1] : u[0]
+            let u_right = (x < n_x - 1) ? u[x + 1] : u[n_x - 1]
+            let laplacian = gf_add(gf_sub(u_right, gf_mul(2, u_center)), u_left)
+            let u_new = gf_add(u_center, gf_mul(alpha, laplacian))
+            heat_step_rec_gf(u, alpha, n_x, x + 1, append(u_next, u_new))
+
+let wave_equation_gf(u0, u1, c, n_t, n_x) =
+    wave_rec_gf(u0, u1, c, n_t, n_x, 1, [u0, u1])
+
+let wave_rec_gf(u_prev, u_curr, c, n_t, n_x, t, history) =
+        if t >= n_t
+            history
+        else
+            let u_next = wave_step_gf(u_prev, u_curr, c, n_x)
+            wave_rec_gf(u_curr, u_next, c, n_t, n_x, t + 1, append(history, u_next))
+
+let wave_step_gf(u_prev, u_curr, c, n_x) =
+    let c_sq = gf_mul(c, c)
+    wave_step_rec_gf(u_prev, u_curr, c_sq, n_x, 0, [])
+
+let wave_step_rec_gf(u_prev, u_curr, c_sq, n_x, x, u_next) =
+        if x >= n_x
+            u_next
+        else
+            let u_center = u_curr[x]
+            let u_left = (x > 0) ? u_curr[x - 1] : u_curr[0]
+            let u_right = (x < n_x - 1) ? u_curr[x + 1] : u_curr[n_x - 1]
+            let laplacian = gf_add(gf_sub(u_right, gf_mul(2, u_center)), u_left)
+            let u_new = gf_add(gf_sub(gf_mul(2, u_center), u_prev[x]), gf_mul(c_sq, laplacian))
+            wave_step_rec_gf(u_prev, u_curr, c_sq, n_x, x + 1, append(u_next, u_new))
+
+let laplace_equation_gf(u, n_x, n_y) =
+    laplace_solve_gf(u, n_x, n_y, 0, 0, 100)
+
+let laplace_solve_gf(u, n_x, n_y, iter, max_iter, result) =
+        if iter >= max_iter
+            result
+        else
+            let u_new = laplace_jacobi_gf(u, n_x, n_y)
+            laplace_solve_gf(u_new, n_x, n_y, iter + 1, max_iter, u_new)
+
+let laplace_jacobi_gf(u, n_x, n_y) =
+    laplace_jacobi_rec_gf(u, n_x, n_y, 0, 0, u)
+
+let laplace_jacobi_rec_gf(u, n_x, n_y, x, y, u_new) =
+        if x >= n_x
+            u_new
+        else
+            if y >= n_y
+                laplace_jacobi_rec_gf(u, n_x, n_y, x + 1, 0, u_new)
+            else
+                let u_right = (x < n_x - 1) ? u[x + 1][y] : u[x][y]
+                let u_left = (x > 0) ? u[x - 1][y] : u[x][y]
+                let u_up = (y < n_y - 1) ? u[x][y + 1] : u[x][y]
+                let u_down = (y > 0) ? u[x][y - 1] : u[x][y]
+                let sum = gf_add(gf_add(u_right, u_left), gf_add(u_up, u_down))
+                let avg = gf_div(sum, 4)
+                let row = u_new[x]
+                let new_row = [row.slice(0, y), [avg], row.slice(y + 1, len(row))].flat()
+                let u_next = [u_new.slice(0, x), [new_row], u_new.slice(x + 1, len(u_new))].flat()
+                laplace_jacobi_rec_gf(u, n_x, n_y, x, y + 1, u_next)
+
+let schrodinger_gf(H, psi0, n) =
+    schrodinger_rec_gf(H, psi0, 0, n, [psi0])
+
+let schrodinger_rec_gf(H, psi, t, n, history) =
+        if t >= n
+            history
+        else
+            let H_psi = mat_vec_mul_gf(H, psi)
+            let psi_next = vec_add_gf(psi, H_psi)
+            schrodinger_rec_gf(H, psi_next, t + 1, n, append(history, psi_next))
+
+let dirichlet_bvp_gf(f, a, b, L) =
+    let u = init_dirichlet_gf(a, b, L)
+    dirichlet_solve_gf(f, u, L, 0, 100)
+
+let init_dirichlet_gf(a, b, L) =
+    init_dirichlet_rec_gf(a, b, L, 0, [])
+
+let init_dirichlet_rec_gf(a, b, L, x, u) =
+        if x > L
+            u
+        else
+            if x == 0
+                init_dirichlet_rec_gf(a, b, L, x + 1, append(u, a))
+                if x == L
+                    init_dirichlet_rec_gf(a, b, L, xD + 1, append(u, b))
+                else
+                    init_dirichlet_rec_gf(a, b, L, x + 1, append(u, 0))
+
+let dirichlet_solve_gf(f, u, L, iter, max_iter) =
+        if iter >= max_iter
+            u
+        else
+            let u_new = dirichlet_jacobi_gf(f, u, L)
+            dirichlet_solve_gf(f, u_new, L, iter + 1, max_iter)
+
+let dirichlet_jacobi_gf(f, u, L) =
+    dirichlet_jacobi_rec_gf(f, u, L, 1, u)
+
+let dirichlet_jacobi_rec_gf(f, u, L, x, u_new) =
+        if x >= L
+            u_new
+        else
+            let sum = gf_add(u[x + 1], u[x - 1])
+            let rhs = gf_sub(sum, f(x))
+            u_new[x] = gf_div(rhs, 2)
+            dirichlet_jacobi_rec_gf(f, u, L, x + 1, u_new)
+
+let bessel_gf(n, x) =
+        if n == 0
+            bessel_j0_gf(x)
+        else
+            if n == 1
+                bessel_j1_gf(x)
+            else
+                let j_prev = bessel_gf(n - 1, x)
+                let j_prev2 = bessel_gf(n - 2, x)
+                let coeff = gf_div(gf_mul(2, n - 1), x)
+                gf_sub(gf_mul(coeff, j_prev), j_prev2)
+
+let bessel_j0_gf(x) =
+    let x_sq = gf_mul(x, x)
+    gf_pow(3, gf_sub(0, gf_div(x_sq, 4)))
+
+let bessel_j1_gf(x) =
+    let x_half = gf_div(x, 2)
+    let x_sq = gf_mul(x, x)
+    gf_mul(x_half, gf_pow(3, gf_sub(0, gf_div(x_sq, 4))))
+
+let legendre_gf(n, x) =
+        if n == 0
+            1
+        else
+            if n == 1
+                x
+            else
+                let p_prev = legendre_gf(n - 1, x)
+                let p_prev2 = legendre_gf(n - 2, x)
+                let coeff1 = gf_mul(gf_add(gf_mul(2, n), 1), x)
+                let num = gf_sub(gf_mul(coeff1, p_prev), gf_mul(n, p_prev2))
+                gf_div(num, gf_add(n, 1))
+
+let hermite_gf(n, x) =
+        if n == 0
+            1
+        else
+            if n == 1
+                gf_mul(2, x)
+            else
+                let h_prev = hermite_gf(n - 1, x)
+                let h_prev2 = hermite_gf(n - 2, x)
+                gf_sub(gf_mul(gf_mul(2, x), h_prev), gf_mul(gf_mul(2, n - 1), h_prev2))
+
+let lyapunov_stability_gf(V, f, x0, n) =
+    lyapunov_rec_gf(V, f, x0, 0, n, 1)
+
+let lyapunov_rec_gf(V, f, x, t, n, stable) =
+        if t >= n || stable == 0
+            stable
+        else
+            let V_x = V(x)
+            let V_next = V(f(x))
+            let delta_V = gf_sub(V_next, V_x)
+            if V_x > 0 && delta_V < 32768
+                lyapunov_rec_gf(V, f, f(x), t + 1, n, stable)
+            else
+                lyapunov_rec_gf(V, f, f(x), t + 1, n, 0)
+
+let euler_method_gf(f, y0, n) =
+    euler_rec_gf(f, y0, 0, n, [y0])
+
+let euler_rec_gf(f, y, t, n, result) =
+        if t >= n
+            result
+        else
+            let y_next = gf_add(y, f(y, t))
+            euler_rec_gf(f, y_next, t + 1, n, append(result, y_next))
+
+let rk4_gf(f, y0, n) =
+    rk4_rec_gf(f, y0, 0, n, [y0])
+
+let rk4_rec_gf(f, y, t, n, result) =
+        if t >= n
+            result
+        else
+            let k1 = f(y, t)
+            let k2 = f(gf_add(y, gf_div(k1, 2)), gf_add(t, gf_div(1, 2)))
+            let k3 = f(gf_add(y, gf_div(k2, 2)), gf_add(t, gf_div(1, 2)))
+            let k4 = f(gf_add(y, k3), gf_add(t, 1))
+            let sum = gf_add(gf_add(k1, gf_mul(2, k2)), gf_add(gf_mul(2, k3), k4))
+            let y_next = gf_add(y, gf_div(sum, 6))
+            rk4_rec_gf(f, y_next, t + 1, n, append(result, y_next))
+
+let fem_gf(stiffness, load, n) =
+    solve_linear_system_gf(stiffness, load, n)
+
+let solve_linear_system_gf(K, F, n) =
+    gauss_elimination_gf(K, F, n, 0)
+
+let gauss_elimination_gf(K, F, n, i) =
+        if i >= n
+            back_substitution_gf(K, F, n)
+        else
+            let pivoted = pivot_gf(K, F, n, i)
+            let eliminated = eliminate_gf(pivoted[0], pivoted[1], n, i)
+            gauss_elimination_gf(eliminated[0], eliminated[1], n, i + 1)
+
+let pivot_gf(K, F, n, i) =
+    [K, F]
+
+let eliminate_gf(K, F, n, i) =
+    [K, F]
+
+let back_substitution_gf(K, F, n) =
+    back_sub_rec_gf(K, F, n, n - 1, [])
+
+let back_sub_rec_gf(K, F, n, i, x) =
+        if i < 0
+            x
+        else
+            let x_i = gf_div(F[i], K[i][i])
+            back_sub_rec_gf(K, F, n, i - 1, append([x_i], x))
+

@@ -1,0 +1,40 @@
+import "ck.ψ"
+let bad = [0]
+
+let sy_shadow = 0
+let ax_shadow = 13
+bad[0] = bad[0] + ck_hi(sy_shadow, 0)
+bad[0] = bad[0] + ck_lo(ax_shadow, 1)
+
+let ang_t = 72
+let circle_t = 3600
+let segs = circle_t / ang_t
+let dz1 = segs - 50
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let gap = 5000
+let c_st = segs * gap
+let dz2 = c_st - 250000
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let c_dm = c_st * 1575
+let c_km = c_dm / 100 / 100
+let dz3 = c_km - 39375
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let modern_eq = 40075
+let err = modern_eq - c_km
+bad[0] = bad[0] + ck(err, 500, 900)
+bad[0] = bad[0] + ck_lo(err, 0)
+
+let rad_km = c_km * 7 / 44
+let dz4 = rad_km - 6264
+bad[0] = bad[0] + ck(dz4, 0, 0)
+bad[0] = bad[0] + ck(rad_km, 6200, 6300)
+
+if 240 < 230
+    bad[0] = bad[0] + 1
+if 240 > 250
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

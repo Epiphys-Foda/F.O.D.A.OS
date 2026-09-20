@@ -1,0 +1,32 @@
+import "ck.ψ"
+let bad = [0]
+
+let grad = 25
+bad[0] = bad[0] + ck(grad, 20, 30)
+
+let t_surface = 15
+let depth = 10
+let t_rise = grad * depth
+let dz1 = t_rise - 250
+bad[0] = bad[0] + ck(dz1, 0, 0)
+let t_mine = t_surface + t_rise
+bad[0] = bad[0] + ck(t_mine, 250, 280)
+
+let kola_depth = 12
+bad[0] = bad[0] + ck(kola_depth, 11, 13)
+let kola_temp = 180
+bad[0] = bad[0] + ck(kola_temp, 160, 200)
+bad[0] = bad[0] + ck_lo(kola_temp, t_surface)
+
+let iceland_depth = 3
+let iceland_t = grad * iceland_depth
+bad[0] = bad[0] + ck(iceland_t, 60, 90)
+
+if 1992 < 1990
+    bad[0] = bad[0] + 1
+if 1992 > 1994
+    bad[0] = bad[0] + 1
+if 1992 < 1970
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

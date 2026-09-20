@@ -1,0 +1,33 @@
+import "ck.ψ"
+let bad = [0]
+
+let caloric = 0
+bad[0] = bad[0] + ck_hi(caloric, 0)
+
+let m_kg = 1
+let h_m = 427
+bad[0] = bad[0] + ck(h_m, 420, 432)
+
+let j_equiv = 4186
+bad[0] = bad[0] + ck(j_equiv, 4150, 4200)
+let dz1 = j_equiv - 4186
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let q_in = 150
+let w_out = 50
+let d_u = 100
+let dz2 = q_in - w_out - d_u
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+if 1798 < 1796
+    bad[0] = bad[0] + 1
+if 1798 > 1800
+    bad[0] = bad[0] + 1
+if 1845 < 1843
+    bad[0] = bad[0] + 1
+if 1845 > 1847
+    bad[0] = bad[0] + 1
+if 1845 < 1798
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

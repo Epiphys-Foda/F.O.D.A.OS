@@ -1,0 +1,50 @@
+import "ck.ψ"
+let bad = [0]
+
+let f = 100
+let l_m = 2
+let a_mm2 = 1
+let e_steel = 200
+let dl = 1
+let dz1 = dl * a_mm2 * e_steel - f * l_m
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let dl_2f = 2
+let dz2 = dl_2f - dl * 2
+bad[0] = bad[0] + ck(dz2, 0, 0)
+let dl_2l = 2
+let dz3 = dl_2l - dl * 2
+bad[0] = bad[0] + ck(dz3, 0, 0)
+let dl_2a_x10 = 5
+let dz4 = dl_2a_x10 * 2 * a_mm2 * e_steel - f * l_m * 10
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+bad[0] = bad[0] + ck(e_steel, 190, 210)
+let e_copper = 120
+bad[0] = bad[0] + ck(e_copper, 110, 130)
+let e_alu = 70
+bad[0] = bad[0] + ck(e_alu, 65, 75)
+bad[0] = bad[0] + ck_lo(e_steel, e_copper)
+bad[0] = bad[0] + ck_lo(e_copper, e_alu)
+let rubber_x100 = 1
+let ratio = e_steel * 100 / rubber_x100
+let dz5 = ratio - 20000
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let strain_y = 2
+bad[0] = bad[0] + ck(strain_y, 1, 3)
+let poiss = 30
+bad[0] = bad[0] + ck(poiss, 28, 32)
+
+if 1676 < 1674
+    bad[0] = bad[0] + 1
+if 1676 > 1678
+    bad[0] = bad[0] + 1
+if 1807 < 1805
+    bad[0] = bad[0] + 1
+if 1807 > 1809
+    bad[0] = bad[0] + 1
+if 1807 < 1676
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

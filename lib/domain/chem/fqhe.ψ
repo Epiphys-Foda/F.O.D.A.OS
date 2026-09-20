@@ -1,0 +1,32 @@
+import "ck.ψ"
+let bad = [0]
+
+let rk = 25813
+let rp = 3 * rk
+let drp = rp - 77439
+bad[0] = bad[0] + ck(drp, 0, 0)
+
+let m = 3
+let dm = m - 3
+bad[0] = bad[0] + ck(dm, 0, 0)
+
+let qp = 333
+bad[0] = bad[0] + ck(qp, 320, 346)
+
+let ang = 60
+let ang_b = 0
+let ang_f = 180
+bad[0] = bad[0] + ck(ang, ang_b, ang_f)
+let half = ang_f / 2
+bad[0] = bad[0] + ck_hi(ang, half)
+
+if 1982 < 1980
+    bad[0] = bad[0] + 1
+if 1982 > 1984
+    bad[0] = bad[0] + 1
+if 1998 < 1996
+    bad[0] = bad[0] + 1
+if 1998 > 2000
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

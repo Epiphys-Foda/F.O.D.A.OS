@@ -1,0 +1,61 @@
+import "../stdlib/gf65537.ψ"
+
+let shannon_entropy_gf(probabilities) =
+    let entropy = 0
+    for i in 0..len(probabilities)
+        if probabilities[i] != 0
+            entropy = gf_add(entropy, 1)
+    entropy
+
+let conditional_entropy_gf(joint_support, marginal_support) =
+    gf_sub(shannon_entropy_gf(joint_support), shannon_entropy_gf(marginal_support))
+
+let mutual_information_gf(marginal_x, marginal_y, joint_xy) =
+    let H_x = shannon_entropy_gf(marginal_x)
+    let H_y = shannon_entropy_gf(marginal_y)
+    let H_xy = shannon_entropy_gf(joint_xy)
+    gf_sub(gf_add(H_x, H_y), H_xy)
+
+let kl_divergence_gf(P, Q) =
+    let divergence = 0
+    for i in 0..len(P)
+        if P[i] != 0 && Q[i] == 0
+            divergence = gf_add(divergence, 1)
+    divergence
+
+let cross_entropy_gf(P, Q) =
+    gf_add(shannon_entropy_gf(P), kl_divergence_gf(P, Q))
+
+let channel_capacity_gf(transition_matrix, n_inputs, n_outputs) =
+    (n_inputs < n_outputs ? n_inputs : n_outputs)
+
+let rate_distortion_gf(distortion_measure, D_max, n_symbols) =
+    shannon_entropy_gf([1] * n_symbols)
+
+let fisher_information_gf(probabilities, theta) =
+    let F = 0
+    for i in 0..len(probabilities)
+        let f = probabilities[i]
+        let df = gf_sub(f, theta)
+        let contribution = gf_mul(gf_mul(df, df), gf_inv(f))
+        F = gf_add(F, contribution)
+    F
+
+let mdl_gf(model_complexity, data_given_model) =
+    gf_add(model_complexity, data_given_model)
+
+let multiple_access_capacity_gf(n_users, n_outputs) =
+    let total = 0
+    for i in 0..n_users
+        total = gf_add(total, n_outputs)
+    total
+
+let broadcast_capacity_gf(source_rate, n_receivers) =
+    gf_div(source_rate, n_receivers)
+
+let optimal_compression_length_gf(n_symbols, probabilities) =
+    gf_mul(n_symbols, shannon_entropy_gf(probabilities))
+
+let compression_ratio_gf(original_size, compressed_size) =
+    gf_div(original_size, compressed_size)
+

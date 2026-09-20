@@ -1,0 +1,11 @@
+import "../lib/core/stdlib/wasm_interp.ψ"
+
+let compile_src = "fn compile_digit(c) = c - 48\nlet src = [51, 43, 52]\nlet has_add = src[1] == 43\nlet tail = (has_add ? 106 : 11)\nlet w = [65, compile_digit(src[0]), 65, compile_digit(src[2]), tail, 11]\nlet sig = len(w) * 1000 + w[1] * 100 + w[3] * 10 + w[4]\nhost_call(1, sig, 0)"
+let w_compiler = psi_to_wasm(compile_src)
+let sig = wasm_run(w_compiler, 0, 0)
+print(sig)
+
+let exec_src = "fn exec(prog, pc, acc) = born_select(prog[pc] == 11, acc, born_select(prog[pc] == 65, exec(prog, pc + 2, acc + prog[pc + 1]), born_select(prog[pc] == 106, exec(prog, pc + 1, acc), 0)))\nlet r = exec([65, 3, 65, 4, 106, 11], 0, 0)\nhost_call(1, r, 0)"
+let w_exec = psi_to_wasm(exec_src)
+let r = wasm_run(w_exec, 0, 0)
+print(r)

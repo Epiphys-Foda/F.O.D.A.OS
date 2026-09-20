@@ -1,0 +1,91 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let SUSY_N = 1
+let SUSY_MAX_GENERATORS = 4
+
+let superfield_create(n_bosonic, n_fermionic) =
+    let bosonic = []
+    let fermionic = []
+    let i = 0
+    for i < n_bosonic
+        bosonic.push(0)
+        i = i + 1
+    i = 0
+    for i < n_fermionic
+        fermionic.push(0)
+        i = i + 1
+    [bosonic, fermionic, n_bosonic + n_fermionic]
+let superfield_bosonic_part(sf) = sf[0]
+let superfield_fermionic_part(sf) = sf[1]
+let susy_transform(sf, generator) =
+    let bosonic = sf[0]
+    let fermionic = sf[1]
+    let new_bosonic = []
+    let new_fermionic = []
+    let i = 0
+    let n = len(fermionic)
+    for i < n
+        new_bosonic.push(gf_mul(generator[1], fermionic[i]))
+        i = i + 1
+    i = 0
+    n = len(bosonic)
+    for i < n
+        new_fermionic.push(gf_mul(generator[1], bosonic[i]))
+        i = i + 1
+    [new_bosonic, new_fermionic, sf[2]]
+let susy_anticommutator(gen1, gen2) =
+    (gen1[0] == gen2[0] ? 1 : 0)
+let susy_commutator(gen1, gen2) =
+    0
+let superspace_create(x, theta, theta_bar) = [x, theta, theta_bar]
+let superspace_translate(ss, dx, dtheta, dtheta_bar) =
+    [gf_add(ss[0], dx), gf_add(ss[1], dtheta), gf_add(ss[2], dtheta_bar)]
+let superfield_multiply(sf1, sf2) =
+    let b1 = sf1[0]
+    let f1 = sf1[1]
+    let b2 = sf2[0]
+    let f2 = sf2[1]
+    let bosonic = []
+    let fermionic = []
+    let i = 0
+    let n = len(b1)
+    for i < n
+        bosonic.push(gf_mul(b1[i], b2[i]))
+        i = i + 1
+    i = 0
+    n = len(f1)
+    for i < n
+        fermionic.push(gf_add(gf_mul(b1[i], f2[i]), gf_mul(f1[i], b2[i])))
+        i = i + 1
+    [bosonic, fermionic, sf1[2]]
+let r_symmetry_charge(sf, r) =
+    let fermionic = sf[1]
+    let charge = 0
+    let i = 0
+    let n = len(fermionic)
+    for i < n
+        charge = gf_add(charge, gf_mul(r, fermionic[i]))
+        i = i + 1
+    charge
+let field_susy(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = gf_sub(z, pole)
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let susy_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_susy(test_data, 3, 500)
+    let ok = 0
+    if result != 0
+        ok = 1
+    else
+        ok = 0
+    ok

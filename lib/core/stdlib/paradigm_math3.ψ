@@ -1,0 +1,223 @@
+import "gf65537.ψ"
+import "arr.ψ"
+import "linalg_gf.ψ"
+import "paradigm_math.ψ"
+
+let _gf_penta_k(k) =
+    if k >= 0
+      (k * (3 * k - 1)) >> 1
+    let mk = 0 - k
+    (mk * (3 * mk + 1)) >> 1
+let _gf_pn_sign(k) =
+    if (k & 1) == 1
+        1
+    65536
+let _gf_pn_acc(p_table, n, k, acc) =
+    let abs_k = ((k >= 0) ? (k) : (0 - k))
+    if abs_k > n
+        acc
+    let gk = _gf_penta_k(k)
+    if gk > n
+        acc
+    let prev = arr_get(p_table, n - gk)
+    let term = gf_mul(_gf_pn_sign(k), prev)
+    let next_acc = gf_add(acc, term)
+    let next_k = ((k > 0) ? (0 - k) : (1 - k))
+    _gf_pn_acc(p_table, n, next_k, next_acc)
+let _gf_pn_build(p_table, i, limit) =
+    if i >= limit
+        p_table
+    let p_i = _gf_pn_acc(p_table, i, 1, 0)
+    arr_set(p_table, i, p_i)
+    _gf_pn_build(p_table, i + 1, limit)
+let gf_partition_number(n) =
+    if n == 0
+        1
+    if n < 0
+        0
+    let limit = ((n > 256) ? (256) : (n)) + 1
+    let p_table = arr_new_n(limit)
+    arr_set(p_table, 0, 1)
+    let filled = _gf_pn_build(p_table, 1, limit)
+    arr_get(filled, n)
+
+let _gf_polya_sum(group_size, color_count, g, acc) =
+    if g >= group_size
+        acc
+    let cycles = _gf_gcd(g + 1, group_size)
+    if cycles == 0
+        cycles = 1
+    let fix_count = gf_pow(color_count, cycles)
+    _gf_polya_sum(group_size, color_count, g + 1, gf_add(acc, fix_count))
+let gf_polya_count(group_size, color_count) =
+    if group_size == 0
+        0
+    let total = _gf_polya_sum(group_size, color_count, 0, 0)
+    gf_div(total, group_size)
+let _gf_gcd(a, b) =
+    if b == 0
+        a
+    _gf_gcd(b, a % b)
+
+let gf_mutual_info(P_XY) = mat_rank(P_XY)
+
+let _gf_fisher_acc(f_vals, i, n, theta, acc) =
+      if i >= n - 1
+          acc
+      let fi = arr_get(f_vals, i)
+      let fi1 = arr_get(f_vals, i + 1)
+      let df = gf_sub(fi1, fi)
+      let df_sq = gf_mul(df, df)
+      if fi == 0
+        _gf_fisher_acc(f_vals, i + 1, n, theta, acc)
+      else
+        let term = gf_div(df_sq, fi)
+        _gf_fisher_acc(f_vals, i + 1, n, theta, gf_add(acc, term))
+let gf_fisher_info(f_vals, theta) = _gf_fisher_acc(f_vals, 0, arr_len(f_vals), theta, 0)
+
+let _gf_halts_acc(tm_id, state, tape_val, step, max_steps) =
+    if step >= max_steps
+        0
+    if state == 0
+        1
+    if state == 65536
+        1
+    let next = host_call(tm_id, state, tape_val)
+    if next == state
+        1
+    _gf_halts_acc(tm_id, next, tape_val, step + 1, max_steps)
+let gf_halts(tm_transitions, max_steps) = _gf_halts_acc(tm_transitions, 1, 0, 0, max_steps)
+
+let _gf_nfa_to_dfa_acc(nfa_states, alphabet_size, visited, queue_pos, max_dfa) =
+    if queue_pos >= max_dfa
+        visited
+    if visited >= max_dfa
+        visited
+    let upper = ((nfa_states < 16) ? (1 << nfa_states) : (65537))
+    let new_visited = visited + alphabet_size
+    let capped = ((new_visited > upper) ? (upper) : (new_visited))
+    if capped <= visited
+        visited
+    _gf_nfa_to_dfa_acc(nfa_states, alphabet_size, capped, queue_pos + 1, max_dfa)
+let gf_nfa_to_dfa(nfa_states, alphabet_size) =
+    if nfa_states == 0
+        1
+    if nfa_states >= 16
+        65537
+    let upper = 1 << nfa_states
+    let max_dfa = ((upper > 65537) ? (65537) : (upper))
+    _gf_nfa_to_dfa_acc(nfa_states, alphabet_size, 1, 0, max_dfa)
+
+let _gf_ra_check_node(interference_graph, colors, i, n, num_regs) =
+    if i >= n
+        1
+    _gf_ra_try_color(interference_graph, colors, i, n, num_regs, 1)
+let _gf_ra_try_color(interference_graph, colors, i, n, num_regs, c) =
+    if c > num_regs
+        0
+    let conflict = _gf_ra_has_conflict(interference_graph, colors, i, n, c, 0)
+    if conflict == 0
+      arr_set(colors, i, c)
+      let ok = _gf_ra_check_node(interference_graph, colors, i + 1, n, num_regs)
+      if ok == 1
+          1
+      arr_set(colors, i, 0)
+    _gf_ra_try_color(interference_graph, colors, i, n, num_regs, c + 1)
+let _gf_ra_has_conflict(interference_graph, colors, i, n, c, j) =
+    if j >= n
+        0
+    if j == i
+        _gf_ra_has_conflict(interference_graph, colors, i, n, c, j + 1)
+    let edge = mat_get(interference_graph, i, j)
+    if edge != 0
+      if arr_get(colors, j) == c
+          1
+    _gf_ra_has_conflict(interference_graph, colors, i, n, c, j + 1)
+let gf_register_alloc(interference_graph, num_regs) =
+    let n = mat_rows(interference_graph)
+    let colors = arr_new_n(n)
+    _gf_ra_check_node(interference_graph, colors, 0, n, num_regs)
+
+let _gf_alias_find(parent, x) =
+    if arr_get(parent, x) == x
+        x
+    _gf_alias_find(parent, arr_get(parent, x))
+let _gf_alias_union(parent, x, y) =
+    let rx = _gf_alias_find(parent, x)
+    let ry = _gf_alias_find(parent, y)
+    if rx != ry
+      arr_set(parent, ry, rx)
+    parent
+let _gf_alias_scan(parent, M, i, n) =
+    if i >= n
+        parent
+    _gf_alias_scan_row(parent, M, i, i + 1, n)
+let _gf_alias_scan_row(parent, M, i, j, n) =
+      if j >= n
+        _gf_alias_scan(parent, M, i + 1, n)
+      else
+        if mat_get(M, i, j) != 0
+          let p = _gf_alias_union(parent, i, j)
+          _gf_alias_scan_row(p, M, i, j + 1, n)
+        else
+          _gf_alias_scan_row(parent, M, i, j + 1, n)
+let _gf_alias_count_roots(parent, i, n, count) =
+      if i >= n
+          count
+      if arr_get(parent, i) == i
+        _gf_alias_count_roots(parent, i + 1, n, count + 1)
+      else
+        _gf_alias_count_roots(parent, i + 1, n, count)
+let _gf_alias_init_parent(parent, i, n) =
+    if i >= n
+        parent
+    arr_set(parent, i, i)
+    _gf_alias_init_parent(parent, i + 1, n)
+let gf_alias_analysis(ptr_aliases) =
+    let n = mat_rows(ptr_aliases)
+    if n == 0
+        0
+    let parent = _gf_alias_init_parent(arr_new_n(n), 0, n)
+    let merged = _gf_alias_scan(parent, ptr_aliases, 0, n)
+    _gf_alias_count_roots(merged, 0, n, 0)
+
+let gf_algebraic_entropy(rho) = mat_rank(rho)
+
+let gf_entangled(rho_AB) =
+    let d = mat_det(rho_AB)
+    if d == 0
+        0
+    1
+
+let _gf_path_acc(S_vals, r, i, n, acc) =
+    if i >= n
+        acc
+    let s_val = arr_get(S_vals, i)
+    let term = gf_pow(r, s_val)
+    _gf_path_acc(S_vals, r, i + 1, n, gf_add(acc, term))
+let gf_path_integral(S_vals, fields) =
+    let r = 256
+    _gf_path_acc(S_vals, r, 0, arr_len(S_vals), 0)
+
+let _gf_gen_eval_child(p1, p2, mask) =
+    let mid = gf_div(gf_add(p1, p2), 2)
+    mid ^ mask
+let _gf_gen_gen_acc(f_vals, pop_size, gen, gens, best_idx, best_val) =
+      if gen >= gens
+          best_idx
+      let mask = gen + 1
+      let p1 = arr_get(f_vals, 0)
+      let p2 = arr_get(f_vals, best_idx)
+      let child = _gf_gen_eval_child(p1, p2, mask)
+      if gf_sub(child, best_val) > 32768
+        _gf_gen_gen_acc(f_vals, pop_size, gen + 1, gens, best_idx, best_val)
+      else
+        _gf_gen_gen_acc(f_vals, pop_size, gen + 1, gens, best_idx, child)
+let gf_genetic_gf(f_vals, pop_size, gens) =
+    let best_idx = 0
+    let best_val = arr_get(f_vals, 0)
+    _gf_gen_gen_acc(f_vals, pop_size, 0, gens, best_idx, best_val)
+    best_idx
+
+let paradigm_math3_layer_id() = 83
+let paradigm_math3_module_count() = 12

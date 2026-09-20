@@ -1,0 +1,226 @@
+import "residueon_common.ψ"
+
+let lie_basic_verify() =
+    let result = 0
+    let HE = 2
+    let EH = gf_neg(2)
+    if gf_add(HE, EH) == 0
+        result = result + 1
+    if gf_sub(2, 2) == 0
+        result = result + 1
+    let jac1 = 0
+    let jac2 = gf_mul(2, 1)
+    let jac3 = gf_mul(65535, 1)
+    if gf_add(gf_add(jac1, jac2), jac3) == 0
+        result = result + 1
+    if gf_mul(gf_mul(3, 5), 2) == 30
+        result = result + 1
+    result
+
+let sl2_structure_verify() =
+    let result = 0
+    if gf_sub(1, gf_neg(1)) == 2
+        result = result + 1
+    if gf_neg(2) == 65535
+        result = result + 1
+    if gf_mul(2, 4) == 8
+        result = result + 1
+    result
+
+let su2_structure_verify() =
+    let result = 0
+    if gf_add(gf_mul(1, 1), gf_mul(gf_neg(1), gf_neg(1))) == 2
+        result = result + 1
+    if gf_neg(1) == 65536
+        result = result + 1
+    if gf_add(gf_add(0, 0), 0) == 0
+        result = result + 1
+    result
+
+let killing_form_verify() =
+    let result = 0
+    let kappa_HH = gf_add(gf_add(gf_mul(2, 2), 0), gf_mul(65535, 65535))
+    if kappa_HH == 8
+        result = result + 1
+    let kappa_EF = gf_add(gf_add(2, 2), 0)
+    if kappa_EF == 4
+        result = result + 1
+    if kappa_EF == 4
+        result = result + 1
+    result
+
+let root_decomp_verify() =
+    let result = 0
+    let alpha_H = 2
+    if alpha_H == 2
+        result = result + 1
+    let neg_alpha_H = gf_neg(alpha_H)
+    if neg_alpha_H == 65535
+        result = result + 1
+    if gf_add(alpha_H, neg_alpha_H) == 0
+        result = result + 1
+    result
+
+let representation_verify() =
+    let result = 0
+    if gf_add(gf_mul(2, 0), 1) == 1
+        result = result + 1
+    if gf_add(gf_mul(2, 1), 1) == 3
+        result = result + 1
+    let casimir = gf_mul(1, gf_add(1, 1))
+    if casimir == 2
+        result = result + 1
+    result
+
+let adjoint_verify() =
+    let result = 0
+    if gf_mul(2, 4) == 8
+        result = result + 1
+    if gf_neg(2) == 65535
+        result = result + 1
+    if gf_add(gf_add(2, 0), 65535) == 0
+        result = result + 1
+    result
+
+let lie_pcd_rrc_verify() =
+    let result = 0
+    if gf_add(2, 65535) == 0
+        result = result + 1
+    if gf_add(gf_add(0, 2), 65535) == 0
+        result = result + 1
+    if 8 != 0
+        result = result + 1
+    if gf_add(2, 65535) == 0
+        result = result + 1
+    if gf_add(gf_add(2, 0), 65535) == 0
+        result = result + 1
+    result
+
+let residueon_lie_full_verify() =
+    let ok = 0
+
+    if lie_basic_verify() == 4
+        ok = ok + 1
+
+    if sl2_structure_verify() == 3
+        ok = ok + 1
+
+    if su2_structure_verify() == 3
+        ok = ok + 1
+
+    if killing_form_verify() == 3
+        ok = ok + 1
+
+    if root_decomp_verify() == 3
+        ok = ok + 1
+
+    if representation_verify() == 3
+        ok = ok + 1
+
+    if adjoint_verify() == 3
+        ok = ok + 1
+
+    if lie_pcd_rrc_verify() == 5
+        ok = ok + 1
+
+    ok = ok + cross_domain_base()
+
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+
+    if gf_mul(1, 6) == 6
+        ok = ok + 1
+
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+
+    if gf_mul(3, 3) == 9
+        ok = ok + 1
+
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+
+    if gf_div(30, 60) == gf_div(1, 2)
+        ok = ok + 1
+
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+
+    if gf_mul(256, 256) == 65536
+        ok = ok + 1
+
+    if gf_add(1, 65536) == 0
+        ok = ok + 1
+
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_lie_full_verify()

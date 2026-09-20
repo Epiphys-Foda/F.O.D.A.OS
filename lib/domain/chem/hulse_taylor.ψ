@@ -1,0 +1,27 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let pOrb = 775
+bad[0] = bad[0] + ck(pOrb, 770, 780)
+
+let pObs = 24184
+bad[0] = bad[0] + ck(pObs, 23800, 24600)
+
+let pGR = 24025
+bad[0] = bad[0] + ck(pGR, 23800, 24300)
+
+let ratio = small_div(pObs * 1000, pGR)
+bad[0] = bad[0] + ck(ratio, 990, 1010)
+
+let shrink = 35
+bad[0] = bad[0] + ck(shrink, 30, 40)
+
+let dP = 24184 - 24025
+bad[0] = bad[0] + ck_hi(dP, 242)
+
+let mtot = 144 + 139
+bad[0] = bad[0] + ck(mtot, 275, 290)
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,230 @@
+import "../../compiler/bootstrap/str_ops.ψ"
+import "fs.ψ"
+let WASM_I32_CONST = 65
+let WASM_I64_CONST = 66
+let WASM_END = 11
+
+let WASM_LOCAL_GET = 32
+let WASM_LOCAL_SET = 33
+let WASM_DROP = 26
+
+let WASM_I32_ADD = 106
+let WASM_I32_SUB = 107
+let WASM_I32_MUL = 108
+let WASM_I32_DIV_S = 109
+let WASM_I32_REM_U = 111
+
+let WASM_I32_AND = 113
+let WASM_I32_OR = 114
+let WASM_I32_XOR = 115
+let WASM_I32_SHL = 116
+let WASM_I32_SHR_S = 117
+let WASM_I32_SHR_U = 118
+
+let WASM_I32_EQ = 70
+let WASM_I32_NE = 71
+let WASM_I32_LT_S = 72
+let WASM_I32_GT_S = 74
+
+let WASM_SELECT = 27
+
+let WASM_I32_LOAD = 40
+let WASM_I32_STORE = 54
+
+let uleb128(value) =
+    let result = []
+    let v = value
+    let done = false
+    for !done
+      let v2 = v / 128
+      let byte = v - v2 * 128
+      if v2 == 0
+        result = result.push(byte)
+        done = true
+      else
+        result = result.push(byte + 128)
+        v = v2
+    result
+
+let sleb128(value) =
+    let result = []
+    let v = value
+    let done = false
+    for !done
+      let v2 = v / 128
+      let byte = v - v2 * 128
+      let sign_bit = byte
+      let stop_positive = (v2 == 0) && (sign_bit < 64)
+      let stop_negative = (v2 == -1) && (sign_bit >= 64)
+      if stop_positive || stop_negative
+        result = result.push(sign_bit)
+        done = true
+      else
+        result = result.push(sign_bit + 128)
+        v = v2
+    result
+
+let wasm_section(id, payload) = [[id], uleb128(len(payload)), payload].flat()
+
+let wasm_type_section() =
+    let sig = [96, 2, 127, 127, 1, 127]
+    let payload = [[1], sig].flat()
+    wasm_section(1, payload)
+
+let wasm_function_section() =
+    let payload = [1, 0]
+    wasm_section(3, payload)
+
+let wasm_export_section(name) =
+    let name_bytes = str_bytes(name)
+    let name_len = uleb128(len(name_bytes))
+    let one_export = [name_len, name_bytes, [0, 0]].flat()
+    let payload = [[1], one_export].flat()
+    wasm_section(7, payload)
+
+let arc_gf_mul_wasm() = [
+      WASM_LOCAL_GET, 0,
+      WASM_LOCAL_GET, 1,
+      WASM_I32_MUL,
+      WASM_I32_CONST,
+      sleb128(65537),
+      WASM_I32_REM_U,
+      WASM_END
+    ].flat()
+
+let arc_clifford_wasm() = [
+      WASM_LOCAL_GET, 0,
+      WASM_LOCAL_GET, 1,
+      WASM_I32_XOR,
+      WASM_LOCAL_GET, 0,
+      WASM_LOCAL_GET, 1,
+      WASM_I32_OR,
+      WASM_I32_AND,
+      WASM_END
+    ]
+
+let arc_born_select_wasm() = [
+      WASM_LOCAL_GET, 0,
+      WASM_LOCAL_GET, 1,
+      WASM_LOCAL_GET, 0,
+      WASM_SELECT,
+      WASM_END
+    ]
+
+let arc_ntt_butterfly_wasm() = [
+      WASM_LOCAL_GET, 0,
+      WASM_LOCAL_GET, 1,
+      WASM_I32_ADD,
+      WASM_LOCAL_GET, 0,
+      WASM_LOCAL_GET, 1,
+      WASM_I32_SUB,
+      WASM_I32_OR,
+      WASM_END
+    ]
+
+let arc_hebbian_wasm() = [
+      WASM_LOCAL_GET, 0,
+      WASM_LOCAL_GET, 1,
+      WASM_I32_ADD,
+      WASM_END
+    ]
+
+let arc_compare_lt_wasm() = [
+      WASM_LOCAL_GET, 0,
+      WASM_LOCAL_GET, 1,
+      WASM_I32_LT_S,
+      WASM_END
+    ]
+
+let arc_shift_left_wasm() = [
+      WASM_LOCAL_GET, 0,
+      WASM_LOCAL_GET, 1,
+      WASM_I32_SHL,
+      WASM_END
+    ]
+
+let emit_i32_load(align, offset) = [
+      WASM_I32_LOAD,
+      uleb128(align),
+      uleb128(offset)
+    ].flat()
+
+let emit_i32_store(align, offset) = [
+      WASM_I32_STORE,
+      uleb128(align),
+      uleb128(offset)
+    ].flat()
+
+let arc_hebbian_mem_wasm() =
+    let part1 = [
+      WASM_I32_CONST, 0,
+      WASM_I32_CONST, 0,
+      emit_i32_load(2, 0),
+      WASM_LOCAL_GET, 0,
+      WASM_LOCAL_GET, 1,
+      WASM_I32_MUL,
+      WASM_I32_ADD
+    ].flat()
+    let part2 = [
+      emit_i32_store(2, 0),
+      WASM_I32_CONST, 0,
+      emit_i32_load(2, 0),
+      WASM_END
+    ].flat()
+    [part1, part2].flat()
+
+let wasm_code_section(body_bytes) =
+    let local_decl = [0]
+    let func_body = [local_decl, body_bytes].flat()
+    let func_size = uleb128(len(func_body))
+    let one_func = [func_size, func_body].flat()
+    let payload = [[1], one_func].flat()
+    wasm_section(10, payload)
+
+let wasm_memory_section() =
+    let payload = [[1], uleb128(0), uleb128(130)].flat()
+    wasm_section(5, payload)
+
+let build_wasm_module(op_body, export_name) =
+    let magic = [0, 97, 115, 109]
+    let version = [1, 0, 0, 0]
+    let type_sec = wasm_type_section()
+    let func_sec = wasm_function_section()
+    let mem_sec = wasm_memory_section()
+    let export_sec = wasm_export_section(export_name)
+    let code_sec = wasm_code_section(op_body)
+    [magic, version, type_sec, func_sec, mem_sec, export_sec, code_sec].flat()
+
+let compile_gf_mul_wasm() = build_wasm_module(arc_gf_mul_wasm(), "gf_mul")
+
+let compile_clifford_wasm() = build_wasm_module(arc_clifford_wasm(), "clifford")
+
+let compile_born_select_wasm() = build_wasm_module(arc_born_select_wasm(), "born_select")
+
+let compile_ntt_butterfly_wasm() = build_wasm_module(arc_ntt_butterfly_wasm(), "ntt_butterfly")
+
+let compile_hebbian_wasm() = build_wasm_module(arc_hebbian_wasm(), "hebbian")
+
+let compile_compare_lt_wasm() = build_wasm_module(arc_compare_lt_wasm(), "compare_lt")
+
+let compile_shift_left_wasm() = build_wasm_module(arc_shift_left_wasm(), "shift_left")
+
+let compile_hebbian_mem_wasm() = build_wasm_module(arc_hebbian_mem_wasm(), "hebbian_mem")
+
+let save_gf_mul_wasm(path) = wasm_save(compile_gf_mul_wasm(), path)
+let save_clifford_wasm(path) = wasm_save(compile_clifford_wasm(), path)
+let save_born_select_wasm(path) = wasm_save(compile_born_select_wasm(), path)
+let save_ntt_butterfly_wasm(path) = wasm_save(compile_ntt_butterfly_wasm(), path)
+let save_hebbian_wasm(path) = wasm_save(compile_hebbian_wasm(), path)
+let save_compare_lt_wasm(path) = wasm_save(compile_compare_lt_wasm(), path)
+let save_shift_left_wasm(path) = wasm_save(compile_shift_left_wasm(), path)
+let save_hebbian_mem_wasm(path) = wasm_save(compile_hebbian_mem_wasm(), path)
+
+let gf_mul_wasm_len() = compile_gf_mul_wasm().len()
+let clifford_wasm_len() = compile_clifford_wasm().len()
+let born_select_wasm_len() = compile_born_select_wasm().len()
+let ntt_butterfly_wasm_len() = compile_ntt_butterfly_wasm().len()
+let hebbian_wasm_len() = compile_hebbian_wasm().len()
+let compare_lt_wasm_len() = compile_compare_lt_wasm().len()
+let shift_left_wasm_len() = compile_shift_left_wasm().len()
+let hebbian_mem_wasm_len() = compile_hebbian_mem_wasm().len()

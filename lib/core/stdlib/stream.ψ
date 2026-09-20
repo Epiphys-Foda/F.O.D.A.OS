@@ -1,0 +1,141 @@
+let stream_new(head, step_id, state) =
+    [head, step_id, state]
+
+let stream_head(s) =
+    s[0]
+
+let stream_tail(s) =
+    stream_step(s[1], s)
+
+let stream_map_apply(transform_id, v) =
+    v
+let stream_filter_apply(predicate_id, v) =
+    1
+
+let stream_step(step_id, s) =
+    if step_id == 1
+        stream_enumerate(s[2][0] + s[2][1], s[2][1])
+    else
+        if step_id == 2
+            stream_constant(s[2][0])
+        else
+            if step_id == 3
+                stream_fibonacci_from(s[2][1], s[2][0] + s[2][1])
+            else
+                if step_id == 4
+                    stream_map_from(stream_tail(s[2][0]), s[2][1])
+                else
+                    if step_id == 5
+                        stream_filter_from(stream_tail(s[2][0]), s[2][1])
+                    else
+                        if step_id == 6
+                            stream_zip_from(stream_tail(s[2][0]), stream_tail(s[2][1]))
+                        else
+                            if step_id == 7
+                                stream_sieve_next(s[2][0], s[2][1])
+                            else
+                                stream_constant(0)
+
+let stream_enumerate(start, step) =
+    stream_new(start, 1, [start, step])
+let stream_naturals() =
+    stream_enumerate(1, 1)
+let stream_integers() =
+    stream_enumerate(0, 1)
+let stream_constant(val) =
+    stream_new(val, 2, [val])
+let stream_fibonacci_from(a, b) =
+    stream_new(a, 3, [a, b])
+let stream_fibonacci() =
+    stream_fibonacci_from(1, 1)
+let stream_map_from(s, transform_id) =
+    stream_new(stream_map_apply(transform_id, stream_head(s)), 4, [s, transform_id])
+let stream_zip_from(s1, s2) =
+    stream_new([stream_head(s1), stream_head(s2)], 6, [stream_tail(s1), stream_tail(s2)])
+let stream_sieve_next(primes, candidate) =
+    let is_prime = 1
+    let i = 0
+    let n = primes.len()
+    for i < n
+        if candidate % primes[i] == 0
+            is_prime = 0
+            i = n
+        i = i + 1
+    if is_prime
+        stream_new(candidate, 7, [arr_concat(primes, [candidate]), candidate + 1])
+    else
+        stream_sieve_next(primes, candidate + 1)
+let stream_primes() =
+    stream_new(2, 7, [[2], 3])
+
+let stream_map(s, transform_id) =
+    stream_map_from(s, transform_id)
+
+let stream_filter(s, predicate_id) =
+    stream_filter_from(s, predicate_id)
+let stream_filter_from(s, predicate_id) =
+    if stream_filter_apply(predicate_id, stream_head(s)) != 0
+        stream_new(stream_head(s), 5, [s, predicate_id])
+    else
+        stream_filter_from(stream_tail(s), predicate_id)
+
+let stream_take(s, n) =
+    let result = []
+    let current = s
+    let i = 0
+    for i < n
+        result = arr_concat(result, [stream_head(current)])
+        current = stream_tail(current)
+        i = i + 1
+    result
+
+let stream_sum(s, n) =
+    let total = 0
+    let current = s
+    let i = 0
+    for i < n
+        total = total + stream_head(current)
+        current = stream_tail(current)
+        i = i + 1
+    total
+
+let stream_product(s, n) =
+    let total = 1
+    let current = s
+    let i = 0
+    for i < n
+        total = total * stream_head(current)
+        current = stream_tail(current)
+        i = i + 1
+    total
+
+let stream_reduce(s, n, f, init) =
+    let acc = init
+    let current = s
+    let i = 0
+    for i < n
+        acc = f(acc, stream_head(current))
+        current = stream_tail(current)
+        i = i + 1
+    acc
+
+let stream_scan(s, n, f, init) =
+    let result = [init]
+    let acc = init
+    let current = s
+    let i = 0
+    for i < n
+        acc = f(acc, stream_head(current))
+        result = arr_concat(result, [acc])
+        current = stream_tail(current)
+        i = i + 1
+    result
+
+let main() =
+    let first5 = stream_take(stream_naturals(), 5)
+    print(first5[0])
+    print(first5[4])
+    let fibs = stream_take(stream_fibonacci(), 7)
+    print(fibs[6])
+    print(stream_sum(stream_integers(), 10))
+    0

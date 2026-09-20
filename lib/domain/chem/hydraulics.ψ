@@ -1,0 +1,36 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let f1 = 200
+let a1 = 1
+let p = small_div(f1, a1)
+bad[0] = bad[0] + ck(p, 190, 210)
+
+let a2 = 100
+let f2 = small_div(p * a2, 1)
+bad[0] = bad[0] + ck(f2, 19000, 21000)
+
+let w_in = f1 * 100
+let w_out = f2 * 1
+if w_out != w_in
+    bad[0] = bad[0] + 1
+
+let f_pedal = 400
+let a_master = 2
+let p_brake = small_div(f_pedal, a_master)
+let f_wheel = small_div(p_brake * 20, 1)
+bad[0] = bad[0] + ck(f_wheel, 3900, 4100)
+
+bad[0] = bad[0] + ck_lo(f_wheel, f_pedal)
+
+let p_tower = small_div(9810 * 50, 1000)
+bad[0] = bad[0] + ck(p_tower, 470, 510)
+
+if 1647 < 1645
+    bad[0] = bad[0] + 1
+if 1647 > 1649
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

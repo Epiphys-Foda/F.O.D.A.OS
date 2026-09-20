@@ -1,0 +1,199 @@
+import "../stdlib/gf65537.ψ"
+import "../stdlib/algebraic_replacements.ψ"
+import "../stdlib/numtheor.ψ"
+
+let create_operator(n) =
+    [gf_add(n, 1), gf_add(n, 1)]
+
+let annihilate_operator(n) =
+        if n == 0
+            [0, 0]
+        else
+            [gf_sub(n, 1), n]
+
+let number_operator(n) =
+    n
+
+let coherent_coeff(alpha, n) =
+    let alpha_n = gf_pow(alpha, n)
+    let n_fact = gf_factorial(n)
+    gf_div(alpha_n, n_fact)
+
+let coherent_state(alpha, n_max) =
+    let coeffs = [0] * n_max
+    for n in 0..n_max
+        coeffs[n] = coherent_coeff(alpha, n)
+    coeffs
+
+let coherent_inner_product(alpha, beta, n_max) =
+    let ab = gf_mul(alpha, beta)
+    let result = 0
+    for n in 0..n_max
+        let term = gf_div(gf_pow(ab, n), gf_mul(gf_factorial(n), gf_factorial(n)))
+        result = gf_add(result, term)
+    result
+
+let squeeze_coeff(r, n) =
+    gf_div(gf_pow(r, n), gf_factorial(n))
+
+let squeezed_vacuum(r, n_max) =
+    let coeffs = [0] * (2 * n_max)
+    for n in 0..n_max
+        coeffs[2 * n] = squeeze_coeff(r, n)
+    coeffs
+
+let squeeze_parameter(r_int, theta_step) =
+    [r_int, gf_pow(3, theta_step)]
+
+let beam_splitter_5050() =
+    let t = gf_inv(4080)
+    [
+        [t, t],
+        [t, gf_neg(t)]
+    ]
+
+let beam_splitter(t, r) =
+    [
+        [t, r],
+        [gf_neg(r), t]
+    ]
+
+let beam_splitter_action(bs_matrix, psi_in) =
+    mat_vec_mul(bs_matrix, psi_in)
+
+let mat_vec_mul(mat, vec) =
+    let n = len(vec)
+    let result = [0] * n
+    for i in 0..n
+        let s = 0
+        for j in 0..n
+            s = gf_add(s, gf_mul(mat[i][j], vec[j]))
+        result[i] = s
+    result
+
+let phase_shifter(phi, n) =
+    gf_pow(3, gf_mul(n, phi))
+
+let phase_shifter_matrix(phi, n_max) =
+    let mat = [0] * n_max
+    for i in 0..n_max
+        let row = [0] * n_max
+        row[i] = phase_shifter(phi, i)
+        mat[i] = row
+    mat
+
+let hom_coincidence(delta_phi) =
+    let cos_2phi = gf_cos(gf_mul(2, delta_phi))
+    gf_div(gf_add(cos_2phi, 1), 2)
+
+let hom_dip() =
+    hom_coincidence(0)
+
+let wigner_function(rho, x, p, y_max) =
+    let inv_pi = gf_inv(52011)
+    let result = 0
+    for y in 0..y_max
+        let phase = gf_pow(3, gf_neg(gf_mul(gf_mul(2, p), y)))
+        let x_plus_y = gf_add(x, y)
+        let x_minus_y = gf_sub(x, y)
+        let rho_elem = rho[x_plus_y][x_minus_y]
+        result = gf_add(result, gf_mul(phase, rho_elem))
+    gf_mul(inv_pi, result)
+
+let is_nonclassical(wigner_val) =
+    (wigner_val > 32768 ? 1 : 0)
+
+let quantum_fisher_info(h_squared, h_mean_squared) =
+    let variance = gf_sub(h_squared, h_mean_squared)
+    gf_mul(4, variance)
+
+let cramer_rao_bound(fisher_info, m_measurements) =
+    gf_inv(gf_mul(m_measurements, fisher_info))
+
+let heisenberg_limit(n_photons) =
+    gf_inv(n_photons)
+
+let standard_quantum_limit(n_photons) =
+    let sqrt_n = gf_sqrt(n_photons)
+    gf_inv(sqrt_n)
+
+let metrology_advantage(n_photons) =
+    let sql = standard_quantum_limit(n_photons)
+    let hl = heisenberg_limit(n_photons)
+    gf_div(sql, hl)
+
+let noon_state(n_photons) =
+    let inv_sqrt2 = gf_inv(4080)
+    [inv_sqrt2, inv_sqrt2]
+
+let noon_phase_sensitivity(n_photons) =
+    heisenberg_limit(n_photons)
+
+let entanglement_witness() =
+    let inv_sqrt2 = gf_inv(4080)
+    let inv2 = gf_inv(2)
+    [
+        [1, 0, 0, 0],
+        [0, gf_neg(gf_mul(inv_sqrt2, inv_sqrt2)), gf_neg(inv2), 0],
+        [0, gf_neg(inv2), gf_neg(gf_mul(inv_sqrt2, inv_sqrt2)), 0],
+        [0, 0, 0, 1]
+    ]
+
+let is_entangled(witness, rho) =
+    let trace = 0
+    for i in 0..4
+        trace = gf_add(trace, gf_mul(witness[i][i], rho[i][i]))
+    (trace > 32768 ? 1 : 0)
+
+let tsirelson_bound() =
+    gf_mul(2, 4080)
+
+let chsh_value(e_ab, e_abp, e_apb, e_apbp) =
+    gf_sub(
+        gf_add(gf_add(e_ab, e_abp), e_apb),
+        e_apbp
+    )
+
+let bell_test(chsh_val) =
+        let classical_bound = 2
+        let quantum_bound = tsirelson_bound()
+        if chsh_val > classical_bound
+            if chsh_val <= quantum_bound
+                1
+            else
+                2
+        else
+            0
+
+let klm_cnot() =
+    [
+        [1, 0, 0, 0],
+        [0, 1, 0, 0],
+        [0, 0, 0, 1],
+        [0, 0, 1, 0]
+    ]
+
+let optical_circuit(beam_splitters, phase_shifters, psi_input) =
+    let psi = psi_input
+    for i in 0..len(beam_splitters)
+        psi = mat_vec_mul(beam_splitters[i], psi)
+    for i in 0..len(phase_shifters)
+        psi = mat_vec_mul(phase_shifters[i], psi)
+    psi
+
+let photon_detection(psi, n) =
+    let amp = psi[n]
+    gf_mul(amp, amp)
+
+let two_mode_squeezed_vacuum(r, n_max) =
+    let coeffs = [0] * n_max
+    for n in 0..n_max
+        coeffs[n] = gf_div(gf_pow(r, n), gf_factorial(n))
+    coeffs
+
+let entanglement_entropy(tmsv_coeffs) =
+    let rank = 0
+    for i in 0..len(tmsv_coeffs)
+        if tmsv_coeffs[i] != 0
+            rank = rank + 1
+    rank

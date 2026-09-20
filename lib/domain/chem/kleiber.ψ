@@ -1,0 +1,46 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let m3h = 70 * 70 * 70
+let r1 = isqrt(m3h)
+let kh = isqrt(r1)
+bad[0] = bad[0] + ck(kh, 23, 26)
+
+let b_h = 70 * kh
+bad[0] = bad[0] + ck(b_h, 1550, 1850)
+
+let m3e = 5000 * 5000 * 5000
+let r1e = isqrt(m3e)
+let ke = isqrt(r1e)
+bad[0] = bad[0] + ck(ke, 580, 610)
+
+let b_e = 70 * ke
+bad[0] = bad[0] + ck(b_e, 40000, 43000)
+
+let m3m = 8000000
+let r1m = isqrt(m3m)
+let km = isqrt(r1m)
+let b_m = small_div(70 * km, 1000)
+bad[0] = bad[0] + ck(b_m, 2, 5)
+
+bad[0] = bad[0] + ck_lo(b_e, b_h)
+bad[0] = bad[0] + ck_lo(b_h, b_m)
+
+let hb_y = 525600
+let bm1 = small_div(600 * hb_y * 3, 10000)
+let bm = small_div(bm1, 1000)
+let be1 = small_div(30 * hb_y * 70, 10000)
+let be = small_div(be1, 1000)
+bad[0] = bad[0] + ck(bm, 50, 150)
+bad[0] = bad[0] + ck(be, 50, 150)
+if be > 2 * bm
+    bad[0] = bad[0] + 1
+
+if 1932 < 1930
+    bad[0] = bad[0] + 1
+if 1932 > 1934
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

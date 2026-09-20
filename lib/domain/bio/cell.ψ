@@ -1,0 +1,80 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let CELL_GLY_POLES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+let CELL_GLY_RESIDUES = [1670, 170, 1420, 2380, 750, 630, 1850, 440, 180, 3140]
+
+let psi_cell_glycolysis(step) =
+    let val = 0
+    let k = 0
+    for k < 10
+        let diff = gf_sub(gf_norm(step), gf_norm(CELL_GLY_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(CELL_GLY_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let CELL_TCA_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let CELL_TCA_RESIDUES = [3140, 1330, 800, 3350, 290, 0, 380, 2970]
+
+let psi_cell_tca(step) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(step), gf_norm(CELL_TCA_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(CELL_TCA_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let CELL_OXP_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let CELL_OXP_RESIDUES = [250, 150, 250, 100, 100, 50, 50, 80]
+
+let psi_cell_oxphos(complex_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(complex_idx), gf_norm(CELL_OXP_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(CELL_OXP_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let CELL_ATP_BASE = 3200
+let CELL_ATP_SCALE1 = 100
+let CELL_ATP_SCALE2 = 100
+let CELL_ATP_SCALE3 = 10
+
+let cell_fit_ATP_yield(gly_step, tca_step, oxp_idx) =
+    let g_term = gf_div(psi_cell_glycolysis(gly_step), CELL_ATP_SCALE1)
+    let t_term = gf_div(psi_cell_tca(tca_step), CELL_ATP_SCALE2)
+    let o_term = gf_div(psi_cell_oxphos(oxp_idx), CELL_ATP_SCALE3)
+    gf_add(gf_add(gf_add(CELL_ATP_BASE, g_term), t_term), o_term)
+
+let CELL_FLUX_BASE = 1000
+let CELL_FLUX_SCALE1 = 100
+let CELL_FLUX_SCALE2 = 100
+let CELL_FLUX_SCALE3 = 10
+
+let cell_fit_metabolic_flux(gly_step, tca_step, oxp_idx) =
+    let g_term = gf_div(psi_cell_glycolysis(gly_step), CELL_FLUX_SCALE1)
+    let t_term = gf_div(psi_cell_tca(tca_step), CELL_FLUX_SCALE2)
+    let o_term = gf_div(psi_cell_oxphos(oxp_idx), CELL_FLUX_SCALE3)
+    gf_add(gf_add(gf_add(CELL_FLUX_BASE, g_term), t_term), o_term)
+
+let CELL_EC_BASE = 500
+let CELL_EC_SCALE1 = 1000
+let CELL_EC_SCALE2 = 1000
+let CELL_EC_SCALE3 = 100
+
+let cell_fit_energy_charge(gly_step, tca_step, oxp_idx) =
+    let g_term = gf_div(psi_cell_glycolysis(gly_step), CELL_EC_SCALE1)
+    let t_term = gf_div(psi_cell_tca(tca_step), CELL_EC_SCALE2)
+    let o_term = gf_div(psi_cell_oxphos(oxp_idx), CELL_EC_SCALE3)
+    gf_add(gf_add(gf_add(CELL_EC_BASE, g_term), t_term), o_term)
+
+let cell_global_response(gly_step, tca_step, oxp_idx) =
+    let e1 = psi_cell_glycolysis(gly_step)
+    let e2 = psi_cell_tca(tca_step)
+    let e3 = psi_cell_oxphos(oxp_idx)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+

@@ -1,0 +1,151 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let extract_residue(poles, residues, n, z_k) =
+    let i = 0
+    for i < n
+        if poles[i] == z_k
+            residues[i]
+        i = i + 1
+    0
+
+let perturb_poles(poles, n, delta, out) =
+    let i = 0
+    for i < n
+        let noise = (delta * (i + 1)) % 65537
+        out[i] = (poles[i] + noise) % 65537
+        i = i + 1
+
+let compute_result(residues, n) =
+    let sum = 0
+    let i = 0
+    for i < n
+        sum = (sum + residues[i]) % 65537
+        i = i + 1
+    sum
+
+let nand_soliton(a, b, z1, z2) =
+    let residue = a * b * gf_inv(z1 + 65537 - z2)
+    let product = residue * (z1 + 65537 - z2)
+    gf_sub(1, product)
+
+let main() =
+    print(111)
+    let n = 3
+    let poles = arr_new_n(n)
+    poles[0] = 100
+    poles[1] = 200
+    poles[2] = 300
+    let residues = arr_new_n(n)
+    residues[0] = 10
+    residues[1] = 20
+    residues[2] = 30
+
+    let r_orig = compute_result(residues, n)
+    print(r_orig)
+
+    let perturbed_poles = arr_new_n(n)
+    perturb_poles(poles, n, 5, perturbed_poles)
+    let r_pert = compute_result(residues, n)
+    print(r_pert)
+
+    let fault_ok = 0
+    if r_orig == r_pert
+        fault_ok = 1
+    print(fault_ok)
+
+    print(222)
+    let val_orig = field_eval(500, poles, residues, n)
+    let val_pert = field_eval(500, perturbed_poles, residues, n)
+    print(val_orig)
+    print(val_pert)
+    let val_diff = gf_sub(val_orig, val_pert)
+    print(val_diff)
+
+    print(333)
+    let z1 = 100
+    let z2 = 200
+    let nand_orig = nand_soliton(1, 1, z1, z2)
+    print(nand_orig)
+
+    let delta = 1
+    for delta <= 5
+        let z1p = gf_add(z1, delta)
+        let z2p = (z2 + delta * 2) % 65537
+        let nand_pert = nand_soliton(1, 1, z1p, z2p)
+        print(nand_pert)
+        delta = delta + 1
+
+    print(444)
+    let r0 = extract_residue(poles, residues, n, 100)
+    let r1 = extract_residue(poles, residues, n, 200)
+    let r2 = extract_residue(poles, residues, n, 300)
+    print(r0)
+    print(r1)
+    print(r2)
+
+    let r0p = residues[0]
+    let r1p = residues[1]
+    let r2p = residues[2]
+    print(r0p)
+    print(r1p)
+    print(r2p)
+
+    let invariant_ok = 0
+    if r0 == r0p
+        if r1 == r1p
+            if r2 == r2p
+                invariant_ok = 1
+    print(invariant_ok)
+
+    print(555)
+    let all_ok = 1
+    let d = 0
+    for d < 10
+        let pp = arr_new_n(n)
+        perturb_poles(poles, n, d, pp)
+        let r_d = compute_result(residues, n)
+        if r_d != r_orig
+            all_ok = 0
+        d = d + 1
+    print(all_ok)
+
+    print(666)
+    let test_a = arr_new_n(4)
+    test_a[0] = 0
+    test_a[1] = 0
+    test_a[2] = 1
+    test_a[3] = 1
+    let test_b = arr_new_n(4)
+    test_b[0] = 0
+    test_b[1] = 1
+    test_b[2] = 0
+    test_b[3] = 1
+
+    let t = 0
+    for t < 4
+        let a = test_a[t]
+        let b = test_b[t]
+        let n0 = nand_soliton(a, b, 100, 200)
+        let n1 = nand_soliton(a, b, 105, 210)
+        let n2 = nand_soliton(a, b, 110, 220)
+        print(n0)
+        print(n1)
+        print(n2)
+        t = t + 1
+
+    print(777)
+    let total = 0
+    let robust = 0
+    let da = 0
+    for da < 20
+        let z1d = gf_add(100, da)
+        let z2d = (200 + da * 3) % 65537
+        let nd = nand_soliton(1, 1, z1d, z2d)
+        total = total + 1
+        if nd == nand_orig
+            robust = robust + 1
+        da = da + 1
+    print(total)
+    print(robust)
+
+    fault_ok

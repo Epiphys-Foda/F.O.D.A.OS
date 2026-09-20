@@ -1,0 +1,397 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let e2 = 197327 / 137
+let de2 = e2 - 1440
+bad[0] = bad[0] + de2 * de2
+let ac_th = 3 * e2 * 1000 / 6000
+let dac = ac_th - 720
+bad[0] = bad[0] + dac * dac
+let devc = ac_th - 714
+let adevc =
+    if devc < 0
+        0 - devc
+    else
+        devc
+let tc = adevc - 10
+let w1c =
+    if tc < 0
+        0 - tc
+    else
+        tc
+bad[0] = bad[0] + ck_hi(adevc, 10)
+
+let term = 3 * 98696 * 160 * 1000000 / 100 / 100 / 100 / 20
+let dterm = term - 2368704
+bad[0] = bad[0] + dterm * dterm
+let two3 = icbrt(term * term)
+let dtw = two3 - 17769
+bad[0] = bad[0] + dtw * dtw
+let TF = 20730 * two3 / 100 / 100
+let dtf = TF - 36835
+bad[0] = bad[0] + dtf * dtf
+let skin = TF / 3
+let dsk = skin - 12278
+bad[0] = bad[0] + dsk * dsk
+let aath = 2 * skin
+let daa = aath - 24556
+bad[0] = bad[0] + daa * daa
+let sk1 = skin - 12300
+let ask1 =
+    if sk1 < 0
+        0 - sk1
+    else
+        sk1
+let tsk = ask1 - 100
+let wsk =
+    if tsk < 0
+        0 - tsk
+    else
+        tsk
+bad[0] = bad[0] + ck_hi(ask1, 100)
+
+let M = 20
+let N = 3
+let first = [1]
+let prev_rem = [0]
+let mgerr = [0]
+for N < 8
+    let cap = (N + 1) * (N + 2)
+    let lift = 2 * N + 2
+    let rem = cap - lift
+    if first[0] > 0
+        M = M + lift
+        first[0] = 0
+    else
+        M = M + prev_rem[0] + lift
+    prev_rem[0] = rem
+    let t3 = N - 3
+    let a3 =
+        if t3 < 0
+            0 - t3
+        else
+            t3
+    if a3 < 1
+        let e3 = M - 28
+        mgerr[0] = mgerr[0] + e3 * e3
+    let t4 = N - 4
+    let a4 =
+        if t4 < 0
+            0 - t4
+        else
+            t4
+    if a4 < 1
+        let e4 = M - 50
+        mgerr[0] = mgerr[0] + e4 * e4
+    let t5 = N - 5
+    let a5 =
+        if t5 < 0
+            0 - t5
+        else
+            t5
+    if a5 < 1
+        let e5 = M - 82
+        mgerr[0] = mgerr[0] + e5 * e5
+    let t6 = N - 6
+    let a6 =
+        if t6 < 0
+            0 - t6
+        else
+            t6
+    if a6 < 1
+        let e6 = M - 126
+        mgerr[0] = mgerr[0] + e6 * e6
+    let t7 = N - 7
+    let a7 =
+        if t7 < 0
+            0 - t7
+        else
+            t7
+    if a7 < 1
+        let e7 = M - 184
+        mgerr[0] = mgerr[0] + e7 * e7
+    N = N + 1
+bad[0] = bad[0] + mgerr[0]
+
+let vl1 = [
+    [1, 1, 1], [2, 1, 1], [3, 2, 2], [4, 2, 2], [6, 3, 3], [7, 3, 3],
+    [9, 4, 4], [10, 5, 5], [11, 5, 5], [12, 6, 6], [13, 6, 6], [14, 7, 7],
+    [15, 7, 7], [16, 8, 8]
+]
+let vl2 = [
+    [17, 8, 8], [18, 8, 8], [19, 9, 9], [20, 10, 10], [21, 10, 10], [22, 10, 10],
+    [23, 11, 11], [24, 12, 12], [25, 12, 12], [26, 12, 12], [27, 13, 13], [28, 14, 14],
+    [29, 14, 14], [30, 14, 14]
+]
+let vl3 = [
+    [31, 15, 15], [32, 16, 16], [33, 16, 16], [34, 16, 16], [35, 17, 17], [36, 16, 18],
+    [37, 17, 17], [38, 18, 18], [39, 19, 19], [40, 18, 20], [41, 19, 19], [42, 20, 20],
+    [43, 20, 20], [44, 20, 20]
+]
+let vl4 = [
+    [45, 21, 21], [46, 20, 22], [47, 22, 22], [48, 22, 22], [49, 22, 22], [50, 22, 24],
+    [51, 23, 23], [52, 24, 24], [53, 24, 24], [54, 24, 26], [55, 25, 25], [56, 26, 26],
+    [57, 26, 26], [58, 26, 28]
+]
+let vl5 = [
+    [59, 27, 27], [60, 28, 28], [61, 28, 28], [62, 28, 28], [63, 29, 29], [64, 28, 30],
+    [65, 29, 29], [66, 30, 30], [67, 30, 30], [68, 30, 30], [69, 31, 31], [70, 30, 32],
+    [71, 31, 31], [72, 32, 32]
+]
+let vl6 = [
+    [73, 32, 32], [74, 32, 34], [75, 33, 33], [76, 34, 34], [77, 34, 34], [78, 34, 36],
+    [79, 35, 35], [80, 34, 36], [81, 35, 35], [82, 36, 36], [83, 36, 36], [84, 36, 38],
+    [85, 37, 37], [86, 36, 38]
+]
+let vl7 = [
+    [87, 38, 38], [88, 38, 38], [89, 39, 39], [90, 40, 40], [91, 40, 40], [92, 40, 42],
+    [93, 41, 41], [94, 40, 42], [95, 42, 42], [96, 42, 44], [97, 42, 42], [98, 42, 44],
+    [99, 44, 44], [100, 44, 44]
+]
+let vl8 = [
+    [101, 44, 44], [102, 44, 46], [103, 45, 45], [104, 44, 46], [105, 46, 46], [106, 46, 48],
+    [107, 47, 47], [108, 46, 48], [109, 47, 47], [110, 46, 48], [111, 48, 48], [112, 48, 50],
+    [113, 49, 49], [114, 48, 50]
+]
+let vl9 = [
+    [115, 50, 50], [116, 50, 50], [117, 50, 50], [118, 50, 50], [119, 50, 50], [120, 50, 52],
+    [121, 51, 51], [122, 50, 52], [123, 51, 52], [124, 50, 52], [125, 52, 52], [126, 52, 54],
+    [127, 53, 53], [128, 54, 54]
+]
+let vl10 = [
+    [129, 54, 54], [130, 54, 54], [131, 54, 54], [132, 54, 56], [133, 55, 55], [134, 54, 56],
+    [135, 56, 56], [136, 56, 58], [137, 56, 56], [138, 56, 58], [139, 57, 57], [140, 58, 58],
+    [141, 59, 59], [142, 58, 60]
+]
+let vl11 = [
+    [143, 60, 60], [144, 62, 62], [145, 60, 60], [146, 60, 60], [148, 60, 60], [149, 62, 62],
+    [150, 62, 62], [152, 62, 62], [153, 63, 63], [154, 62, 64], [155, 64, 64], [156, 64, 66],
+    [157, 64, 64], [158, 64, 66]
+]
+let vl12 = [
+    [159, 65, 65], [160, 64, 66], [161, 66, 66], [162, 66, 68], [163, 66, 66], [164, 66, 68],
+    [165, 67, 67], [166, 68, 68], [167, 68, 68], [168, 68, 70], [169, 69, 69], [170, 68, 70],
+    [171, 70, 70], [172, 70, 70]
+]
+let vl13 = [
+    [173, 70, 70], [174, 70, 70], [175, 71, 71], [176, 70, 72], [177, 72, 72], [178, 72, 72],
+    [179, 72, 72], [180, 72, 73], [181, 73, 73], [182, 74, 74], [183, 74, 74], [184, 74, 74],
+    [185, 75, 75], [186, 74, 74]
+]
+let vl14 = [
+    [187, 76, 76], [188, 76, 76], [189, 76, 76], [190, 76, 76], [191, 77, 77], [192, 76, 78],
+    [193, 77, 77], [194, 78, 78], [195, 78, 78], [196, 78, 80], [197, 79, 79], [198, 78, 80],
+    [199, 80, 80], [200, 80, 80]
+]
+let vl15 = [
+    [201, 80, 80], [202, 80, 80], [203, 81, 81], [204, 80, 82], [205, 81, 81], [206, 82, 82],
+    [207, 82, 82], [208, 82, 82]
+]
+let valley_chunks = [vl1, vl2, vl3, vl4, vl5, vl6, vl7, vl8, vl9, vl10, vl11, vl12, vl13, vl14, vl15]
+let valley_chunks_lens2 = [14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 8]
+let valley_chunks_lens1 = [14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 8]
+
+let parfit = [0]
+let oddwfit = [0]
+let even2fit = [0]
+let ci1 = 0
+for ci1 < 15
+    let cx1 = ci1 * 1
+    let ch1 = valley_chunks[cx1]
+    let L1 = valley_chunks_lens1[cx1]
+    let pi1 = 0
+    for pi1 < L1
+        let px1 = pi1 * 1
+        let v = ch1[px1]
+        let a = v[0]
+        let zmin = v[1]
+        let zmax = v[2]
+        let R = icbrt(a * 1000000000)
+        let T = icbrt(a * 1000000)
+        let aR = a * R
+        let base = 15800000 * aR - 1830 * T * T * aR
+        let SQ = isqrt(a * 1000000000000)
+        let zlo = small_div(a, 3) - 2
+        if zlo < 1
+            zlo = 1
+        let zhi = small_div(a, 2) + 3
+        let h = small_div(a, 2)
+        let h2 = h * 2
+        let isp = 0
+        let tq = h2 - a + 1
+        if tq > 0
+            let tr = a - h2 + 1
+            if tr > 0
+                isp = 1
+        if isp > 0
+            let i = small_div(zlo, 2)
+            let i1 = small_div(zhi, 2)
+            let b1 = 0 - 1000000000000000000
+            let z1 = 0
+            let b2 = 0 - 1000000000000000000
+            let z2 = 0
+            let be = 0 - 1000000000000000000
+            let bo = 0 - 1000000000000000000
+            for i < i1 + 1
+                let z = 2 * i
+                let ao = a - 2 * z
+                let b = base - 714000000 * z * z * a - 23200000 * ao * ao * R
+                if b > b1
+                    b2 = b1
+                    z2 = z1
+                    b1 = b
+                    z1 = z
+                else
+                    if b > b2
+                        b2 = b
+                        z2 = z
+                if b > be
+                    be = b
+                let zo = z + 1
+                let ao2 = a - 2 * zo
+                let bo2 = base - 714000000 * zo * zo * a - 23200000 * ao2 * ao2 * R
+                if bo2 > bo
+                    bo = bo2
+                i = i + 1
+            let dbp = be - bo
+            let dp = dbp * SQ + 24000000000000 * aR
+            if dp > 0
+                parfit[0] = parfit[0] + 1
+            if a > 14
+                let m1 = zeq(z1, zmin) + zeq(z2, zmin)
+                let m2 = zeq(z1, zmax) + zeq(z2, zmax)
+                if m1 > 0
+                    if m2 > 0
+                        even2fit[0] = even2fit[0] + 1
+        if isp < 1
+            let i = small_div(zlo, 2)
+            let i1 = small_div(zhi, 2)
+            let bb = 0 - 1000000000000000000
+            let zz = 0
+            for i < i1 + 1
+                let z = 2 * i + 1
+                let ao = a - 2 * z
+                let b = base - 714000000 * z * z * a - 23200000 * ao * ao * R
+                if b > bb
+                    bb = b
+                    zz = z
+                i = i + 1
+            let w1 = zz - zmin + 2
+            let w2 = zmax - zz + 2
+            if w1 > 0
+                if w2 > 0
+                    oddwfit[0] = oddwfit[0] + 1
+        pi1 = pi1 + 1
+    ci1 = ci1 + 1
+let dparfit = parfit[0] - 101
+bad[0] = bad[0] + dparfit * dparfit
+let dodfit = oddwfit[0] - 98
+bad[0] = bad[0] + dodfit * dodfit
+let devfit = even2fit[0] - 85
+bad[0] = bad[0] + devfit * devfit
+
+let parder = [0]
+let oddwder = [0]
+let even2der = [0]
+let ci1 = 0
+for ci1 < 15
+    let cx1 = ci1 * 1
+    let ch1 = valley_chunks[cx1]
+    let L1 = valley_chunks_lens1[cx1]
+    let pi1 = 0
+    for pi1 < L1
+        let px1 = pi1 * 1
+        let v = ch1[px1]
+        let a = v[0]
+        let zmin = v[1]
+        let zmax = v[2]
+        let R = icbrt(a * 1000000000)
+        let T = icbrt(a * 1000000)
+        let aR = a * R
+        let base = 15800000 * aR - 1830 * T * T * aR
+        let SQ = isqrt(a * 1000000000000)
+        let zlo = small_div(a, 3) - 2
+        if zlo < 1
+            zlo = 1
+        let zhi = small_div(a, 2) + 3
+        let h = small_div(a, 2)
+        let h2 = h * 2
+        let isp = 0
+        let tq = h2 - a + 1
+        if tq > 0
+            let tr = a - h2 + 1
+            if tr > 0
+                isp = 1
+        if isp > 0
+            let i = small_div(zlo, 2)
+            let i1 = small_div(zhi, 2)
+            let b1 = 0 - 1000000000000000000
+            let z1 = 0
+            let b2 = 0 - 1000000000000000000
+            let z2 = 0
+            let be = 0 - 1000000000000000000
+            let bo = 0 - 1000000000000000000
+            for i < i1 + 1
+                let z = 2 * i
+                let ao = a - 2 * z
+                let b = base - 720000000 * z * z * a - 24556000 * ao * ao * R
+                if b > b1
+                    b2 = b1
+                    z2 = z1
+                    b1 = b
+                    z1 = z
+                else
+                    if b > b2
+                        b2 = b
+                        z2 = z
+                if b > be
+                    be = b
+                let zo = z + 1
+                let ao2 = a - 2 * zo
+                let bo2 = base - 720000000 * zo * zo * a - 24556000 * ao2 * ao2 * R
+                if bo2 > bo
+                    bo = bo2
+                i = i + 1
+            let dbp = be - bo
+            let dp = dbp * SQ + 24000000000000 * aR
+            if dp > 0
+                parder[0] = parder[0] + 1
+            if a > 14
+                let m1 = zeq(z1, zmin) + zeq(z2, zmin)
+                let m2 = zeq(z1, zmax) + zeq(z2, zmax)
+                if m1 > 0
+                    if m2 > 0
+                        even2der[0] = even2der[0] + 1
+        if isp < 1
+            let i = small_div(zlo, 2)
+            let i1 = small_div(zhi, 2)
+            let bb = 0 - 1000000000000000000
+            let zz = 0
+            for i < i1 + 1
+                let z = 2 * i + 1
+                let ao = a - 2 * z
+                let b = base - 720000000 * z * z * a - 24556000 * ao * ao * R
+                if b > bb
+                    bb = b
+                    zz = z
+                i = i + 1
+            let w1 = zz - zmin + 2
+            let w2 = zmax - zz + 2
+            if w1 > 0
+                if w2 > 0
+                    oddwder[0] = oddwder[0] + 1
+        pi1 = pi1 + 1
+    ci1 = ci1 + 1
+let dparder = parder[0] - 101
+bad[0] = bad[0] + dparder * dparder
+let dodder = oddwder[0] - 98
+bad[0] = bad[0] + dodder * dodder
+let devder = even2der[0] - 89
+bad[0] = bad[0] + devder * devder
+
+let win = even2der[0] - even2fit[0]
+bad[0] = bad[0] + ck_lo(win, 1)
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,75 @@
+import "ck.ψ"
+let bad = [0]
+
+let e_full = 3793550
+let e35 = 2276130
+let dz1 = e35 * 5 - e_full * 3
+bad[0] = bad[0] + ck(dz1, 0, 0)
+bad[0] = bad[0] + ck(e_full, 3700000, 3900000)
+
+let l = 3828
+bad[0] = bad[0] + ck(l, 3700, 3900)
+let t_s = 595
+bad[0] = bad[0] + ck(t_s, 570, 620)
+let t_kh = 19
+bad[0] = bad[0] + ck(t_kh, 15, 25)
+
+let age_earth = 4530
+bad[0] = bad[0] + ck(age_earth, 4500, 4600)
+bad[0] = bad[0] + ck_lo(age_earth, t_kh)
+let t_ms = 10000
+bad[0] = bad[0] + ck(t_ms, 9000, 11000)
+bad[0] = bad[0] + ck_lo(t_ms, age_earth)
+
+let h4 = 40313
+let he4 = 40026
+let du = 287
+let dz2 = h4 - he4 - du
+bad[0] = bad[0] + ck(dz2, 0, 0)
+let mrate = 4259
+bad[0] = bad[0] + ck(mrate, 4200, 4300)
+let h_rate = 608430
+bad[0] = bad[0] + ck(h_rate, 600000, 620000)
+
+let wall_kev = 1440
+bad[0] = bad[0] + ck(wall_kev, 1400, 1500)
+let kt_ev = 1300
+bad[0] = bad[0] + ck(kt_ev, 1200, 1500)
+let ratio = wall_kev * 1000 / kt_ev
+bad[0] = bad[0] + ck(ratio, 1000, 1200)
+bad[0] = bad[0] + ck_lo(ratio, 100)
+
+if 1854 < 1852
+    bad[0] = bad[0] + 1
+if 1854 > 1856
+    bad[0] = bad[0] + 1
+if 1862 < 1860
+    bad[0] = bad[0] + 1
+if 1862 > 1864
+    bad[0] = bad[0] + 1
+if 1862 < 1854
+    bad[0] = bad[0] + 1
+if 1920 < 1918
+    bad[0] = bad[0] + 1
+if 1920 > 1922
+    bad[0] = bad[0] + 1
+if 1920 < 1862
+    bad[0] = bad[0] + 1
+if 1928 < 1926
+    bad[0] = bad[0] + 1
+if 1928 > 1930
+    bad[0] = bad[0] + 1
+if 1939 < 1937
+    bad[0] = bad[0] + 1
+if 1939 > 1941
+    bad[0] = bad[0] + 1
+if 1939 < 1928
+    bad[0] = bad[0] + 1
+if 1956 < 1954
+    bad[0] = bad[0] + 1
+if 1956 > 1958
+    bad[0] = bad[0] + 1
+if 1956 < 1939
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

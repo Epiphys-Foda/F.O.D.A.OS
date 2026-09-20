@@ -1,0 +1,212 @@
+let RF_P = 65537
+
+let array(n) = 0
+
+let rf_add(a, b) = (a + b) % RF_P
+let rf_sub(a, b) = (a - b + RF_P) % RF_P
+let rf_mul(a, b) =
+    let r = 0
+    let x = a % RF_P
+    let y = b % RF_P
+    for y > 0
+        if y % 2 == 1
+            r = (r + x) % RF_P
+        x = (x + x) % RF_P
+        y = y / 2
+    r
+let rf_neg(a) = (RF_P - a) % RF_P
+
+let rf_inv(a) =
+    if a == 0
+        0
+    else
+        let inv = 1
+        let base = a
+        let exp = RF_P - 2
+        for exp > 0
+            if exp % 2 == 1
+                inv = rf_mul(inv, base)
+            base = rf_mul(base, base)
+            exp = exp / 2
+        inv
+
+let rf_div(a, b) = rf_mul(a, rf_inv(b))
+
+let rf_add_field(f1, f2) =
+    let n1 = f1[2]
+    let n2 = f2[2]
+    let poles = array_new(n1 + n2)
+    let residues = array_new(n1 + n2)
+    let n = 0
+
+    let i = 0
+    for i < n1
+        poles[i] = f1[0][i]
+        residues[i] = f1[1][i]
+        i = i + 1
+    n = n1
+
+    let j = 0
+    for j < n2
+        let z = f2[0][j]
+        let r = f2[1][j]
+        let found = 0
+        let k = 0
+        for k < n
+            if poles[k] == z
+                residues[k] = rf_add(residues[k], r)
+                found = 1
+                k = n
+            k = k + 1
+        if found == 0
+            poles[n] = z
+            residues[n] = r
+            n = n + 1
+        j = j + 1
+
+    { poles: poles, residues: residues, n: n }
+
+let rf_scalar_mul(c, f) =
+    let poles = array_new(f[2])
+    let residues = array_new(f[2])
+    let i = 0
+    for i < f[2]
+        poles[i] = f[0][i]
+        residues[i] = rf_mul(c, f[1][i])
+        i = i + 1
+    { poles: poles, residues: residues, n: f[2] }
+
+let rf_neg_field(f) =
+    rf_scalar_mul(rf_neg(1), f)
+
+let rf_sub_field(f1, f2) =
+    rf_add_field(f1, rf_neg_field(f2))
+
+let rf_const(f) =
+    if len(f) >= 4
+        f[3]
+    else
+        0
+
+let rf_compose(f1, f2) =
+    if f2[2] == 1
+        let b = f2[0][0]
+        let s = f2[1][0]
+        let n1 = f1[2]
+        let poles = array_new(n1)
+        let residues = array_new(n1)
+        let cacc = 0
+        let i = 0
+        for i < n1
+            let pi = f1[0][i]
+            let ri = f1[1][i]
+            if pi == 0
+                poles[i] = 0
+                residues[i] = 0
+                cacc = rf_add(cacc, rf_mul(rf_neg(ri), rf_mul(b, rf_inv(s))))
+            else
+                let pi_inv = rf_inv(pi)
+                poles[i] = rf_add(b, rf_mul(s, pi_inv))
+                residues[i] = rf_mul(rf_mul(rf_neg(ri), s), rf_mul(pi_inv, pi_inv))
+                cacc = rf_add(cacc, rf_mul(rf_neg(ri), pi_inv))
+            i = i + 1
+        [poles, residues, n1, cacc]
+    else
+        let empty_p = array_new(0)
+        let empty_r = array_new(0)
+        [empty_p, empty_r, 0, 0]
+
+let rf_compose_single(a, r, f2) =
+    let p1 = array_new(1)
+    p1[0] = a
+    let r1 = array_new(1)
+    r1[0] = r
+    rf_compose([p1, r1, 1], f2)
+
+let rf_inverse_single(f) =
+        if f[2] == 1
+            let r = f[1][0]
+            let a = f[0][0]
+            let r_inv = rf_inv(r)
+            [r_inv, rf_mul(rf_neg(a), r_inv)]
+        else
+            [0, 0]
+
+let rf_eval(f, z) =
+    let result = 0
+    let i = 0
+    for i < f[2]
+        let diff = rf_sub(z, f[0][i])
+        if diff != 0
+            let term = rf_mul(f[1][i], rf_inv(diff))
+            result = rf_add(result, term)
+        i = i + 1
+    result
+
+let rf_eval_derivative(f, z) =
+    let result = 0
+    let i = 0
+    for i < f[2]
+        let diff = rf_sub(z, f[0][i])
+        if diff != 0
+            let diff2 = rf_mul(diff, diff)
+            let term = rf_mul(f[1][i], rf_inv(diff2))
+            result = rf_sub(result, term)
+        i = i + 1
+    result
+
+let rf_mul_field(f1, f2) =
+
+    let max_n = f1[2] * f2[2] * 2
+    let poles = array_new(max_n)
+    let residues = array_new(max_n)
+    let n = 0
+
+    let i = 0
+    for i < f1[2]
+        let j = 0
+        for j < f2[2]
+            let zi = f1[0][i]
+            let wj = f2[0][j]
+            let ri = f1[1][i]
+            let sj = f2[1][j]
+            let rs = rf_mul(ri, sj)
+
+            if zi != wj
+                let coeff = rf_mul(rs, rf_inv(rf_sub(wj, zi)))
+                let k = 0
+                let found = 0
+                for k < n
+                    if poles[k] == zi
+                        residues[k] = rf_add(residues[k], coeff)
+                        found = 1
+                        k = n
+                    k = k + 1
+                if found == 0
+                    poles[n] = zi
+                    residues[n] = coeff
+                    n = n + 1
+                let k2 = 0
+                let found2 = 0
+                for k2 < n
+                    if poles[k2] == wj
+                        residues[k2] = rf_sub(residues[k2], coeff)
+                        found2 = 1
+                        k2 = n
+                    k2 = k2 + 1
+                if found2 == 0
+                    poles[n] = wj
+                    residues[n] = rf_neg(coeff)
+                    n = n + 1
+            j = j + 1
+        i = i + 1
+
+    { poles: poles, residues: residues, n: n }
+
+let rf_check_add_commutative(f1, f2, z) =
+    let lhs = rf_eval(rf_add_field(f1, f2), z)
+    let rhs = rf_eval(rf_add_field(f2, f1), z)
+    lhs == rhs
+
+let array_new(n) = arr_new_n(n)
+

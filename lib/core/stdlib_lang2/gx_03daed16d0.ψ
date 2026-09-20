@@ -1,0 +1,14 @@
+let entry_verify(e6) =
+    let KB = arr_new_n(4)
+    KB[0] = e6[0] + 1
+    KB[1] = e6[1] + 1
+    KB[2] = e6[2]
+    KB[3] = e6[3] + 1
+    let f1 = 0
+    if rrns_chain(KB, 4, P) == e6[4]
+        f1 = 1
+    let f2 = 0
+    if rrns_chain(KB, 4, 131071) == e6[5]
+        f2 = 1
+    f1 + f2
+

@@ -1,0 +1,69 @@
+import "ck.ψ"
+let bad = [0]
+
+let dz1 = 21 * 60 - 1260
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let dz2 = 15 * 93 - 1395
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let dz3 = 27 * 81 - 2187
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let a1 = 1 + 2 + 6
+let l1 = a1 + 0
+let b1 = 2 + 1 + 6
+let r1 = b1 + 0
+let dz4 = l1 - r1
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let a2 = 1 + 4 + 36
+let l2 = a2 + 0
+let b2 = 4 + 1 + 36
+let r2 = b2 + 0
+let dz5 = l2 - r2
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let a3 = 1 + 8 + 216
+let l3 = a3 + 0
+let b3 = 8 + 1 + 216
+let r3 = b3 + 0
+let dz6 = l3 - r3
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+let l5 = 1 + 3 + 9 + 5
+let r5 = 1 + 5 + 9 + 3
+let dz7 = l5 - r5
+bad[0] = bad[0] + ck(dz7, 0, 0)
+
+let l6 = 1 + 9 + 81 + 25
+let r6 = 1 + 25 + 81 + 9
+let dz8 = l6 - r6
+bad[0] = bad[0] + ck(dz8, 0, 0)
+
+let l7 = 2 + 1 + 8 + 7
+let r7 = 2 + 7 + 8 + 1
+let dz9 = l7 - r7
+bad[0] = bad[0] + ck(dz9, 0, 0)
+
+let l8 = 4 + 1 + 64 + 49
+let r8 = 4 + 49 + 64 + 1
+let dz10 = l8 - r8
+bad[0] = bad[0] + ck(dz10, 0, 0)
+
+let p5 = 13 * 97
+let dz11 = p5 - 1261
+bad[0] = bad[0] + ck(dz11, 0, 0)
+
+let l9 = 1 + 2 + 6 + 1
+let r9 = 1 + 3 + 9 + 7
+let gap = l9 - r9
+let dz12 = gap + 10
+bad[0] = bad[0] + ck(dz12, 0, 0)
+
+if 1994 < 1992
+    bad[0] = bad[0] + 1
+if 1994 > 1996
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

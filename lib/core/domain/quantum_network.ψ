@@ -1,0 +1,113 @@
+import "../stdlib/gf65537.ψ"
+
+let entanglement_fidelity_gf(psi, rho) =
+    gf_mul(gf_mul(psi, rho), psi)
+
+let epr_pair_gf() =
+    [1, 0, 0, 1]
+
+let entanglement_distribution_gf(source, target, channel_fidelity) =
+    let epr = epr_pair_gf()
+    let fidelity = entanglement_fidelity_gf(epr, channel_fidelity)
+    [source, target, fidelity]
+
+let quantum_teleportation_gf(state_alpha, state_beta) =
+    let epr = epr_pair_gf()
+    let bell_result = gf_mul(state_alpha, state_beta)
+    let corrected_alpha = state_alpha
+    let corrected_beta = state_beta
+    [corrected_alpha, corrected_beta]
+
+let teleportation_fidelity_gf(channel_fidelity) =
+    channel_fidelity
+
+let dense_coding_capacity_gf() =
+    2
+
+let classical_channel_capacity_gf(transition_matrix, n_inputs, n_outputs) =
+    (n_inputs < n_outputs ? n_inputs : n_outputs)
+
+let quantum_channel_capacity_gf(channel, n_qubits) =
+    n_qubits
+
+let entanglement_assisted_capacity_gf(n_qubits) =
+    gf_mul(2, n_qubits)
+
+let entanglement_swapping_gf(F1, F2) =
+    gf_mul(F1, F2)
+
+let entanglement_swapping_chain_gf(fidelities) =
+    let F_total = 1
+    for i in 0..len(fidelities)
+        F_total = gf_mul(F_total, fidelities[i])
+    F_total
+
+let entanglement_distillation_rate_gf(k_epr, n_input) =
+    gf_div(k_epr, n_input)
+
+let distillation_efficiency_gf(input_fidelity, output_fidelity) =
+    gf_div(output_fidelity, input_fidelity)
+
+let quantum_relay_error_gf(epsilon, n_relays) =
+    gf_pow(gf_inv(epsilon), n_relays)
+
+let relay_chain_fidelity_gf(fidelities, epsilon, n_relays) =
+    let F_product = entanglement_swapping_chain_gf(fidelities)
+    let error_factor = quantum_relay_error_gf(epsilon, n_relays)
+    gf_mul(F_product, error_factor)
+
+let shortest_path_gf(adjacency, source, target, n_nodes) =
+    let distances = [gf_pow(65537, 2)] * n_nodes
+    distances[source] = 0
+    for node in 0..n_nodes
+        for neighbor in 0..n_nodes
+            if adjacency[node][neighbor] != 0
+                let new_dist = gf_add(distances[node], adjacency[node][neighbor])
+                if new_dist < distances[neighbor]
+                    distances[neighbor] = new_dist
+    distances[target]
+
+let quantum_routing_gf(network_fidelities, source, target, n_nodes) =
+    shortest_path_gf(network_fidelities, source, target, n_nodes)
+
+let network_fidelity_gf(node_fidelities) =
+    entanglement_swapping_chain_gf(node_fidelities)
+
+let network_threshold_check_gf(total_fidelity, threshold) =
+    (total_fidelity > threshold ? 1 : 0)
+
+let bb84_qkd_gf(n_bits, n_errors) =
+        let qber = gf_div(n_errors, n_bits)
+        let threshold = gf_div(11, 100)
+        if qber < threshold
+            [1, qber]
+        else
+            [0, qber]
+
+let e91_qkd_gf(chsh_value) =
+    (chsh_value > 2 ? 1 : 0)
+
+let key_generation_rate_gf(qber) =
+    gf_sub(1, gf_mul(2, qber))
+
+let quantum_internet_node_gf(node_id, capacity, fidelity) =
+    [node_id, capacity, fidelity]
+
+let quantum_internet_link_gf(source, target, fidelity, bandwidth) =
+    [source, target, fidelity, bandwidth]
+
+let quantum_internet_topology_gf(nodes, links) =
+    [nodes, links]
+
+let quantum_multicast_gf(source, targets, fidelity) =
+    let result = []
+    for i in 0..len(targets)
+        result = arr_concat(result, [[source, targets[i], fidelity]])
+    result
+
+let multicast_fidelity_allocation_gf(total_fidelity, n_targets) =
+    gf_div(total_fidelity, n_targets)
+
+let quantum_swapping_gf(gate, remote_state, epr_pair) =
+    gf_mul(gate, remote_state)
+

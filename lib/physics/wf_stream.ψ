@@ -1,0 +1,82 @@
+let P = 65537
+let P2 = 131071
+
+import "../core/stdlib_lang2/gf_canon_shared.ψ"
+import "sh_d39d441e28.ψ"
+import "wf_brain.ψ"
+import "../core/stdlib_lang2/bm_canon.ψ"
+import "sh_ee308d734f.ψ"
+import "sh_bffc56f968.ψ"
+import "sh_0fe08dee05.ψ"
+let stream_init(max_n, STATE) =
+    let i = 0
+    for i < max_n + 1
+        STATE[i] = 0
+        STATE[max_n + 1 + i] = 0
+        i = i + 1
+    STATE[0] = 1
+    STATE[max_n + 1] = 1
+    let base = 2 * max_n + 2
+    STATE[base] = 0
+    STATE[base + 1] = 1
+    STATE[base + 2] = 1
+    0
+
+let stream_step(STATE, max_n, observation) =
+    let NC = max_n + 1
+    let L = STATE[NC]
+    let m = STATE[NC + 1]
+    let bq = STATE[NC + 2]
+    let i = STATE[NC + 3]
+    let C_off = 0
+    let B_off = NC
+    let d = observation
+    let k1 = 1
+    for k1 < L + 1
+        let idx = i - k1
+        let ck = STATE[C_off + k1]
+        let sv = STATE[NC + 7 + idx]
+        d = gf_add(d, gf_mul(ck, sv))
+        k1 = k1 + 1
+    let nz = 0
+    if d != 0
+        nz = 1
+    let keep = 0
+    let dz = 0
+    let coef = 0
+    let upd = 0
+    let take = 0
+    if nz == 1
+        coef = gf_mul(d, gf_inv(bq))
+        let k2 = 0
+        for k2 < NC
+            let tmp = STATE[C_off + k2]
+            STATE[max_n + 1 + NC + k2] = tmp
+            k2 = k2 + 1
+        let k3 = 0
+        for k3 < NC - m
+            let old = STATE[C_off + k3 + m]
+            let bval = STATE[B_off + k3]
+            STATE[C_off + k3 + m] = gf_sub(old, gf_mul(coef, bval))
+            k3 = k3 + 1
+        upd = 0
+        if 2 * L <= i
+            upd = 1
+        take = upd * nz
+        if take == 1
+            let k4 = 0
+            for k4 < NC
+                STATE[B_off + NC + k4] = STATE[C_off + k4]
+                k4 = k4 + 1
+            STATE[NC] = i + 1 - L
+            STATE[NC + 1] = 1
+            STATE[NC + 2] = d
+        if take == 0
+            keep = 1
+    if d == 0
+        dz = 1
+    let m_inc = keep + dz
+    STATE[NC + 1] = STATE[NC + 1] + m_inc
+    STATE[NC + 3] = i + 1
+    surprise = nz
+    [nz, L]

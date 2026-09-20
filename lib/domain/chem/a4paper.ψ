@@ -1,0 +1,43 @@
+import "ck.ψ"
+let bad = [0]
+
+let sq = 297 * 297
+let dbl = 2 * 210 * 210
+let audit = sq - dbl
+let dz1 = audit - 9
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let approx = 297 * 10000 / 210
+let dz3 = approx - 14142
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let area0 = 1000000
+let a4 = area0 / 2 / 2 / 2 / 2
+let dz4 = a4 - 62500
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let weight = a4 * 80 / 1000 / 1000
+let dz5 = weight - 5
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let dz6 = area0 - 1000000
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+let cross = 4 * 2 - 3 * 3
+let dz7 = cross + 1
+bad[0] = bad[0] + ck(dz7, 0, 0)
+
+if 1786 < 1784
+    bad[0] = bad[0] + 1
+if 1786 > 1788
+    bad[0] = bad[0] + 1
+if 1922 < 1920
+    bad[0] = bad[0] + 1
+if 1922 > 1924
+    bad[0] = bad[0] + 1
+if 1975 < 1973
+    bad[0] = bad[0] + 1
+if 1975 > 1977
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

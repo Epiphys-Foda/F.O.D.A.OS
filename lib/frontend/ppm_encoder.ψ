@@ -1,0 +1,38 @@
+let ppm_encode(fb) =
+    let w = fb[0]
+    let h = fb[1]
+    let head = []
+    head = head.push(80)
+    head = head.push(54)
+    head = head.push(10)
+    head = head + to_str(w)
+    head = head.push(32)
+    head = head + to_str(h)
+    head = head.push(10)
+    head = head.push(50)
+    head = head.push(53)
+    head = head.push(53)
+    head = head.push(10)
+    let hl = head.len()
+    let total = hl + w * h * 3
+    let out = [w, h] + arr_new(total)
+    let i = 0
+    for i < hl
+      arr_set(out, 2 + i, head[i])
+      i = i + 1
+    let y = 0
+    let k = hl
+    for y < h
+      let x = 0
+      for x < w
+        let c = fb[2 + y * w + x]
+        let r5 = c >> 11
+        let g5 = (c >> 5) & 63
+        let b5 = c & 31
+        arr_set(out, 2 + k, (r5 << 3) + (r5 >> 2))
+        arr_set(out, 3 + k, (g5 << 2) + (g5 >> 4))
+        arr_set(out, 4 + k, (b5 << 3) + (b5 >> 2))
+        k = k + 3
+        x = x + 1
+      y = y + 1
+    arr_slice(out, 2, total)

@@ -1,0 +1,81 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let TISS_DEN_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let TISS_DEN_RESIDUES = [600, 500, 500, 500, 400, 610, 400, 400]
+
+let psi_tiss_density(type_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(type_idx), gf_norm(TISS_DEN_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(TISS_DEN_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let TISS_ECM_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let TISS_ECM_RESIDUES = [180000, 10000, 6000, 1000, 2000, 1500, 500, 800]
+
+let psi_tiss_ecm(comp_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(comp_idx), gf_norm(TISS_ECM_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(TISS_ECM_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let TISS_MEC_POLES = [10, 20, 30, 40, 50, 60, 70, 80]
+let TISS_MEC_RESIDUES = [50, 110, 180, 280, 400, 550, 750, 1000]
+
+let psi_tiss_mech(strain_x100) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(strain_x100), gf_norm(TISS_MEC_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(TISS_MEC_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let TISS_E_BASE = 5000
+let TISS_E_SCALE1 = 10
+let TISS_E_SCALE2 = 1000
+
+let tiss_fit_Youngs(type_idx, comp_idx) =
+    let d_term = gf_div(psi_tiss_density(type_idx), TISS_E_SCALE2)
+    let e_term = gf_div(psi_tiss_ecm(comp_idx), TISS_E_SCALE1)
+    gf_add(gf_sub(TISS_E_BASE, d_term), e_term)
+
+let TISS_GP_BASE = 1000
+let TISS_GP_SCALE1 = 10
+let TISS_GP_SCALE2 = 10
+
+let tiss_fit_storage_modulus(strain_x100, comp_idx) =
+    let s_term = gf_div(psi_tiss_mech(strain_x100), TISS_GP_SCALE1)
+    let e_term = gf_div(psi_tiss_ecm(comp_idx), TISS_GP_SCALE2)
+    gf_add(gf_add(TISS_GP_BASE, s_term), e_term)
+
+let TISS_N_BASE = 400
+let TISS_N_SCALE1 = 100
+let TISS_N_SCALE2 = 100000
+
+let tiss_fit_cell_density(type_idx, comp_idx) =
+    let d_term = gf_div(psi_tiss_density(type_idx), TISS_N_SCALE1)
+    let e_term = gf_div(psi_tiss_ecm(comp_idx), TISS_N_SCALE2)
+    gf_add(gf_sub(TISS_N_BASE, e_term), d_term)
+
+let TISS_ETA_BASE = 1000
+let TISS_ETA_SCALE1 = 10
+
+let tiss_fit_viscosity(comp_idx) =
+    let e_term = gf_div(psi_tiss_ecm(comp_idx), TISS_ETA_SCALE1)
+    gf_add(TISS_ETA_BASE, e_term)
+
+let tiss_global_response(type_idx, comp_idx, strain_x100) =
+    let e1 = psi_tiss_density(type_idx)
+    let e2 = psi_tiss_ecm(comp_idx)
+    let e3 = psi_tiss_mech(strain_x100)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+

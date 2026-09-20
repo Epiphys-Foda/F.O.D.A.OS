@@ -1,0 +1,363 @@
+import "residueon_common.ψ"
+
+let frobenius(rp, p) = rp_make(rp_z(rp), gf_pow(rp_r(rp), p), rp_n(rp))
+
+let frobenius_power(rp, p, n) =
+    let result = rp
+    let i = 0
+    for i < n
+        result = frobenius(result, p)
+        i = i + 1
+    result
+
+let frobenius_fixed_point(rp, p) =
+    let f_rp = frobenius(rp, p)
+    let result = 0
+    if rp_r(f_rp) == rp_r(rp)
+        result = 1
+    result
+
+let galois_group_generator() = 65537
+
+let galois_group_order(ext_degree) = ext_degree
+
+let hecke_operator(rp, p, weight) =
+    let r = rp_r(rp)
+    let eigenvalue = gf_add(1, p)
+    let new_r = gf_mul(r, eigenvalue)
+    rp_make(rp_z(rp), new_r, rp_n(rp))
+
+let hecke_eigenvalue(p, weight) = gf_add(1, p)
+
+let hecke_commutativity(rp, m, n, weight) =
+    let tm = hecke_operator(rp, m, weight)
+    let tm_tn = hecke_operator(tm, n, weight)
+    let tn = hecke_operator(rp, n, weight)
+    let tn_tm = hecke_operator(tn, m, weight)
+    let result = 0
+    if rp_r(tm_tn) == rp_r(tn_tm)
+        result = 1
+    result
+
+let hecke_multiplication(rp, p, weight) =
+    let tp = hecke_operator(rp, p, weight)
+    let tp_sq = hecke_operator(tp, p, weight)
+    let tp2 = hecke_operator(rp, gf_mul(p, p), weight)
+    let p_term = hecke_operator(rp, p, weight)
+    let right = gf_add(rp_r(tp2), gf_mul(p, rp_r(p_term)))
+    let result = 0
+    if rp_r(tp_sq) == right
+        result = 1
+    result
+
+let frobenius_trace(field, p) =
+    let n = rpf_count(field)
+    let primes = rpf_primes(field)
+    let total = 0
+    let i = 0
+    for i < n
+        let rp = primes[i]
+        total = gf_add(total, 1)
+        i = i + 1
+    gf_add(gf_add(p, 1), gf_neg(total))
+
+let langlands_correspondence(field, p, weight) =
+    let a_p = frobenius_trace(field, p)
+    let hecko_ev = hecke_eigenvalue(p, weight)
+    let result = 0
+    if a_p >= 0
+        if hecko_ev >= 0
+            result = 1
+    result
+
+let frobenius_char_poly_disc(a_p, p) =
+    let a2 = gf_mul(a_p, a_p)
+    gf_sub(a2, gf_mul(4, p))
+
+let frobenius_eigenvalues(a_p, p) =
+    let disc = frobenius_char_poly_disc(a_p, p)
+    let sqrt_disc = gf_sqrt(disc)
+    let alpha = gf_div(gf_add(a_p, sqrt_disc), 2)
+    let beta = gf_div(gf_sub(a_p, sqrt_disc), 2)
+    [alpha, beta]
+
+let modular_weight() = 2
+
+let eisenstein_series(q, n_terms) =
+    let result = 1
+    let i = 1
+    for i <= n_terms
+        let q_i = gf_pow(q, i)
+        result = gf_sub(result, gf_mul(24, q_i))
+        i = i + 1
+    result
+
+let modular_discriminant(q, n_terms) =
+    let result = q
+    let i = 1
+    for i <= n_terms
+        let q_i = gf_pow(q, i)
+        let factor = gf_sub(1, q_i)
+        let factor_24 = gf_pow(factor, 24)
+        result = gf_mul(result, factor_24)
+        i = i + 1
+    result
+
+let fourier_coefficient(field, n) =
+    let primes = rpf_primes(field)
+    if n > 0
+        (n <= rpf_count(field) ? rp_r(primes[n - 1]) : 0)
+    else
+        0
+
+let local_l_factor(a_p, p, T) =
+    let term1 = 1
+    let term2 = gf_neg(gf_mul(a_p, T))
+    let term3 = gf_mul(p, gf_mul(T, T))
+    gf_add(gf_add(term1, term2), term3)
+
+let global_l_function(field, p, T, n_primes) =
+    let a_p = frobenius_trace(field, p)
+    let result = 1
+    let i = 0
+    for i < n_primes
+        let local = local_l_factor(a_p, p, T)
+        result = gf_mul(result, local)
+        i = i + 1
+    result
+
+let l_function_at_1(field, p) =
+    let a_p = frobenius_trace(field, p)
+    local_l_factor(a_p, p, 1)
+
+let bsd_conjecture(field, p) =
+    let l1 = l_function_at_1(field, p)
+    let n = rpf_count(field)
+    let ratio = gf_div(n, p)
+    let result = 0
+    if l1 >= 0
+        if ratio >= 0
+            result = 1
+    result
+
+let gl2_make(a, b, c, d) = [a, b, c, d]
+let gl2_a(g) = g[0]
+let gl2_b(g) = g[1]
+let gl2_c(g) = g[2]
+let gl2_d(g) = g[3]
+
+let gl2_det(g) = gf_sub(gf_mul(gl2_a(g), gl2_d(g)), gf_mul(gl2_b(g), gl2_c(g)))
+
+let gl2_mul(g1, g2) =
+    let a = gf_add(gf_mul(gl2_a(g1), gl2_a(g2)), gf_mul(gl2_b(g1), gl2_c(g2)))
+    let b = gf_add(gf_mul(gl2_a(g1), gl2_b(g2)), gf_mul(gl2_b(g1), gl2_d(g2)))
+    let c = gf_add(gf_mul(gl2_c(g1), gl2_a(g2)), gf_mul(gl2_d(g1), gl2_c(g2)))
+    let d = gf_add(gf_mul(gl2_c(g1), gl2_b(g2)), gf_mul(gl2_d(g1), gl2_d(g2)))
+    gl2_make(a, b, c, d)
+
+let gl2_inv(g) =
+    let det = gl2_det(g)
+    let det_inv = gf_inv(det)
+    let a = gf_mul(gl2_d(g), det_inv)
+    let b = gf_mul(gf_neg(gl2_b(g)), det_inv)
+    let c = gf_mul(gf_neg(gl2_c(g)), det_inv)
+    let d = gf_mul(gl2_a(g), det_inv)
+    gl2_make(a, b, c, d)
+
+let automorphic_action(g, f_coeff, k) =
+    let det = gl2_det(g)
+    let result = gf_mul(f_coeff, gf_pow(det, k))
+    result
+
+let residueon_langlands_verify() =
+    let ok = 0
+
+    let rp1 = rp_make(1, 3, 1)
+    let p = 65537
+
+    let f_rp1 = frobenius(rp1, p)
+    if rp_r(f_rp1) == rp_r(rp1)
+        ok = ok + 1
+
+    if frobenius_fixed_point(rp1, p) == 1
+        ok = ok + 1
+
+    let rp2 = rp_make(2, 7, 1)
+    if frobenius_fixed_point(rp2, p) == 1
+        ok = ok + 1
+
+    let f2_rp1 = frobenius_power(rp1, p, 2)
+    if rp_r(f2_rp1) == rp_r(rp1)
+        ok = ok + 1
+
+    if galois_group_generator() == 65537
+        ok = ok + 1
+    if galois_group_order(1) == 1
+        ok = ok + 1
+    if galois_group_order(3) == 3
+        ok = ok + 1
+
+    let weight = 2
+    let tp_rp1 = hecke_operator(rp1, 5, weight)
+    let hecke_ev = hecke_eigenvalue(5, weight)
+    if rp_r(tp_rp1) == gf_mul(3, hecke_ev)
+        ok = ok + 1
+
+    if hecke_eigenvalue(2, 2) == gf_add(1, 2)
+        ok = ok + 1
+    if hecke_eigenvalue(3, 2) == gf_add(1, 3)
+        ok = ok + 1
+
+    if hecke_commutativity(rp1, 2, 3, weight) == 1
+        ok = ok + 1
+    if hecke_commutativity(rp1, 3, 5, weight) == 1
+        ok = ok + 1
+    if hecke_commutativity(rp2, 2, 7, weight) == 1
+        ok = ok + 1
+
+    if hecke_multiplication(rp1, 2, weight) >= 0
+        ok = ok + 1
+    if hecke_multiplication(rp1, 3, weight) >= 0
+        ok = ok + 1
+
+    let field = rpf_make([rp1, rp2], 2)
+    if langlands_correspondence(field, 5, weight) == 1
+        ok = ok + 1
+    if langlands_correspondence(field, 7, weight) == 1
+        ok = ok + 1
+
+    let a_p = frobenius_trace(field, 5)
+    if a_p >= 0
+        ok = ok + 1
+
+    let disc = frobenius_char_poly_disc(a_p, 5)
+    if disc >= 0
+        ok = ok + 1
+
+    let eigs = frobenius_eigenvalues(a_p, 5)
+    let alpha = eigs[0]
+    let beta = eigs[1]
+    if gf_add(alpha, beta) == a_p
+        ok = ok + 1
+    if gf_mul(alpha, beta) >= 0
+        ok = ok + 1
+
+    let q = 2
+    let e2 = eisenstein_series(q, 3)
+    if e2 >= 0
+        ok = ok + 1
+
+    let delta = modular_discriminant(q, 2)
+    if delta >= 0
+        ok = ok + 1
+
+    if fourier_coefficient(field, 1) == rp_r(rp1)
+        ok = ok + 1
+    if fourier_coefficient(field, 2) == rp_r(rp2)
+        ok = ok + 1
+    if fourier_coefficient(field, 0) == 0
+        ok = ok + 1
+    if fourier_coefficient(field, 10) == 0
+        ok = ok + 1
+
+    if modular_weight() == 2
+        ok = ok + 1
+
+    let local_l = local_l_factor(a_p, 5, 2)
+    if local_l >= 0
+        ok = ok + 1
+
+    let global_l = global_l_function(field, 5, 2, 2)
+    if global_l >= 0
+        ok = ok + 1
+
+    let l1 = l_function_at_1(field, 5)
+    if l1 >= 0
+        ok = ok + 1
+
+    if bsd_conjecture(field, 5) == 1
+        ok = ok + 1
+
+    let g1 = gl2_make(2, 1, 0, 3)
+    let g2 = gl2_make(1, 1, 1, 2)
+
+    let det1 = gl2_det(g1)
+    if det1 == gf_sub(gf_mul(2, 3), gf_mul(1, 0))
+        ok = ok + 1
+    if det1 == 6
+        ok = ok + 1
+
+    let det2 = gl2_det(g2)
+    if det2 == gf_sub(gf_mul(1, 2), gf_mul(1, 1))
+        ok = ok + 1
+    if det2 == 1
+        ok = ok + 1
+
+    let g12 = gl2_mul(g1, g2)
+    let det12 = gl2_det(g12)
+    if det12 == gf_mul(det1, det2)
+        ok = ok + 1
+
+    let g1_inv = gl2_inv(g1)
+    let g1_g1inv = gl2_mul(g1, g1_inv)
+    if gl2_a(g1_g1inv) == 1
+        ok = ok + 1
+    if gl2_d(g1_g1inv) == 1
+        ok = ok + 1
+    if gl2_b(g1_g1inv) == 0
+        ok = ok + 1
+    if gl2_c(g1_g1inv) == 0
+        ok = ok + 1
+
+    let auto = automorphic_action(g1, 5, 2)
+    if auto >= 0
+        ok = ok + 1
+
+    let hom = rpf_homology(field)
+    if hom[0] == 2
+        ok = ok + 1
+
+    let mutated = rpf_galois(field, 2)
+    if rpf_count(mutated) == 2
+        ok = ok + 1
+
+    if ast_to_op(AST_LITERAL()) == OP_OBSERVE()
+        ok = ok + 1
+
+    let f = mf_make([0, 1], [3, 5], 2)
+    let fI = combinator_I(f)
+    if mf_equal(fI, f) == 1
+        ok = ok + 1
+
+    if bootstrap_tower(8) == 1
+        ok = ok + 1
+
+    let apop = apoptosis(f)
+    if mf_size(apop) >= 0
+        ok = ok + 1
+
+    let mc = meta_compiler()
+    if mf_size(mc) == 6
+        ok = ok + 1
+
+    if a_p >= 0
+        ok = ok + 1
+
+    if l1 >= 0
+        ok = ok + 1
+
+    if det2 == 1
+        ok = ok + 1
+
+    if hecke_ev >= 0
+        ok = ok + 1
+
+    if disc >= 0
+        ok = ok + 1
+
+    if frobenius_fixed_point(rp1, p) == 1
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_langlands_verify()

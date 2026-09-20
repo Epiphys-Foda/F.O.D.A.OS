@@ -1,0 +1,83 @@
+import "qqbc_frame.ψ"
+
+let qs_create() =
+    { seq: -1, dag: null }
+
+let qs_next_seq(seq) = seq + 1
+
+let qs_update(state, new_dag) =
+    let new_seq = qs_next_seq(state.seq)
+    let structural = if state.dag == null
+      true
+    else
+      state.dag.node_count != new_dag.node_count || state.dag.edge_count != new_dag.edge_count
+    let frame = if structural
+      qqframe_build_full(new_dag, new_seq)
+    else
+      let delta = qqbin_make_delta(state.dag, new_dag)
+      qqframe_build_delta(delta, new_seq)
+    let new_state = { seq: new_seq, dag: new_dag }
+    [new_state, frame]
+
+let qs_recv(state, frame) =
+    let fseq = qqframe_seq(frame)
+    let ftype = qqframe_type(frame)
+    let expected = qs_next_seq(state.seq)
+    let verdict = if ftype == 0
+      if fseq > state.seq
+        1
+      else
+        0
+    else
+      if fseq == expected
+        if state.dag == null
+          0
+        else
+          1
+      else
+        if fseq < expected
+          0
+        else
+          2
+    let r = if verdict == 1
+      let new_dag = if ftype == 0
+        qqbin_decode(qqframe_payload(frame, 0, []))
+      else
+        qqbin_apply_delta(state.dag, qqbin_delta_decode(qqframe_payload(frame, 0, [])))
+      let new_state = { seq: fseq, dag: new_dag }
+      [new_state, true, false]
+    else
+      if verdict == 2
+        [state, false, true]
+      else
+        [state, false, false]
+    r
+
+let qs_simulate_impl(scenes, idx, state, acc_frames, acc_full, acc_delta, acc_bytes, acc_fullonly, acc_ok) =
+    let n = len(scenes)
+    let r = if idx < n
+      let scene = scenes[idx]
+      let up = qs_update(state, scene)
+      let new_state = up[0]
+      let frame = up[1]
+      let ftype = qqframe_type(frame)
+      let is_full = ftype == 0
+      let full_equiv = qqbin_equiv(new_state.dag, scene)
+      let next_full = (is_full ? acc_full + 1 : acc_full)
+      let next_delta = (is_full ? acc_delta : acc_delta + 1)
+      let next_bytes = acc_bytes + len(frame)
+      let next_fullonly = acc_fullonly + qqframe_build_full(scene, 0).len()
+      let next_ok = acc_ok && full_equiv
+      qs_simulate_impl(scenes, idx + 1, new_state, acc_frames + 1, next_full, next_delta, next_bytes, next_fullonly, next_ok)
+    else
+      [acc_frames, acc_full, acc_delta, acc_bytes, acc_fullonly, acc_ok]
+    r
+
+let qs_simulate(scenes) =
+    let s0 = qs_create()
+    let st = qs_simulate_impl(scenes, 0, s0, 0, 0, 0, 0, 0, true)
+    let savings = (st[4] > 0 ? (st[4] - st[3]) * 100 / st[4] : 0)
+    [st[0], st[1], st[2], st[3], st[4], savings, st[5]]
+
+let qs_session_summary() =
+    { protocol: "QFLW session", state: str_concat(str_concat(chr(123), "seq, dag"), str_concat(chr(125), " client session state")), frame_select: "empty/resync → FULL; steady state → DELTA", recv: "seq continuous → apply; out-of-order → reject; frame skip → need_full resync", principle: "temporal quantum number seq — sequence break requires ground-state reset" }

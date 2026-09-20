@@ -1,0 +1,83 @@
+let P = 65537
+let P2 = 131071
+
+import "../core/stdlib_lang2/gf_canon_shared.ψ"
+import "sh_d39d441e28.ψ"
+import "../core/stdlib_lang2/bm_canon.ψ"
+import "wf_brain.ψ"
+import "sh_ee308d734f.ψ"
+import "sh_bffc56f968.ψ"
+import "sh_0fe08dee05.ψ"
+let chain_round(R, ST, F, PF, PR, out2) =
+    let NR = ST[0]
+    let fc = ST[1]
+    let pc = ST[2]
+    let added = 0
+    let i = 0
+    for i < NR
+        let p1 = R[3 * i]
+        let p2 = R[3 * i + 1]
+        let cc = R[3 * i + 2]
+        let k1 = f_known(F, fc, p1)
+        let k2 = f_known(F, fc, p2)
+        let kc = f_known(F, fc, cc)
+        let ready = k1 * k2 * (1 - kc)
+        if ready == 1
+            F[fc] = cc
+            PF[pc] = cc
+            PR[pc] = i
+            pc = pc + 1
+            fc = fc + 1
+            added = added + 1
+        i = i + 1
+    ST[1] = fc
+    ST[2] = pc
+    out2[0] = fc
+    out2[1] = added
+    out2[2] = pc
+    0
+
+let chain_fix(R, ST, F, PF, PR, out2) =
+    let total = 0
+    let g = 0
+    for g < 16
+        let o = arr_new_n(3)
+        let dum = chain_round(R, ST, F, PF, PR, o)
+        total = total + o[1]
+        g = g + 1
+    out2[0] = total
+    0
+
+let verify_proofs(R, F, ST, PF, PR, out2) =
+    let fc = ST[1]
+    let pc = ST[2]
+    let good = 0
+    let badc = 0
+    let k = 0
+    for k < pc
+        let cf = PF[k]
+        let ri = PR[k]
+        let p1 = R[3 * ri]
+        let p2 = R[3 * ri + 1]
+        let cc = R[3 * ri + 2]
+        let k1 = f_known(F, fc, p1)
+        let k2 = f_known(F, fc, p2)
+        let m1 = 0
+        if k1 == 0
+            m1 = 1
+        let m2 = 0
+        if k2 == 0
+            m2 = 1
+        let m3 = 0
+        if cc != cf
+            m3 = 1
+        let bad = m1 + m2 + m3
+        let isbad = 0
+        if bad > 0
+            isbad = 1
+        good = good + (1 - isbad)
+        badc = badc + isbad
+        k = k + 1
+    out2[0] = good
+    out2[1] = badc
+    0

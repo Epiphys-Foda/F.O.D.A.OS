@@ -1,0 +1,81 @@
+let RE_P = 65537
+
+let gf_mmul(a, b) = host_call(12, a, b)
+
+let rev_add(state, a) =
+    let s = state + a
+    s - s / RE_P * RE_P
+
+let rev_add_inv(state, a) =
+    let s = state - a
+    s - s / RE_P * RE_P
+
+let rev_mul(state, a) = gf_mmul(state, a)
+
+let rev_mul_inv(state, a) =
+    let a_inv = a ^ (RE_P - 2)
+    gf_mmul(state, a_inv)
+
+let rev_xor(state, a) = (state | a) - (state & a)
+
+let rev_xor_inv(state, a) = (state | a) - (state & a)
+
+let rev_tape_new() = []
+
+let rev_tape_record(tape, op_tag, args) = arr_push(tape, [op_tag, args])
+
+let _rev_apply_op(op_tag, state, args, is_inverse) =
+    let a = arr_get(args, 0)
+    if op_tag == 0
+      (is_inverse == 1 ? rev_add_inv(state, a) : rev_add(state, a))
+    else
+          0
+    if op_tag == 1
+      (is_inverse == 1 ? rev_mul_inv(state, a) : rev_mul(state, a))
+    else
+          0
+    if op_tag == 2
+      rev_xor(state, a)
+    else
+      state
+
+let _rev_exec_fwd_impl(ops, state, i, n) =
+    if i < n
+      let op = arr_get(ops, i)
+      let tag = arr_get(op, 0)
+      let args = arr_get(op, 1)
+      let ns = _rev_apply_op(tag, state, args, 0)
+      _rev_exec_fwd_impl(ops, ns, i + 1, n)
+    else
+        state
+
+let rev_exec_forward(ops, state) = _rev_exec_fwd_impl(ops, state, 0, arr_len(ops))
+
+let _rev_exec_bwd_impl(ops, state, i) =
+    if i >= 0
+      let op = arr_get(ops, i)
+      let tag = arr_get(op, 0)
+      let args = arr_get(op, 1)
+      let ns = _rev_apply_op(tag, state, args, 1)
+      _rev_exec_bwd_impl(ops, ns, i - 1)
+    else
+        state
+
+let rev_exec_backward(ops, state) = _rev_exec_bwd_impl(ops, state, arr_len(ops) - 1)
+
+let rev_roundtrip(ops, state) =
+    let fwd = rev_exec_forward(ops, state)
+    rev_exec_backward(ops, fwd)
+
+let rev_verify() =
+    let tape1 = rev_tape_record(rev_tape_new(), 0, [100])
+    let tape2 = rev_tape_record(tape1, 1, [7])
+    let tape3 = rev_tape_record(tape2, 2, [99])
+    let init = 42
+    let fwd = rev_exec_forward(tape3, init)
+    let bwd = rev_exec_backward(tape3, fwd)
+    let add_inv_ok = rev_add(rev_add_inv(100, 100), 100) == 100
+    let mul_inv_ok = rev_mul_inv(rev_mul(5, 3), 3) == 5
+    let xor_inv_ok = rev_xor(rev_xor(7, 9), 9) == 7
+    let round_ok = bwd == init
+    (add_inv_ok && mul_inv_ok && xor_inv_ok && round_ok ? 1 : 0)

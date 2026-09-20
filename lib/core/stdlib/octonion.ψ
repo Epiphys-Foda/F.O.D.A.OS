@@ -1,0 +1,105 @@
+import "numtheor.ψ"
+let oct_new(e0, e1, e2, e3, e4, e5, e6, e7) =
+    [e0, e1, e2, e3, e4, e5, e6, e7]
+
+let oct_add(a, b) =
+    let result = []
+    let i = 0
+    for i < 8
+        result = arr_concat(result, [a[i] + b[i]])
+        i = i + 1
+    result
+
+let oct_sub(a, b) =
+    let result = []
+    let i = 0
+    for i < 8
+        result = arr_concat(result, [a[i] - b[i]])
+        i = i + 1
+    result
+
+let oct_conj(a) =
+    [a[0], -a[1], -a[2], -a[3], -a[4], -a[5], -a[6], -a[7]]
+
+let oct_norm_sq(a) =
+    let sum = 0
+    let i = 0
+    for i < 8
+        sum = sum + a[i] * a[i]
+        i = i + 1
+    sum
+
+let oct_norm(a) =
+    isqrt(oct_norm_sq(a))
+
+let oct_mul(a, b) =
+    let result = [0, 0, 0, 0, 0, 0, 0, 0]
+    result[0] = a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3] - a[4] * b[4] - a[5] * b[5] - a[6] * b[6] - a[7] * b[7]
+    result[1] = a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2] + a[4] * b[5] - a[5] * b[4] + a[6] * b[7] - a[7] * b[6]
+    result[2] = a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1] + a[4] * b[6] + a[5] * b[7] - a[6] * b[4] - a[7] * b[5]
+    result[3] = a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0] + a[4] * b[7] - a[5] * b[6] + a[6] * b[5] - a[7] * b[4]
+    result[4] = a[0] * b[4] - a[1] * b[5] - a[2] * b[6] - a[3] * b[7] + a[4] * b[0] + a[5] * b[1] + a[6] * b[2] + a[7] * b[3]
+    result[5] = a[0] * b[5] + a[1] * b[4] - a[2] * b[7] + a[3] * b[6] - a[4] * b[1] + a[5] * b[0] - a[6] * b[3] + a[7] * b[2]
+    result[6] = a[0] * b[6] - a[1] * b[7] + a[2] * b[4] - a[3] * b[5] - a[4] * b[2] + a[5] * b[3] + a[6] * b[0] - a[7] * b[1]
+    result[7] = a[0] * b[7] + a[1] * b[6] + a[2] * b[5] + a[3] * b[4] - a[4] * b[3] - a[5] * b[2] - a[6] * b[1] + a[7] * b[0]
+    let scaled = []
+    let i = 0
+    for i < 8
+        scaled = arr_concat(scaled, [result[i] / 1000])
+        i = i + 1
+    scaled
+
+let oct_scale(a, s) =
+    let result = []
+    let i = 0
+    for i < 8
+        result = arr_concat(result, [a[i] * s / 1000])
+        i = i + 1
+    result
+
+let oct_inverse(a) =
+    let n_sq = oct_norm_sq(a)
+    if n_sq == 0
+        [0, 0, 0, 0, 0, 0, 0, 0]
+    else
+        let c = oct_conj(a)
+        let result = []
+        let i = 0
+        for i < 8
+            result = arr_concat(result, [c[i] * 1000 / n_sq])
+            i = i + 1
+        result
+
+let oct_normalize(a) =
+    let n = oct_norm(a)
+    if n == 0
+        a
+    else
+        let result = []
+        let i = 0
+        for i < 8
+            result = arr_concat(result, [a[i] * 1000 / n])
+            i = i + 1
+        result
+
+let oct_dot(a, b) =
+    let sum = 0
+    let i = 0
+    for i < 8
+        sum = sum + a[i] * b[i] / 1000
+        i = i + 1
+    sum
+
+let oct_from_real(r) =
+    [r, 0, 0, 0, 0, 0, 0, 0]
+
+let main() =
+    let a = oct_new(1000, 0, 0, 0, 0, 0, 0, 0)
+    let b = oct_new(0, 1000, 0, 0, 0, 0, 0, 0)
+    let c = oct_mul(a, b)
+    print(c)
+    let d = oct_norm(a)
+    print(d)
+    let e = oct_conj(b)
+    print(e)
+    0

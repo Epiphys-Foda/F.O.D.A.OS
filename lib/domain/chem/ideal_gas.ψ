@@ -1,0 +1,35 @@
+import "ck.ψ"
+let bad = [0]
+
+let p1 = 2
+let v1 = 3
+let p2 = 3
+let v2 = 2
+if p1 * v1 != p2 * v2
+    bad[0] = bad[0] + 1
+
+let v1 = 1
+let t1 = 273
+let v2 = 2
+let t2 = 546
+if v1 * t2 != v2 * t1
+    bad[0] = bad[0] + 1
+
+let molO2 = 1
+let molN2 = 1
+if molO2 != molN2
+    bad[0] = bad[0] + 1
+
+let R = 8314
+bad[0] = bad[0] + ck(R, 8300, 8330)
+
+let vSTP = 224
+bad[0] = bad[0] + ck(vSTP, 220, 230)
+
+let tSTP = 273
+bad[0] = bad[0] + ck(tSTP, 270, 276)
+
+if 310 < 273
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

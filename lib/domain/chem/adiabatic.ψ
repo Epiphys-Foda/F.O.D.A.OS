@@ -1,0 +1,25 @@
+import "ck.ψ"
+let bad = [0]
+
+let t1 = 300
+let v1 = 10
+let v2 = 5
+let t2 = 396
+bad[0] = bad[0] + ck(t2, 380, 420)
+bad[0] = bad[0] + ck_lo(t2, t1)
+
+let t3 = 227
+bad[0] = bad[0] + ck(t3, 200, t1)
+
+let dz1 = t2 * 100 - t1 * 132
+bad[0] = bad[0] + ck(dz1, -100, 100)
+
+let t_diesel = 994
+bad[0] = bad[0] + ck(t_diesel, 900, 1100)
+
+if 1824 < 1822
+    bad[0] = bad[0] + 1
+if 1824 > 1826
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

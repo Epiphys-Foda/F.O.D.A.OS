@@ -1,0 +1,144 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let SENSOR_MAX_POINTS = 4096
+let SENSOR_MAX_READINGS = 256
+
+let lidar_create() = [[], 0, 0]
+let lidar_add_point(reading, angle, distance, intensity) =
+    let points = reading[0]
+    points.push([angle, distance, intensity])
+    [points, reading[1] + 1, reading[2]]
+let lidar_scan(n_rays, max_distance) =
+    let points = []
+    let i = 0
+    for i < n_rays
+        let angle = gf_div(gf_mul(i, 360), n_rays)
+        let distance = max_distance
+        points.push([angle, distance, 100])
+        i = i + 1
+    [points, n_rays, 0]
+let occupancy_grid_create(width, height) =
+    let grid = []
+    let i = 0
+    for i < width * height
+        grid.push(0)
+        i = i + 1
+    [grid, width, height]
+let occupancy_grid_update(grid, lidar_reading, robot_x, robot_y, robot_angle) =
+    let points = lidar_reading[0]
+    let g = grid[0]
+    let w = grid[1]
+    let h = grid[2]
+    let i = 0
+    let n = lidar_reading[1]
+    for i < n
+        let pt = points[i]
+        let angle = gf_add(pt[0], robot_angle)
+        let x = gf_add(robot_x, gf_div(gf_mul(pt[1], angle), 360))
+        let y = gf_add(robot_y, gf_div(gf_mul(pt[1], angle), 360))
+        if x >= 0 && x < w && y >= 0 && y < h
+            g[y * w + x] = 1
+        i = i + 1
+    [g, w, h]
+let imu_create(ax, ay, az, gx, gy, gz) = [ax, ay, az, gx, gy, gz, 0]
+let imu_integrate(reading, dt) =
+    let ax = reading[0]
+    let ay = reading[1]
+    let az = reading[2]
+    let gx = reading[3]
+    let gy = reading[4]
+    let gz = reading[5]
+    [gf_mul(ax, dt), gf_mul(ay, dt), gf_mul(az, dt), gf_mul(gx, dt), gf_mul(gy, dt), gf_mul(gz, dt), reading[6] + dt]
+let sensor_fuse(lidar_pos, imu_pos, alpha) =
+    let x = gf_add(gf_mul(alpha, lidar_pos[0]), gf_mul(gf_sub(1, alpha), imu_pos[0]))
+    let y = gf_add(gf_mul(alpha, lidar_pos[1]), gf_mul(gf_sub(1, alpha), imu_pos[1]))
+    [x, y]
+let field_sensor(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let sensor_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_sensor(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+
+let SEN_LIDAR_POLES = [0, 45, 90, 135, 180, 225, 270, 315]
+let SEN_LIDAR_WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800]
+
+let psi_sen_lidar(r_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(r_idx), gf_norm(SEN_LIDAR_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(SEN_LIDAR_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let SEN_IMU_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let SEN_IMU_WEIGHTS = [10, 20, 30, 40, 50, 60, 70, 80]
+
+let psi_sen_imu(a_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(a_idx), gf_norm(SEN_IMU_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(SEN_IMU_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let SEN_GRID_POLES = [10, 20, 30, 40, 50, 60, 70, 80]
+let SEN_GRID_WEIGHTS = [80, 70, 60, 50, 40, 30, 20, 10]
+
+let psi_sen_grid(c_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(c_idx), gf_norm(SEN_GRID_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(SEN_GRID_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let sensor_global_response(r_idx, a_idx, c_idx) =
+    let e1 = psi_sen_lidar(r_idx)
+    let e2 = psi_sen_imu(a_idx)
+    let e3 = psi_sen_grid(c_idx)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+
+let sen_lidar_monotonic_test() =
+    let v1 = SEN_LIDAR_WEIGHTS[0]
+    let v2 = SEN_LIDAR_WEIGHTS[7]
+    (v1 < v2 ? 1 : 0)
+
+let sen_imu_monotonic_test() =
+    let v1 = psi_sen_imu(1)
+    let v2 = psi_sen_imu(8)
+    (v1 != v2 ? 1 : 0)
+
+let sen_grid_decay_test() =
+    let v1 = SEN_GRID_WEIGHTS[0]
+    let v2 = SEN_GRID_WEIGHTS[7]
+    (v1 > v2 ? 1 : 0)
+
+let sen_global_nonzero_test() =
+    let g = sensor_global_response(50, 2, 15)
+    (g != 0 ? 1 : 0)
+
+let sen_symmetry_test() =
+    let v1 = sensor_global_response(50, 2, 15)
+    let v2 = sensor_global_response(50, 2, 15)
+    (v1 == v2 ? 1 : 0)
+

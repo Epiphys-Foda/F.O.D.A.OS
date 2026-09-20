@@ -1,0 +1,136 @@
+let X86_PUSH_RBX = [83]
+let X86_PUSH_RDI = [87]
+let X86_PUSH_RSI = [86]
+let X86_MOV_RBX_R8 = [76, 137, 195]
+let X86_MOV_R9_RCX = [73, 137, 201]
+let X86_MOV_R10_RDX = [73, 137, 210]
+let X86_PUSH_RAX = [80]
+let X86_POP_RAX = [88]
+let X86_POP_RCX = [89]
+let X86_ADD_RAX_RCX = [72, 1, 200]
+let X86_SUB_RCX_RAX = [72, 41, 193]
+let X86_IMUL_RAX_RCX = [72, 15, 175, 193]
+let X86_AND_RAX_RCX = [72, 33, 200]
+let X86_OR_RAX_RCX = [72, 9, 200]
+let X86_XOR_RAX_RCX = [72, 49, 200]
+let X86_MOV_RDX_RAX = [72, 137, 194]
+let X86_MOV_RAX_RDX = [72, 137, 208]
+let X86_XOR_RDX_RDX = [72, 49, 210]
+let X86_DIV_RCX = [72, 247, 241]
+let X86_CMP_RCX_RAX = [72, 57, 193]
+let X86_SETL_AL = [15, 156, 192]
+let X86_MOVZX_EAX_AL = [15, 182, 192]
+let X86_NOT_RAX = [72, 247, 208]
+let X86_RET = [195]
+let X86_PUSH_IMM32 = [104]
+let X86_NOP = [144]
+
+let PE_X86_PROLOGUE = [83, 87, 86, 76, 137, 195, 73, 137, 201, 73, 137, 210]
+let PE_X86_EPILOGUE = [88, 94, 95, 91, 195]
+
+let pe_op_to_x86(opcode) =
+    if opcode == 1
+      [89, 58, 72, 15, 175, 193, 104, 1, 0, 1, 0, 89, 72, 49, 210, 72, 247, 241, 72, 137, 208, 80]
+    else
+      if opcode == 2
+        [89, 58, 72, 1, 200, 104, 1, 0, 1, 0, 89, 72, 49, 210, 72, 247, 241, 72, 137, 208, 80]
+      else
+        if opcode == 3
+          [89, 58, 72, 1, 200, 80]
+        else
+          if opcode == 4
+            [89, 58, 72, 41, 193, 80]
+          else
+            if opcode == 5
+              [89, 58, 72, 33, 200, 80]
+            else
+              if opcode == 6
+                [89, 58, 72, 9, 200, 80]
+              else
+                if opcode == 7
+                  [89, 58, 72, 49, 200, 80]
+                else
+                  if opcode == 8
+                    [89, 58, 72, 57, 193, 15, 156, 192, 15, 182, 192, 80]
+                  else
+                    if opcode == 9
+                      [89, 58, 72, 247, 208, 80]
+                    else
+                      if opcode == 10
+                        [89, 58, 80, 80]
+                      else
+                        if opcode == 11
+                          [89, 58, 80, 80]
+                        else
+                          if opcode == 12
+                            [144]
+                          else
+                            if opcode == 14
+                              [89, 58, 72, 137, 194, 72, 1, 194, 72, 41, 193, 72, 9, 200, 80]
+                            else
+                              []
+
+let pe_token_imm(imm) =
+    let b0 = imm % 256
+    let b1 = (imm / 256) % 256
+    let b2 = (imm / 65536) % 256
+    let b3 = (imm / 16777216) % 256
+    [104, b0, b1, b2, b3]
+
+let pe_emit_rec(pe_ops, pc, acc) =
+    let n = len(pe_ops)
+    if pc >= n
+    else
+      0
+    if pc >= n
+      acc
+    else
+      let op = pe_ops[pc]
+      if op == 13
+      else
+        0
+      if op == 13
+        let imm = pe_ops[pc + 1]
+        pe_emit_rec(pe_ops, pc + 2, [acc, pe_token_imm(imm)].flat())
+      else
+        pe_emit_rec(pe_ops, pc + 1, [acc, pe_op_to_x86(op)].flat())
+
+let pe_seq_to_x86(pe_ops) = [PE_X86_PROLOGUE, pe_emit_rec(pe_ops, 0, []), PE_X86_EPILOGUE].flat()
+
+let pe_program_meta(pe_ops) =
+    let count = 0
+    let types = []
+    let pc = 0
+    let n = len(pe_ops)
+    let done = false
+    for !done
+      if pc < n
+        let op = pe_ops[pc]
+        pc = pc + 1
+        if op == 13
+          pc = pc + 1
+        else
+          0
+        count = count + 1
+        if op == 1 || op == 2
+          types = types.push(1)
+        else
+          if op == 3 || op == 4 || op == 5 || op == 6 || op == 7 || op == 8
+            types = types.push(6)
+          else
+            if op == 9
+              types = types.push(2)
+            else
+              if op == 10
+                types = types.push(4)
+              else
+                if op == 11
+                  types = types.push(5)
+                else
+                  if op == 14
+                    types = types.push(3)
+                  else
+                      0
+      else
+        done = true
+    { pe_count: count, pe_types: types }

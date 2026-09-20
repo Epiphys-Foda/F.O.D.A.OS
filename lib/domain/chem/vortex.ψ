@@ -1,0 +1,27 @@
+import "ck.ψ"
+let bad = [0]
+
+let kappa = 997
+bad[0] = bad[0] + ck(kappa, 990, 1000)
+
+let core = 1
+bad[0] = bad[0] + ck_lo(core, 1)
+
+let nv1 = 2
+let nv2 = 4
+let dn = nv2 - 2 * nv1
+bad[0] = bad[0] + ck(dn, 0, 0)
+
+let lat = 3
+bad[0] = bad[0] + ck_lo(lat, 3)
+
+if 1949 < 1947
+    bad[0] = bad[0] + 1
+if 1949 > 1951
+    bad[0] = bad[0] + 1
+if 1961 < 1959
+    bad[0] = bad[0] + 1
+if 1961 > 1963
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

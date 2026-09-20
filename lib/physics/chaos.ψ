@@ -1,0 +1,165 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let chaos_map(x, r) =
+    wfc_add(wfc_mul(x, x), r)
+
+let chaos_iter(x0, r, n) =
+    let x = x0
+    let i = 0
+    for i < n
+        x = chaos_map(x, r)
+        i = i + 1
+    x
+
+let chaos_gate(a, b, r, n, target) =
+    let x0 = a + b
+    let xn = chaos_iter(x0, r, n)
+    (xn == target ? 1 : 0)
+
+let verify_and() =
+    let r = 32768
+    let n = 2
+    let target = 16396
+    let pass = 1
+    if chaos_gate(0, 0, r, n, target) != 0
+        pass = 0
+    if chaos_gate(0, 1, r, n, target) != 0
+        pass = 0
+    if chaos_gate(1, 0, r, n, target) != 0
+        pass = 0
+    if chaos_gate(1, 1, r, n, target) != 1
+        pass = 0
+    pass
+
+let verify_nand() =
+    let r = 32768
+    let n = 2
+    let target = 16384
+    let pass = 1
+    if chaos_gate(0, 0, r, n, target) != 1
+        pass = 0
+    if chaos_gate(0, 1, r, n, target) != 1
+        pass = 0
+    if chaos_gate(1, 0, r, n, target) != 1
+        pass = 0
+    if chaos_gate(1, 1, r, n, target) != 0
+        pass = 0
+    pass
+
+let verify_or() =
+    let r = 32766
+    let n = 2
+    let target = 16384
+    let pass = 1
+    if chaos_gate(0, 0, r, n, target) != 0
+        pass = 0
+    if chaos_gate(0, 1, r, n, target) != 1
+        pass = 0
+    if chaos_gate(1, 0, r, n, target) != 1
+        pass = 0
+    if chaos_gate(1, 1, r, n, target) != 1
+        pass = 0
+    pass
+
+let verify_nor() =
+    let r = 32766
+    let n = 2
+    let target = 16388
+    let pass = 1
+    if chaos_gate(0, 0, r, n, target) != 1
+        pass = 0
+    if chaos_gate(0, 1, r, n, target) != 0
+        pass = 0
+    if chaos_gate(1, 0, r, n, target) != 0
+        pass = 0
+    if chaos_gate(1, 1, r, n, target) != 0
+        pass = 0
+    pass
+
+let verify_xor() =
+    let r = 65535
+    let n = 2
+    let target = 65536
+    let pass = 1
+    if chaos_gate(0, 0, r, n, target) != 0
+        pass = 0
+    if chaos_gate(0, 1, r, n, target) != 1
+        pass = 0
+    if chaos_gate(1, 0, r, n, target) != 1
+        pass = 0
+    if chaos_gate(1, 1, r, n, target) != 0
+        pass = 0
+    pass
+
+let verify_xnor() =
+    let r = 65535
+    let n = 2
+    let target = 2
+    let pass = 1
+    if chaos_gate(0, 0, r, n, target) != 1
+        pass = 0
+    if chaos_gate(0, 1, r, n, target) != 0
+        pass = 0
+    if chaos_gate(1, 0, r, n, target) != 0
+        pass = 0
+    if chaos_gate(1, 1, r, n, target) != 1
+        pass = 0
+    pass
+
+let verify_reconfig() =
+    let pass = 1
+
+    if verify_and() != 1
+        pass = 0
+    if verify_nand() != 1
+        pass = 0
+
+    if verify_or() != 1
+        pass = 0
+    if verify_nor() != 1
+        pass = 0
+
+    if verify_xor() != 1
+        pass = 0
+    if verify_xnor() != 1
+        pass = 0
+
+    pass
+
+let verify_superposition() =
+    let r = 32768
+    let pass = 1
+
+    let f0 = chaos_map(0, r)
+    if f0 == 0
+        pass = 0
+    if f0 == 1
+        pass = 0
+
+    let f1 = chaos_map(1, r)
+    if f1 == 0
+        pass = 0
+    if f1 == 1
+        pass = 0
+
+    pass
+
+let main() =
+    let result = 0
+    if verify_and() == 1
+        result = result + 1
+    if verify_nand() == 1
+        result = result + 1
+    if verify_or() == 1
+        result = result + 1
+    if verify_nor() == 1
+        result = result + 1
+    if verify_xor() == 1
+        result = result + 1
+    if verify_xnor() == 1
+        result = result + 1
+    if verify_reconfig() == 1
+        result = result + 1
+    if verify_superposition() == 1
+        result = result + 1
+    result

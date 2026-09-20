@@ -1,0 +1,207 @@
+import "../domain_field.ψ"
+
+let mig_new(version, name, desc, up_script, down_script) =
+    let cs = mig_compute_checksum(up_script, down_script)
+    [version, name, desc, up_script, down_script, cs, 0]
+
+let mig_version(m) = m[0]
+let mig_name(m) = m[1]
+let mig_desc(m) = m[2]
+let mig_up(m) = m[3]
+let mig_down(m) = m[4]
+let mig_cs(m) = m[5]
+let mig_applied(m) = m[6]
+
+let mig_set_applied(m, ts) = [m[0], m[1], m[2], m[3], m[4], m[5], ts]
+
+let mig_compute_checksum(up, down) =
+    let h = 0
+    let s = "" + up + down
+    let i = 0
+    let n = len(s)
+    for i < n
+        h = (h * 31 + s[i]) % 65537
+        i = i + 1
+    h
+
+let mig_history_new() = [{}, [], 0, 1, 0, 0]
+
+let mh_applied(h) = h[0]
+let mh_pending(h) = h[1]
+let mh_current(h) = h[2]
+let mh_next(h) = h[3]
+let mh_total_applied(h) = h[4]
+let mh_total_rb(h) = h[5]
+
+let mh_set_applied(h, v) = [v, h[1], h[2], h[3], h[4], h[5]]
+let mh_set_pending(h, v) = [h[0], v, h[2], h[3], h[4], h[5]]
+let mh_set_current(h, v) = [h[0], h[1], v, h[3], h[4], h[5]]
+let mh_set_next(h, v) = [h[0], h[1], h[2], v, h[4], h[5]]
+let mh_set_total_applied(h, v) = [h[0], h[1], h[2], h[3], v, h[5]]
+let mh_set_total_rb(h, v) = [h[0], h[1], h[2], h[3], h[4], v]
+
+let mig_register(h, migration) =
+    let pending = mh_pending(h)
+    pending.push(migration)
+    let i = 0
+    let n = len(pending)
+    for i < n
+        let min_idx = i
+        let j = i + 1
+        for j < n
+            if mig_version(pending[j]) < mig_version(pending[min_idx])
+                min_idx = j
+            j = j + 1
+        let tmp = pending[i]
+        pending[i] = pending[min_idx]
+        pending[min_idx] = tmp
+        i = i + 1
+    mh_set_pending(h, pending)
+
+let mig_apply(h, ts) =
+    let pending = mh_pending(h)
+    let applied = mh_applied(h)
+    let i = 0
+    let n = len(pending)
+    let applied_count = 0
+    for i < n
+        let m = pending[i]
+        let cs_actual = mig_compute_checksum(mig_up(m), mig_down(m))
+        if cs_actual == mig_cs(m)
+            let m2 = mig_set_applied(m, ts)
+            applied[mig_version(m2)] = m2
+            h = mh_set_applied(h, applied)
+            h = mh_set_current(h, mig_version(m2))
+            h = mh_set_next(h, mig_version(m2) + 1)
+            h = mh_set_total_applied(h, mh_total_applied(h) + 1)
+            applied_count = applied_count + 1
+        i = i + 1
+    h = mh_set_pending(h, [])
+    [h, applied_count]
+
+let mig_apply_one(h, version, ts) =
+    let pending = mh_pending(h)
+    let target = 0
+    let i = 0
+    let n = len(pending)
+    for i < n
+        if mig_version(pending[i]) == version
+            target = pending[i]
+            i = n
+        i = i + 1
+    if target == 0
+        [h, 0]
+    else
+        let m2 = mig_set_applied(target, ts)
+        let applied = mh_applied(h)
+        applied[version] = m2
+        h = mh_set_applied(h, applied)
+        h = mh_set_current(h, version)
+        h = mh_set_next(h, version + 1)
+        h = mh_set_total_applied(h, mh_total_applied(h) + 1)
+        [h, 1]
+
+let mig_rollback_to(h, target_version, ts) =
+    let applied = mh_applied(h)
+    let current = mh_current(h)
+    let rolled = 0
+    for current > target_version
+        let m = applied[current]
+        if m != 0
+            applied[current] = 0
+            h = mh_set_total_rb(h, mh_total_rb(h) + 1)
+            rolled = rolled + 1
+        current = current - 1
+    h = mh_set_applied(h, applied)
+    h = mh_set_current(h, target_version)
+    [h, rolled]
+
+let mig_rollback_last(h, ts) =
+    let current = mh_current(h)
+    if current == 0
+        [h, 0]
+    else
+        mig_rollback_to(h, current - 1, ts)
+
+let mig_bragg_check(h) =
+    let applied = mh_applied(h)
+    let keys = keys_of(applied)
+    let i = 0
+    let n = len(keys)
+    let ok = 1
+    for i < n
+        let m = applied[keys[i]]
+        if m != 0
+            let cs_actual = mig_compute_checksum(mig_up(m), mig_down(m))
+            if cs_actual != mig_cs(m)
+                ok = 0
+        i = i + 1
+    ok
+
+let mig_test_basic() =
+    let h = mig_history_new()
+    let ok1 = 1
+    if mh_current(h) != 0
+        ok1 = 0
+    if mh_total_applied(h) != 0
+        ok1 = 0
+
+    let m1 = mig_new(1, "create_users", "create users table", "CREATE TABLE users", "DROP TABLE users")
+    let m2 = mig_new(2, "add_email", "add email column", "ALTER TABLE users ADD email", "ALTER TABLE users DROP email")
+    let m3 = mig_new(3, "add_index", "add index on email", "CREATE INDEX idx_email", "DROP INDEX idx_email")
+    h = mig_register(h, m2)
+    h = mig_register(h, m1)
+    h = mig_register(h, m3)
+
+    let ok2 = 1
+    if len(mh_pending(h)) != 3
+        ok2 = 0
+
+    let r = mig_apply(h, 1000)
+    h = r[0]
+    let ok3 = 1
+    if r[1] != 3
+        ok3 = 0
+    if mh_current(h) != 3
+        ok3 = 0
+    if mh_total_applied(h) != 3
+        ok3 = 0
+
+    let ok4 = 1
+    if mig_bragg_check(h) != 1
+        ok4 = 0
+
+    let rb = mig_rollback_to(h, 1, 2000)
+    h = rb[0]
+    let ok5 = 1
+    if rb[1] != 2
+        ok5 = 0
+    if mh_current(h) != 1
+        ok5 = 0
+    if mh_total_rb(h) != 2
+        ok5 = 0
+
+    h = mig_register(h, m2)
+    h = mig_register(h, m3)
+    r = mig_apply(h, 3000)
+    h = r[0]
+    let ok6 = 1
+    if mh_current(h) != 3
+        ok6 = 0
+
+    let m3_tampered = mig_new(3, "add_index", "add index on email", "CREATE INDEX idx_email2", "DROP INDEX idx_email")
+    let ok7 = 1
+    if mig_bragg_check(h) != 1
+        ok7 = 0
+
+    ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7
+
+let mig_test_self() =
+        let ok = mig_test_basic()
+        if ok == 1
+            print("migration: ALL PASS")
+        else
+            print("migration: FAIL")
+        ok
+
+    mig_test_self()

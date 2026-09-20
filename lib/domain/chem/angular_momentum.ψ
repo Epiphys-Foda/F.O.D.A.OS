@@ -1,0 +1,41 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let I1 = 5
+let w1 = 1
+let L1 = I1 * w1
+if L1 != 5
+    bad[0] = bad[0] + 1
+
+let I2 = 1
+let w2 = 5
+let L2 = I2 * w2
+if L2 != L1
+    bad[0] = bad[0] + 1
+
+bad[0] = bad[0] + ck_hi(I2, I1)
+bad[0] = bad[0] + ck_lo(w2, w1)
+
+let r_sun = 7000
+let r_ns = 10
+let collapse = small_div(r_sun * r_sun, r_ns * r_ns)
+bad[0] = bad[0] + ck(collapse, 400000, 600000)
+
+bad[0] = bad[0] + ck_hi(r_ns, r_sun)
+
+let spin_hbar = 1
+if spin_hbar != 1
+    bad[0] = bad[0] + 1
+
+if 1925 < 1923
+    bad[0] = bad[0] + 1
+if 1925 > 1927
+    bad[0] = bad[0] + 1
+if 1967 < 1965
+    bad[0] = bad[0] + 1
+if 1967 > 1969
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

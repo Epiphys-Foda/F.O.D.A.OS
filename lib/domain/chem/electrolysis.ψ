@@ -1,0 +1,45 @@
+import "ck.ψ"
+let bad = [0]
+
+let i_cur = 2
+let t_min = 3
+let q = i_cur * t_min
+let dz1 = q - 6
+bad[0] = bad[0] + ck(dz1, 0, 0)
+let m1 = 2
+let m2 = 4
+let dz2 = m2 - m1 * 2
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let mol_ag = 3
+let mol_cu = 3
+let mol_al = 3
+let dz3 = mol_cu - mol_ag
+bad[0] = bad[0] + ck(dz3, 0, 0)
+let dz4 = mol_al - mol_ag
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let ag_eq = 108
+bad[0] = bad[0] + ck(ag_eq, 107, 109)
+
+let e_x = 16
+let n_avo = 6022
+let prod = e_x * n_avo
+let dz5 = prod - 96352
+bad[0] = bad[0] + ck(dz5, 0, 0)
+let f_true = 96485
+let gap = f_true - prod
+bad[0] = bad[0] + ck(gap, 0, 500)
+
+if 1834 < 1832
+    bad[0] = bad[0] + 1
+if 1834 > 1836
+    bad[0] = bad[0] + 1
+if 1886 < 1884
+    bad[0] = bad[0] + 1
+if 1886 > 1888
+    bad[0] = bad[0] + 1
+if 1886 < 1834
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

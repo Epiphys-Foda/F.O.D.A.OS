@@ -1,0 +1,13 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let main() =
+    let rs = wfc_mul(1, 1)
+    let diff = wfc_sub(200, 100)
+    let inv_diff = wfc_inv(diff)
+    let coeff = wfc_mul(rs, inv_diff)
+
+    let res100 = coeff
+
+    let ab = wfc_mul(res100, 100)
+
+    wfc_sub(1, ab)

@@ -1,0 +1,129 @@
+import "../stdlib/gf65537.ψ"
+
+let bqp_circuit(input_size, gate_count) =
+    [input_size, gate_count]
+
+let bqp_decide(circuit, input_x) =
+    gf_mul(circuit[0], input_x)
+
+let bqp_poly_steps(n, degree) =
+    gf_pow(n, degree)
+
+let qma_witness(n_qubits) =
+    [1] * n_qubits
+
+let qma_verify(verifier_circuit, witness, input_x) =
+    gf_mul(verifier_circuit, gf_mul(witness, input_x))
+
+let qma_decide(verifier_circuit, input_x, n_qubits) =
+    let witness = qma_witness(n_qubits)
+    let result = qma_verify(verifier_circuit, witness, input_x)
+    (result != 0 ? 1 : 0)
+
+let p_class_gf(n, degree) =
+    bqp_poly_steps(n, degree)
+
+let np_class_gf(n, degree) =
+    gf_mul(bqp_poly_steps(n, degree), gf_pow(65537, n))
+
+let bqp_class_gf(n, degree) =
+    bqp_poly_steps(n, degree)
+
+let containment_check(class_inner, class_outer) =
+    (class_inner <= class_outer ? 1 : 0)
+
+let classical_query_complexity(n) =
+    n
+
+let quantum_query_complexity(n) =
+    gf_sqrt(n)
+
+let query_speedup(n) =
+    gf_div(classical_query_complexity(n), quantum_query_complexity(n))
+
+let query_lower_bound(n) =
+    gf_sqrt(n)
+
+let classical_communication(n) =
+    n
+
+let quantum_communication(n) =
+    let bits = 0
+    let temp = n
+    for temp > 0
+        bits = bits + 1
+        temp = temp >> 1
+    bits
+
+let communication_speedup(n) =
+    gf_div(classical_communication(n), quantum_communication(n))
+
+let circuit_size_gf(n, depth) =
+    gf_pow(n, depth)
+
+let circuit_depth_gf(n) =
+    quantum_communication(n)
+
+let circuit_width_gf(n) =
+    n
+
+let quantum_supremacy_sampling(circuit, n_qubits) =
+    gf_pow(circuit, n_qubits)
+
+let classical_simulation_cost(n_qubits) =
+    gf_pow(2, n_qubits)
+
+let quantum_supremacy_check(n_qubits, quantum_time) =
+        let classical_cost = classical_simulation_cost(n_qubits)
+        if classical_cost > gf_mul(quantum_time, 100)
+            1
+        else
+            0
+
+let sharp_p_count(predicate, n) =
+    let count = 0
+    for x in 0..n
+        if predicate(x) != 0
+            count = count + 1
+    count
+
+let pcp_verify(proof, random_query, input_x) =
+    gf_mul(proof, gf_add(random_query, input_x))
+
+let pcp_theorem_gf(n) =
+    [quantum_communication(n), 1]
+
+let quantum_pcp_gf(n) =
+    pcp_theorem_gf(n)
+
+let time_space_tradeoff(time, space, n) =
+    let ts = gf_mul(time, space)
+    let n_sq = gf_mul(n, n)
+    (ts >= n_sq ? 1 : 0)
+
+let optimal_time_space(n) =
+    [n, n]
+
+let entanglement_complexity(circuit, n_qubits) =
+    n_qubits
+
+let entanglement_lower_bound(n_qubits) =
+    n_qubits
+
+let quantum_advantage(quantum_cost, classical_cost) =
+    gf_div(classical_cost, quantum_cost)
+
+let exponential_advantage(n) =
+    let classical = gf_pow(2, n)
+    let quantum = gf_pow(n, 2)
+    gf_div(classical, quantum)
+
+let quadratic_advantage(n) =
+    query_speedup(n)
+
+let adleman_theorem_gf(n) =
+    1
+
+let stockmeyer_gf(predicate, n) =
+    sharp_p_count(predicate, n)
+

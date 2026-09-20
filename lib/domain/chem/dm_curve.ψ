@@ -1,0 +1,29 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+let e6 = 1000000
+
+let kep = e6 / isqrt(2 * e6)
+bad[0] = bad[0] + ck(kep, 700, 715)
+
+let obs = 1000
+bad[0] = bad[0] + ck(obs, 990, 1010)
+
+if 1400 * kep > obs * 1000
+    bad[0] = bad[0] + 1
+if obs * 1000 > 1430 * kep
+    bad[0] = bad[0] + 1
+
+let mKepler = 2 * kep * kep
+bad[0] = bad[0] + ck(mKepler, 990000, 1010000)
+let mFlat = 2 * obs * obs
+bad[0] = bad[0] + ck(mFlat, 1990000, 2010000)
+
+let frac = 85
+bad[0] = bad[0] + ck(frac, 80, 88)
+
+let years = 92
+bad[0] = bad[0] + ck(years, 90, 95)
+
+arr_get(arr_new_n(1), bad[0])

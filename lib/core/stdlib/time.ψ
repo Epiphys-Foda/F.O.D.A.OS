@@ -1,0 +1,265 @@
+let time_days_in_month(year, month) =
+    if month == 1 || month == 3 || month == 5 || month == 7 || month == 8 || month == 10 || month == 12
+        31
+    else
+        0
+    if month == 4 || month == 6 || month == 9 || month == 11
+        30
+    else
+        0
+    if month == 2
+        let leap = 0
+        if year % 4 == 0
+            leap = 1
+        if year % 100 == 0
+            leap = 0
+        if year % 400 == 0
+            leap = 1
+        (leap == 1 ? 29 : 28)
+
+let time_is_leap_year(year) =
+    let leap = 0
+    if year % 4 == 0
+        leap = 1
+    if year % 100 == 0
+        leap = 0
+    if year % 400 == 0
+        leap = 1
+    leap
+
+let time_day_of_year(year, month, day) =
+    let doy = day
+    let m = 1
+    for m < month
+        doy = doy + time_days_in_month(year, m)
+        m = m + 1
+    doy
+
+let time_date_to_days(year, month, day) =
+    let days = 0
+    let y = 1970
+    for y < year
+        if time_is_leap_year(y) == 1
+            days = days + 366
+        else
+            days = days + 365
+        y = y + 1
+    days = days + time_day_of_year(year, month, day) - 1
+    days
+
+let time_days_to_date(days) =
+    let remaining = days
+    let year = 1970
+    let year_days = 365
+    if time_is_leap_year(year) == 1
+        year_days = 366
+    for remaining >= year_days
+        remaining = remaining - year_days
+        year = year + 1
+        year_days = 365
+        if time_is_leap_year(year) == 1
+            year_days = 366
+    let month = 1
+    let month_days = time_days_in_month(year, month)
+    for remaining >= month_days
+        remaining = remaining - month_days
+        month = month + 1
+        month_days = time_days_in_month(year, month)
+    let result = arr_new()
+    result = arr_push(result, year)
+    result = arr_push(result, month)
+    result = arr_push(result, remaining + 1)
+    result
+
+let time_day_of_week(year, month, day) =
+    let y = year
+    let m = month
+    if m < 3
+        m = m + 12
+        y = y - 1
+    let k = y % 100
+    let j = y / 100
+    let h = day + (13 * (m + 1)) / 5 + k + k / 4 + j / 4 + 5 * j
+    h % 7
+
+let time_add_days(year, month, day, n) =
+    let days = time_date_to_days(year, month, day) + n
+    time_days_to_date(days)
+
+let time_sub_days(year, month, day, n) =
+    let days = time_date_to_days(year, month, day) - n
+    time_days_to_date(days)
+
+let time_days_between(y1, m1, d1, y2, m2, d2) =
+    let days1 = time_date_to_days(y1, m1, d1)
+    let days2 = time_date_to_days(y2, m2, d2)
+    days2 - days1
+
+let time_is_valid_date(year, month, day) =
+    if year < 1
+        return 0
+    if month < 1 || month > 12
+        return 0
+    if day < 1 || day > time_days_in_month(year, month)
+        return 0
+    1
+
+let time_week_number(year, month, day) =
+    let doy = time_day_of_year(year, month, day)
+    let dow = time_day_of_week(year, month, day)
+    (doy - dow + 10) / 7
+
+let time_quarter(month) =
+    (month - 1) / 3 + 1
+
+let time_is_weekend(year, month, day) =
+    let dow = time_day_of_week(year, month, day)
+    (dow == 0 || dow == 6 ? 1 : 0)
+
+let time_format_duration(seconds) =
+    let s = seconds
+    if s < 0
+        s = 0 - s
+    let hours = s / 3600
+    s = s % 3600
+    let minutes = s / 60
+    s = s % 60
+    let result = ""
+    if hours > 0
+        result = result + hours + "h "
+    if minutes > 0 || hours > 0
+        result = result + minutes + "m "
+    result = result + s + "s"
+    result
+
+let time_format_hms(seconds) =
+    let s = seconds
+    if s < 0
+        s = 0 - s
+    let hours = s / 3600
+    s = s % 3600
+    let minutes = s / 60
+    s = s % 60
+    let result = ""
+    if hours < 10
+        result = result + "0"
+    result = result + hours + ":"
+    if minutes < 10
+        result = result + "0"
+    result = result + minutes + ":"
+    if s < 10
+        result = result + "0"
+    result = result + s
+    result
+
+let time_month_name(month) =
+    if month == 1
+        "January"
+    else
+        0
+    if month == 2
+        "February"
+    else
+        0
+    if month == 3
+        "March"
+    else
+        0
+    if month == 4
+        "April"
+    else
+        0
+    if month == 5
+        "May"
+    else
+        0
+    if month == 6
+        "June"
+    else
+        0
+    if month == 7
+        "July"
+    else
+        0
+    if month == 8
+        "August"
+    else
+        0
+    if month == 9
+        "September"
+    else
+        0
+    if month == 10
+        "October"
+    else
+        0
+    if month == 11
+        "November"
+    else
+        0
+    if month == 12
+        "December"
+    else
+        "Unknown"
+
+let time_day_name(dow) =
+    if dow == 0
+        "Sunday"
+    else
+        0
+    if dow == 1
+        "Monday"
+    else
+        0
+    if dow == 2
+        "Tuesday"
+    else
+        0
+    if dow == 3
+        "Wednesday"
+    else
+        0
+    if dow == 4
+        "Thursday"
+    else
+        0
+    if dow == 5
+        "Friday"
+    else
+        0
+    if dow == 6
+        "Saturday"
+    else
+        "Unknown"
+
+let time_format_date(year, month, day) =
+    let result = "" + year + "-"
+    if month < 10
+        result = result + "0"
+    result = result + month + "-"
+    if day < 10
+        result = result + "0"
+    result = result + day
+    result
+
+let time_epoch_to_date(epoch) =
+    let days = epoch / 86400
+    time_days_to_date(days)
+
+let time_date_to_epoch(year, month, day, hour, minute, second) =
+    let days = time_date_to_days(year, month, day)
+    days * 86400 + hour * 3600 + minute * 60 + second
+
+let time_age(birth_year, birth_month, birth_day, now_year, now_month, now_day) =
+    let age = now_year - birth_year
+    if now_month < birth_month || (now_month == birth_month && now_day < birth_day)
+        age = age - 1
+    age
+
+let main() =
+    print(time_day_of_week(2024, 1, 1))
+    print(time_days_in_month(2024, 2))
+    print(time_is_leap_year(2024))
+    print(time_format_duration(3661))
+    print(time_format_hms(3661))
+    0

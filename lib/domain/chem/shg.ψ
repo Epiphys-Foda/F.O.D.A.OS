@@ -1,0 +1,39 @@
+import "ck.ψ"
+let bad = [0]
+
+let lam_ir = 1064
+let lam_g = 532
+let dz1 = lam_g * 2 - lam_ir
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let lam_r = 694
+let lam_uv = 347
+let dz2 = lam_uv * 2 - lam_r
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let fin = 2
+let fout = 1
+let mr = fin - 2 * fout
+bad[0] = bad[0] + ck(mr, 0, 0)
+
+let chi_si = 0
+bad[0] = bad[0] + ck(chi_si, 0, 0)
+
+let dk = 0
+bad[0] = bad[0] + ck(dk, 0, 0)
+
+let d33 = 3
+bad[0] = bad[0] + ck(d33, 2, 5)
+let eff = 35
+bad[0] = bad[0] + ck(eff, 25, 60)
+
+if 1961 < 1959
+    bad[0] = bad[0] + 1
+if 1961 > 1963
+    bad[0] = bad[0] + 1
+if 1990 < 1985
+    bad[0] = bad[0] + 1
+if 1990 > 2000
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

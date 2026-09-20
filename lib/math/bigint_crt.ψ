@@ -1,0 +1,358 @@
+import "../domain/domain_field.ψ"
+
+import "bigint.ψ"
+import "../core/stdlib_lang2/gf_base.ψ"
+
+let CRT_P0 = 65537
+let CRT_P1 = 131071
+let CRT_P2 = 786433
+let CRT_P3 = 1376257
+
+let _crt_mod(a, p) =
+    let r = a - (a / p) * p
+    r
+
+let _crt_addmod(a, b, p) =
+    let s = a + b
+    _crt_mod(s, p)
+
+let _crt_submod(a, b, p) =
+    if a >= b
+        a - b
+    else
+        a + p - b
+
+let _crt_mulmod(a, b, p) =
+    _crt_mod(a * b, p)
+
+let _crt_powmod(base, exp, p) =
+    let acc = 1
+    let b = _crt_mod(base, p)
+    let e = exp
+    for e > 0
+        if _crt_mod(e, 2) == 1
+            acc = _crt_mulmod(acc, b, p)
+        b = _crt_mulmod(b, b, p)
+        e = e / 2
+    acc
+
+let _crt_invmod(a, p) =
+    _crt_powmod(a, p - 2, p)
+
+let crt_from_int(n) =
+    if n < 0
+        [0, 0, 0, 0]
+    else
+        [
+            _crt_mod(n, CRT_P0),
+            _crt_mod(n, CRT_P1),
+            _crt_mod(n, CRT_P2),
+            _crt_mod(n, CRT_P3)
+        ]
+
+let crt_zero() = [0, 0, 0, 0]
+
+let crt_one() = [1, 1, 1, 1]
+
+let crt_is_zero(a) =
+    a[0] == 0 && a[1] == 0 && a[2] == 0 && a[3] == 0
+
+let crt_is_one(a) =
+    a[0] == 1 && a[1] == 1 && a[2] == 1 && a[3] == 1
+
+let crt_add(a, b) =
+    [
+        _crt_addmod(a[0], b[0], CRT_P0),
+        _crt_addmod(a[1], b[1], CRT_P1),
+        _crt_addmod(a[2], b[2], CRT_P2),
+        _crt_addmod(a[3], b[3], CRT_P3)
+    ]
+
+let crt_sub(a, b) =
+    [
+        _crt_submod(a[0], b[0], CRT_P0),
+        _crt_submod(a[1], b[1], CRT_P1),
+        _crt_submod(a[2], b[2], CRT_P2),
+        _crt_submod(a[3], b[3], CRT_P3)
+    ]
+
+let crt_mul(a, b) =
+    [
+        _crt_mulmod(a[0], b[0], CRT_P0),
+        _crt_mulmod(a[1], b[1], CRT_P1),
+        _crt_mulmod(a[2], b[2], CRT_P2),
+        _crt_mulmod(a[3], b[3], CRT_P3)
+    ]
+
+let crt_neg(a) =
+    [
+        _crt_submod(0, a[0], CRT_P0),
+        _crt_submod(0, a[1], CRT_P1),
+        _crt_submod(0, a[2], CRT_P2),
+        _crt_submod(0, a[3], CRT_P3)
+    ]
+
+let _garner2(r0, r1, p0, p1) =
+    let t = _crt_submod(r1, _crt_mod(r0, p1), p1)
+    let k = _crt_mulmod(t, _crt_invmod(p0, p1), p1)
+    r0 + p0 * k
+
+let crt_to_bi(a) =
+    let r01 = _garner2(a[0], a[1], CRT_P0, CRT_P1)
+    let m01 = CRT_P0 * CRT_P1
+    let t2 = _crt_submod(a[2], _crt_mod(r01, CRT_P2), CRT_P2)
+    let k2 = _crt_mulmod(t2, _crt_invmod(m01, CRT_P2), CRT_P2)
+    let r012 = r01 + m01 * k2
+    let m012 = m01 * CRT_P2
+    let t3 = _crt_submod(a[3], _crt_mod(r012, CRT_P3), CRT_P3)
+    let k3 = _crt_mulmod(t3, _crt_invmod(m012, CRT_P3), CRT_P3)
+    let bi_r012 = bi_from_int(r012)
+    let bi_m012 = bi_from_int(m012)
+    let bi_k3 = bi_from_int(k3)
+    let bi_prod = bi_mul(bi_m012, bi_k3)
+    bi_add(bi_r012, bi_prod)
+
+let crt_to_int(a) =
+    bi_to_int(crt_to_bi(a))
+
+let crt_to_str(a) =
+    if crt_is_zero(a)
+        "0"
+    else
+        bi_to_str(crt_to_bi(a))
+
+let crt_cmp(a, b) =
+    let va = crt_to_int(a)
+    let vb = crt_to_int(b)
+    if va >= 0 && vb >= 0
+        if va > vb
+            1
+        else
+            0
+        if va < vb
+            0 - 1
+        else
+            0
+    else
+        if a[0] == b[0] && a[1] == b[1] && a[2] == b[2] && a[3] == b[3]
+            0
+        else
+            0 - 1
+
+let crt_from_bi(bi) =
+    [
+        bi_mod_small(bi, CRT_P0),
+        bi_mod_small(bi, CRT_P1),
+        bi_mod_small(bi, CRT_P2),
+        bi_mod_small(bi, CRT_P3)
+    ]
+
+let crt_gcd_bi(a, b) =
+    let bi_a = crt_to_bi(a)
+    let bi_b = crt_to_bi(b)
+    bi_gcd(bi_a, bi_b)
+
+let crt_div_bi(a, bi_divisor) =
+    let bi_a = crt_to_bi(a)
+    let qr = bi_divmod(bi_a, bi_divisor)
+    crt_from_bi(qr[0])
+
+let CRT_P4 = 9962497
+let CRT_P5 = 167772161
+let CRT_P6 = 469762049
+let CRT_P7 = 754974721
+
+let crt8_from_int(n) =
+    if n < 0
+        [0, 0, 0, 0, 0, 0, 0, 0]
+    else
+        [
+            _crt_mod(n, CRT_P0),
+            _crt_mod(n, CRT_P1),
+            _crt_mod(n, CRT_P2),
+            _crt_mod(n, CRT_P3),
+            _crt_mod(n, CRT_P4),
+            _crt_mod(n, CRT_P5),
+            _crt_mod(n, CRT_P6),
+            _crt_mod(n, CRT_P7)
+        ]
+
+let crt8_zero() = [0, 0, 0, 0, 0, 0, 0, 0]
+let crt8_one() = [1, 1, 1, 1, 1, 1, 1, 1]
+
+let crt8_add(a, b) =
+    [
+        _crt_addmod(a[0], b[0], CRT_P0),
+        _crt_addmod(a[1], b[1], CRT_P1),
+        _crt_addmod(a[2], b[2], CRT_P2),
+        _crt_addmod(a[3], b[3], CRT_P3),
+        _crt_addmod(a[4], b[4], CRT_P4),
+        _crt_addmod(a[5], b[5], CRT_P5),
+        _crt_addmod(a[6], b[6], CRT_P6),
+        _crt_addmod(a[7], b[7], CRT_P7)
+    ]
+
+let crt8_sub(a, b) =
+    [
+        _crt_submod(a[0], b[0], CRT_P0),
+        _crt_submod(a[1], b[1], CRT_P1),
+        _crt_submod(a[2], b[2], CRT_P2),
+        _crt_submod(a[3], b[3], CRT_P3),
+        _crt_submod(a[4], b[4], CRT_P4),
+        _crt_submod(a[5], b[5], CRT_P5),
+        _crt_submod(a[6], b[6], CRT_P6),
+        _crt_submod(a[7], b[7], CRT_P7)
+    ]
+
+let crt8_mul(a, b) =
+    [
+        _crt_mulmod(a[0], b[0], CRT_P0),
+        _crt_mulmod(a[1], b[1], CRT_P1),
+        _crt_mulmod(a[2], b[2], CRT_P2),
+        _crt_mulmod(a[3], b[3], CRT_P3),
+        _crt_mulmod(a[4], b[4], CRT_P4),
+        _crt_mulmod(a[5], b[5], CRT_P5),
+        _crt_mulmod(a[6], b[6], CRT_P6),
+        _crt_mulmod(a[7], b[7], CRT_P7)
+    ]
+
+let crt8_to_bi(a) =
+    let t1 = _crt_submod(a[1], _crt_mod(a[0], CRT_P1), CRT_P1)
+    let k1 = _crt_mulmod(t1, _crt_invmod(CRT_P0, CRT_P1), CRT_P1)
+    let r01 = a[0] + CRT_P0 * k1
+    let m01 = CRT_P0 * CRT_P1
+    let t2 = _crt_submod(a[2], _crt_mod(r01, CRT_P2), CRT_P2)
+    let k2 = _crt_mulmod(t2, _crt_invmod(m01, CRT_P2), CRT_P2)
+    let r012 = r01 + m01 * k2
+    let m012 = m01 * CRT_P2
+    let t3 = _crt_submod(a[3], _crt_mod(r012, CRT_P3), CRT_P3)
+    let k3 = _crt_mulmod(t3, _crt_invmod(m012, CRT_P3), CRT_P3)
+    let bi_r = bi_add(bi_from_int(r012), bi_mul_small(bi_from_int(m012), k3))
+    let bi_m = bi_mul_small(bi_from_int(m012), CRT_P3)
+    let t4 = _crt_submod(a[4], bi_mod_small(bi_r, CRT_P4), CRT_P4)
+    let k4 = _crt_mulmod(t4, _crt_invmod(bi_mod_small(bi_m, CRT_P4), CRT_P4), CRT_P4)
+    bi_r = bi_add(bi_r, bi_mul_small(bi_m, k4))
+    bi_m = bi_mul_small(bi_m, CRT_P4)
+    let t5 = _crt_submod(a[5], bi_mod_small(bi_r, CRT_P5), CRT_P5)
+    let k5 = _crt_mulmod(t5, _crt_invmod(bi_mod_small(bi_m, CRT_P5), CRT_P5), CRT_P5)
+    bi_r = bi_add(bi_r, bi_mul_small(bi_m, k5))
+    bi_m = bi_mul_small(bi_m, CRT_P5)
+    let t6 = _crt_submod(a[6], bi_mod_small(bi_r, CRT_P6), CRT_P6)
+    let k6 = _crt_mulmod(t6, _crt_invmod(bi_mod_small(bi_m, CRT_P6), CRT_P6), CRT_P6)
+    bi_r = bi_add(bi_r, bi_mul_small(bi_m, k6))
+    bi_m = bi_mul_small(bi_m, CRT_P6)
+    let t7 = _crt_submod(a[7], bi_mod_small(bi_r, CRT_P7), CRT_P7)
+    let k7 = _crt_mulmod(t7, _crt_invmod(bi_mod_small(bi_m, CRT_P7), CRT_P7), CRT_P7)
+    bi_r = bi_add(bi_r, bi_mul_small(bi_m, k7))
+    bi_r
+
+let crt8_to_str(a) =
+    bi_to_str(crt8_to_bi(a))
+
+let crt8_to_int(a) =
+    bi_to_int(crt8_to_bi(a))
+
+let crt8_from_bi(bi) =
+    [
+        bi_mod_small(bi, CRT_P0),
+        bi_mod_small(bi, CRT_P1),
+        bi_mod_small(bi, CRT_P2),
+        bi_mod_small(bi, CRT_P3),
+        bi_mod_small(bi, CRT_P4),
+        bi_mod_small(bi, CRT_P5),
+        bi_mod_small(bi, CRT_P6),
+        bi_mod_small(bi, CRT_P7)
+    ]
+
+let crt_to_crt8(a) =
+    [a[0], a[1], a[2], a[3], 0, 0, 0, 0]
+
+let crt_mul_safe(a, b) =
+    let bi_a = crt_to_bi(a)
+    let bi_b = crt_to_bi(b)
+    let bi_prod = bi_mul(bi_a, bi_b)
+    crt_from_bi(bi_prod)
+
+let crt8_mul_safe(a, b) =
+    let bi_a = crt8_to_bi(a)
+    let bi_b = crt8_to_bi(b)
+    let bi_prod = bi_mul(bi_a, bi_b)
+    crt8_from_bi(bi_prod)
+
+let crt_ntt_mul8(limbs_a, limbs_b) =
+    let w0 = _crt_powmod(3, 8192, CRT_P0)
+    let w1 = _crt_powmod(10, 98304, CRT_P1)
+    [
+        _crt_mulmod(limbs_a[0], limbs_b[0], CRT_P0),
+        _crt_mulmod(limbs_a[0], limbs_b[0], CRT_P1),
+        _crt_mulmod(limbs_a[0], limbs_b[0], CRT_P2),
+        _crt_mulmod(limbs_a[0], limbs_b[0], CRT_P3)
+    ]
+
+let crt_parse_literal(s) =
+    let result = crt_zero()
+    let n = len(s)
+    let i = 0
+    let chunk = 0
+    let chunk_len = 0
+    for i < n
+        let c = s[i]
+        if c >= 48 && c <= 57
+            chunk = chunk * 10 + (c - 48)
+            chunk_len = chunk_len + 1
+            if chunk_len == 9
+                let ten9 = crt_from_int(1000000000)
+                result = crt_add(crt_mul(result, ten9), crt_from_int(chunk))
+                chunk = 0
+                chunk_len = 0
+        i = i + 1
+    if chunk_len > 0
+        let pow10 = crt_from_int(1)
+        let j = 0
+        for j < chunk_len
+            pow10 = crt_mul(pow10, crt_from_int(10))
+            j = j + 1
+        result = crt_add(crt_mul(result, pow10), crt_from_int(chunk))
+    result
+
+let crt_test() =
+    print_str("=== CRT bigint test ===")
+    let a = crt_from_int(12345)
+    let b = crt_from_int(6789)
+    print_str("a = 12345:")
+    print(crt_to_int(a))
+    print_str("b = 6789:")
+    print(crt_to_int(b))
+    let sum = crt_add(a, b)
+    print_str("a + b = 19134:")
+    print(crt_to_int(sum))
+    let prod = crt_mul(a, b)
+    print_str("a * b = 83810205:")
+    print(crt_to_int(prod))
+    let big1 = crt_from_int(1000000000)
+    let big2 = crt_from_int(2000000000)
+    let big_prod = crt_mul(big1, big2)
+    print_str("1e9 * 2e9 = 2e18:")
+    print_str(crt_to_str(big_prod))
+    let diff = crt_sub(a, b)
+    print_str("a - b = 5556:")
+    print(crt_to_int(diff))
+    let c = crt_cmp(a, b)
+    print_str("cmp(a,b) = 1:")
+    print(c)
+    let huge = crt_from_int(9000000000000000000)
+    let huge_str = crt_to_str(huge)
+    print_str("9e18:")
+    print_str(huge_str)
+    let parsed = crt_parse_literal([49, 50, 51, 52, 53])
+    print_str("parsed '12345':")
+    print(crt_to_int(parsed))
+    let parsed2 = crt_parse_literal([57, 57, 57, 57, 57, 57, 57, 57, 57, 57])
+    print_str("parsed '9999999999':")
+    print_str(crt_to_str(parsed2))
+    print_str("=== CRT bigint done ===")
+    1
+
+let kleene_verify(t1, t2) = domain_kleene_verify(t1, t2)
+
+let pcd_divergence(u, n) = domain_pcd_divergence(u, n)

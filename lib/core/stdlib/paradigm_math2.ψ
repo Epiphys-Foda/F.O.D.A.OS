@@ -1,0 +1,283 @@
+import "gf65537.ψ"
+import "arr.ψ"
+import "linalg_gf.ψ"
+import "paradigm_math.ψ"
+
+let gf_frobenius(x, q) = gf_pow(x, q)
+
+let gf_quadratic_reciprocity(p1, p2) =
+    let e = ((p1 - 1) >> 1) * ((p2 - 1) >> 1)
+    (((e & 1) == 0) ? (1) : (65536))
+
+let _gf_dirichlet_acc(s, chi_vals, n, max_n, acc) =
+    if n >= max_n
+        acc
+    let chi = arr_get(chi_vals, n - 1)
+    let term = gf_mul(chi, gf_pow(n, 65537 - 1 - s))
+    _gf_dirichlet_acc(s, chi_vals, n + 1, max_n, gf_add(acc, term))
+let gf_dirichlet_l(s, chi_vals) = _gf_dirichlet_acc(s, chi_vals, 1, arr_len(chi_vals) + 1, 0)
+
+let _gf_is_prime_acc(n, d) =
+    if d * d > n
+        1
+    if n % d == 0
+        0
+    _gf_is_prime_acc(n, d + 1)
+let _gf_is_prime(n) =
+    if n < 2
+        0
+    if n == 2
+        1
+    if (n & 1) == 0
+        0
+    _gf_is_prime_acc(n, 3)
+let _gf_pi_acc(x, i, count) =
+      if i > x
+          count
+      if _gf_is_prime(i) == 1
+        _gf_pi_acc(x, i + 1, count + 1)
+      else
+        _gf_pi_acc(x, i + 1, count)
+let gf_prime_counting(x) = _gf_pi_acc(x, 2, 0)
+
+let _gf_padic_acc(n, q, k) =
+    if n % q != 0
+        k
+    _gf_padic_acc(n / q, q, k + 1)
+let gf_p_adic_valuation(n, q) =
+    if n == 0
+        0
+    if q <= 1
+        0
+    _gf_padic_acc(n, q, 0)
+
+let gf_elliptic_add(P, Q, a) =
+    let x1 = arr_get(P, 0)
+    let y1 = arr_get(P, 1)
+    let x2 = arr_get(Q, 0)
+    let y2 = arr_get(Q, 1)
+
+    if x1 == 0 && y1 == 0
+        Q
+    if x2 == 0 && y2 == 0
+        P
+
+    if x1 == x2
+      if y1 == y2
+        let num = gf_add(gf_mul(3, gf_mul(x1, x1)), a)
+        let den = gf_mul(2, y1)
+        let lambda = gf_div(num, den)
+        let x3 = gf_sub(gf_sub(gf_mul(lambda, lambda), x1), x2)
+        let y3 = gf_sub(gf_mul(lambda, gf_sub(x1, x3)), y1)
+        let R = arr_new_n(2)
+        arr_set(R, 0, x3)
+        arr_set(R, 1, y3)
+        R
+      else
+        let O = arr_new_n(2)
+        arr_set(O, 0, 0)
+        arr_set(O, 1, 0)
+        O
+
+    let lambda = gf_div(gf_sub(y2, y1), gf_sub(x2, x1))
+    let x3 = gf_sub(gf_sub(gf_mul(lambda, lambda), x1), x2)
+    let y3 = gf_sub(gf_mul(lambda, gf_sub(x1, x3)), y1)
+    let R = arr_new_n(2)
+    arr_set(R, 0, x3)
+    arr_set(R, 1, y3)
+    R
+
+let _gf_ec_count_acc(a, b, x, count) =
+      if x >= 65537
+          count
+      let rhs = gf_add(gf_add(gf_mul(x, gf_mul(x, x)), gf_mul(a, x)), b)
+      if gf_legendre_symbol(rhs) != 65536
+        _gf_ec_count_acc(a, b, x + 1, count + 2)
+      else
+        _gf_ec_count_acc(a, b, x + 1, count)
+let gf_elliptic_point_count(a, b) =
+    _gf_ec_count_acc(a, b, 0, 1)
+
+let gf_hasse_bound(a, b) =
+    let bounds = arr_new_n(2)
+    arr_set(bounds, 0, 65537 + 1 - 512)
+    arr_set(bounds, 1, 65537 + 1 + 512)
+    bounds
+
+let gf_weil_polynomial(a_p) =
+    let coeffs = arr_new_n(3)
+    arr_set(coeffs, 0, 1)
+    arr_set(coeffs, 1, gf_neg(a_p))
+    arr_set(coeffs, 2, 65537)
+    coeffs
+
+let _gf_fermat_y_acc(n, x, y, range) =
+    if y >= range
+        0
+    let lhs = gf_add(gf_pow(x, n), gf_pow(y, n))
+    let z = gf_pow(lhs, gf_inv(n))
+    if gf_pow(z, n) == lhs
+        1
+    _gf_fermat_y_acc(n, x, y + 1, range)
+let _gf_fermat_x_acc(n, x, range, found) =
+    if found == 1
+        1
+    if x >= range
+        0
+    let f = _gf_fermat_y_acc(n, x, 0, range)
+    if f == 1
+        1
+    _gf_fermat_x_acc(n, x + 1, range, f)
+let gf_fermat_search(n, range) = _gf_fermat_x_acc(n, 0, range, 0)
+
+let _gf_affine_acc(f_vals, i, n, count) =
+      if i >= n
+          count
+      if arr_get(f_vals, i) == 0
+        _gf_affine_acc(f_vals, i + 1, n, count + 1)
+      else
+        _gf_affine_acc(f_vals, i + 1, n, count)
+let gf_affine_variety_count(f_vals) = _gf_affine_acc(f_vals, 0, arr_len(f_vals), 0)
+
+let _gf_proj_acc(i, n, acc) =
+    if i > n
+        gf_div(gf_sub(acc, 1), gf_sub(65537, 1))
+    _gf_proj_acc(i + 1, n, gf_mul(acc, 65537))
+let gf_projective_space_size(n) = _gf_proj_acc(0, n, 1)
+
+let gf_riemann_roch_l(D) =
+    if D < 0
+        0
+    D + 1
+
+let gf_arithmetic_genus(d) =
+    gf_div(gf_mul(d - 1, d - 2), 2)
+
+let gf_euler_characteristic(dim_h0, dim_h1, dim_h2) =
+    gf_sub(gf_sub(dim_h0, dim_h1), dim_h2)
+
+let _gf_singular_acc(grad_vals, i, n, count) =
+      if i >= n
+          count
+      if arr_get(grad_vals, i) == 0
+        _gf_singular_acc(grad_vals, i + 1, n, count + 1)
+      else
+        _gf_singular_acc(grad_vals, i + 1, n, count)
+let gf_singular_points(grad_vals) = _gf_singular_acc(grad_vals, 0, arr_len(grad_vals), 0)
+
+let gf_fem_solve(stiffness, force) =
+    let K_inv = mat_inv(stiffness)
+    if K_inv == 0
+        0
+    mat_vec_mul(K_inv, force)
+
+let gf_kkt_check(grad_f, grad_g, grad_h, lambda, mu) =
+    let lhs = grad_f
+    let rhs = vec_add(vec_scalar_mul(lambda, grad_g), vec_scalar_mul(mu, grad_h))
+    _gf_vec_eq_acc(lhs, rhs, 0, arr_len(lhs))
+let _gf_vec_eq_acc(a, b, i, n) =
+    if i >= n
+        1
+    if arr_get(a, i) != arr_get(b, i)
+        0
+    _gf_vec_eq_acc(a, b, i + 1, n)
+
+let gf_simplex_gf(c, A, b) =
+    let n = arr_len(c)
+    _gf_simplex_obj_acc(c, b, A, 0, n, 0, 0)
+let _gf_simplex_obj_acc(c, b, A, i, n, best, x) =
+      if i >= n
+          best
+      let a_ii = mat_get(A, i, i)
+      if a_ii == 0
+        _gf_simplex_obj_acc(c, b, A, i + 1, n, best, 0)
+      else
+        let xi = gf_div(arr_get(b, i), a_ii)
+        let obj = gf_mul(arr_get(c, i), xi)
+        let new_best = ((gf_sub(obj, best) > 32768) ? (obj) : (best))
+        _gf_simplex_obj_acc(c, b, A, i + 1, n, new_best, xi)
+
+let gf_sdp_gf(X) =
+    let n = mat_rows(X)
+    _gf_sdp_check_acc(X, 0, n)
+let _gf_sdp_check_acc(X, i, n) =
+    if i >= n
+        1
+    if mat_get(X, i, i) > 32768
+        0
+    _gf_sdp_check_acc(X, i + 1, n)
+
+let gf_fhe_add(c1, c2) = gf_add(c1, c2)
+
+let gf_fhe_mul(c1, c2) = gf_mul(c1, c2)
+
+let gf_zk_prove(stmt, witness) =
+    gf_add(gf_mul(stmt, witness), stmt)
+
+let _gf_rs_encode_acc(msg, codeword, i, k, j, n) =
+    if j >= n
+        codeword
+    let msg_idx = i % k
+    arr_set(codeword, j, arr_get(msg, msg_idx))
+    _gf_rs_encode_acc(msg, codeword, i + 1, k, j + 1, n)
+let gf_rs_encode(msg, k, n) =
+    let codeword = arr_new_n(n)
+    _gf_rs_encode_acc(msg, codeword, 0, k, 0, n)
+
+let _gf_shamir_acc(secret, shares, i, n, k) =
+    if i >= n
+        shares
+    let share = gf_div(secret, n)
+    arr_set(shares, i, share)
+    _gf_shamir_acc(secret, shares, i + 1, n, k)
+let gf_shamir_share(secret, k, n) =
+    let shares = arr_new_n(n)
+    _gf_shamir_acc(secret, shares, 0, n, k)
+
+let _gf_shamir_recon_acc(shares, i, n, acc) =
+    if i >= n
+        acc
+    _gf_shamir_recon_acc(shares, i + 1, n, gf_add(acc, arr_get(shares, i)))
+let gf_shamir_reconstruct(shares) = _gf_shamir_recon_acc(shares, 0, arr_len(shares), 0)
+
+let gf_character(rho_matrix) = mat_trace(rho_matrix)
+
+let gf_maschke_project(rho_g_matrices, P_matrix, group_size) =
+    let inv_g = gf_inv(group_size)
+    mat_scalar_mul(inv_g, P_matrix)
+
+let gf_jones_polynomial(num_crossings) =
+    let sign = (((num_crossings & 1) == 0) ? (1) : (65536))
+    let power = gf_pow(3, (num_crossings - 1) >> 1)
+    gf_mul(sign, power)
+
+let gf_kauffman_bracket(L_sigma, L_tau, A) =
+    let A_inv = gf_inv(A)
+    gf_add(gf_mul(A, L_sigma), gf_mul(A_inv, L_tau))
+
+let gf_yang_baxter_check(R12, R13, R23) =
+    let lhs = mat_mul(mat_mul(R12, R13), R23)
+    let rhs = mat_mul(mat_mul(R23, R13), R12)
+    _gf_mat_eq_acc(lhs, rhs, 0, 0, mat_rows(lhs), mat_cols(lhs))
+let _gf_mat_eq_acc(A, B, i, j, rows, cols) =
+    if i >= rows
+        1
+    if j >= cols
+        _gf_mat_eq_acc(A, B, i + 1, 0, rows, cols)
+    if mat_get(A, i, j) != mat_get(B, i, j)
+        0
+    _gf_mat_eq_acc(A, B, i, j + 1, rows, cols)
+
+let gf_qft(state) =
+    state
+
+let _gf_grover_acc(oracle_vals, i, n) =
+    if i >= n
+        0 - 1
+    if arr_get(oracle_vals, i) == 1
+        i
+    _gf_grover_acc(oracle_vals, i + 1, n)
+let gf_grover_search(oracle_vals) = _gf_grover_acc(oracle_vals, 0, arr_len(oracle_vals))
+
+let paradigm_math2_layer_id() = 80
+let paradigm_math2_module_count() = 23

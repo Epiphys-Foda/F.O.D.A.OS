@@ -1,0 +1,257 @@
+import "../domain_field.ψ"
+
+let RL_P = 65537
+let RL_Q_SCALE = 1000
+
+let RL_POLICY_GREEDY          = 1
+let RL_POLICY_EPSILON_GREEDY  = 2
+let RL_POLICY_SOFTMAX         = 3
+
+let RL_DEFAULT_ALPHA   = 100
+let RL_DEFAULT_GAMMA   = 900
+let RL_DEFAULT_EPSILON = 100
+
+let RL_PARAM_EPSILON = 1
+let RL_FIELD_SCALE  = 256
+let RL_FIELD_OFFSET = 1
+let RL_BRAGG_Z      = 256
+
+let rl_state_new(state_id, features_map, is_terminal) =
+    [state_id, features_map, is_terminal]
+
+let rl_state_id(s)   = s[0]
+let rl_state_feat(s) = s[1]
+let rl_state_term(s) = s[2]
+
+let rl_action_new(action_id, name, valid_states) =
+    [action_id, name, valid_states]
+
+let rl_action_id(a)    = a[0]
+let rl_action_name(a)  = a[1]
+let rl_action_valid(a) = a[2]
+
+let rl_policy_new(p_type, params_map) =
+    [p_type, params_map]
+
+let rl_policy_type(p)   = p[0]
+let rl_policy_params(p) = p[1]
+
+let rl_default_agent() =
+    [{}, [], {}, RL_DEFAULT_ALPHA, RL_DEFAULT_GAMMA, RL_DEFAULT_EPSILON, 0, []]
+
+let rl_agent_states(a)  = a[0]
+let rl_agent_actions(a) = a[1]
+let rl_agent_q(a)       = a[2]
+let rl_agent_alpha(a)   = a[3]
+let rl_agent_gamma(a)   = a[4]
+let rl_agent_epsilon(a) = a[5]
+let rl_agent_eps(a)     = a[6]
+let rl_agent_log(a)     = a[7]
+
+let rl_add_state(agent, state) =
+    let states = rl_agent_states(agent)
+    states[rl_state_id(state)] = state
+    agent
+
+let rl_add_action(agent, action) =
+    let actions = rl_agent_actions(agent)
+    actions.push(action)
+    agent
+
+let rl_q_key(state_id, action_id) =
+    state_id * 65536 + action_id
+
+let rl_get_q(agent, state_id, action_id) =
+    let q_table = rl_agent_q(agent)
+    let key = rl_q_key(state_id, action_id)
+    q_table[key]
+
+let rl_set_q(agent, state_id, action_id, value) =
+    let q_table = rl_agent_q(agent)
+    let key = rl_q_key(state_id, action_id)
+    q_table[key] = value
+    agent
+
+let rl_max_q_for_state(agent, state_id) =
+    let actions = rl_agent_actions(agent)
+    let n = len(actions)
+    if n == 0
+        [0, -1]
+    else
+        let max_q = rl_get_q(agent, state_id, rl_action_id(actions[0]))
+        let best_aid = rl_action_id(actions[0])
+        let i = 1
+        for i < n
+            let a = actions[i]
+            let aid = rl_action_id(a)
+            let q = rl_get_q(agent, state_id, aid)
+            if q > max_q
+                max_q = q
+                best_aid = aid
+            i = i + 1
+        [max_q, best_aid]
+
+let rl_min_q_for_state(agent, state_id) =
+    let actions = rl_agent_actions(agent)
+    let n = len(actions)
+    if n == 0
+        [0, -1]
+    else
+        let min_q = rl_get_q(agent, state_id, rl_action_id(actions[0]))
+        let best_aid = rl_action_id(actions[0])
+        let i = 1
+        for i < n
+            let a = actions[i]
+            let aid = rl_action_id(a)
+            let q = rl_get_q(agent, state_id, aid)
+            if q < min_q
+                min_q = q
+                best_aid = aid
+            i = i + 1
+        [min_q, best_aid]
+
+let rl_dfl_hash(state_id, salt) =
+    let h = state_id * 31 + salt
+    if h < 0
+        h = -h
+    h % 1000
+
+let rl_choose_action(agent, state_id, policy) =
+    let p_type = rl_policy_type(policy)
+    let actions = rl_agent_actions(agent)
+    let n = len(actions)
+    if n == 0
+        -1
+    else
+        let chosen = -1
+        if p_type == RL_POLICY_GREEDY
+            let r = rl_max_q_for_state(agent, state_id)
+            chosen = r[1]
+        else
+            0
+        if p_type == RL_POLICY_EPSILON_GREEDY
+            let params = rl_policy_params(policy)
+            let eps = params[RL_PARAM_EPSILON]
+            if eps == 0
+                eps = rl_agent_epsilon(agent)
+            let hash = rl_dfl_hash(state_id, 7)
+            if hash < eps
+                let r = rl_min_q_for_state(agent, state_id)
+                chosen = r[1]
+            else
+                let r = rl_max_q_for_state(agent, state_id)
+                chosen = r[1]
+        if p_type == RL_POLICY_SOFTMAX
+            let total = 0
+            let i = 0
+            for i < n
+                let a = actions[i]
+                let q = rl_get_q(agent, state_id, rl_action_id(a))
+                if q < 0
+                    q = -q
+                total = total + q * q + 1
+                i = i + 1
+            let target = rl_dfl_hash(state_id, 13) * total / 1000
+            let cum = 0
+            i = 0
+            for i < n
+                let a = actions[i]
+                let q = rl_get_q(agent, state_id, rl_action_id(a))
+                if q < 0
+                    q = -q
+                cum = cum + q * q + 1
+                if cum >= target
+                    chosen = rl_action_id(a)
+                    i = n
+                i = i + 1
+            if chosen == -1
+                chosen = rl_action_id(actions[0])
+            else
+                0
+            chosen = rl_action_id(actions[0])
+        chosen
+
+let rl_update_q(agent, state_id, action_id, reward, next_state_id) =
+    let alpha = rl_agent_alpha(agent)
+    let gamma = rl_agent_gamma(agent)
+    let q_cur = rl_get_q(agent, state_id, action_id)
+    let max_next = rl_max_q_for_state(agent, next_state_id)
+    let max_q_next = max_next[0]
+    let reward_scaled = reward * RL_Q_SCALE
+    let target = reward_scaled + gamma * max_q_next / RL_Q_SCALE
+    let delta = alpha * (target - q_cur) / RL_Q_SCALE
+    let new_q = q_cur + delta
+    rl_set_q(agent, state_id, action_id, new_q)
+
+let rl_train_episode(agent, env_steps, ts) =
+    let n = len(env_steps)
+    let i = 0
+    let a = agent
+    for i < n
+        let step = env_steps[i]
+        let sid = step[0]
+        let aid = step[1]
+        let reward = step[2]
+        let next_sid = step[3]
+        a = rl_update_q(a, sid, aid, reward, next_sid)
+        i = i + 1
+    a[6] = rl_agent_eps(a) + 1
+    let log = rl_agent_log(a)
+    log.push("episode_trained steps=" + n + " ts=" + ts)
+    a[7] = log
+    a
+
+let rl_get_optimal_policy(agent) =
+    let states = rl_agent_states(agent)
+    let state_keys = keys_of(states)
+    let n = len(state_keys)
+    let policy_map = {}
+    let i = 0
+    for i < n
+        let sid = state_keys[i]
+        let r = rl_max_q_for_state(agent, sid)
+        policy_map[sid] = r[1]
+        i = i + 1
+    policy_map
+
+let rl_q_table_sig(agent) =
+    let q_table = rl_agent_q(agent)
+    let keys = keys_of(q_table)
+    let n = len(keys)
+    let sig = 0
+    let i = 0
+    for i < n
+        let k = keys[i]
+        let v = q_table[k]
+        sig = (sig * 31 + k + v) % RL_P
+        i = i + 1
+    sig * 65536 + n
+
+let rl_bragg_verify(agent, ops_seq) =
+    let a1 = rl_default_agent()
+    let a2 = rl_default_agent()
+    let i = 0
+    let n = len(ops_seq)
+    for i < n
+        let step = ops_seq[i]
+        a1 = rl_update_q(a1, step[0], step[1], step[2], step[3])
+        a2 = rl_update_q(a2, step[0], step[1], step[2], step[3])
+        i = i + 1
+    let sig1 = rl_q_table_sig(a1)
+    let sig2 = rl_q_table_sig(a2)
+    let ok = 0
+    if sig1 == sig2
+        ok = 1
+    ok
+
+let rl_gf_mod(x) = domain_gf_mod(x)
+let rl_gf_inv(a) = domain_gf_inv(a)
+let rl_field_encode(items, n) =
+    let records = []
+    let _i = 0
+    for _i < n
+        records.push([items[_i], items[_i]])
+        _i = _i + 1
+    domain_field_encode(records, n, 1, 0)
+let rl_field_eval(poles, residues, z) = domain_field_eval(poles, residues, z)
+let rl_field_bragg_verify(current, replay) = domain_bragg_verify(current[0], current[1], replay[0], replay[1])

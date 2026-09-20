@@ -1,0 +1,153 @@
+let random_int(seed, max) =
+    (seed * 1103515245 + 12345) % 2147483648 % max
+
+let tournament_selection(population, fitnesses, k, seed) =
+    let best_idx = 0
+    let best_fit = -999999999
+    let s = seed
+    let i = 0
+    for i < k
+        s = (s * 1103515245 + 12345) % 2147483648
+        let idx = s % population.len()
+        if fitnesses[idx] > best_fit
+            best_fit = fitnesses[idx]
+            best_idx = idx
+        i = i + 1
+    [best_idx, s]
+
+let roulette_selection(fitnesses, seed) =
+    let total = 0
+    let i = 0
+    for i < fitnesses.len()
+        total = total + fitnesses[i]
+        i = i + 1
+    if total == 0
+        [0, seed]
+    else
+        let s = (seed * 1103515245 + 12345) % 2147483648
+        let r = s % total
+        let cumsum = 0
+        let idx = 0
+        let i = 0
+        for i < fitnesses.len()
+            cumsum = cumsum + fitnesses[i]
+            if cumsum >= r
+                idx = i
+                i = fitnesses.len()
+            i = i + 1
+        [idx, s]
+
+let crossover_single(parent1, parent2, crossover_point, seed) =
+    let child1 = []
+    let child2 = []
+    let i = 0
+    for i < parent1.len()
+        if i < crossover_point
+            child1 = arr_concat(child1, [parent1[i]])
+            child2 = arr_concat(child2, [parent2[i]])
+        else
+            child1 = arr_concat(child1, [parent2[i]])
+            child2 = arr_concat(child2, [parent1[i]])
+        i = i + 1
+    [child1, child2]
+
+let crossover_uniform(parent1, parent2, seed) =
+    let child1 = []
+    let child2 = []
+    let s = seed
+    let i = 0
+    for i < parent1.len()
+        s = (s * 1103515245 + 12345) % 2147483648
+        if s % 2 == 0
+            child1 = arr_concat(child1, [parent1[i]])
+            child2 = arr_concat(child2, [parent2[i]])
+        else
+            child1 = arr_concat(child1, [parent2[i]])
+            child2 = arr_concat(child2, [parent1[i]])
+        i = i + 1
+    [child1, child2, s]
+
+let mutate_flip(individual, gene_idx, min_val, max_val, seed) =
+    let s = (seed * 1103515245 + 12345) % 2147483648
+    individual[gene_idx] = min_val + s % (max_val - min_val + 1)
+    [individual, s]
+
+let mutate_random(individual, mutation_rate, min_val, max_val, seed) =
+    let s = seed
+    let i = 0
+    for i < individual.len()
+        s = (s * 1103515245 + 12345) % 2147483648
+        if s % 1000 < mutation_rate
+            s = (s * 1103515245 + 12345) % 2147483648
+            individual[i] = min_val + s % (max_val - min_val + 1)
+        i = i + 1
+    [individual, s]
+
+let mutate_gaussian(individual, mutation_rate, sigma, seed) =
+    let s = seed
+    let i = 0
+    for i < individual.len()
+        s = (s * 1103515245 + 12345) % 2147483648
+        if s % 1000 < mutation_rate
+            s = (s * 1103515245 + 12345) % 2147483648
+            let r1 = s % 200 - 100
+            s = (s * 1103515245 + 12345) % 2147483648
+            let r2 = s % 200 - 100
+            s = (s * 1103515245 + 12345) % 2147483648
+            let r3 = s % 200 - 100
+            individual[i] = individual[i] + (r1 + r2 + r3) * sigma / 300
+        i = i + 1
+    [individual, s]
+
+let ga_run(population, fitness_fn, crossover_rate, mutation_rate, n_generations, seed) =
+    let pop = population
+    let s = seed
+    let gen = 0
+    for gen < n_generations
+        let fitnesses = []
+        let i = 0
+        for i < pop.len()
+            fitnesses = arr_concat(fitnesses, [fitness_fn(pop[i])])
+            i = i + 1
+        let new_pop = []
+        let i = 0
+        for i < pop.len() / 2
+            let sel1 = tournament_selection(pop, fitnesses, 3, s)
+            s = sel1[1]
+            let sel2 = tournament_selection(pop, fitnesses, 3, s)
+            s = sel2[1]
+            s = (s * 1103515245 + 12345) % 2147483648
+            if s % 1000 < crossover_rate
+                let cp = s % pop[0].len()
+                let children = crossover_single(pop[sel1[0]], pop[sel2[0]], cp, s)
+                new_pop = arr_concat(new_pop, [children[0]])
+                new_pop = arr_concat(new_pop, [children[1]])
+            else
+                new_pop = arr_concat(new_pop, [pop[sel1[0]]])
+                new_pop = arr_concat(new_pop, [pop[sel2[0]]])
+            i = i + 1
+        let i = 0
+        for i < new_pop.len()
+            let mut_result = mutate_random(new_pop[i], mutation_rate, 0, 100, s)
+            new_pop[i] = mut_result[0]
+            s = mut_result[1]
+            i = i + 1
+        pop = new_pop
+        gen = gen + 1
+    let best_idx = 0
+    let best_fit = -999999999
+    let i = 0
+    for i < pop.len()
+        let f = fitness_fn(pop[i])
+        if f > best_fit
+            best_fit = f
+            best_idx = i
+        i = i + 1
+    pop[best_idx]
+
+let main() =
+    let pop = [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]]
+    let fitness(ind) = ind[0] + ind[1] + ind[2]
+    let best = ga_run(pop, fitness, 700, 100, 5, 42)
+    print(best)
+    0

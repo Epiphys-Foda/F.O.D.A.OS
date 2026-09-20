@@ -1,0 +1,30 @@
+import "ck.ψ"
+let bad = [0]
+
+let pair = 2
+let dpair = pair - 2
+bad[0] = bad[0] + ck(dpair, 0, 0)
+
+let z2 = 1
+bad[0] = bad[0] + ck_lo(z2, 1)
+
+let th2 = 0 - 1
+bad[0] = bad[0] + ck_hi(th2, 0)
+
+let g0 = 39
+let g = 2 * g0
+bad[0] = bad[0] + ck(g, 70, 85)
+
+let d = 6
+bad[0] = bad[0] + ck(d, 5, 7)
+
+if 2005 < 2003
+    bad[0] = bad[0] + 1
+if 2005 > 2007
+    bad[0] = bad[0] + 1
+if 2007 < 2005
+    bad[0] = bad[0] + 1
+if 2007 > 2009
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

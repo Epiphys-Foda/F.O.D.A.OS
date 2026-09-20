@@ -1,0 +1,51 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let ice = 917
+bad[0] = bad[0] + ck(ice, 915, 935)
+
+let water = 1000
+let sub = small_div(ice * 100, water)
+bad[0] = bad[0] + ck(sub, 88, 95)
+
+bad[0] = bad[0] + ck_hi(ice, water)
+
+let vg = small_div(1000000, 19300)
+let vs = small_div(1000000, 10490)
+bad[0] = bad[0] + ck(vg, 49, 54)
+bad[0] = bad[0] + ck(vs, 92, 98)
+
+let vcrown = small_div(70 * vg, 100) + small_div(30 * vs, 100)
+bad[0] = bad[0] + ck(vcrown, 58, 70)
+bad[0] = bad[0] + ck_lo(vcrown, vg)
+
+let rho_air = 1290
+let rho_he = 178
+bad[0] = bad[0] + ck(rho_air, 1280, 1300)
+bad[0] = bad[0] + ck(rho_he, 170, 190)
+
+let lift = rho_air - rho_he
+bad[0] = bad[0] + ck(lift, 1050, 1150)
+
+let ratio = small_div(290 * 1000, 390)
+bad[0] = bad[0] + ck(ratio, 720, 760)
+
+let hl = small_div(rho_air * (1000 - ratio), 1000)
+bad[0] = bad[0] + ck(hl, 300, 360)
+
+bad[0] = bad[0] + ck_hi(hl, lift)
+
+let tanker = 300000
+bad[0] = bad[0] + ck(tanker, 250000, 320000)
+
+let tmax = 4
+bad[0] = bad[0] + ck(tmax, 3, 5)
+
+if 212 < 210
+    bad[0] = bad[0] + 1
+if 212 > 215
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

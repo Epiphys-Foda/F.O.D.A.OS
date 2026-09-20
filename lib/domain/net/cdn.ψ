@@ -1,0 +1,232 @@
+import "../domain_field.ψ"
+
+let cdn_entry_new(key, body, status, headers, ttl, current_ts) =
+    [key, body, status, headers, current_ts, ttl, current_ts, 0, {}]
+
+let ce_key(e) = e[0]
+let ce_body(e) = e[1]
+let ce_status(e) = e[2]
+let ce_headers(e) = e[3]
+let ce_created(e) = e[4]
+let ce_ttl(e) = e[5]
+let ce_last_access(e) = e[6]
+let ce_hits(e) = e[7]
+let ce_vary(e) = e[8]
+
+let ce_is_expired(e, current_ts) =
+    current_ts - ce_created(e) > ce_ttl(e)
+
+let ce_touch(e, current_ts) =
+    e[6] = current_ts
+    e[7] = e[7] + 1
+    e
+
+let ce_set_header(e, key, val) =
+    let h = ce_headers(e)
+    h[key] = val
+    e[3] = h
+    e
+
+let edge_node_new(name, region, max_size, origin_host, origin_port) =
+    [name, region, {}, max_size, 0, [origin_host, origin_port], [0, 0, 0, 0]]
+
+let edge_name(n) = n[0]
+let edge_region(n) = n[1]
+let edge_cache(n) = n[2]
+let edge_max(n) = n[3]
+let edge_evicted(n) = n[4]
+let edge_origin(n) = n[5]
+let edge_stats(n) = n[6]
+
+let edge_origin_host(n) = edge_origin(n)[0]
+let edge_origin_port(n) = edge_origin(n)[1]
+
+let edge_inc_hit(n) =
+    n[6][0] = n[6][0] + 1
+    n[6][2] = n[6][2] + 1
+    n
+
+let edge_inc_miss(n) =
+    n[6][1] = n[6][1] + 1
+    n[6][2] = n[6][2] + 1
+    n
+
+let edge_add_bytes(n, bytes) =
+    n[6][3] = n[6][3] + bytes
+    n
+
+let cdn_cache_key(host, path, query, vary_headers) =
+    let key = host + path
+    if query != ""
+        key = key + "?" + query
+    let keys = keys_of(vary_headers)
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let k = keys[i]
+        key = key + "|" + k + "=" + vary_headers[k]
+        i = i + 1
+    key
+
+let cdn_new() =
+    [[], 0]
+
+let cdn_edges(c) = c[0]
+let cdn_next_id(c) = c[1]
+
+let cdn_add_edge(c, edge) =
+    let edges = cdn_edges(c)
+    edges.push(edge)
+    c[0] = edges
+    c
+
+let cdn_get_edge_by_region(c, region) =
+    let edges = cdn_edges(c)
+    let i = 0
+    let n = len(edges)
+    let result = 0
+    for i < n
+        if edge_region(edges[i]) == region
+            result = edges[i]
+            i = n
+        i = i + 1
+    result
+
+let edge_lookup(n, host, path, query, vary, current_ts) =
+    let key = cdn_cache_key(host, path, query, vary)
+    let cache = edge_cache(n)
+    let entry = cache[key]
+    if entry == 0
+        n = edge_inc_miss(n)
+        0
+    else
+        if ce_is_expired(entry, current_ts)
+            cache[key] = 0
+            n[2] = cache
+            n = edge_inc_miss(n)
+            0
+        else
+            entry = ce_touch(entry, current_ts)
+            cache[key] = entry
+            n[2] = cache
+            n = edge_inc_hit(n)
+            entry
+
+let edge_pull_origin(n, host, path, query, current_ts) =
+    let origin_host = edge_origin_host(n)
+    let origin_port = edge_origin_port(n)
+    let body = "origin:" + origin_host + ":" + origin_port + " " + host + path
+    let headers = {X_Origin: "true", X_Origin_Time: current_ts}
+    let entry = cdn_entry_new(cdn_cache_key(host, path, query, {}), body, 200, headers, 3600, current_ts)
+    entry
+
+let edge_cache_store(n, host, path, query, vary, entry, current_ts) =
+    let key = cdn_cache_key(host, path, query, vary)
+    let cache = edge_cache(n)
+    cache[key] = entry
+    n[2] = cache
+    if edge_max(n) > 0
+        let keys = keys_of(cache)
+        if len(keys) > edge_max(n)
+            let min_key = keys[0]
+            let min_access = ce_last_access(cache[keys[0]])
+            let i = 1
+            let nk = len(keys)
+            for i < nk
+                let a = ce_last_access(cache[keys[i]])
+                if a < min_access
+                    min_access = a
+                    min_key = keys[i]
+                i = i + 1
+            cache[min_key] = 0
+            n[2] = cache
+            n[4] = n[4] + 1
+    n
+
+let edge_get(n, host, path, query, vary, current_ts) =
+    let entry = edge_lookup(n, host, path, query, vary, current_ts)
+    if entry != 0
+        ["hit", ce_body(entry), ce_status(entry), ce_headers(entry), ce_hits(entry)]
+    else
+        let origin_entry = edge_pull_origin(n, host, path, query, current_ts)
+        n = edge_cache_store(n, host, path, query, vary, origin_entry, current_ts)
+        ["miss", ce_body(origin_entry), ce_status(origin_entry), ce_headers(origin_entry), 0]
+
+let edge_purge_one(n, host, path, query, vary) =
+    let key = cdn_cache_key(host, path, query, vary)
+    let cache = edge_cache(n)
+    let existed = 0
+    if cache[key] != 0
+        existed = 1
+    cache[key] = 0
+    n[2] = cache
+    existed
+
+let edge_purge_prefix(n, host, path_prefix) =
+    let cache = edge_cache(n)
+    let keys = keys_of(cache)
+    let purged = 0
+    let i = 0
+    let n_keys = len(keys)
+    for i < n_keys
+        let k = keys[i]
+        if str_starts_with(k, host + path_prefix) == 1
+            cache[k] = 0
+            purged = purged + 1
+        i = i + 1
+    n[2] = cache
+    purged
+
+let edge_purge_all(n) =
+    n[2] = {}
+    n
+
+let edge_prefetch(n, urls, current_ts) =
+    let i = 0
+    let nu = len(urls)
+    for i < nu
+        let u = urls[i]
+        let entry = edge_pull_origin(n, u[0], u[1], u[2], current_ts)
+        n = edge_cache_store(n, u[0], u[1], u[2], u[3], entry, current_ts)
+        i = i + 1
+    n
+
+let cdn_route(c, client_region) =
+    let edges = cdn_edges(c)
+    if len(edges) == 0
+        0
+    else
+        let best = edges[0]
+        let i = 1
+        let n = len(edges)
+        for i < n
+            if edge_region(edges[i]) == client_region
+                best = edges[i]
+                i = n
+            i = i + 1
+        best
+
+let cdn_get(c, client_region, host, path, query, vary, current_ts) =
+    let edge = cdn_route(c, client_region)
+    if edge == 0
+        ["error", "no edge available"]
+    else
+        edge_get(edge, host, path, query, vary, current_ts)
+
+let cdn_stats(c) =
+    let edges = cdn_edges(c)
+    let result = []
+    let i = 0
+    let n = len(edges)
+    for i < n
+        let e = edges[i]
+        let stats = edge_stats(e)
+        let hits = stats[0]
+        let misses = stats[1]
+        let total = hits + misses
+        let hit_rate = 0
+        if total > 0
+            hit_rate = hits * 100 / total
+        result.push([edge_name(e), edge_region(e), hits, misses, total, hit_rate, stats[3]])
+        i = i + 1
+    result

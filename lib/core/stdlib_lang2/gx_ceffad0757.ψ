@@ -1,0 +1,11 @@
+let gf_powi(b, e) =
+    let r = 1
+    let base = b
+    let k = e
+    for k > 0
+        if k % 2 == 1
+            r = gf_mul(r, base)
+        base = gf_mul(base, base)
+        k = k / 2
+    r
+

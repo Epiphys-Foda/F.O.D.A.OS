@@ -1,0 +1,46 @@
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let f0 = 100
+let h1 = f0 * 1
+let h2 = f0 * 2
+let h3 = f0 * 3
+let h4 = f0 * 4
+if h2 != 200
+    bad[0] = bad[0] + 1
+if h3 != 300
+    bad[0] = bad[0] + 1
+if h4 != 400
+    bad[0] = bad[0] + 1
+
+let octave = 2
+if octave != 2
+    bad[0] = bad[0] + 1
+
+let fifth = small_div(300, 200)
+if fifth != 1
+    bad[0] = bad[0] + 1
+
+let a4 = 440
+let a5 = a4 * 2
+let e5 = small_div(a4 * 3, 2)
+if a5 != 880
+    bad[0] = bad[0] + 1
+if e5 != 660
+    bad[0] = bad[0] + 1
+
+let n_semi = 12
+if n_semi != 12
+    bad[0] = bad[0] + 1
+
+if 500 < 400
+    bad[0] = bad[0] + 1
+if 500 > 600
+    bad[0] = bad[0] + 1
+if 1722 < 1720
+    bad[0] = bad[0] + 1
+if 1722 > 1724
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

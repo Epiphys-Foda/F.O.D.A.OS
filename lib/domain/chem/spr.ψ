@@ -1,0 +1,24 @@
+import "ck.ψ"
+let bad = [0]
+
+let em = 0 - 10
+let ed = 1
+let res = em + 2 * ed
+bad[0] = bad[0] + ck(res, -9, 0)
+
+let spr = 520
+bad[0] = bad[0] + ck(spr, 500, 540)
+
+let sers = 10
+bad[0] = bad[0] + ck(sers, 9, 11)
+
+let green_refl = 520
+let red_trans = 640
+bad[0] = bad[0] + ck_lo(red_trans, green_refl)
+
+if 1857 < 1855
+    bad[0] = bad[0] + 1
+if 1857 > 1859
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

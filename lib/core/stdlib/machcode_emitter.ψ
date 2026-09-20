@@ -1,0 +1,95 @@
+let gf2mul_seg_a() = [72,137,200, 72,15,175,194, 72,137,193, 72,193,233,16]
+let gf2mul_seg_b() = [72,129,224,255,255,0,0, 72,41,200, 121,6]
+let gf2mul_seg_c() = [72,5,1,0,1,0, 195]
+let emit_gf2mul() = [gf2mul_seg_a(), gf2mul_seg_b(), gf2mul_seg_c()].flat()
+
+let hebbian_seg_a() = [72,137,200, 72,137,209, 72,193,249,8, 72,1,200]
+let hebbian_seg_b() = [195]
+let emit_hebbian() = [hebbian_seg_a(), hebbian_seg_b()].flat()
+
+let emit_add_i64() = [72,137,200, 72,1,208, 195]
+
+let emit_sub_i64() = [72,137,200, 72,41,208, 195]
+
+let emit_imul_i64() = [72,137,200, 72,15,175,194, 195]
+
+let emit_neg_i64() = [72,137,200, 72,247,216, 195]
+
+let jge_rel(done, jge) = done - (jge + 2)
+let jmp_rel(loop_pos, jmp) = 256 + loop_pos - (jmp + 2)
+
+let sum_seg_a() = [77,49,192, 77,49,201, 73,57,208]
+let sum_seg_b() = [125, 13]
+let sum_seg_c() = [78,139,92,193,0, 77,1,217, 73,255,192]
+let sum_seg_d() = [235, 238]
+let sum_seg_e() = [76,137,200, 195]
+let emit_sum() = [sum_seg_a(), sum_seg_b(), sum_seg_c(), sum_seg_d(), sum_seg_e()].flat()
+
+let norm_seg_a() = [77,49,192, 77,49,201, 73,57,208]
+let norm_seg_b() = [125, 17]
+let norm_seg_c() = [78,139,92,193,0, 77,15,175,219, 77,1,217]
+let norm_seg_d() = [73,255,192, 235, 234]
+let norm_seg_e() = [76,137,200, 195]
+let emit_norm_sq() = [norm_seg_a(), norm_seg_b(), norm_seg_c(), norm_seg_d(), norm_seg_e()].flat()
+
+let born_seg_a() = [77,49,192, 77,49,201, 77,49,210, 73,57,208]
+let born_seg_b() = [125, 25]
+let born_seg_c() = [78,139,92,193,0, 77,15,175,219, 77,57,203]
+let born_seg_d() = [77,15,79,203, 77,15,79,208]
+let born_seg_e() = [73,255,192, 235, 226]
+let born_seg_f() = [76,137,208, 195]
+let emit_born() = [born_seg_a(), born_seg_b(), born_seg_c(), born_seg_d(), born_seg_e(), born_seg_f()].flat()
+
+let spec_seg_a() = [77,49,210, 77,49,219, 77,49,201, 73,57,210]
+let spec_seg_b() = [125, 20]
+let spec_seg_c() = [74,15,182,4,17, 73,1,195, 72,15,175,192]
+let spec_seg_d() = [73,1,193, 73,255,194]
+let spec_seg_e() = [235, 231]
+let spec_seg_f() = [76,137,216, 72,193,224,32]
+let spec_seg_g() = [73,193,225,32, 73,193,233,32, 76,9,200, 195]
+let emit_str_spec() = [spec_seg_a(), spec_seg_b(), spec_seg_c(), spec_seg_d(), spec_seg_e(), spec_seg_f(), spec_seg_g()].flat()
+
+let dot_seg_a() = [77,49,210, 77,49,219, 72,137,208, 76,57,200]
+let dot_seg_b() = [73,15,79,193, 73,137,193]
+let dot_seg_c() = [77,57,202, 125, 22]
+let dot_seg_d() = [74,15,182,4,17, 75,15,182,20,16]
+let dot_seg_e() = [72,15,175,194, 73,1,195, 73,255,194]
+let dot_seg_f() = [235, 229]
+let dot_seg_g() = [76,137,216, 195]
+let emit_str_dot() = [dot_seg_a(), dot_seg_b(), dot_seg_c(), dot_seg_d(), dot_seg_e(), dot_seg_f(), dot_seg_g()].flat()
+
+let frag_push() = [80]
+let frag_pop_r9() = [65, 89]
+let frag_add() = [76, 1, 200]
+let frag_sub() = [73, 41, 193, 76, 137, 200]
+let frag_imul() = [73, 15, 175, 193]
+let frag_neg() = [72, 247, 216]
+let frag_mov_arg1() = [72, 137, 200]
+let frag_mov_arg2() = [72, 137, 208]
+let frag_ret() = [195]
+
+let emit_binary(lhs, rhs, op) = [lhs, frag_push(), rhs, frag_pop_r9(), op].flat()
+
+let emit_expr_full(expr) = [expr, frag_ret()].flat()
+
+let frag_cmp() = [73, 57, 193]
+let frag_eq() = [73, 57, 193, 15, 148, 192, 72, 15, 182, 192]
+let frag_ne() = [73, 57, 193, 15, 149, 192, 72, 15, 182, 192]
+let frag_lt() = [73, 57, 193, 15, 156, 192, 72, 15, 182, 192]
+let frag_gt() = [73, 57, 193, 15, 159, 192, 72, 15, 182, 192]
+let frag_le() = [73, 57, 193, 15, 158, 192, 72, 15, 182, 192]
+let frag_ge() = [73, 57, 193, 15, 157, 192, 72, 15, 182, 192]
+
+let byte0(v) = v - (v / 256) * 256
+let byte1(v) = (v / 256) - (v / 65536) * 256
+let byte2(v) = (v / 65536) - (v / 16777216) * 256
+let byte3(v) = (v / 16777216) - (v / 4294967296) * 256
+let byte4(v) = (v / 4294967296) - (v / 1099511627776) * 256
+let byte5(v) = (v / 1099511627776) - (v / 281474976710656) * 256
+let byte6(v) = (v / 281474976710656) - (v / 72057594037927936) * 256
+let byte7(v) = (v / 72057594037927936)
+
+let frag_idiv() = [73, 137, 192, 76, 137, 200, 72, 153, 73, 247, 248]
+let frag_test() = [72, 133, 192]
+let frag_setne_movzx() = [15, 149, 192, 72, 15, 182, 192]
+let frag_jz(rel) = [15, 132, byte0(rel), byte1(rel), byte2(rel), byte3(rel)]

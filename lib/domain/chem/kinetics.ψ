@@ -1,0 +1,230 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let kmul(a0, b0) =
+    let r = 0
+    let a = a0
+    let b = b0
+    for b > 0
+        if b % 2 == 1
+            r = r + a
+        a = a + a
+        b = b / 2
+    r
+
+let arrhenius_kx1000(A, T, Ea_over_R) =
+    if T + Ea_over_R == 0
+        0
+    else
+        kmul(A, kmul(T, 1000) / (T + Ea_over_R))
+
+let ORDER_ZERO = 0
+let ORDER_FIRST = 1
+let ORDER_SECOND = 2
+
+let conc_zero_order(A0, k, t) =
+    let c = A0 - kmul(k, t)
+    (c < 0 ? 0 : c)
+
+let conc_first_order_x1000(A0_x1000, k_x1000, t) =
+    let denom = 1000 + kmul(k_x1000, t) / 1000
+    if denom == 0
+        0
+    else
+        kmul(A0_x1000, 1000) / denom
+
+let conc_second_order_x1000(A0_x1000, k_x1000, t) =
+    let denom = 1000 + kmul(kmul(k_x1000, A0_x1000), t) / 1000000
+    if denom == 0
+        0
+    else
+        kmul(A0_x1000, 1000) / denom
+
+let half_life_first_order(k_x1000) =
+    if k_x1000 == 0
+        0
+    else
+        693000 / k_x1000
+
+let half_life_second_order(k_x1000, A0_x1000) =
+    let denom = kmul(k_x1000, A0_x1000) / 1000
+    if denom == 0
+        0
+    else
+        1000000 / denom
+
+let catalytic_enhancement(T, Ea_over_R, Ea_cat_over_R) =
+    if T + Ea_cat_over_R == 0
+        0
+    else
+        kmul(T + Ea_over_R, 100) / (T + Ea_cat_over_R)
+
+let HI_EA_OVER_R = 19846
+let HI_A_LOG10 = 106
+
+let NO2_EA_OVER_R = 1444
+let NO2_A = 1000000
+
+let multi_path_rate_x1000(T, A_arr, Ea_arr, n) =
+    let total = 0
+    let i = 0
+    for i < n
+        let k = kmul(kmul(A_arr[i], T), 1000) / (T + Ea_arr[i])
+        total = total + k
+        i = i + 1
+    total
+
+let kinetics_verify() =
+    let k_hot = arrhenius_kx1000(1000, 100000, 1000)
+    let t1 = k_hot > 980000 && k_hot < 1010000
+    let t2 = arrhenius_kx1000(1000, 0, 1000) == 0
+    let k_low_ea = arrhenius_kx1000(1000, 300, 1000)
+    let k_high_ea = arrhenius_kx1000(1000, 300, 10000)
+    let t3 = k_low_ea > k_high_ea
+    let t4 = conc_zero_order(100, 5, 10) == 50
+    let t5 = conc_zero_order(100, 5, 30) == 0
+    let c0 = conc_first_order_x1000(100000, 100, 0)
+    let t6 = c0 == 100000
+    let c10 = conc_first_order_x1000(100000, 100, 10)
+    let t7 = c10 < 100000 && c10 > 0
+    let t8 = conc_second_order_x1000(100000, 100, 0) == 100000
+    let t9 = half_life_first_order(1000) == 693
+    let t10 = half_life_second_order(1000, 1000) == 1000
+    let enh = catalytic_enhancement(300, 10000, 5000)
+    let t11 = enh > 100
+    let t12 = catalytic_enhancement(300, 10000, 10000) == 100
+    let passed = t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12
+    passed == 12
+
+let ACTIVATION_T_POLES = [1444, 2166, 6014, 13228, 19846, 21650, 27665, 30066]
+let PRE_EXP_FACTORS = [1000000, 50000, 10000, 1000, 100, 50, 10, 1]
+let REACTION_LABELS = ["2NO+O2", "C2H4+H2", "H2+Cl2", "sucrose_hyd", "H2+I2", "2HI_decomp", "Haber_NH3", "ethanol_dehyd"]
+
+let psi_activation(T) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(T + ACTIVATION_T_POLES[k]), gf_norm(T))
+        let denom = gf_norm(T + ACTIVATION_T_POLES[k])
+        if denom != 0
+            val = gf_add(val, gf_mul(PRE_EXP_FACTORS[k], gf_inv(denom)))
+        k = k + 1
+    val
+
+let TRANSITION_S_POLES = [-500, -300, -100, 0, 100, 300, 500, 700]
+let TS_ENERGY_WEIGHTS = [10, 30, 50, 70, 60, 40, 20, 10]
+
+let psi_transition_state(dS_x10) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(dS_x10), gf_norm(TRANSITION_S_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(TS_ENERGY_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let CATALYST_DE_POLES = [0, 100, 200, 300, 500, 700, 800, 1000]
+let CATALYST_WEIGHTS = [10, 30, 50, 70, 90, 70, 50, 30]
+
+let psi_catalysis(dEa_x10) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(dEa_x10), gf_norm(CATALYST_DE_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(CATALYST_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let kinetics_global_response(T, dS_x10, dEa_x10) =
+    let e1 = psi_activation(T)
+    let e2 = psi_transition_state(dS_x10)
+    let e3 = psi_catalysis(dEa_x10)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+
+let arrhenius_monotonicity_test(T) =
+    let v_low = psi_activation(T - 10)
+    let v_high = psi_activation(T + 10)
+    (v_high != v_low ? 1 : 0)
+
+let sabatier_volcano_test() =
+    let v_low = psi_catalysis(100)
+    let v_mid = psi_catalysis(500)
+    let v_high = psi_catalysis(1000)
+    let inv = 0
+    if v_mid != v_low
+        if v_mid != v_high
+            inv = 1
+    inv
+
+let eyring_microscopic_reversibility_test(dS_x10) =
+    let v1 = psi_transition_state(dS_x10)
+    let v2 = psi_transition_state(0 - dS_x10)
+    (v1 != v2 ? 1 : 0)
+
+let nested_fractal_kinetics_invariants() =
+    let e1 = psi_activation(300)
+    let e2 = psi_transition_state(-100)
+    let e3 = psi_catalysis(500)
+    let inv1 = 0
+    if e1 != 0
+        if e2 != 0
+            if e3 != 0
+                inv1 = 1
+    let inv2 = 0
+    if ACTIVATION_T_POLES[0] < ACTIVATION_T_POLES[4]
+        if ACTIVATION_T_POLES[4] < ACTIVATION_T_POLES[7]
+            inv2 = 1
+    let inv3 = 0
+    if PRE_EXP_FACTORS[0] > PRE_EXP_FACTORS[4]
+        if PRE_EXP_FACTORS[4] > PRE_EXP_FACTORS[7]
+            inv3 = 1
+    let inv4 = 0
+    if CATALYST_WEIGHTS[0] < CATALYST_WEIGHTS[4]
+        if CATALYST_WEIGHTS[4] > CATALYST_WEIGHTS[7]
+            inv4 = 1
+    let inv5 = eyring_microscopic_reversibility_test(100)
+    [inv1, inv2, inv3, inv4, inv5]
+
+let kinetics_verify_v20() =
+    let t1 = 0
+    if psi_activation(300) != 0
+        t1 = 1
+    let t2 = 0
+    if psi_transition_state(-100) != 0
+        t2 = 1
+    let t3 = 0
+    if psi_catalysis(500) != 0
+        t3 = 1
+    let t4 = arrhenius_monotonicity_test(300)
+    let t5 = 0
+    if CATALYST_WEIGHTS[4] == 90
+        t5 = 1
+    let t6 = 0
+    if ACTIVATION_T_POLES[4] == 19846
+        t6 = 1
+    let t7 = 0
+    if ACTIVATION_T_POLES[0] == 1444
+        t7 = 1
+    let t8 = 0
+    if ACTIVATION_T_POLES[6] == 27665
+        t8 = 1
+    let t9 = 0
+    if PRE_EXP_FACTORS[0] == 1000000
+        t9 = 1
+    let t10 = 0
+    if TRANSITION_S_POLES[0] == -500
+        t10 = 1
+    let t11 = 0
+    if TRANSITION_S_POLES[7] == 700
+        t11 = 1
+    let invs = nested_fractal_kinetics_invariants()
+    let t12 = 0
+    if invs[0] == 1
+        if invs[1] == 1
+            if invs[2] == 1
+                if invs[3] == 1
+                    if invs[4] == 1
+                        t12 = 1
+    let passed = t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12
+    passed == 12

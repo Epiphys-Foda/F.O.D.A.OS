@@ -1,0 +1,133 @@
+let minimax(payoff, depth, is_maximizing, alpha, beta) =
+    if depth == 0
+        payoff
+    else
+        if is_maximizing
+            let best = -999999999
+            let i = 0
+            for i < 3
+                let val = minimax(payoff + i, depth - 1, 0, alpha, beta)
+                if val > best
+                    best = val
+                if best > alpha
+                    alpha = best
+                if beta <= alpha
+                    i = 3
+                i = i + 1
+            best
+        else
+            0
+            let best = 999999999
+            for i < 3
+                let val = minimax(payoff + i, depth - 1, 1, alpha, beta)
+                if val < best
+                    best = val
+                if best < beta
+                    beta = best
+                if beta <= alpha
+                    i = 3
+                i = i + 1
+            best
+let nash_equilibrium_2x2(payoff_a, payoff_b) =
+    let denom_a = payoff_b[0] - payoff_b[1] - payoff_b[2] + payoff_b[3]
+    let denom_b = payoff_a[0] - payoff_a[2] - payoff_a[1] + payoff_a[3]
+    let p = 500
+    let q = 500
+    let p_val = 0
+    let q_val = 0
+    if denom_a != 0
+        p_val = (payoff_b[3] - payoff_b[2]) * 1000 / denom_a
+        if p_val < 0
+            p = 0
+        else
+            p = p_val
+        if p_val > 1000
+            p = 1000
+    if denom_b != 0
+        q_val = (payoff_a[3] - payoff_a[1]) * 1000 / denom_b
+        if q_val < 0
+            q = 0
+        else
+            q = q_val
+        if q_val > 1000
+            q = 1000
+    let out = [p, q]
+    out
+
+let zero_sum_value(payoff, m, n) =
+    let best_value = -999999999
+    let i = 0
+    for i < m
+        let row_min = 999999999
+        let j = 0
+        for j < n
+            if payoff[i * n + j] < row_min
+                row_min = payoff[i * n + j]
+            j = j + 1
+        if row_min > best_value
+            best_value = row_min
+        i = i + 1
+    best_value
+
+let dominated_strategy(payoff, m, n) =
+    let i = 0
+    for i < m
+        let k = 0
+        for k < m
+            if k != i
+                let dominates = 1
+                let j = 0
+                for j < n
+                    if payoff[k * n + j] < payoff[i * n + j]
+                        dominates = 0
+                    j = j + 1
+                if dominates == 1
+                    return i
+            k = k + 1
+        i = i + 1
+    -1
+
+let expected_payoff(payoff, strategy_a, strategy_b, m, n) =
+    let total = 0
+    let i = 0
+    for i < m
+        let j = 0
+        for j < n
+            total = total + strategy_a[i] * strategy_b[j] * payoff[i * n + j] / 1000000
+            j = j + 1
+        i = i + 1
+    total
+
+let shapley_value(coalition_values, n) =
+    let shapley = []
+    let i = 0
+    for i < n
+        shapley = arr_concat(shapley, [0])
+        i = i + 1
+    if n == 2
+        shapley[0] = (coalition_values[1] + coalition_values[3] - coalition_values[2]) / 2
+        shapley[1] = (coalition_values[2] + coalition_values[3] - coalition_values[1]) / 2
+    else
+        0
+    if n == 3
+        shapley[0] = coalition_values[1] / 3 + (coalition_values[3] - coalition_values[2]) / 6 + (coalition_values[5] - coalition_values[4]) / 6 + (coalition_values[7] - coalition_values[6]) / 3
+        shapley[1] = coalition_values[2] / 3 + (coalition_values[3] - coalition_values[1]) / 6 + (coalition_values[6] - coalition_values[4]) / 6 + (coalition_values[7] - coalition_values[5]) / 3
+        shapley[2] = coalition_values[4] / 3 + (coalition_values[5] - coalition_values[1]) / 6 + (coalition_values[6] - coalition_values[2]) / 6 + (coalition_values[7] - coalition_values[3]) / 3
+    shapley
+
+let prisoner_dilemma() =
+    let payoff_a = [-3, -5, 0, -1]
+    let payoff_b = [-3, 0, -5, -1]
+    nash_equilibrium_2x2(payoff_a, payoff_b)
+
+let main() =
+    let ne = prisoner_dilemma()
+    print(ne)
+    let payoff = [3, 0, 5, 1]
+    let ne2 = nash_equilibrium_2x2(payoff, payoff)
+    print(ne2)
+    let zsv = zero_sum_value([1, -1, -1, 1], 2, 2)
+    print(zsv)
+    let sv = shapley_value([0, 10, 20, 30, 30, 40, 40, 60], 3)
+    print(sv)
+    0

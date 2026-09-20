@@ -1,0 +1,247 @@
+let vj_jump(x, y, z, dir) =
+    if dir == 0
+      3 * y * z - x
+    else
+      if dir == 1
+        3 * x * z - y
+      else
+        3 * x * y - z
+
+let vj_markov_check(x, y, z) = x * x + y * y + z * z == 3 * x * y * z
+
+let vj_sort3(a, b, c) =
+    let x = a
+    let y = b
+    let z = c
+    if x > y
+      let t = x
+      x = y
+      y = t
+    else
+      0
+    if y > z
+      let t = y
+      y = z
+      z = t
+    else
+      0
+    if x > y
+      let t = x
+      x = y
+      y = t
+    else
+      0
+    [x, y, z]
+
+let vj_in_seen(seen, t) =
+    let found = false
+    let i = 0
+    let done = false
+    for !done
+      if i < len(seen)
+        let s = seen[i]
+        if s[0] == t[0] && s[1] == t[1] && s[2] == t[2]
+          found = true
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    found
+
+let vj_markov_tree(depth) =
+    let queue = [[1, 1, 1]]
+    let seen = [[1, 1, 1]]
+    let out = [[1, 1, 1]]
+    let d = 0
+    let done = false
+    for !done
+      if d < depth
+        let next = []
+        let i = 0
+        let idone = false
+        for !idone
+          if i < len(queue)
+            let t = queue[i]
+            let j = 0
+            let jdone = false
+            for !jdone
+              if j < 3
+                let nv = vj_jump(t[0], t[1], t[2], j)
+                if nv > 0
+                  let cand = j == 0 ? vj_sort3(nv, t[1], t[2]) : (j == 1 ? vj_sort3(t[0], nv, t[2]) : vj_sort3(t[0], t[1], nv))
+                  if !vj_in_seen(seen, cand)
+                    seen = seen.push(cand)
+                    next = next.push(cand)
+                    out = out.push(cand)
+                j = j + 1
+              else
+                jdone = true
+            i = i + 1
+          else
+            idone = true
+        queue = next
+        d = d + 1
+      else
+        done = true
+    out
+
+let vj_markov_nums(depth) =
+    let tree = vj_markov_tree(depth)
+    let nums = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(tree)
+        let t = tree[i]
+        let j = 0
+        let jdone = false
+        for !jdone
+          if j < 3
+            let v = t[j]
+            if !vj_in_nums(nums, v)
+              nums = nums.push(v)
+            else
+              0
+            j = j + 1
+          else
+            jdone = true
+        i = i + 1
+      else
+        done = true
+    vj_sort_nums(nums)
+
+let vj_in_nums(nums, v) =
+    let found = false
+    let i = 0
+    let done = false
+    for !done
+      if i < len(nums)
+        if nums[i] == v
+          found = true
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    found
+
+let vj_sort_nums(nums) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(nums)
+        let v = nums[i]
+        let ins = false
+        let j = 0
+        let jdone = false
+        for !jdone
+          if j < len(out)
+            if !ins
+              if v < out[j]
+                out = [out.slice(0, j), v, out.slice(j, len(out))].flat()
+                ins = true
+              else
+                  0
+            else
+              0
+            j = j + 1
+          else
+            jdone = true
+        if !ins
+          out = out.push(v)
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    out
+
+let vj_verify() =
+    let results = []
+    results = results.push(vj_markov_check(1, 1, 1))
+    results = results.push(vj_markov_check(1, 1, 2))
+    results = results.push(vj_markov_check(1, 2, 5))
+    results = results.push(vj_markov_check(1, 5, 13))
+    results = results.push(vj_markov_check(2, 5, 29))
+    let j0 = vj_jump(1, 2, 5, 0)
+    results = results.push(j0 == 29)
+    results = results.push(vj_markov_check(j0, 2, 5))
+    let j1 = vj_jump(1, 2, 5, 1)
+    results = results.push(j1 == 13)
+    results = results.push(vj_markov_check(1, j1, 5))
+    results = results.push(1 + 5 == 3 * 1 * 2)
+    let tree = vj_markov_tree(3)
+    let has_29 = false
+    let has_13 = false
+    let i = 0
+    let done = false
+    for !done
+      if i < len(tree)
+        let t = tree[i]
+        if t[0] == 2 && t[1] == 5 && t[2] == 29
+          has_29 = true
+        else
+          0
+        if t[0] == 1 && t[1] == 5 && t[2] == 13
+          has_13 = true
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(has_29)
+    results = results.push(has_13)
+    let all_ok = true
+    let i2 = 0
+    let done2 = false
+    for !done2
+      if i2 < len(tree)
+        let t = tree[i2]
+        if !vj_markov_check(t[0], t[1], t[2])
+          all_ok = false
+        else
+          0
+        i2 = i2 + 1
+      else
+        done2 = true
+    results = results.push(all_ok)
+    let nums = vj_markov_nums(3)
+    let has_seq = true
+    if !vj_in_nums(nums, 1)
+      has_seq = false
+    else
+      0
+    if !vj_in_nums(nums, 2)
+      has_seq = false
+    else
+      0
+    if !vj_in_nums(nums, 5)
+      has_seq = false
+    else
+      0
+    if !vj_in_nums(nums, 13)
+      has_seq = false
+    else
+      0
+    if !vj_in_nums(nums, 29)
+      has_seq = false
+    else
+      0
+    results = results.push(has_seq)
+    let total = true
+    let i3 = 0
+    let done3 = false
+    for !done3
+      if i3 < len(results)
+        let v = results[i3]
+        if v == false
+          total = false
+        else
+          0
+        i3 = i3 + 1
+      else
+        done3 = true
+    results = results.push(total)
+    results

@@ -1,0 +1,33 @@
+import "ck.ψ"
+let bad = [0]
+
+let p1 = 68
+let p2 = 95
+let p3 = 997
+bad[0] = bad[0] + ck(p1, 65, 70)
+bad[0] = bad[0] + ck(p2, 93, 97)
+bad[0] = bad[0] + ck(p3, 995, 1000)
+
+let ring1 = 68
+let ring2 = 27
+let ring3 = 5
+let dz1 = ring1 + ring2 + ring3 - 100
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let n_meas = 100
+let sigma_mean = 10
+let dz2 = sigma_mean * sigma_mean - 100
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+if 1809 < 1807
+    bad[0] = bad[0] + 1
+if 1809 > 1811
+    bad[0] = bad[0] + 1
+if 1810 < 1808
+    bad[0] = bad[0] + 1
+if 1810 > 1812
+    bad[0] = bad[0] + 1
+if 1810 < 1809
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

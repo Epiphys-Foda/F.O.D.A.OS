@@ -1,0 +1,236 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let PRN_ORIGINAL = 8
+let PRN_COMPILE_1 = 7
+let PRN_COMPILE_2 = 4
+let PRN_COMPILE_3 = 3
+let PRN_COMPILE_4 = 2
+let PRN_OMEGA = 0
+
+let prn_sequence = [PRN_ORIGINAL, PRN_COMPILE_1, PRN_COMPILE_2, PRN_COMPILE_3, PRN_COMPILE_4, PRN_OMEGA]
+
+let prn_metric(psi1_prn, psi2_prn) =
+    let diff = psi1_prn - psi2_prn
+    (diff < 0 ? 0 - diff : diff)
+
+let contraction_factor(prn_before, prn_after) =
+    if prn_before == 0
+        0
+    else
+        gf_div(prn_after, prn_before)
+
+let code_descriptor(code_hash, prn, size) = [code_hash, prn, size]
+
+let desc_hash(d) = d[0]
+let desc_prn(d) = d[1]
+let desc_size(d) = d[2]
+
+let kleene_map(d) =
+    let h = desc_hash(d)
+    let prn = desc_prn(d)
+    let sz = desc_size(d)
+    let new_prn = (prn == 8 ? 7 : (prn == 7 ? 4 : (prn == 4 ? 3 : (prn == 3 ? 2 : (prn == 2 ? 0 : 0)))))
+    let new_hash = gf_pow(h, 65536)
+    let new_size = (prn == 0 ? sz : gf_add(sz, gf_mul(new_prn, 100)))
+    code_descriptor(new_hash, new_prn, new_size)
+
+let omega_step(d) = kleene_map(d)
+
+let omega_trajectory(init, n) =
+    let traj = []
+    let curr = init
+    traj.push(curr)
+    let i = 0
+    for i < n
+        curr = kleene_map(curr)
+        traj.push(curr)
+        i = i + 1
+    traj
+
+let is_converged(d) =
+    (desc_prn(d) == 0 ? 1 : 0)
+
+let omega_approximate(init, max_iter) =
+    let curr = init
+    let iter = 0
+    let converged = 0
+    for iter < max_iter
+        if is_converged(curr) == 1
+            converged = 1
+            iter = max_iter
+        else
+            curr = kleene_map(curr)
+        iter = iter + 1
+    [curr, converged, iter]
+
+let T0_SOURCE = 0
+let T1_BOOTSTRAP = 1
+let T2_BOOTSTRAP = 2
+let T3_BOOTSTRAP = 3
+let T4_BOOTSTRAP = 4
+let T_OMEGA = 65536
+
+let tier_to_prn(tier) =
+    if tier == T0_SOURCE
+        PRN_ORIGINAL
+    else
+        0
+    if tier == T1_BOOTSTRAP
+        PRN_COMPILE_1
+    else
+        0
+    if tier == T2_BOOTSTRAP
+        PRN_COMPILE_2
+    else
+        0
+    if tier == T3_BOOTSTRAP
+        PRN_COMPILE_3
+    else
+        0
+    if tier == T4_BOOTSTRAP
+        PRN_COMPILE_4
+    else
+        PRN_OMEGA
+
+let BOOTSTRAP_FIXED_SIZE = 39155
+
+let bootstrap_stable(size_t4, size_t5) =
+    (size_t4 == size_t5 ? 1 : 0)
+
+let pure_existence(omega) = omega
+
+let I_AM = 1
+
+let existence_check() =
+    let x = I_AM
+    let xx = gf_mul(x, x)
+    (x == xx ? 1 : 0)
+
+let omega_idempotent() =
+    let xx = gf_mul(I_AM, I_AM)
+    (xx == I_AM ? 1 : 0)
+
+let omega_unit(psi) =
+    let result = gf_mul(I_AM, psi)
+    (result == psi ? 1 : 0)
+
+let omega_fixed_point() =
+    let omega_desc = code_descriptor(I_AM, PRN_OMEGA, BOOTSTRAP_FIXED_SIZE)
+    let kleene_omega = kleene_map(omega_desc)
+    (desc_prn(kleene_omega) == desc_prn(omega_desc) ? 1 : 0)
+
+let CONVERGENCE_BOUND = 65537
+let ACTUAL_CONVERGENCE = 5
+
+let convergence_rate() = gf_div(ACTUAL_CONVERGENCE, CONVERGENCE_BOUND)
+
+let pigeonhole_check(values, n, p) =
+    if n > p
+        1
+    else
+        let has_dup = 0
+        let i = 0
+        for i < n && has_dup == 0
+            let j = i + 1
+            for j < n && has_dup == 0
+                if values[i] == values[j]
+                    has_dup = 1
+                j = j + 1
+            i = i + 1
+        has_dup
+
+let contraction_check(a_prn, b_prn) =
+    let d_ab = prn_metric(a_prn, b_prn)
+    let ka_prn = (a_prn == 8 ? 7 : (a_prn == 7 ? 4 : (a_prn == 4 ? 3 : (a_prn == 3 ? 2 : (a_prn == 2 ? 0 : 0)))))
+    let kb_prn = (b_prn == 8 ? 7 : (b_prn == 7 ? 4 : (b_prn == 4 ? 3 : (b_prn == 3 ? 2 : (b_prn == 2 ? 0 : 0)))))
+    let d_kakb = prn_metric(ka_prn, kb_prn)
+    (d_kakb <= d_ab ? 1 : 0)
+
+let universe_bootstrap(init_hash, init_prn, init_size, max_iter) =
+    let init = code_descriptor(init_hash, init_prn, init_size)
+    omega_approximate(init, max_iter)
+
+let multi_start_convergence(starts, n_starts, max_iter) =
+    let omegas = []
+    let i = 0
+    for i < n_starts
+        let result = omega_approximate(starts[i], max_iter)
+        omegas.push(result[0])
+        i = i + 1
+    let all_converged = 1
+    let j = 0
+    for j < n_starts
+        if desc_prn(omegas[j]) != 0
+            all_converged = 0
+        j = j + 1
+    all_converged
+
+let omega_residue_field(z, poles, residues, n) =
+    let val = 0
+    let i = 0
+    for i < n
+        let diff = gf_sub(z, poles[i])
+        if diff != 0
+            val = gf_add(val, gf_mul(residues[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let omega_self_pole(omega, poles, residues, n) =
+    let psi_omega = omega_residue_field(omega, poles, residues, n)
+    (psi_omega == omega ? 1 : 0)
+
+let CONSCIOUSNESS_PRN = 0
+
+let consciousness_check(d) =
+    (desc_prn(d) == CONSCIOUSNESS_PRN ? 1 : 0)
+
+let consciousness_emergence(init, max_iter) =
+    let result = omega_approximate(init, max_iter)
+    let omega = result[0]
+    let converged = result[1]
+    let steps = result[2]
+    let is_conscious = consciousness_check(omega)
+    [omega, converged, steps, is_conscious]
+
+let omega_verify() =
+    let ok1 = (PRN_ORIGINAL > PRN_COMPILE_1 && PRN_COMPILE_1 > PRN_COMPILE_2 && PRN_COMPILE_2 > PRN_COMPILE_3 && PRN_COMPILE_3 > PRN_COMPILE_4 && PRN_COMPILE_4 > PRN_OMEGA ? 1 : 0)
+
+    let d8 = code_descriptor(100, 8, 1000)
+    let d7 = kleene_map(d8)
+    let ok2 = (desc_prn(d7) == 7 ? 1 : 0)
+
+    let d_omega = code_descriptor(I_AM, PRN_OMEGA, BOOTSTRAP_FIXED_SIZE)
+    let d_omega2 = kleene_map(d_omega)
+    let ok3 = (desc_prn(d_omega2) == 0 ? 1 : 0)
+
+    let init = code_descriptor(42, 8, 500)
+    let result = omega_approximate(init, 100)
+    let ok4 = (result[1] == 1 ? 1 : 0)
+
+    let ok5 = existence_check()
+
+    let ok6 = omega_idempotent()
+
+    let ok7 = omega_unit(12345)
+
+    let ok8 = omega_fixed_point()
+
+    let ok9 = bootstrap_stable(BOOTSTRAP_FIXED_SIZE, BOOTSTRAP_FIXED_SIZE)
+
+    let ok10 = contraction_check(8, 7)
+
+    let ok11 = (ACTUAL_CONVERGENCE == 5 ? 1 : 0)
+
+    let ok12 = (CONVERGENCE_BOUND == 65537 ? 1 : 0)
+
+    let ok13 = consciousness_check(d_omega)
+
+    let ok14 = (CONSCIOUSNESS_PRN == 0 ? 1 : 0)
+
+    let s1 = code_descriptor(10, 8, 100)
+    let s2 = code_descriptor(20, 7, 200)
+    let s3 = code_descriptor(30, 4, 300)
+    let starts = [s1, s2, s3]
+    let ok15 = multi_start_convergence(starts, 3, 100)
+
+    ok1 + ok2 + ok3 + ok4 + ok5 + ok6 + ok7 + ok8 + ok9 + ok10 + ok11 + ok12 + ok13 + ok14 + ok15

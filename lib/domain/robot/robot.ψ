@@ -1,0 +1,92 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let ROBOT_MAX_JOINTS = 16
+
+let robot_create(n_joints) =
+    let joints = []
+    let i = 0
+    for i < n_joints
+        joints.push([i, 0, 0, 0, 0, 360])
+        i = i + 1
+    [joints, n_joints, 0, 0, 0]
+let robot_joint_set_angle(robot, joint_idx, angle) =
+    let joints = robot[0]
+    let joint = joints[joint_idx]
+    let clamped = angle
+    if clamped < joint[4]
+        clamped = joint[4]
+    if clamped > joint[5]
+        clamped = joint[5]
+    joints[joint_idx] = [joint[0], clamped, joint[2], joint[3], joint[4], joint[5]]
+    [joints, robot[1], robot[2], robot[3], robot[4]]
+let forward_kinematics_2d(robot) =
+    let joints = robot[0]
+    let x = 0
+    let y = 0
+    let total_angle = 0
+    let positions = [[0, 0]]
+    let i = 0
+    let n = robot[1]
+    for i < n
+        total_angle = gf_add(total_angle, joints[i][1])
+        x = gf_add(x, gf_mul(100, gf_div(total_angle, 360)))
+        y = gf_add(y, gf_mul(100, gf_div(total_angle, 360)))
+        positions.push([x, y])
+        i = i + 1
+    positions
+let inverse_kinematics_2d(robot, target_x, target_y) =
+    let n = robot[1]
+    let dist = gf_sqrt(gf_add(gf_mul(target_x, target_x), gf_mul(target_y, target_y)))
+    let total_angle = gf_div(gf_mul(dist, 360), gf_mul(n, 100))
+    let joints = robot[0]
+    let i = 0
+    for i < n
+        joints[i] = [joints[i][0], gf_div(total_angle, n), joints[i][2], joints[i][3], joints[i][4], joints[i][5]]
+        i = i + 1
+    [joints, n, robot[2], robot[3], robot[4]]
+let pd_control(current, target, kp, kd, velocity) =
+    let error = gf_sub(target, current)
+    gf_add(gf_mul(kp, error), gf_mul(kd, gf_neg(velocity)))
+let robot_pd_step(robot, targets, kp, kd) =
+    let joints = robot[0]
+    let i = 0
+    let n = robot[1]
+    for i < n
+        let joint = joints[i]
+        let torque = pd_control(joint[1], targets[i], kp, kd, joint[2])
+        joints[i] = [joint[0], joint[1], joint[2], torque, joint[4], joint[5]]
+        i = i + 1
+    [joints, n, robot[2], robot[3], robot[4]]
+let path_plan(start, goal, obstacles) =
+    let path = [start]
+    let current = start
+    for current != goal
+        let dx = gf_sub(goal[0], current[0])
+        let dy = gf_sub(goal[1], current[1])
+        if dx > 0
+            current = [gf_add(current[0], 1), current[1]]
+        else
+            if dy > 0
+                current = [current[0], gf_add(current[1], 1)]
+        path.push(current)
+    path
+let field_robot(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let robot_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_robot(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+

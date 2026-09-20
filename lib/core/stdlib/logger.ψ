@@ -1,0 +1,77 @@
+let LOG_DEBUG = 0
+let LOG_INFO = 1
+let LOG_WARN = 2
+let LOG_ERROR = 3
+let LOG_FATAL = 4
+let LOG_OFF = 5
+
+let log_entry_make(level, module, message) =
+    let entry = arr_new_n(4)
+    entry[0] = level
+    entry[1] = module
+    entry[2] = message
+    entry[3] = 0
+    entry
+
+let logger_create(min_level) =
+    let logger = arr_new_n(4)
+    logger[0] = min_level
+    logger[1] = arr_new()
+    logger[2] = 0
+    logger[3] = 0
+    logger
+
+let log_write(logger, level, module, message) =
+    if level >= logger[0]
+        let entry = log_entry_make(level, module, message)
+        logger[1] = arr_push(logger[1], entry)
+        logger[2] = logger[2] + 1
+        if level >= LOG_ERROR
+            logger[3] = logger[3] + 1
+
+let log_debug(logger, module, msg) = log_write(logger, LOG_DEBUG, module, msg)
+let log_info(logger, module, msg) = log_write(logger, LOG_INFO, module, msg)
+let log_warn(logger, module, msg) = log_write(logger, LOG_WARN, module, msg)
+let log_error(logger, module, msg) = log_write(logger, LOG_ERROR, module, msg)
+let log_fatal(logger, module, msg) = log_write(logger, LOG_FATAL, module, msg)
+
+let log_level_name(level) =
+    if level == LOG_DEBUG
+        "DEBUG"
+    else
+        0
+    if level == LOG_INFO
+        "INFO"
+    else
+        0
+    if level == LOG_WARN
+        "WARN"
+    else
+        0
+    if level == LOG_ERROR
+        "ERROR"
+    else
+        0
+    if level == LOG_FATAL
+        "FATAL"
+    else
+        "OFF"
+
+let log_entries(logger) = logger[1]
+
+let log_error_count(logger) = logger[3]
+
+let log_clear(logger) =
+    logger[1] = arr_new()
+    logger[2] = 0
+    logger[3] = 0
+
+let log_filter(logger, min_level) =
+    let result = arr_new()
+    let entries = logger[1]
+    let i = 0
+    for i < entries.len()
+        if entries[i][0] >= min_level
+            result = arr_push(result, entries[i])
+        i = i + 1
+    result

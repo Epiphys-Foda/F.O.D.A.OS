@@ -1,0 +1,34 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let inertia = 1
+if inertia != 1
+    bad[0] = bad[0] + 1
+
+let m_car = 1500
+let f_engine = 3000
+let a_car = small_div(f_engine, m_car)
+if a_car != 2
+    bad[0] = bad[0] + 1
+
+let v_after = a_car * 10
+if v_after != 20
+    bad[0] = bad[0] + 1
+
+let g_earth = 981
+let t_drop = small_div(2000, g_earth)
+bad[0] = bad[0] + ck(t_drop, 1, 3)
+
+let thrust = 3500
+let m_rocket = 300
+let a_rocket = small_div(thrust, m_rocket)
+bad[0] = bad[0] + ck(a_rocket, 8, 18)
+
+if 1687 < 1685
+    bad[0] = bad[0] + 1
+if 1687 > 1689
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

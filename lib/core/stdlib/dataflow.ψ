@@ -1,0 +1,660 @@
+let DF_SRC = 1
+let DF_ADD = 2
+let DF_SUB = 3
+let DF_MUL = 4
+let DF_DIV = 5
+let DF_MOD = 6
+let DF_CMP = 7
+let DF_BRANCH = 8
+let DF_NEG = 9
+let DF_AND = 10
+let DF_OR = 11
+let DF_XOR = 12
+let DF_SLL = 13
+let DF_SRA = 14
+let DF_MOV = 15
+
+let df_bit_and(a, b) =
+    let result = 0
+    let bit = 1
+    let aa = a
+    let bb = b
+    let i = 0
+    for i < 32
+      let la_a = aa - (aa / 2) * 2
+      let la_b = bb - (bb / 2) * 2
+      if (la_a == 1) && (la_b == 1)
+        result = result + bit
+      else
+        0
+      aa = (aa < 0 ? (aa - 1) / 2 : aa / 2)
+      bb = (bb < 0 ? (bb - 1) / 2 : bb / 2)
+      bit = bit * 2
+      i = i + 1
+    result
+
+let df_bit_or(a, b) =
+    let result = 0
+    let bit = 1
+    let aa = a
+    let bb = b
+    let i = 0
+    for i < 32
+      let la_a = aa - (aa / 2) * 2
+      let la_b = bb - (bb / 2) * 2
+      if (la_a == 1) || (la_b == 1)
+        result = result + bit
+      else
+        0
+      aa = (aa < 0 ? (aa - 1) / 2 : aa / 2)
+      bb = (bb < 0 ? (bb - 1) / 2 : bb / 2)
+      bit = bit * 2
+      i = i + 1
+    result
+
+let df_bit_xor(a, b) =
+    let result = 0
+    let bit = 1
+    let aa = a
+    let bb = b
+    let i = 0
+    for i < 32
+      let la_a = aa - (aa / 2) * 2
+      let la_b = bb - (bb / 2) * 2
+      if la_a != la_b
+        result = result + bit
+      else
+        0
+      aa = (aa < 0 ? (aa - 1) / 2 : aa / 2)
+      bb = (bb < 0 ? (bb - 1) / 2 : bb / 2)
+      bit = bit * 2
+      i = i + 1
+    result
+
+let df_asr(v, count) =
+    let r = v
+    let i = 0
+    for i < count
+      r = (r < 0 ? (r - 1) / 2 : r / 2)
+      i = i + 1
+    r
+
+let df_set_arr(arr, idx, val) =
+    let n = len(arr)
+    let front = arr.slice(0, idx)
+    let back = arr.slice(idx + 1, n)
+    [front, [val], back].flat()
+
+let dataflow_exec(graph, output_id) =
+    let n = len(graph)
+    let tokens = []
+    let ready = []
+    let i = 0
+    for i < n
+      tokens = tokens.push(0)
+      ready = ready.push(0)
+      i = i + 1
+    let i2 = 0
+    for i2 < n
+      let node = graph[i2]
+      let op = node[0]
+      if op == DF_SRC
+        tokens = df_set_arr(tokens, i2, node[2])
+        ready = df_set_arr(ready, i2, 1)
+      else
+        0
+      i2 = i2 + 1
+    let progress = 1
+    for progress == 1
+      progress = 0
+      let i3 = 0
+      for i3 < n
+        if ready[i3] == 0
+          let node = graph[i3]
+          let op = node[0]
+          let inputs = node[1]
+          let all_ready = 1
+          let j = 0
+          for j < len(inputs)
+            if ready[inputs[j]] == 0
+              all_ready = 0
+            else
+              0
+            j = j + 1
+          if all_ready == 1
+            let val = 0
+            if op == DF_ADD
+              val = tokens[inputs[0]] + tokens[inputs[1]]
+            else
+              0
+            if op == DF_SUB
+              val = tokens[inputs[0]] - tokens[inputs[1]]
+            else
+              0
+            if op == DF_MUL
+              val = tokens[inputs[0]] * tokens[inputs[1]]
+            else
+              0
+            if op == DF_DIV
+              val = (tokens[inputs[1]] == 0 ? 0 : tokens[inputs[0]] / tokens[inputs[1]])
+            else
+              0
+            if op == DF_MOD
+              val = (tokens[inputs[1]] == 0 ? 0 : tokens[inputs[0]] - (tokens[inputs[0]] / tokens[inputs[1]]) * tokens[inputs[1]])
+            else
+              0
+            if op == DF_CMP
+              val = (tokens[inputs[0]] < tokens[inputs[1]] ? 1 : 0)
+            else
+              0
+            if op == DF_BRANCH
+              val = (tokens[inputs[0]] != 0 ? tokens[inputs[1]] : tokens[inputs[2]])
+            else
+              0
+            if op == DF_NEG
+              val = 0 - tokens[inputs[0]]
+            else
+              0
+            if op == DF_AND
+              val = df_bit_and(tokens[inputs[0]], tokens[inputs[1]])
+            else
+              0
+            if op == DF_OR
+              val = df_bit_or(tokens[inputs[0]], tokens[inputs[1]])
+            else
+              0
+            if op == DF_XOR
+              val = df_bit_xor(tokens[inputs[0]], tokens[inputs[1]])
+            else
+              0
+            if op == DF_SLL
+              val = tokens[inputs[0]] * (1 << tokens[inputs[1]])
+            else
+              0
+            if op == DF_SRA
+              val = df_asr(tokens[inputs[0]], tokens[inputs[1]])
+            else
+              0
+            if op == DF_MOV
+              val = tokens[inputs[0]]
+            else
+              0
+            tokens = df_set_arr(tokens, i3, val)
+            ready = df_set_arr(ready, i3, 1)
+            progress = 1
+        else
+          0
+        i3 = i3 + 1
+    tokens[output_id]
+
+let df_add_node(graph, op, inputs, imm) =
+    let id = len(graph)
+    let new_graph = graph.push([op, inputs, imm])
+    [new_graph, id]
+
+let df_bind_slot(slots, name, node_id) =
+    slots.push([name, node_id])
+
+let df_lookup_slot(slots, name) =
+    let node_id = 0
+    let found = 0
+    let i = len(slots) - 1
+    for (i >= 0) && (found == 0)
+      if slots[i][0] == name
+        node_id = slots[i][1]
+        found = 1
+      else
+        0
+      i = i - 1
+    node_id
+
+let df_lookup_func(funcs, name) =
+    let fentry = ["null"]
+    let found = 0
+    let i = 0
+    for i < len(funcs)
+      if (found == 0) && (funcs[i][0] == name)
+        fentry = funcs[i]
+        found = 1
+      else
+        0
+      i = i + 1
+    fentry
+
+let df_compile_expr(ast, ctx) =
+    let graph = ctx[0]
+    let slots = ctx[1]
+    let funcs = ctx[2]
+    let tag = ast[0]
+    let result_id = 0
+    if tag == "lit"
+      let r = df_add_node(graph, DF_SRC, [], ast[1])
+      graph = r[0]
+      result_id = r[1]
+    else
+      0
+    if tag == "var"
+      result_id = df_lookup_slot(slots, ast[1])
+    else
+      0
+    if tag == "binop"
+      let op_name = ast[1]
+      let left = ast[2]
+      let right = ast[3]
+      let lr = df_compile_expr(left, [graph, slots, funcs])
+      graph = lr[0]
+      let l_id = lr[1]
+      let rr = df_compile_expr(right, [graph, slots, funcs])
+      graph = rr[0]
+      let r_id = rr[1]
+      if op_name == "+"
+        let nr = df_add_node(graph, DF_ADD, [l_id, r_id], 0)
+        graph = nr[0]
+        result_id = nr[1]
+      else
+        0
+      if op_name == "-"
+        let nr = df_add_node(graph, DF_SUB, [l_id, r_id], 0)
+        graph = nr[0]
+        result_id = nr[1]
+      else
+        0
+      if op_name == "*"
+        let nr = df_add_node(graph, DF_MUL, [l_id, r_id], 0)
+        graph = nr[0]
+        result_id = nr[1]
+      else
+        0
+      if op_name == "/"
+        let nr = df_add_node(graph, DF_DIV, [l_id, r_id], 0)
+        graph = nr[0]
+        result_id = nr[1]
+      else
+        0
+      if op_name == "%"
+        let nr = df_add_node(graph, DF_MOD, [l_id, r_id], 0)
+        graph = nr[0]
+        result_id = nr[1]
+      else
+        0
+      if op_name == "&"
+        let nr = df_add_node(graph, DF_AND, [l_id, r_id], 0)
+        graph = nr[0]
+        result_id = nr[1]
+      else
+        0
+      if op_name == "|"
+        let nr = df_add_node(graph, DF_OR, [l_id, r_id], 0)
+        graph = nr[0]
+        result_id = nr[1]
+      else
+        0
+      if op_name == "^"
+        let nr = df_add_node(graph, DF_XOR, [l_id, r_id], 0)
+        graph = nr[0]
+        result_id = nr[1]
+      else
+        0
+      if op_name == "<<"
+        let nr = df_add_node(graph, DF_SLL, [l_id, r_id], 0)
+        graph = nr[0]
+        result_id = nr[1]
+      else
+        0
+      if op_name == ">>"
+        let nr = df_add_node(graph, DF_SRA, [l_id, r_id], 0)
+        graph = nr[0]
+        result_id = nr[1]
+      else
+        0
+      if op_name == "<"
+        let nr = df_add_node(graph, DF_CMP, [l_id, r_id], 0)
+        graph = nr[0]
+        result_id = nr[1]
+      else
+        0
+      if op_name == ">"
+        let nr = df_add_node(graph, DF_CMP, [r_id, l_id], 0)
+        graph = nr[0]
+        result_id = nr[1]
+      else
+        0
+      if op_name == "<="
+        let c1 = df_add_node(graph, DF_CMP, [l_id, r_id], 0)
+        graph = c1[0]
+        let lt_id = c1[1]
+        let c2 = df_add_node(graph, DF_SUB, [l_id, r_id], 0)
+        graph = c2[0]
+        let eq_id = c2[1]
+        let c3 = df_add_node(graph, DF_BRANCH, [eq_id, lt_id, lt_id], 0)
+        graph = c3[0]
+        result_id = c3[1]
+      else
+        0
+      if op_name == ">="
+        let c1 = df_add_node(graph, DF_CMP, [r_id, l_id], 0)
+        graph = c1[0]
+        let gt_id = c1[1]
+        let c2 = df_add_node(graph, DF_SUB, [l_id, r_id], 0)
+        graph = c2[0]
+        let eq_id = c2[1]
+        let c3 = df_add_node(graph, DF_BRANCH, [eq_id, gt_id, gt_id], 0)
+        graph = c3[0]
+        result_id = c3[1]
+      else
+        0
+      if op_name == "=="
+        let c1 = df_add_node(graph, DF_SUB, [l_id, r_id], 0)
+        graph = c1[0]
+        let diff = c1[1]
+        let s1 = df_add_node(graph, DF_SRC, [], 0)
+        graph = s1[0]
+        let zero = s1[1]
+        let s2 = df_add_node(graph, DF_SRC, [], 1)
+        graph = s2[0]
+        let one = s2[1]
+        let b1 = df_add_node(graph, DF_BRANCH, [diff, one, zero], 0)
+        graph = b1[0]
+        let neq = b1[1]
+        let b2 = df_add_node(graph, DF_BRANCH, [neq, zero, one], 0)
+        graph = b2[0]
+        result_id = b2[1]
+      else
+        0
+      if op_name == "!="
+        let c1 = df_add_node(graph, DF_SUB, [l_id, r_id], 0)
+        graph = c1[0]
+        let diff = c1[1]
+        let s1 = df_add_node(graph, DF_SRC, [], 1)
+        graph = s1[0]
+        let one = s1[1]
+        let s2 = df_add_node(graph, DF_SRC, [], 0)
+        graph = s2[0]
+        let zero = s2[1]
+        let b1 = df_add_node(graph, DF_BRANCH, [diff, one, zero], 0)
+        graph = b1[0]
+        result_id = b1[1]
+      else
+        0
+    else
+      0
+    if tag == "call"
+      let fn_name = ast[1]
+      let args = ast[2]
+      let fentry = df_lookup_func(funcs, fn_name)
+      let params = fentry[1]
+      let body = fentry[2]
+      let new_slots = []
+      let ai = 0
+      for ai < len(args)
+        let ar = df_compile_expr(args[ai], [graph, slots, funcs])
+        graph = ar[0]
+        let arg_id = ar[1]
+        new_slots = df_bind_slot(new_slots, params[ai], arg_id)
+        ai = ai + 1
+      let br = df_compile_expr(body, [graph, new_slots, funcs])
+      graph = br[0]
+      result_id = br[1]
+    else
+      0
+    [graph, result_id]
+
+let df_compile_stmt(ast, ctx) =
+    let graph = ctx[0]
+    let slots = ctx[1]
+    let funcs = ctx[2]
+    let tag = ast[0]
+    let result_id = 0
+    if tag == "lit"
+      let r = df_compile_expr(ast, ctx)
+      graph = r[0]
+      result_id = r[1]
+    else
+      0
+    if tag == "var"
+      let r = df_compile_expr(ast, ctx)
+      graph = r[0]
+      result_id = r[1]
+    else
+      0
+    if tag == "binop"
+      let r = df_compile_expr(ast, ctx)
+      graph = r[0]
+      result_id = r[1]
+    else
+      0
+    if tag == "call"
+      let r = df_compile_expr(ast, ctx)
+      graph = r[0]
+      result_id = r[1]
+    else
+      0
+    if tag == "let"
+      let var_name = ast[1]
+      let val = ast[2]
+      let r = df_compile_expr(val, [graph, slots, funcs])
+      graph = r[0]
+      let val_id = r[1]
+      slots = df_bind_slot(slots, var_name, val_id)
+      result_id = val_id
+    else
+      0
+    if tag == "assign"
+      let var_name = ast[1]
+      let val = ast[2]
+      let r = df_compile_expr(val, [graph, slots, funcs])
+      graph = r[0]
+      let val_id = r[1]
+      slots = df_bind_slot(slots, var_name, val_id)
+      result_id = val_id
+    else
+      0
+    if tag == "if"
+      let cond = ast[1]
+      let then_body = ast[2]
+      let else_body = ast[3]
+      let cr = df_compile_expr(cond, [graph, slots, funcs])
+      graph = cr[0]
+      let cond_id = cr[1]
+      let then_slots = slots
+      let tr = df_compile_stmt(then_body, [graph, then_slots, funcs])
+      graph = tr[0]
+      then_slots = tr[1]
+      let then_id = tr[2]
+      let else_slots = slots
+      let er = df_compile_stmt(else_body, [graph, else_slots, funcs])
+      graph = er[0]
+      else_slots = er[1]
+      let else_id = er[2]
+      let br = df_add_node(graph, DF_BRANCH, [cond_id, then_id, else_id], 0)
+      graph = br[0]
+      result_id = br[1]
+    else
+      0
+    if tag == "for"
+      let var_name = ast[1]
+      let count_expr = ast[2]
+      let body = ast[3]
+      let count_val = if count_expr[0] == "lit"
+        count_expr[1]
+      else
+        100
+      let iter = 0
+      let loop_slots = slots
+      for iter < count_val
+        let iter_src = df_add_node(graph, DF_SRC, [], iter)
+        graph = iter_src[0]
+        let iter_id = iter_src[1]
+        loop_slots = df_bind_slot(loop_slots, var_name, iter_id)
+        let body_r = df_compile_stmt(body, [graph, loop_slots, funcs])
+        graph = body_r[0]
+        loop_slots = body_r[1]
+        result_id = body_r[2]
+        iter = iter + 1
+    else
+      0
+    if tag == "return"
+      let val = ast[1]
+      let r = df_compile_expr(val, [graph, slots, funcs])
+      graph = r[0]
+      result_id = r[1]
+    else
+      0
+    if tag == "seq"
+      let stmts = ast.slice(1, len(ast))
+      let si = 0
+      for si < len(stmts)
+        let sr = df_compile_stmt(stmts[si], [graph, slots, funcs])
+        graph = sr[0]
+        slots = sr[1]
+        result_id = sr[2]
+        si = si + 1
+    else
+      0
+    [graph, slots, result_id]
+
+let dataflow_compile(ast) =
+    let graph = []
+    let slots = []
+    let funcs = []
+    let stmts = if ast[0] == "seq"
+      ast.slice(1, len(ast))
+    else
+      [ast]
+    let i = 0
+    for i < len(stmts)
+      if stmts[i][0] == "fn"
+        funcs = funcs.push([stmts[i][1], stmts[i][2], stmts[i][3]])
+      else
+        0
+      i = i + 1
+    let result_id = 0
+    let j = 0
+    for j < len(stmts)
+      if stmts[j][0] != "fn"
+        let sr = df_compile_stmt(stmts[j], [graph, slots, funcs])
+        graph = sr[0]
+        slots = sr[1]
+        result_id = sr[2]
+      else
+        0
+      j = j + 1
+    [graph, result_id]
+
+let df_test_add() =
+    let ast = ["seq", ["let", "a", ["binop", "+", ["lit", 3], ["lit", 4]]]]
+    let r = dataflow_compile(ast)
+    dataflow_exec(r[0], r[1])
+
+let df_test_sub() =
+    let ast = ["seq", ["let", "a", ["binop", "-", ["lit", 10], ["lit", 3]]]]
+    let r = dataflow_compile(ast)
+    dataflow_exec(r[0], r[1])
+
+let df_test_mul() =
+    let ast = ["seq", ["let", "a", ["binop", "*", ["lit", 6], ["lit", 7]]]]
+    let r = dataflow_compile(ast)
+    dataflow_exec(r[0], r[1])
+
+let df_test_div() =
+    let ast = ["seq", ["let", "a", ["binop", "/", ["lit", 84], ["lit", 2]]]]
+    let r = dataflow_compile(ast)
+    dataflow_exec(r[0], r[1])
+
+let df_test_mod() =
+    let ast = ["seq", ["let", "a", ["binop", "%", ["lit", 10], ["lit", 3]]]]
+    let r = dataflow_compile(ast)
+    dataflow_exec(r[0], r[1])
+
+let df_test_var_ref() =
+    let ast = ["seq", ["let", "x", ["lit", 7]], ["let", "a", ["binop", "+", ["var", "x"], ["lit", 4]]]]
+    let r = dataflow_compile(ast)
+    dataflow_exec(r[0], r[1])
+
+let df_test_chain() =
+    let ast = ["seq", ["let", "x", ["lit", 2]], ["let", "y", ["binop", "+", ["var", "x"], ["lit", 1]]], ["let", "a", ["binop", "+", ["var", "y"], ["lit", 2]]]]
+    let r = dataflow_compile(ast)
+    dataflow_exec(r[0], r[1])
+
+let df_test_if_true() =
+    let ast = ["seq", ["let", "x", ["lit", 1]], ["if", ["binop", "<", ["var", "x"], ["lit", 2]], ["assign", "x", ["lit", 10]], ["assign", "x", ["lit", 20]]]]
+    let r = dataflow_compile(ast)
+    dataflow_exec(r[0], r[1])
+
+let df_test_if_false() =
+    let ast = ["seq", ["let", "x", ["lit", 5]], ["if", ["binop", "<", ["var", "x"], ["lit", 2]], ["assign", "x", ["lit", 10]], ["assign", "x", ["lit", 20]]]]
+    let r = dataflow_compile(ast)
+    dataflow_exec(r[0], r[1])
+
+let df_test_for_loop() =
+    let ast = ["seq", ["let", "s", ["lit", 0]], ["for", "i", ["lit", 5], ["assign", "s", ["binop", "+", ["var", "s"], ["var", "i"]]]]]
+    let r = dataflow_compile(ast)
+    dataflow_exec(r[0], r[1])
+
+let df_test_for_loop_10() =
+    let ast = ["seq", ["let", "s", ["lit", 0]], ["for", "i", ["lit", 10], ["assign", "s", ["binop", "+", ["var", "s"], ["var", "i"]]]]]
+    let r = dataflow_compile(ast)
+    dataflow_exec(r[0], r[1])
+
+let df_test_fn_call() =
+    let ast = ["seq", ["fn", "double", ["x"], ["binop", "*", ["var", "x"], ["lit", 2]]], ["let", "r", ["call", "double", [["lit", 21]]]]]
+    let r = dataflow_compile(ast)
+    dataflow_exec(r[0], r[1])
+
+let df_test_fn_add() =
+    let ast = ["seq", ["fn", "add", ["a", "b"], ["binop", "+", ["var", "a"], ["var", "b"]]], ["let", "r", ["call", "add", [["lit", 17], ["lit", 25]]]]]
+    let r = dataflow_compile(ast)
+    dataflow_exec(r[0], r[1])
+
+let df_test_nested_fn() =
+    let ast = ["seq", ["fn", "sq", ["x"], ["binop", "*", ["var", "x"], ["var", "x"]]], ["let", "r", ["call", "sq", [["lit", 7]]]]]
+    let r = dataflow_compile(ast)
+    dataflow_exec(r[0], r[1])
+
+let df_test_negative() =
+    let ast = ["seq", ["let", "a", ["binop", "-", ["lit", 0], ["lit", 5]]]]
+    let r = dataflow_compile(ast)
+    dataflow_exec(r[0], r[1])
+
+let df_test_bitwise() =
+    let ast = ["seq", ["let", "a", ["binop", "&", ["lit", 12], ["lit", 10]]]]
+    let r = dataflow_compile(ast)
+    dataflow_exec(r[0], r[1])
+
+let df_test_shift() =
+    let ast = ["seq", ["let", "a", ["binop", "<<", ["lit", 1], ["lit", 4]]]]
+    let r = dataflow_compile(ast)
+    dataflow_exec(r[0], r[1])
+
+let df_run_all_tests() =
+    let results = []
+    results = results.push(["add", df_test_add(), 7])
+    results = results.push(["sub", df_test_sub(), 7])
+    results = results.push(["mul", df_test_mul(), 42])
+    results = results.push(["div", df_test_div(), 42])
+    results = results.push(["mod", df_test_mod(), 1])
+    results = results.push(["var_ref", df_test_var_ref(), 11])
+    results = results.push(["chain", df_test_chain(), 5])
+    results = results.push(["if_true", df_test_if_true(), 10])
+    results = results.push(["if_false", df_test_if_false(), 20])
+    results = results.push(["for_loop", df_test_for_loop(), 10])
+    results = results.push(["for_loop_10", df_test_for_loop_10(), 45])
+    results = results.push(["fn_call", df_test_fn_call(), 42])
+    results = results.push(["fn_add", df_test_fn_add(), 42])
+    results = results.push(["nested_fn", df_test_nested_fn(), 49])
+    results = results.push(["negative", df_test_negative(), -5])
+    results = results.push(["bitwise", df_test_bitwise(), 8])
+    results = results.push(["shift", df_test_shift(), 16])
+    let pass = 0
+    let fail = 0
+    let i = 0
+    for i < len(results)
+      let name = results[i][0]
+      let got = results[i][1]
+      let want = results[i][2]
+      if got == want
+        pass = pass + 1
+      else
+        fail = fail + 1
+      i = i + 1
+    [pass, fail, results]

@@ -1,0 +1,112 @@
+let P = 65537
+let P2 = 131071
+
+let gf_add(a, b) = gf_canon(a + b)
+let gf_sub(a, b) = gf_canon(a - b)
+let gf_mul(a, b) = gf_canon(a * b)
+let gf_inv(a) = gf_pow(a, 65535)
+let gf_div(a, b) = gf_mul(a, gf_inv(b))
+
+let rp_make(z, r, n) = [z, r, n]
+let rp_z(rp) = rp[0]
+let rp_r(rp) = rp[1]
+let rp_n(rp) = rp[2]
+
+import "../lib/core/stdlib_lang2/bm_canon.ψ"
+
+let abs_i(x) =
+    let a = x
+    let neg = 0
+    if x < 0
+        neg = 1
+    if neg == 1
+        a = 0 - x
+    a
+
+import "../lib/core/stdlib_lang2/gx_045b40ecf0.ψ"
+
+import "wf_core.ψ"
+
+import "../lib/core/stdlib_lang2/gx_4baf8f40a2.ψ"
+
+import "../lib/core/stdlib_lang2/gx_3da33b29d3.ψ"
+
+import "../lib/core/stdlib_lang2/gx_f5ba2b9160.ψ"
+
+import "../lib/core/stdlib_lang2/gx_1bc4d1331b.ψ"
+
+import "../lib/core/stdlib_lang2/gx_0576be5a60.ψ"
+
+import "../lib/core/stdlib_lang2/gx_2c07c22bad.ψ"
+
+let QTOL = 10
+
+import "../lib/core/stdlib_lang2/gx_ceffad0757.ψ"
+
+import "../lib/core/stdlib_lang2/gx_f988dc4bf7.ψ"
+
+import "../lib/core/stdlib_lang2/gx_0282f2a55d.ψ"
+
+import "../lib/core/stdlib_lang2/gx_c909803dd2.ψ"
+
+import "../lib/core/stdlib_lang2/gx_2493e8f8c1.ψ"
+
+import "../lib/core/stdlib_lang2/gx_86725c8b95.ψ"
+
+import "../lib/core/stdlib_lang2/gx_b15306b5b5.ψ"
+
+import "../lib/core/stdlib_lang2/gx_a8c374f1a6.ψ"
+
+import "../lib/core/stdlib_lang2/gx_cb1e5bd63e.ψ"
+
+import "../lib/core/stdlib_lang2/gx_e35026eb52.ψ"
+
+import "../lib/core/stdlib_lang2/gx_ff6ed3ccc5.ψ"
+import "../lib/core/stdlib_lang2/gx_6effd2bf2e.ψ"
+
+import "../lib/core/stdlib_lang2/gx_74e81daeb1.ψ"
+
+import "../lib/core/stdlib_lang2/gx_03daed16d0.ψ"
+
+import "../lib/core/stdlib_lang2/gx_0ed4d4670d.ψ"
+
+let AX = [387, 723, 1000, 1524, 5203]
+let TY = [241, 615, 1000, 1881, 11862]
+
+let R = arr_new_n(25)
+R[12] = 2
+let dum = crystal_verdict(AX, TY, 4, R)
+
+print("= == Kepler III: [pow_score, winner, kidx, gate] = ==")
+print(R[3])
+print(R[20])
+print(R[21])
+print(R[22])
+
+let LX = [387, 723, 1000, 1524, 5203]
+let LY = [500, 173, 921, 44, 610]
+let LR = arr_new_n(25)
+LR[12] = 2
+dum = crystal_verdict(LX, LY, 4, LR)
+print("= == Lawless control: [gate=(0)] = ==")
+print(LR[22])
+
+let a1 = 0
+if R[3] < 50
+    a1 = 1
+let a2 = 0
+if R[20] == 3
+    a2 = 1
+let a3 = 0
+if R[21] == 2
+    a3 = 1
+let a4 = 0
+if R[22] == 1
+    a4 = 1
+let a5 = 0
+if LR[22] == 0
+    a5 = 1
+let TOTAL = a1 + a2 + a3 + a4 + a5
+print("= == TOTAL (expect 5) = ==")
+print(TOTAL)
+0

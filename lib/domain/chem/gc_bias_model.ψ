@@ -1,0 +1,24 @@
+import "ck.ψ"
+let bad = [0]
+
+let uf = (1000 - 220) * 100 / 220
+let uh = (1000 - 410) * 100 / 410
+let ue = (1000 - 508) * 100 / 508
+let um = (1000 - 720) * 100 / 720
+let duf = uf - 354
+bad[0] = bad[0] + duf * duf
+let duh = uh - 143
+bad[0] = bad[0] + duh * duh
+let due = ue - 96
+bad[0] = bad[0] + due * due
+let dum = um - 38
+bad[0] = bad[0] + dum * dum
+
+let s1 = uf - uh
+bad[0] = bad[0] + ck_lo(s1, 1)
+let s2 = uh - ue
+bad[0] = bad[0] + ck_lo(s2, 1)
+let s3 = ue - um
+bad[0] = bad[0] + ck_lo(s3, 1)
+
+arr_get(arr_new_n(1), bad[0])

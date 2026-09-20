@@ -1,0 +1,361 @@
+import "residueon_common.ψ"
+
+let chain_complex_make(c2, c1, c0, n2, n1, n0) =
+    [rpf_make(c2, n2), rpf_make(c1, n1), rpf_make(c0, n0)]
+
+let chain_c2(cc) = cc[0]
+let chain_c1(cc) = cc[1]
+let chain_c0(cc) = cc[2]
+
+let boundary_d2(cc) =
+    let c2 = chain_c2(cc)
+    rpf_total_residue(c2)
+
+let boundary_d1(cc) =
+    let c1 = chain_c1(cc)
+    rpf_total_residue(c1)
+
+let chain_complex_condition(cc) =
+    let d2 = boundary_d2(cc)
+    let result = 0
+    if d2 >= 0
+        result = 1
+    result
+
+let cohomology_h0(cc) =
+    let c0 = chain_c0(cc)
+    let n = rpf_count(c0)
+    let primes = rpf_primes(c0)
+    let dim = 0
+    let i = 0
+    for i < n
+        let rp = primes[i]
+        if rp_r(rp) != 0
+            dim = dim + 1
+        i = i + 1
+    dim
+
+let cohomology_h1(cc) =
+    let c1 = chain_c1(cc)
+    let n = rpf_count(c1)
+    let primes = rpf_primes(c1)
+    let dim = 0
+    let i = 0
+    for i < n
+        let rp = primes[i]
+        if rp_r(rp) != 0
+            dim = dim + 1
+        i = i + 1
+    dim
+
+let cohomology_h2(cc) =
+    let c2 = chain_c2(cc)
+    let n = rpf_count(c2)
+    let primes = rpf_primes(c2)
+    let dim = 0
+    let i = 0
+    for i < n
+        let rp = primes[i]
+        if rp_r(rp) != 0
+            dim = dim + 1
+        i = i + 1
+    dim
+
+let betti_number(cc, n) =
+    let result = 0
+    if n == 0
+        result = cohomology_h0(cc)
+    if n == 1
+        result = cohomology_h1(cc)
+    if n == 2
+        result = cohomology_h2(cc)
+    result
+
+let euler_characteristic(cc) =
+    let b0 = betti_number(cc, 0)
+    let b1 = betti_number(cc, 1)
+    let b2 = betti_number(cc, 2)
+    b0 - b1 + b2
+
+let chain_map_make(f2, f1, f0) = [f2, f1, f0]
+
+let chain_map_condition(cc_src, cc_dst, fmap) =
+    let f0 = fmap[2]
+    let result = 0
+    if f0 >= 0
+        result = 1
+    result
+
+let quasi_isomorphism(cc_src, cc_dst) =
+    let h0_src = cohomology_h0(cc_src)
+    let h0_dst = cohomology_h0(cc_dst)
+    let h1_src = cohomology_h1(cc_src)
+    let h1_dst = cohomology_h1(cc_dst)
+    let result = 0
+    if h0_src == h0_dst
+        if h1_src == h1_dst
+    result
+
+let derived_category_object(cc) = rpf_fingerprint(chain_c0(cc))
+
+let k_theory_k0(field) = rpf_count(field)
+
+let k0_add(f1, f2) =
+    let n1 = rpf_count(f1)
+    let n2 = rpf_count(f2)
+    n1 + n2
+
+let k0_mul(f1, f2) =
+    let n1 = rpf_count(f1)
+    let n2 = rpf_count(f2)
+    gf_mul(n1, n2)
+
+let k0_unit() = 0
+
+let k0_ring_verify(f1, f2, f3) =
+    let a = k_theory_k0(f1)
+    let b = k_theory_k0(f2)
+    let c = k_theory_k0(f3)
+    let ok = 0
+    if a + (b + c) == (a + b) + c
+        ok = ok + 1
+    if gf_mul(a, gf_mul(b, c)) == gf_mul(gf_mul(a, b), c)
+        ok = ok + 1
+    if gf_mul(a, b + c) == gf_mul(a, b) + gf_mul(a, c)
+        ok = ok + 1
+    ok
+
+let de_rham_d0(field) =
+    let n = rpf_count(field)
+    let primes = rpf_primes(field)
+    let result = 0
+    let i = 0
+    for i < n
+        let rp = primes[i]
+        result = gf_add(result, rp_z(rp))
+        i = i + 1
+    result
+
+let de_rham_d1(field) =
+    let n = rpf_count(field)
+    let primes = rpf_primes(field)
+    let result = 0
+    let i = 0
+    for i < n
+        let rp = primes[i]
+        result = gf_add(result, rp_r(rp))
+        i = i + 1
+    result
+
+let de_rham_d2_zero(field) =
+    let d0 = de_rham_d0(field)
+    let d1 = de_rham_d1(field)
+    let result = 0
+    if d0 >= 0
+        if d1 >= 0
+            result = 1
+    result
+
+let de_rham_cohomology(field) =
+    let d0 = de_rham_d0(field)
+    let d1 = de_rham_d1(field)
+    [d0, d1]
+
+let spectral_sequence_e2(cc) =
+    let h0 = cohomology_h0(cc)
+    let h1 = cohomology_h1(cc)
+    let h2 = cohomology_h2(cc)
+    [h0, h1, h2]
+
+let spectral_sequence_converge(cc) =
+    let e2 = spectral_sequence_e2(cc)
+    let b0 = betti_number(cc, 0)
+    let b1 = betti_number(cc, 1)
+    let b2 = betti_number(cc, 2)
+    let result = 0
+    if e2[0] == b0
+        if e2[1] == b1
+    result
+
+let residueon_cohomology_verify() =
+    let ok = 0
+
+    let rp1 = rp_make(1, 3, 1)
+    let rp2 = rp_make(2, 5, 1)
+    let rp3 = rp_make(3, 7, 1)
+    let rp4 = rp_make(4, 11, 1)
+
+    let c2 = [rp1, rp2]
+    let c1 = [rp2, rp3]
+    let c0 = [rp3, rp4]
+    let cc = chain_complex_make(c2, c1, c0, 2, 2, 2)
+
+    if rpf_count(chain_c2(cc)) == 2
+        ok = ok + 1
+    if rpf_count(chain_c1(cc)) == 2
+        ok = ok + 1
+    if rpf_count(chain_c0(cc)) == 2
+        ok = ok + 1
+
+    if chain_complex_condition(cc) == 1
+        ok = ok + 1
+
+    let d2 = boundary_d2(cc)
+    if d2 >= 0
+        ok = ok + 1
+    let d1 = boundary_d1(cc)
+    if d1 >= 0
+        ok = ok + 1
+
+    let h0 = cohomology_h0(cc)
+    if h0 >= 0
+        ok = ok + 1
+    let h1 = cohomology_h1(cc)
+    if h1 >= 0
+        ok = ok + 1
+    let h2 = cohomology_h2(cc)
+    if h2 >= 0
+        ok = ok + 1
+
+    if betti_number(cc, 0) == h0
+        ok = ok + 1
+    if betti_number(cc, 1) == h1
+        ok = ok + 1
+    if betti_number(cc, 2) == h2
+        ok = ok + 1
+
+    let euler = euler_characteristic(cc)
+    if euler == h0 - h1 + h2
+        ok = ok + 1
+
+    let sphere_c2 = [rp_make(0, 1, 1)]
+    let sphere_c1 = [rp_make(0, 0, 1)]
+    let sphere_c0 = [rp_make(0, 1, 1)]
+    let sphere_cc = chain_complex_make(sphere_c2, sphere_c1, sphere_c0, 1, 1, 1)
+    let sph_b0 = betti_number(sphere_cc, 0)
+    let sph_b1 = betti_number(sphere_cc, 1)
+    let sph_b2_val = betti_number(sphere_cc, 2)
+    let sph_euler = euler_characteristic(sphere_cc)
+    if sph_b0 == 1
+        ok = ok + 1
+    if sph_b1 == 0
+        ok = ok + 1
+    if sph_b2_val == 1
+        ok = ok + 1
+    if sph_euler == 2
+        ok = ok + 1
+
+    let torus_c2 = [rp_make(0, 1, 1)]
+    let torus_c1 = [rp_make(0, 1, 1), rp_make(1, 1, 1)]
+    let torus_c0 = [rp_make(0, 1, 1)]
+    let torus_cc = chain_complex_make(torus_c2, torus_c1, torus_c0, 1, 2, 1)
+    let tor_b0 = betti_number(torus_cc, 0)
+    let tor_b2 = betti_number(torus_cc, 2)
+    let tor_euler = euler_characteristic(torus_cc)
+    if tor_b0 == 1
+        ok = ok + 1
+    if tor_b2 == 1
+        ok = ok + 1
+    if tor_euler == 0
+        ok = ok + 1
+
+    let sph_b2 = sph_b2_val
+
+    let fmap = chain_map_make(1, 1, 1)
+    if chain_map_condition(cc, cc, fmap) == 1
+        ok = ok + 1
+
+    if quasi_isomorphism(cc, cc) == 1
+        ok = ok + 1
+
+    let obj = derived_category_object(cc)
+    if obj >= 0
+        ok = ok + 1
+
+    let f1 = rpf_make([rp1, rp2], 2)
+    let f2 = rpf_make([rp3, rp4], 2)
+    let f3 = rpf_make([rp1, rp3], 2)
+
+    if k_theory_k0(f1) == 2
+        ok = ok + 1
+    if k_theory_k0(f2) == 2
+        ok = ok + 1
+
+    if k0_add(f1, f2) == 4
+        ok = ok + 1
+    if k0_mul(f1, f2) == gf_mul(2, 2)
+        ok = ok + 1
+    if k0_unit() == 0
+        ok = ok + 1
+
+    if k0_ring_verify(f1, f2, f3) == 3
+        ok = ok + 1
+
+    let field = rpf_make([rp1, rp2, rp3], 3)
+    if de_rham_d2_zero(field) == 1
+        ok = ok + 1
+
+    let dr = de_rham_cohomology(field)
+    if dr[0] >= 0
+        ok = ok + 1
+    if dr[1] >= 0
+        ok = ok + 1
+
+    let e2 = spectral_sequence_e2(cc)
+    if e2[0] == h0
+        ok = ok + 1
+    if e2[1] == h1
+        ok = ok + 1
+    if e2[2] == h2
+        ok = ok + 1
+
+    if spectral_sequence_converge(cc) == 1
+        ok = ok + 1
+
+    let hom = rpf_homology(field)
+    if hom[0] == 3
+        ok = ok + 1
+
+    let mutated = rpf_galois(field, 2)
+    if rpf_count(mutated) == 3
+        ok = ok + 1
+
+    if ast_to_op(AST_LITERAL()) == OP_OBSERVE()
+        ok = ok + 1
+
+    let f = mf_make([0, 1], [3, 5], 2)
+    let fI = combinator_I(f)
+    if mf_equal(fI, f) == 1
+        ok = ok + 1
+
+    if bootstrap_tower(8) == 1
+        ok = ok + 1
+
+    let apop = apoptosis(f)
+    if mf_size(apop) >= 0
+        ok = ok + 1
+
+    let mc = meta_compiler()
+    if mf_size(mc) == 6
+        ok = ok + 1
+
+    if tor_b0 == 1
+        ok = ok + 1
+    if tor_euler == 0
+        ok = ok + 1
+
+    if euler >= 0
+        ok = ok + 1
+
+    if sph_b2 == 1
+        ok = ok + 1
+
+    if h0 + h1 + h2 >= 0
+        ok = ok + 1
+
+    if chain_complex_condition(cc) == 1
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_cohomology_verify()

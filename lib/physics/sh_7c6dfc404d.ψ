@@ -1,0 +1,13 @@
+let mf_compose(f1, f2) =
+    let n = mf_size(f1)
+    let out_p = []
+    let out_r = []
+    let i = 0
+    for i < n
+        let op1 = mf_poles(f1)[i]
+        let r1 = mf_residues(f1)[i]
+        out_p = out_p.push(op1)
+        out_r = out_r.push(gf_add(gf_mul(r1, 31), mf_residues(f2)[i]))
+        i = i + 1
+    mf_make(out_p, out_r, n)
+

@@ -1,0 +1,318 @@
+let BR_P = 65537
+
+let BR_RETENTION_TIME = 1
+let BR_RETENTION_SIZE = 2
+let BR_RETENTION_BOTH = 3
+
+let BR_ACK_NONE     = 0
+let BR_ACK_LEADER   = 1
+let BR_ACK_QUORUM   = 2
+
+let BR_CONSUMER_ACTIVE  = 1
+let BR_CONSUMER_PAUSED  = 2
+let BR_CONSUMER_REMOVED = 3
+
+let BR_DEFAULT_PARTITIONS = 8
+let BR_DEFAULT_RETENTION_MS = 7 * 24 * 3600 * 1000
+let BR_DEFAULT_MAX_MSG_SIZE = 1024 * 1024
+
+let br_msg_new(offset, ts, key, value) =
+    [offset, ts, key, value, []]
+
+let br_msg_offset(m)   = m[0]
+let br_msg_ts(m)       = m[1]
+let br_msg_key(m)      = m[2]
+let br_msg_value(m)    = m[3]
+let br_msg_headers(m)  = m[4]
+
+let br_msg_set_headers(m, headers) =
+    m[4] = headers
+    m
+
+let br_part_new(retention_type, retention_value) =
+    [[], 0, 0, retention_type, retention_value]
+
+let br_part_msgs(p)    = p[0]
+let br_part_head(p)    = p[1]
+let br_part_tail(p)    = p[2]
+let br_part_rtype(p)   = p[3]
+let br_part_rval(p)    = p[4]
+
+let br_part_append(p, ts, key, value) =
+    let msgs = br_part_msgs(p)
+    let head = br_part_head(p)
+    let new_off = head + 1
+    let m = br_msg_new(new_off, ts, key, value)
+    msgs.push(m)
+    let rtype = br_part_rtype(p)
+    let rval = br_part_rval(p)
+    let tail = br_part_tail(p)
+    if rtype == BR_RETENTION_SIZE
+        for len(msgs) * 32 > rval
+            msgs = arr_drop(msgs, 1)
+            tail = tail + 1
+    else
+        if rtype == BR_RETENTION_TIME
+            for len(msgs) > 0
+                let first_ts = br_msg_ts(msgs[0])
+                if ts - first_ts > rval
+                    msgs = arr_drop(msgs, 1)
+                    tail = tail + 1
+                else
+                    let dummy = 0
+                    msgs = msgs
+                    msgs = msgs
+                    msgs = br_part_msgs_append_break(msgs, ts, rval, tail)
+                    let stop = 1
+                    if stop == 1
+                        let k = 0
+                        k = 1
+                    else
+                        0
+            let dummy = 0
+    [msgs, new_off, tail, rtype, rval]
+
+let br_part_msgs_append_break(msgs, ts, rval, tail) =
+    msgs
+
+let br_part_range(p, from_offset, to_offset) =
+    let msgs = br_part_msgs(p)
+    let result = []
+    let i = 0
+    let n = len(msgs)
+    for i < n
+        let m = msgs[i]
+        let off = br_msg_offset(m)
+        if off >= from_offset
+            if off <= to_offset
+                result.push(m)
+        i = i + 1
+    result
+
+let br_part_next(p, from_offset) =
+    let msgs = br_part_msgs(p)
+    let i = 0
+    let n = len(msgs)
+    let found = 0
+    for i < n
+        let m = msgs[i]
+        if br_msg_offset(m) >= from_offset
+            found = m
+            i = n
+        i = i + 1
+    found
+
+let br_topic_new(name, n_partitions, retention_type, retention_value) =
+    let parts = []
+    let i = 0
+    for i < n_partitions
+        parts.push(br_part_new(retention_type, retention_value))
+        i = i + 1
+    [name, parts, retention_type, retention_value]
+
+let br_topic_name(t)        = t[0]
+let br_topic_parts(t)       = t[1]
+let br_topic_rtype(t)       = t[2]
+let br_topic_rval(t)        = t[3]
+
+let br_topic_route(t, key) =
+    let parts = br_topic_parts(t)
+    let n = len(parts)
+    if n == 0
+        0
+    else
+        let h = (key * 2654435761) % BR_P
+        if h < 0
+            h = -h
+        h % n
+
+let br_topic_produce(t, ts, key, value) =
+    let pid = br_topic_route(t, key)
+    let parts = br_topic_parts(t)
+    let part = parts[pid]
+    part = br_part_append(part, ts, key, value)
+    parts[pid] = part
+    let new_off = br_part_head(part)
+    [[br_topic_name(t), parts, br_topic_rtype(t), br_topic_rval(t)], new_off, pid]
+
+let br_topic_consume(t, pid, from_offset, max_n) =
+    let parts = br_topic_parts(t)
+    if pid >= len(parts)
+        [[], t, 0]
+    else
+        let part = parts[pid]
+        let msgs = br_part_msgs(part)
+        let result = []
+        let i = 0
+        let n = len(msgs)
+        let count = 0
+        for i < n
+            let m = msgs[i]
+            if br_msg_offset(m) >= from_offset
+                if count < max_n
+                    result.push(m)
+                    count = count + 1
+            i = i + 1
+        let next_off = from_offset
+        if count > 0
+            next_off = br_msg_offset(result[count - 1]) + 1
+        [result, t, next_off]
+
+let br_cg_new(group_id) =
+    [group_id, {}, {}]
+
+let br_cg_id(g)         = g[0]
+let br_cg_assigns(g)    = g[1]
+let br_cg_offsets(g)    = g[2]
+
+let br_cg_assign(g, consumer_ids, n_partitions) =
+    let assigns = {}
+    let nc = len(consumer_ids)
+    let i = 0
+    for i < n_partitions
+        let cid = consumer_ids[i % nc]
+        assigns[i] = cid
+        i = i + 1
+    [br_cg_id(g), assigns, br_cg_offsets(g)]
+
+let br_cg_commit(g, partition_id, offset) =
+    let offs = br_cg_offsets(g)
+    offs[partition_id] = offset
+    [br_cg_id(g), br_cg_assigns(g), offs]
+
+let br_cg_get_offset(g, partition_id) =
+    let offs = br_cg_offsets(g)
+    let o = offs[partition_id]
+    if o == 0
+        0
+    else
+        o
+
+let br_producer_new(pid, topic_name, ack_level) =
+    [pid, topic_name, ack_level, []]
+
+let br_prod_id(p)        = p[0]
+let br_prod_topic(p)     = p[1]
+let br_prod_ack(p)       = p[2]
+let br_prod_pending(p)   = p[3]
+
+let br_producer_track(p, offset) =
+    let pend = br_prod_pending(p)
+    pend.push(offset)
+    [br_prod_id(p), br_prod_topic(p), br_prod_ack(p), pend]
+
+let br_producer_ack(p, offset) =
+    let pend = br_prod_pending(p)
+    let new_pend = []
+    let i = 0
+    let n = len(pend)
+    for i < n
+        if pend[i] != offset
+            new_pend.push(pend[i])
+        i = i + 1
+    [br_prod_id(p), br_prod_topic(p), br_prod_ack(p), new_pend]
+
+let br_broker_new() =
+    [{}, {}, 1]
+
+let br_broker_topics(b)   = b[0]
+let br_broker_cgs(b)     = b[1]
+let br_broker_next(b)    = b[2]
+
+let br_broker_create_topic(b, name, n_parts, rtype, rval) =
+    let topics = br_broker_topics(b)
+    let t = br_topic_new(name, n_parts, rtype, rval)
+    topics[name] = t
+    [topics, br_broker_cgs(b), br_broker_next(b)]
+
+let br_broker_produce(b, topic_name, ts, key, value) =
+    let topics = br_broker_topics(b)
+    let t = topics[topic_name]
+    if t == 0
+        [b, 0, 0]
+    else
+        let prod_res = br_topic_produce(t, ts, key, value)
+        let new_t = prod_res[0]
+        let off = prod_res[1]
+        let pid = prod_res[2]
+        topics[topic_name] = new_t
+        [[topics, br_broker_cgs(b), br_broker_next(b)], off, pid]
+
+let br_broker_consume(b, topic_name, group_id, partition_id, max_n) =
+    let topics = br_broker_topics(b)
+    let t = topics[topic_name]
+    if t == 0
+        [[], b, 0]
+    else
+        let cgs = br_broker_cgs(b)
+        let g = cgs[group_id]
+        if g == 0
+            g = br_cg_new(group_id)
+        let from_off = br_cg_get_offset(g, partition_id)
+        let cons_res = br_topic_consume(t, partition_id, from_off, max_n)
+        let msgs = cons_res[0]
+        let next_off = cons_res[2]
+        g = br_cg_commit(g, partition_id, next_off)
+        cgs[group_id] = g
+        [msgs, [topics, cgs, br_broker_next(b)], next_off]
+
+let br_self_test() =
+    let b = br_broker_new()
+    b = br_broker_create_topic(b, 100, 4, BR_RETENTION_SIZE, 4096)
+    let prod_res = br_broker_produce(b, 100, 1000, 42, 1)
+    b = prod_res[0]
+    let off1 = prod_res[1]
+    let t_produce = 0
+    if off1 == 1
+        t_produce = 1
+
+    let i = 0
+    for i < 5
+        let r = br_broker_produce(b, 100, 1000 + i, 42, i + 10)
+        b = r[0]
+        i = i + 1
+    let topics = br_broker_topics(b)
+    let t = topics[100]
+    let parts = br_topic_parts(t)
+    let total_msgs = 0
+    i = 0
+    for i < 4
+        total_msgs = total_msgs + len(br_part_msgs(parts[i]))
+        i = i + 1
+    let t_monotonic = 0
+    if total_msgs == 6
+        t_monotonic = 1
+
+    let cons_res = br_broker_consume(b, 100, 1, br_topic_route(t, 42), 10)
+    let msgs = cons_res[0]
+    b = cons_res[1]
+    let t_consume = 0
+    if len(msgs) > 0
+        t_consume = 1
+
+    let cons_res2 = br_broker_consume(b, 100, 1, br_topic_route(t, 42), 10)
+    let msgs2 = cons_res2[0]
+    let t_advance = 0
+    if len(msgs2) == 0
+        t_advance = 1
+
+    let p = br_producer_new(1, 100, BR_ACK_LEADER)
+    p = br_producer_track(p, 1)
+    p = br_producer_track(p, 2)
+    p = br_producer_ack(p, 1)
+    let t_ack = 0
+    if len(br_prod_pending(p)) == 1
+        t_ack = 1
+
+    let g = br_cg_new(2)
+    g = br_cg_assign(g, [10, 20, 30], 6)
+    let a = br_cg_assigns(g)
+    let t_assign = 0
+    if a[0] == 10
+        if a[3] == 20
+            t_assign = 1
+
+    [t_produce, t_monotonic, t_consume, t_advance, t_ack, t_assign]
+
+let br_default_broker() =
+    br_broker_new()

@@ -1,0 +1,108 @@
+let interval_new(lo, hi) =
+    [lo, hi]
+
+let interval_add(a, b) =
+    [a[0] + b[0], a[1] + b[1]]
+
+let interval_sub(a, b) =
+    [a[0] - b[1], a[1] - b[0]]
+
+let interval_mul(a, b) =
+    let p1 = a[0] * b[0]
+    let p2 = a[0] * b[1]
+    let p3 = a[1] * b[0]
+    let p4 = a[1] * b[1]
+    let lo = p1
+    lo = (p2 < lo ? p2 : lo)
+    lo = (p3 < lo ? p3 : lo)
+    lo = (p4 < lo ? p4 : lo)
+    let hi = p1
+    hi = (p2 > hi ? p2 : hi)
+    hi = (p3 > hi ? p3 : hi)
+    hi = (p4 > hi ? p4 : hi)
+    [lo, hi]
+
+let interval_neg(a) =
+    [-a[1], -a[0]]
+
+let interval_scale(a, s) =
+    if s >= 0
+        [a[0] * s, a[1] * s]
+    else
+        [a[1] * s, a[0] * s]
+
+let interval_contains(a, x) =
+    x >= a[0] && x <= a[1]
+
+let interval_width(a) =
+    a[1] - a[0]
+
+let interval_mid(a) =
+    (a[0] + a[1]) / 2
+
+let interval_intersect(a, b) =
+    let lo = (a[0] > b[0] ? a[0] : b[0])
+    let hi = (a[1] < b[1] ? a[1] : b[1])
+    if lo > hi
+        [0, -1]
+    else
+        [lo, hi]
+
+let interval_union(a, b) =
+    let lo = (a[0] < b[0] ? a[0] : b[0])
+    let hi = (a[1] > b[1] ? a[1] : b[1])
+    [lo, hi]
+
+let interval_abs(a) =
+    let lo_abs = (a[0] < 0 ? -a[0] : a[0])
+    let hi_abs = (a[1] < 0 ? -a[1] : a[1])
+    let val = (lo_abs > hi_abs ? lo_abs : hi_abs)
+    if a[0] <= 0 && a[1] >= 0
+        [0, val]
+    else
+        [(lo_abs < hi_abs ? lo_abs : hi_abs), val]
+
+let interval_sqr(a) =
+    let lo_sqr = a[0] * a[0]
+    let hi_sqr = a[1] * a[1]
+    if a[0] >= 0
+        [lo_sqr, hi_sqr]
+    else
+        0
+    if a[1] <= 0
+        [hi_sqr, lo_sqr]
+    else
+        [0, (lo_sqr > hi_sqr ? lo_sqr : hi_sqr)]
+
+let interval_power(a, n) =
+    let result = [1, 1]
+    let base = a
+    let exp = n
+    for exp > 0
+        if exp % 2 == 1
+            result = interval_mul(result, base)
+        base = interval_sqr(base)
+        exp = exp / 2
+    result
+
+let interval_eq(a, b) =
+    a[0] == b[0] && a[1] == b[1]
+
+let interval_subset(a, b) =
+    a[0] >= b[0] && a[1] <= b[1]
+
+let interval_to_str(a) =
+    str_concat(str_concat("[", str_concat(str(a[0]), ", ")), str_concat(str(a[1]), "]"))
+
+let main() =
+    let a = interval_new(1, 3)
+    let b = interval_new(2, 5)
+    let c = interval_add(a, b)
+    print(c)
+    let d = interval_mul(a, b)
+    print(d)
+    let e = interval_sqr(a)
+    print(e)
+    let f = interval_intersect(a, b)
+    print(f)
+    0

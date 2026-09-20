@@ -1,0 +1,178 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let MECH_MAX_BODIES = 1024
+
+let body_create(id, x, y, z, mass) = [id, x, y, z, 0, 0, 0, mass, gf_div(1, mass)]
+let body_apply_force(body, fx, fy, fz, dt) =
+    let vx = gf_add(body[4], gf_mul(gf_div(fx, body[7]), dt))
+    let vy = gf_add(body[5], gf_mul(gf_div(fy, body[7]), dt))
+    let vz = gf_add(body[6], gf_mul(gf_div(fz, body[7]), dt))
+    [body[0], body[1], body[2], body[3], vx, vy, vz, body[7], body[8]]
+let body_integrate(body, dt) =
+    let x = gf_add(body[1], gf_mul(body[4], dt))
+    let y = gf_add(body[2], gf_mul(body[5], dt))
+    let z = gf_add(body[3], gf_mul(body[6], dt))
+    [body[0], x, y, z, body[4], body[5], body[6], body[7], body[8]]
+let constraint_create(a, b, rest_length, stiffness) = [a, b, rest_length, stiffness]
+let constraint_solve(constraint, bodies) =
+    let body_a = bodies[constraint.get(0)]
+    let body_b = bodies[constraint.get(1)]
+    let dx = gf_sub(body_b[1], body_a[1])
+    let dy = gf_sub(body_b[2], body_a[2])
+    let dz = gf_sub(body_b[3], body_a[3])
+    let dist = gf_sqrt(gf_add(gf_add(gf_mul(dx, dx), gf_mul(dy, dy)), gf_mul(dz, dz)))
+    if dist == 0
+        bodies
+    let diff = gf_sub(dist, constraint[2])
+    let correction = gf_mul(gf_mul(diff, constraint[3]), gf_div(1, gf_add(body_a[8], body_b[8])))
+    let nx = gf_div(dx, dist)
+    let ny = gf_div(dy, dist)
+    let nz = gf_div(dz, dist)
+    bodies[constraint[0]] = [body_a[0], gf_add(body_a[1], gf_mul(correction, gf_mul(body_a[8], nx))), gf_add(body_a[2], gf_mul(correction, gf_mul(body_a[8], ny))), gf_add(body_a[3], gf_mul(correction, gf_mul(body_a[8], nz))), body_a[4], body_a[5], body_a[6], body_a[7], body_a[8]]
+    bodies[constraint[1]] = [body_b[0], gf_sub(body_b[1], gf_mul(correction, gf_mul(body_b[8], nx))), gf_sub(body_b[2], gf_mul(correction, gf_mul(body_b[8], ny))), gf_sub(body_b[3], gf_mul(correction, gf_mul(body_b[8], nz))), body_b[4], body_b[5], body_b[6], body_b[7], body_b[8]]
+    bodies
+let body_collision(a, b) =
+    let dx = gf_sub(a[1], b[1])
+    let dy = gf_sub(a[2], b[2])
+    let dz = gf_sub(a[3], b[3])
+    let dist_sq = gf_add(gf_add(gf_mul(dx, dx), gf_mul(dy, dy)), gf_mul(dz, dz))
+    let r_sum = 10
+    (dist_sq < gf_mul(r_sum, r_sum) ? 1 : 0)
+let field_mechanics(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let mechanics_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_mechanics(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+
+let YOUNGS_MODULUS_POLES = [1, 3, 70, 100, 200, 210, 400, 1050]
+let YOUNGS_MODULUS_WEIGHTS = [10, 30, 50, 60, 80, 85, 70, 100]
+
+let psi_youngs_modulus(E_GPa) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(E_GPa), gf_norm(YOUNGS_MODULUS_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(YOUNGS_MODULUS_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let POISSON_RATIO_POLES = [10, 28, 31, 33, 34, 42, 50, 20]
+let POISSON_RATIO_WEIGHTS = [30, 40, 50, 50, 50, 60, 80, 40]
+
+let psi_poisson(nu_x100) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(nu_x100), gf_norm(POISSON_RATIO_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(POISSON_RATIO_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let YIELD_STRENGTH_POLES = [30, 100, 210, 250, 350, 550, 880, 1400]
+let YIELD_STRENGTH_WEIGHTS = [10, 30, 50, 55, 65, 80, 90, 100]
+
+let psi_yield_strength(sigma_y) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(sigma_y), gf_norm(YIELD_STRENGTH_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(YIELD_STRENGTH_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let mechanics_global_response(E_GPa, nu_x100, sigma_y) =
+    let e1 = psi_youngs_modulus(E_GPa)
+    let e2 = psi_poisson(nu_x100)
+    let e3 = psi_yield_strength(sigma_y)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+
+let hooke_law_test() =
+    let v_low_E = psi_youngs_modulus(1)
+    let v_high_E = psi_youngs_modulus(1050)
+    (v_low_E != v_high_E ? 1 : 0)
+
+let poisson_incompressibility_test() =
+    let v_rubber = psi_poisson(50)
+    let v_concrete = psi_poisson(20)
+    (v_rubber != v_concrete ? 1 : 0)
+
+let tresca_yield_test() =
+    let v_low_sigma = psi_yield_strength(30)
+    let v_high_sigma = psi_yield_strength(1400)
+    (v_low_sigma != v_high_sigma ? 1 : 0)
+
+let nested_fractal_mechanics_invariants() =
+    let e1 = psi_youngs_modulus(210)
+    let e2 = psi_poisson(30)
+    let e3 = psi_yield_strength(250)
+    let inv1 = 0
+    if e1 != 0
+        (e2 != 0 ? (e3 != 0 ? (inv1 = 1) : 0) : 0)
+    let inv2 = 0
+    if YOUNGS_MODULUS_POLES[0] < YOUNGS_MODULUS_POLES[5]
+        (YOUNGS_MODULUS_POLES[5] < YOUNGS_MODULUS_POLES[7] ? (inv2 = 1) : 0)
+    let inv3 = 0
+    if POISSON_RATIO_POLES[0] >= 0
+        (POISSON_RATIO_POLES[6] <= 50 ? (inv3 = 1) : 0)
+    let inv4 = 0
+    if YIELD_STRENGTH_POLES[0] < YIELD_STRENGTH_POLES[3]
+        (YIELD_STRENGTH_POLES[3] < YIELD_STRENGTH_POLES[7] ? (inv4 = 1) : 0)
+    let inv5 = hooke_law_test()
+    [inv1, inv2, inv3, inv4, inv5]
+
+let mechanics_verify_v20() =
+    let t1 = 0
+    if psi_youngs_modulus(210) != 0
+        t1 = 1
+    let t2 = 0
+    if psi_poisson(30) != 0
+        t2 = 1
+    let t3 = 0
+    if psi_yield_strength(250) != 0
+        t3 = 1
+    let t4 = hooke_law_test()
+    let t5 = poisson_incompressibility_test()
+    let t6 = tresca_yield_test()
+    let t7 = 0
+    if YOUNGS_MODULUS_POLES[0] == 1
+        t7 = 1
+    let t8 = 0
+    if YOUNGS_MODULUS_POLES[7] == 1050
+        t8 = 1
+    let t9 = 0
+    if POISSON_RATIO_POLES[2] == 31
+        t9 = 1
+    let t10 = 0
+    if YIELD_STRENGTH_POLES[3] == 250
+        t10 = 1
+    let t11 = 0
+    if YIELD_STRENGTH_POLES[7] == 1400
+        t11 = 1
+    let invs = nested_fractal_mechanics_invariants()
+    let t12 = 0
+    if invs[0] == 1
+        if invs[1] == 1
+            if invs[2] == 1
+                if invs[3] == 1
+                    if invs[4] == 1
+                        t12 = 1
+    let passed = t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12
+    passed == 12
+

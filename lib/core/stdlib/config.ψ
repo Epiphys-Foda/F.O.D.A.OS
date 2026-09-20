@@ -1,0 +1,214 @@
+let cfg_create() =
+    let config = arr_new()
+    config = arr_push(config, arr_new())
+    config = arr_push(config, arr_new())
+    config
+
+let cfg_set(config, key, value) =
+    let keys = config[0]
+    let values = config[1]
+    let n = keys.len()
+    let found = 0 - 1
+    let i = 0
+    for i < n
+        if keys[i] == key
+            found = i
+        i = i + 1
+    if found >= 0
+        values[found] = value
+    else
+        keys = arr_push(keys, key)
+        values = arr_push(values, value)
+        config[0] = keys
+        config[1] = values
+    config
+
+let cfg_get(config, key) =
+    let keys = config[0]
+    let values = config[1]
+    let n = keys.len()
+    let i = 0
+    for i < n
+        if keys[i] == key
+            return values[i]
+        i = i + 1
+    0
+
+let cfg_get_or(config, key, default) =
+    let keys = config[0]
+    let values = config[1]
+    let n = keys.len()
+    let i = 0
+    for i < n
+        if keys[i] == key
+            return values[i]
+        i = i + 1
+    default
+
+let cfg_has(config, key) =
+    let keys = config[0]
+    let n = keys.len()
+    let i = 0
+    for i < n
+        if keys[i] == key
+            return 1
+        i = i + 1
+    0
+
+let cfg_remove(config, key) =
+    let keys = config[0]
+    let values = config[1]
+    let new_keys = arr_new()
+    let new_values = arr_new()
+    let n = keys.len()
+    let i = 0
+    for i < n
+        if keys[i] != key
+            new_keys = arr_push(new_keys, keys[i])
+            new_values = arr_push(new_values, values[i])
+        i = i + 1
+    config[0] = new_keys
+    config[1] = new_values
+    config
+
+let cfg_keys(config) = config[0]
+
+let cfg_values(config) = config[1]
+
+let cfg_count(config) =
+    let keys = config[0]
+    keys.len()
+
+let cfg_merge(base, overlay) =
+    let keys = overlay[0]
+    let values = overlay[1]
+    let n = keys.len()
+    let i = 0
+    for i < n
+        base = cfg_set(base, keys[i], values[i])
+        i = i + 1
+    base
+
+let cfg_clone(config) =
+    let keys = config[0]
+    let values = config[1]
+    let new_config = cfg_create()
+    let n = keys.len()
+    let i = 0
+    for i < n
+        new_config = cfg_set(new_config, keys[i], values[i])
+        i = i + 1
+    new_config
+
+let cfg_to_string(config) =
+    let keys = config[0]
+    let values = config[1]
+    let n = keys.len()
+    let result = str_concat(str_concat("", chr(123)), "")
+    let i = 0
+    for i < n
+        if i > 0
+            result = result + ", "
+        result = result + keys[i] + "=" + values[i]
+        i = i + 1
+    result + "}"
+
+let cfg_from_pairs(pairs) =
+    let config = cfg_create()
+    let n = pairs.len()
+    let i = 0
+    for i < n
+        let pair = pairs[i]
+        config = cfg_set(config, pair[0], pair[1])
+        i = i + 1
+    config
+
+let cfg_to_pairs(config) =
+    let keys = config[0]
+    let values = config[1]
+    let pairs = arr_new()
+    let n = keys.len()
+    let i = 0
+    for i < n
+        let pair = arr_new()
+        pair = arr_push(pair, keys[i])
+        pair = arr_push(pair, values[i])
+        pairs = arr_push(pairs, pair)
+        i = i + 1
+    pairs
+
+let cfg_validate(config, required_keys) =
+    let n = required_keys.len()
+    let i = 0
+    for i < n
+        if cfg_has(config, required_keys[i]) == 0
+            return 0
+        i = i + 1
+    1
+
+let cfg_missing(config, required_keys) =
+    let missing = arr_new()
+    let n = required_keys.len()
+    let i = 0
+    for i < n
+        if cfg_has(config, required_keys[i]) == 0
+            missing = arr_push(missing, required_keys[i])
+        i = i + 1
+    missing
+
+let cfg_apply_defaults(config, defaults) =
+    let keys = defaults[0]
+    let values = defaults[1]
+    let n = keys.len()
+    let i = 0
+    for i < n
+        if cfg_has(config, keys[i]) == 0
+            config = cfg_set(config, keys[i], values[i])
+        i = i + 1
+    config
+
+let cfg_get_nested(config, key_parts) =
+    let current = config
+    let n = key_parts.len()
+    let i = 0
+    for i < n
+        current = cfg_get(current, key_parts[i])
+        i = i + 1
+    current
+
+let cfg_freeze(config) = cfg_clone(config)
+
+let cfg_equals(a, b) =
+    let keys_a = a[0]
+    let values_a = a[1]
+    let keys_b = b[0]
+    let values_b = b[1]
+    let na = keys_a.len()
+    let nb = keys_b.len()
+    if na != nb
+        return 0
+    let i = 0
+    for i < na
+        if cfg_get(b, keys_a[i]) != values_a[i]
+            return 0
+        i = i + 1
+    1
+
+let cfg_set_many(config, keys, values) =
+    let n = keys.len()
+    let i = 0
+    for i < n
+        config = cfg_set(config, keys[i], values[i])
+        i = i + 1
+    config
+
+let main() =
+    let config = cfg_create()
+    config = cfg_set(config, "port", 8080)
+    config = cfg_set(config, "host", "localhost")
+    config = cfg_set(config, "debug", 1)
+    print(cfg_get(config, "port"))
+    print(cfg_get_or(config, "timeout", 30))
+    print(cfg_has(config, "debug"))
+    print(cfg_count(config))
+    0

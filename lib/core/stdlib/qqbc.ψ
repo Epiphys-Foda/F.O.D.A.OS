@@ -1,0 +1,324 @@
+let QQ_GFMUL    = 1
+let QQ_CLIFFORD = 2
+let QQ_NTT      = 3
+let QQ_BORN     = 4
+let QQ_HEBBIAN  = 5
+let QQ_TOKEN    = 16
+let QQ_EMIT     = 17
+let QQ_END      = 255
+
+let PE_GFMUL    = 1
+let PE_CLIFFORD = 2
+let PE_NTT      = 3
+let PE_BORN     = 4
+let PE_HEBBIAN  = 5
+let PE_TOKEN    = 16
+let PE_EMIT     = 17
+
+let UTF8_GFMUL    = [226, 138, 153]
+let UTF8_CLIFFORD = [226, 151, 166]
+let UTF8_NTT      = [226, 137, 139]
+let UTF8_BORN     = [226, 134, 161]
+let UTF8_HEBBIAN  = [226, 136, 134]
+
+let qq_encode_quantum(op_id) =
+    if op_id >= -5
+      if op_id <= -1
+        1 - op_id
+      else
+        0
+    else
+      0
+
+let qq_decode_to_op_id(qq_opcode) =
+    if qq_opcode >= 1
+      if qq_opcode <= 5
+        1 - qq_opcode
+      else
+        0
+    else
+      0
+
+let QQBC_SPECS = [
+  { opcode: 1, name: "QQ_GFMUL", symbol: "⊙", arity: 2, pe_type: 1, note: "GF(65537) modular multiply — quantum field operator (PE type 1)" },
+  { opcode: 2, name: "QQ_CLIFFORD", symbol: "◦", arity: 2, pe_type: 2, note: "Clifford geometric product — co-product operator (PE type 2)" },
+  { opcode: 3, name: "QQ_NTT", symbol: "≋", arity: 2, pe_type: 3, note: "NTT butterfly sync — phase rotation (PE type 3)" },
+  { opcode: 4, name: "QQ_BORN", symbol: "↡", arity: 2, pe_type: 4, note: "Born projection-select — binary reduction (PE type 4)" },
+  { opcode: 5, name: "QQ_HEBBIAN", symbol: "∆", arity: 2, pe_type: 5, note: "Hebbian online sculpting — sum reduction (PE type 5)" },
+  { opcode: 16, name: "QQ_TOKEN", symbol: "□", arity: 1, pe_type: 16, note: "input token — dataflow source (PE type 16)" },
+  { opcode: 17, name: "QQ_EMIT",     symbol: "■", arity: 1, pe_type: 17,
+    note: "output token — dataflow sink (PE type 17)"
+}]
+
+let qq_spec(opcode) =
+    let found = null
+    let i = 0
+    let n = len(QQBC_SPECS)
+    let done = false
+    for !done
+      if i < n
+        let spec = QQBC_SPECS[i]
+        if spec.opcode == opcode
+          found = spec
+          done = true
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    found
+
+let qq_name(opcode) =
+    let spec = qq_spec(opcode)
+    (spec == null ? "?" : spec.name)
+
+let qq_symbol(opcode) =
+    let spec = qq_spec(opcode)
+    (spec == null ? "?" : spec.symbol)
+
+let qq_pe_type(opcode) =
+    let spec = qq_spec(opcode)
+    (spec == null ? 0 : spec.pe_type)
+
+let qq_arity(opcode) =
+    let spec = qq_spec(opcode)
+    (spec == null ? -1 : spec.arity)
+
+let qq_match_utf8(b0, b1, b2) =
+    if b0 == 226
+      if b1 == 138
+        if b2 == 153
+            1
+        else
+            0
+      else
+        if b1 == 151
+          if b2 == 166
+              2
+          else
+              0
+        else
+          if b1 == 137
+            if b2 == 139
+                3
+            else
+                0
+          else
+            if b1 == 134
+              if b2 == 161
+                  4
+              else
+                  0
+            else
+              if b1 == 136
+                if b2 == 134
+                    5
+                else
+                    0
+              else
+                0
+    else
+      0
+
+let QQ_GFMUL_MOD = 65537
+
+let qq_eval(opcode, args) =
+    if opcode == 1
+      let a = args[0]
+      let b = args[1]
+      let prod = a * b
+      let abs_prod = (prod < 0 ? 0 - prod : prod)
+      abs_prod - (abs_prod / QQ_GFMUL_MOD) * QQ_GFMUL_MOD
+    else
+      if opcode == 2
+        let a = args[0]
+        let b = args[1]
+        bit_and(bit_xor(a, b), bit_or(a, b))
+      else
+        if opcode == 3
+          let a = args[0]
+          let b = args[1]
+          bit_or(a + b, a - b)
+        else
+          if opcode == 4
+            let c = args[0]
+            let t = args[1]
+            (c != 0 ? t : 0)
+          else
+                0
+            if opcode == 5
+              let a = args[0]
+              let b = args[1]
+              a + b
+            else
+              0
+
+let qq_interp(qqbc) =
+    let stack = []
+    let pc = 0
+    let result = 0
+    let done = false
+    for !done
+      if pc < len(qqbc)
+        let op = qqbc[pc]
+        pc = pc + 1
+        if op == 16
+          let v = qqbc[pc]
+          pc = pc + 1
+          stack = stack.push(v)
+        else
+          0
+        if op == 1
+          let n = len(stack)
+          if n >= 2
+            let b = stack[n - 1]
+            let a = stack[n - 2]
+            stack = stack.slice(0, n - 2)
+            let args = [a, b]
+            stack = stack.push(qq_eval(1, args))
+          else
+              0
+        else
+          0
+        if op == 2
+          let n = len(stack)
+          if n >= 2
+            let b = stack[n - 1]
+            let a = stack[n - 2]
+            stack = stack.slice(0, n - 2)
+            let args = [a, b]
+            stack = stack.push(qq_eval(2, args))
+          else
+              0
+        else
+          0
+        if op == 3
+          let n = len(stack)
+          if n >= 2
+            let b = stack[n - 1]
+            let a = stack[n - 2]
+            stack = stack.slice(0, n - 2)
+            let args = [a, b]
+            stack = stack.push(qq_eval(3, args))
+          else
+              0
+        else
+          0
+        if op == 4
+          let n = len(stack)
+          if n >= 2
+            let t = stack[n - 1]
+            let c = stack[n - 2]
+            stack = stack.slice(0, n - 2)
+            let args = [c, t]
+            stack = stack.push(qq_eval(4, args))
+          else
+              0
+        else
+          0
+        if op == 5
+          let n = len(stack)
+          if n >= 2
+            let b = stack[n - 1]
+            let a = stack[n - 2]
+            stack = stack.slice(0, n - 2)
+            let args = [a, b]
+            stack = stack.push(qq_eval(5, args))
+          else
+              0
+        else
+          0
+        if op == 17
+          let n = len(stack)
+          if n >= 1
+            result = stack[n - 1]
+          else
+              0
+        else
+          0
+        if op == 255
+          done = true
+        else
+            0
+      else
+        done = true
+    result
+
+let qq_dump_all() =
+    let out = []
+    let i = 0
+    let n = len(QQBC_SPECS)
+    let done = false
+    for !done
+      if i < n
+        let spec = QQBC_SPECS[i]
+        let row = [spec.opcode, spec.name, spec.symbol, spec.pe_type]
+        out = out.push(row)
+        i = i + 1
+      else
+        done = true
+    out
+
+let qq_count() = len(QQBC_SPECS)
+
+let qq_summary() = {
+    total: len(QQBC_SPECS),
+    quantum_ops: 5,
+    data_scaffolds: 2,
+    gfmul_mod: QQ_GFMUL_MOD
+}
+
+let qq_lower_to_micro(qq_opcode) =
+    if qq_opcode == QQ_GFMUL
+        10
+    else
+      if qq_opcode == QQ_CLIFFORD
+          22
+      else
+        if qq_opcode == QQ_NTT
+            30
+        else
+          if qq_opcode == QQ_BORN
+              40
+          else
+            if qq_opcode == QQ_HEBBIAN
+                50
+            else
+              if qq_opcode == QQ_TOKEN
+                  16
+              else
+                if qq_opcode == QQ_EMIT
+                    17
+                else
+                  if qq_opcode == QQ_END
+                      255
+                  else
+                      0
+
+let qq_layer1_name(qq_opcode) =
+    let micro_op = qq_lower_to_micro(qq_opcode)
+    if micro_op == 10
+        "MUL_GF"
+    else
+      if micro_op == 22
+          "PROD_CL"
+      else
+        if micro_op == 30
+            "FFT_FWD"
+        else
+          if micro_op == 40
+              "PROJ_HOM"
+          else
+            if micro_op == 50
+                "DIFF_FWD"
+            else
+              if micro_op == 16
+                  "TOKEN"
+              else
+                if micro_op == 17
+                    "EMIT"
+                else
+                  if micro_op == 255
+                      "END"
+                  else
+                      "?"

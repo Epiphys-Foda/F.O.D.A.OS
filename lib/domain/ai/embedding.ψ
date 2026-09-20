@@ -1,0 +1,301 @@
+import "../domain_field.ψ"
+
+let EMBED_DIM = 64
+
+let embed_new(dim) =
+    [{}, {}, dim, 65537]
+
+let emb_vecs(e) = e[0]
+let emb_vocab(e) = e[1]
+let emb_dim(e) = e[2]
+let emb_seed(e) = e[3]
+
+let embed_hash_vector(word, dim, seed) =
+    let vec = []
+    let i = 0
+    for i < dim
+        let h = (i * 2654435761) % 65537
+        let j = 0
+        let n = len(word)
+        for j < n
+            h = (h * 31 + word[j]) % 65537
+            j = j + 1
+        h = (h + seed) % 65537
+        let norm = h
+        if norm > 32768
+            norm = norm - 65537
+        vec.push(norm)
+        i = i + 1
+    vec
+
+let embed_train(e, corpus, window_size) =
+    let dim = emb_dim(e)
+    let word_to_id = emb_vocab(e)
+    let word_to_vec = emb_vecs(e)
+    let i = 0
+    let n = len(corpus)
+    let next_id = 0
+    for i < n
+        let sent = corpus[i]
+        let words = sent.split(" ")
+        let j = 0
+        let m = len(words)
+        for j < m
+            let w = words[j]
+            if word_to_id[w] == 0
+                word_to_id[w] = next_id
+                next_id = next_id + 1
+                word_to_vec[w] = embed_hash_vector(w, dim, emb_seed(e))
+            j = j + 1
+        i = i + 1
+    e[0] = word_to_vec
+    e[1] = word_to_id
+    e
+
+let embed_get_vector(e, word) =
+    let vec = emb_vecs(e)[word]
+    if vec == 0
+        embed_hash_vector(word, emb_dim(e), emb_seed(e))
+    else
+        vec
+
+let embed_dot(a, b) =
+    let sum = 0
+    let i = 0
+    let n = len(a)
+    for i < n
+        sum = sum + a[i] * b[i]
+        i = i + 1
+    sum
+
+let embed_norm(a) =
+    let sum = 0
+    let i = 0
+    let n = len(a)
+    for i < n
+        sum = sum + a[i] * a[i]
+        i = i + 1
+    if sum == 0
+        0
+    else
+        let x = sum
+        let y = (x + 1) / 2
+        for y < x
+            x = y
+            y = (x + sum / x) / 2
+        x
+
+let embed_cosine(a, b) =
+    let dot = embed_dot(a, b)
+    let na = embed_norm(a)
+    let nb = embed_norm(b)
+    if na == 0 || nb == 0
+        0
+    else
+        dot * 10000 / (na * nb)
+
+let embed_euclidean(a, b) =
+    let sum = 0
+    let i = 0
+    let n = len(a)
+    for i < n
+        let d = a[i] - b[i]
+        sum = sum + d * d
+        i = i + 1
+    embed_norm([sum])
+
+let embed_similarity(e, word1, word2) =
+    let v1 = embed_get_vector(e, word1)
+    let v2 = embed_get_vector(e, word2)
+    embed_cosine(v1, v2)
+
+let embed_knn(e, word, k) =
+    let target = embed_get_vector(e, word)
+    let vocab = emb_vocab(e)
+    let keys = keys_of(vocab)
+    let scored = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let w = keys[i]
+        if w != word
+            let v = embed_get_vector(e, w)
+            let sim = embed_cosine(target, v)
+            scored.push([sim, w])
+        i = i + 1
+    let result = []
+    let j = 0
+    for j < k
+        let best_idx = 0
+        let best_sim = -65536
+        let m = 0
+        let ns = len(scored)
+        for m < ns
+            if scored[m][0] > best_sim
+                best_sim = scored[m][0]
+                best_idx = m
+            m = m + 1
+        if best_sim > -65536
+            result.push(scored[best_idx])
+            scored[best_idx] = [-65536, ""]
+        j = j + 1
+    result
+
+let embed_analogy(e, word_a, word_b, word_c, k) =
+    let va = embed_get_vector(e, word_a)
+    let vb = embed_get_vector(e, word_b)
+    let vc = embed_get_vector(e, word_c)
+    let target = []
+    let i = 0
+    let dim = emb_dim(e)
+    for i < dim
+        target.push(vb[i] - va[i] + vc[i])
+        i = i + 1
+    let vocab = emb_vocab(e)
+    let keys = keys_of(vocab)
+    let scored = []
+    i = 0
+    let n = len(keys)
+    for i < n
+        let w = keys[i]
+        if w != word_a && w != word_b && w != word_c
+            let v = embed_get_vector(e, w)
+            let sim = embed_cosine(target, v)
+            scored.push([sim, w])
+        i = i + 1
+    let result = []
+    let j = 0
+    for j < k
+        let best_idx = 0
+        let best_sim = -65536
+        let m = 0
+        let ns = len(scored)
+        for m < ns
+            if scored[m][0] > best_sim
+                best_sim = scored[m][0]
+                best_idx = m
+            m = m + 1
+        if best_sim > -65536
+            result.push(scored[best_idx])
+            scored[best_idx] = [-65536, ""]
+        j = j + 1
+    result
+
+let embed_sentence(e, words) =
+    let dim = emb_dim(e)
+    let sum_vec = []
+    let i = 0
+    for i < dim
+        sum_vec.push(0)
+        i = i + 1
+    let n = 0
+    i = 0
+    let nw = len(words)
+    for i < nw
+        let v = embed_get_vector(e, words[i])
+        let j = 0
+        for j < dim
+            sum_vec[j] = sum_vec[j] + v[j]
+            j = j + 1
+        n = n + 1
+        i = i + 1
+    if n == 0
+        sum_vec
+    else
+        let avg = []
+        i = 0
+        for i < dim
+            avg.push(sum_vec[i] / n)
+            i = i + 1
+        avg
+
+let embed_kmeans(e, words, k, max_iter) =
+    let dim = emb_dim(e)
+    let centroids = []
+    let i = 0
+    for i < k
+        if i < len(words)
+            centroids.push(embed_get_vector(e, words[i]))
+        else
+            centroids.push(embed_hash_vector("centroid" + i, dim, emb_seed(e)))
+        i = i + 1
+    let iter = 0
+    for iter < max_iter
+        let assignments = {}
+        i = 0
+        let n = len(words)
+        for i < n
+            let w = words[i]
+            let v = embed_get_vector(e, w)
+            let best_c = 0
+            let best_dist = 65536 * 65536
+            let j = 0
+            for j < k
+                let dist = embed_euclidean(v, centroids[j])
+                if dist < best_dist
+                    best_dist = dist
+                    best_c = j
+                j = j + 1
+            assignments[w] = best_c
+            i = i + 1
+        let new_centroids = []
+        let c = 0
+        for c < k
+            let sum = []
+            let d = 0
+            for d < dim
+                sum.push(0)
+                d = d + 1
+            let cnt = 0
+            i = 0
+            for i < n
+                let w = words[i]
+                if assignments[w] == c
+                    let v = embed_get_vector(e, w)
+                    d = 0
+                    for d < dim
+                        sum[d] = sum[d] + v[d]
+                        d = d + 1
+                    cnt = cnt + 1
+                i = i + 1
+            if cnt > 0
+                let avg = []
+                d = 0
+                for d < dim
+                    avg.push(sum[d] / cnt)
+                    d = d + 1
+                new_centroids.push(avg)
+            else
+                new_centroids.push(centroids[c])
+            c = c + 1
+        centroids = new_centroids
+        iter = iter + 1
+    centroids
+
+let embed_export(e) =
+    let vocab = emb_vocab(e)
+    let vecs = emb_vecs(e)
+    let keys = keys_of(vocab)
+    let result = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let w = keys[i]
+        result.push([w, vecs[w]])
+        i = i + 1
+    [emb_dim(e), result]
+
+let embed_import(dim, data) =
+    let e = embed_new(dim)
+    let i = 0
+    let n = len(data)
+    let next_id = 0
+    for i < n
+        let item = data[i]
+        let w = item[0]
+        let v = item[1]
+        emb_vocab(e)[w] = next_id
+        emb_vecs(e)[w] = v
+        next_id = next_id + 1
+        i = i + 1
+    e

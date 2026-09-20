@@ -1,0 +1,22 @@
+import "ck.ψ"
+let bad = [0]
+
+let g1 = 775
+bad[0] = bad[0] + ck(g1, 770, 780)
+
+let g2 = 1549
+bad[0] = bad[0] + ck(g2, 1540, 1560)
+
+let g3 = 2324
+bad[0] = bad[0] + ck(g3, 2315, 2335)
+
+let stp = g2 - g1
+let dstp = stp - 774
+bad[0] = bad[0] + ck(dstp, 0, 0)
+
+if 1988 < 1986
+    bad[0] = bad[0] + 1
+if 1988 > 1990
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,108 @@
+let channel_new(buffer_size) =
+    [[], buffer_size, 0, 0, 0]
+
+let channel_send(ch, value) =
+    if ch[2] == 1
+        0
+    else
+        0
+    if ch[0].len() >= ch[1]
+        0
+    else
+        ch[0] = arr_concat(ch[0], [value])
+        1
+
+let channel_recv(ch) =
+    if ch[0].len() == 0
+        [0, 0]
+    else
+        let value = ch[0][0]
+        ch[0] = arr_drop(ch[0], 1)
+        [1, value]
+
+let channel_close(ch) =
+    ch[2] = 1
+
+let channel_is_closed(ch) =
+    ch[2]
+
+let channel_len(ch) =
+    ch[0].len()
+
+let channel_cap(ch) =
+    ch[1]
+
+let channel_try_send(ch, value) =
+    if ch[2] == 1 || ch[0].len() >= ch[1]
+        0
+    else
+        ch[0] = arr_concat(ch[0], [value])
+        1
+
+let channel_try_recv(ch) =
+    if ch[0].len() == 0
+        [0, 0]
+    else
+        let value = ch[0][0]
+        ch[0] = arr_drop(ch[0], 1)
+        [1, value]
+
+let select_channel(channels) =
+    let i = 0
+    for i < channels.len()
+        let result = channel_try_recv(channels[i])
+        if result[0] == 1
+            return [i, result[1]]
+        i = i + 1
+    [-1, 0]
+
+let select_send(channels, values) =
+    let i = 0
+    for i < channels.len()
+        if channel_try_send(channels[i], values[i]) == 1
+            return i
+        i = i + 1
+    -1
+
+let worker_pool(n_workers, jobs_ch, results_ch) =
+    let completed = 0
+    let i = 0
+    for i < n_workers
+        let job = channel_recv(jobs_ch)
+        if job[0] == 1
+            channel_send(results_ch, job[1])
+            completed = completed + 1
+        i = i + 1
+    completed
+
+let fan_out(input_ch, output_channels) =
+    let result = channel_recv(input_ch)
+    if result[0] == 1
+        let i = 0
+        for i < output_channels.len()
+            channel_send(output_channels[i], result[1])
+            i = i + 1
+        1
+    else
+        0
+
+let fan_in(input_channels, output_ch) =
+    let i = 0
+    for i < input_channels.len()
+        let result = channel_recv(input_channels[i])
+        if result[0] == 1
+            channel_send(output_ch, result[1])
+            return 1
+        i = i + 1
+    0
+
+let main() =
+    let ch = channel_new(5)
+    channel_send(ch, 42)
+    channel_send(ch, 99)
+    let v1 = channel_recv(ch)
+    print(v1)
+    let v2 = channel_recv(ch)
+    print(v2)
+    print(channel_len(ch))
+    0

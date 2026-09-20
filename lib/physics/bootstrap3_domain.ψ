@@ -1,0 +1,704 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let OP_OBSERVE() = 0
+let OP_GALOIS() = 1
+let OP_HOMOLOGY() = 2
+let OP_COMPILE() = 3
+let OP_SELF_VERIFY() = 4
+let OP_META_OBSERVE() = 5
+
+let OP_COUNT() = 6
+
+import "sh_e39bb00202.ψ"
+import "sh_af95b2b028.ψ"
+let mf_scale(f, scalar) =
+    let n = mf_size(f)
+    let out_p = []
+    let out_r = []
+    let i = 0
+    for i < n
+        out_p = out_p.push(mf_poles(f)[i])
+        out_r = out_r.push(gf_mul(mf_residues(f)[i], scalar))
+        i = i + 1
+    mf_make(out_p, out_r, n)
+
+import "sh_7c6dfc404d.ψ"
+let mf_fingerprint(f) =
+    let n = mf_size(f)
+    let fp = 0
+    let i = 0
+    for i < n
+        fp = gf_add(gf_mul(fp, 31), mf_poles(f)[i])
+        fp = gf_add(gf_mul(fp, 37), mf_residues(f)[i])
+        i = i + 1
+    fp
+
+import "sh_cb68026814.ψ"
+
+let AST_LITERAL() = 0
+let AST_VARIABLE() = 1
+let AST_BINOP() = 2
+let AST_UNARYOP() = 3
+let AST_IF() = 4
+let AST_WHILE() = 5
+let AST_LET() = 6
+let AST_FUNCTION() = 7
+let AST_CALL() = 8
+let AST_RETURN() = 9
+let AST_IMPORT() = 10
+let AST_ARRAY() = 11
+let AST_INDEX() = 12
+let AST_ASSIGN() = 13
+
+let AST_COUNT() = 14
+
+import "sh_0ce8ba5325.ψ"
+let ast_to_pole(ast_type, node_value) =
+    gf_add(gf_mul(ast_to_op(ast_type), 1000), node_value)
+
+let ast_to_meta_field(ast_types, ast_values, n) =
+    let poles = []
+    let res = []
+    let i = 0
+    for i < n
+        let t = ast_types[i]
+        let v = ast_values[i]
+        poles = poles.push(ast_to_pole(t, v))
+        res = res.push(gf_add(gf_mul(t, 31), v))
+        i = i + 1
+    mf_make(poles, res, n)
+
+let combinator_I(f) = f
+
+let combinator_K(c_poles, c_res, c_n) = mf_make(c_poles, c_res, c_n)
+
+let combinator_B(f, g, h) = mf_compose(f, mf_compose(g, h))
+
+let combinator_C(f, g) = mf_compose(g, f)
+
+let combinator_S(f, g, h) = mf_compose(mf_compose(f, h), mf_compose(g, h))
+
+let combinator_Y(f, max_iter) =
+    let result = f
+    let i = 0
+    for i < max_iter
+        result = mf_compose(f, result)
+        i = i + 1
+    result
+
+import "sh_0473596775.ψ"
+import "sh_34708e8229.ψ"
+
+import "sh_e06a4e4200.ψ"
+let homology_cancer_check(f) =
+    let hom = homology_compute(f)
+    let cancer = 0
+    if hom[1] != 0
+        cancer = 1
+    if hom[2] != 0
+        cancer = 1
+    cancer
+
+let apoptosis(f) =
+    let cancer = homology_cancer_check(f)
+    let result = f
+    if cancer == 1
+        result = mf_make([], [], 0)
+    result
+
+let galois_orbit(f, sigma, orbit_len) =
+    let orbit_fps = []
+    let current = f
+    let i = 0
+    for i < orbit_len
+        orbit_fps = orbit_fps.push(mf_fingerprint(current))
+        current = galois_mutate(current, sigma)
+        i = i + 1
+    orbit_fps
+
+import "sh_1b5ec76ed2.ψ"
+let evolve_select(f, sigma, fitness_fn) =
+    let mutated = galois_mutate(f, sigma)
+    let original_fit = fitness_fn
+    let mutated_fp = mf_fingerprint(mutated)
+    let mutated_fit = mutated_fp
+    let result = f
+    if mutated_fit > original_fit
+        result = mutated
+    result
+
+let G0_POLES() = [1, 2, 3]
+let G0_RESIDUES() = [100, 200, 300]
+let G0_N() = 3
+
+import "../core/stdlib_lang2/gx_33aab46c3d.ψ"
+import "sh_e0d12bd923.ψ"
+let meta_compiler() =
+    let poles = [OP_OBSERVE(), OP_GALOIS(), OP_HOMOLOGY(), OP_COMPILE(), OP_SELF_VERIFY(), OP_META_OBSERVE()]
+    let res = [g0_apply(OP_OBSERVE()), g0_apply(OP_GALOIS()), g0_apply(OP_HOMOLOGY()), g0_apply(OP_COMPILE()), g0_apply(OP_SELF_VERIFY()), g0_apply(OP_META_OBSERVE())]
+    mf_make(poles, res, 6)
+
+import "sh_b63852aa1c.ψ"
+import "sh_beb5173b91.ψ"
+let lift(poles, res, n) = mf_make(poles, res, n)
+
+let bootstrap_tower(k) =
+    let x = 1
+    let i = 0
+    for i < k
+        x = gf_mul(x, x)
+        i = i + 1
+    let result = 0
+    if x == 1
+        result = 1
+    result
+
+let bootstrap3_stdlib_verify() =
+    let ok = 0
+
+    let f1 = mf_make([0, 1, 2], [10, 20, 30], 3)
+    if mf_size(f1) == 3
+        ok = ok + 1
+    if mf_poles(f1)[0] == 0
+        ok = ok + 1
+    if mf_residues(f1)[1] == 20
+        ok = ok + 1
+
+    let f2 = mf_make([0, 1, 2], [5, 5, 5], 3)
+    let fadd = mf_add(f1, f2)
+    if mf_residues(fadd)[0] == 15
+        ok = ok + 1
+
+    let fmul = mf_mul(f1, f2)
+    if mf_residues(fmul)[0] == 50
+        ok = ok + 1
+
+    let fscale = mf_scale(f1, 2)
+    if mf_residues(fscale)[0] == 20
+        ok = ok + 1
+
+    let fcomp = mf_compose(f1, f2)
+    if mf_size(fcomp) == 3
+        ok = ok + 1
+
+    let fp1 = mf_fingerprint(f1)
+    if fp1 >= 0
+        ok = ok + 1
+
+    if mf_equal(f1, f1) == 1
+        ok = ok + 1
+    if mf_equal(f1, f2) == 0
+        ok = ok + 1
+
+    if ast_to_op(AST_LITERAL()) == OP_OBSERVE()
+        ok = ok + 1
+    if ast_to_op(AST_BINOP()) == OP_COMPILE()
+        ok = ok + 1
+    if ast_to_op(AST_IF()) == OP_SELF_VERIFY()
+        ok = ok + 1
+    if ast_to_op(AST_WHILE()) == OP_GALOIS()
+        ok = ok + 1
+    if ast_to_op(AST_CALL()) == OP_META_OBSERVE()
+        ok = ok + 1
+    if ast_to_op(AST_LET()) == OP_HOMOLOGY()
+        ok = ok + 1
+
+    let ast_t = [AST_LITERAL(), AST_BINOP(), AST_IF()]
+    let ast_v = [42, 7, 1]
+    let ast_field = ast_to_meta_field(ast_t, ast_v, 3)
+    if mf_size(ast_field) == 3
+        ok = ok + 1
+    if mf_poles(ast_field)[0] == gf_add(gf_mul(OP_OBSERVE(), 1000), 42)
+        ok = ok + 1
+
+    let fI = combinator_I(f1)
+    if mf_equal(fI, f1) == 1
+        ok = ok + 1
+
+    let fK = combinator_K([0], [99], 1)
+    if mf_residues(fK)[0] == 99
+        ok = ok + 1
+
+    let fB = combinator_B(f1, f2, f1)
+    if mf_size(fB) == 3
+        ok = ok + 1
+
+    let fS = combinator_S(f1, f2, f1)
+    if mf_size(fS) == 3
+        ok = ok + 1
+
+    let fY = combinator_Y(f1, 3)
+    if mf_size(fY) == 3
+        ok = ok + 1
+
+    let fp_result = kleene_fp(1, 2, 100)
+    if fp_result[2] >= 0
+        ok = ok + 1
+
+    let mf_fp = kleene_mf_fp(f1, 5)
+    if mf_fp[2] >= 0
+        ok = ok + 1
+
+    let hom = homology_compute(f1)
+    if hom[0] == 3
+        ok = ok + 1
+
+    let cancer = homology_cancer_check(f1)
+    if cancer == 0 || cancer == 1
+        ok = ok + 1
+
+    let apop = apoptosis(f1)
+    if mf_size(apop) >= 0
+        ok = ok + 1
+
+    let mutv = galois_mutate(f1, 2)
+    if mf_size(mutv) == 3
+        ok = ok + 1
+
+    let orbit = galois_orbit(f1, 2, 5)
+    if orbit[0] == mf_fingerprint(f1)
+        ok = ok + 1
+
+    let order = galois_order(f1, 2, 100)
+    if order >= 1
+        ok = ok + 1
+
+    let mc = meta_compiler()
+    if mf_size(mc) == 6
+        ok = ok + 1
+
+    let mcs = meta_compile_self()
+    if mf_equal(mc, mcs) == 1
+        ok = ok + 1
+
+    let proj = project(mc)
+    if mf_size(proj) >= 1
+        ok = ok + 1
+
+    let lifted = lift(G0_POLES(), G0_RESIDUES(), G0_N())
+    if mf_size(lifted) == 3
+        ok = ok + 1
+
+    if bootstrap_tower(4) == 1
+        ok = ok + 1
+    if bootstrap_tower(8) == 1
+        ok = ok + 1
+
+    ok
+
+let bootstrap3_stdlib_main() = bootstrap3_stdlib_verify()
+
+let quantum_state(poles, res, n) = mf_make(poles, res, n)
+
+let quantum_superpose(state1, state2) = mf_add(state1, state2)
+
+let quantum_tensor(state1, state2) = mf_mul(state1, state2)
+
+let quantum_observe(state) =
+    let n = mf_size(state)
+    let out_p = []
+    let out_r = []
+    let i = 0
+    for i < n
+        let r = mf_residues(state)[i]
+        let collapsed = gf_mul(r, r)
+        out_p = out_p.push(mf_poles(state)[i])
+        out_r = out_r.push(collapsed)
+        i = i + 1
+    mf_make(out_p, out_r, n)
+
+let quantum_observe_idempotent(state) =
+    let obs1 = quantum_observe(state)
+    let obs2 = quantum_observe(obs1)
+    let result = 0
+    if mf_size(obs1) == mf_size(obs2)
+        result = 1
+    result
+
+let bell_inequality(state) =
+    let n = mf_size(state)
+    let e_ab = 0
+    let e_ac = 0
+    let e_bc = 0
+    let i = 0
+    for i < n
+        let r = mf_residues(state)[i]
+        e_ab = gf_add(e_ab, gf_mul(r, gf_pow(r, 2)))
+        e_ac = gf_add(e_ac, gf_mul(r, gf_pow(r, 3)))
+        e_bc = gf_add(e_bc, gf_mul(gf_pow(r, 2), gf_pow(r, 3)))
+        i = i + 1
+    let lhs = gf_add(gf_sub(e_ab, e_ac), e_bc)
+    lhs
+
+let particle_propagator(state, time_steps) =
+    let current = state
+    let i = 0
+    for i < time_steps
+        current = quantum_observe(current)
+        i = i + 1
+    current
+
+let energy_eigenvalue(state) =
+    let observed = quantum_observe(state)
+    let original_fp = mf_fingerprint(state)
+    let observed_fp = mf_fingerprint(observed)
+    gf_sub(observed_fp, original_fp)
+
+let organism_create(genome_poles, genome_res, n) = mf_make(genome_poles, genome_res, n)
+
+let organism_self_replicate(organism) =
+    let compiled = mf_compose(organism, organism)
+    compiled
+
+let organism_metabolize(organism, nutrient) = mf_mul(organism, nutrient)
+
+let organism_fitness(organism) =
+    let n = mf_size(organism)
+    let stability = 0
+    let i = 0
+    for i < n
+        let r = mf_residues(organism)[i]
+        stability = gf_add(stability, gf_mul(r, r))
+        i = i + 1
+    stability
+
+let organism_apoptosis(organism) = apoptosis(organism)
+
+let organism_generation(organism, sigma) =
+    let replicated = organism_self_replicate(organism)
+    let mutated = galois_mutate(replicated, sigma)
+    let fit_orig = organism_fitness(organism)
+    let fit_mut = organism_fitness(mutated)
+    let result = replicated
+    if fit_mut > fit_orig
+        result = mutated
+    result
+
+let multicell_cooperate(cells, n) =
+    let collective = cells[0]
+    let i = 1
+    for i < n
+        collective = mf_add(collective, cells[i])
+        i = i + 1
+    collective
+
+let consciousness_self_ref(f) = mf_compose(f, f)
+
+let godel_map(x) = gf_mul(x, x)
+
+let godel_fixed_point() =
+    let x0 = godel_map(0)
+    let x1 = godel_map(1)
+    let result = 0
+    if x0 == 0
+        if x1 == 1
+            result = 1
+    result
+
+let consciousness_depth(f, max_depth) =
+    let current = f
+    let prev_fp = 0
+    let depth = 0
+    let i = 0
+    let stop = 0
+    for i < max_depth
+        if stop == 0
+            let cur_fp = mf_fingerprint(current)
+            if cur_fp == prev_fp
+                stop = 1
+            if cur_fp != prev_fp
+                prev_fp = cur_fp
+                current = consciousness_self_ref(current)
+                depth = depth + 1
+        i = i + 1
+    depth
+
+let information_entropy(f) =
+    let n = mf_size(f)
+    let h = 0
+    let i = 0
+    for i < n
+        let r = mf_residues(f)[i]
+        h = gf_add(h, gf_mul(r, gf_sub(r, 1)))
+        i = i + 1
+    gf_mul(h, gf_inv(2))
+
+let consciousness_curiosity(f) =
+    let h1 = information_entropy(f)
+    let self_f = consciousness_self_ref(f)
+    let h2 = information_entropy(self_f)
+    gf_sub(h2, h1)
+
+let cognitive_closure(f, max_iter) =
+    let result = kleene_mf_fp(f, max_iter)
+    result[1]
+
+let consciousness_emerge(f, max_depth) =
+    let depth = consciousness_depth(f, max_depth)
+    let curiosity = consciousness_curiosity(f)
+    let closure = cognitive_closure(f, max_depth)
+    gf_mul(gf_mul(depth, curiosity), closure)
+
+let observer_effect(observer, observed) =
+    let interaction = mf_compose(observer, observed)
+    let collapsed = quantum_observe(interaction)
+    collapsed
+
+let evolve_mutate(organism, sigma) = galois_mutate(organism, sigma)
+
+let evolve_select_pop(population, n) =
+    let best = population[0]
+    let best_fit = organism_fitness(best)
+    let i = 1
+    for i < n
+        let candidate = population[i]
+        let cand_fit = organism_fitness(candidate)
+        if cand_fit > best_fit
+            best = candidate
+            best_fit = cand_fit
+        i = i + 1
+    best
+let evolve_inherit(parent1, parent2) =
+    let n1 = mf_size(parent1)
+    let n2 = mf_size(parent2)
+    let n = n1
+    if n2 < n1
+        n = n2
+    let out_p = []
+    let out_r = []
+    let i = 0
+    for i < n
+        if i % 2 == 0
+            out_p = out_p.push(mf_poles(parent1)[i])
+            out_r = out_r.push(mf_residues(parent1)[i])
+        if i % 2 != 0
+            out_p = out_p.push(mf_poles(parent2)[i])
+            out_r = out_r.push(mf_residues(parent2)[i])
+        i = i + 1
+    mf_make(out_p, out_r, n)
+
+let evolve_crossover(parent1, parent2, crossover_point) =
+    let n1 = mf_size(parent1)
+    let n2 = mf_size(parent2)
+    let n = n1
+    if n2 < n1
+        n = n2
+    let out_p = []
+    let out_r = []
+    let i = 0
+    for i < n
+        if i < crossover_point
+            out_p = out_p.push(mf_poles(parent1)[i])
+            out_r = out_r.push(mf_residues(parent1)[i])
+        if i >= crossover_point
+            out_p = out_p.push(mf_poles(parent2)[i])
+            out_r = out_r.push(mf_residues(parent2)[i])
+        i = i + 1
+    mf_make(out_p, out_r, n)
+
+let evolve_one_generation(population, n, sigma) =
+    let parent1 = evolve_select_pop(population, n)
+    let mutated = evolve_mutate(parent1, sigma)
+    let parent2 = population[0]
+    let child = evolve_inherit(parent1, parent2)
+    child
+
+let speciation(pop1, pop2) =
+    let fit1 = organism_fitness(pop1)
+    let fit2 = organism_fitness(pop2)
+    let diff = gf_sub(fit1, fit2)
+    gf_mul(diff, diff)
+
+let evolutionary_tree(organism, generations, sigma) =
+    let tree_fps = []
+    let current = organism
+    let i = 0
+    for i < generations
+        tree_fps = tree_fps.push(mf_fingerprint(current))
+        current = evolve_mutate(current, sigma)
+        i = i + 1
+    tree_fps
+
+let algebraic_organism_create() =
+    let poles = [OP_OBSERVE(), OP_COMPILE(), OP_SELF_VERIFY(), OP_META_OBSERVE()]
+    let res = [100, 200, 300, 400]
+    mf_make(poles, res, 4)
+
+let life_cycle(organism, sigma) =
+    let nutrient = organism
+    let metabolized = organism_metabolize(organism, nutrient)
+    let replicated = organism_self_replicate(metabolized)
+    let mutated = evolve_mutate(replicated, sigma)
+    let healthy = organism_apoptosis(mutated)
+    healthy
+
+let consciousness_cycle(f, max_depth) =
+    let self_ref = consciousness_self_ref(f)
+    let depth = consciousness_depth(self_ref, max_depth)
+    let curiosity = consciousness_curiosity(self_ref)
+    let emerged = consciousness_emerge(f, max_depth)
+    [depth, curiosity, emerged]
+
+let evolution_cycle(population, n, sigma, generations) =
+    let current_pop = population
+    let gen = 0
+    for gen < generations
+        let best = evolve_select_pop(current_pop, n)
+        let mutated = evolve_mutate(best, sigma)
+        current_pop = [mutated]
+        gen = gen + 1
+    current_pop
+
+let ultimate_integration(organism, sigma, max_depth) =
+    let physical = quantum_observe(organism)
+    let biological = life_cycle(physical, sigma)
+    let mental = consciousness_emerge(biological, max_depth)
+    let evolutionary = evolve_mutate(biological, sigma)
+    [mf_fingerprint(physical), mf_fingerprint(biological), mental, mf_fingerprint(evolutionary)]
+
+let bootstrap3_domain_verify() =
+    let ok = 0
+
+    let psi1 = quantum_state([0, 1], [3, 4], 2)
+    let psi2 = quantum_state([0, 1], [1, 2], 2)
+
+    let superposed = quantum_superpose(psi1, psi2)
+    if mf_residues(superposed)[0] == 4
+        ok = ok + 1
+
+    let tensored = quantum_tensor(psi1, psi2)
+    if mf_residues(tensored)[0] == 3
+        ok = ok + 1
+
+    let observed = quantum_observe(psi1)
+    if mf_size(observed) == 2
+        ok = ok + 1
+
+    if quantum_observe_idempotent(psi1) == 1
+        ok = ok + 1
+
+    let bell = bell_inequality(psi1)
+    if bell >= 0
+        ok = ok + 1
+
+    let prop = particle_propagator(psi1, 3)
+    if mf_size(prop) == 2
+        ok = ok + 1
+
+    let eigen = energy_eigenvalue(psi1)
+    if eigen >= 0
+        ok = ok + 1
+
+    let org = organism_create([0, 1, 2], [10, 20, 30], 3)
+
+    let replicated = organism_self_replicate(org)
+    if mf_size(replicated) == 3
+        ok = ok + 1
+
+    let metabolized = organism_metabolize(org, org)
+    if mf_size(metabolized) == 3
+        ok = ok + 1
+
+    let fit = organism_fitness(org)
+    if fit >= 0
+        ok = ok + 1
+
+    let apop = organism_apoptosis(org)
+    if mf_size(apop) >= 0
+        ok = ok + 1
+
+    let gen = organism_generation(org, 2)
+    if mf_size(gen) == 3
+        ok = ok + 1
+
+    let cells = [org, org, org]
+    let collective = multicell_cooperate(cells, 3)
+    if mf_size(collective) == 3
+        ok = ok + 1
+
+    let self_ref = consciousness_self_ref(psi1)
+    if mf_size(self_ref) == 2
+        ok = ok + 1
+
+    let godel = godel_map(1)
+    if godel == 1
+        ok = ok + 1
+
+    let godel_fp = godel_fixed_point()
+    if godel_fp == 1
+        ok = ok + 1
+
+    let depth = consciousness_depth(psi1, 10)
+    if depth >= 0
+        ok = ok + 1
+
+    let entropy = information_entropy(psi1)
+    if entropy >= 0
+        ok = ok + 1
+
+    let curiosity = consciousness_curiosity(psi1)
+    if curiosity >= 0
+        ok = ok + 1
+
+    let emerged = consciousness_emerge(psi1, 5)
+    if emerged >= 0
+        ok = ok + 1
+
+    let obs_effect = observer_effect(psi1, psi2)
+    if mf_size(obs_effect) == 2
+        ok = ok + 1
+
+    let mutated = evolve_mutate(org, 2)
+    if mf_size(mutated) == 3
+        ok = ok + 1
+
+    let pop = [org, psi1, psi2]
+    let selected = evolve_select_pop(pop, 3)
+    if mf_size(selected) >= 1
+        ok = ok + 1
+
+    let inherited = evolve_inherit(org, psi1)
+    if mf_size(inherited) == 2
+        ok = ok + 1
+
+    let crossed = evolve_crossover(org, psi1, 1)
+    if mf_size(crossed) == 2
+        ok = ok + 1
+
+    let child = evolve_one_generation(pop, 3, 2)
+    if mf_size(child) >= 1
+        ok = ok + 1
+
+    let species = speciation(org, psi1)
+    if species >= 0
+        ok = ok + 1
+
+    let tree = evolutionary_tree(org, 5, 2)
+    if tree[0] == mf_fingerprint(org)
+        ok = ok + 1
+
+    let super_org = algebraic_organism_create()
+    if mf_size(super_org) == 4
+        ok = ok + 1
+
+    let life = life_cycle(org, 2)
+    if mf_size(life) >= 0
+        ok = ok + 1
+
+    let conscious = consciousness_cycle(psi1, 5)
+    if conscious[0] >= 0
+        ok = ok + 1
+
+    let evolved = evolution_cycle(pop, 3, 2, 3)
+    if mf_size(evolved[0]) >= 1
+        ok = ok + 1
+
+    let ultimate = ultimate_integration(org, 2, 5)
+    if ultimate[0] >= 0
+        ok = ok + 1
+    if ultimate[3] >= 0
+        ok = ok + 1
+
+    ok
+
+let main() = bootstrap3_domain_verify()

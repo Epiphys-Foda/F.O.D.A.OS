@@ -1,0 +1,166 @@
+let periodogram(signal, n_fft) =
+    let n = signal.len()
+    let psd = []
+    let k = 0
+    for k < n_fft
+        let real = 0
+        let imag = 0
+        let t = 0
+        for t < n
+            let angle = 2 * 314159 * k * t / (n_fft * 100000)
+            let cos_val = 1000 - angle * angle / 2000
+            let sin_val = angle
+            real = real + signal[t] * cos_val / 1000
+            imag = imag - signal[t] * sin_val / 1000
+            t = t + 1
+        let power = real * real + imag * imag
+        psd = arr_concat(psd, [power / n])
+        k = k + 1
+    psd
+
+let power_spectrum(signal) =
+    let n = signal.len()
+    let autocorr = []
+    let lag = 0
+    for lag < n
+        let sum = 0
+        let i = 0
+        for i < n - lag
+            sum = sum + signal[i] * signal[i + lag]
+            i = i + 1
+        autocorr = arr_concat(autocorr, [sum])
+        lag = lag + 1
+    periodogram(autocorr, n)
+
+let spectrogram(signal, window_size, hop_size) =
+    let n = signal.len()
+    let result = []
+    let start = 0
+    for start + window_size <= n
+        let frame = []
+        let i = 0
+        for i < window_size
+            frame = arr_concat(frame, [signal[start + i]])
+            i = i + 1
+        let win = hann(window_size)
+        let windowed = apply_window(frame, win)
+        let spec = periodogram(windowed, window_size)
+        result = arr_concat(result, [spec])
+        start = start + hop_size
+    result
+
+let cepstrum(signal) =
+    let psd = power_spectrum(signal)
+    let log_psd = []
+    let i = 0
+    for i < psd.len()
+        if psd[i] > 0
+            let x = psd[i]
+            let log_val = 0
+            for x > 1
+                x = x / 2
+                log_val = log_val + 1
+            log_psd = arr_concat(log_psd, [log_val])
+        else
+            log_psd = arr_concat(log_psd, [0])
+        i = i + 1
+    let n = log_psd.len()
+    let cep = []
+    let k = 0
+    for k < n
+        let sum = 0
+        let t = 0
+        for t < n
+            let angle = 2 * 314159 * k * t / (n * 100000)
+            let cos_val = 1000 - angle * angle / 2000
+            sum = sum + log_psd[t] * cos_val / 1000
+            t = t + 1
+        cep = arr_concat(cep, [sum])
+        k = k + 1
+    cep
+
+let envelope(signal) =
+    let n = signal.len()
+    let env = []
+    let window = 3
+    let i = 0
+    for i < n
+        let max_val = 0
+        let j = i - window
+        for j <= i + window
+            if j >= 0 && j < n
+                let v = (signal[j] < 0 ? -signal[j] : signal[j])
+                if v > max_val
+                    max_val = v
+            j = j + 1
+        env = arr_concat(env, [max_val])
+        i = i + 1
+    env
+
+let spectral_centroid(spectrum, sample_rate, n_fft) =
+    let numerator = 0
+    let denominator = 0
+    let i = 0
+    for i < spectrum.len()
+        let freq = i * sample_rate / n_fft
+        numerator = numerator + freq * spectrum[i]
+        denominator = denominator + spectrum[i]
+        i = i + 1
+    if denominator == 0
+        0
+    else
+        numerator / denominator
+
+let spectral_rolloff(spectrum, threshold) =
+    let total = 0
+    let i = 0
+    for i < spectrum.len()
+        total = total + spectrum[i]
+        i = i + 1
+    let target = total * threshold / 1000
+    let cumsum = 0
+    let i = 0
+    for i < spectrum.len()
+        cumsum = cumsum + spectrum[i]
+        if cumsum >= target
+            return i
+        i = i + 1
+    spectrum.len() - 1
+
+let zero_crossing_rate(signal) =
+    let count = 0
+    let i = 1
+    for i < signal.len()
+        if signal[i - 1] * signal[i] < 0
+            count = count + 1
+        i = i + 1
+    count * 1000 / signal.len()
+
+let hann(n) =
+    let result = []
+    let i = 0
+    for i < n
+        let x2 = 2 * 314159 * i / ((n - 1) * 100000)
+        let cos_val = 1000 - x2 * x2 / 2000
+        let w = (1000 - cos_val) / 2
+        result = arr_concat(result, [w])
+        i = i + 1
+    result
+
+let apply_window(signal, window) =
+    let result = []
+    let i = 0
+    for i < signal.len()
+        result = arr_concat(result, [signal[i] * window[i] / 1000])
+        i = i + 1
+    result
+
+let main() =
+    let signal = [1000, 800, 600, 400, 200, 0, -200, -400]
+    let psd = periodogram(signal, 8)
+    print(psd)
+    let zcr = zero_crossing_rate(signal)
+    print(zcr)
+    let env = envelope(signal)
+    print(env)
+    0

@@ -1,0 +1,30 @@
+import "ck.ψ"
+let bad = [0]
+
+let fcs = 9192631770
+let fr = 429000000000000 / fcs
+bad[0] = bad[0] + ck(fr, 46000, 48000)
+
+let mw = 813
+bad[0] = bad[0] + ck(mw, 805, 820)
+
+let shup = 100
+let shdn = 100
+let net = shup - shdn
+bad[0] = bad[0] + ck(net, 0, 0)
+
+let err = 44
+bad[0] = bad[0] + ck(err, 40, 48)
+
+let cmgr = 1
+bad[0] = bad[0] + ck_lo(cmgr, 1)
+if 1999 < 1997
+    bad[0] = bad[0] + 1
+if 1999 > 2001
+    bad[0] = bad[0] + 1
+if 2015 < 2013
+    bad[0] = bad[0] + 1
+if 2015 > 2017
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

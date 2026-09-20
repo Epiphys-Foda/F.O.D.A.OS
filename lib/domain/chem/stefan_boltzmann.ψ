@@ -1,0 +1,39 @@
+import "ck.ψ"
+let bad = [0]
+
+let sig = 567
+bad[0] = bad[0] + ck(sig, 560, 575)
+
+let t = 5778
+bad[0] = bad[0] + ck(t, 5700, 5850)
+let t2 = t * t
+let t4 = t2 * t2
+let b = t4 / 1000 / 1000 / 100
+let flux = sig * b / 100
+bad[0] = bad[0] + ck(flux, 60000000, 66000000)
+
+let r2 = 484416
+let p = r2 * flux
+let lm = p * 125664 / 1000 / 10
+let l26 = lm / 1000 / 1000 / 1000 / 1000
+bad[0] = bad[0] + ck(l26, 370, 395)
+
+let tc = 5200
+let t4c = tc * tc * tc * tc
+let bc = t4c / 1000 / 1000 / 100
+let fc = sig * bc / 100
+bad[0] = bad[0] + ck(fc, 38000000, 44000000)
+bad[0] = bad[0] + ck_hi(fc, flux)
+let fhalf = flux / 2
+bad[0] = bad[0] + ck_lo(fc, fhalf)
+
+if 1879 < 1877
+    bad[0] = bad[0] + 1
+if 1879 > 1881
+    bad[0] = bad[0] + 1
+if 1884 < 1882
+    bad[0] = bad[0] + 1
+if 1884 > 1886
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

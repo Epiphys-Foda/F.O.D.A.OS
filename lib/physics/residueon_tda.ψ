@@ -1,0 +1,196 @@
+import "residueon_common.ψ"
+
+let pointcloud_make(points, n) = rpf_make(points, n)
+
+let pointcloud_size(pc) = rpf_count(pc)
+
+let pointcloud_get(pc, i) =
+    let primes = rpf_primes(pc)
+    primes[i]
+
+let point_coord(p) = rp_z(p)
+
+let point_attr(p) = rp_r(p)
+
+let point_distance(p1, p2) =
+    let z1 = point_coord(p1)
+    let z2 = point_coord(p2)
+    let diff = gf_sub(z1, z2)
+    if diff > 32768
+        diff = gf_sub(0, diff)
+    diff
+
+let distance_self_verify() =
+    let p = rp_make(5, 2, 1)
+    let d = point_distance(p, p)
+    let result = 0
+    if d == 0
+        result = 1
+    result
+
+let distance_symmetric_verify() =
+    let p1 = rp_make(3, 2, 1)
+    let p2 = rp_make(7, 4, 2)
+    let d12 = point_distance(p1, p2)
+    let d21 = point_distance(p2, p1)
+    let result = 0
+    if d12 == d21
+        result = 1
+    result
+
+let vr_edge(p1, p2, epsilon) =
+    let d = point_distance(p1, p2)
+    let result = 0
+    if d < epsilon
+        result = 1
+    result
+
+let vr_edge_count(pc, epsilon) =
+    let n = rpf_count(pc)
+    let count = 0
+    let i = 0
+    for i < n
+        let j = gf_add(i, 1)
+        for j < n
+            let p1 = pointcloud_get(pc, i)
+            let p2 = pointcloud_get(pc, j)
+            if vr_edge(p1, p2, epsilon) == 1
+                count = count + 1
+            j = j + 1
+        i = i + 1
+    count
+
+let vr_triangle_count(pc, epsilon) =
+    let n = rpf_count(pc)
+    let count = 0
+    let i = 0
+    for i < n
+        let j = gf_add(i, 1)
+        for j < n
+            let k = gf_add(j, 1)
+            for k < n
+                let p1 = pointcloud_get(pc, i)
+                let p2 = pointcloud_get(pc, j)
+                let p3 = pointcloud_get(pc, k)
+                if vr_edge(p1, p2, epsilon) == 1
+                    if vr_edge(p1, p3, epsilon) == 1
+                        if vr_edge(p2, p3, epsilon) == 1
+                            count = count + 1
+                k = k + 1
+            j = j + 1
+        i = i + 1
+    count
+
+let comp_count(pc, epsilon) =
+    let parent = [0, 1, 2]
+    let i = 0
+    for i < 3
+        let j = 0
+        for j < 3
+            if i != j
+                if vr_edge(pointcloud_get(pc, i), pointcloud_get(pc, j), epsilon) == 1
+                    let ri = parent[i]
+                    for ri != parent[ri]
+                        ri = parent[ri]
+                    let rj = parent[j]
+                    for rj != parent[rj]
+                        rj = parent[rj]
+                    (ri < rj ? parent.set(rj, ri) : parent.set(ri, rj))
+            j = j + 1
+        i = i + 1
+    let c = 0
+    let k = 0
+    for k < 3
+        if parent[k] == k
+            c = c + 1
+        k = k + 1
+    c
+
+let participation_entropy(pc, epsilon) =
+    let parent = [0, 1, 2]
+    let i = 0
+    for i < 3
+        let j = 0
+        for j < 3
+            if i != j
+                if vr_edge(pointcloud_get(pc, i), pointcloud_get(pc, j), epsilon) == 1
+                    let ri = parent[i]
+                    for ri != parent[ri]
+                        ri = parent[ri]
+                    let rj = parent[j]
+                    for rj != parent[rj]
+                        rj = parent[rj]
+                    (ri < rj ? parent.set(rj, ri) : parent.set(ri, rj))
+            j = j + 1
+        i = i + 1
+    let e = 0
+    let a = 0
+    for a < 3
+        let b = 0
+        for b < 3
+            let ra = parent[a]
+            for ra != parent[ra]
+                ra = parent[ra]
+            let rb = parent[b]
+            for rb != parent[rb]
+                rb = parent[rb]
+            if ra == rb
+                e = e + 1
+            b = b + 1
+        a = a + 1
+    e
+
+let residueon_tda_verify() =
+    let pts = [rp_make(0, 1, 1), rp_make(3, 1, 1), rp_make(7, 1, 1)]
+    let pc = pointcloud_make(pts, 3)
+    let pc2 = pointcloud_make([
+        rp_make(rp_z(pts[0]), rp_r(pts[0]), rp_n(pts[0])),
+        rp_make(rp_z(pts[1]), rp_r(pts[1]), rp_n(pts[1])),
+        rp_make(rp_z(pts[2]), rp_r(pts[2]), rp_n(pts[2]))
+    ], 3)
+
+    let ok = 0
+
+    if distance_self_verify() == 1
+        ok = ok + 1
+    if distance_symmetric_verify() == 1
+        ok = ok + 1
+
+    if vr_edge_count(pc, 5) == 2
+        ok = ok + 1
+    if vr_triangle_count(pc, 5) == 0
+        ok = ok + 1
+
+    if vr_edge_count(pc, 8) == 3
+        ok = ok + 1
+    if vr_triangle_count(pc, 8) == 1
+        ok = ok + 1
+
+    if comp_count(pc, 1) == 3
+        ok = ok + 1
+    if comp_count(pc, 4) == 2
+        ok = ok + 1
+    if comp_count(pc, 5) == 1
+        ok = ok + 1
+    if comp_count(pc, 8) == 1
+        ok = ok + 1
+
+    let chi = 3 - 3 + 1
+    if chi == 1
+        ok = ok + 1
+    if comp_count(pc, 8) - 0 + 0 == chi
+        ok = ok + 1
+
+    if participation_entropy(pc, 1) == 3
+        ok = ok + 1
+    if participation_entropy(pc, 4) == 5
+        ok = ok + 1
+    if participation_entropy(pc, 8) == 9
+        ok = ok + 1
+
+    if rpf_fingerprint(pc) == rpf_fingerprint(pc2)
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_tda_verify()

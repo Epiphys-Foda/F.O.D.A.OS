@@ -1,0 +1,110 @@
+import "../stdlib/gf65537.ψ"
+
+let process_gf(pid, priority, time_slice) =
+    [pid, priority, time_slice]
+
+let schedule_gf(processes, current_time) =
+    let best_pid = 0
+    let best_priority = 0
+    for i in 0..len(processes)
+        let p = processes[i]
+        if p[1] > best_priority
+            best_priority = p[1]
+            best_pid = p[0]
+    [best_pid, current_time]
+
+let time_slice_gf(total_time, n_processes) =
+    gf_div(total_time, n_processes)
+
+let memory_alloc_gf(allocator, size) =
+    let address = allocator
+    gf_add(address, size)
+
+let page_replacement_gf(pages, access_times) =
+    let oldest_page = 0
+    let oldest_time = gf_pow(65537, 2)
+    for i in 0..len(pages)
+        if access_times[i] < oldest_time
+            oldest_time = access_times[i]
+            oldest_page = pages[i]
+    oldest_page
+
+let memory_defrag_gf(blocks) =
+    let compacted = 0
+    for i in 0..len(blocks)
+        compacted = gf_add(compacted, blocks[i])
+    compacted
+
+let file_gf(inode, size, blocks) =
+    [inode, size, blocks]
+
+let btree_search_gf(tree, key) =
+    for i in 0..len(tree)
+        if tree[i] == key
+            i
+    gf_neg(1)
+
+let block_alloc_gf(free_list, n_blocks) =
+    let allocated = []
+    for i in 0..n_blocks
+        allocated = arr_concat(allocated, [free_list[i]])
+    allocated
+
+let mutex_lock_gf(lock_state, pid) =
+        if lock_state == 0
+            pid
+        else
+            gf_neg(1)
+
+let mutex_unlock_gf(lock_state, pid) =
+        if lock_state == pid
+            0
+        else
+            gf_neg(1)
+
+let deadlock_detect_gf(allocation, request, n_processes, n_resources) =
+    for i in 0..n_processes
+        for j in 0..n_resources
+            if request[i][j] != 0
+                for k in 0..n_processes
+                    if k != i && allocation[k][j] != 0
+                        if request[k][j] != 0
+                            1
+    0
+
+let bankers_algorithm_gf(available, max_need, allocation, n_processes, n_resources) =
+    let work = available
+    let finish = [0] * n_processes
+    for i in 0..n_processes
+        if finish[i] == 0
+            let need = gf_sub(max_need[i], allocation[i])
+            if need <= work
+                work = gf_add(work, allocation[i])
+                finish[i] = 1
+    let safe = 1
+    for i in 0..n_processes
+        if finish[i] == 0
+            safe = 0
+    safe
+
+let message_send_gf(channel, message) =
+    gf_add(channel, message)
+
+let message_recv_gf(channel) =
+    channel
+
+let load_balance_gf(servers, loads) =
+    let best_server = 0
+    let min_load = gf_pow(65537, 2)
+    for i in 0..len(servers)
+        if loads[i] < min_load
+            min_load = loads[i]
+            best_server = servers[i]
+    best_server
+
+let interrupt_handler_gf(vector_table, irq_number) =
+    vector_table[irq_number]
+
+let interrupt_priority_gf(irq_number) =
+    irq_number
+

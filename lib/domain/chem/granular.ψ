@@ -1,0 +1,35 @@
+import "ck.ψ"
+let bad = [0]
+
+let scphi = 314 / 6
+bad[0] = bad[0] + ck(scphi, 50, 54)
+
+let rcp = 64
+bad[0] = bad[0] + ck(rcp, 62, 66)
+let dphi = rcp - scphi
+bad[0] = bad[0] + ck(dphi, 10, 14)
+
+let rlp = 55
+let jw = rcp - rlp
+bad[0] = bad[0] + ck(jw, 7, 11)
+
+let repose = 33
+bad[0] = bad[0] + ck(repose, 30, 37)
+
+let big_top = 1
+bad[0] = bad[0] + ck_lo(big_top, 1)
+
+if 1941 < 1939
+    bad[0] = bad[0] + 1
+if 1941 > 1943
+    bad[0] = bad[0] + 1
+if 1987 < 1985
+    bad[0] = bad[0] + 1
+if 1987 > 1989
+    bad[0] = bad[0] + 1
+if 1996 < 1994
+    bad[0] = bad[0] + 1
+if 1996 > 1998
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

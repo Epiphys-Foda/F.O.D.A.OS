@@ -1,0 +1,6 @@
+let field_execute(ops_type, ops_data, n) =
+    let stack = arr_new_n(n)
+    let sp = 0
+    let i = 0
+    for i < n
+        let t = ops_type[i]

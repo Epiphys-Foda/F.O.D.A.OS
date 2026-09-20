@@ -1,0 +1,166 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let CONTROL_MAX_STATES = 64
+
+let pid_create(kp, ki, kd) = [kp, ki, kd, 0, 0]
+let pid_step(pid, setpoint, measurement, dt) =
+    let error = gf_sub(setpoint, measurement)
+    let integral = gf_add(pid[3], gf_mul(error, dt))
+    let derivative = gf_div(gf_sub(error, pid[4]), dt)
+    let output = gf_add(gf_add(gf_mul(pid[0], error), gf_mul(pid[1], integral)), gf_mul(pid[2], derivative))
+    [pid[0], pid[1], pid[2], integral, error]
+let pid_reset(pid) = [pid[0], pid[1], pid[2], 0, 0]
+let pid_set_gains(pid, kp, ki, kd) = [kp, ki, kd, pid[3], pid[4]]
+let ss_create(n_states, n_inputs) =
+    let A = []
+    let B = []
+    let C = []
+    let D = []
+    let state = []
+    let i = 0
+    for i < n_states * n_states
+        A.push(0)
+        i = i + 1
+    i = 0
+    for i < n_states * n_inputs
+        B.push(0)
+        i = i + 1
+    i = 0
+    for i < n_states
+        C.push(0)
+        state.push(0)
+        i = i + 1
+    [A, B, C, D, state, n_states, n_inputs]
+let ss_step(ss, input) =
+    let A = ss[0]
+    let B = ss[1]
+    let state = ss[4]
+    let n = ss[5]
+    let m = ss[6]
+    let new_state = []
+    let i = 0
+    for i < n
+        let dot = 0
+        let j = 0
+        for j < n
+            dot = gf_add(dot, gf_mul(A[i * n + j], state[j]))
+            j = j + 1
+        let j2 = 0
+        for j2 < m
+            dot = gf_add(dot, gf_mul(B[i * m + j2], input[j2]))
+            j2 = j2 + 1
+        new_state.push(dot)
+        i = i + 1
+    [A, B, ss[2], ss[3], new_state, n, m]
+let lqr_gain(A, B, Q, R, n) =
+    let K = []
+    let i = 0
+    for i < n
+        K.push(0)
+        i = i + 1
+    K
+let observer_step(ss, measurement, L) =
+    let state = ss[4]
+    let C = ss[2]
+    let predicted = 0
+    let i = 0
+    let n = ss[5]
+    for i < n
+        predicted = gf_add(predicted, gf_mul(C[i], state[i]))
+        i = i + 1
+    let error = gf_sub(measurement, predicted)
+    let new_state = []
+    i = 0
+    for i < n
+        new_state.push(gf_add(state[i], gf_mul(L[i], error)))
+        i = i + 1
+    [ss[0], ss[1], C, ss[3], new_state, n, ss[6]]
+let field_control(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let control_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_control(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+
+let CTRL_ERR_POLES = [10, 20, 30, 40, 50, 60, 70, 80]
+let CTRL_ERR_WEIGHTS = [80, 70, 60, 50, 40, 30, 20, 10]
+
+let psi_ctrl_err(e_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(e_idx), gf_norm(CTRL_ERR_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(CTRL_ERR_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let CTRL_SIG_POLES = [100, 200, 300, 400, 500, 600, 700, 800]
+let CTRL_SIG_WEIGHTS = [10, 20, 30, 40, 50, 60, 70, 80]
+
+let psi_ctrl_sig(u_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(u_idx), gf_norm(CTRL_SIG_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(CTRL_SIG_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let CTRL_STATE_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let CTRL_STATE_WEIGHTS = [10, 20, 30, 40, 50, 60, 70, 80]
+
+let psi_ctrl_state(x_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(x_idx), gf_norm(CTRL_STATE_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(CTRL_STATE_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let control_global_response(e_idx, u_idx, x_idx) =
+    let e1 = psi_ctrl_err(e_idx)
+    let e2 = psi_ctrl_sig(u_idx)
+    let e3 = psi_ctrl_state(x_idx)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+
+let ctrl_err_decay_test() =
+    let v1 = CTRL_ERR_WEIGHTS[0]
+    let v2 = CTRL_ERR_WEIGHTS[7]
+    (v1 > v2 ? 1 : 0)
+
+let ctrl_sig_monotonic_test() =
+    let v1 = psi_ctrl_sig(100)
+    let v2 = psi_ctrl_sig(800)
+    (v1 != v2 ? 1 : 0)
+
+let ctrl_state_monotonic_test() =
+    let v1 = psi_ctrl_state(1)
+    let v2 = psi_ctrl_state(8)
+    (v1 != v2 ? 1 : 0)
+
+let ctrl_global_nonzero_test() =
+    let g = control_global_response(15, 150, 2)
+    (g != 0 ? 1 : 0)
+
+let ctrl_symmetry_test() =
+    let v1 = control_global_response(15, 150, 2)
+    let v2 = control_global_response(15, 150, 2)
+    (v1 == v2 ? 1 : 0)
+

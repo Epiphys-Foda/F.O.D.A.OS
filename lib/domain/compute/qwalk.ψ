@@ -1,0 +1,81 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let QWALK_MAX_POS = 65536
+
+let coin_hadamard(coin) =
+    (coin == 0 ? [1, 1] : [1, gf_neg(1)])
+let coin_grover(coin, n_coins) =
+    let result = []
+    let i = 0
+    for i < n_coins
+        if i == coin
+            result.push(gf_div(2, n_coins) - 1)
+        else
+            result.push(gf_div(2, n_coins))
+        i = i + 1
+    result
+let shift_right(pos, n_positions) = (pos + 1) % n_positions
+let shift_left(pos, n_positions) = (pos - 1 + n_positions) % n_positions
+let qwalk_step(walk) =
+    let pos = walk[0]
+    let coin = walk[1]
+    let n = walk[2]
+    let new_coin = gf_add(coin, 1) % 2
+    let new_pos = (new_coin == 0 ? shift_left(pos, n) : shift_right(pos, n))
+    [new_pos, new_coin, n, walk[3] + 1]
+let qwalk_run(walk, steps) =
+    let w = walk
+    let i = 0
+    for i < steps
+        w = qwalk_step(w)
+        i = i + 1
+    w
+let qwalk_distribution(walk, steps) =
+    let dist = []
+    let n = walk[2]
+    let i = 0
+    for i < n
+        dist.push(0)
+        i = i + 1
+    let w = walk
+    i = 0
+    for i < steps
+        w = qwalk_step(w)
+        dist[w[0]] = gf_add(dist[w.get(0)], 1)
+        i = i + 1
+    dist
+let qwalk_uniformity(dist) =
+    let n = len(dist)
+    let total = 0
+    let i = 0
+    for i < n
+        total = gf_add(total, dist[i])
+        i = i + 1
+    let mean = gf_div(total, n)
+    let variance = 0
+    i = 0
+    for i < n
+        let diff = gf_sub(dist[i], mean)
+        variance = gf_add(variance, gf_mul(diff, diff))
+        i = i + 1
+    gf_div(variance, n)
+let qwalk_field_step(positions, n, z) =
+    let next = arr_new_n(n)
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        next[i] = gf_mul(positions[i], gf_inv(diff))
+        i = i + 1
+    next
+
+let qwalk_verify() =
+    let pos = arr_new_n(3)
+    pos[0] = 100
+    pos[1] = 200
+    pos[2] = 300
+    let next = qwalk_field_step(pos, 3, 500)
+    let ok = 0
+    (next[0] != pos[0] ? (ok = 1) : (ok = 0))
+    ok
+

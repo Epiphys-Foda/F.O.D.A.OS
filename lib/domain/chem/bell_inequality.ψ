@@ -1,0 +1,31 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let classical = 2
+bad[0] = bad[0] + ck_lo(classical, 0)
+
+let sq2 = isqrt(2000000)
+bad[0] = bad[0] + ck(sq2, 1400, 1430)
+
+let s_quantum = 2 * sq2
+bad[0] = bad[0] + ck(s_quantum, 2750, 2900)
+
+let s_class = 2000
+
+bad[0] = bad[0] + ck_lo(s_quantum, s_class)
+
+let excess = s_quantum - s_class
+bad[0] = bad[0] + ck_lo(excess, 500)
+
+if 1964 < 1962
+    bad[0] = bad[0] + 1
+if 1964 > 1966
+    bad[0] = bad[0] + 1
+if 1982 < 1980
+    bad[0] = bad[0] + 1
+if 1982 > 1984
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

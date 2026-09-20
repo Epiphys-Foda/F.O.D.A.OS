@@ -1,0 +1,26 @@
+import "ck.ψ"
+let bad = [0]
+
+let kf = 2
+let molal = 2
+let d_t = 4
+let dz1 = d_t - kf * molal
+bad[0] = bad[0] + ck(dz1, 0, 0)
+bad[0] = bad[0] + ck(d_t, 3, 5)
+
+let i_na = 2
+bad[0] = bad[0] + ck_lo(i_na, 2)
+
+let d_brine = 7
+bad[0] = bad[0] + ck(d_brine, 6, 9)
+
+let i_ca = 3
+bad[0] = bad[0] + ck_lo(i_ca, 3)
+bad[0] = bad[0] + ck_lo(i_ca, i_na)
+
+if 1882 < 1880
+    bad[0] = bad[0] + 1
+if 1882 > 1884
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

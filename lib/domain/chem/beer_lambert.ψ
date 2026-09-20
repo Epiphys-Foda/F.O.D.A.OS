@@ -1,0 +1,71 @@
+import "ck.ψ"
+let bad = [0]
+
+let a_l1 = 2
+let a_l2 = 4
+let dz1 = a_l2 - a_l1 * 2
+bad[0] = bad[0] + ck(dz1, 0, 0)
+let a_c3 = 3
+let a_c2 = 6
+let dz2 = a_c2 - a_c3 * 2
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let a1 = 1
+let a2 = 2
+let a3 = 3
+let dz3 = a3 - a1 - a2
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let t1 = 10
+let t2 = 100
+let t3 = 1000
+let dz4 = t3 - t1 * t2
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let passed = 100
+let absorbed = 900
+let dz5 = passed + absorbed - 1000
+bad[0] = bad[0] + ck(dz5, 0, 0)
+let p3 = 1
+let dz6 = p3 * t3 - 1000
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+let red_nm = 660
+bad[0] = bad[0] + ck(red_nm, 650, 670)
+let ir_nm = 940
+bad[0] = bad[0] + ck(ir_nm, 930, 950)
+let spo2 = 98
+bad[0] = bad[0] + ck(spo2, 95, 99)
+let uvc = 254
+let cut = 310
+let uva = 365
+bad[0] = bad[0] + ck(uvc, 240, 270)
+bad[0] = bad[0] + ck(uva, 360, 370)
+bad[0] = bad[0] + ck(cut, 300, 320)
+bad[0] = bad[0] + ck_hi(uvc, cut)
+bad[0] = bad[0] + ck_lo(uva, cut)
+
+if 1729 < 1727
+    bad[0] = bad[0] + 1
+if 1729 > 1731
+    bad[0] = bad[0] + 1
+if 1760 < 1758
+    bad[0] = bad[0] + 1
+if 1760 > 1762
+    bad[0] = bad[0] + 1
+if 1760 < 1729
+    bad[0] = bad[0] + 1
+if 1852 < 1850
+    bad[0] = bad[0] + 1
+if 1852 > 1854
+    bad[0] = bad[0] + 1
+if 1852 < 1760
+    bad[0] = bad[0] + 1
+if 1974 < 1972
+    bad[0] = bad[0] + 1
+if 1974 > 1976
+    bad[0] = bad[0] + 1
+if 1974 < 1852
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,33 @@
+import "ck.ψ"
+let bad = [0]
+
+let tdrop = 8
+bad[0] = bad[0] + ck(tdrop, 7, 10)
+
+let sup = 500
+bad[0] = bad[0] + ck(sup, 400, 800)
+
+let shim = 100000
+let wnd = shim / sup
+bad[0] = bad[0] + ck(wnd, 150, 250)
+
+let z4 = 2 * 2
+bad[0] = bad[0] + ck(z4, 4, 4)
+
+let ionsite = 1
+bad[0] = bad[0] + ck_lo(ionsite, 1)
+
+if 1911 < 1909
+    bad[0] = bad[0] + 1
+if 1911 > 1913
+    bad[0] = bad[0] + 1
+if 1912 < 1910
+    bad[0] = bad[0] + 1
+if 1912 > 1914
+    bad[0] = bad[0] + 1
+if 1932 < 1930
+    bad[0] = bad[0] + 1
+if 1932 > 1934
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

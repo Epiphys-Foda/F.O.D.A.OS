@@ -1,0 +1,166 @@
+let P = 65537
+let P2 = 131071
+
+import "../core/stdlib_lang2/gf_canon_shared.ψ"
+import "sh_d39d441e28.ψ"
+import "../core/stdlib_lang2/bm_canon.ψ"
+import "wf_brain.ψ"
+import "sh_ee308d734f.ψ"
+import "sh_bffc56f968.ψ"
+import "sh_0fe08dee05.ψ"
+let hash1(t1) =
+    let h = t1 % P
+    let isz = 0
+    if h == 0
+        isz = 1
+    h + isz
+
+let hash2(t1, t2) =
+    let h = (t1 * 257 + t2) % P
+    let isz = 0
+    if h == 0
+        isz = 1
+    h + isz
+
+let mem_lookup(MEM, cap, z) =
+    let i = z % cap
+    let v = 0
+    let found = 0
+    let t = 0
+    for t < 64
+        let zz = MEM[2 * i]
+        let ise = 0
+        if zz == 0
+            ise = 1
+        let isz = 0
+        if zz == z
+            isz = 1
+        if isz == 1
+            found = 1
+            v = MEM[2 * i + 1]
+        let stop = 0
+        if ise == 1
+            stop = 1
+        if found == 1
+            stop = 1
+        let step = 1
+        if stop == 1
+            step = 0
+        i = i + step
+        let wrap = 0
+        if i >= cap
+            wrap = 1
+        if wrap == 1
+            i = i - cap
+        t = t + 1
+    let miss = 0
+    if found == 0
+        miss = 1
+    v * (1 - miss) - miss
+
+let lm_predict(M3, c3, M2, c2, M1, c1, s, i) =
+    let out = 0
+    let via = 0
+    let z3 = hash3(s[i - 3], s[i - 2], s[i - 1])
+    let p3 = mem_lookup(M3, c3, z3)
+    let got3 = 0
+    if p3 >= 0
+        got3 = 1
+    if got3 == 1
+        out = p3
+        via = 3
+    let z2 = hash2(s[i - 2], s[i - 1])
+    let p2 = mem_lookup(M2, c2, z2)
+    let got2 = 0
+    if p2 >= 0
+        got2 = 1
+    let take2 = 0
+    if got3 == 0
+        if got2 == 1
+            take2 = 1
+    if take2 == 1
+        out = p2
+        via = 2
+    let z1 = hash1(s[i - 1])
+    let p1 = mem_lookup(M1, c1, z1)
+    let got1 = 0
+    if p1 >= 0
+        got1 = 1
+    let take1 = 0
+    if got3 == 0
+        if got2 == 0
+            if got1 == 1
+                take1 = 1
+    if take1 == 1
+        out = p1
+        via = 1
+    let miss = 0
+    if via == 0
+        miss = 1
+    out * (1 - miss) - miss
+
+let lm_eval(M3, c3, M2, c2, M1, c1, s, lo, hi, out_stats) =
+    let n3 = 0
+    let h3 = 0
+    let n2 = 0
+    let h2 = 0
+    let n1 = 0
+    let h1 = 0
+    let nab = 0
+    let i = lo
+    for i < hi
+        let z3 = hash3(s[i - 3], s[i - 2], s[i - 1])
+        let p3 = mem_lookup(M3, c3, z3)
+        let got3 = 0
+        if p3 >= 0
+            got3 = 1
+        if got3 == 1
+            let ok3 = 0
+            if p3 == s[i]
+                ok3 = 1
+            n3 = n3 + 1
+            h3 = h3 + ok3
+        let use2 = 0
+        if got3 == 0
+            use2 = 1
+        if use2 == 1
+            let z2 = hash2(s[i - 2], s[i - 1])
+            let p2 = mem_lookup(M2, c2, z2)
+            let got2 = 0
+            if p2 >= 0
+                got2 = 1
+            if got2 == 1
+                let ok2 = 0
+                if p2 == s[i]
+                    ok2 = 1
+                n2 = n2 + 1
+                h2 = h2 + ok2
+            let use1 = 0
+            if got2 == 0
+                use1 = 1
+            if use1 == 1
+                let z1 = hash1(s[i - 1])
+                let p1 = mem_lookup(M1, c1, z1)
+                let got1 = 0
+                if p1 >= 0
+                    got1 = 1
+                if got1 == 1
+                    let ok1 = 0
+                    if p1 == s[i]
+                        ok1 = 1
+                    n1 = n1 + 1
+                    h1 = h1 + ok1
+                let allmiss = 0
+                if got1 == 0
+                    allmiss = 1
+                nab = nab + allmiss
+        i = i + 1
+    out_stats[0] = n3
+    out_stats[1] = h3
+    out_stats[2] = n2
+    out_stats[3] = h2
+    out_stats[4] = n1
+    out_stats[5] = h1
+    out_stats[6] = nab
+    0
+

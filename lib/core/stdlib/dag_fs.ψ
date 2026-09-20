@@ -1,0 +1,122 @@
+import "dag_scheduler.ψ"
+
+let DAGFS_ROOT = []
+
+let dagfs_write(fs, name, dag) =
+    let entry = { name: name, dag: dag, version: 1, deltas: [] }
+    [fs, entry].flat()
+
+let dagfs_read(fs, name) =
+    let found = null
+    let i = 0
+    let n = len(fs)
+    let done = false
+    for !done
+      if i < n
+        let e = fs[i]
+        if e.name == name
+          found = e.dag
+          done = true
+        else
+          i = i + 1
+      else
+        done = true
+    found
+
+let dagfs_eval(fs, name, eval_fn) =
+    let dag = dagfs_read(fs, name)
+    if dag == null
+      null
+    else
+      let r = sched_run(dag, eval_fn)
+      r.results
+
+let dagfs_version(fs, name) =
+    let ver = 0
+    let i = 0
+    let n = len(fs)
+    let done = false
+    for !done
+      if i < n
+        let e = fs[i]
+        if e.name == name
+          ver = e.version
+          done = true
+        else
+          i = i + 1
+      else
+        done = true
+    ver
+
+let dagfs_patch(fs, name, delta) =
+    let result = []
+    let i = 0
+    let n = len(fs)
+    let done = false
+    for !done
+      if i < n
+        let e = fs[i]
+        if e.name == name
+          let new_deltas = e.deltas.push(delta)
+          let new_entry = { name: e.name, dag: e.dag, version: e.version + 1, deltas: new_deltas }
+          result = result.push(new_entry)
+        else
+          result = result.push(e)
+        i = i + 1
+      else
+        done = true
+    result
+
+let dagfs_deltas_since(fs, name, since_version) =
+    let result = []
+    let i = 0
+    let n = len(fs)
+    let done = false
+    for !done
+      if i < n
+        let e = fs[i]
+        if e.name == name
+          let di = since_version - 1
+          let dn = e.len(deltas)
+          let dd = false
+          for !dd
+            if di < dn
+              result = result.push(e.deltas[di])
+              di = di + 1
+            else
+              dd = true
+          done = true
+        else
+          i = i + 1
+      else
+        done = true
+    result
+
+let dagfs_diff(a, b) =
+    let result = []
+    let i = 0
+    let n = len(a)
+    let done = false
+    for !done
+      if i < n
+        let found = false
+        let j = 0
+        let m = len(b)
+        let jd = false
+        for !jd
+          if j < m
+            if b[j] == a[i]
+              found = true
+            else
+              0
+            j = j + 1
+          else
+            jd = true
+        if found == false
+          result = result.push(a[i])
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    result

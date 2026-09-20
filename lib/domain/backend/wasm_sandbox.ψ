@@ -1,0 +1,386 @@
+let sandbox_new() =
+    [{}, [], [], 0, 65536, 0]
+
+let sb_modules(s) = s[0]
+let sb_loaded(s) = s[1]
+let sb_pending(s) = s[2]
+let sb_next_id(s) = s[3]
+let sb_default_gas(s) = s[4]
+let sb_tx_count(s) = s[5]
+
+let module_new(name, gas_limit) =
+    [name, {}, [], [], [], gas_limit, 0, 0]
+
+let mod_name(m) = m[0]
+let mod_memory(m) = m[1]
+let mod_tables(m) = m[2]
+let mod_reducers(m) = m[3]
+let mod_subscribers(m) = m[4]
+let mod_gas_limit(m) = m[5]
+let mod_call_count(m) = m[6]
+let mod_mem_used(m) = m[7]
+
+let module_add_reducer(m, name, params, body_ref, table_access) =
+    let reducers = mod_reducers(m)
+    reducers.push([name, params, body_ref, table_access])
+    m[3] = reducers
+    m
+
+let module_get_reducer(m, name) =
+    let reducers = mod_reducers(m)
+    let i = 0
+    let n = len(reducers)
+    let found = 0
+    for i < n
+        if reducers[i][0] == name
+            found = reducers[i]
+        i = i + 1
+    found
+
+let check_table_access(reducer, table_name, mode) =
+    let access = reducer[3]
+    let perm = access[table_name]
+    if perm == 0
+        0
+    else
+        0
+    if perm == "readwrite"
+        1
+    else
+        0
+    if perm == mode
+        1
+    else
+        0
+
+let opcode_gas(opcode) =
+    if opcode == 106
+        1
+    else
+        0
+    if opcode == 108
+        2
+    else
+        0
+    if opcode == 107
+        1
+    else
+        0
+    if opcode == 40
+        3
+    else
+        0
+    if opcode == 40
+        3
+    else
+        0
+    if opcode == 16
+        10
+    else
+        0
+    if opcode == 16
+        10
+    else
+        0
+    if opcode == 15
+        0
+    else
+        0
+    if opcode == 11
+        0
+    else
+        1
+
+let check_mem_quota(m, additional) =
+    let used = mod_mem_used(m)
+    let limit = mod_gas_limit(m)
+    if used + additional > limit
+        0
+    else
+        1
+
+let mod_use_mem(m, amount) =
+    m[7] = m[7] + amount
+    m
+
+let tx_begin(sandbox, module_name, reducer_name, args) =
+    let tx_id = sb_tx_count(sandbox)
+    sandbox[5] = tx_id + 1
+    let tx = [tx_id, module_name, reducer_name, args, [], 0, 0]
+    tx
+
+let tx_id(tx) = tx[0]
+let tx_module(tx) = tx[1]
+let tx_reducer(tx) = tx[2]
+let tx_args(tx) = tx[3]
+let tx_undo(tx) = tx[4]
+let tx_gas(tx) = tx[5]
+let tx_status(tx) = tx[6]
+
+let tx_record_undo(tx, table, key, old_value) =
+    let undo = tx_undo(tx)
+    undo.push(["set", table, key, old_value])
+    tx[4] = undo
+    tx
+
+let tx_record_undo_push(tx, table) =
+    let undo = tx_undo(tx)
+    undo.push(["pop", table, 0, 0])
+    tx[4] = undo
+    tx
+
+let tx_commit(tx) =
+    tx[6] = 1
+    tx
+
+let tx_abort(tx) =
+    tx[6] = 2
+    tx
+
+let tx_rollback(tx, tables_map) =
+    let undo = tx_undo(tx)
+    let i = len(undo) - 1
+    for i >= 0
+        let op = undo[i]
+        let kind = op[0]
+        let table = op[1]
+        let key = op[2]
+        let old = op[3]
+        let tbl = tables_map[table]
+        if tbl != 0
+            if kind == "set"
+                tbl[key] = old
+            else
+                0
+            if kind == "pop"
+                tbl.pop()
+        i = i - 1
+    tx[6] = 2
+    tx
+
+let subscriber_new(client_id, table_name, filter_fn) =
+    [client_id, table_name, filter_fn, 0]
+
+let sub_client(s) = s[0]
+let sub_table(s) = s[1]
+let sub_filter(s) = s[2]
+let sub_seq(s) = s[3]
+
+let sub_set_seq(s, seq) =
+    s[3] = seq
+    s
+
+let compute_delta(table_rows, last_seq, filter_fn) =
+    let delta = []
+    let i = 0
+    let n = len(table_rows)
+    for i < n
+        let row = table_rows[i]
+        let seq = row[4]
+        if seq > last_seq
+            if filter_fn == 0
+                delta.push(row)
+            else
+                let pass = 0
+                pass = 1
+                if pass == 1
+                    delta.push(row)
+        i = i + 1
+    delta
+
+let wasm_exec_op(opcode, args, memory) =
+    let result = 0
+    if opcode == 106
+        result = (args[0] + args[1]) % 65537
+    else
+        0
+    if opcode == 108
+        result = (args[0] * args[1]) % 65537
+    else
+        0
+    if opcode == 107
+        let d = args[0] - args[1]
+        if d < 0
+            d = d + 65537
+        result = d % 65537
+    else
+        0
+    if opcode == 115
+        result = args[0] ^ args[1]
+    else
+        0
+    if opcode == 27
+        if args[2] != 0
+            result = args[0]
+        else
+            result = args[1]
+    else
+        0
+    if opcode == 40
+        let addr = args[0]
+        result = memory[addr]
+    else
+        0
+    if opcode == 41
+        let addr = args[0]
+        let val = args[1]
+        memory[addr] = val
+        result = 0
+    else
+        result = 0
+    result
+
+let wasm_exec_reducer(module, reducer, args, memory, tx) =
+    let gas_used = 0
+    let gas_limit = mod_gas_limit(module)
+    let stack = []
+    let result = 0
+    let body = reducer[2]
+    let i = 0
+    let n = len(body)
+    let aborted = 0
+    for i < n
+        let instr = body[i]
+        let opcode = instr[0]
+        let cost = opcode_gas(opcode)
+        gas_used = gas_used + cost
+        if gas_used > gas_limit
+            aborted = 1
+            i = n
+        else
+            let op_args = instr[1]
+            let exec_result = wasm_exec_op(opcode, op_args, memory)
+            stack.push(exec_result)
+        i = i + 1
+    if aborted == 1
+        tx_abort(tx)
+        0
+    else
+        tx[5] = gas_used
+        if len(stack) > 0
+            result = stack[len(stack) - 1]
+        else
+            result = 0
+        tx_commit(tx)
+        result
+
+let sandbox_call(sandbox, module_name, reducer_name, args) =
+    let modules = sb_modules(sandbox)
+    let module = modules[module_name]
+    if module == 0
+        [-1, "module_not_found"]
+    else
+        let reducer = module_get_reducer(module, reducer_name)
+        if reducer == 0
+            [-1, "reducer_not_found"]
+        else
+            let tx = tx_begin(sandbox, module_name, reducer_name, args)
+            let memory = mod_memory(module)
+            let result = wasm_exec_reducer(module, reducer, args, memory, tx)
+            module[6] = module[6] + 1
+            [tx_status(tx), result]
+
+let sandbox_load_module(sandbox, module) =
+    let name = mod_name(module)
+    let modules = sb_modules(sandbox)
+    modules[name] = module
+    let loaded = sb_loaded(sandbox)
+    loaded.push(name)
+    sandbox[0] = modules
+    sandbox[1] = loaded
+    sandbox
+
+let sandbox_unload_module(sandbox, name) =
+    let modules = sb_modules(sandbox)
+    modules[name] = 0
+    sandbox[0] = modules
+    sandbox
+
+let wasm_sandbox_verify() =
+    let sb = sandbox_new()
+    let ok1 = 1
+    if sb_next_id(sb) != 0
+        ok1 = 0
+    if sb_default_gas(sb) != 65536
+        ok1 = 0
+
+    let mod_ = module_new("counter", 1000)
+    let ok2 = 1
+    if mod_name(mod_) != "counter"
+        ok2 = 0
+    if mod_gas_limit(mod_) != 1000
+        ok2 = 0
+    if mod_call_count(mod_) != 0
+        ok2 = 0
+
+    let access = {}
+    access["counts"] = "readwrite"
+    mod_ = module_add_reducer(mod_, "increment", ["key"], [[108, [1, 1]]], access)
+    let r = module_get_reducer(mod_, "increment")
+    let ok3 = 1
+    if r == 0
+        ok3 = 0
+    if r[0] != "increment"
+        ok3 = 0
+
+    let ok4 = 1
+    if check_table_access(r, "counts", "write") != 1
+        ok4 = 0
+    if check_table_access(r, "counts", "read") != 1
+        ok4 = 0
+    if check_table_access(r, "other_table", "read") != 0
+        ok4 = 0
+
+    let ok5 = 1
+    if opcode_gas(106) != 1
+        ok5 = 0
+    if opcode_gas(108) != 2
+        ok5 = 0
+
+    let sb2 = sandbox_load_module(sb, mod_)
+    let result = sandbox_call(sb2, "counter", "increment", [10])
+    let ok6 = 1
+    if result[0] != 1
+        ok6 = 0
+
+    let mem = {}
+    let ok7 = 1
+    let r1 = wasm_exec_op(106, [3, 5], mem)
+    if r1 != 8
+        ok7 = 0
+    let r2 = wasm_exec_op(108, [3, 5], mem)
+    if r2 != 15
+        ok7 = 0
+
+    let ok8 = 1
+    let b1 = wasm_exec_op(27, [100, 200, 1], mem)
+    if b1 != 100
+        ok8 = 0
+    let b2 = wasm_exec_op(27, [100, 200, 0], mem)
+    if b2 != 200
+        ok8 = 0
+
+    let ok9 = 1
+    mem[5] = 42
+    let lv = wasm_exec_op(40, [5], mem)
+    if lv != 42
+        ok9 = 0
+    wasm_exec_op(41, [5, 99], mem)
+    if mem[5] != 99
+        ok9 = 0
+
+    let all_ok = ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7 * ok8 * ok9
+    if all_ok == 1
+        print("wasm_sandbox_verify: ALL PASS")
+    else
+        print("wasm_sandbox_verify: FAIL")
+        print(ok1)
+        print(ok2)
+        print(ok3)
+        print(ok4)
+        print(ok5)
+        print(ok6)
+        print(ok7)
+        print(ok8)
+        print(ok9)
+    all_ok

@@ -1,0 +1,125 @@
+import "super_db.ψ"
+import "gfx.ψ"
+import "ui.ψ"
+import "super_db_io.ψ"
+
+let rf_ui_residue_color(r) =
+    let v = r % 65537
+    if v > 49152
+      gfx_pack_rgb(255, 60, 60)
+    else
+      if v > 32768
+        gfx_pack_rgb(255, 160, 60)
+      else
+        if v > 16384
+          gfx_pack_rgb(80, 220, 80)
+        else
+          if v > 0
+            gfx_pack_rgb(60, 160, 255)
+          else
+            gfx_pack_rgb(30, 40, 90)
+    if r % 65537 > 49152
+        gfx_pack_rgb(255, 60, 60)
+    else
+        if r % 65537 > 32768
+            gfx_pack_rgb(255, 160, 60)
+        else
+            if r % 65537 > 16384
+                gfx_pack_rgb(80, 220, 80)
+            else
+                if r % 65537 > 0
+                    gfx_pack_rgb(60, 160, 255)
+                else
+                    gfx_pack_rgb(30, 40, 90)
+
+let rf_ui_residue_field(db, w, h, cx, cy, fb) =
+    let out = fb
+    let i = 0
+    let done = false
+    for !done
+      if i < w
+        let j = 0
+        let jdone = false
+        for !jdone
+          if j < h
+            let px = cx - w / 2 + i
+            let py = cy - h / 2 + j
+            let v = rf_db_field(db, px, py)
+            let color = rf_ui_residue_color(v)
+            out = gfx_set_pixel(out, w, i, j, color)
+            j = j + 1
+          else
+            jdone = true
+        i = i + 1
+      else
+        done = true
+    out
+
+let rf_ui_residue_poles(db, w, h, cx, cy, fb) =
+    let out = fb
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(db)
+        let px = db[i] - (cx - w / 2)
+        let py = db[i + 1] - (cy - h / 2)
+        if px >= 0 && px < w && py >= 0 && py < h
+          out = gfx_set_pixel(out, w, px, py, gfx_pack_rgb(255, 255, 255))
+        else
+          0
+        i = i + 3
+      else
+        done = true
+    out
+
+let rf_ui_db_panel(db, fb, w, h, cx, cy, bg, border) =
+    let out = fb
+    out = ui_panel(out, w, h, 0, 0, w, h, 12, bg, border, gfx_pack_rgb(40, 44, 52))
+    out = rf_ui_residue_field(db, w, h - 16, cx, cy, out)
+    out = rf_ui_residue_poles(db, w, h - 16, cx, cy, out)
+    let st = rf_db_io_status(db)
+    out
+
+let rf_ui_residue_contour(db, w, h, cx, cy, fb, level) =
+    let out = fb
+    let i = 0
+    let done = false
+    for !done
+      if i < w
+        let j = 0
+        let jdone = false
+        for !jdone
+          if j < h
+            let px = cx - w / 2 + i
+            let py = cy - h / 2 + j
+            let v = rf_db_field(db, px, py)
+            if (v > level - 2000) && (v < level + 2000)
+              out = gfx_set_pixel(out, w, i, j, gfx_pack_rgb(255, 255, 0))
+            else
+              0
+            j = j + 1
+          else
+            jdone = true
+        i = i + 1
+      else
+        done = true
+    out
+
+let rf_ui_db_scene(db, w, h, cx, cy) =
+    let fb = gfx_create(w, h)
+    fb = gfx_fill_rect(fb, w, h, 0, 0, w, h, gfx_pack_rgb(20, 24, 32))
+    fb = rf_ui_residue_field(db, w, h, cx, cy, fb)
+    fb = rf_ui_residue_contour(db, w, h, cx, cy, fb, 30000)
+    fb = rf_ui_residue_poles(db, w, h, cx, cy, fb)
+    fb
+
+let rf_ui2_verify() =
+    let fb = gfx_create(8, 8)
+    let t1 = rf_ui_residue_color(60000) == gfx_pack_rgb(255, 60, 60)
+    let f1 = rf_ui_residue_field([0, 0, 5], 8, 8, 0, 0, fb)
+    let t2 = gfx_get_pixel(f1, 8, 4, 4) != gfx_pack_rgb(20, 24, 32)
+    let f2 = rf_ui_residue_poles([0, 0, 5], 8, 8, 0, 0, fb)
+    let t3 = gfx_get_pixel(f2, 8, 4, 4) == gfx_pack_rgb(255, 255, 255)
+    let f3 = rf_ui_db_scene([0, 0, 5], 8, 8, 0, 0)
+    let t4 = gfx_get_pixel(f3, 8, 0, 0) != gfx_pack_rgb(0, 0, 0)
+    t1 && t2 && t3 && t4

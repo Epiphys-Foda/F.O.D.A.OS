@@ -1,0 +1,25 @@
+import "ck.ψ"
+let bad = [0]
+
+let dnum = 426 * 557 - 237282
+bad[0] = bad[0] + dnum * dnum
+let v872 = 0
+let e872 = 237282 - 872 * 272
+if e872 < 0
+    v872 = v872 + 1
+let f872 = 873 * 272 - 237282
+if f872 < 1
+    v872 = v872 + 1
+bad[0] = bad[0] + v872 * v872
+
+let yhat = 1289 - 872
+let dy = yhat - 417
+bad[0] = bad[0] + dy * dy
+
+let res = 708 - 417
+let dres = res - 291
+bad[0] = bad[0] + dres * dres
+
+bad[0] = bad[0] + ck_lo(res, 1)
+
+arr_get(arr_new_n(1), bad[0])

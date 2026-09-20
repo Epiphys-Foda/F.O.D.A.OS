@@ -1,0 +1,105 @@
+let molecular_weight(elements, counts, atomic_weights) =
+    let total = 0
+    let i = 0
+    for i < elements.len()
+        total = total + counts[i] * atomic_weights[elements[i]]
+        i = i + 1
+    total
+
+let moles(mass, molar_mass) =
+    mass * 1000 / molar_mass
+
+let mass_from_moles(mol, molar_mass) =
+    mol * molar_mass / 1000
+
+let molarity(moles_val, volume_liters) =
+    moles_val * 1000 / volume_liters
+
+let dilution(m1, v1, v2) =
+    m1 * v1 / v2
+
+let ph(h_concentration) =
+    let log_val = 0
+    let h = h_concentration
+    for h > 1
+        h = h / 10
+        log_val = log_val + 1
+    -log_val
+
+let poh(oh_concentration) =
+    ph(oh_concentration)
+
+let ph_to_h(ph_val) =
+    let result = 1
+    let i = 0
+    for i < ph_val
+        result = result / 10
+        i = i + 1
+    result
+
+let percent_composition(element_mass, total_mass) =
+    element_mass * 1000 / total_mass
+
+let empirical_formula(masses, atomic_weights) =
+    let moles_arr = []
+    let i = 0
+    for i < masses.len()
+        moles_arr = arr_concat(moles_arr, [masses[i] * 1000 / atomic_weights[i]])
+        i = i + 1
+    let smallest = moles_arr[0]
+    let i = 1
+    for i < moles_arr.len()
+        if moles_arr[i] < smallest
+            smallest = moles_arr[i]
+        i = i + 1
+    let ratios = []
+    let i = 0
+    for i < moles_arr.len()
+        ratios = arr_concat(ratios, [moles_arr[i] * 1000 / smallest])
+        i = i + 1
+    ratios
+
+let ideal_gas_pressure(n, temp, volume) =
+    n * 8314 * temp / volume / 1000
+
+let ideal_gas_volume(n, temp, pressure) =
+    n * 8314 * temp / pressure / 1000
+
+let ideal_gas_temperature(pressure, volume, n) =
+    pressure * volume * 1000 / (n * 8314)
+
+let ideal_gas_moles(pressure, volume, temp) =
+    pressure * volume * 1000 / (8314 * temp)
+
+let combined_gas_law(p1, v1, t1, t2) =
+    p1 * t2 / t1
+
+let rate_law(k, concentrations, orders) =
+    let rate = k
+    let i = 0
+    for i < concentrations.len()
+        let pow_val = 1
+        let j = 0
+        for j < orders[i]
+            pow_val = pow_val * concentrations[i] / 1000
+            j = j + 1
+        rate = rate * pow_val / 1000
+        i = i + 1
+    rate
+
+let half_life_first_order(rate_constant) =
+    693 * 1000 / rate_constant
+
+let activation_energy(k, a, temp, r) =
+    -r * temp * (k - a) / 1000
+
+let main() =
+    let mw = molecular_weight([0, 1], [2, 1], [1008, 16000])
+    print(mw)
+    let m = moles(36, 18016)
+    print(m)
+    let p = ideal_gas_pressure(1, 273, 22400)
+    print(p)
+    let ph_val = ph(1)
+    print(ph_val)
+    0

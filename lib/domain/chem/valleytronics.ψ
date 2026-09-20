@@ -1,0 +1,36 @@
+import "ck.ψ"
+let bad = [0]
+
+let ok = 1
+let okp = 0 - 1
+let osum = ok + okp
+bad[0] = bad[0] + ck(osum, 0, 0)
+
+let qk = 1
+let qkp = 0 - 1
+let qsum = qk + qkp
+bad[0] = bad[0] + ck(qsum, 0, 0)
+
+let vpol = qk - qkp
+bad[0] = bad[0] + ck(vpol, 2, 2)
+
+let gap18 = 18
+bad[0] = bad[0] + ck(gap18, 17, 19)
+
+let b10 = 10
+let vzez = 2 * 58 * b10 / 10
+bad[0] = bad[0] + ck(vzez, 105, 125)
+
+let sel = 1
+bad[0] = bad[0] + ck_lo(sel, 1)
+
+if 2012 < 2010
+    bad[0] = bad[0] + 1
+if 2012 > 2014
+    bad[0] = bad[0] + 1
+if 2014 < 2012
+    bad[0] = bad[0] + 1
+if 2014 > 2016
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

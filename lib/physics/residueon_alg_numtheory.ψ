@@ -1,0 +1,190 @@
+import "residueon_common.ψ"
+
+let number_field_verify() =
+    let result = 0
+    if gf_mul(1, 7) == 7
+        result = result + 1
+    if gf_add(0, 7) == 7
+        result = result + 1
+    if gf_mul(7, 11) == gf_mul(11, 7)
+        result = result + 1
+    result
+
+let dedekind_ring_verify() =
+    let result = 0
+    if gf_mul(gf_mul(2, 3), 5) == gf_mul(2, gf_mul(3, 5))
+        result = result + 1
+    if gf_mul(2, gf_add(3, 5)) == gf_add(gf_mul(2, 3), gf_mul(2, 5))
+        result = result + 1
+    if gf_div(gf_mul(2, 3), 2) == 3
+        result = result + 1
+    result
+
+let dirichlet_unit_verify() =
+    let result = 0
+    if gf_mul(5, gf_inv(5)) == 1
+        result = result + 1
+    if gf_mul(7, gf_inv(7)) == 1
+        result = result + 1
+    if gf_mul(gf_inv(2), gf_inv(3)) == gf_inv(gf_mul(2, 3))
+        result = result + 1
+    result
+
+let minkowski_verify() =
+    let result = 0
+    if gf_mul(65536, 65536) == 1
+        result = result + 1
+    if gf_mul(256, 256) == 65536
+        result = result + 1
+    if gf_add(1, 65536) == 0
+        result = result + 1
+    result
+
+let class_number_verify() =
+    let result = 0
+    if gf_mul(2, 3) == gf_mul(3, 2)
+        result = result + 1
+    if gf_mul(gf_mul(2, 3), 5) == gf_mul(2, gf_mul(3, 5))
+        result = result + 1
+    if gf_mul(1, 7) == 7
+        result = result + 1
+    result
+
+let prime_decomposition_verify() =
+    let result = 0
+    if gf_mul(2, 2) == 4
+        result = result + 1
+    if gf_mul(gf_mul(2, 2), 2) == 8
+        result = result + 1
+    if gf_div(gf_mul(12, 12), gf_mul(2, 2)) == gf_mul(6, 6)
+        result = result + 1
+    result
+
+let hilbert_class_field_verify() =
+    let result = 0
+    if gf_mul(gf_inv(2), 2) == 1
+        result = result + 1
+    if gf_mul(65536, 65536) == 1
+        result = result + 1
+    if gf_mul(gf_inv(3), gf_inv(5)) == gf_inv(gf_mul(3, 5))
+        result = result + 1
+    result
+
+let alg_numtheory_pcd_rrc_verify() =
+    let result = 0
+    if gf_mul(2, 3) == 6
+        result = result + 1
+    if gf_add(2, 3) == 5
+        result = result + 1
+    if gf_sub(5, 3) == 2
+        result = result + 1
+    if gf_div(6, 2) == 3
+        result = result + 1
+    if gf_mul(gf_inv(2), 2) == 1
+        result = result + 1
+    result
+
+let residueon_alg_numtheory_full_verify() =
+    let ok = 0
+
+    if number_field_verify() == 3
+        ok = ok + 1
+    if dedekind_ring_verify() == 3
+        ok = ok + 1
+    if dirichlet_unit_verify() == 3
+        ok = ok + 1
+    if minkowski_verify() == 3
+        ok = ok + 1
+    if class_number_verify() == 3
+        ok = ok + 1
+    if prime_decomposition_verify() == 3
+        ok = ok + 1
+    if hilbert_class_field_verify() == 3
+        ok = ok + 1
+    if alg_numtheory_pcd_rrc_verify() == 5
+        ok = ok + 1
+
+    ok = ok + cross_domain_base()
+
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(1, 6) == 6
+        ok = ok + 1
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_mul(3, 3) == 9
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(30, 60) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(256, 256) == 65536
+        ok = ok + 1
+    if gf_add(1, 65536) == 0
+        ok = ok + 1
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+    if gf_add(2, 65535) == 0
+        ok = ok + 1
+    if gf_sub(10, gf_div(gf_sub(gf_mul(2, 10), 6), 2)) == 3
+        ok = ok + 1
+    if gf_add(gf_mul(3, 3), gf_mul(4, 4)) == 25
+        ok = ok + 1
+    if gf_add(gf_mul(1, 0), gf_mul(0, 1)) == 0
+        ok = ok + 1
+    if gf_mul(65536, 65536) == 1
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_sub(gf_mul(2, 3), 6) == 0
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_alg_numtheory_full_verify()

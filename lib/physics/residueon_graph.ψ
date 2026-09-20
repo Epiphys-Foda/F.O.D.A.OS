@@ -1,0 +1,296 @@
+import "residueon_common.ψ"
+
+let vertex_degree(adj, n, v) =
+    let deg = 0
+    let j = 0
+    for j < n
+        deg = gf_add(deg, adj[gf_add(gf_mul(v, n), j)])
+        j = j + 1
+    deg
+
+let edge_count(adj, n) =
+    let count = 0
+    let i = 0
+    for i < n
+        let j = gf_add(i, 1)
+        for j < n
+            if adj[gf_add(gf_mul(i, n), j)] != 0
+                count = count + 1
+            j = j + 1
+        i = i + 1
+    count
+
+let K4_adj() = [0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0]
+
+let C4_adj() = [0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0]
+
+let P4_adj() = [0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0]
+
+let S4_adj() = [0, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]
+
+let graph_degree_verify() =
+    let result = 0
+    let k4 = K4_adj()
+    if vertex_degree(k4, 4, 0) == 3
+        result = result + 1
+    if vertex_degree(k4, 4, 1) == 3
+        result = result + 1
+    if vertex_degree(k4, 4, 3) == 3
+        result = result + 1
+    let c4 = C4_adj()
+    if vertex_degree(c4, 4, 0) == 2
+        result = result + 1
+    if vertex_degree(c4, 4, 2) == 2
+        result = result + 1
+    let p4 = P4_adj()
+    if vertex_degree(p4, 4, 0) == 1
+        result = result + 1
+    if vertex_degree(p4, 4, 1) == 2
+        result = result + 1
+    if vertex_degree(p4, 4, 3) == 1
+        result = result + 1
+    let s4 = S4_adj()
+    if vertex_degree(s4, 4, 0) == 3
+        result = result + 1
+    if vertex_degree(s4, 4, 1) == 1
+        result = result + 1
+    result
+
+let handshaking_verify() =
+    let result = 0
+    let k4 = K4_adj()
+    let sum_deg = 0
+    let i = 0
+    for i < 4
+        sum_deg = gf_add(sum_deg, vertex_degree(k4, 4, i))
+        i = i + 1
+    if sum_deg == gf_mul(2, edge_count(k4, 4))
+        result = result + 1
+    let c4 = C4_adj()
+    let sum_deg2 = 0
+    let i2 = 0
+    for i2 < 4
+        sum_deg2 = gf_add(sum_deg2, vertex_degree(c4, 4, i2))
+        i2 = i2 + 1
+    if sum_deg2 == gf_mul(2, edge_count(c4, 4))
+        result = result + 1
+    let p4 = P4_adj()
+    let sum_deg3 = 0
+    let i3 = 0
+    for i3 < 4
+        sum_deg3 = gf_add(sum_deg3, vertex_degree(p4, 4, i3))
+        i3 = i3 + 1
+    if sum_deg3 == gf_mul(2, edge_count(p4, 4))
+        result = result + 1
+    let s4 = S4_adj()
+    let sum_deg4 = 0
+    let i4 = 0
+    for i4 < 4
+        sum_deg4 = gf_add(sum_deg4, vertex_degree(s4, 4, i4))
+        i4 = i4 + 1
+    if sum_deg4 == gf_mul(2, edge_count(s4, 4))
+        result = result + 1
+    if edge_count(k4, 4) == 6
+        result = result + 1
+    if edge_count(c4, 4) == 4
+        result = result + 1
+    if edge_count(p4, 4) == 3
+        result = result + 1
+    result
+
+let euler_formula_verify() =
+    let result = 0
+    if gf_sub(gf_add(4, 4), 6) == 2
+        result = result + 1
+    if gf_sub(gf_add(4, 2), 4) == 2
+        result = result + 1
+    if gf_sub(gf_add(4, 1), 3) == 2
+        result = result + 1
+    if gf_sub(gf_add(4, 1), 3) == 2
+        result = result + 1
+    result
+
+let greedy_chromatic(adj, n) =
+    let colors = [0, 0, 0, 0]
+    let maxc = 0
+    let v = 0
+    for v < n
+        let used = [0, 0, 0, 0]
+        let j = 0
+        for j < n
+            if adj[gf_add(gf_mul(v, n), j)] != 0
+                if j < v
+                    used[colors[j]] = 1
+            j = j + 1
+        let pick = 0
+        let chosen = 3
+        for pick < 3
+            if used[pick] == 0
+                if chosen == 3
+            pick = pick + 1
+        colors[v] = chosen
+        if chosen + 1 > maxc
+            maxc = chosen + 1
+        v = v + 1
+    maxc
+
+let chromatic_verify() =
+    let result = 0
+    if greedy_chromatic(K4_adj(), 4) == 4
+        result = result + 1
+    if greedy_chromatic(C4_adj(), 4) == 2
+        result = result + 1
+    if greedy_chromatic(P4_adj(), 4) == 2
+        result = result + 1
+    if greedy_chromatic(S4_adj(), 4) == 2
+        result = result + 1
+    result
+
+let trace_adj(adj, n) =
+    let tr = 0
+    let i = 0
+    for i < n
+        tr = gf_add(tr, adj[gf_add(gf_mul(i, n), i)])
+        i = i + 1
+    tr
+
+let spectral_verify() =
+    let result = 0
+    let k4 = K4_adj()
+    let c4 = C4_adj()
+    let p4 = P4_adj()
+    if trace_adj(k4, 4) == 0
+        result = result + 1
+    if trace_adj(c4, 4) == 0
+        result = result + 1
+    if trace_adj(p4, 4) == 0
+        result = result + 1
+    let tr2_k4 = 0
+    let i = 0
+    for i < 4
+        tr2_k4 = gf_add(tr2_k4, vertex_degree(k4, 4, i))
+        i = i + 1
+    if tr2_k4 == 12
+        result = result + 1
+    let tr2_c4 = 0
+    let i2 = 0
+    for i2 < 4
+        tr2_c4 = gf_add(tr2_c4, vertex_degree(c4, 4, i2))
+        i2 = i2 + 1
+    if tr2_c4 == 8
+        result = result + 1
+    result
+
+let tree_verify() =
+    let result = 0
+    let p4 = P4_adj()
+    let s4 = S4_adj()
+    if edge_count(p4, 4) == 3
+        result = result + 1
+    if gf_sub(4, 1) == 3
+        result = result + 1
+    if edge_count(s4, 4) == 3
+        result = result + 1
+    let k4 = K4_adj()
+    if edge_count(k4, 4) != 3
+        result = result + 1
+    let c4 = C4_adj()
+    if edge_count(c4, 4) != 3
+        result = result + 1
+    result
+
+let bfs_distance(adj, n, s, target) =
+    let dist = 65536
+    if s == target
+        dist = 0
+    if s != target
+        if adj[gf_add(gf_mul(s, n), target)] != 0
+            dist = 1
+    if s != target
+        if adj[gf_add(gf_mul(s, n), target)] == 0
+            let found = 0
+            let k = 0
+            for k < n
+                if adj[gf_add(gf_mul(s, n), k)] != 0
+                    if adj[gf_add(gf_mul(k, n), target)] != 0
+                        found = 1
+                k = k + 1
+            if found == 1
+                dist = 2
+    dist
+
+let connectivity_verify() =
+    let result = 0
+    let k4 = K4_adj()
+    if bfs_distance(k4, 4, 0, 1) == 1
+        result = result + 1
+    if bfs_distance(k4, 4, 0, 2) == 1
+        result = result + 1
+    if bfs_distance(k4, 4, 0, 3) == 1
+        result = result + 1
+    if bfs_distance(k4, 4, 0, 0) == 0
+        result = result + 1
+    let p4 = P4_adj()
+    if bfs_distance(p4, 4, 0, 1) == 1
+        result = result + 1
+    if bfs_distance(p4, 4, 0, 2) == 2
+        result = result + 1
+    if bfs_distance(p4, 4, 0, 3) == 65536
+        result = result + 1
+    result
+
+let graph_pcd(deg_before, deg_after) =
+    let diff = gf_sub(deg_after, deg_before)
+    if diff > 32768
+        diff = gf_sub(0, diff)
+    diff
+
+let graph_rrc(d1, d2, d3) =
+    gf_sub(gf_add(d1, d3), gf_mul(2, d2))
+
+let graph_pcd_rrc_verify() =
+    let result = 0
+    if graph_pcd(2, 3) == 1
+        result = result + 1
+    if graph_pcd(3, 3) == 0
+        result = result + 1
+    if graph_rrc(1, 2, 3) == 0
+        result = result + 1
+    if graph_rrc(1, 1, 3) == 2
+        result = result + 1
+    if graph_rrc(3, 1, 1) == 2
+        result = result + 1
+    result
+
+let residueon_graph_verify() =
+    let ok = 0
+    ok = ok + graph_degree_verify()
+    ok = ok + handshaking_verify()
+    ok = ok + euler_formula_verify()
+    ok = ok + chromatic_verify()
+    ok = ok + spectral_verify()
+    ok = ok + tree_verify()
+    ok = ok + connectivity_verify()
+    ok = ok + graph_pcd_rrc_verify()
+
+    let k4 = K4_adj()
+    let field = rpf_make(k4, len(k4))
+    let primes = rpf_primes(field)
+    let same = 1
+    let i = 0
+    for i < 16
+        if primes[i] != k4[i]
+            same = 0
+        i = i + 1
+    if same == 1
+        ok = ok + 1
+
+    if rpf_fingerprint(field) == rpf_fingerprint(rpf_make(K4_adj(), 16))
+        ok = ok + 1
+
+    if rpf_count(field) == 16
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_graph_verify()

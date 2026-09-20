@@ -1,0 +1,236 @@
+import "residueon_common.ψ"
+
+let mra_verify() =
+    let result = 0
+    let dim_v0 = 3
+    let dim_v1 = gf_mul(dim_v0, 2)
+    let dim_v2 = gf_mul(dim_v1, 2)
+    if dim_v1 == 6
+        result = result + 1
+    if dim_v2 == gf_mul(dim_v0, 4)
+        result = result + 1
+    if dim_v1 > dim_v0
+        result = result + 1
+    result
+
+let scaling_equation_verify() =
+    let result = 0
+    let h0 = 1
+    let h1 = 1
+    if gf_add(h0, h1) == 2
+        result = result + 1
+    let g0 = h1
+    let g1 = gf_sub(0, h0)
+    if g0 == 1
+        result = result + 1
+    if g1 == 65536
+        result = result + 1
+    result
+
+let wavelet_transform_verify() =
+    let result = 0
+    let f = [3, 7, 11, 5]
+    let psi = [1, 65536]
+    let w0 = gf_add(gf_mul(f[0], psi[0]), gf_mul(f[1], psi[1]))
+    if w0 == gf_sub(3, 7)
+        result = result + 1
+    let w1 = gf_add(gf_mul(f[2], psi[0]), gf_mul(f[3], psi[1]))
+    if w1 == gf_sub(11, 5)
+        result = result + 1
+    if gf_add(gf_mul(2, w0), w1) == gf_add(gf_mul(2, w0), w1)
+        result = result + 1
+    result
+
+let parseval_verify() =
+    let result = 0
+    let f = [3, 7]
+    let psi = [1, 65536]
+    let energy = gf_add(gf_mul(f[0], f[0]), gf_mul(f[1], f[1]))
+    if energy == 58
+        result = result + 1
+    let coeff = gf_add(gf_mul(f[0], psi[0]), gf_mul(f[1], psi[1]))
+    let coeff_sq = gf_mul(coeff, coeff)
+    if coeff_sq == gf_mul(gf_sub(3, 7), gf_sub(3, 7))
+        result = result + 1
+    if gf_mul(1, energy) == energy
+        result = result + 1
+    result
+
+let mother_wavelet_verify() =
+    let result = 0
+    let psi0 = 1
+    let psi1 = 65536
+    if gf_add(psi0, psi1) == 0
+        result = result + 1
+    let norm_sq = gf_add(gf_mul(psi0, psi0), gf_mul(psi1, psi1))
+    if norm_sq == 2
+        result = result + 1
+    if gf_add(psi0, psi1) == 0
+        result = result + 1
+    result
+
+let lifting_scheme_verify() =
+    let result = 0
+    let x = [11, 13, 17, 19]
+    let e0 = x[0]
+    let e1 = x[2]
+    let o0 = x[1]
+    let o1 = x[3]
+    let d0 = gf_sub(o0, e0)
+    let d1 = gf_sub(o1, e1)
+    let e0_new = gf_add(e0, gf_div(d0, 2))
+    let e1_new = gf_add(e1, gf_div(d1, 2))
+    let o0_rec = gf_add(d0, e0)
+    if o0_rec == o0
+        result = result + 1
+    let o1_rec = gf_add(d1, e1)
+    if o1_rec == o1
+        result = result + 1
+    let e0_rec = gf_sub(e0_new, gf_div(d0, 2))
+    if e0_rec == e0
+        result = result + 1
+    result
+
+let daubechies_verify() =
+    let result = 0
+    let h0 = 1
+    let h1 = 1
+    let g0 = 1
+    let g1 = 65536
+    if gf_add(h0, h1) == 2
+        result = result + 1
+    let orth = gf_add(gf_mul(h0, g0), gf_mul(h1, g1))
+    if orth == 0
+        result = result + 1
+    let h_energy = gf_add(gf_mul(h0, h0), gf_mul(h1, h1))
+    let g_energy = gf_add(gf_mul(g0, g0), gf_mul(g1, g1))
+    if gf_mul(h_energy, g_energy) == 4
+        result = result + 1
+    result
+
+let wavelet_pcd_rrc_verify() =
+    let result = 0
+    let h0 = 1
+    let h1 = 1
+    let g0 = 1
+    let g1 = 65536
+    let pr = gf_add(gf_mul(h0, g0), gf_mul(h1, g1))
+    if pr == 0
+        result = result + 1
+    let alias = gf_sub(gf_mul(h0, g1), gf_mul(h1, g0))
+    if alias == 65535
+        result = result + 1
+    if gf_mul(h0, g0) == gf_mul(g0, h0)
+        result = result + 1
+    if gf_add(h0, g0) == gf_add(1, 1)
+        result = result + 1
+    let h_energy = gf_add(gf_mul(h0, h0), gf_mul(h1, h1))
+    let g_energy = gf_add(gf_mul(g0, g0), gf_mul(g1, g1))
+    if gf_mul(h_energy, g_energy) == 4
+        result = result + 1
+    result
+
+let residueon_wavelet_full_verify() =
+    let ok = 0
+
+    if mra_verify() == 3
+        ok = ok + 1
+    if scaling_equation_verify() == 3
+        ok = ok + 1
+    if wavelet_transform_verify() == 3
+        ok = ok + 1
+    if parseval_verify() == 3
+        ok = ok + 1
+    if mother_wavelet_verify() == 3
+        ok = ok + 1
+    if lifting_scheme_verify() == 3
+        ok = ok + 1
+    if daubechies_verify() == 3
+        ok = ok + 1
+    if wavelet_pcd_rrc_verify() == 5
+        ok = ok + 1
+
+    ok = ok + cross_domain_base()
+
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(1, 6) == 6
+        ok = ok + 1
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_mul(3, 3) == 9
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(30, 60) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(256, 256) == 65536
+        ok = ok + 1
+    if gf_add(1, 65536) == 0
+        ok = ok + 1
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+    if gf_add(2, 65535) == 0
+        ok = ok + 1
+    if gf_sub(10, gf_div(gf_sub(gf_mul(2, 10), 6), 2)) == 3
+        ok = ok + 1
+    if gf_add(gf_mul(3, 3), gf_mul(4, 4)) == 25
+        ok = ok + 1
+    if gf_add(gf_mul(1, 0), gf_mul(0, 1)) == 0
+        ok = ok + 1
+    if gf_mul(65536, 65536) == 1
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_sub(gf_mul(2, 3), 6) == 0
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_wavelet_full_verify()

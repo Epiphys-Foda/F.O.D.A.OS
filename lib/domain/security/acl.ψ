@@ -1,0 +1,391 @@
+let permission_new(resource, action, effect) =
+    [resource, action, effect]
+
+let perm_resource(p) = p[0]
+let perm_action(p) = p[1]
+let perm_effect(p) = p[2]
+
+let perm_matches(p, resource, action) =
+    if p[0] == resource
+        if p[1] == action
+            1
+        else
+            0
+        if p[1] == "*"
+            1
+        else
+            0
+    else
+        0
+    if p[0] == "*"
+        1
+    else
+        0
+
+let role_new(name) =
+    [name, [], 0]
+
+let role_name(r) = r[0]
+let role_perms(r) = r[1]
+let role_parent(r) = r[2]
+
+let role_add_permission(r, perm) =
+    let ps = role_perms(r)
+    ps.push(perm)
+    r[1] = ps
+    r
+
+let role_set_parent(r, parent_name) =
+    r[2] = parent_name
+    r
+
+let role_get_all_permissions(r, all_roles) =
+    let all = []
+    let ps = role_perms(r)
+    let i = 0
+    let n = len(ps)
+    for i < n
+        all.push(ps[i])
+        i = i + 1
+    let parent = role_parent(r)
+    if parent != 0
+        let pr = all_roles[parent]
+        if pr != 0
+            let parent_perms = role_get_all_permissions(pr, all_roles)
+            i = 0
+            n = len(parent_perms)
+            for i < n
+                all.push(parent_perms[i])
+                i = i + 1
+    all
+
+let user_roles_new() =
+    {}
+
+let ur_assign(ur, user_id, role_name) =
+    let roles = ur[user_id]
+    if roles == 0
+        roles = []
+    roles.push(role_name)
+    ur[user_id] = roles
+    ur
+
+let ur_get(ur, user_id) =
+    let roles = ur[user_id]
+    if roles == 0
+        []
+    else
+        roles
+
+let ur_revoke(ur, user_id, role_name) =
+    let roles = ur[user_id]
+    if roles != 0
+        let new_roles = []
+        let i = 0
+        let n = len(roles)
+        for i < n
+            if roles[i] != role_name
+                new_roles.push(roles[i])
+            i = i + 1
+        ur[user_id] = new_roles
+    ur
+
+let acl_new() =
+    {}
+
+let acl_entry_new(principal, permissions, effect) =
+    [principal, permissions, effect]
+
+let ae_principal(e) = e[0]
+let ae_perms(e) = e[1]
+let ae_effect(e) = e[2]
+
+let acl_add_entry(acl, resource, entry) =
+    let entries = acl[resource]
+    if entries == 0
+        entries = []
+    entries.push(entry)
+    acl[resource] = entries
+    acl
+
+let acl_check(acl, resource, principal, action) =
+    let entries = acl[resource]
+    if entries == 0
+        0
+    else
+        let i = 0
+        let n = len(entries)
+        let decision = 0
+        for i < n
+            let e = entries[i]
+            if ae_principal(e) == principal
+                let perms = ae_perms(e)
+                let j = 0
+                let m = len(perms)
+                for j < m
+                    if perms[j] == action
+                        decision = ae_effect(e)
+                        if decision == 1
+                            0
+                        j = m
+                    j = j + 1
+            i = i + 1
+        if decision == 0
+            1
+        else
+            0
+
+let abac_policy_new(desc, action, resource, condition, effect) =
+    [desc, action, resource, condition, effect]
+
+let pol_desc(p) = p[0]
+let pol_action(p) = p[1]
+let pol_resource(p) = p[2]
+let pol_condition(p) = p[3]
+let pol_effect(p) = p[4]
+
+let abac_evaluate(policy, subject_attrs, resource_attrs, env_attrs, action, resource) =
+    let ok_action = 0
+    if pol_action(policy) == action
+        ok_action = 1
+    else
+        0
+    if pol_action(policy) == "*"
+        ok_action = 1
+    let ok_resource = 0
+    if pol_resource(policy) == resource
+        ok_resource = 1
+    else
+        0
+    if pol_resource(policy) == "*"
+        ok_resource = 1
+    if ok_action == 1
+        if ok_resource == 1
+            let cond = pol_condition(policy)
+            if cond == "always"
+                pol_effect(policy)
+            else
+                0
+            if cond == "owner"
+                if subject_attrs["user_id"] == resource_attrs["owner"]
+                    pol_effect(policy)
+                else
+                    0 - 1
+            else
+                0
+            if cond == "same_dept"
+                if subject_attrs["dept"] == resource_attrs["dept"]
+                    pol_effect(policy)
+                else
+                    0 - 1
+            else
+                pol_effect(policy)
+        else
+            0 - 1
+    else
+        0 - 1
+
+let pdp_new() =
+    [user_roles_new(), {}, acl_new(), []]
+
+let pdp_ur(p) = p[0]
+let pdp_roles(p) = p[1]
+let pdp_acl(p) = p[2]
+let pdp_policies(p) = p[3]
+
+let pdp_register_role(p, role) =
+    let rs = pdp_roles(p)
+    rs[role_name(role)] = role
+    p[1] = rs
+    p
+
+let pdp_assign_role(p, user_id, role_name) =
+    let ur = pdp_ur(p)
+    ur = ur_assign(ur, user_id, role_name)
+    p[0] = ur
+    p
+
+let pdp_add_acl_entry(p, resource, entry) =
+    let acl = pdp_acl(p)
+    acl = acl_add_entry(acl, resource, entry)
+    p[2] = acl
+    p
+
+let pdp_add_policy(p, policy) =
+    let ps = pdp_policies(p)
+    ps.push(policy)
+    p[3] = ps
+    p
+
+let pdp_check_rbac(p, user_id, resource, action) =
+    let ur = pdp_ur(p)
+    let role_names = ur_get(ur, user_id)
+    let all_roles = pdp_roles(p)
+    let i = 0
+    let n = len(role_names)
+    let decision = 0
+    for i < n
+        let r = all_roles[role_names[i]]
+        if r != 0
+            let perms = role_get_all_permissions(r, all_roles)
+            let j = 0
+            let m = len(perms)
+            for j < m
+                if perm_matches(perms[j], resource, action) == 1
+                    if perm_effect(perms[j]) == 0
+                        decision = 1
+                    else
+                        0
+                    j = m
+                j = j + 1
+        i = i + 1
+    decision
+
+let pdp_check_acl(p, resource, principal, action) =
+    acl_check(pdp_acl(p), resource, principal, action)
+
+let pdp_check_abac(p, subject_attrs, resource_attrs, env_attrs, action, resource) =
+    let policies = pdp_policies(p)
+    let i = 0
+    let n = len(policies)
+    let decision = 0
+    for i < n
+        let pol = policies[i]
+        let eff = abac_evaluate(pol, subject_attrs, resource_attrs, env_attrs, action, resource)
+        if eff == 0
+            decision = 1
+        else
+            0
+        if eff == 1
+            0
+        i = i + 1
+    decision
+
+let pdp_authorize(p, user_id, action, resource, subject_attrs, resource_attrs, env_attrs) =
+    let rbac_ok = pdp_check_rbac(p, user_id, resource, action)
+    let acl_ok = pdp_check_acl(p, resource, user_id, action)
+    let abac_ok = pdp_check_abac(p, subject_attrs, resource_attrs, env_attrs, action, resource)
+    if rbac_ok == 0
+        if acl_ok == 0
+            if abac_ok == 0
+                0
+            else
+                1
+        else
+            1
+    else
+        1
+
+let acl_verify() =
+    let ok1 = 1
+    let p1 = permission_new("file:1", "read", 0)
+    let p2 = permission_new("file:1", "write", 1)
+    if perm_matches(p1, "file:1", "read") != 1
+        ok1 = 0
+    if perm_matches(p1, "file:1", "write") != 0
+        ok1 = 0
+    if perm_matches(p1, "file:2", "read") != 0
+        ok1 = 0
+    let p3 = permission_new("*", "read", 0)
+    if perm_matches(p3, "file:1", "read") != 1
+        ok1 = 0
+    if perm_matches(p3, "file:1", "write") != 0
+        ok1 = 0
+
+    let ok2 = 1
+    let admin = role_new("admin")
+    admin = role_add_permission(admin, permission_new("*", "*", 0))
+    let editor = role_new("editor")
+    editor = role_add_permission(editor, permission_new("file:*", "write", 0))
+    editor = role_set_parent(editor, "admin")
+    let all_roles = {}
+    all_roles["admin"] = admin
+    all_roles["editor"] = editor
+    let editor_perms = role_get_all_permissions(editor, all_roles)
+    if len(editor_perms) != 2
+        ok2 = 0
+
+    let ok3 = 1
+    let ur = user_roles_new()
+    ur = ur_assign(ur, 1, "editor")
+    ur = ur_assign(ur, 2, "viewer")
+    let r1 = ur_get(ur, 1)
+    if len(r1) != 1
+        ok3 = 0
+    if r1[0] != "editor"
+        ok3 = 0
+    ur = ur_revoke(ur, 1, "editor")
+    if len(ur_get(ur, 1)) != 0
+        ok3 = 0
+
+    let ok4 = 1
+    let acl = acl_new()
+    let e1 = acl_entry_new("alice", ["read", "write"], 0)
+    let e2 = acl_entry_new("bob", ["read"], 0)
+    acl = acl_add_entry(acl, "file:1", e1)
+    acl = acl_add_entry(acl, "file:1", e2)
+    if acl_check(acl, "file:1", "alice", "read") != 1
+        ok4 = 0
+    if acl_check(acl, "file:1", "alice", "write") != 1
+        ok4 = 0
+    if acl_check(acl, "file:1", "bob", "read") != 1
+        ok4 = 0
+    if acl_check(acl, "file:1", "bob", "write") != 0
+        ok4 = 0
+    if acl_check(acl, "file:1", "eve", "read") != 0
+        ok4 = 0
+
+    let ok5 = 1
+    let pol = abac_policy_new("owner_can_edit", "edit", "doc:*", "owner", 0)
+    let subj = {user_id: "alice", dept: "eng"}
+    let res = {owner: "alice", dept: "eng"}
+    let env_attr = {time: "day"}
+    let eff = abac_evaluate(pol, subj, res, env_attr, "edit", "doc:1")
+    if eff != 0
+        ok5 = 0
+    let res2 = {owner: "bob", dept: "eng"}
+    let eff2 = abac_evaluate(pol, subj, res2, env_attr, "edit", "doc:2")
+    if eff2 == 0
+        ok5 = 0
+    let pol_always = abac_policy_new("public_read", "read", "*", "always", 0)
+    let eff3 = abac_evaluate(pol_always, subj, res, env_attr, "read", "any")
+    if eff3 != 0
+        ok5 = 0
+
+    let ok6 = 1
+    let pdp = pdp_new()
+    pdp = pdp_register_role(pdp, admin)
+    pdp = pdp_register_role(pdp, editor)
+    pdp = pdp_assign_role(pdp, 1, "editor")
+    pdp = pdp_assign_role(pdp, 2, "admin")
+    let ok_rbac1 = pdp_check_rbac(pdp, 1, "file:1", "write")
+    if ok_rbac1 != 1
+        ok6 = 0
+    let ok_rbac2 = pdp_check_rbac(pdp, 2, "file:1", "delete")
+    if ok_rbac2 != 1
+        ok6 = 0
+    pdp = pdp_add_acl_entry(pdp, "file:1", acl_entry_new("alice", ["read"], 0))
+    pdp = pdp_add_acl_entry(pdp, "file:1", acl_entry_new("1", ["read"], 0))
+    let ok_acl1 = pdp_check_acl(pdp, "file:1", "1", "read")
+    if ok_acl1 != 1
+        ok6 = 0
+    let ok_acl2 = pdp_check_acl(pdp, "file:1", "1", "write")
+    if ok_acl2 != 0
+        ok6 = 0
+    pdp = pdp_add_policy(pdp, pol)
+    let ok_abac = pdp_check_abac(pdp, subj, res, env_attr, "edit", "doc:1")
+    if ok_abac != 1
+        ok6 = 0
+
+    let all_ok = ok1 * ok2 * ok3 * ok4 * ok5 * ok6
+    if all_ok == 1
+        print("acl_verify: ALL 6 PASS")
+    else
+        print("acl_verify: FAIL")
+        print(ok1)
+        print(ok2)
+        print(ok3)
+        print(ok4)
+        print(ok5)
+        print(ok6)
+    all_ok

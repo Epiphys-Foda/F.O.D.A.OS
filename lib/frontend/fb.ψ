@@ -1,0 +1,88 @@
+let rgb565(r, g, b) = ((r >> 3) << 11) + ((g >> 2) << 5) + (b >> 3)
+
+let fb_new(w, h) = [w, h] + arr_new(w * h)
+
+let fb_w(fb) = fb[0]
+let fb_h(fb) = fb[1]
+
+let fb_get(fb, x, y) = fb[2 + y * fb[0] + x]
+
+let fb_set(fb, x, y, c) = arr_set(fb, 2 + y * fb[0] + x, c)
+
+let fb_fill(fb, c) =
+    let w = fb[0]
+    let h = fb[1]
+    let y = 0
+    for y < h
+      let x = 0
+      for x < w
+        arr_set(fb, 2 + y * w + x, c)
+        x = x + 1
+      y = y + 1
+    fb
+
+let fb_rect(fb, x, y, rw, rh, c) =
+    let w = fb[0]
+    let h = fb[1]
+    let dy = 0
+    for dy < rh
+      let dx = 0
+      for dx < rw
+        let px = x + dx
+        let py = y + dy
+        if (px >= 0) && (py >= 0) && (px < w) && (py < h)
+          arr_set(fb, 2 + py * w + px, c)
+        else
+          0
+        dx = dx + 1
+      dy = dy + 1
+    fb
+
+let fb_line(fb, x0, y0, x1, y1, c) =
+    let w = fb[0]
+    let h = fb[1]
+    let x = x0
+    let y = y0
+    let dx = x1 - x0
+    let dy = y1 - y0
+    if dx < 0
+      dx = 0 - dx
+    else
+      0
+    if dy < 0
+      dy = 0 - dy
+    else
+      0
+    let sx = 1
+    if x0 > x1
+      sx = 0 - 1
+    else
+      0
+    let sy = 1
+    if y0 > y1
+      sy = 0 - 1
+    else
+      0
+    let err = dx - dy
+    let done = 0
+    for done == 0
+      if (x >= 0) && (y >= 0) && (x < w) && (y < h)
+        arr_set(fb, 2 + y * w + x, c)
+      else
+        0
+      if (x == x1) && (y == y1)
+        done = 1
+      else
+        0
+      let e2 = err << 1
+      if e2 > (0 - dy)
+        err = err - dy
+        x = x + sx
+      else
+        0
+      if e2 < dx
+        err = err + dx
+        y = y + sy
+      else
+        0
+    fb

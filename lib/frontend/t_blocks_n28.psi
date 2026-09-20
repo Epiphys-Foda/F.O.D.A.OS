@@ -1,0 +1,126 @@
+import "wblit.ψ"
+import "wui.ψ"
+import "wgraph.ψ"
+
+let init() =
+    let st = arr_new_n(96)
+    let fb = arr_new_n(160 * 120)
+    arr_set(st, 6, fb)
+    arr_set(st, 9, font_glyphs())
+    arr_set(st, 5, ui_ctx(st, fb, 160, 120, st[9]))
+    arr_set(st, 80, arr_new_n(4))
+    arr_set(st, 81, arr_new_n(4))
+    arr_set(st, 82, arr_new_n(16))
+    let cnt = arr_new_n(2)
+    arr_set(cnt, 0, 0)
+    arr_set(cnt, 1, 8)
+    arr_set(st, 83, cnt)
+    let kinds = arr_new_n(4)
+    arr_set(kinds, 0, 0)
+    arr_set(kinds, 1, 0)
+    arr_set(kinds, 2, 1)
+    arr_set(kinds, 3, 1)
+    arr_set(st, 85, kinds)
+    let vals = arr_new_n(14)
+    arr_set(st, 84, vals)
+    arr_set(vals, 0, 10)
+    arr_set(vals, 1, 20)
+    arr_set(vals, 2, 10)
+    arr_set(vals, 3, 84)
+    arr_set(vals, 4, 62)
+    arr_set(vals, 5, 48)
+    arr_set(vals, 6, 112)
+    arr_set(vals, 7, 48)
+    arr_set(vals, 8, 30)
+    arr_set(vals, 9, 60)
+    arr_set(vals, 10, 1)
+    st
+
+let near(px, py, x, y, r) =
+    ((px >= x - r) & (px < x + r)) & ((py >= y - r) & (py < y + r))
+
+let frame(st) =
+    let fb = st[6]
+    let fg = st[9]
+    let vals = st[84]
+    let nv = st[80]
+    let tmp = st[81]
+    let wires = st[82]
+    let cnt = st[83]
+    let kinds = st[85]
+    let mx = st[0]
+    let my = st[1]
+    let down = st[2]
+    let press = (down == 1) & (vals[12] == 0)
+    let u = st[5]
+    arr_set(nv, 0, vals[8])
+    arr_set(nv, 1, vals[9])
+    arr_set(nv, 2, 0)
+    arr_set(nv, 3, 0)
+    arr_set(kinds, 2, vals[10])
+    graph_eval2(4, kinds, wires, cnt, nv, tmp)
+    let k = 0
+    for k < cnt[0]
+      let s = wires[k * 2]
+      let d = wires[k * 2 + 1]
+      draw_line(fb, 160, 120, vals[s * 2] + 44, vals[s * 2 + 1] + 10, vals[d * 2], vals[d * 2 + 1] + 10, 2890776)
+      k = k + 1
+    if vals[11] > 0
+      draw_line(fb, 160, 120, vals[(vals[11] - 1) * 2] + 44, vals[(vals[11] - 1) * 2 + 1] + 10, mx, my, 7184480)
+    if press == 1
+      if vals[11] == 0
+        if near(mx, my, vals[0] + 44, vals[1] + 10, 4) == 1
+          arr_set(vals, 11, 1)
+          arr_set(st, 4, 99)
+        if near(mx, my, vals[2] + 44, vals[3] + 10, 4) == 1
+          arr_set(vals, 11, 2)
+          arr_set(st, 4, 99)
+        if near(mx, my, vals[4] + 44, vals[5] + 10, 4) == 1
+          arr_set(vals, 11, 3)
+          arr_set(st, 4, 99)
+        if near(mx, my, vals[6] + 44, vals[7] + 10, 4) == 1
+          arr_set(vals, 11, 4)
+          arr_set(st, 4, 99)
+      else
+        let src = vals[11] - 1
+        let done = 0
+        if near(mx, my, vals[2], vals[3] + 10, 4) == 1
+          wire_toggle(wires, cnt, src, 1)
+          arr_set(vals, 11, 0)
+          done = 1
+        if (done == 0) & (near(mx, my, vals[4], vals[5] + 10, 4) == 1)
+          wire_toggle(wires, cnt, src, 2)
+          arr_set(vals, 11, 0)
+          done = 1
+        if (done == 0) & (near(mx, my, vals[6], vals[7] + 10, 4) == 1)
+          wire_toggle(wires, cnt, src, 3)
+          arr_set(vals, 11, 0)
+          done = 1
+        if done == 0
+          arr_set(vals, 11, 0)
+        arr_set(st, 4, 99)
+    ui_node(u, 21, vals, 0, 1, 44, 24, "SRC A")
+    ui_node(u, 22, vals, 2, 3, 44, 24, "SRC B")
+    ui_node(u, 23, vals, 4, 5, 44, 24, "OP")
+    ui_node(u, 24, vals, 6, 7, 44, 24, "OUT")
+    ui_slider(u, 31, vals[0] + 4, vals[1] + 14, 34, vals, 8)
+    ui_slider(u, 32, vals[2] + 4, vals[3] + 14, 34, vals, 9)
+    let kc = ui_button(u, 41, vals[4] + 26, vals[5] + 14, 14, 9, "K")
+    if kc == 1
+      arr_set(vals, 10, kind_next(vals[10]))
+    if vals[10] == 1
+      blit_text(fb, 160, 120, vals[4] + 3, vals[5] + 15, "S", 13668464, fg)
+    else
+      blit_text(fb, 160, 120, vals[4] + 3, vals[5] + 15, "M", 13668464, fg)
+    blit_num(u, vals[6] + 4, vals[7] + 14, nv[3])
+    arr_set(nv, 0, vals[8])
+    arr_set(nv, 1, vals[9])
+    arr_set(nv, 2, 0)
+    arr_set(nv, 3, 0)
+    graph_eval2(4, kinds, wires, cnt, nv, tmp)
+    if (st[4] == 99) & (down == 0)
+      arr_set(st, 4, 0)
+    arr_set(vals, 12, down)
+    present_size(160, 120)
+    present(fb, 160 * 120)
+    0

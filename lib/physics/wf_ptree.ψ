@@ -1,0 +1,73 @@
+let P = 65537
+let P2 = 131071
+
+import "../core/stdlib_lang2/gf_canon_shared.ψ"
+import "sh_d39d441e28.ψ"
+import "../core/stdlib_lang2/bm_canon.ψ"
+import "sh_ee308d734f.ψ"
+import "wf_brain.ψ"
+import "sh_bffc56f968.ψ"
+import "sh_0fe08dee05.ψ"
+let in_set(S, sn, id) =
+    let found = 0
+    let i = 0
+    for i < sn
+        let eq = 0
+        if S[i] == id
+            eq = 1
+        found = found + eq
+        i = i + 1
+    found
+
+let proof_tree(R, F, ST, PF, PR, target, out) =
+    let bfc = ST[3]
+    let pc = ST[2]
+    let NEED = arr_new_n(64)
+    NEED[0] = target
+    let nn = 1
+    let RS = arr_new_n(32)
+    let nr = 0
+    let rsum = 0
+    let step = 0
+    for step < pc
+        let k = pc - 1 - step
+        let f = PF[k]
+        let ineed = in_set(NEED, nn, f)
+        let fire = 0
+        if ineed == 1
+            fire = 1
+        if fire == 1
+            let ri = PR[k]
+            RS[nr] = ri
+            nr = nr + 1
+            rsum = rsum + ri
+            let w = 0
+            let j = 0
+            for j < nn
+                let keep = 0
+                if NEED[j] != f
+                    keep = 1
+                if keep == 1
+                    NEED[w] = NEED[j]
+                    w = w + 1
+                j = j + 1
+            nn = nn - 1
+            let p1 = R[3 * ri]
+            let p2 = R[3 * ri + 1]
+            let b1 = f_known(F, bfc, p1)
+            if b1 == 0
+                let in1 = in_set(NEED, nn, p1)
+                if in1 == 0
+                    NEED[nn] = p1
+                    nn = nn + 1
+            let b2 = f_known(F, bfc, p2)
+            if b2 == 0
+                let in2 = in_set(NEED, nn, p2)
+                if in2 == 0
+                    NEED[nn] = p2
+                    nn = nn + 1
+        step = step + 1
+    out[0] = nr
+    out[1] = nn
+    out[2] = rsum
+    0

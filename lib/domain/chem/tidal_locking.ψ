@@ -1,0 +1,54 @@
+import "ck.ψ"
+let bad = [0]
+
+let rot_moon = 273
+let orb_moon = 273
+let dz1 = rot_moon - orb_moon
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let mer_rot = 58646
+let mer_orb = 87969
+let two_orb = 2 * mer_orb
+let three_rot = 3 * mer_rot
+let dz2 = two_orb - three_rot
+bad[0] = bad[0] + ck(dz2, 0, 0)
+let dz3 = two_orb - 175938
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let k_tide = 8000
+let f_near = k_tide / (10 * 10 * 10)
+let dz4 = f_near - 8
+bad[0] = bad[0] + ck(dz4, 0, 0)
+let f_far = k_tide / (20 * 20 * 20)
+let dz5 = f_far - 1
+bad[0] = bad[0] + ck(dz5, 0, 0)
+let dz6 = f_near - 8 * f_far
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+let rec_yr = 38
+let rec_cen = rec_yr * 100
+let dz7 = rec_cen - 3800
+bad[0] = bad[0] + ck(dz7, 0, 0)
+
+let day_ms = 86400000 + 2
+let dz8 = day_ms - 86400002
+bad[0] = bad[0] + ck(dz8, 0, 0)
+
+let ms_mm = 27069
+let ds = 389
+let ds3 = ds * ds * ds
+let tide_sun = ms_mm * 100 * 1000 / ds3
+let dz9 = tide_sun - 45
+bad[0] = bad[0] + ck(dz9, 0, 0)
+bad[0] = bad[0] + ck_hi(tide_sun, 50)
+
+if 1969 < 1967
+    bad[0] = bad[0] + 1
+if 1969 > 1971
+    bad[0] = bad[0] + 1
+if 1879 < 1877
+    bad[0] = bad[0] + 1
+if 1879 > 1881
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,42 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let h3s = small_div(300, 35)
+let lah = small_div(1000, 149)
+let cah = small_div(600, 46)
+bad[0] = bad[0] + ck(h3s, 7, 10)
+bad[0] = bad[0] + ck(lah, 5, 8)
+bad[0] = bad[0] + ck(cah, 11, 15)
+
+let hg = 4
+let mgb2 = 39
+let ybco = 93
+let h3s = 203
+let lah10 = 250
+bad[0] = bad[0] + ck_lo(h3s, mgb2)
+bad[0] = bad[0] + ck_lo(lah10, h3s)
+bad[0] = bad[0] + ck_lo(ybco, mgb2)
+
+let p_h3s = 155
+let p_lah10 = 170
+bad[0] = bad[0] + ck(p_h3s, 140, 175)
+bad[0] = bad[0] + ck(p_lah10, 160, 180)
+bad[0] = bad[0] + ck_lo(p_lah10, 100)
+
+bad[0] = bad[0] + ck_lo(lah10, h3s)
+
+let ceiling = 39
+bad[0] = bad[0] + ck(ceiling, 35, 43)
+
+if 2015 < 2013
+    bad[0] = bad[0] + 1
+if 2015 > 2017
+    bad[0] = bad[0] + 1
+if 2020 < 2018
+    bad[0] = bad[0] + 1
+if 2020 > 2022
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

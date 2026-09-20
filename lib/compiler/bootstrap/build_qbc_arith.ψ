@@ -1,0 +1,71 @@
+import "../../core/stdlib/fs.ψ"
+
+let my_qbc_to_x86(qbc) =
+    let x86 = [83, 87, 86, 76, 137, 195, 73, 137, 201, 73, 137, 210].flat()
+    let pc = 0
+    let done = 0
+    for done == 0
+      let op = qbc[pc]
+      pc = pc + 1
+      if op == 65
+        let v = qbc[pc]
+        pc = pc + 1
+        let u = (v < 0 ? v + 4294967296 : v)
+        let b0 = u - (u / 256) * 256
+        let v1 = u / 256
+        let b1 = v1 - (v1 / 256) * 256
+        let v2 = v1 / 256
+        let b2 = v2 - (v2 / 256) * 256
+        let b3 = v2 / 256
+        x86 = [x86, [104, b0, b1, b2, b3]].flat()
+      else
+        0
+      if op == 106
+        x86 = [x86, [88, 89, 72, 1, 200, 80]].flat()
+      else
+        0
+      if op == 107
+        x86 = [x86, [88, 89, 72, 41, 193, 81]].flat()
+      else
+        0
+      if op == 108
+        x86 = [x86, [88, 89, 72, 15, 175, 193, 80]].flat()
+      else
+        0
+      if op == 109
+        x86 = [x86, [89, 88, 72, 153, 72, 247, 249, 80]].flat()
+      else
+        0
+      if op == 11
+      else
+        0
+      if pc >= len(qbc)
+        done = 1
+      else
+        0
+      0
+    let seg = [88, 94, 95, 91, 195].flat()
+    [x86, seg].flat()
+
+let qbc_add = [65, 1, 65, 2, 106, 11]
+let x86_add = my_qbc_to_x86(qbc_add)
+let n_add = arc_save(x86_add, 0, "qbc_add.arc")
+
+let qbc_sub = [65, 5, 65, 3, 107, 11]
+let x86_sub = my_qbc_to_x86(qbc_sub)
+let n_sub = arc_save(x86_sub, 0, "qbc_sub.arc")
+
+let qbc_mul = [65, 3, 65, 4, 108, 11]
+let x86_mul = my_qbc_to_x86(qbc_mul)
+let n_mul = arc_save(x86_mul, 0, "qbc_mul.arc")
+
+let qbc_div = [65, 8, 65, 2, 109, 11]
+let x86_div = my_qbc_to_x86(qbc_div)
+let n_div = arc_save(x86_div, 0, "qbc_div.arc")
+
+[
+  [len(qbc_add), len(x86_add), n_add],
+  [len(qbc_sub), len(x86_sub), n_sub],
+  [len(qbc_mul), len(x86_mul), n_mul],
+  [len(qbc_div), len(x86_div), n_div]
+]

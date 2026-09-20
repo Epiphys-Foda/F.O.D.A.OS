@@ -1,0 +1,22 @@
+import "ops.ψ"
+
+let ops_demo_form(s) =
+    let i = 0
+    i = ops_clear(s, i, rgb565(8, 12, 20))
+    i = ops_rect(s, i, 10, 10, 300, 220, rgb565(12, 24, 44))
+    i = ops_rect(s, i, 20, 24, 130, 36, rgb565(28, 62, 120))
+    i = ops_rect(s, i, 170, 24, 130, 36, rgb565(120, 62, 28))
+    i = ops_line(s, i, 20, 78, 300, 78, rgb565(60, 95, 90))
+    i = ops_rect(s, i, 20, 92, 280, 118, rgb565(16, 30, 30))
+    i = ops_line(s, i, 20, 92, 300, 210, rgb565(40, 70, 70))
+    i = ops_point(s, i, 160, 120, rgb565(250, 240, 170))
+    i = ops_frame(s, i)
+    i
+
+let ops_hash(s, len) =
+    let hsh = 0
+    let k = 0
+    for k < len
+      hsh = ((hsh * 31) + s[k]) & 65535
+      k = k + 1
+    hsh

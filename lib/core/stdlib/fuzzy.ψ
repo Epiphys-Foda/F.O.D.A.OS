@@ -1,0 +1,155 @@
+let fuzzy_triangle(x, a, b, c) =
+    if x <= a || x >= c
+        0
+    else
+        0
+    if x == b
+        1000
+    else
+        0
+    if x < b
+        (x - a) * 1000 / (b - a)
+    else
+        (c - x) * 1000 / (c - b)
+
+let fuzzy_trapezoid(x, a, b, c, d) =
+    if x <= a || x >= d
+        0
+    else
+        0
+    if x >= b && x <= c
+        1000
+    else
+        0
+    if x < b
+        (x - a) * 1000 / (b - a)
+    else
+        (d - x) * 1000 / (d - c)
+
+let fuzzy_gaussian(x, mean, sigma) =
+    let d = x - mean
+    let arg = d * d * 1000 / (2 * sigma * sigma)
+    let result = 1000 - arg
+    if result < 0
+        0
+    else
+        result
+
+let fuzzy_sigmoid(x, center, steepness) =
+    let arg = steepness * (x - center) / 1000
+    if arg > 500
+        1000
+    else
+        0
+    if arg < -500
+        0
+    else
+        1000 * (500 + arg) / 1000
+
+let fuzzy_and(a, b) =
+    (a < b ? a : b)
+
+let fuzzy_or(a, b) =
+    (a > b ? a : b)
+
+let fuzzy_not(a) =
+    1000 - a
+
+let fuzzy_algebraic_and(a, b) =
+    a * b / 1000
+
+let fuzzy_algebraic_or(a, b) =
+    a + b - a * b / 1000
+
+let fuzzy_implication_mamdani(a, b) =
+    fuzzy_and(a, b)
+
+let fuzzy_implication_larsen(a, b) =
+    a * b / 1000
+
+let defuzzify_centroid(values, universe) =
+    let numerator = 0
+    let denominator = 0
+    let i = 0
+    for i < values.len()
+        numerator = numerator + universe[i] * values[i]
+        denominator = denominator + values[i]
+        i = i + 1
+    if denominator == 0
+        0
+    else
+        numerator / denominator
+
+let defuzzify_mean_of_max(values, universe) =
+    let max_val = 0
+    let i = 0
+    for i < values.len()
+        if values[i] > max_val
+            max_val = values[i]
+        i = i + 1
+    let sum = 0
+    let count = 0
+    let i = 0
+    for i < values.len()
+        if values[i] == max_val
+            sum = sum + universe[i]
+            count = count + 1
+        i = i + 1
+    if count == 0
+        0
+    else
+        sum / count
+
+let defuzzify_bisector(values, universe) =
+    let total = 0
+    let i = 0
+    for i < values.len()
+        total = total + values[i]
+        i = i + 1
+    let half = total / 2
+    let cumsum = 0
+    let i = 0
+    for i < values.len()
+        cumsum = cumsum + values[i]
+        if cumsum >= half
+            return universe[i]
+        i = i + 1
+    universe[universe.len() - 1]
+
+let fuzzy_rule_eval(antecedents, consequent) =
+    let strength = 1000
+    let i = 0
+    for i < antecedents.len()
+        strength = fuzzy_and(strength, antecedents[i])
+        i = i + 1
+    strength
+
+let fuzzy_inference(rules, inputs) =
+    let output = 0
+    let total_strength = 0
+    let i = 0
+    for i < rules.len()
+        let rule = rules[i]
+        let strength = fuzzy_rule_eval(rule[0], rule[1])
+        output = output + strength * rule[1] / 1000
+        total_strength = total_strength + strength
+        i = i + 1
+    if total_strength == 0
+        0
+    else
+        output * 1000 / total_strength
+
+let main() =
+    let v1 = fuzzy_triangle(5, 0, 5, 10)
+    print(v1)
+    let v2 = fuzzy_trapezoid(5, 0, 3, 7, 10)
+    print(v2)
+    let v3 = fuzzy_and(700, 300)
+    print(v3)
+    let v4 = fuzzy_or(700, 300)
+    print(v4)
+    let vals = [0, 500, 1000, 500, 0]
+    let univ = [0, 25, 50, 75, 100]
+    let v5 = defuzzify_centroid(vals, univ)
+    print(v5)
+    0

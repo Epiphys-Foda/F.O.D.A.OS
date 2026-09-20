@@ -1,0 +1,248 @@
+import "../stdlib/gf65537.ψ"
+import "../stdlib/rational.ψ"
+import "domain_list.ψ"
+
+let representation_gf(rho, g) =
+    rho[g]
+
+let rep_mul_gf(rho, g, h) =
+    mat_mul_gf(rho[g], rho[h])
+
+let rep_dimension_gf(rho) =
+    len(rho[0])
+
+let character_gf(rho, g) =
+    matrix_trace_gf(rho[g])
+
+let matrix_trace_gf(M) =
+    matrix_trace_rec_gf(M, 0, 0)
+
+let matrix_trace_rec_gf(M, i, acc) =
+        if i >= len(M)
+            acc
+        else
+            matrix_trace_rec_gf(M, i + 1, gf_add(acc, M[i][i]))
+
+let character_inner_product_gf(chi1, chi2, group_size) =
+    let sum = char_inner_sum_gf(chi1, chi2, 0, 0)
+    gf_div(sum, group_size)
+
+let char_inner_sum_gf(chi1, chi2, g, acc) =
+        if g >= len(chi1)
+            acc
+        else
+            let term = gf_mul(chi1[g], chi2[g])
+            char_inner_sum_gf(chi1, chi2, g + 1, gf_add(acc, term))
+
+let is_irreducible_gf(chi, group_size) =
+    let inner = character_inner_product_gf(chi, chi, group_size)
+    (inner == 1) ? 1 : 0
+
+let maschke_projection_gf(rho, P, group_size) =
+    let sum = maschke_sum_gf(rho, P, 0, 0)
+    gf_div(sum, group_size)
+
+let maschke_sum_gf(rho, P, g, acc) =
+        if g >= len(rho)
+            acc
+        else
+            let rho_g = rho[g]
+            let rho_g_inv = matrix_inv_gf(rho_g)
+            let term = mat_mul_gf(mat_mul_gf(rho_g, P), rho_g_inv)
+            maschke_sum_gf(rho, P, g + 1, mat_add_gf(acc, term))
+
+let matrix_inv_gf(M) =
+    let det = matrix_det_gf(M)
+    let adjugate = matrix_adjugate_gf(M)
+    matrix_div_scalar_gf(adjugate, det)
+
+let matrix_det_gf(M) = det_gf(M)
+
+let matrix_adjugate_gf(M) =
+        if len(M) == 2
+            [[M[1][1], gf_sub(0, M[0][1])], [gf_sub(0, M[1][0]), M[0][0]]]
+        else
+            M
+
+let matrix_div_scalar_gf(M, s) =
+    matrix_div_scalar_rec_gf(M, s, 0, [])
+
+let matrix_div_scalar_rec_gf(M, s, i, result) =
+        if i >= len(M)
+            result
+        else
+            matrix_div_scalar_rec_gf(M, s, i + 1, append(result, vec_div_scalar_gf(M[i], s)))
+
+let schur_lemma_gf(T, rho) =
+        let commutes = schur_commutes_gf(T, rho, 0, 1)
+        if commutes == 1
+            T[0][0]
+        else
+            0
+
+let schur_commutes_gf(T, rho, g, valid) =
+        if g >= len(rho) || valid == 0
+            valid
+        else
+            let TP = mat_mul_gf(T, rho[g])
+            let PT = mat_mul_gf(rho[g], T)
+            if mat_eq_gf(TP, PT) == 1
+                schur_commutes_gf(T, rho, g + 1, valid)
+            else
+                schur_commutes_gf(T, rho, g + 1, 0)
+
+let mat_eq_gf(A, B) =
+    mat_eq_rec_gf(A, B, 0, 0, 1)
+
+let mat_eq_rec_gf(A, B, i, j, eq) =
+        if i >= len(A) || eq == 0
+            eq
+        else
+            if j >= len(A[i])
+                mat_eq_rec_gf(A, B, i + 1, 0, eq)
+                if A[i][j] != B[i][j]
+                    mat_eq_rec_gf(A, B, i, j + 1, 0)
+                else
+                    mat_eq_rec_gf(A, B, i, j + 1, eq)
+
+let peter_weyl_gf(characters, group_size) =
+    peter_weyl_orthogonal_gf(characters, group_size, 0, 1)
+
+let peter_weyl_orthogonal_gf(chars, G, i, valid) =
+        if i >= len(chars) || valid == 0
+            valid
+        else
+            let orth = peter_weyl_check_gf(chars, G, i, 0, 1)
+            peter_weyl_orthogonal_gf(chars, G, i + 1, gf_mul(valid, orth))
+
+let peter_weyl_check_gf(chars, G, i, j, valid) =
+        if j >= len(chars) || valid == 0
+            valid
+        else
+            if i == j
+                peter_weyl_check_gf(chars, G, i, j + 1, valid)
+            else
+                let inner = character_inner_product_gf(chars[i], chars[j], G)
+                if inner == 0
+                    peter_weyl_check_gf(chars, G, i, j + 1, valid)
+                else
+                    peter_weyl_check_gf(chars, G, i, j + 1, 0)
+
+let tensor_product_rep_gf(rho1, rho2, g) =
+    kronecker_product_gf(rho1[g], rho2[g])
+
+let kronecker_product_gf(A, B) =
+    kronecker_rec_gf(A, B, 0, 0, [])
+
+let kronecker_rec_gf(A, B, i, j, result) =
+        if i >= len(A)
+            result
+        else
+            if j >= len(A[i])
+                kronecker_rec_gf(A, B, i + 1, 0, result)
+            else
+                let block = scalar_mat_mul_gf(A[i][j], B)
+                kronecker_rec_gf(A, B, i, j + 1, append(result, block))
+
+let scalar_mat_mul_gf(c, M) =
+    scalar_mat_mul_rec_gf(c, M, 0, [])
+
+let scalar_mat_mul_rec_gf(c, M, i, result) =
+        if i >= len(M)
+            result
+        else
+            scalar_mat_mul_rec_gf(c, M, i + 1, append(result, scalar_vec_mul_gf(c, M[i])))
+
+let scalar_vec_mul_gf(c, v) =
+    scalar_vec_mul_rec_gf(c, v, 0, [])
+
+let scalar_vec_mul_rec_gf(c, v, i, result) =
+        if i >= len(v)
+            result
+        else
+            scalar_vec_mul_rec_gf(c, v, i + 1, append(result, gf_mul(c, v[i])))
+
+let tensor_character_gf(chi1, chi2, g) =
+    gf_mul(chi1[g], chi2[g])
+
+let induced_representation_gf(rho, coset_reps) =
+    induced_rep_rec_gf(rho, coset_reps, 0, [])
+
+let induced_rep_rec_gf(rho, coset_reps, i, result) =
+        if i >= len(coset_reps)
+            result
+        else
+            let s = coset_reps[i]
+            let s_inv = gf_div(1, s)
+            let block = scalar_mat_mul_gf(gf_mul(s, s_inv), rho[0])
+            induced_rep_rec_gf(rho, coset_reps, i + 1, append(result, block))
+
+let frobenius_reciprocity_gf(ind_char, psi, G, res_char, chi, H) =
+    let lhs = character_inner_product_gf(ind_char, psi, G)
+    let rhs = character_inner_product_gf(chi, res_char, H)
+    (lhs == rhs) ? 1 : 0
+
+let clifford_theory_gf(rho, N) =
+    clifford_decompose_gf(rho, N, 0, [])
+
+let clifford_decompose_gf(rho, N, i, components) =
+        if i >= len(N)
+            components
+        else
+            let component = rho[N[i]]
+            clifford_decompose_gf(rho, N, i + 1, append(components, component))
+
+let brauer_character_gf(rho, g, p_regular) =
+        if p_regular == 1
+            character_gf(rho, g)
+        else
+            0
+
+let is_p_regular_gf(g, group_order, p) =
+    let ord = element_order_gf(g, group_order)
+    (gcd_gf(ord, p) == 1) ? 1 : 0
+
+let element_order_gf(g, group_order) =
+    element_order_rec_gf(g, group_order, 1, g)
+
+let element_order_rec_gf(g, group_order, k, g_pow) =
+        if k > group_order
+            group_order
+        else
+            if g_pow == 1
+                k
+            else
+                element_order_rec_gf(g, group_order, k + 1, gf_mul(g_pow, g))
+
+let gcd_gf(a, b) = gcd(a, b)
+
+let group_algebra_gf(coeffs, group) =
+    [coeffs, group]
+
+let group_algebra_mul_gf(x, y) =
+    let coeffs_x = x[0]
+    let coeffs_y = y[0]
+    group_algebra_conv_gf(coeffs_x, coeffs_y, 0, 0, 0)
+
+let group_algebra_conv_gf(cx, cy, i, j, acc) =
+        if i >= len(cx)
+            acc
+        else
+            if j >= len(cy)
+                group_algebra_conv_gf(cx, cy, i + 1, 0, acc)
+            else
+                let term = gf_mul(cx[i], cy[j])
+                group_algebra_conv_gf(cx, cy, i, j + 1, gf_add(acc, term))
+
+let frobenius_schur_indicator_gf(chi, group_size) =
+    let sum = fs_indicator_sum_gf(chi, 0, 0)
+    gf_div(sum, group_size)
+
+let fs_indicator_sum_gf(chi, g, acc) =
+        if g >= len(chi)
+            acc
+        else
+            let g_sq = gf_mul(g, g) % len(chi)
+            let term = chi[g_sq]
+            fs_indicator_sum_gf(chi, g + 1, gf_add(acc, term))
+

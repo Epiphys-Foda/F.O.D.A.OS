@@ -1,0 +1,144 @@
+let sm_make(offset, line, col) =
+    let entry = arr_new_n(3)
+    entry[0] = offset
+    entry[1] = line
+    entry[2] = col
+    entry
+
+let sm_create() = arr_new()
+
+let sm_add(map, offset, line, col) =
+    arr_push(map, sm_make(offset, line, col))
+
+let sm_lookup(map, offset) =
+    let best = 0
+    let i = 0
+    for i < map.len()
+        if map[i][0] <= offset && map[i][0] >= map[best][0]
+            best = i
+        i = i + 1
+    map[best]
+
+let bp_create() = arr_new()
+
+let bp_add(bps, offset) = arr_push(bps, offset)
+
+let bp_remove(bps, offset) =
+    let result = arr_new()
+    let i = 0
+    for i < bps.len()
+        if bps[i] != offset
+            result = arr_push(result, bps[i])
+       0        i = i + 1
+    result
+
+let bp_hit(bps, offset) =
+    let i = 0
+    for i < bps.len()
+        if bps[i] == offset
+            return 1
+        i = i + 1
+    0
+
+let trace_create(max_entries) =
+    let trace = arr_new_n(2)
+    trace[0] = arr_new()
+    trace[1] = max_entries
+    trace
+
+let trace_add(trace, offset, op, val) =
+    let entries = trace[0]
+    let max_e = trace[1]
+    if entries.len() < max_e
+        let entry = arr_new_n(3)
+        entry[0] = offset
+        entry[1] = op
+        entry[2] = val
+        trace[0] = arr_push(entries, entry)
+
+let trace_dump(trace) =
+    let entries = trace[0]
+    let result = arr_new()
+    let i = 0
+    for i < entries.len()
+        let e = entries[i]
+        let line = arr_new()
+        line = arr_push(line, e[0])
+        line = arr_push(line, 58)
+        line = arr_push(line, 32)
+        line = arr_push(line, e[1])
+        line = arr_push(line, 32)
+        line = arr_push(line, e[2])
+        line = arr_push(line, 10)
+        result = arr_push(result, line)
+        i = i + 1
+    result
+
+let prof_create(n_opcodes) =
+    let counts = arr_new_n(n_opcodes)
+    let i = 0
+    for i < n_opcodes
+        counts[i] = 0
+        i = i + 1
+    counts
+
+let prof_record(prof, opcode) =
+    if opcode < prof.len()
+        prof[opcode] = prof[opcode] + 1
+
+let prof_hotspots(prof, threshold) =
+    let hot = arr_new()
+    let i = 0
+    for i < prof.len()
+        if prof[i] >= threshold
+            let entry = arr_new_n(2)
+            entry[0] = i
+            entry[1] = prof[i]
+            hot = arr_push(hot, entry)
+        i = i + 1
+    hot
+
+let var_inspect_create() = arr_new()
+
+let var_inspect_set(inspector, name, value, type_tag) =
+    let entry = arr_new_n(3)
+    entry[0] = name
+    entry[1] = value
+    entry[2] = type_tag
+    arr_push(inspector, entry)
+
+let var_inspect_get(inspector, name) =
+    let i = 0
+    for i < inspector.len()
+        if inspector[i][0] == name
+            return inspector[i][1]
+        i = i + 1
+    0
+
+let var_inspect_dump(inspector) =
+    let result = arr_new()
+    let i = 0
+    for i < inspector.len()
+        let e = inspector[i]
+        let line = arr_new()
+        line = arr_push(line, e[0])
+        line = arr_push(line, 61)
+        line = arr_push(line, e[1])
+        line = arr_push(line, 10)
+        result = arr_push(result, line)
+        i = i + 1
+    result
+
+let debug_session_create() =
+    let session = arr_new_n(5)
+    session[0] = sm_create()
+    session[1] = bp_create()
+    session[2] = trace_create(10000)
+    session[3] = prof_create(27)
+    session[4] = var_inspect_create()
+    session
+
+let debug_step(session, offset, op, val) =
+    trace_add(session[2], offset, op, val)
+    prof_record(session[3], op)
+    bp_hit(session[1], offset)

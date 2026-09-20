@@ -1,0 +1,149 @@
+let gfx_pack_rgba(r, g, b, a) = r * 16777216 + g * 65536 + b * 256 + a
+
+let gfx_pack_rgb(r, g, b) = r * 16777216 + g * 65536 + b * 256 + 255
+
+let gfx_arr_set(arr, idx, val) =
+    let result = []
+    let i = 0
+    let n = len(arr)
+    for i < n
+      if i == idx
+        result = result.push(val)
+      else
+        result = result.push(arr[i])
+        0
+      i = i + 1
+    result
+
+let gfx_create(w, h) =
+    let fb = []
+    let i = 0
+    let total = w * h
+    for i < total
+      fb = fb.push(0)
+      i = i + 1
+    fb
+
+let gfx_get_pixel(fb, w, x, y) = fb[y * w + x]
+
+let gfx_set_pixel(fb, w, x, y, color) = gfx_arr_set(fb, y * w + x, color)
+
+let gfx_fill_rect(fb, w, h, x, y, rw, rh, color) =
+    let fb2 = fb
+    let dy = 0
+    for dy < rh
+      let dx = 0
+      for dx < rw
+        let px = x + dx
+        let py = y + dy
+        if (px < w) && (py < h)
+          fb2 = gfx_set_pixel(fb2, w, px, py, color)
+        else
+          0
+        dx = dx + 1
+      dy = dy + 1
+    fb2
+
+let gfx_draw_line(fb, w, x0, y0, x1, y1, color) =
+    let x = x0
+    let y = y0
+    let dx = x1 - x0
+    let dy = y1 - y0
+    if dx < 0
+      dx = 0 - dx
+    else
+      0
+    if dy < 0
+      dy = 0 - dy
+    else
+      0
+    let sx = 1
+    if x0 > x1
+      sx = 0 - 1
+    else
+      0
+    let sy = 1
+    if y0 > y1
+      sy = 0 - 1
+    else
+      0
+    let err = dx - dy
+    let done = 0
+    for done == 0
+      fb = gfx_set_pixel(fb, w, x, y, color)
+      if (x == x1) && (y == y1)
+        done = 1
+      else
+        0
+      let e2 = 2 * err
+      if e2 > (0 - dy)
+        err = err - dy
+        x = x + sx
+      else
+        0
+      if e2 < dx
+        err = err + dx
+        y = y + sy
+      else
+          0
+    fb
+
+let gfx_gradient_v(fb, w, h, top_color, bot_color) =
+    let fb2 = fb
+    let y = 0
+    for y < h
+      let tr = top_color / 16777216
+      let tg = (top_color / 65536) - (tr * 256)
+      let tb = (top_color / 256) - (top_color / 65536) * 256
+      let br = bot_color / 16777216
+      let bg = (bot_color / 65536) - (br * 256)
+      let bb = (bot_color / 256) - (bot_color / 65536) * 256
+      let dr = br - tr
+      let dg = bg - tg
+      let db = bb - tb
+      let r = tr + (dr * y / h)
+      let g = tg + (dg * y / h)
+      let b = tb + (db * y / h)
+      let c = gfx_pack_rgb(r, g, b)
+      let x = 0
+      for x < w
+        fb2 = gfx_set_pixel(fb2, w, x, y, c)
+        x = x + 1
+      y = y + 1
+    fb2
+
+let gfx_scene_demo(w, h) =
+    let bg = gfx_pack_rgb(30, 60, 120)
+    let white = gfx_pack_rgb(255, 255, 255)
+    let red = gfx_pack_rgb(220, 50, 50)
+    let green = gfx_pack_rgb(50, 220, 80)
+    let fb0 = gfx_create(w, h)
+    let fb1 = gfx_fill_rect(fb0, w, h, 0, 0, w, h, bg)
+    let fb2 = gfx_draw_line(fb1, w, 0, 0, w - 1, h - 1, white)
+    let fb3 = gfx_draw_line(fb2, w, w - 1, 0, 0, h - 1, white)
+    let fb4 = gfx_fill_rect(fb3, w, h, w / 4, h / 4, w / 2, h / 2, red)
+    gfx_fill_rect(fb4, w, h, w / 3, h / 3, w / 3, h / 3, green)
+
+let gfx_gradient_h(fb, w, h, left_color, right_color) =
+    let fb2 = fb
+    let x = 0
+    for x < w
+      let lr = left_color / 16777216
+      let lg = (left_color / 65536) - (lr * 256)
+      let lb = (left_color / 256) - (left_color / 65536) * 256
+      let rr = right_color / 16777216
+      let rg = (right_color / 65536) - (rr * 256)
+      let rb = (right_color / 256) - (right_color / 65536) * 256
+      let dr = rr - lr
+      let dg = rg - lg
+      let db = rb - lb
+      let r = lr + (dr * x / w)
+      let g = lg + (dg * x / w)
+      let b = lb + (db * x / w)
+      let c = gfx_pack_rgb(r, g, b)
+      let y = 0
+      for y < h
+        fb2 = gfx_set_pixel(fb2, w, x, y, c)
+        y = y + 1
+      x = x + 1
+    fb2

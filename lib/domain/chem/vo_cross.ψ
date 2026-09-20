@@ -1,0 +1,39 @@
+import "ck.ψ"
+let bad = [0]
+
+let vS90 = 0
+let eS90 = 426 * 100 - 156 * 272
+if eS90 < 0
+    vS90 = vS90 + 1
+let fS90 = 157 * 272 - 426 * 100
+if fS90 < 1
+    vS90 = vS90 + 1
+bad[0] = bad[0] + vS90 * vS90
+let vS82 = 0
+let eS82 = 1087 * 100 - 182 * 597
+if eS82 < 0
+    vS82 = vS82 + 1
+let fS82 = 183 * 597 - 1087 * 100
+if fS82 < 1
+    vS82 = vS82 + 1
+bad[0] = bad[0] + vS82 * vS82
+
+let dslope = 182 - 156 - 26
+bad[0] = bad[0] + dslope * dslope
+
+let r90 = 708 - 417
+let dr90 = r90 - 291
+bad[0] = bad[0] + dr90 * dr90
+let r82 = 1289 - 1722
+let ar82 =
+    if r82 < 0
+        0 - r82
+    else
+        r82
+let dr82 = ar82 - 433
+bad[0] = bad[0] + dr82 * dr82
+
+bad[0] = bad[0] + ck_lo(r90, 1)
+bad[0] = bad[0] + ck_lo(ar82, 1)
+
+arr_get(arr_new_n(1), bad[0])

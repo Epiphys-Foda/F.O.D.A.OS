@@ -1,0 +1,117 @@
+let heap_new(size) =
+    [[], [], size]
+
+let heap_alloc(heap, obj) =
+    let id = heap[0].len()
+    heap[0] = arr_concat(heap[0], [obj])
+    id
+
+let heap_get(heap, id) =
+    heap[0][id]
+
+let heap_set(heap, id, obj) =
+    heap[0][id] = obj
+
+let mark_sweep(heap, roots) =
+    let n = heap[0].len()
+    let marked = []
+    let i = 0
+    for i < n
+        marked = arr_concat(marked, [0])
+        i = i + 1
+    let queue = []
+    let i = 0
+    for i < roots.len()
+        queue = arr_concat(queue, [roots[i]])
+        i = i + 1
+    for queue.len() > 0
+        let id = queue[0]
+        queue = arr_drop(queue, 1)
+        if id >= 0 && id < n && marked[id] == 0
+            marked[id] = 1
+    let freed = 0
+    let i = 0
+    for i < n
+        if marked[i] == 0
+            heap[0][i] = 0
+            freed = freed + 1
+        i = i + 1
+    freed
+
+let refcount_new() =
+    []
+
+let refcount_alloc(rc, obj) =
+    let id = rc.len()
+    rc = arr_concat(rc, [1])
+    id
+
+let refcount_incref(rc, id) =
+    rc[id] = rc[id] + 1
+
+let refcount_decref(rc, id) =
+    rc[id] = rc[id] - 1
+    rc[id] == 0
+
+let refcount_is_garbage(rc, id) =
+    rc[id] == 0
+
+let copying_gc(from_space, to_space, roots) =
+    let scan_ptr = 0
+    let free_ptr = 0
+    let forwarding = []
+    let i = 0
+    for i < from_space.len()
+        forwarding = arr_concat(forwarding, [-1])
+        i = i + 1
+    let i = 0
+    for i < roots.len()
+        let old_id = roots[i]
+        if forwarding[old_id] == -1
+            forwarding[old_id] = free_ptr
+            to_space = arr_concat(to_space, [from_space[old_id]])
+            free_ptr = free_ptr + 1
+        i = i + 1
+    for scan_ptr < free_ptr
+        scan_ptr = scan_ptr + 1
+    [to_space, forwarding, free_ptr]
+
+let generation_new() =
+    [[], [], 10]
+
+let generation_alloc(gen, obj) =
+    let id = gen[0].len()
+    gen[0] = arr_concat(gen[0], [[obj, 1]])
+    id
+
+let generation_promote(gen, id) =
+    if id < gen[0].len()
+        let obj = gen[0][id]
+        obj[1] = obj[1] + 1
+        if obj[1] >= gen[2]
+            gen[1] = arr_concat(gen[1], [obj[0]])
+            gen[0][id] = [0, 0]
+            1
+        else
+            0
+    else
+        0
+
+let generation_minor_gc(gen, roots) =
+    let freed = mark_sweep([gen[0], [], 0], roots)
+    freed
+
+let generation_major_gc(gen, roots) =
+    let freed1 = generation_minor_gc(gen, roots)
+    let freed2 = mark_sweep([gen[1], [], 0], roots)
+    freed1 + freed2
+
+let main() =
+    let heap = heap_new(100)
+    let id1 = heap_alloc(heap, 42)
+    let id2 = heap_alloc(heap, 99)
+    let id3 = heap_alloc(heap, 77)
+    let freed = mark_sweep(heap, [id1])
+    print(freed)
+    print(heap_get(heap, id1))
+    0

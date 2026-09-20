@@ -1,0 +1,39 @@
+let bad = [0]
+let e6 = 1000000
+let e12 = e6 * e6
+
+let INT_N = 10546 * 269439
+let INT_D = 251327412 * 6674 * 1989 * 13807
+let V1 = INT_N * e12
+if 61 * INT_D > V1
+    bad[0] = bad[0] + 1
+if V1 > 63 * INT_D
+    bad[0] = bad[0] + 1
+
+let INT_D2 = 251327412 * 6674 * 3978 * 13807
+if 30 * INT_D2 > V1
+    bad[0] = bad[0] + 1
+if V1 > 32 * INT_D2
+    bad[0] = bad[0] + 1
+
+if 2725000000 < 61000
+    bad[0] = bad[0] + 1
+
+let V4 = 1989 * INT_N * e12
+let Z4 = INT_D * 2725
+if 44 * Z4 > V4
+    bad[0] = bad[0] + 1
+if V4 > 46 * Z4
+    bad[0] = bad[0] + 1
+if V4 * 100 > 7346 * Z4
+    bad[0] = bad[0] + 1
+
+let NUM_T = 1608495 * 6674 * 6674 * 1989 * 1989 * 1989
+let DEN_T = 10546 * 80776
+let SCALE5 = DEN_T * 31557600 * e6
+if 18 * SCALE5 > NUM_T
+    bad[0] = bad[0] + 1
+if NUM_T > 24 * SCALE5
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

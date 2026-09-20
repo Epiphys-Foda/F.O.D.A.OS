@@ -1,0 +1,114 @@
+let viterbi(observations, transition, emission, initial, n_states, n_obs) =
+    let delta = []
+    let psi = []
+    let i = 0
+    for i < n_states
+        delta = arr_concat(delta, [initial[i] * emission[i * n_obs + observations[0]] / 1000])
+        psi = arr_concat(psi, [0])
+        i = i + 1
+    let t = 1
+    for t < observations.len()
+        let new_delta = []
+        let new_psi = []
+        let j = 0
+        for j < n_states
+            let max_val = -1
+            let max_state = 0
+            let i = 0
+            for i < n_states
+                let val = delta[i] * transition[i * n_states + j] / 1000
+                if val > max_val
+                    max_val = val
+                    max_state = i
+                i = i + 1
+            new_delta = arr_concat(new_delta, [max_val * emission[j * n_obs + observations[t]] / 1000])
+            new_psi = arr_concat(new_psi, [max_state])
+            j = j + 1
+        delta = new_delta
+        psi = arr_concat(psi, new_psi)
+        t = t + 1
+    let best_last = 0
+    let best_val = -1
+    let i = 0
+    for i < n_states
+        if delta[i] > best_val
+            best_val = delta[i]
+            best_last = i
+        i = i + 1
+    let path = [best_last]
+    let t = observations.len() - 1
+    for t > 0
+        let prev = psi[t * n_states + path[0]]
+        path = arr_concat([prev], path)
+        t = t - 1
+    path
+
+let forward_algorithm(observations, transition, emission, initial, n_states, n_obs) =
+    let alpha = []
+    let init_alpha = []
+    let i = 0
+    for i < n_states
+        init_alpha = arr_concat(init_alpha, [initial[i] * emission[i * n_obs + observations[0]] / 1000])
+        i = i + 1
+    alpha = arr_concat(alpha, [init_alpha])
+    let t = 1
+    for t < observations.len()
+        let new_alpha = []
+        let j = 0
+        for j < n_states
+            let sum = 0
+            let i = 0
+            for i < n_states
+                sum = sum + alpha[t - 1][i] * transition[i * n_states + j] / 1000
+                i = i + 1
+            new_alpha = arr_concat(new_alpha, [sum * emission[j * n_obs + observations[t]] / 1000])
+            j = j + 1
+        alpha = arr_concat(alpha, [new_alpha])
+        t = t + 1
+    alpha
+
+let backward_algorithm(observations, transition, emission, n_states, n_obs) =
+    let T = observations.len()
+    let beta = []
+    let init_beta = []
+    let i = 0
+    for i < n_states
+        init_beta = arr_concat(init_beta, [1000])
+        i = i + 1
+    beta = arr_concat(beta, [init_beta])
+    let t = T - 2
+    for t >= 0
+        let new_beta = []
+        let i = 0
+        for i < n_states
+            let sum = 0
+            let j = 0
+            for j < n_states
+                sum = sum + transition[i * n_states + j] * emission[j * n_obs + observations[t + 1]] * beta[0][j] / 1000000
+                j = j + 1
+            new_beta = arr_concat(new_beta, [sum])
+            i = i + 1
+        beta = arr_concat([new_beta], beta)
+        t = t - 1
+    beta
+
+let sequence_probability(alpha, n_states) =
+    let T = alpha.len()
+    let sum = 0
+    let i = 0
+    for i < n_states
+        sum = sum + alpha[T - 1][i]
+        i = i + 1
+    sum
+
+let main() =
+    let obs = [0, 1, 0]
+    let trans = [700, 300, 400, 600]
+    let emiss = [100, 900, 800, 200]
+    let init = [500, 500]
+    let path = viterbi(obs, trans, emiss, init, 2, 2)
+    print(path)
+    let alpha = forward_algorithm(obs, trans, emiss, init, 2, 2)
+    let prob = sequence_probability(alpha, 2)
+    print(prob)
+    0

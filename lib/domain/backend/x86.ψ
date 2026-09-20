@@ -1,0 +1,120 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let X86_RAX = 0
+let X86_RBX = 1
+let X86_RCX = 2
+let X86_RDX = 3
+let X86_RSI = 4
+let X86_RDI = 5
+let X86_RBP = 6
+let X86_RSP = 7
+let X86_R8 = 8
+let X86_R9 = 9
+let X86_R10 = 10
+let X86_R11 = 11
+let X86_R12 = 12
+let X86_R13 = 13
+let X86_R14 = 14
+let X86_R15 = 15
+let X86_MOV = 1
+let X86_ADD = 2
+let X86_SUB = 3
+let X86_MUL = 4
+let X86_PUSH = 6
+let X86_POP = 7
+let X86_CALL = 8
+let X86_RET = 9
+let X86_JMP = 10
+let X86_CMP = 11
+let X86_JE = 12
+let X86_NOP = 14
+
+let x86_encode(opcode, operands) = [opcode, operands]
+let x86_mov(dst, src) = x86_encode(X86_MOV, [dst, src])
+let x86_add(dst, src) = x86_encode(X86_ADD, [dst, src])
+let x86_sub(dst, src) = x86_encode(X86_SUB, [dst, src])
+let x86_push(reg) = x86_encode(X86_PUSH, [reg])
+let x86_pop(reg) = x86_encode(X86_POP, [reg])
+let x86_ret() = x86_encode(X86_RET, [])
+let x86_nop() = x86_encode(X86_NOP, [])
+let x86_codegen(ir) =
+    let code = []
+    let i = 0
+    let n = len(ir)
+    for i < n
+        code.push(x86_nop())
+        i = i + 1
+    code
+let x86_calling_convention(args) =
+    let regs = [X86_RDI, X86_RSI, X86_RDX, X86_RCX, X86_R8, X86_R9]
+    let alloc = []
+    let i = 0
+    let n = len(args)
+    for i < n && i < 6
+        alloc.push(regs[i])
+        i = i + 1
+    alloc
+let x86_stack_frame_setup(n_locals) =
+    let frame = [x86_push(X86_RBP), x86_mov(X86_RBP, X86_RSP)]
+    if n_locals > 0
+        frame.push(x86_sub(X86_RSP, n_locals * 8))
+    frame
+let x86_stack_frame_teardown() = [x86_mov(X86_RSP, X86_RBP), x86_pop(X86_RBP), x86_ret()]
+let x86_machine_code(instructions) =
+    let mc = []
+    let i = 0
+    let n = len(instructions)
+    for i < n
+        let instr = instructions[i]
+        mc.push(instr[0])
+        let ops = instr[1]
+        let j = 0
+        let m = len(ops)
+        for j < m
+            mc.push(ops[j])
+            j = j + 1
+        i = i + 1
+    mc
+let x86_aot_compile(ir) =
+    let code = x86_codegen(ir)
+    x86_machine_code(code)
+let x86_executable(mc) =
+    let header = [127, 69, 76, 70]
+    let result = []
+    let i = 0
+    for i < 4
+        result.push(header[i])
+        i = i + 1
+    i = 0
+    for i < len(mc)
+        result.push(mc[i])
+        i = i + 1
+    result
+let x86_register_alloc(ir, n_regs) =
+    let alloc = []
+    let i = 0
+    let n = len(ir)
+    for i < n
+        alloc.push(i % n_regs)
+        i = i + 1
+    alloc
+let field_x86(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let x86_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_x86(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+

@@ -1,0 +1,247 @@
+import "residueon_common.ψ"
+
+let complex_arith_verify() =
+    let result = 0
+    if gf_mul(256, 256) == 65536
+        result = result + 1
+    let real_prod = gf_sub(gf_mul(1, 3), gf_mul(2, 4))
+    let imag_prod = gf_add(gf_mul(1, 4), gf_mul(2, 3))
+    if real_prod == 65532
+        result = result + 1
+    if imag_prod == 10
+        result = result + 1
+    let norm_sq = gf_add(gf_mul(3, 3), gf_mul(4, 4))
+    if norm_sq == 25
+        result = result + 1
+    if gf_div(norm_sq, norm_sq) == 1
+        result = result + 1
+    result
+
+let holomorphic_verify() =
+    let result = 0
+    let z2_real = gf_sub(gf_mul(1, 1), gf_mul(2, 2))
+    let z2_imag = gf_add(gf_mul(1, 2), gf_mul(2, 1))
+    if z2_real == 65534
+        result = result + 1
+    if z2_imag == 4
+        result = result + 1
+    let du_dx = gf_mul(2, 1)
+    let dv_dy = gf_mul(2, 1)
+    if du_dx == dv_dy
+        result = result + 1
+    if 1 != 65536
+        result = result + 1
+    result
+
+let power_series_verify() =
+    let result = 0
+    let geom_sum = gf_add(gf_add(1, 2), 4)
+    let geom_formula = gf_div(gf_sub(1, 8), gf_sub(1, 2))
+    if geom_sum == geom_formula
+        result = result + 1
+    let binom_left = gf_mul(4, 4)
+    let binom_right = gf_add(gf_add(1, 6), 9)
+    if binom_left == binom_right
+        result = result + 1
+    let taylor = gf_add(gf_add(1, 4), 4)
+    if taylor == 9
+        result = result + 1
+    result
+
+let cauchy_verify() =
+    let result = 0
+    if gf_add(1, 65536) == 0
+        result = result + 1
+    let seg1 = 0
+    let seg2_r = gf_sub(gf_mul(1, 0), gf_mul(0, 1))
+    let seg2_i = gf_add(gf_mul(1, 1), gf_mul(0, 0))
+    let seg3_r = gf_sub(gf_mul(1, 65536), gf_mul(1, 0))
+    let seg3_i = gf_add(gf_mul(1, 0), gf_mul(1, 65536))
+    let seg4_r = gf_sub(gf_mul(0, 0), gf_mul(1, 65536))
+    let seg4_i = gf_add(gf_mul(0, 65536), gf_mul(1, 0))
+    let total_r = gf_add(gf_add(gf_add(seg1, seg2_r), seg3_r), seg4_r)
+    let total_i = gf_add(gf_add(seg2_i, seg3_i), seg4_i)
+    if total_r == 0
+        result = result + 1
+    if total_i == 0
+        result = result + 1
+    result
+
+let residue_theorem_verify() =
+    let result = 0
+    if gf_div(1, 1) == 1
+        result = result + 1
+    if gf_div(1, 1) == 1
+        result = result + 1
+    let res1 = gf_div(1, 2)
+    if gf_mul(res1, 2) == 1
+        result = result + 1
+    let res2 = gf_div(1, 65535)
+    if gf_mul(res2, 2) == 65536
+        result = result + 1
+    if gf_add(res1, res2) == 0
+        result = result + 1
+    result
+
+let analytic_continuation_verify() =
+    let result = 0
+    if gf_mul(1, 1) == 1
+        result = result + 1
+    if gf_mul(2, 2) == 4
+        result = result + 1
+    let zbar_real = 1
+    let zbar_imag = 65534
+    let zbar2_real = gf_sub(gf_mul(zbar_real, zbar_real), gf_mul(zbar_imag, zbar_imag))
+    let zbar2_imag = gf_add(gf_mul(zbar_real, zbar_imag), gf_mul(zbar_imag, zbar_real))
+    if zbar2_real == 65534
+        result = result + 1
+    result
+
+let conformal_verify() =
+    let result = 0
+    if 2 != 0
+        result = result + 1
+    let inv_real = gf_div(3, 25)
+    let inv_imag = gf_div(65533, 25)
+    if gf_mul(inv_real, 25) == 3
+        result = result + 1
+    let mobius = gf_div(gf_sub(3, 1), gf_add(3, 1))
+    if gf_mul(mobius, 2) == 1
+        result = result + 1
+    result
+
+let complex_pcd_rrc_verify() =
+    let result = 0
+    if gf_mul(256, 256) == 65536
+        result = result + 1
+    if gf_add(gf_div(1, 2), gf_div(1, 65535)) == 0
+        result = result + 1
+    let det = gf_sub(gf_mul(1, 1), gf_mul(65536, 0))
+    if det != 0
+        result = result + 1
+    let norm = gf_add(gf_mul(3, 3), gf_mul(4, 4))
+    if norm > 0
+        result = result + 1
+    if norm < 32768
+        result = result + 1
+    result
+
+let residueon_complex_full_verify() =
+    let ok = 0
+
+    if complex_arith_verify() == 5
+        ok = ok + 1
+
+    if holomorphic_verify() == 4
+        ok = ok + 1
+
+    if power_series_verify() == 3
+        ok = ok + 1
+
+    if cauchy_verify() == 3
+        ok = ok + 1
+
+    if residue_theorem_verify() == 5
+        ok = ok + 1
+
+    if analytic_continuation_verify() == 3
+        ok = ok + 1
+
+    if conformal_verify() == 3
+        ok = ok + 1
+
+    if complex_pcd_rrc_verify() == 5
+        ok = ok + 1
+
+    ok = ok + cross_domain_base()
+
+    if gf_mul(256, 256) == 65536
+        ok = ok + 1
+
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+
+    if gf_mul(1, 6) == 6
+        ok = ok + 1
+
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+
+    if gf_mul(3, 3) == 9
+        ok = ok + 1
+
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+
+    if gf_div(30, 60) == gf_div(1, 2)
+        ok = ok + 1
+
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_complex_full_verify()

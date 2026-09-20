@@ -1,0 +1,34 @@
+import "ck.ψ"
+let bad = [0]
+
+let f1 = 440
+let f2 = 443
+let bt = f2 - f1
+bad[0] = bad[0] + ck(bt, 2, 5)
+
+let tuned = 0
+bad[0] = bad[0] + ck(tuned, 0, 0)
+
+let ifk = 455
+bad[0] = bad[0] + ck(ifk, 440, 470)
+
+let us = 3247
+bad[0] = bad[0] + ck(us, 2000, 5000)
+
+let alt = 1
+bad[0] = bad[0] + ck_lo(alt, 1)
+
+if 1700 < 1698
+    bad[0] = bad[0] + 1
+if 1700 > 1702
+    bad[0] = bad[0] + 1
+if 1918 < 1916
+    bad[0] = bad[0] + 1
+if 1918 > 1920
+    bad[0] = bad[0] + 1
+if 1960 < 1958
+    bad[0] = bad[0] + 1
+if 1960 > 1962
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

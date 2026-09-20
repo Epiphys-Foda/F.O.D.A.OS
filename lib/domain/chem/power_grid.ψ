@@ -1,0 +1,40 @@
+import "ck.ψ"
+let bad = [0]
+
+let p = 1000
+let v1_kv = 50
+let i1_ka = 20
+let v2_kv = 250
+let i2_ka = 4
+let dz1 = v1_kv * i1_ka - p
+bad[0] = bad[0] + ck(dz1, 0, 0)
+let dz2 = v2_kv * i2_ka - p
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let l_low = 400
+let l_high = 16
+let dz3 = l_low - l_high * 25
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let l1 = 400
+let l4 = 25
+let dz4 = l4 * 16 - l1
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let ac = 1
+bad[0] = bad[0] + ck_lo(ac, 1)
+
+if 1893 < 1891
+    bad[0] = bad[0] + 1
+if 1893 > 1895
+    bad[0] = bad[0] + 1
+if 1896 < 1894
+    bad[0] = bad[0] + 1
+if 1896 > 1898
+    bad[0] = bad[0] + 1
+if 1896 < 1893
+    bad[0] = bad[0] + 1
+let uhv = 1100
+bad[0] = bad[0] + ck(uhv, 1000, 1200)
+
+arr_get(arr_new_n(1), bad[0])

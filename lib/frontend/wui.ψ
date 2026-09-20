@@ -1,0 +1,646 @@
+let ui_ctx(st, fb, w, h, fg) =
+    let u = arr_new_n(40)
+    arr_set(u, 0, fb)
+    arr_set(u, 1, w)
+    arr_set(u, 2, h)
+    arr_set(u, 3, st)
+    arr_set(u, 4, fg)
+    arr_set(u, 14, aurora_theme_dark())
+    arr_set(st, 5, u)
+    u
+
+let aurora_theme_dark() =
+    let t = arr_new_n(12)
+    arr_set(t, 0, 524801)
+    arr_set(t, 1, 2233360)
+    arr_set(t, 2, 5779496)
+    arr_set(t, 3, 5779496)
+    arr_set(t, 4, 6832176)
+    arr_set(t, 5, 4726816)
+    arr_set(t, 6, 13668464)
+    arr_set(t, 7, 2890776)
+    arr_set(t, 8, 7184480)
+    arr_set(t, 9, 4210951)
+    arr_set(t, 10, 1052688)
+    t
+
+let aurora_theme_light() =
+    let t = arr_new_n(12)
+    arr_set(t, 0, 966520)
+    arr_set(t, 1, 14200944)
+    arr_set(t, 2, 13670496)
+    arr_set(t, 3, 13672552)
+    arr_set(t, 4, 14725232)
+    arr_set(t, 5, 12619872)
+    arr_set(t, 6, 4202512)
+    arr_set(t, 7, 8415328)
+    arr_set(t, 8, 5797920)
+    arr_set(t, 9, 16112767)
+    arr_set(t, 10, 8549998)
+    t
+
+let ui_theme(u, th) =
+    arr_set(u, 14, th)
+    0
+
+let theme(u, slot) =
+    let t = u[14]
+    t[slot]
+
+let ui_layout(u, x, y, w, h) =
+    arr_set(u, 5, x)
+    arr_set(u, 6, y)
+    arr_set(u, 7, 0)
+    arr_set(u, 8, x + w)
+    arr_set(u, 9, y + h)
+    arr_set(u, 12, x)
+    arr_set(u, 13, 4)
+    0
+
+let ui_gap(u, g) =
+    arr_set(u, 13, g)
+    0
+
+let ui_place(u, w, h) =
+    let rx = u[5]
+    let ry = u[6]
+    let rh = u[7]
+    let gap = u[13]
+    let wrap = (rx + w) > u[8]
+    let nrx = rx
+    let nry = ry
+    let nrh = rh
+    if wrap == 1
+      nrx = u[12]
+      nry = ry + rh + gap
+      if u[15] == 0
+        nrh = h
+    if wrap == 0
+      if h > rh
+        if u[15] == 0
+          nrh = h
+    arr_set(u, 10, nrx)
+    arr_set(u, 11, nry)
+    arr_set(u, 5, nrx + w + gap)
+    arr_set(u, 6, nry)
+    arr_set(u, 7, nrh)
+    0
+
+let ui_row(u, h) =
+    arr_set(u, 7, h)
+    arr_set(u, 15, 1)
+    0
+
+let ui_row_end(u) =
+    arr_set(u, 6, u[6] + u[7] + u[13])
+    arr_set(u, 5, u[12])
+    arr_set(u, 15, 0)
+    0
+
+let ui_begin(u) =
+    let st = u[3]
+    arr_set(st, 3, 0)
+    0
+
+let ui_hover(u, x, y, w, h) =
+    let st = u[3]
+    let mx = st[0]
+    let my = st[1]
+    let inrect = ((mx >= x) & (mx < x + w)) & ((my >= y) & (my < y + h))
+    let gate = 1
+    if u[34] != 0
+      gate = ((mx >= u[32]) & (mx < u[32] + u[34])) & ((my >= u[33]) & (my < u[33] + u[35]))
+    inrect * gate
+
+let ui_panel(u, x, y, pw, ph) =
+    let fb = u[0]
+    let w = u[1]
+    let h = u[2]
+    let th = u[14]
+    fill_rect(fb, w, h, x, y, pw, ph, th[2])
+    fill_rect(fb, w, h, x + 1, y + 1, pw - 2, ph - 2, th[1])
+    0
+
+let ui_button(u, id, x, y, bw, bh, label) =
+    let st = u[3]
+    let fb = u[0]
+    let w = u[1]
+    let h = u[2]
+    let fg = u[4]
+    let th = u[14]
+    let mx = st[0]
+    let my = st[1]
+    let down = st[2]
+    let hovered = ui_hover(u, x, y, bw, bh)
+    if (hovered == 1) & (st[3] == 0)
+      arr_set(st, 3, id)
+    let ishot = st[3] == id
+    if (down == 1) & (hovered == 1)
+      if st[4] == 0
+        arr_set(st, 4, id)
+    let isact = st[4] == id
+    let col = isact * th[5] + (1 - isact) * (ishot * th[4] + (1 - ishot) * th[3])
+    fill_rect(fb, w, h, x, y, bw, bh, col)
+    blit_text(fb, w, h, x + 3, y + ((bh - 6) // 2), label, th[6], fg)
+    let clicked = 0
+    if down == 0
+      if isact == 1
+        if hovered == 1
+          clicked = 1
+      if st[4] == id
+        arr_set(st, 4, 0)
+    clicked
+
+let ui_slider(u, id, x, y, sw, vals, vi) =
+    let st = u[3]
+    let fb = u[0]
+    let w = u[1]
+    let h = u[2]
+    let th = u[14]
+    let mx = st[0]
+    let my = st[1]
+    let down = st[2]
+    let hovered = ui_hover(u, x - 2, y, sw + 4, 14)
+    if (hovered == 1) & (st[3] == 0)
+      arr_set(st, 3, id)
+    if (down == 1) & (hovered == 1)
+      if st[4] == 0
+        arr_set(st, 4, id)
+    if (st[4] == id) & (down == 1)
+      let nv = mx - x
+      let c1 = nv < 0
+      let c2 = nv > sw
+      arr_set(vals, vi, c1 * 0 + (1 - c1) * (c2 * sw + (1 - c2) * nv))
+    if down == 0
+      if st[4] == id
+        arr_set(st, 4, 0)
+    let val = vals[vi]
+    fill_rect(fb, w, h, x, y + 5, sw, 4, th[7])
+    fill_rect(fb, w, h, x + val - 2, y + 1, 5, 13, th[8])
+    val
+
+let ui_toggle(u, id, x, y, label, vals, vi) =
+    let st = u[3]
+    let fb = u[0]
+    let w = u[1]
+    let h = u[2]
+    let fg = u[4]
+    let th = u[14]
+    let mx = st[0]
+    let my = st[1]
+    let down = st[2]
+    let hovered = ui_hover(u, x, y, 12, 12)
+    if (hovered == 1) & (st[3] == 0)
+      arr_set(st, 3, id)
+    if (down == 1) & (hovered == 1)
+      if st[4] == 0
+        arr_set(st, 4, id)
+    let isact = st[4] == id
+    if down == 0
+      if isact == 1
+        if hovered == 1
+          arr_set(vals, vi, 1 - vals[vi])
+      if st[4] == id
+        arr_set(st, 4, 0)
+    fill_rect(fb, w, h, x, y, 11, 11, th[9])
+    if vals[vi] == 1
+      fill_rect(fb, w, h, x + 3, y + 3, 5, 5, th[8])
+    blit_text(fb, w, h, x + 16, y + 2, label, th[6], fg)
+    vals[vi]
+
+let ui_select(u, id, x, y, bw, opts, on, vals, vi) =
+    let st = u[3]
+    let fb = u[0]
+    let w = u[1]
+    let h = u[2]
+    let fg = u[4]
+    let th = u[14]
+    let mx = st[0]
+    let my = st[1]
+    let down = st[2]
+    let bh = 14
+    let open = vals[vi + 1]
+    let hovered = ui_hover(u, x, y, bw, 14)
+    if (hovered == 1) & (st[3] == 0)
+      arr_set(st, 3, id)
+    let ishot = st[3] == id
+    if (down == 1) & (hovered == 1)
+      if st[4] == 0
+        arr_set(st, 4, id)
+    let isact = st[4] == id
+    if down == 0
+      if isact == 1
+        if hovered == 1
+          arr_set(vals, vi + 1, 1 - open)
+      if st[4] == id
+        arr_set(st, 4, 0)
+    let col = isact * th[5] + (1 - isact) * (ishot * th[4] + (1 - ishot) * th[3])
+    fill_rect(fb, w, h, x, y, bw, bh, col)
+    let sel = vals[vi]
+    blit_text(fb, w, h, x + 3, y + 4, opts[sel], th[6], fg)
+    blit_text(fb, w, h, x + bw - 8, y + 4, "v", th[6], fg)
+    if open == 1
+      let i = 0
+      for i < on
+        let oy = y + bh + 1 + i * (bh + 1)
+        let ohov = ui_hover(u, x, oy, bw, 14)
+        if (ohov == 1) & (st[3] == 0)
+          arr_set(st, 3, id + 1 + i)
+        let ohot = st[3] == (id + 1 + i)
+        let ocol = ohot * th[4] + (1 - ohot) * th[1]
+        fill_rect(fb, w, h, x, oy, bw, bh, ocol)
+        blit_text(fb, w, h, x + 3, oy + 4, opts[i], th[6], fg)
+        if (down == 1) & (ohov == 1)
+          if st[4] == 0
+            arr_set(st, 4, id + 1 + i)
+        if down == 0
+          if st[4] == (id + 1 + i)
+            if ohov == 1
+              arr_set(vals, vi, i)
+              arr_set(vals, vi + 1, 0)
+            arr_set(st, 4, 0)
+        i = i + 1
+      if down == 0
+        if st[4] == 0
+          arr_set(vals, vi + 1, 0)
+    vals[vi]
+
+let ui_progress(u, id, x, y, pw, ph, vals, vi) =
+    let fb = u[0]
+    let w = u[1]
+    let h = u[2]
+    let th = u[14]
+    let v = vals[vi]
+    if v < 0
+      v = 0
+    if v > 100
+      v = 100
+    fill_rect(fb, w, h, x, y, pw, ph, th[9])
+    let fill = v * pw // 100
+    fill_rect(fb, w, h, x, y, fill, ph, th[8])
+    v
+
+let ui_tabs(u, id, x, y, tw, tab_h, labels, ntabs, vals, vi) =
+    let fb = u[0]
+    let w = u[1]
+    let h = u[2]
+    let st = u[3]
+    let fg = u[4]
+    let thc = u[14]
+    let mx = st[0]
+    let my = st[1]
+    let down = st[2]
+    let i = 0
+    for i < ntabs
+      let tx = x + i * tw
+      let hot = ui_hover(u, tx, y, tw, tab_h)
+      let active = vals[vi] == i
+      if (down == 1) & (hot == 1)
+        if st[4] == 0
+          arr_set(st, 4, id + 1 + i)
+      if down == 0
+        if st[4] == (id + 1 + i)
+          if hot == 1
+            arr_set(vals, vi, i)
+          arr_set(st, 4, 0)
+      let col = active * thc[1] + (1 - active) * thc[3]
+      fill_rect(fb, w, h, tx, y, tw - 2, tab_h, col)
+      blit_text(fb, w, h, tx + 3, y + 3, labels[i], thc[6], fg)
+      i = i + 1
+    fill_rect(fb, w, h, x, y + tab_h, ntabs * (tw - 2) + 2, 2, thc[2])
+    vals[vi]
+
+let ui_scroll_begin(u, x, y, w, vh, content_h, vals, vi) =
+    let th = u[14]
+    arr_set(u, 20, u[5])
+    arr_set(u, 21, u[6])
+    arr_set(u, 16, x)
+    arr_set(u, 17, y)
+    arr_set(u, 18, w)
+    arr_set(u, 19, vh)
+    arr_set(u, 22, content_h)
+    arr_set(u, 23, 1)
+    arr_set(u, 25, vals)
+    arr_set(u, 26, vi)
+    arr_set(u, 36, u[32])
+    arr_set(u, 37, u[33])
+    arr_set(u, 38, u[34])
+    arr_set(u, 39, u[35])
+    arr_set(u, 32, x)
+    arr_set(u, 33, y)
+    arr_set(u, 34, w - 6)
+    arr_set(u, 35, vh)
+    let off = vals[vi]
+    arr_set(u, 5, x)
+    arr_set(u, 6, y - off)
+    arr_set(u, 12, x)
+    arr_set(u, 8, x + w - 6)
+    arr_set(u, 7, 0)
+    fill_rect(u[0], u[1], u[2], x + w - 6, y, 6, vh, th[7])
+    0
+
+let ui_scroll_end(u) =
+    let fb = u[0]
+    let w = u[1]
+    let h = u[2]
+    let th = u[14]
+    let st = u[3]
+    let vx = u[16]
+    let vy = u[17]
+    let vw = u[18]
+    let vh = u[19]
+    let ch = u[22]
+    let vals = u[25]
+    let vi = u[26]
+    let off = vals[vi]
+    let mx = st[0]
+    let my = st[1]
+    let down = st[2]
+    let drag = (down == 1) & ((mx >= vx + vw - 6) & (mx < vx + vw)) & ((my >= vy) & (my < vy + vh))
+    if (drag == 1) & (ch > vh)
+      let noff = (my - vy) * ch // vh
+      let c1 = noff < 0
+      let c2 = noff > ch - vh
+      let nc = c1 * 0 + (1 - c1) * (c2 * (ch - vh) + (1 - c2) * noff)
+      arr_set(vals, vi, nc)
+      off = nc
+    else
+      0
+    let inside = ((mx >= vx) & (mx < vx + vw)) & ((my >= vy) & (my < vy + vh))
+    if inside == 1
+      let rd = st[11]
+      let tail = st[12]
+      let wr = rd
+      for rd < tail
+        let key = st[16 + (rd & 63)]
+        rd = rd + 1
+        if key == 38
+          off = off - 12
+        else
+          if key == 40
+            off = off + 12
+          else
+            arr_set(st, 16 + (wr & 63), key)
+            wr = wr + 1
+      arr_set(st, 12, wr)
+    else
+      0
+    let c3 = off < 0
+    let c4 = off > ch - vh
+    let maxoff = ch - vh
+    if maxoff < 0
+      maxoff = 0
+    let c5 = off > maxoff
+    off = c3 * 0 + (1 - c3) * (c5 * maxoff + (1 - c5) * off)
+    arr_set(vals, vi, off)
+    fill_rect(fb, w, h, vx, vy - off, vw - 6, off, th[0])
+    let below = ch - off - vh
+    if below > 0
+      fill_rect(fb, w, h, vx, vy + vh, vw - 6, below, th[0])
+    else
+      0
+    let thh = vh * vh // ch
+    if thh < 8
+      thh = 8
+    else
+      0
+    let ty = vy + off * vh // ch
+    fill_rect(fb, w, h, vx + vw - 6, ty, 6, thh, th[8])
+    arr_set(u, 5, u[20])
+    arr_set(u, 6, u[21])
+    arr_set(u, 32, u[36])
+    arr_set(u, 33, u[37])
+    arr_set(u, 34, u[38])
+    arr_set(u, 35, u[39])
+    arr_set(u, 23, 0)
+    0
+
+let ui_col(u, w) =
+    ui_push(u)
+    arr_set(u, 8, u[5] + w)
+    arr_set(u, 7, 0)
+    0
+
+let ui_col_end(u) =
+    let nx = u[27] + (u[8] - u[27]) + u[13]
+    ui_pop(u)
+    arr_set(u, 5, nx)
+    0
+
+let ui_push(u) =
+    arr_set(u, 27, u[5])
+    arr_set(u, 28, u[6])
+    arr_set(u, 29, u[7])
+    arr_set(u, 30, u[8])
+    arr_set(u, 31, u[12])
+    0
+
+let ui_pop(u) =
+    arr_set(u, 5, u[27])
+    arr_set(u, 6, u[28])
+    arr_set(u, 7, u[29])
+    arr_set(u, 8, u[30])
+    arr_set(u, 12, u[31])
+    arr_set(u, 15, 0)
+    0
+
+let key_push(st, code) =
+    let tail = st[12]
+    let head = st[11]
+    if (tail - head) < 64
+      arr_set(st, 16 + (tail & 63), code)
+      arr_set(st, 12, tail + 1)
+    0
+
+let ui_input(u, id, x, y, iw, buf) =
+    let st = u[3]
+    let fb = u[0]
+    let w = u[1]
+    let h = u[2]
+    let fg = u[4]
+    let th = u[14]
+    let mx = st[0]
+    let my = st[1]
+    let down = st[2]
+    let cap = (iw - 6) // 4
+    let hovered = ui_hover(u, x, y, iw, 14)
+    if (down == 1) & (hovered == 1)
+      arr_set(st, 13, id)
+    if (down == 1) & (hovered == 0)
+      if st[13] == id
+        arr_set(st, 13, 0)
+    let focused = st[13] == id
+    arr_set(st, 14, 0)
+    if focused == 1
+      let caret = buf[0]
+      let ln = buf[1]
+      let head = st[11]
+      let tail = st[12]
+      for head < tail
+        let key = st[16 + (head & 63)]
+        head = head + 1
+        if key == 8
+          if caret > 0
+            let j = caret - 1
+            for j < ln - 1
+              arr_set(buf, 2 + j, buf[3 + j])
+              j = j + 1
+            ln = ln - 1
+            caret = caret - 1
+        else
+          if key == 46
+            if caret < ln
+              let j2 = caret
+              for j2 < ln - 1
+                arr_set(buf, 2 + j2, buf[3 + j2])
+                j2 = j2 + 1
+              ln = ln - 1
+          else
+            if key == 37
+              if caret > 0
+                caret = caret - 1
+            else
+              if key == 39
+                if caret < ln
+                  caret = caret + 1
+              else
+                if key == 13
+                  arr_set(st, 14, 1)
+                else
+                  if (key >= 32) & (key < 127)
+                    if ln < cap
+                      let j3 = ln
+                      for j3 > caret
+                        arr_set(buf, 2 + j3, buf[1 + j3])
+                        j3 = j3 - 1
+                      arr_set(buf, 2 + caret, key)
+                      ln = ln + 1
+                      caret = caret + 1
+      arr_set(buf, 0, caret)
+      arr_set(buf, 1, ln)
+      arr_set(st, 11, head)
+    fill_rect(fb, w, h, x, y, iw, 14, th[2])
+    fill_rect(fb, w, h, x + 1, y + 1, iw - 2, 12, th[9])
+    let j = 0
+    for j < buf[1]
+      blit_char(fb, w, h, x + 3 + j * 4, y + 4, buf[2 + j], th[6], fg)
+      j = j + 1
+    if focused == 1
+      fill_rect(fb, w, h, x + 3 + buf[0] * 4, y + 3, 1, 8, th[6])
+    st[14]
+
+let ui_node(u, id, vals, vx, vy, nw, nh, title) =
+    let st = u[3]
+    let fb = u[0]
+    let w = u[1]
+    let h = u[2]
+    let fg = u[4]
+    let nx = vals[vx]
+    let ny = vals[vy]
+    let mx = st[0]
+    let my = st[1]
+    let down = st[2]
+    let hovered = ui_hover(u, nx, ny, nw, 12)
+    if (hovered == 1) & (st[3] == 0)
+      arr_set(st, 3, id)
+    if (down == 1) & (hovered == 1)
+      if st[4] == 0
+        arr_set(st, 4, id)
+    let isact = st[4] == id
+    if isact == 1
+      arr_set(vals, vx, mx - (nw // 2))
+      arr_set(vals, vy, my - 6)
+    if down == 0
+      if st[4] == id
+        arr_set(st, 4, 0)
+    let x = vals[vx]
+    let y = vals[vy]
+    let th = u[14]
+    fill_rect(fb, w, h, x, y, nw, nh, th[3])
+    fill_rect(fb, w, h, x, y, nw, 12, th[2])
+    blit_text(fb, w, h, x + 3, y + 3, title, th[6], fg)
+    fill_rect(fb, w, h, x - 2, y + 8, 4, 4, th[8])
+    fill_rect(fb, w, h, x + nw - 2, y + 8, 4, 4, th[8])
+    0
+
+let int_str(n, out) =
+    let v = n
+    let len = 0
+    for v > 0
+      arr_set(out, len, 48 + (v - (v // 10) * 10))
+      len = len + 1
+      v = v // 10
+    if len == 0
+      arr_set(out, 0, 48)
+      len = 1
+    let i = 0
+    for i < len // 2
+      let t = out[i]
+      arr_set(out, i, out[len - 1 - i])
+      arr_set(out, len - 1 - i, t)
+      i = i + 1
+    len
+
+let blit_num(u, x, y, n) =
+    let fb = u[0]
+    let w = u[1]
+    let h = u[2]
+    let fg = u[4]
+    let th = u[14]
+    let t = arr_new_n(12)
+    let len = int_str(n, t)
+    let i = 0
+    for i < len
+      blit_char(fb, w, h, x + i * 4, y, t[i], th[6], fg)
+      i = i + 1
+    len * 4
+
+let ui_curve(u, id, x, y, cw, ch, data, dn, color) =
+    let fb = u[0]
+    let w = u[1]
+    let h = u[2]
+    let th = u[14]
+    fill_rect(fb, w, h, x, y, cw, ch, th[2])
+    fill_rect(fb, w, h, x + 1, y + 1, cw - 2, ch - 2, th[1])
+    let mn = data[0]
+    let mx = data[0]
+    let i = 1
+    for i < dn
+      if data[i] < mn
+        mn = data[i]
+      if data[i] > mx
+        mx = data[i]
+      i = i + 1
+    let range = mx - mn
+    if range < 1
+      range = 1
+    let span = dn - 1
+    if span < 1
+      span = 1
+    let ix = 0
+    let px = 0
+    let py = 0
+    for ix < dn
+      let sx = x + 2 + (ix * (cw - 4)) // span
+      let sy = y + 2 + ((data[ix] - mn) * (ch - 4)) // range
+      if ix == 0
+        px = sx
+        py = sy
+      else
+        draw_line_seg(fb, w, h, px, py, sx, sy, color)
+        px = sx
+        py = sy
+      ix = ix + 1
+    0
+
+let th_border(u) =
+    let t = u[14]
+    t[2]
+
+let th_bg(u) =
+    let t = u[14]
+    t[1]
+
+let draw_line_seg(fb, w, h, x0, y0, x1, y1, color) =
+    draw_line(fb, w, h, x0, y0, x1, y1, color)
+    0

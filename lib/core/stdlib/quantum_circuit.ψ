@@ -1,0 +1,144 @@
+let QC_P = 65537
+
+let qc_mul(a, b) =
+    let r = a * b
+    r - r / QC_P * QC_P
+
+let qc_pow(base, exp) =
+    let result = 1
+    let b = base
+    let e = exp
+    let done = false
+    for !done
+      if e > 0
+        if e - (e / 2) * 2 == 1
+          result = qc_mul(result, b)
+        else
+          0
+        b = qc_mul(b, b)
+        e = e / 2
+      else
+        done = true
+    result
+
+let qc_inv(a) =
+    (a == 0 ? 0 : qc_pow(a, QC_P - 2))
+
+let qc_root(k) = qc_pow(3, 65536 / qc_pow(2, k))
+
+let qc_root_ok(k) = qc_pow(qc_root(k), qc_pow(2, k)) == 1 && qc_pow(qc_root(k), qc_pow(2, k - 1)) != 1
+
+let qc_root2() = qc_root(1) == QC_P - 1
+
+let qc_root4() = qc_mul(qc_root(2), qc_root(2)) == QC_P - 1
+
+let qc_h_apply(a, b) = [qc_mul(a + b, 1), qc_mul(a - b + QC_P, 1)]
+
+let qc_h_ok() =
+    let r = qc_h_apply(1, 0)
+    r[0] == 1 && r[1] == 1
+
+let qc_h_twice(a, b) =
+    let r1 = qc_h_apply(a, b)
+    let r2 = qc_h_apply(r1[0], r1[1])
+    r2[0] == qc_mul(a, 2) && r2[1] == qc_mul(b, 2)
+
+let qc_qft2_impl(state, j, idx, acc) =
+    let dim = 4
+    let r = if idx < dim
+      let i4 = qc_root(2)
+      let phase = qc_mul(j, idx)
+      let unit = qc_pow(i4, phase)
+      let term = qc_mul(state[idx], unit)
+      let acc2 = acc + term
+      qc_qft2_impl(state, j, idx + 1, acc2 - (acc2 / QC_P) * QC_P)
+    else
+      qc_mul(acc, qc_inv(2))
+    r
+
+let qc_qft2_row(state, j) = qc_qft2_impl(state, j, 0, 0)
+
+let qc_qft2_apply(state, j, acc) =
+    let r = if j < 4
+      qc_qft2_apply(state, j + 1, acc.push(qc_qft2_row(state, j)))
+    else
+      acc
+    r
+
+let qc_qft2(state) = qc_qft2_apply(state, 0, [])
+
+let qc_iqft2_impl(state, j, idx, acc) =
+    let r = if idx < 4
+      let i4 = qc_root(2)
+      let phase = qc_mul(j, idx)
+      let pe = phase - (phase / 4) * 4
+      let ce = (pe == 0 ? 0 : 4 - pe)
+      let unit = qc_pow(i4, ce)
+      let term = qc_mul(state[idx], unit)
+      let acc2 = acc + term
+      qc_iqft2_impl(state, j, idx + 1, acc2 - (acc2 / QC_P) * QC_P)
+    else
+      qc_mul(acc, qc_inv(2))
+    r
+
+let qc_iqft2_row(state, j) = qc_iqft2_impl(state, j, 0, 0)
+
+let qc_iqft2_apply(state, j, acc) =
+    let r = if j < 4
+      qc_iqft2_apply(state, j + 1, acc.push(qc_iqft2_row(state, j)))
+    else
+      acc
+    r
+
+let qc_iqft2(state) = qc_iqft2_apply(state, 0, [])
+
+let qc_state_eq(a, b, idx) =
+    let r = if idx < len(a)
+      if a[idx] == b[idx]
+        qc_state_eq(a, b, idx + 1)
+      else
+        false
+    else
+      true
+    r
+
+let qc_qft_roundtrip(state) =
+    let fwd = qc_qft2(state)
+    let back = qc_iqft2(fwd)
+    qc_state_eq(back, state, 0)
+
+let qc_qft_basis0() =
+    let r = qc_qft2([1, 0, 0, 0])
+    r[0] == qc_inv(2) && r[1] == qc_inv(2) && r[2] == qc_inv(2) && r[3] == qc_inv(2)
+
+let qc_qft_basis2() =
+    let r = qc_qft2([0, 0, 1, 0])
+    r[0] == qc_inv(2) && r[1] == QC_P - qc_inv(2) && r[2] == qc_inv(2) && r[3] == QC_P - qc_inv(2)
+
+let qc_norm_conserve() =
+    let r = qc_qft2([1, 0, 0, 0])
+    let n0 = qc_mul(r[0], r[0]) + qc_mul(r[1], r[1]) + qc_mul(r[2], r[2]) + qc_mul(r[3], r[3])
+    n0 - (n0 / QC_P) * QC_P == 1
+
+let qc_argmax_impl(state, idx, best_idx, best_val) =
+    let r = if idx < len(state)
+      let v = state[idx]
+      let v2 = (v < 0 ? 0 - v : v)
+      if v2 > best_val
+        qc_argmax_impl(state, idx + 1, idx, v2)
+      else
+        qc_argmax_impl(state, idx + 1, best_idx, best_val)
+    else
+      best_idx
+    r
+
+let qc_argmax(state, idx, best_idx, best_val) = qc_argmax_impl(state, 0, 0, 0)
+
+let qc_phase_peak(state) =
+    let fwd = qc_qft2(state)
+    qc_argmax(fwd, 0, 0, 0)
+
+let qc_phase_est_ok() = qc_phase_peak(qc_qft2([1, 0, 0, 0])) == 0
+
+let qc_summary() =
+    { theory: "quantum circuit renewal (QFT + phase estimation)", qft: "QFT = phase-encoded Fourier retrieval (GF roots of unity of order 2^k)", iqft: "inverse QFT = conjugate roots (measurement invariance: QFT∘IQFT = id)", phase: "phase estimation = deterministic phase readout (Grover physical equivalence)", unitary: "modulus conservation = unitarity assertion (norm invariant)", upgrade: "Heisenberg group gauge-upgrade direction (U(1) → quantum gauge field theory)" }

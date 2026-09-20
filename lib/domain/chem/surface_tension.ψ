@@ -1,0 +1,25 @@
+import "ck.ψ"
+let bad = [0]
+
+let h1 = 59
+let r1 = 25
+let h2 = 15
+let r2 = 100
+let dz1 = h1 * r1 - h2 * r2
+bad[0] = bad[0] + ck(dz1, -100, 100)
+
+bad[0] = bad[0] + ck_lo(h1, h2)
+
+let p_small = 288
+let p_big = 144
+bad[0] = bad[0] + ck_lo(p_small, p_big)
+
+let strider = 1
+bad[0] = bad[0] + ck_lo(strider, 1)
+
+if 1891 < 1889
+    bad[0] = bad[0] + 1
+if 1891 > 1893
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,30 @@
+import "ck.ψ"
+let bad = [0]
+
+let sin30 = 5
+let fr = 633 * 10 / (2 * sin30)
+bad[0] = bad[0] + ck(fr, 600, 660)
+
+let res = 5000
+bad[0] = bad[0] + ck(res, 2000, 6000)
+
+let bsel = 1
+bad[0] = bad[0] + ck_lo(bsel, 1)
+
+let redun = 1
+bad[0] = bad[0] + ck_lo(redun, 1)
+
+if 1948 < 1946
+    bad[0] = bad[0] + 1
+if 1948 > 1950
+    bad[0] = bad[0] + 1
+if 1962 < 1960
+    bad[0] = bad[0] + 1
+if 1962 > 1964
+    bad[0] = bad[0] + 1
+if 1971 < 1969
+    bad[0] = bad[0] + 1
+if 1971 > 1973
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

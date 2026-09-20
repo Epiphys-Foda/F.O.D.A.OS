@@ -1,0 +1,249 @@
+import "../domain_field.ψ"
+let EO_P = 65537
+
+let EO_TX_INIT      = 1
+let EO_TX_COMMITTED = 2
+let EO_TX_ABORTED   = 3
+let EO_TX_TIMEOUT   = 4
+
+let EO_COMMIT_OFFSET = 1
+let EO_COMMIT_MSG    = 2
+
+let EO_DEDUP_WINDOW = 1024
+let EO_TX_TIMEOUT_MS = 60000
+
+let eo_id_key(producer_id, seq, payload_hash) =
+    let h = producer_id * 31 + seq * 17 + payload_hash * 13
+    h = h % EO_P
+    if h < 0
+        h = -h
+    h
+
+let eo_dedup_new(max_size) =
+    [[], max_size, 0]
+
+let eo_dedup_keys(d)   = d[0]
+let eo_dedup_max(d)    = d[1]
+let eo_dedup_head(d)   = d[2]
+
+let eo_dedup_check(d, key) =
+    let keys = eo_dedup_keys(d)
+    let i = 0
+    let n = len(keys)
+    let dup = 0
+    for i < n
+        if keys[i] == key
+            dup = 1
+            i = n
+        i = i + 1
+    if dup == 0
+        keys.push(key)
+        let max_sz = eo_dedup_max(d)
+        for len(keys) > max_sz
+            keys = arr_drop(keys, 1)
+        [keys, max_sz, eo_dedup_head(d) + 1]
+    else
+        d
+
+let eo_tx_producer_new(pid) =
+    [pid, 0, {}, []]
+
+let eo_tx_pid(p)        = p[0]
+let eo_tx_seq(p)        = p[1]
+let eo_tx_pending(p)   = p[2]
+let eo_tx_log(p)       = p[3]
+
+let eo_tx_begin(p, ts) =
+    let seq = eo_tx_seq(p) + 1
+    let pending = eo_tx_pending(p)
+    pending[seq] = [[], EO_TX_INIT, ts]
+    [eo_tx_pid(p), seq, pending, eo_tx_log(p)]
+
+let eo_tx_add_msg(p, tx_id, partition_id, payload) =
+    let pending = eo_tx_pending(p)
+    let tx = pending[tx_id]
+    if tx == 0
+        p
+    else
+        let msgs = tx[0]
+        msgs.push([partition_id, payload])
+        pending[tx_id] = [msgs, tx[1], tx[2]]
+        [eo_tx_pid(p), eo_tx_seq(p), pending, eo_tx_log(p)]
+
+let eo_tx_commit(p, tx_id, ts) =
+    let pending = eo_tx_pending(p)
+    let tx = pending[tx_id]
+    if tx == 0
+        p
+    else
+        let msgs = tx[0]
+        pending[tx_id] = 0
+        let log = eo_tx_log(p)
+        log.push([tx_id, EO_TX_COMMITTED, ts, msgs])
+        [eo_tx_pid(p), eo_tx_seq(p), pending, log]
+
+let eo_tx_abort(p, tx_id, ts) =
+    let pending = eo_tx_pending(p)
+    let tx = pending[tx_id]
+    if tx == 0
+        p
+    else
+        pending[tx_id] = 0
+        let log = eo_tx_log(p)
+        log.push([tx_id, EO_TX_ABORTED, ts, []])
+        [eo_tx_pid(p), eo_tx_seq(p), pending, log]
+
+let eo_tx_get_committed_msgs(p, tx_id) =
+    let log = eo_tx_log(p)
+    let i = 0
+    let n = len(log)
+    let found = []
+    for i < n
+        let entry = log[i]
+        if entry[0] == tx_id
+            if entry[1] == EO_TX_COMMITTED
+                found = entry[3]
+                i = n
+        i = i + 1
+    found
+
+let eo_offset_log_new() =
+    [[], 0]
+
+let eo_offset_commits(l)   = l[0]
+let eo_offset_head(l)      = l[1]
+
+let eo_offset_commit(log, group_id, topic, partition, offset, ts, tx_id) =
+    let commits = eo_offset_commits(log)
+    commits.push([group_id, topic, partition, offset, ts, tx_id])
+    [commits, eo_offset_head(log) + 1]
+
+let eo_offset_latest(log, group_id, topic, partition) =
+    let commits = eo_offset_commits(log)
+    let i = 0
+    let n = len(commits)
+    let latest = 0
+    for i < n
+        let c = commits[i]
+        if c[0] == group_id
+            if c[1] == topic
+                if c[2] == partition
+                    latest = c[3]
+        i = i + 1
+    latest
+
+let eo_offset_bragg_replay(log, expected_offsets_map) =
+    let commits = eo_offset_commits(log)
+    let recomputed = {}
+    let i = 0
+    let n = len(commits)
+    for i < n
+        let c = commits[i]
+        let key = c[0] * 1000003 + c[1] * 1003 + c[2]
+        recomputed[key] = c[3]
+        i = i + 1
+    let keys = keys_of(expected_offsets_map)
+    let nk = len(keys)
+    let pass = 1
+    i = 0
+    for i < nk
+        let k = keys[i]
+        let expected = expected_offsets_map[k]
+        let actual = recomputed[k]
+        if actual != expected
+            pass = 0
+        i = i + 1
+    pass
+
+let eo_coord_new() =
+    [{}, eo_offset_log_new(), eo_dedup_new(EO_DEDUP_WINDOW)]
+
+let eo_coord_producers(c)  = c[0]
+let eo_coord_log(c)       = c[1]
+let eo_coord_dedup(c)     = c[2]
+
+let eo_coord_register(c, producer_id) =
+    let producers = eo_coord_producers(c)
+    if producers[producer_id] == 0
+        producers[producer_id] = eo_tx_producer_new(producer_id)
+    [producers, eo_coord_log(c), eo_coord_dedup(c)]
+
+let eo_coord_full_tx(c, producer_id, ts, partition_msgs, group_id, topic, partition, offset) =
+    let producers = eo_coord_producers(c)
+    let p = producers[producer_id]
+    if p == 0
+        p = eo_tx_producer_new(producer_id)
+    let p2 = eo_tx_begin(p, ts)
+    let tx_id = eo_tx_seq(p2)
+    let i = 0
+    let nm = len(partition_msgs)
+    for i < nm
+        let pm = partition_msgs[i]
+        p2 = eo_tx_add_msg(p2, tx_id, pm[0], pm[1])
+        i = i + 1
+    p2 = eo_tx_commit(p2, tx_id, ts)
+    producers[producer_id] = p2
+    let log = eo_coord_log(c)
+    log = eo_offset_commit(log, group_id, topic, partition, offset, ts, tx_id)
+    [producers, log, eo_coord_dedup(c), tx_id, EO_TX_COMMITTED]
+
+let eo_self_test() =
+    let k1 = eo_id_key(1, 100, 12345)
+    let k2 = eo_id_key(1, 100, 12345)
+    let t_idem = 0
+    if k1 == k2
+        t_idem = 1
+
+    let d = eo_dedup_new(8)
+    let d2 = eo_dedup_check(d, 100)
+    let d3 = eo_dedup_check(d2, 100)
+    let t_dedup = 0
+    if len(eo_dedup_keys(d2)) == 1
+        if len(eo_dedup_keys(d3)) == 1
+            t_dedup = 1
+
+    let p = eo_tx_producer_new(1)
+    p = eo_tx_begin(p, 1000)
+    let tx_id = eo_tx_seq(p)
+    p = eo_tx_add_msg(p, tx_id, 1, 100)
+    p = eo_tx_add_msg(p, tx_id, 2, 200)
+    p = eo_tx_commit(p, tx_id, 2000)
+    let msgs = eo_tx_get_committed_msgs(p, tx_id)
+    let t_commit = 0
+    if len(msgs) == 2
+        t_commit = 1
+
+    let p2 = eo_tx_producer_new(2)
+    p2 = eo_tx_begin(p2, 1000)
+    let tx_id2 = eo_tx_seq(p2)
+    p2 = eo_tx_abort(p2, tx_id2, 2000)
+    let aborted_msgs = eo_tx_get_committed_msgs(p2, tx_id2)
+    let t_abort = 0
+    if len(aborted_msgs) == 0
+        t_abort = 1
+
+    let log = eo_offset_log_new()
+    log = eo_offset_commit(log, 1, 100, 0, 5, 1000, 1)
+    log = eo_offset_commit(log, 1, 100, 0, 10, 2000, 2)
+    let latest = eo_offset_latest(log, 1, 100, 0)
+    let t_offset = 0
+    if latest == 10
+        t_offset = 1
+
+    let expected = {}
+    expected[1 * 1000003 + 100 * 1003 + 0] = 10
+    let bragg_ok = eo_offset_bragg_replay(log, expected)
+
+    let c = eo_coord_new()
+    c = eo_coord_register(c, 1)
+    let full_res = eo_coord_full_tx(c, 1, 1000, [[1, 100], [2, 200]], 1, 100, 0, 5)
+    let full_tx_id = full_res[3]
+    let full_status = full_res[4]
+    let t_full = 0
+    if full_status == EO_TX_COMMITTED
+        t_full = 1
+
+    [t_idem, t_dedup, t_commit, t_abort, t_offset, bragg_ok, t_full]
+
+let eo_default_coordinator() =
+    eo_coord_new()

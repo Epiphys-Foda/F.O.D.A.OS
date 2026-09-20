@@ -1,0 +1,36 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let thd = 275
+let ceil = small_div(thd * 69, 100)
+bad[0] = bad[0] + ck(ceil, 180, 200)
+
+let damp = small_div(62 * 85, 100)
+let den = 100 + damp
+bad[0] = bad[0] + ck(den, 148, 158)
+
+let ex = small_div(104 * 185 * 100, 6515)
+bad[0] = bad[0] + ck(ex, 280, 310)
+
+let pen = 522
+bad[0] = bad[0] + ck(pen, 480, 560)
+
+let tc = small_div(ceil * 522, 1000)
+bad[0] = bad[0] + ck(tc, 85, 115)
+
+bad[0] = bad[0] + ck_hi(tc, ceil)
+
+let th_rt = small_div(145 * 300 * 100, 2000)
+bad[0] = bad[0] + ck(th_rt, 2000, 2400)
+
+let th_metal = 400
+bad[0] = bad[0] + ck_hi(th_metal, th_rt)
+
+if 1968 < 1966
+    bad[0] = bad[0] + 1
+if 1968 > 1970
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

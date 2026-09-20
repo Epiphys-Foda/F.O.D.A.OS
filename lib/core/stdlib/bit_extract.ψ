@@ -1,0 +1,61 @@
+let peek(x, n) =
+    let m = (1 << 8) - 1
+    (x >> ((n & 3) << 3)) & m
+
+let trim(x) =
+    let m = (1 << 8) - 1
+    x & m
+
+let top(x) =
+    let m = (1 << 8) - 1
+    (x >> (8 + 16)) & m
+
+let stem(x) = x >> 8
+
+let core(x) =
+    let m = (1 << 16) - 1
+    (x >> 8) & m
+
+let nibble(x, n) =
+    let m = (1 << 4) - 1
+    (x >> ((n & 7) << 2)) & m
+
+let word(x, n) =
+    let m = (1 << 16) - 1
+    (x >> ((n & 1) << 4)) & m
+
+let bit(x, n) = (x >> (n & 31)) & 1
+
+let _msb_loop(x, i) =
+      if x > 1
+        _msb_loop(x >> 1, i + 1)
+      else
+        i
+let msb(x) =
+      if x <= 0
+        0 - 1
+      else
+        _msb_loop(x, 0)
+
+let lsb(x) =
+      if x == 0
+        0 - 1
+      else
+        let lowbit = x & (0 - x)
+        msb(lowbit)
+
+let trunc(x, n) =
+      let nb = n & 3
+      if nb == 0
+        0
+      else
+        let bits = nb << 3
+        let m = (1 << bits) - 1
+        x & m
+
+let align(x, n) =
+      if n <= 0
+        x
+      else
+        let mask = n - 1
+        (x + mask) & (0 - n)

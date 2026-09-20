@@ -1,0 +1,274 @@
+let json_null() =
+    let v = arr_new()
+    v = arr_push(v, 0)
+    v = arr_push(v, 0)
+    v
+
+let json_bool(b) =
+    let v = arr_new()
+    v = arr_push(v, 1)
+    v = arr_push(v, b)
+    v
+
+let json_number(n) =
+    let v = arr_new()
+    v = arr_push(v, 2)
+    v = arr_push(v, n)
+    v
+
+let json_string(s) =
+    let v = arr_new()
+    v = arr_push(v, 3)
+    v = arr_push(v, s)
+    v
+
+let json_array(arr) =
+    let v = arr_new()
+    v = arr_push(v, 4)
+    v = arr_push(v, arr)
+    v
+
+let json_object(pairs) =
+    let v = arr_new()
+    v = arr_push(v, 5)
+    v = arr_push(v, pairs)
+    v
+
+let json_is_null(v) =
+    v[0] == 0
+let json_is_bool(v) =
+    v[0] == 1
+let json_is_number(v) =
+    v[0] == 2
+let json_is_string(v) =
+    v[0] == 3
+let json_is_array(v) =
+    v[0] == 4
+let json_is_object(v) =
+    v[0] == 5
+
+let json_get_bool(v) = v[1]
+let json_get_number(v) = v[1]
+let json_get_string(v) = v[1]
+let json_get_array(v) = v[1]
+let json_get_object(v) = v[1]
+
+let json_object_get(obj, key) =
+    let pairs = obj[1]
+    let i = 0
+    let n = pairs.len()
+    for i < n
+        let pair = pairs[i]
+        if pair[0] == key
+            return pair[1]
+        i = i + 1
+    json_null()
+
+let json_object_has(obj, key) =
+    let pairs = obj[1]
+    let i = 0
+    let n = pairs.len()
+    for i < n
+        let pair = pairs[i]
+        if pair[0] == key
+            return 1
+        i = i + 1
+    0
+
+let json_object_set(obj, key, val) =
+    let pairs = obj[1]
+    let result = arr_new()
+    let found = 0
+    let i = 0
+    let n = pairs.len()
+    for i < n
+        let pair = pairs[i]
+        if pair[0] == key
+            let newpair = arr_new()
+            newpair = arr_push(newpair, key)
+            newpair = arr_push(newpair, val)
+            result = arr_push(result, newpair)
+            found = 1
+        else
+            result = arr_push(result, pair)
+        i = i + 1
+    if found == 0
+        let newpair = arr_new()
+        newpair = arr_push(newpair, key)
+        newpair = arr_push(newpair, val)
+        result = arr_push(result, newpair)
+    json_object(result)
+
+let json_array_get(arr, idx) =
+    let elements = arr[1]
+    elements[idx]
+
+let json_array_length(arr) =
+    let elements = arr[1]
+    elements.len()
+
+let json_array_push(arr, val) =
+    let elements = arr[1]
+    elements = arr_push(elements, val)
+    json_array(elements)
+
+let json_serialize(v) =
+    let tag = v[0]
+    if tag == 0
+        "null"
+    else
+        0
+    if tag == 1
+        (v[1] == 0 ? "false" : "true")
+    else
+            0
+    if tag == 2
+        let n = v[1]
+        if n < 0
+            "-" + "0"
+        else
+            "0"
+    else
+        0
+    if tag == 3
+        "\"" + v[1] + "\""
+    else
+        0
+    if tag == 4
+        let elements = v[1]
+        let result = "["
+        let n = elements.len()
+        let i = 0
+        for i < n
+            if i > 0
+                result = result + ","
+            result = result + json_serialize(elements[i])
+            i = i + 1
+        result = result + "]"
+        result
+    if tag == 5
+        let pairs = v[1]
+        let result = str_concat(str_concat("", chr(123)), "")
+        let n = pairs.len()
+        let i = 0
+        for i < n
+            if i > 0
+                result = result + ","
+            let pair = pairs[i]
+            result = result + "\"" + pair[0] + "\":" + json_serialize(pair[1])
+            i = i + 1
+        result = result + "}"
+        result
+
+let json_skip_whitespace(s, pos) =
+    let p = pos
+    let n = s.len()
+    for p < n
+        let c = s[p]
+        if c == 32 || c == 9 || c == 10 || c == 13
+            p = p + 1
+        else
+            p = n
+    p
+
+let json_parse_number(s, pos) =
+    let p = pos
+    let n = s.len()
+    let neg = 0
+    if p < n && s[p] == 45
+        neg = 1
+        p = p + 1
+    let val = 0
+    for p < n
+        let c = s[p]
+        if c >= 48 && c <= 57
+            val = val * 10 + (c - 48)
+            p = p + 1
+        else
+            p = n
+    if neg == 1
+        val = 0 - val
+    let result = arr_new()
+    result = arr_push(result, val)
+    result = arr_push(result, p)
+    result
+
+let json_build_object(keys, values) =
+    let pairs = arr_new()
+    let i = 0
+    let n = keys.len()
+    for i < n
+        let pair = arr_new()
+        pair = arr_push(pair, keys[i])
+        pair = arr_push(pair, values[i])
+        pairs = arr_push(pairs, pair)
+        i = i + 1
+    json_object(pairs)
+
+let json_build_array(items) = json_array(items)
+
+let json_pretty(v, indent) =
+    let pad = ""
+    let i = 0
+    for i < indent
+        pad = pad + "  "
+        i = i + 1
+    let tag = v[0]
+    if tag == 0
+        "null"
+    else
+        0
+    if tag == 1
+        (v[1] == 0 ? "false" : "true")
+    else
+            0
+    if tag == 2
+        "0"
+    else
+        0
+    if tag == 3
+        "\"" + v[1] + "\""
+    else
+        0
+    if tag == 4
+        let elements = v[1]
+        let n = elements.len()
+        if n == 0
+            return "[]"
+        let result = "[\n"
+        let i = 0
+        for i < n
+            result = result + pad + "  " + json_pretty(elements[i], indent + 1)
+            if i < n - 1
+                result = result + ","
+            result = result + "\n"
+            i = i + 1
+        result = result + pad + "]"
+        result
+    if tag == 5
+        let pairs = v[1]
+        let n = pairs.len()
+        if n == 0
+            return str_concat(str_concat("", chr(123)), "}")
+        let result = str_concat(str_concat("", chr(123)), "\n")
+        let i = 0
+        for i < n
+            let pair = pairs[i]
+            result = result + pad + "  \"" + pair[0] + "\": " + json_pretty(pair[1], indent + 1)
+            if i < n - 1
+                result = result + ","
+            result = result + "\n"
+            i = i + 1
+        result = result + pad + "}"
+        result
+
+let main() =
+    let keys = arr_new()
+    keys = arr_push(keys, "name")
+    keys = arr_push(keys, "age")
+    let vals = arr_new()
+    vals = arr_push(vals, json_string("PsiLang"))
+    vals = arr_push(vals, json_number(1))
+    let obj = json_build_object(keys, vals)
+    print(json_pretty(obj, 0))
+    0

@@ -1,0 +1,155 @@
+import "../domain/domain_field.ψ"
+
+import "../core/stdlib_lang2/gf_base.ψ"
+
+let PRIMITIVE_ROOT = 3989
+
+let dlog(x) =
+    let x = gf_norm(x)
+    if x == 0
+        0
+    else
+        let n = P - 1
+        let m = 1
+        for m * m < n
+            m = m + 1
+        let baby = []
+        let i = 0
+        let val = 1
+        for i < m
+            baby.push([val, i])
+            val = gf_mul(val, PRIMITIVE_ROOT)
+            i = i + 1
+        let factor = gf_inv(gf_pow(PRIMITIVE_ROOT, m))
+        let gamma = x
+        let k = 0
+        let result = 0
+        for k < m
+            let j = 0
+            for j < m
+                if baby[j][0] == gamma
+                    result = k * m + baby[j][1]
+                    j = m
+                j = j + 1
+            if result > 0
+                k = m
+            gamma = gf_mul(gamma, factor)
+            k = k + 1
+        result
+
+let primitive_root_test() =
+    let val = gf_pow(PRIMITIVE_ROOT, (P - 1) / 2)
+    (val == P - 1 ? 1 : 0)
+
+let lucas(n) =
+    if n == 0
+        2
+    else
+        0
+    if n == 1
+        1
+    else
+        let l0 = 2
+        let l1 = 1
+        let i = 2
+        let result = 0
+        for i <= n
+            result = l0 + l1
+            l0 = l1
+            l1 = result
+            i = i + 1
+        result
+
+let lucas_index(epsilon) =
+    if epsilon == -1
+        1
+    else
+        0
+    if epsilon == 0
+        3
+    else
+        4
+
+let fibonacci_addition_test() =
+    let f_neg = lucas_index(-1)
+    let f_zero = lucas_index(0)
+    let f_pos = lucas_index(1)
+    (f_neg + f_zero == f_pos ? 1 : 0)
+
+let BASE_SCALE = 1024
+
+let base_scale_test() =
+    let dlog_3 = dlog(3)
+    let dlog_5 = dlog(5)
+    let dlog_17 = dlog(17)
+    let sum_fermat = dlog_3 + dlog_5 + dlog_17
+    (sum_fermat % P == BASE_SCALE ? 1 : 0)
+
+let mfl_resonance_test(epsilon) =
+    let value = 256 + epsilon
+    let lhs = dlog(value)
+    let f_eps = lucas_index(epsilon)
+    let l_sq = lucas(f_eps) * lucas(f_eps)
+    let rhs = BASE_SCALE * l_sq
+    (lhs == rhs % P ? 1 : 0)
+
+let mfl_full_test() =
+    let t_neg = mfl_resonance_test(-1)
+    let t_zero = mfl_resonance_test(0)
+    let t_pos = mfl_resonance_test(1)
+    t_neg + t_zero + t_pos
+
+let dlog_2_test() =
+    let dl = dlog(2)
+    (dl == 18432 ? 1 : 0)
+
+let dlog_neg1_test() =
+    let dl = dlog(P - 1)
+    (dl == 32768 ? 1 : 0)
+
+let fermat_product_test() =
+    let product = 3 * 5 * 17 * 257
+    (product % P == P - 2 ? 1 : 0)
+
+let dlog_neg2_test() =
+    let dl = dlog(P - 2)
+    (dl == 51200 ? 1 : 0)
+
+let collision_180_link_test() =
+    let l4_sq = lucas(4) * lucas(4)
+    let dlog_257 = dlog(257)
+    let expected = BASE_SCALE * l4_sq
+    (dlog_257 == expected % P ? 1 : 0)
+
+let field_mfl(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 1000 + i * 800
+        let diff = gf_sub(z, pole)
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let mfl_verify() =
+    let ok1 = primitive_root_test()
+
+    let ok2 = fibonacci_addition_test()
+
+    let ok3 = base_scale_test()
+
+    let ok4 = mfl_full_test()
+
+    let ok5 = dlog_2_test()
+
+    let ok6 = dlog_neg1_test()
+
+    let ok7 = fermat_product_test()
+
+    let ok8 = collision_180_link_test()
+
+    ok1 + ok2 + ok3 + ok4 + ok5 + ok6 + ok7 + ok8
+
+let kleene_verify(t1, t2) = domain_kleene_verify(t1, t2)
+
+let pcd_divergence(u, n) = domain_pcd_divergence(u, n)

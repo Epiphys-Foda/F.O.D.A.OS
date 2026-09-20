@@ -1,0 +1,259 @@
+import "super_db.ψ"
+import "super_db_dynamics.ψ"
+let rf_db_scheduler(tasks) =
+    let out = []
+    let remaining = tasks
+    let i = 0
+    let done = false
+    for !done
+      if i < len(tasks)
+        let best = 65537
+        let j = 0
+        let jdone = false
+        for !jdone
+          if j < len(remaining)
+            if remaining[j] < best && remaining[j] != 65537
+              best = remaining[j]
+            else
+              0
+            j = j + 1
+          else
+            jdone = true
+        out = out.push(best)
+        let k = 0
+        let kdone = false
+        let new_rem = []
+        for !kdone
+          if k < len(remaining)
+            if remaining[k] == best && remaining[k] != 65537
+              new_rem = new_rem.push(65537)
+            else
+              new_rem = new_rem.push(remaining[k])
+            k = k + 1
+          else
+            kdone = true
+        remaining = new_rem
+        i = i + 1
+      else
+        done = true
+    out
+
+let rf_db_alg_scalar_keep(arr, idx, val) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(arr)
+        if i == idx
+          out = out.push(val)
+        else
+          out = out.push(arr[i])
+        i = i + 1
+      else
+        done = true
+    out
+
+let rf_db_pool_create(n) =
+    let pool = []
+    let i = 0
+    let done = false
+    for !done
+      if i < n
+        pool = pool.push(0)
+        i = i + 1
+      else
+        done = true
+    pool
+
+let rf_db_pool_alloc(pool) =
+    let idx = 0
+    let found = 65537
+    let done = false
+    for !done
+      if idx < len(pool)
+        if pool[idx] == 0
+          found = idx
+          done = true
+        else
+          idx = idx + 1
+      else
+        done = true
+    found
+
+let rf_db_queue_create(size) = [0, 0, size]
+
+let rf_db_queue_push(q, val) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(q)
+        out = out.push(q[i])
+        i = i + 1
+      else
+        done = true
+    let head = q[0]
+    let tail = q[1]
+    let size = q[2]
+    let pos = 3 + tail
+    if pos < len(out)
+      out = rf_db_arr_set(out, pos, val)
+    else
+      out = out.push(val)
+      0
+    let ntail = (tail + 1) % size
+    if ntail == head
+      out = rf_db_arr_set(out, 0, (head + 1) % size)
+    else
+      0
+    out = rf_db_arr_set(out, 1, ntail)
+
+let rf_db_queue_pop(q) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(q)
+        out = out.push(q[i])
+        i = i + 1
+      else
+        done = true
+    let head = q[0]
+    let tail = q[1]
+    if head == tail
+      [0, out]
+    else
+      let val = q[3 + head]
+      out = rf_db_arr_set(out, 0, (head + 1) % q[2])
+      [val, out]
+
+let rf_db_index_build(db, cells) =
+    let index = [65537 / cells + 1, cells]
+    let c = 0
+    let cdone = false
+    for !cdone
+      if c < cells * cells
+        index = index.push(0)
+        c = c + 1
+      else
+        cdone = true
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(db)
+        let xk = db[i]
+        let yk = db[i + 1]
+        let cell_size = index[0]
+        let cells_n = index[1]
+        let cx = xk / cell_size
+        let cy = yk / cell_size
+        let cid = cx * cells_n + cy
+        let len_pos = 2 + cid
+        let cur_len = index[len_pos]
+        index = rf_db_arr_set(index, len_pos, cur_len + 1)
+        index = index.push(i / 3)
+        i = i + 3
+      else
+        done = true
+    index
+
+let rf_db_index_lookup(index, x, y) =
+    let cell_size = index[0]
+    let cells_n = index[1]
+    let cx = x / cell_size
+    let cy = y / cell_size
+    let cid = cx * cells_n + cy
+    let len_pos = 2 + cid
+    let n = index[len_pos]
+    let out = []
+    let k = 0
+    let done = false
+    for !done
+      if k < n
+        out = out.push(index[len_pos + 1 + k])
+        k = k + 1
+      else
+        done = true
+    out
+
+let rf_db_publish(db, cx, cy, w, h) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(db)
+        let xk = db[i]
+        let yk = db[i + 1]
+        let rk = db[i + 2]
+        if rf_db_in_rect(xk, yk, cx, cy, w, h)
+          out = out.push(xk)
+          out = out.push(yk)
+          out = out.push(rk)
+        else
+          0
+        i = i + 3
+      else
+        done = true
+    out
+
+let rf_db_project_r(db) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(db)
+        out = out.push(db[i + 2])
+        i = i + 3
+      else
+        done = true
+    out
+
+let rf_db_project_xy(db) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(db)
+        out = out.push(db[i])
+        out = out.push(db[i + 1])
+        i = i + 3
+      else
+        done = true
+    out
+
+let rf_db_raft_vote(candidates) =
+    let best_idx = 0
+    let best_sum = 0
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(candidates)
+        let s = rf_db_cauchy_sum([candidates[i], candidates[i + 1], candidates[i + 2]], 0, 0, 65537, 65537)
+        if s > best_sum
+          best_sum = s
+          best_idx = i / 3
+        else
+          0
+        i = i + 3
+      else
+        done = true
+    best_idx
+
+let rf_db_engine_verify() =
+    let results = []
+    results = results.push(rf_db_scheduler([0, 2, 1])[0] == 0)
+    results = results.push(rf_db_scheduler([0, 2, 1])[1] == 1)
+    results = results.push(rf_db_scheduler([0, 2, 1])[2] == 2)
+    results = results.push(rf_db_pool_alloc(rf_db_pool_create(3)) == 0)
+    let q1 = rf_db_queue_push(rf_db_queue_create(4), 5)
+    let popped = rf_db_queue_pop(q1)
+    results = results.push(popped[0] == 5)
+    results = results.push(rf_db_learn([0, 0, 3], 0, 0, 8)[2] == 11)
+    let idx = rf_db_index_build([0, 0, 5, 100, 100, 7], 4)
+    let hits = rf_db_index_lookup(idx, 0, 0)
+    results = results.push(len(hits) >= 1)
+    results = results.push(len(rf_db_publish([0, 0, 5, 100, 100, 7], 0, 0, 10, 10)) == 3)
+    results = results.push(rf_db_project_r([0, 0, 5, 100, 100, 7])[1] == 7)
+    results = results.push(len(rf_db_project_xy([0, 0, 5, 100, 100, 7])) == 4)
+    results = results.push(rf_db_raft_vote([0, 0, 3, 10, 10, 9]) == 1)
+    results

@@ -1,0 +1,26 @@
+import "ck.ψ"
+let bad = [0]
+
+let mtot = 146 + 127
+bad[0] = bad[0] + ck(mtot, 260, 280)
+
+let tBns = 1000
+let tBbh = 2
+bad[0] = bad[0] + ck_lo(tBns, tBbh)
+
+let grbDelay = 17
+bad[0] = bad[0] + ck(grbDelay, 13, 21)
+
+if 17 > 82
+    bad[0] = bad[0] + 1
+
+let ejecta = 167
+bad[0] = bad[0] + ck(ejecta, 100, 200)
+
+let gold = 10
+bad[0] = bad[0] + ck(gold, 3, 30)
+
+let au = 79
+bad[0] = bad[0] + ck(au, 78, 80)
+
+arr_get(arr_new_n(1), bad[0])

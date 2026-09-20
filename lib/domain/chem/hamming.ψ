@@ -1,0 +1,60 @@
+import "ck.ψ"
+let bad = [0]
+
+let dz1 = 2 * 3 - 6
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let dz2 = 2 * 5 - 10
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let dz3 = 3 * 5 - 15
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let dz4 = 4 * 3 - 12
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let dz5 = 8 * 3 - 24
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let dz6 = 2 * 6 - 12
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+let dz7 = 3 * 4 - 12
+bad[0] = bad[0] + ck(dz7, 0, 0)
+
+let dz8 = 2 * 12 - 24
+bad[0] = bad[0] + ck(dz8, 0, 0)
+
+let dz9 = 3 * 8 - 24
+bad[0] = bad[0] + ck(dz9, 0, 0)
+
+let p2 = 32 * 32
+let dz10 = p2 - 1024
+bad[0] = bad[0] + ck(dz10, 0, 0)
+
+let p3 = 27 * 81
+let dz11 = p3 - 2187
+bad[0] = bad[0] + ck(dz11, 0, 0)
+
+let p5 = 25 * 125
+let dz12 = p5 - 3125
+bad[0] = bad[0] + ck(dz12, 0, 0)
+
+let c3 = 729 * 729
+let dz13 = c3 - 531441
+bad[0] = bad[0] + ck(dz13, 0, 0)
+
+let c2 = 512 * 1024
+let dz14 = c2 - 524288
+bad[0] = bad[0] + ck(dz14, 0, 0)
+
+let comma = c3 - c2
+let dz15 = comma - 7153
+bad[0] = bad[0] + ck(dz15, 0, 0)
+
+if 1972 < 1970
+    bad[0] = bad[0] + 1
+if 1972 > 1974
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

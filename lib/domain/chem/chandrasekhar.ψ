@@ -1,0 +1,40 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let A = 4737160
+let s = isqrt(A)
+if s * s > A
+    bad[0] = bad[0] + 1
+if (s + 1) * (s + 1) <= A
+    bad[0] = bad[0] + 1
+
+let X32 = A * s
+if X32 != 10308060160
+    bad[0] = bad[0] + 1
+
+let B = 16726 * 16726
+let num = X32 * 100
+let den = B * 1989
+if num * 100 < 184 * den
+    bad[0] = bad[0] + 1
+if num * 100 > 187 * den
+    bad[0] = bad[0] + 1
+
+let mc = 144
+bad[0] = bad[0] + ck(mc, 143, 146)
+
+if 144 * den < 77 * num
+    bad[0] = bad[0] + 1
+if 144 * den > 78 * num
+    bad[0] = bad[0] + 1
+
+let mSun = 100
+let mSirius = 102
+let mCC = 800
+bad[0] = bad[0] + ck_hi(mSun, 143)
+bad[0] = bad[0] + ck_hi(mSirius, 143)
+bad[0] = bad[0] + ck_lo(mCC, 143)
+
+arr_get(arr_new_n(1), bad[0])

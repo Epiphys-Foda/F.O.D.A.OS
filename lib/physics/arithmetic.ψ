@@ -1,0 +1,174 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let SLIT1 = 100
+let SLIT2 = 200
+let OBSERVE = 150
+
+let half_adder_sum(a, b) = xor_gate(a, b)
+let half_adder_carry(a, b) = and_gate(a, b)
+
+let full_adder_sum(a, b, cin) =
+    let s1 = xor_gate(a, b)
+    xor_gate(s1, cin)
+
+let full_adder_carry(a, b, cin) =
+    let s1 = xor_gate(a, b)
+    let c1 = and_gate(a, b)
+    let c2 = and_gate(s1, cin)
+    or_gate(c1, c2)
+
+let add2_sum0(a0, b0) = full_adder_sum(a0, b0, 0)
+let add2_sum1(a0, a1, b0, b1) =
+    let c0 = full_adder_carry(a0, b0, 0)
+    full_adder_sum(a1, b1, c0)
+let add2_carry(a0, a1, b0, b1) =
+    let c0 = full_adder_carry(a0, b0, 0)
+    full_adder_carry(a1, b1, c0)
+
+let verify_half_adder() =
+    let pass = 1
+    if half_adder_sum(0, 0) != 0
+        pass = 0
+    if half_adder_carry(0, 0) != 0
+        pass = 0
+    if half_adder_sum(0, 1) != 1
+        pass = 0
+    if half_adder_carry(0, 1) != 0
+        pass = 0
+    if half_adder_sum(1, 0) != 1
+        pass = 0
+    if half_adder_carry(1, 0) != 0
+        pass = 0
+    if half_adder_sum(1, 1) != 0
+        pass = 0
+    if half_adder_carry(1, 1) != 1
+        pass = 0
+    pass
+
+let verify_full_adder() =
+    let pass = 1
+    if full_adder_sum(0, 0, 0) != 0
+        pass = 0
+    if full_adder_carry(0, 0, 0) != 0
+        pass = 0
+    if full_adder_sum(0, 0, 1) != 1
+        pass = 0
+    if full_adder_carry(0, 0, 1) != 0
+        pass = 0
+    if full_adder_sum(0, 1, 0) != 1
+        pass = 0
+    if full_adder_carry(0, 1, 0) != 0
+        pass = 0
+    if full_adder_sum(0, 1, 1) != 0
+        pass = 0
+    if full_adder_carry(0, 1, 1) != 1
+        pass = 0
+    if full_adder_sum(1, 0, 0) != 1
+        pass = 0
+    if full_adder_carry(1, 0, 0) != 0
+        pass = 0
+    if full_adder_sum(1, 0, 1) != 0
+        pass = 0
+    if full_adder_carry(1, 0, 1) != 1
+        pass = 0
+    if full_adder_sum(1, 1, 0) != 0
+        pass = 0
+    if full_adder_carry(1, 1, 0) != 1
+        pass = 0
+    if full_adder_sum(1, 1, 1) != 1
+        pass = 0
+    if full_adder_carry(1, 1, 1) != 1
+        pass = 0
+    pass
+
+let verify_add2() =
+    let pass = 1
+
+    if add2_sum0(0, 0) != 0
+        pass = 0
+    if add2_sum1(0, 0, 0, 0) != 0
+        pass = 0
+    if add2_carry(0, 0, 0, 0) != 0
+        pass = 0
+
+    if add2_sum0(1, 0) != 1
+        pass = 0
+    if add2_sum1(1, 0, 0, 0) != 0
+        pass = 0
+    if add2_carry(1, 0, 0, 0) != 0
+        pass = 0
+
+    if add2_sum0(1, 1) != 0
+        pass = 0
+    if add2_sum1(1, 0, 1, 0) != 1
+        pass = 0
+    if add2_carry(1, 0, 1, 0) != 0
+        pass = 0
+
+    if add2_sum0(0, 1) != 1
+        pass = 0
+    if add2_sum1(0, 1, 1, 0) != 1
+        pass = 0
+    if add2_carry(0, 1, 1, 0) != 0
+        pass = 0
+
+    if add2_sum0(0, 0) != 0
+        pass = 0
+    if add2_sum1(0, 1, 0, 1) != 0
+        pass = 0
+    if add2_carry(0, 1, 0, 1) != 1
+        pass = 0
+
+    if add2_sum0(1, 1) != 0
+        pass = 0
+    if add2_sum1(1, 1, 1, 0) != 0
+        pass = 0
+    if add2_carry(1, 1, 1, 0) != 1
+        pass = 0
+
+    if add2_sum0(1, 1) != 0
+        pass = 0
+    if add2_sum1(1, 1, 1, 1) != 1
+        pass = 0
+    if add2_carry(1, 1, 1, 1) != 1
+        pass = 0
+
+    pass
+
+let mul2(a, b) =
+    let result = 0
+    let i = 0
+    for i < b
+        result = result + a
+        i = i + 1
+    result
+
+let verify_mul() =
+    let pass = 1
+    if mul2(0, 0) != 0
+        pass = 0
+    if mul2(0, 1) != 0
+        pass = 0
+    if mul2(1, 0) != 0
+        pass = 0
+    if mul2(1, 1) != 1
+        pass = 0
+    if mul2(2, 3) != 6
+        pass = 0
+    if mul2(3, 3) != 9
+        pass = 0
+    if mul2(4, 5) != 20
+        pass = 0
+    pass
+
+let main() =
+    let result = 0
+    if verify_half_adder() == 1
+        result = result + 1
+    if verify_full_adder() == 1
+        result = result + 1
+    if verify_add2() == 1
+        result = result + 1
+    if verify_mul() == 1
+        result = result + 1
+    result

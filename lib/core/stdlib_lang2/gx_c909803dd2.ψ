@@ -1,0 +1,17 @@
+let frozen2_harm(XX, YY, n, K) =
+    let u1 = gf_inv(gf_mul(XX[0], XX[0]))
+    let u2 = gf_inv(gf_mul(XX[1], XX[1]))
+    let B = gf_div(gf_sub(YY[1], YY[0]), gf_sub(u2, u1))
+    let A = gf_sub(YY[0], gf_mul(B, u1))
+    let ok = 1
+    let k = 0
+    for k < K
+        let xq = XX[n + k]
+        let pred = gf_add(A, gf_mul(B, gf_inv(gf_mul(xq, xq))))
+        let bad = 0
+        if rel_permille(pred, 1, YY[n + k]) > QTOL
+            bad = 1
+        ok = ok * (1 - bad)
+        k = k + 1
+    ok
+

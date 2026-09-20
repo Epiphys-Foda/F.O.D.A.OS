@@ -1,0 +1,117 @@
+import "../stdlib/gf65537.ψ"
+
+let sql_precision_gf(n_measurements) =
+    gf_sqrt(n_measurements)
+
+let sql_inverse_precision_gf(n_measurements) =
+    gf_inv(gf_sqrt(n_measurements))
+
+let hl_precision_gf(n_entangled) =
+    n_entangled
+
+let hl_inverse_precision_gf(n_entangled) =
+    gf_inv(n_entangled)
+
+let hl_vs_sql_speedup_gf(n) =
+    gf_div(hl_precision_gf(n), sql_precision_gf(n))
+
+let classical_fisher_gf(probabilities, theta) =
+    let fisher = 0
+    for i in 0..len(probabilities)
+        let p = probabilities[i]
+        let dp = gf_sub(p, theta)
+        let dp_sq = gf_mul(dp, dp)
+        let contribution = gf_mul(dp_sq, gf_inv(p))
+        fisher = gf_add(fisher, contribution)
+    fisher
+
+let quantum_fisher_gf(rho, theta) =
+    let drho = gf_sub(rho, theta)
+    let drho_sq = gf_mul(drho, drho)
+    let trace = gf_mul(rho, drho_sq)
+    gf_mul(4, trace)
+
+let cramer_rao_bound_gf(fisher_info) =
+    gf_sqrt(fisher_info)
+
+let quantum_cramer_rao_bound_gf(m_measurements, quantum_fisher) =
+    let mF = gf_mul(m_measurements, quantum_fisher)
+    gf_sqrt(mF)
+
+let noon_state_gf(n) =
+    [n, 0, 0, n]
+
+let noon_phase_sensitivity_gf(n) =
+    n
+
+let parameter_estimate_gf(observations, true_theta) =
+    let best_theta = 0
+    let best_cost = gf_pow(65537, 2)
+    for candidate in 0..65537
+        let cost = 0
+        for i in 0..len(observations)
+            let diff = gf_sub(candidate, observations[i])
+            cost = gf_add(cost, gf_mul(diff, diff))
+        if cost < best_cost
+            best_cost = cost
+            best_theta = candidate
+    best_theta
+
+let adaptive_metrology_step_gf(theta_current, measurement, alpha) =
+    let error = gf_sub(measurement, theta_current)
+    let correction = gf_mul(alpha, error)
+    gf_add(theta_current, correction)
+
+let adaptive_metrology_sequence_gf(theta_init, measurements, alpha) =
+    let theta = theta_init
+    for k in 0..len(measurements)
+        theta = adaptive_metrology_step_gf(theta, measurements[k], alpha)
+    theta
+
+let multiparam_fisher_gf(probabilities, theta_vec) =
+    let n_params = len(theta_vec)
+    let fisher_matrix = []
+    for i in 0..n_params
+        let row = []
+        for j in 0..n_params
+            let f_ij = 0
+            for k in 0..len(probabilities)
+                let p = probabilities[k]
+                let dp_dti = gf_sub(p, theta_vec[i])
+                let dp_dtj = gf_sub(p, theta_vec[j])
+                let contrib = gf_mul(gf_mul(dp_dti, dp_dtj), gf_inv(p))
+                f_ij = gf_add(f_ij, contrib)
+            row = arr_concat(row, [f_ij])
+        fisher_matrix = arr_concat(fisher_matrix, [row])
+    fisher_matrix
+
+let quantum_geometric_tensor_gf(psi, theta_vec) =
+    multiparam_fisher_gf(psi, theta_vec)
+
+let squeezing_inequality_gf(delta_x, delta_p) =
+    let product = gf_mul(delta_x, delta_p)
+    let bound = gf_inv(2)
+    (product >= bound ? 1 : 0)
+
+let squeezing_factor_gf(delta_x, delta_x_vac) =
+    gf_div(delta_x_vac, delta_x)
+
+let zeno_time_gf(delta_H) =
+    gf_inv(delta_H)
+
+let zeno_suppression_gf(n_measurements) =
+    gf_inv(gf_mul(n_measurements, n_measurements))
+
+let quantum_phase_estimation_gf(phase, n_qubits) =
+    let precision = gf_inv(gf_pow(2, n_qubits))
+    gf_mul(phase, gf_pow(2, n_qubits))
+
+let qpe_precision_gf(n_qubits) =
+    gf_inv(gf_pow(2, n_qubits))
+
+let metrology_quantum_advantage_gf(n) =
+    hl_vs_sql_speedup_gf(n)
+
+let entanglement_metrology_advantage_gf(n) =
+    gf_sqrt(n)
+

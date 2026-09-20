@@ -1,0 +1,81 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let s5_mul(ar, as, br, bs) =
+    let rr = ar * br + 5 * as * bs
+    let rs = ar * bs + as * br
+    let r = arr_new_n(2)
+    r[0] = rr
+    r[1] = rs
+    r
+
+let s5_pow(zr, zs, e) =
+    let rr = 1
+    let rs = 0
+    let br = zr
+    let bs = zs
+    let ee = e
+    for ee > 0
+        if ee % 2 == 1
+            let t = s5_mul(rr, rs, br, bs)
+            rr = t[0]
+            rs = t[1]
+        let t2 = s5_mul(br, bs, br, bs)
+        br = t2[0]
+        bs = t2[1]
+        ee = ee / 2
+    let r = arr_new_n(2)
+    r[0] = rr
+    r[1] = rs
+    r
+
+let main() =
+    print(111)
+    let inv2 = 32769
+    print(5 * 5)
+    print(gf_pow(5, 32768))
+    let lpr = inv2
+    let lps = inv2
+    let lmr = inv2
+    let lms = 65537 - inv2
+    let lp2 = s5_pow(lpr, lps, 2)
+    print(lp2[0])
+    print(lp2[1])
+    let ok_char = 0
+    if lp2[0] == lpr + 1
+        if lp2[1] == lps
+            ok_char = 1
+    print(ok_char)
+    let a5 = s5_pow(lpr, lps, 5)
+    let b5 = s5_pow(lmr, lms, 5)
+    print(a5[0] - b5[0])
+    print(a5[1] - b5[1])
+    let a10 = s5_pow(lpr, lps, 10)
+    let b10 = s5_pow(lmr, lms, 10)
+    print(a10[1] - b10[1])
+    let a15 = s5_pow(lpr, lps, 15)
+    let b15 = s5_pow(lmr, lms, 15)
+    print(a15[1] - b15[1])
+    let a20 = s5_pow(lpr, lps, 20)
+    let b20 = s5_pow(lmr, lms, 20)
+    print(a20[1] - b20[1])
+
+    print(222)
+    let ii = 256
+    print(ii * ii)
+    print((gf_pow(ii, 0) + gf_pow(65537 - ii, 0)) * inv2)
+    print((gf_pow(ii, 1) + gf_pow(65537 - ii, 1)) * inv2)
+    print((gf_pow(ii, 2) + gf_pow(65537 - ii, 2)) * inv2)
+    print((gf_pow(ii, 3) + gf_pow(65537 - ii, 3)) * inv2)
+    print((gf_pow(ii, 4) + gf_pow(65537 - ii, 4)) * inv2)
+    print((gf_pow(ii, 8) + gf_pow(65537 - ii, 8)) * inv2)
+
+    print(333)
+    let L10 = s5_pow(lpr, lps, 10)
+    let L10b = s5_pow(lmr, lms, 10)
+    print(L10[0] + L10b[0])
+    print(L10[1] + L10b[1])
+    let L12 = s5_pow(lpr, lps, 12)
+    let L12b = s5_pow(lmr, lms, 12)
+    print(L12[0] + L12b[0])
+
+    55

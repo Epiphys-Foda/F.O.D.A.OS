@@ -1,0 +1,132 @@
+import "super_db.ψ"
+let _born3(c, a, b) = (c != 0) ? a : b
+let rf_db_q_state(records) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(records)
+        out = out.push(records[i])
+        i = i + 1
+      else
+        done = true
+    out
+
+let rf_db_q_h(state, i) =
+    let out = []
+    let j = 0
+    let done = false
+    for !done
+      if j < len(state)
+        if j == i || j == (i ^ 1)
+          out = out.push(state[j])
+        else
+          out = out.push(state[j])
+        j = j + 1
+      else
+        done = true
+        0
+    let a = state[i]
+    let b = state[i ^ 1]
+    let s = a + b
+    let d = a - b
+    let nv0 = s * 2040 - (s * 2040 / 65537) * 65537
+    let nv1raw = d * 2040
+    let nv1 = nv1raw - (nv1raw / 65537) * 65537
+    let nv1f = (nv1 < 0 ? nv1 + 65537 : nv1)
+    if i < (i ^ 1)
+      out = rf_db_arr_set(out, i, nv0)
+      out = rf_db_arr_set(out, i ^ 1, nv1f)
+    else
+      out = rf_db_arr_set(out, i ^ 1, nv0)
+      out = rf_db_arr_set(out, i, nv1f)
+    out
+
+let rf_db_q_bell_a(a) =
+    let m = a * 2040
+    m - (m / 65537) * 65537
+
+let rf_db_q_bell_b(b) = rf_db_q_bell_a(b)
+
+let rf_db_q_grover_a(a, b, n) =
+    let p2 = rf_db_mod_pow(2, n % 32, 65537)
+    let alpha = (p2 - 2) % 65537
+    let beta = (p2 * 2 - 2) % 65537
+    let r = (rf_db_mul(alpha, a) + rf_db_mul(beta, b)) % 65537
+    (r < 0 ? r + 65537 : r)
+
+let rf_db_q_grover_b(a, b, n) =
+    let p2 = rf_db_mod_pow(2, n % 32, 65537)
+    let alpha = (p2 - 2) % 65537
+    let r = (0 - 2 * a + rf_db_mul(alpha, b)) % 65537
+    (r < 0 ? r + 65537 : r)
+
+let rf_db_q_grover_query(n, k) =
+    let a = 1
+    let b = 1
+    let i = 0
+    let done = false
+    for !done
+      if i < k
+        let na = rf_db_q_grover_a(a, b, n)
+        let nb = rf_db_q_grover_b(a, b, n)
+        a = na
+        b = nb
+        i = i + 1
+      else
+        done = true
+    [a, b]
+
+let rf_db_q_qft8(signal) =
+    let out = []
+    let j = 0
+    let done = false
+    for !done
+      if j < 8
+        let acc = 0
+        let k = 0
+        let kdone = false
+        for !kdone
+          if k < 8
+            let w = rf_db_mod_pow(16, (j * k) % 8, 65537)
+            let term = rf_db_mul(signal[k], w)
+            acc = acc + term - (term / 65537) * 65537
+            k = k + 1
+          else
+            kdone = true
+        let val = acc * 1020
+        out = out.push(val - (val / 65537) * 65537)
+        j = j + 1
+      else
+        done = true
+    out
+
+let rf_db_q_born(state) =
+    let best_idx = 0
+    let best_amp = 0
+    let i = 0
+    let done = false
+    for !done
+      if i < len(state)
+        if state[i] > best_amp
+          best_amp = state[i]
+          best_idx = i
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    best_idx
+
+let rf_db_q_verify() =
+    let results = []
+    results = results.push(rf_db_q_state([7, 11, 13])[1] == 11)
+    let hd = rf_db_q_h([7, 11], 0)
+    results = results.push(hd[0] == 36720 && hd[1] == 57377)
+    results = results.push(rf_db_q_bell_a(7) == 14280)
+    let g = rf_db_q_grover_query(3, 2)
+    results = results.push(g[0] == 176 && g[1] == 65521)
+    let fq = rf_db_q_qft8([5, 3, 5, 3, 5, 3, 5, 3])
+    results = results.push(fq[4] == 8160)
+    results = results.push(rf_db_q_born([3, 9, 5]) == 1)
+    results

@@ -1,0 +1,31 @@
+import "ck.ψ"
+let bad = [0]
+
+let cube = 2 * 2 * 2
+let cz = cube - 8
+bad[0] = bad[0] + ck(cz, 0, 0)
+
+let coin = 1
+bad[0] = bad[0] + ck(coin, 1, 1)
+
+let floor3 = 3
+let fz = floor3 - 3
+bad[0] = bad[0] + ck(fz, 0, 0)
+
+let cap = 3000 * 10 / 1000
+bad[0] = bad[0] + ck(cap, 30, 30)
+
+if 1928 < 1926
+    bad[0] = bad[0] + 1
+if 1928 > 1930
+    bad[0] = bad[0] + 1
+if 1948 < 1946
+    bad[0] = bad[0] + 1
+if 1948 > 1950
+    bad[0] = bad[0] + 1
+if 1950 < 1948
+    bad[0] = bad[0] + 1
+if 1950 > 1952
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

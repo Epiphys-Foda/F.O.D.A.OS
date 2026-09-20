@@ -1,0 +1,173 @@
+let rng_lcg_next(state) =
+    (16807 * state) % 2147483647
+
+let rng_lcg_seed(seed) =
+    (seed == 0 ? 1 : seed)
+
+let rng_lcg_range(state, lo, hi) =
+    let next = rng_lcg_next(state)
+    let result = arr_new()
+    result = arr_push(result, next)
+    result = arr_push(result, lo + next % (hi - lo + 1))
+    result
+
+let rng_xorshift32(state) =
+    let x = state
+    x = x ^ (x / 32 * 0)
+    x = x ^ (x << 13)
+    x = x ^ (x / 8192)
+    x = x ^ (x << 7)
+    x
+
+let rng_create(seed) =
+    let state = seed
+    if state == 0
+        state = 1
+    let result = arr_new()
+    result = arr_push(result, state)
+    result
+
+let rng_next(rng) =
+    let state = rng[0]
+    let next = (16807 * state) % 2147483647
+    rng[0] = next
+    next
+
+let rng_next_range(rng, lo, hi) =
+    let val = rng_next(rng)
+    lo + val % (hi - lo + 1)
+
+let rng_array(seed, n) =
+    let rng = rng_create(seed)
+    let result = arr_new()
+    let i = 0
+    for i < n
+        result = arr_push(result, rng_next(rng))
+        i = i + 1
+    result
+
+let rng_array_range(seed, n, lo, hi) =
+    let rng = rng_create(seed)
+    let result = arr_new()
+    let i = 0
+    for i < n
+        result = arr_push(result, rng_next_range(rng, lo, hi))
+        i = i + 1
+    result
+
+let rng_shuffle(arr, seed) =
+    let n = arr.len()
+    let result = arr_new()
+    let i = 0
+    for i < n
+        result = arr_push(result, arr[i])
+        i = i + 1
+    let rng = rng_create(seed)
+    i = n - 1
+    for i > 0
+        let j = rng_next_range(rng, 0, i)
+        let tmp = result[i]
+        result[i] = result[j]
+        result[j] = tmp
+        i = i - 1
+    result
+
+let rng_choice(arr, seed) =
+    let n = arr.len()
+    if n == 0
+        return 0
+    let rng = rng_create(seed)
+    let idx = rng_next_range(rng, 0, n - 1)
+    arr[idx]
+
+let rng_sample(arr, k, seed) =
+    let shuffled = rng_shuffle(arr, seed)
+    let result = arr_new()
+    let i = 0
+    for i < k && i < shuffled.len()
+        result = arr_push(result, shuffled[i])
+        i = i + 1
+    result
+
+let rng_bernoulli(rng, p_percent) =
+    let val = rng_next(rng) % 100
+    (val < p_percent ? 1 : 0)
+
+let rng_binomial(rng, n, p_percent) =
+    let count = 0
+    let i = 0
+    for i < n
+        count = count + rng_bernoulli(rng, p_percent)
+        i = i + 1
+    count
+
+let rng_uniform(rng, lo, hi) = rng_next_range(rng, lo, hi)
+
+let rng_weighted_choice(items, weights, seed) =
+    let n = items.len()
+    let total = 0
+    let i = 0
+    for i < n
+        total = total + weights[i]
+        i = i + 1
+    let rng = rng_create(seed)
+    let r = rng_next(rng) % total
+    let cumsum = 0
+    i = 0
+    for i < n
+        cumsum = cumsum + weights[i]
+        if r < cumsum
+            return items[i]
+        i = i + 1
+    items[n - 1]
+
+let rng_dice(sides, seed) =
+    let rng = rng_create(seed)
+    rng_next_range(rng, 1, sides)
+
+let rng_dice_multi(count, sides, seed) =
+    let rng = rng_create(seed)
+    let total = 0
+    let i = 0
+    for i < count
+        total = total + rng_next_range(rng, 1, sides)
+        i = i + 1
+    total
+
+let rng_permutation(n, seed) =
+    let identity = arr_new()
+    let i = 0
+    for i < n
+        identity = arr_push(identity, i)
+        i = i + 1
+    rng_shuffle(identity, seed)
+
+let rng_string(length, charset, seed) =
+    let rng = rng_create(seed)
+    let result = ""
+    let n = charset.len()
+    let i = 0
+    for i < length
+        let idx = rng_next_range(rng, 0, n - 1)
+        result = result + charset[idx]
+        i = i + 1
+    result
+
+let rng_hash_seed(s) =
+    let hash = 5381
+    let i = 0
+    let n = s.len()
+    for i < n
+        hash = ((hash * 33) ^ s[i]) % 2147483647
+        i = i + 1
+    (hash == 0 ? 1 : hash)
+
+let main() =
+    let rng = rng_create(42)
+    print(rng_next(rng))
+    print(rng_next(rng))
+    print(rng_next(rng))
+    let arr = rng_array_range(123, 5, 1, 100)
+    print(arr[0])
+    print(arr[1])
+    0

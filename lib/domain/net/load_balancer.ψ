@@ -1,0 +1,326 @@
+let lb_backend_new(host, port, weight) =
+    [host, port, weight, 0, 1, 0, 0, 0]
+
+let bk_host(b) = b[0]
+let bk_port(b) = b[1]
+let bk_weight(b) = b[2]
+let bk_conns(b) = b[3]
+let bk_healthy(b) = b[4]
+let bk_last_check(b) = b[5]
+let bk_failures(b) = b[6]
+let bk_successes(b) = b[7]
+
+let bk_addr(b) = bk_host(b) + ":" + bk_port(b)
+
+let bk_set_healthy(b, flag) =
+    b[4] = flag
+    b
+
+let bk_set_conns(b, c) =
+    b[3] = c
+    b
+
+let bk_inc_conns(b) =
+    b[3] = b[3] + 1
+    b
+
+let bk_dec_conns(b) =
+    b[3] = b[3] - 1
+    if b[3] < 0
+        b[3] = 0
+    b
+
+let bk_set_last_check(b, ts) =
+    b[5] = ts
+    b
+
+let bk_inc_failure(b) =
+    b[6] = b[6] + 1
+    b
+
+let bk_inc_success(b) =
+    b[7] = b[7] + 1
+    b
+
+let lb_new(algorithm) =
+    [[], algorithm, 0, {}, 0, 0]
+
+let lb_backends(l) = l[0]
+let lb_algo(l) = l[1]
+let lb_counter(l) = l[2]
+let lb_sticky(l) = l[3]
+let lb_total_w(l) = l[4]
+let lb_max_fails(l) = l[5]
+
+let lb_add_backend(l, backend) =
+    let backends = lb_backends(l)
+    backends.push(backend)
+    l[0] = backends
+    l[4] = l[4] + bk_weight(backend)
+    l
+
+let lb_remove_backend(l, host, port) =
+    let backends = lb_backends(l)
+    let new_list = []
+    let i = 0
+    let n = len(backends)
+    for i < n
+        let b = backends[i]
+        if bk_host(b) != host || bk_port(b) != port
+            new_list.push(b)
+        i = i + 1
+    l[0] = new_list
+    l
+
+let lb_healthy_count(l) =
+    let backends = lb_backends(l)
+    let count = 0
+    let i = 0
+    let n = len(backends)
+    for i < n
+        if bk_healthy(backends[i]) == 1
+            count = count + 1
+        i = i + 1
+    count
+
+let lb_pick_rr(l) =
+    let backends = lb_backends(l)
+    let n = len(backends)
+    if n == 0
+        0
+    else
+        let idx = lb_counter(l) % n
+        let attempts = 0
+        let picked = 0
+        for attempts < n
+            let b = backends[idx]
+            if bk_healthy(b) == 1
+                picked = b
+                attempts = n
+            else
+                idx = (idx + 1) % n
+                attempts = attempts + 1
+        l[2] = lb_counter(l) + 1
+        picked
+
+let lb_pick_least_conn(l) =
+    let backends = lb_backends(l)
+    let n = len(backends)
+    if n == 0
+        0
+    else
+        let best = 0
+        let min_conns = 65536
+        let i = 0
+        for i < n
+            let b = backends[i]
+            if bk_healthy(b) == 1
+                if bk_conns(b) < min_conns
+                    min_conns = bk_conns(b)
+                    best = b
+            i = i + 1
+        best
+
+let lb_pick_ip_hash(l, client_ip) =
+    let backends = lb_backends(l)
+    let n = len(backends)
+    if n == 0
+        0
+    else
+        let hash = 0
+        let i = 0
+        let len_ip = len(client_ip)
+        for i < len_ip
+            hash = (hash * 31 + client_ip[i]) % 65537
+            i = i + 1
+        let idx = hash % n
+        let attempts = 0
+        let picked = 0
+        for attempts < n
+            let b = backends[idx]
+            if bk_healthy(b) == 1
+                picked = b
+                attempts = n
+            else
+                idx = (idx + 1) % n
+                attempts = attempts + 1
+        picked
+
+let lb_pick_weighted_rr(l) =
+    let backends = lb_backends(l)
+    let n = len(backends)
+    if n == 0
+        0
+    else
+        let total = lb_total_w(l)
+        if total == 0
+            0
+        else
+            let pick = lb_counter(l) % total
+            l[2] = lb_counter(l) + 1
+            let cum = 0
+            let picked = 0
+            let i = 0
+            for i < n
+                let b = backends[i]
+                if bk_healthy(b) == 1
+                    cum = cum + bk_weight(b)
+                    if pick < cum
+                        picked = b
+                        i = n
+                i = i + 1
+            picked
+
+let lb_pick(l, client_ip) =
+    let algo = lb_algo(l)
+    if algo == 0
+        lb_pick_rr(l)
+    else
+        0
+    if algo == 1
+        lb_pick_least_conn(l)
+    else
+        0
+    if algo == 2
+        lb_pick_ip_hash(l, client_ip)
+    else
+        0
+    if algo == 3
+        lb_pick_weighted_rr(l)
+    else
+        lb_pick_rr(l)
+
+let lb_health_check_all(l, current_ts) =
+    let backends = lb_backends(l)
+    let i = 0
+    let n = len(backends)
+    for i < n
+        let b = backends[i]
+        b = bk_set_last_check(b, current_ts)
+        b = bk_inc_success(b)
+        b = bk_set_healthy(b, 1)
+        backends[i] = b
+        i = i + 1
+    l[0] = backends
+    l
+
+let lb_record_failure(l, host, port) =
+    let backends = lb_backends(l)
+    let i = 0
+    let n = len(backends)
+    for i < n
+        let b = backends[i]
+        if bk_host(b) == host
+            if bk_port(b) == port
+                b = bk_inc_failure(b)
+                if bk_failures(b) >= lb_max_fails(l)
+                    b = bk_set_healthy(b, 0)
+                backends[i] = b
+                i = n
+        i = i + 1
+    l[0] = backends
+    l
+
+let lb_record_success(l, host, port) =
+    let backends = lb_backends(l)
+    let i = 0
+    let n = len(backends)
+    for i < n
+        let b = backends[i]
+        if bk_host(b) == host
+            if bk_port(b) == port
+                b = bk_inc_success(b)
+                backends[i] = b
+                i = n
+        i = i + 1
+    l[0] = backends
+    l
+
+let lb_sticky_get(l, session_id) =
+    let sticky = lb_sticky(l)
+    sticky[session_id]
+
+let lb_sticky_set(l, session_id, backend) =
+    let sticky = lb_sticky(l)
+    sticky[session_id] = bk_addr(backend)
+    l[3] = sticky
+    l
+
+let lb_pick_sticky(l, client_ip, session_id) =
+    if session_id != ""
+        let existing = lb_sticky_get(l, session_id)
+        if existing != 0
+            let backends = lb_backends(l)
+            let i = 0
+            let n = len(backends)
+            let matched = 0
+            for i < n
+                if bk_addr(backends[i]) == existing
+                    if bk_healthy(backends[i]) == 1
+                        matched = backends[i]
+                        i = n
+                i = i + 1
+            if matched != 0
+                matched
+            else
+                let picked = lb_pick(l, client_ip)
+                if picked != 0
+                    l = lb_sticky_set(l, session_id, picked)
+                picked
+        else
+            let picked = lb_pick(l, client_ip)
+            if picked != 0
+                l = lb_sticky_set(l, session_id, picked)
+            picked
+    else
+        lb_pick(l, client_ip)
+
+let lb_acquire(l, host, port) =
+    let backends = lb_backends(l)
+    let i = 0
+    let n = len(backends)
+    let picked = 0
+    for i < n
+        let b = backends[i]
+        if bk_host(b) == host
+            if bk_port(b) == port
+                if bk_healthy(b) == 1
+                    b = bk_inc_conns(b)
+                    backends[i] = b
+                    picked = b
+                i = n
+        i = i + 1
+    l[0] = backends
+    picked
+
+let lb_release(l, host, port) =
+    let backends = lb_backends(l)
+    let i = 0
+    let n = len(backends)
+    for i < n
+        let b = backends[i]
+        if bk_host(b) == host
+            if bk_port(b) == port
+                b = bk_dec_conns(b)
+                backends[i] = b
+                i = n
+        i = i + 1
+    l[0] = backends
+    l
+
+let lb_handle_l4(l, client_ip) =
+    let picked = lb_pick(l, client_ip)
+    if picked == 0
+        ["error", "no healthy backend"]
+    else
+        ["l4", bk_addr(picked)]
+
+let lb_handle_l7(l, method, path, client_ip, cookie) =
+    let session_id = ""
+    if cookie != ""
+        session_id = cookie
+    let picked = lb_pick_sticky(l, client_ip, session_id)
+    if picked == 0
+        ["error", "no healthy backend", method, path]
+    else
+        ["l7", bk_addr(picked), method, path]

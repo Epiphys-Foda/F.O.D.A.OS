@@ -1,0 +1,137 @@
+import "numtheor.ψ"
+let orbital_velocity(gm, radius) =
+    isqrt(gm / radius)
+
+let orbital_period(gm, semi_major_axis) =
+    let a3 = semi_major_axis * semi_major_axis * semi_major_axis
+    6283 * isqrt(a3 / gm) / 1000
+
+let escape_velocity(gm, radius) =
+    isqrt(2 * gm / radius)
+
+let keplers_third_law(period, gm) =
+    gm * period * period / 39478418
+
+let vis_viva(gm, semi_major_axis, radius) =
+    gm * (2000000 / radius - 1000000 / semi_major_axis) / 1000000
+
+let hohmann_transfer(r1, r2, gm) =
+    let v1 = orbital_velocity(gm, r1)
+    let v2 = orbital_velocity(gm, r2)
+    let a_transfer = (r1 + r2) / 2
+    let v_transfer1 = isqrt(gm * (2000000 / r1 - 1000000 / a_transfer) / 1000000)
+    let v_transfer2 = isqrt(gm * (2000000 / r2 - 1000000 / a_transfer) / 1000000)
+    let dv1 = v_transfer1 - v1
+    let dv2 = v2 - v_transfer2
+    [dv1, dv2, dv1 + dv2]
+
+let schwarzschild_radius(mass, g, c) =
+    2 * g * mass / (c * c / 1000)
+
+let luminosity(radius, temperature) =
+    12566 * radius * radius * temperature * temperature * temperature * temperature / 10000000000000000
+
+let apparent_brightness(luminosity, distance) =
+    luminosity / (12566 * distance * distance / 1000)
+
+let magnitude(brightness) =
+    let log_val = 0
+    let b = brightness
+    for b > 1
+        b = b / 10
+        log_val = log_val + 1
+    -25 * log_val / 10
+
+let redshift(observed_wavelength, emitted_wavelength) =
+    (observed_wavelength - emitted_wavelength) / emitted_wavelength
+
+let doppler_velocity(redshift_val, c) =
+    redshift_val * c / 1000
+
+let angular_diameter(physical_diameter, distance) =
+    physical_diameter * 1000 / distance
+
+let parsec_to_lightyear(parsec) =
+    parsec * 3262
+
+let lightyear_to_parsec(ly) =
+    ly * 3066 / 10000
+
+let au_to_km(au) =
+    au * 149598
+
+let km_to_au(km) =
+    km * 1000 / 149598000
+
+let bad = [0]
+
+let vleo = orbital_velocity(398600, 6371)
+if vleo < 6
+    bad[0] = bad[0] + 1
+if vleo > 8
+    bad[0] = bad[0] + 1
+
+let vesc = escape_velocity(398600, 6371)
+if vesc < 10
+    bad[0] = bad[0] + 1
+if vesc > 12
+    bad[0] = bad[0] + 1
+
+let tleo = orbital_period(398600, 6371)
+if tleo < 5000
+    bad[0] = bad[0] + 1
+if tleo > 5200
+    bad[0] = bad[0] + 1
+
+let tgeo = orbital_period(398600, 42164)
+if tgeo < 86000
+    bad[0] = bad[0] + 1
+if tgeo > 87000
+    bad[0] = bad[0] + 1
+
+let a3s = keplers_third_law(86164, 398600)
+let ageo = icbrt(a3s * 1000000)
+if ageo < 42000
+    bad[0] = bad[0] + 1
+if ageo > 42300
+    bad[0] = bad[0] + 1
+
+let vvsq = vis_viva(398600, 42164, 42164)
+if vvsq < 8
+    bad[0] = bad[0] + 1
+if vvsq > 10
+    bad[0] = bad[0] + 1
+if isqrt(vvsq) < 2
+    bad[0] = bad[0] + 1
+if isqrt(vvsq) > 4
+    bad[0] = bad[0] + 1
+
+let dv1 = doppler_velocity(redshift(2000, 1000), 299792)
+if dv1 < 298
+    bad[0] = bad[0] + 1
+if dv1 > 300
+    bad[0] = bad[0] + 1
+
+let mg = magnitude(1000000)
+if mg < 0 - 16
+    bad[0] = bad[0] + 1
+if mg > 0 - 14
+    bad[0] = bad[0] + 1
+
+let moond = angular_diameter(3474, 384400)
+if moond < 8
+    bad[0] = bad[0] + 1
+if moond > 10
+    bad[0] = bad[0] + 1
+
+let rtkm = au_to_km(km_to_au(149598000))
+if rtkm != 149598000
+    bad[0] = bad[0] + 1
+
+let pcly = parsec_to_lightyear(1)
+if pcly < 3261
+    bad[0] = bad[0] + 1
+if pcly > 3263
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

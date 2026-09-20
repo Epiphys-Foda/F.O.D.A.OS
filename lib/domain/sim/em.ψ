@@ -1,0 +1,96 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let EM_MAX_CELLS = 65536
+let EM_C = 30000
+
+let em_grid_create(nx, ny) =
+    let cells = []
+    let i = 0
+    for i < nx * ny
+        cells.push([0, 0, 0, 0, 0, 0, 1, 1])
+        i = i + 1
+    [cells, nx, ny, 1, 1]
+let em_update_h(grid, i, j) =
+    let nx = grid[1]
+    let cells = grid[0]
+    let idx = i * nx + j
+    let c = cells[idx]
+    let dt = grid[4]
+    let dx = grid[3]
+    let coef = gf_div(dt, gf_mul(dx, c[7]))
+    let ex = c[0]
+    let ey = c[1]
+    let hz = c[5]
+    if j < nx - 1
+        hz = gf_sub(hz, gf_mul(coef, gf_sub(cells[idx + 1][0], ex)))
+    [c[0], c[1], c[2], c[3], c[4], hz, c[6], c[7]]
+let em_update_e(grid, i, j) =
+    let nx = grid[1]
+    let cells = grid[0]
+    let idx = i * nx + j
+    let c = cells[idx]
+    let dt = grid[4]
+    let dx = grid[3]
+    let coef = gf_div(dt, gf_mul(dx, c[6]))
+    let hz = c[5]
+    let ex = c[0]
+    if i > 0
+        ex = gf_add(ex, gf_mul(coef, gf_sub(hz, cells[(i-1) * nx + j][5])))
+    [ex, c[1], c[2], c[3], c[4], hz, c[6], c[7]]
+let em_step(grid) =
+    let nx = grid[1]
+    let ny = grid[2]
+    let cells = grid[0]
+    let i = 0
+    for i < nx
+        let j = 0
+        for j < ny
+            cells[i * nx + j] = em_update_h(grid, i, j)
+            j = j + 1
+        i = i + 1
+    i = 0
+    for i < nx
+        let j = 0
+        for j < ny
+            cells[i * nx + j] = em_update_e(grid, i, j)
+            j = j + 1
+        i = i + 1
+    [cells, nx, ny, grid[3], grid[4]]
+let wave_equation_step(u, u_prev, c, dt, dx, nx, ny) =
+    let new_u = []
+    let i = 0
+    for i < nx * ny
+        new_u.push(u[i])
+        i = i + 1
+    let coef = gf_mul(gf_div(c, dx), gf_div(c, dx))
+    let dt2 = gf_mul(dt, dt)
+    i = 1
+    for i < nx - 1
+        let j = 1
+        for j < ny - 1
+            let lap = gf_add(gf_sub(u[(i+1) * nx + j], gf_mul(2, u[i * nx + j])), u[(i-1) * nx + j])
+            lap = gf_add(lap, gf_add(gf_sub(u[i * nx + j + 1], gf_mul(2, u[i * nx + j])), u[i * nx + j - 1]))
+            new_u[i * nx + j] = gf_add(gf_mul(2, u[i * nx + j]), gf_sub(gf_neg(u_prev[i * nx + j]), gf_mul(dt2, gf_mul(coef, lap))))
+            j = j + 1
+        i = i + 1
+    new_u
+let field_em(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let em_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_em(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+

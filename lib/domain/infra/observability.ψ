@@ -1,0 +1,284 @@
+import "../domain_field.ψ"
+
+let resource_new(service_name, instance_id, version) =
+    {service_name: service_name, service_instance: instance_id, service_version: version}
+
+let resource_get(r, key) = r[key]
+
+let resource_set(r, key, val) =
+    r[key] = val
+    r
+
+let metrics_new() =
+    [{}, {}, {}, 0]
+
+let metrics_counters(m) = m[0]
+let metrics_gauges(m) = m[1]
+let metrics_histograms(m) = m[2]
+let metrics_ts(m) = m[3]
+
+let counter_inc(m, name, val, labels) =
+    let key = name + ":" + labels_to_str(labels)
+    let counters = metrics_counters(m)
+    let cur = counters[key]
+    if cur == 0
+        cur = 0
+    counters[key] = cur + val
+    m[0] = counters
+    m
+
+let counter_get(m, name, labels) =
+    let key = name + ":" + labels_to_str(labels)
+    metrics_counters(m)[key]
+
+let gauge_set(m, name, val, labels) =
+    let key = name + ":" + labels_to_str(labels)
+    let gauges = metrics_gauges(m)
+    gauges[key] = val
+    m[1] = gauges
+    m
+
+let gauge_get(m, name, labels) =
+    let key = name + ":" + labels_to_str(labels)
+    metrics_gauges(m)[key]
+
+let histogram_observe(m, name, val, labels, buckets) =
+    let key = name + ":" + labels_to_str(labels)
+    let hists = metrics_histograms(m)
+    let hist = hists[key]
+    if hist == 0
+        hist = [[], 0, 0, buckets]
+        let nb = len(buckets)
+        let i = 0
+        for i < nb
+            hist[0].push(0)
+            i = i + 1
+        hist[0].push(0)
+    hist[1] = hist[1] + val
+    hist[2] = hist[2] + 1
+    let bounds = hist[3]
+    let i = 0
+    let n = len(bounds)
+    for i < n
+        if val <= bounds[i]
+            hist[0][i] = hist[0][i] + 1
+        i = i + 1
+    hist[0][n] = hist[0][n] + 1
+    hists[key] = hist
+    m[2] = hists
+    m
+
+let histogram_quantile(m, name, labels, q) =
+    let key = name + ":" + labels_to_str(labels)
+    let hist = metrics_histograms(m)[key]
+    if hist == 0
+        0
+    else
+        let bounds = hist[3]
+        let total = hist[2]
+        if total == 0
+            0
+        else
+            let target = total * q
+            let cum = 0
+            let i = 0
+            let n = len(bounds)
+            let result = bounds[n - 1]
+            for i < n
+                cum = cum + hist[0][i]
+                if cum >= target
+                    result = bounds[i]
+                    i = n
+                i = i + 1
+            result
+
+let labels_to_str(labels) =
+    let s = ""
+    let keys = keys_of(labels)
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let k = keys[i]
+        s = s + k + "=" + labels[k] + ","
+        i = i + 1
+    s
+
+let tracer_new() =
+    [[], 0]
+
+let tracer_spans(t) = t[0]
+let tracer_next_id(t) = t[1]
+
+let span_new(t, trace_id, parent_id, name, start_ts) =
+    let sid = tracer_next_id(t)
+    t[1] = sid + 1
+    let span = [sid, trace_id, parent_id, name, start_ts, 0, {}, []]
+    span
+
+let span_id(s) = s[0]
+let span_trace(s) = s[1]
+let span_parent(s) = s[2]
+let span_name(s) = s[3]
+let span_start(s) = s[4]
+let span_end(s) = s[5]
+let span_tags(s) = s[6]
+let span_events(s) = s[7]
+
+let span_set_tag(s, key, val) =
+    let tags = span_tags(s)
+    tags[key] = val
+    s[6] = tags
+    s
+
+let span_add_event(s, name, ts) =
+    let events = span_events(s)
+    events.push([name, ts])
+    s[7] = events
+    s
+
+let span_finish(s, end_ts) =
+    s[5] = end_ts
+    s
+
+let span_duration(s) =
+    span_end(s) - span_start(s)
+
+let tracer_start(t, trace_id, parent_id, name, start_ts) =
+    let span = span_new(t, trace_id, parent_id, name, start_ts)
+    let spans = tracer_spans(t)
+    spans.push(span)
+    t[0] = spans
+    span
+
+let tracer_get_trace(t, trace_id) =
+    let spans = tracer_spans(t)
+    let result = []
+    let i = 0
+    let n = len(spans)
+    for i < n
+        let s = spans[i]
+        if span_trace(s) == trace_id
+            result.push(s)
+        i = i + 1
+    result
+
+let tracer_children(t, parent_span_id) =
+    let spans = tracer_spans(t)
+    let result = []
+    let i = 0
+    let n = len(spans)
+    for i < n
+        let s = spans[i]
+        if span_parent(s) == parent_span_id
+            result.push(s)
+        i = i + 1
+    result
+
+let logger_new(min_level) =
+    [[], min_level]
+
+let logger_logs(l) = l[0]
+let logger_min_level(l) = l[1]
+
+let log_record(l, ts, level, msg, fields, trace_id, span_id) =
+    if level >= logger_min_level(l)
+        let logs = logger_logs(l)
+        logs.push([ts, level, msg, fields, trace_id, span_id])
+        l[0] = logs
+    l
+
+let log_debug(l, ts, msg, fields, trace_id, span_id) =
+    log_record(l, ts, 0, msg, fields, trace_id, span_id)
+
+let log_info(l, ts, msg, fields, trace_id, span_id) =
+    log_record(l, ts, 1, msg, fields, trace_id, span_id)
+
+let log_warn(l, ts, msg, fields, trace_id, span_id) =
+    log_record(l, ts, 2, msg, fields, trace_id, span_id)
+
+let log_error(l, ts, msg, fields, trace_id, span_id) =
+    log_record(l, ts, 3, msg, fields, trace_id, span_id)
+
+let log_fatal(l, ts, msg, fields, trace_id, span_id) =
+    log_record(l, ts, 4, msg, fields, trace_id, span_id)
+
+let log_query_by_trace(l, trace_id) =
+    let logs = logger_logs(l)
+    let result = []
+    let i = 0
+    let n = len(logs)
+    for i < n
+        let entry = logs[i]
+        if entry[4] == trace_id
+            result.push(entry)
+        i = i + 1
+    result
+
+let obs_new(service_name, instance_id, version) =
+    [resource_new(service_name, instance_id, version), metrics_new(), tracer_new(), logger_new(0)]
+
+let obs_resource(o) = o[0]
+let obs_metrics(o) = o[1]
+let obs_tracer(o) = o[2]
+let obs_logger(o) = o[3]
+
+let obs_record_op(o, op_name, val, trace_id, span_id, ts) =
+    let m = obs_metrics(o)
+    counter_inc(m, "op_count", 1, {op: op_name})
+    let buckets = [1, 5, 10, 50, 100, 500, 1000, 5000]
+    histogram_observe(m, "op_latency", val, {op: op_name}, buckets)
+    let l = obs_logger(o)
+    log_info(l, ts, op_name, {duration_ms: val, span_id: span_id}, trace_id, span_id)
+    o
+
+let obs_start_span(o, trace_id, parent_id, name, ts) =
+    let t = obs_tracer(o)
+    let span = tracer_start(t, trace_id, parent_id, name, ts)
+    span
+
+let obs_end_span(o, span, end_ts) =
+    let span2 = span_finish(span, end_ts)
+    let dur = span_duration(span2)
+    let m = obs_metrics(o)
+    let buckets = [1, 5, 10, 50, 100, 500, 1000, 5000]
+    histogram_observe(m, "span_duration", dur, {name: span_name(span2)}, buckets)
+    span2
+
+let obs_export_prometheus(o) =
+    let m = obs_metrics(o)
+    let counters = metrics_counters(m)
+    let gauges = metrics_gauges(m)
+    let hists = metrics_histograms(m)
+    let out = ""
+    let ckeys = keys_of(counters)
+    let i = 0
+    let nc = len(ckeys)
+    for i < nc
+        let k = ckeys[i]
+        out = out + k + " " + counters[k] + "\n"
+        i = i + 1
+    let gkeys = keys_of(gauges)
+    i = 0
+    let ng = len(gkeys)
+    for i < ng
+        let k = gkeys[i]
+        out = out + k + " " + gauges[k] + "\n"
+        i = i + 1
+    out
+
+let obs_export_jaeger(o, trace_id) =
+    let t = obs_tracer(o)
+    let spans = tracer_get_trace(t, trace_id)
+    let out = "[trace " + trace_id + "]\n"
+    let i = 0
+    let n = len(spans)
+    for i < n
+        let s = spans[i]
+        out = out + "  span #" + span_id(s) + " parent=#" + span_parent(s) + " " + span_name(s)
+        out = out + " [" + span_start(s) + " - " + span_end(s) + "] dur=" + span_duration(s) + "\n"
+        i = i + 1
+    out
+
+let obs_export_loki(o, trace_id) =
+    let l = obs_logger(o)
+    log_query_by_trace(l, trace_id)

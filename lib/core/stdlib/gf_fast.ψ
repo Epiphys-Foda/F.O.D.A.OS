@@ -1,0 +1,65 @@
+let gf_omega_table(k) =
+    let n = 1
+    let i = 0
+    for i < k
+        n = n * 2
+        i = i + 1
+    let omega = gfpow(3, 65536 / n)
+    let tab = []
+    let cur = 1
+    let j = 0
+    for j < n
+        tab.push(cur)
+        cur = (cur * omega) % 65537
+        j = j + 1
+    tab
+
+let gf_barrett_mu(p) = 4294967296 / p
+
+let gf_barrett_mul(a, b, p, mu) =
+    let ab = a * b
+    let q = (ab * mu) / 4294967296
+    let r = ab - q * p
+    if r >= p
+        r - p
+    else
+        if r < 0
+            r + p
+        else
+            r
+
+let gf_butterfly(a, b, w, p) =
+    let wb = (w * b) % p
+    let a2 = a % p
+    [(a2 + wb) % p, (a2 - wb + p) % p]
+
+let gf_ntt_direct(v, w, p) =
+    let n = len(v)
+    let out = []
+    let j = 0
+    for j < n
+        let acc = 0
+        let wk = 1
+        let k2 = 0
+        for k2 < n
+            acc = (acc + v[k2] * wk) % 65537
+            wk = (wk * w) % 65537
+            k2 = k2 + 1
+        out.push(acc)
+        j = j + 1
+    out
+
+let gf_fast_verify() =
+    let w8 = gf_omega_table(3)
+    let v1 = len(w8) == 8
+    let v2 = w8[0] == 1
+    let v3 = (w8[4] * w8[4]) % 65537 == 1
+    let v4 = (w8[2] * w8[2]) % 65537 == w8[4]
+    let mu = gf_barrett_mu(65537)
+    let v5 = gf_barrett_mul(12345, 54321, 65537, mu) == (12345 * 54321) % 65537
+    let bf = gf_butterfly(10, 3, w8[1], 65537)
+    let v6 = bf[0] == (10 + (3 * w8[1]) % 65537) % 65537
+    let ntt = gf_ntt_direct([1, 2, 3, 4], w8[2], 65537)
+    let v7 = ntt[0] == 10
+    let v8 = len(ntt) == 4
+    [v1, v2, v3, v4, v5, v6, v7, v8]

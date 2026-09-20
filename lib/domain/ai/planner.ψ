@@ -1,0 +1,251 @@
+let PL_P_MOD          = 65537
+let PL_TASK_PRIMITIVE = 1
+let PL_TASK_COMPOUND  = 2
+let PL_TASK_GOAL      = 3
+let PL_MAX_DEPTH      = 32
+let PL_MAX_SUBTASKS   = 64
+let PL_MAX_PLAN_LEN   = 256
+let PL_INFINITE_COST  = 65537
+
+let PL_TASK_TASK_ID       = 0
+let PL_TASK_NAME          = 1
+let PL_TASK_TYPE          = 2
+let PL_TASK_PRECONDITIONS = 3
+let PL_TASK_EFFECTS       = 4
+let PL_TASK_SUB_TASKS     = 5
+let PL_TASK_COST          = 6
+
+let PL_WS_FACTS = 0
+let PL_WS_TS    = 1
+
+let PL_PLAN_TASKS       = 0
+let PL_PLAN_TOTAL_COST  = 1
+let PL_PLAN_FINAL_STATE = 2
+let PL_PLAN_VALID       = 3
+
+let PL_PLANNER_DOMAIN_TASKS = 0
+let PL_PLANNER_OPERATORS    = 1
+let PL_PLANNER_GOAL_STATE   = 2
+let PL_PLANNER_CURRENT      = 3
+let PL_PLANNER_MAX_DEPTH    = 4
+let PL_PLANNER_LOG          = 5
+
+let pl_default_task(task_id, name, kind, cost) =
+    [task_id, name, kind, {}, {}, [], cost]
+
+let pl_default_world_state(ts) =
+    [{}, ts]
+
+let pl_default_plan() =
+    [[], 0, pl_default_world_state(0), 0]
+
+let pl_default_planner() =
+    let domain_ = {}
+    let ops = []
+    let goal = pl_default_world_state(0)
+    let cur = pl_default_world_state(0)
+    [domain_, ops, goal, cur, PL_MAX_DEPTH, []]
+
+let pl_add_task(planner, task) =
+    let domain_ = planner[PL_PLANNER_DOMAIN_TASKS]
+    domain_[task[PL_TASK_TASK_ID]] = task
+    let ops = planner[PL_PLANNER_OPERATORS]
+    if task[PL_TASK_TYPE] == PL_TASK_PRIMITIVE
+        ops.push(task[PL_TASK_TASK_ID])
+    planner[PL_PLANNER_OPERATORS] = ops
+    planner[PL_PLANNER_LOG].push(["add_task", task[PL_TASK_TASK_ID]])
+    planner
+
+let pl_set_goal(planner, goal_state) =
+    planner[PL_PLANNER_GOAL_STATE] = goal_state
+    planner[PL_PLANNER_LOG].push(["set_goal", goal_state[PL_WS_TS]])
+    planner
+
+let pl_check_preconditions(task, world_state) =
+    let pre_map = task[PL_TASK_PRECONDITIONS]
+    let facts = world_state[PL_WS_FACTS]
+    let ok = 1
+    let keys = pre_map.keys()
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let k = keys[i]
+        if facts.get(k, 0) != pre_map[k]
+            ok = 0
+        i = i + 1
+    ok
+
+let pl_apply_effects(task, world_state) =
+    let facts = world_state[PL_WS_FACTS]
+    let eff = task[PL_TASK_EFFECTS]
+    let keys = eff.keys()
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let k = keys[i]
+        facts[k] = eff[k]
+        i = i + 1
+    let new_ts = world_state[PL_WS_TS] + 1
+    [facts, new_ts]
+
+let pl_decompose(planner, compound_task, world_state, depth) =
+    if depth >= planner[PL_PLANNER_MAX_DEPTH]
+        []
+    else
+        let domain_ = planner[PL_PLANNER_DOMAIN_TASKS]
+        let sub_ids = compound_task[PL_TASK_SUB_TASKS]
+        let result = []
+        let cur_state = world_state
+        let i = 0
+        let n = len(sub_ids)
+        for i < n
+            let sub_id = sub_ids[i]
+            let sub_task = domain_.get(sub_id, [])
+            if len(sub_task) > 0
+                if sub_task[PL_TASK_TYPE] == PL_TASK_COMPOUND
+                    let deeper = pl_decompose(planner, sub_task, cur_state, depth + 1)
+                    let j = 0
+                    let m = len(deeper)
+                    for j < m
+                        result.push(deeper[j])
+                        let t = domain_.get(deeper[j], [])
+                        if len(t) > 0
+                            if pl_check_preconditions(t, cur_state) == 1
+                                cur_state = pl_apply_effects(t, cur_state)
+                        j = j + 1
+                else
+                    if pl_check_preconditions(sub_task, cur_state) == 1
+                        result.push(sub_id)
+                        cur_state = pl_apply_effects(sub_task, cur_state)
+            i = i + 1
+        result
+let pl_plan_htn(planner, initial_state, ts) =
+    let domain_ = planner[PL_PLANNER_DOMAIN_TASKS]
+    let goal_state = planner[PL_PLANNER_GOAL_STATE]
+    let goal_facts = goal_state[PL_WS_FACTS]
+    let goal_keys = goal_facts.keys()
+    let cur_state = [initial_state[PL_WS_FACTS], ts]
+    let plan_tasks = []
+    let total_cost = 0
+
+    let task_ids = domain_.keys()
+    let i = 0
+    let n = len(task_ids)
+    for i < n
+        let t = domain_[task_ids[i]]
+        if t[PL_TASK_TYPE] == PL_TASK_GOAL
+            let seq = pl_decompose(planner, t, cur_state, 0)
+            let j = 0
+            let m = len(seq)
+            for j < m
+                let prim = domain_.get(seq[j], [])
+                if len(prim) > 0
+                    if pl_check_preconditions(prim, cur_state) == 1
+                        plan_tasks.push(seq[j])
+                        total_cost = total_cost + prim[PL_TASK_COST]
+                        cur_state = pl_apply_effects(prim, cur_state)
+                j = j + 1
+        i = i + 1
+
+    let valid = 1
+    let g = 0
+    let gn = len(goal_keys)
+    for g < gn
+        let k = goal_keys[g]
+        if cur_state[PL_WS_FACTS].get(k, 0) != goal_facts[k]
+            valid = 0
+        g = g + 1
+
+    [plan_tasks, total_cost, cur_state, valid]
+
+let pl_search_state_space(planner, initial_state, max_depth) =
+    let domain_ = planner[PL_PLANNER_DOMAIN_TASKS]
+    let goal = planner[PL_PLANNER_GOAL_STATE]
+    let goal_facts = goal[PL_WS_FACTS]
+    let goal_keys = goal_facts.keys()
+    let best_plan = pl_default_plan()
+    let best_cost = PL_INFINITE_COST
+    let stack = []
+    stack.push([initial_state, [], 0, 0])
+
+    for len(stack) > 0
+        let frame = stack.pop()
+        let state = frame[0]
+        let plan = frame[1]
+        let cost = frame[2]
+        let depth = frame[3]
+        let prune = 0
+        if cost >= best_cost
+            prune = 1
+        if depth >= max_depth
+            prune = 1
+        if prune == 0
+            let matched = 1
+            let gi = 0
+            let gN = len(goal_keys)
+            for gi < gN
+                let k = goal_keys[gi]
+                if state[PL_WS_FACTS].get(k, 0) != goal_facts[k]
+                    matched = 0
+                gi = gi + 1
+            if matched == 1
+                if cost < best_cost
+                    best_cost = cost
+                    best_plan = [plan, cost, state, 1]
+                else
+                    0
+                let ops = planner[PL_PLANNER_OPERATORS]
+                let oi = 0
+                let on = len(ops)
+                for oi < on
+                    let t = domain_[ops[oi]]
+                    if pl_check_preconditions(t, state) == 1
+                        let new_state = pl_apply_effects(t, state)
+                        let new_plan = []
+                        let pi = 0
+                        let pn = len(plan)
+                        for pi < pn
+                            new_plan.push(plan[pi])
+                            pi = pi + 1
+                        new_plan.push(ops[oi])
+                        stack.push([new_state, new_plan, cost + t[PL_TASK_COST], depth + 1])
+                    oi = oi + 1
+    best_plan
+
+let pl_bragg_verify(planner, ops_seq) =
+    let domain_ = planner[PL_PLANNER_DOMAIN_TASKS]
+    let cur1 = pl_default_world_state(0)
+    let valid = 1
+    let i = 0
+    let n = len(ops_seq)
+    for i < n
+        let t = domain_.get(ops_seq[i], [])
+        if len(t) == 0
+            valid = 0
+        else
+            if pl_check_preconditions(t, cur1) == 0
+                valid = 0
+            else
+                cur1 = pl_apply_effects(t, cur1)
+        i = i + 1
+
+    let cur2 = pl_default_world_state(0)
+    let j = 0
+    for j < n
+        let t = domain_.get(ops_seq[j], [])
+        if len(t) > 0
+            cur2 = pl_apply_effects(t, cur2)
+        j = j + 1
+
+    let facts1 = cur1[PL_WS_FACTS]
+    let facts2 = cur2[PL_WS_FACTS]
+    let keys1 = facts1.keys()
+    let matched = valid
+    let k = 0
+    let nk = len(keys1)
+    for k < nk
+        if facts1[keys1[k]] != facts2.get(keys1[k], 0)
+            matched = 0
+        k = k + 1
+    matched
+

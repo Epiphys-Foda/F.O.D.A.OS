@@ -1,0 +1,75 @@
+import "../domain_field.ψ"
+
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let WAL_MAX_ENTRIES = 65536
+let WAL_MAGIC = 0x57414C00
+
+let wal_create() = [[WAL_MAGIC, 1, 0], [], 0, 0]
+let wal_entry_checksum(seq, lsn, kind, data) =
+    let cs = gf_add(seq, lsn)
+    cs = gf_add(cs, kind)
+    let i = 0
+    let n = len(data)
+    for i < n
+        cs = gf_add(cs, data[i])
+        i = i + 1
+    gf_pow(cs, 2)
+let wal_append(wal, kind, data) =
+    let seq = wal[2] + 1
+    let lsn = seq
+    let cs = wal_entry_checksum(seq, lsn, kind, data)
+    let entry = [seq, lsn, kind, data, cs]
+    let entries = wal[1]
+    entries.push(entry)
+    [wal[0], entries, seq, wal[3]]
+let wal_verify_entry(entry) =
+    let cs = wal_entry_checksum(entry[0], entry[1], entry[2], entry[3])
+    (cs == entry[4] ? 1 : 0)
+let wal_recover(wal) =
+    let entries = wal[1]
+    let valid = []
+    let i = 0
+    let n = len(entries)
+    for i < n
+        let entry = entries[i]
+        (wal_verify_entry(entry) == 1 ? valid.push(entry) : [wal[0], valid, i, wal[3]])
+        i = i + 1
+    [wal[0], valid, wal[2], wal[3]]
+let wal_checkpoint(wal) =
+    [wal[0], [], wal[2], wal[2]]
+let wal_replay(wal, apply_fn) =
+    let entries = wal[1]
+    let i = 0
+    let n = len(entries)
+    for i < n
+        let entry = entries[i]
+        if entry[2] == 1
+            apply_fn(entry[3])
+        i = i + 1
+    1
+let WAL_TYPE_INSERT = 1
+let WAL_TYPE_UPDATE = 2
+let WAL_TYPE_DELETE = 3
+let WAL_TYPE_COMMIT = 4
+let WAL_TYPE_ABORT = 5
+let wal_field_encode(entries, n, poles, residues) =
+    let records = []
+    let _i = 0
+    for _i < n
+        records.push([entries[_i], entries[_i]])
+        _i = _i + 1
+    domain_field_encode(records, n, 1000, 0)
+let wal_verify() =
+    let wal = wal_create()
+    let data = arr_new_n(2)
+    data[0] = 100
+    data[1] = 200
+    let w1 = wal_append(wal, WAL_TYPE_INSERT, data)
+    let entries = w1[1]
+    let entry0 = entries[0]
+    let valid = wal_verify_entry(entry0)
+    let ok = 0
+    (valid == 1 ? (ok = 1) : (ok = 0))
+    ok
+

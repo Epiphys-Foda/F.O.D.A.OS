@@ -1,0 +1,102 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let RXN_MAX_REACTANTS = 16
+let RXN_MAX_PRODUCTS = 16
+
+let reaction_create() = [[], [], 0, 0]
+let reaction_add_reactant(rxn, mol_id, coeff) =
+    let reactants = rxn[0]
+    reactants.push([mol_id, coeff])
+    [reactants, rxn[1], rxn[2], rxn[3]]
+let reaction_add_product(rxn, mol_id, coeff) =
+    let products = rxn[1]
+    products.push([mol_id, coeff])
+    [rxn[0], products, rxn[2], rxn[3]]
+let reaction_mass_balance(rxn, molecular_weights) =
+    let reactants = rxn[0]
+    let products = rxn[1]
+    let mass_left = 0
+    let mass_right = 0
+    let i = 0
+    let n = len(reactants)
+    for i < n
+        let r = reactants[i]
+        mass_left = gf_add(mass_left, gf_mul(r[1], molecular_weights[r[0]]))
+        i = i + 1
+    i = 0
+    n = len(products)
+    for i < n
+        let p = products[i]
+        mass_right = gf_add(mass_right, gf_mul(p[1], molecular_weights[p[0]]))
+        i = i + 1
+    (mass_left == mass_right ? 1 : 0)
+let reaction_equilibrium_constant(rxn, concentrations) =
+    let products = rxn[1]
+    let reactants = rxn[0]
+    let k = 1
+    let i = 0
+    let n = len(products)
+    for i < n
+        let p = products[i]
+        k = gf_mul(k, gf_pow(concentrations[p[0]], p[1]))
+        i = i + 1
+    i = 0
+    n = len(reactants)
+    for i < n
+        let r = reactants[i]
+        k = gf_div(k, gf_pow(concentrations[r[0]], r[1]))
+        i = i + 1
+    k
+let reaction_rate(rxn, concentrations, k) =
+    let reactants = rxn[0]
+    let rate = k
+    let i = 0
+    let n = len(reactants)
+    for i < n
+        let r = reactants[i]
+        rate = gf_mul(rate, gf_pow(concentrations[r[0]], r[1]))
+        i = i + 1
+    rate
+let reaction_extent(rxn, initial_conc, xi) =
+    let reactants = rxn[0]
+    let products = rxn[1]
+    let conc = []
+    let i = 0
+    let n = len(initial_conc)
+    for i < n
+        conc.push(initial_conc[i])
+        i = i + 1
+    i = 0
+    n = len(reactants)
+    for i < n
+        let r = reactants[i]
+        conc[r[0]] = gf_sub(conc[r[0]], gf_mul(r[1], xi))
+        i = i + 1
+    i = 0
+    n = len(products)
+    for i < n
+        let p = products[i]
+        conc[p[0]] = gf_add(conc[p[0]], gf_mul(p[1], xi))
+        i = i + 1
+    conc
+let field_rxn(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let rxn_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_rxn(test_data, 3, 500)
+    let ok = 0
+    if result != 0
+        ok = 1
+    ok
+

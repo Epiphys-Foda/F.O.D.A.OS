@@ -1,0 +1,245 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let c_mul(ar, ai, br, bi, m) =
+    let rr = (ar * br + m * m - ai * bi) % m
+    let ri = (ar * bi + ai * br) % m
+    let r = arr_new_n(2)
+    r[0] = rr
+    r[1] = ri
+    r
+
+let c_pow(zr, zi, e, m) =
+    let rr = 1
+    let ri = 0
+    let br = zr
+    let bi = zi
+    let ee = e
+    for ee > 0
+        if ee % 2 == 1
+            let t = c_mul(rr, ri, br, bi, m)
+            rr = t[0]
+            ri = t[1]
+        let t2 = c_mul(br, bi, br, bi, m)
+        br = t2[0]
+        bi = t2[1]
+        ee = ee / 2
+    let r = arr_new_n(2)
+    r[0] = rr
+    r[1] = ri
+    r
+
+let bell_E(C, S, ka, kb) =
+    let ca = C[ka]
+    let sa = S[ka]
+    let cb = C[kb]
+    let sb = S[kb]
+    let a00 = (ca * cb + sa * sb) * 2040
+    let a01 = (ca * (0 - sb) + sa * cb) * 2040
+    let a10 = ((0 - sa) * cb + ca * sb) * 2040
+    let a11 = ((0 - sa) * (0 - sb) + ca * cb) * 2040
+    let p00 = a00 * a00
+    let p01 = a01 * a01
+    let p10 = a10 * a10
+    let p11 = a11 * a11
+    let e = p00 + p11 - p01 - p10
+    e
+
+let main() =
+    print(111)
+    print(256 * 256)
+    print(4080 * 4080)
+    print(2040 * 2040)
+    print(8160 * 8160)
+    print(gf_pow(65521, 8))
+    print(gf_pow(3, 65536))
+    print(gf_pow(3, 32768))
+
+    print(222)
+    print(gf_pow(65536, 32768))
+    print(gf_pow(2, 32768))
+    print(gf_pow(3, 32768))
+    print(gf_pow(5, 32768))
+    print(gf_pow(65534, 32768))
+    print(gf_pow(65532, 32768))
+
+    print(333)
+    print(1 + 256 * 256)
+    let iso_count = 0
+    let aa = 0
+    for aa <= 100
+        let bb = 0
+        for bb <= 100
+            if (aa * aa + 3 * bb * bb) % 65537 == 0
+                if aa + bb > 0
+                    iso_count = iso_count + 1
+            bb = bb + 1
+        aa = aa + 1
+    print(iso_count)
+
+    print(444)
+    let m = 103
+    let prime_ok = 1
+    let d = 2
+    for d <= 10
+        if m % d == 0
+            prime_ok = 0
+        d = d + 1
+    print(prime_ok)
+    print(m % 8)
+    print(65538 % 8)
+    print(powmod(102, 51, m))
+    print(powmod(2, 51, m))
+    let sqrt2_m = powmod(2, 26, m)
+    print(sqrt2_m)
+    print(sqrt2_m * sqrt2_m % m)
+    let isq = invmod(sqrt2_m, m)
+    print(isq)
+    print((isq * isq + isq * isq) % m)
+    let z2 = c_pow(isq, isq, 2, m)
+    print(z2[0])
+    print(z2[1])
+    let z4 = c_pow(isq, isq, 4, m)
+    print(z4[0])
+    print(z4[1])
+    let z8 = c_pow(isq, isq, 8, m)
+    print(z8[0])
+    print(z8[1])
+    let frob = c_pow(0, 1, 103, m)
+    print(frob[0])
+    print(frob[1])
+    let iso2 = 0
+    let a2 = 0
+    for a2 < m
+        let b2 = 0
+        for b2 < m
+            if (a2 * a2 + b2 * b2) % m == 0
+                if a2 + b2 > 0
+                    iso2 = iso2 + 1
+            b2 = b2 + 1
+        a2 = a2 + 1
+    print(iso2)
+    let zf = 2040 * (1 + 256)
+    print(zf)
+    print(zf * zf)
+
+    print(555)
+    let omega = gf_pow(3, 4096)
+    print(gf_pow(omega, 16))
+    print(gf_pow(omega, 8))
+    let i_trig = gf_pow(3, 16384)
+    print(i_trig)
+    let inv2 = gf_inv(2)
+    let inv2i = gf_inv(2 * i_trig)
+    let C = arr_new_n(4)
+    let S = arr_new_n(4)
+    let k = 0
+    for k < 4
+        let wk = gf_pow(omega, k)
+        let wkinv = gf_pow(omega, 16 - k)
+        C[k] = (wk + wkinv) * inv2
+        S[k] = (wk - wkinv) * inv2i
+        k = k + 1
+    print(C[0] * C[0] + S[0] * S[0])
+    print(C[1] * C[1] + S[1] * S[1])
+    print(C[2] * C[2] + S[2] * S[2])
+    print(C[3] * C[3] + S[3] * S[3])
+    print(C[2])
+    print(S[2])
+    let e_ab = bell_E(C, S, 0, 1)
+    let e_abp = bell_E(C, S, 0, 3)
+    let e_apb = bell_E(C, S, 2, 1)
+    let e_apbp = bell_E(C, S, 2, 3)
+    print(e_ab)
+    print(e_abp)
+    print(e_apb)
+    print(e_apbp)
+    let chsh = e_ab - e_abp + e_apb + e_apbp
+    print(chsh)
+    print(chsh * chsh)
+    let VA = arr_new_n(2)
+    VA[0] = 1
+    VA[1] = 65536
+    let n_ok = 0
+    let n_two = 0
+    let n_negtwo = 0
+    let ia = 0
+    for ia < 2
+        let ib = 0
+        for ib < 2
+            let ic = 0
+            for ic < 2
+                let id2 = 0
+                for id2 < 2
+                    let A = VA[ia]
+                    let Ap = VA[ib]
+                    let B = VA[ic]
+                    let Bp = VA[id2]
+                    let s = A * B - A * Bp + Ap * B + Ap * Bp
+                    if s == 2
+                        n_two = n_two + 1
+                    if s == 65535
+                        n_negtwo = n_negtwo + 1
+                    id2 = id2 + 1
+                ic = ic + 1
+            ib = ib + 1
+        ia = ia + 1
+    print(n_two)
+    print(n_negtwo)
+    print(n_two + n_negtwo)
+
+    print(556)
+    let ghz = arr_new_n(8)
+    ghz[0] = 2040
+    ghz[7] = 63497
+    print(ghz[0])
+    print(ghz[7])
+    let ghz_apply(s, o0, o1, o2) =
+        let out = arr_new_n(8)
+        let idx = 0
+        for idx < 8
+            let a = s[idx]
+            if a != 0
+                let b0 = idx / 4
+                let b1 = (idx / 2) % 2
+                let b2 = idx % 2
+                let t0 = (o0 == 1 ? 256 + b0 * 65025 : 1)
+                let t1 = (o1 == 1 ? 256 + b1 * 65025 : 1)
+                let t2 = (o2 == 1 ? 256 + b2 * 65025 : 1)
+                let j = (1 - b0) * 4 + (1 - b1) * 2 + (1 - b2)
+                out[j] = out[j] + a * t0 * t1 * t2
+            idx = idx + 1
+        out
+    let xxx = ghz_apply(ghz, 0, 0, 0)
+    let lam_xxx = xxx[0] * gf_inv(2040)
+    print(lam_xxx)
+    print(xxx[7] * gf_inv(63497))
+    let xyy = ghz_apply(ghz, 0, 1, 1)
+    print(xyy[0] * gf_inv(2040))
+    let yxy = ghz_apply(ghz, 1, 0, 1)
+    print(yxy[0] * gf_inv(2040))
+    let yyx = ghz_apply(ghz, 1, 1, 0)
+    print(yyx[0] * gf_inv(2040))
+    let mermin_lhs = 1 * 1 * 1 * 1 * 1 * 1
+    let mermin_rhs = 65536 * 1 * 1 * 1
+    print(mermin_lhs)
+    print(mermin_rhs)
+    let mermin_contradiction = 0
+    if mermin_lhs != mermin_rhs
+        mermin_contradiction = 1
+    print(mermin_contradiction)
+
+    print(666)
+    print(2040 * 2040)
+    print(2 * 32769)
+    let x1 = 643 * gf_inv(1024)
+    print(x1)
+    let n_spur = x1 * 43
+    print(43)
+    print(n_spur)
+    print(65537 - n_spur)
+    let out_of_bound = 0
+    if 1024 > 181
+        out_of_bound = 1
+    print(out_of_bound)
+
+    chsh

@@ -1,0 +1,32 @@
+import "ck.ψ"
+let bad = [0]
+
+let nw = 133
+bad[0] = bad[0] + ck(nw, 130, 136)
+
+let bth = 75
+bad[0] = bad[0] + ck(bth, 70, 80)
+
+let cone = 41
+bad[0] = bad[0] + ck(cone, 38, 44)
+
+let yield_cm = 200
+bad[0] = bad[0] + ck(yield_cm, 100, 400)
+
+let exists = 1
+bad[0] = bad[0] + ck_lo(exists, 1)
+
+if 1934 < 1932
+    bad[0] = bad[0] + 1
+if 1934 > 1936
+    bad[0] = bad[0] + 1
+if 1937 < 1935
+    bad[0] = bad[0] + 1
+if 1937 > 1939
+    bad[0] = bad[0] + 1
+if 1958 < 1956
+    bad[0] = bad[0] + 1
+if 1958 > 1960
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

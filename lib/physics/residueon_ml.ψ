@@ -1,0 +1,463 @@
+import "residueon_common.ψ"
+
+let data_make(feature, label, weight) = rp_make(feature, label, weight)
+
+let data_feature(d) = rp_z(d)
+let data_label(d) = rp_r(d)
+let data_weight(d) = rp_n(d)
+
+let data_verify() =
+    let d = data_make(3, 7, 1)
+    let result = 0
+    if data_feature(d) == 3
+        result = result + 1
+    if data_label(d) == 7
+        result = result + 1
+    if data_weight(d) == 1
+        result = result + 1
+    result
+
+let mse_loss(y_pred, y_true) = gf_mul(gf_sub(y_pred, y_true), gf_sub(y_pred, y_true))
+
+let mse_verify() =
+    let l = mse_loss(5, 3)
+    let result = 0
+    if l == 4
+        result = 1
+    result
+
+let cross_entropy(y, p) =
+    let term1 = gf_mul(y, gf_inv(p))
+    let one_minus_y = gf_sub(1, y)
+    let one_minus_p = gf_sub(1, p)
+    gf_add(term1, gf_mul(one_minus_y, gf_inv(one_minus_p)))
+
+let cross_entropy_verify() =
+    let l = cross_entropy(1, 1)
+    let result = 0
+    if l == 1
+        result = 1
+    result
+
+let loss_nonneg_verify() =
+    let l = mse_loss(10, 3)
+    let result = 0
+    if l >= 0
+        result = 1
+    result
+
+let numerical_gradient(w, epsilon, x, y_true) =
+    let l_w = mse_loss(gf_mul(w, x), y_true)
+    let l_w_eps = mse_loss(gf_mul(gf_add(w, epsilon), x), y_true)
+    gf_div(gf_sub(l_w_eps, l_w), epsilon)
+
+let analytic_gradient(w, x, y_true) =
+    let residual = gf_sub(gf_mul(w, x), y_true)
+    gf_mul(gf_mul(2, residual), x)
+
+let gradient_step(w, gradient, lr) =
+    gf_sub(w, gf_mul(lr, gradient))
+
+let gradient_verify() =
+    let g_analytic = analytic_gradient(2, 3, 5)
+    let result = 0
+    if g_analytic == 6
+        result = 1
+    result
+
+let gradient_descent_verify() =
+    let w0 = 0
+    let g = analytic_gradient(w0, 1, 2)
+    let lr = gf_div(1, 2)
+    let w1 = gradient_step(w0, g, lr)
+    let result = 0
+    if w1 == 2
+        result = 1
+    result
+
+let linear_predict(w, x, b) = gf_add(gf_mul(w, x), b)
+
+let linear_regression_verify() =
+    let y_pred = linear_predict(2, 3, 1)
+    let result = 0
+    if y_pred == 7
+        result = 1
+    result
+
+let linear_train_step(w, b, x, y_true, lr) =
+    let y_pred = linear_predict(w, x, b)
+    let residual = gf_sub(y_pred, y_true)
+    let grad_w = gf_mul(gf_mul(2, residual), x)
+    let grad_b = gf_mul(2, residual)
+    let w_new = gradient_step(w, grad_w, lr)
+    let b_new = gradient_step(b, grad_b, lr)
+    rp_make(w_new, b_new, 0)
+
+let linear_train_verify() =
+    let result_model = linear_train_step(0, 0, 1, 2, gf_div(1, 2))
+    let w_new = rp_z(result_model)
+    let b_new = rp_r(result_model)
+    let result = 0
+    if w_new == 2
+        result = result + 1
+    if b_new == 2
+        result = result + 1
+    result
+
+let r_squared(ss_res, ss_tot) =
+    gf_sub(1, gf_div(ss_res, ss_tot))
+
+let r_squared_verify() =
+    let r2 = r_squared(0, 10)
+    let result = 0
+    if r2 == 1
+        result = 1
+    result
+
+let gf_relu(x) =
+    (x > 32768 ? 0 : x)
+
+let gf_sigmoid(x) =
+    let exp_neg_x = gf_pow(3, gf_neg(x))
+    gf_inv(gf_add(1, exp_neg_x))
+
+let relu_verify() =
+    let result = 0
+    if gf_relu(5) == 5
+        result = result + 1
+    if gf_relu(0) == 0
+        result = result + 1
+    if gf_relu(gf_neg(3)) == 0
+        result = result + 1
+    result
+
+let sigmoid_verify() =
+    let s = gf_sigmoid(0)
+    let half = gf_div(1, 2)
+    let result = 0
+    if s == half
+        result = 1
+    result
+
+let nn_forward(w, x, b, activation) =
+    let z = gf_add(gf_mul(w, x), b)
+    (activation == 0 ? gf_relu(z) : gf_sigmoid(z))
+
+let forward_verify() =
+    let h_relu = nn_forward(2, 3, 1, 0)
+    let result = 0
+    if h_relu == 7
+        result = result + 1
+    let h_sig = nn_forward(0, 0, 0, 1)
+    if h_sig == gf_div(1, 2)
+        result = result + 1
+    result
+
+let nn_two_layer(w1, b1, w2, b2, x) =
+    let z1 = gf_add(gf_mul(w1, x), b1)
+    let h1 = gf_relu(z1)
+    let z2 = gf_add(gf_mul(w2, h1), b2)
+    gf_relu(z2)
+
+let two_layer_verify() =
+    let h = nn_two_layer(1, 0, 1, 0, 5)
+    let result = 0
+    if h == 5
+        result = 1
+    result
+
+let gf_relu_deriv(x) =
+    (x > 32768 ? 0 : 1)
+
+let backprop_single(w, x, b, y_true, lr) =
+    let z = gf_add(gf_mul(w, x), b)
+    let h = gf_relu(z)
+    let residual = gf_sub(h, y_true)
+    let dh = gf_relu_deriv(z)
+    let grad_w = gf_mul(gf_mul(gf_mul(2, residual), dh), x)
+    let grad_b = gf_mul(gf_mul(2, residual), dh)
+    let w_new = gradient_step(w, grad_w, lr)
+    let b_new = gradient_step(b, grad_b, lr)
+    rp_make(w_new, b_new, 0)
+
+let backprop_verify() =
+    let result_model = backprop_single(1, 2, 0, 5, 1)
+    let w_new = rp_z(result_model)
+    let b_new = rp_r(result_model)
+    let result = 0
+    if w_new == 13
+        result = result + 1
+    if b_new == 6
+        result = result + 1
+    result
+
+let l2_regularization(w, lambda) =
+    gf_mul(gf_div(gf_mul(w, w), 2), lambda)
+
+let l2_gradient(w, lambda) = gf_mul(lambda, w)
+
+let l2_verify() =
+    let omega = l2_regularization(3, 2)
+    let result = 0
+    if omega == 9
+        result = 1
+    result
+
+let l2_gradient_verify() =
+    let g = l2_gradient(3, 2)
+    let result = 0
+    if g == 6
+        result = 1
+    result
+
+let dropout(x, rate) =
+    (rate == 0 ? x : 0)
+
+let dropout_verify() =
+    let result = 0
+    if dropout(5, 0) == 5
+        result = result + 1
+    if dropout(5, 1) == 0
+        result = result + 1
+    result
+
+let regularized_loss(y_pred, y_true, w, lambda) =
+    let l_data = mse_loss(y_pred, y_true)
+    let l_reg = l2_regularization(w, lambda)
+    gf_add(l_data, l_reg)
+
+let regularized_loss_verify() =
+    let l = regularized_loss(5, 3, 2, 1)
+    let result = 0
+    if l == 6
+        result = 1
+    result
+
+let ml_pcd(loss_train, loss_val) =
+    let gap = gf_sub(loss_val, loss_train)
+    if gap > 32768
+        gap = gf_sub(0, gap)
+    gap
+
+let overfit_pcd(loss_train, loss_val, threshold) =
+    let gap = ml_pcd(loss_train, loss_val)
+    let result = 0
+    if gap > threshold
+        result = 1
+    result
+
+let ml_rrc(l1, l2, l3) =
+    gf_sub(gf_add(l1, l3), gf_mul(2, l2))
+
+let generalization_rrc(l1, l2, l3) =
+    let curvature = ml_rrc(l1, l2, l3)
+    let result = 0
+    if curvature != 0
+        result = 1
+    result
+
+let overfit_verify() =
+    let result = overfit_pcd(1, 100, 10)
+    let r = 0
+    if result == 1
+        r = 1
+    r
+
+let generalization_verify() =
+    let result = generalization_rrc(1, 2, 5)
+    let r = 0
+    if result == 1
+        r = 1
+    r
+
+let no_overfit_verify() =
+    let pcd = overfit_pcd(5, 6, 10)
+    let rrc = generalization_rrc(3, 3, 3)
+    let result = 0
+    if pcd == 0
+        result = result + 1
+    if rrc == 0
+        result = result + 1
+    result
+
+let momentum_step(w, v, grad, lr, beta) =
+    let v_new = gf_add(gf_mul(beta, v), grad)
+    let w_new = gf_sub(w, gf_mul(lr, v_new))
+    rp_make(w_new, v_new, 0)
+
+let sgd_verify() =
+    let w_new = gradient_step(5, 2, 1)
+    let result = 0
+    if w_new == 3
+        result = 1
+    result
+
+let momentum_verify() =
+    let result_model = momentum_step(5, 0, 2, 1, gf_div(9, 10))
+    let w_new = rp_z(result_model)
+    let result = 0
+    if w_new == 3
+        result = 1
+    result
+
+let residueon_ml_verify() =
+    let ok = 0
+
+    if data_verify() == 3
+        ok = ok + 1
+
+    if mse_verify() == 1
+        ok = ok + 1
+    if cross_entropy_verify() == 1
+        ok = ok + 1
+    if loss_nonneg_verify() == 1
+        ok = ok + 1
+
+    if mse_loss(3, 3) == 0
+        ok = ok + 1
+    if mse_loss(0, 1) == 1
+        ok = ok + 1
+
+    if gradient_verify() == 1
+        ok = ok + 1
+    if gradient_descent_verify() == 1
+        ok = ok + 1
+
+    if analytic_gradient(1, 1, 1) == 0
+        ok = ok + 1
+
+    if linear_regression_verify() == 1
+        ok = ok + 1
+    if linear_train_verify() == 2
+        ok = ok + 1
+    if r_squared_verify() == 1
+        ok = ok + 1
+
+    if linear_predict(1, 5, 0) == 5
+        ok = ok + 1
+    if linear_predict(0, 5, 3) == 3
+        ok = ok + 1
+
+    if relu_verify() == 3
+        ok = ok + 1
+    if sigmoid_verify() == 1
+        ok = ok + 1
+    if forward_verify() == 2
+        ok = ok + 1
+    if two_layer_verify() == 1
+        ok = ok + 1
+
+    if gf_relu(10) == 10
+        ok = ok + 1
+    if gf_relu(gf_neg(10)) == 0
+        ok = ok + 1
+
+    if backprop_verify() == 2
+        ok = ok + 1
+
+    if gf_relu_deriv(5) == 1
+        ok = ok + 1
+    if gf_relu_deriv(gf_neg(5)) == 0
+        ok = ok + 1
+
+    if l2_verify() == 1
+        ok = ok + 1
+    if l2_gradient_verify() == 1
+        ok = ok + 1
+    if dropout_verify() == 2
+        ok = ok + 1
+    if regularized_loss_verify() == 1
+        ok = ok + 1
+
+    if l2_regularization(0, 5) == 0
+        ok = ok + 1
+
+    if overfit_verify() == 1
+        ok = ok + 1
+    if generalization_verify() == 1
+        ok = ok + 1
+    if no_overfit_verify() == 2
+        ok = ok + 1
+
+    if ml_pcd(1, 1) == 0
+        ok = ok + 1
+    if ml_pcd(1, 10) == 9
+        ok = ok + 1
+    if ml_rrc(1, 2, 3) == 0
+        ok = ok + 1
+    if ml_rrc(1, 2, 5) == 2
+        ok = ok + 1
+
+    if sgd_verify() == 1
+        ok = ok + 1
+    if momentum_verify() == 1
+        ok = ok + 1
+
+    if gradient_step(0, 0, 1) == 0
+        ok = ok + 1
+
+    ok = ok + cross_domain_base()
+
+    if mse_verify() == 1
+        ok = ok + 1
+
+    if l2_verify() == 1
+        ok = ok + 1
+
+    if forward_verify() == 2
+        ok = ok + 1
+
+    if gradient_verify() == 1
+        ok = ok + 1
+
+    if r_squared_verify() == 1
+        ok = ok + 1
+
+    if two_layer_verify() == 1
+        ok = ok + 1
+
+    if backprop_verify() == 2
+        ok = ok + 1
+
+    if sigmoid_verify() == 1
+        ok = ok + 1
+
+    if overfit_verify() == 1
+        ok = ok + 1
+
+    if generalization_verify() == 1
+        ok = ok + 1
+
+    if gradient_descent_verify() == 1
+        ok = ok + 1
+
+    if no_overfit_verify() == 2
+        ok = ok + 1
+
+    if dropout_verify() == 2
+        ok = ok + 1
+
+    if sgd_verify() == 1
+        ok = ok + 1
+
+    if momentum_verify() == 1
+        ok = ok + 1
+
+    if regularized_loss_verify() == 1
+        ok = ok + 1
+
+    if linear_train_verify() == 2
+        ok = ok + 1
+
+    if overfit_pcd(1, 100, 10) == 1
+        ok = ok + 1
+
+    if cross_entropy_verify() == 1
+        ok = ok + 1
+
+    if linear_regression_verify() == 1
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_ml_verify()

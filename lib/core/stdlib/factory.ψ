@@ -1,0 +1,133 @@
+let factory_register(registry, type_name, constructor) =
+    registry[type_name] = constructor
+
+let factory_create(registry, type_name, params) =
+    let constructor = registry[type_name]
+    if constructor != 0
+        constructor(params)
+    else
+        0
+
+let factory_unregister(registry, type_name) =
+    registry[type_name] = 0
+
+let factory_list(registry) =
+    []
+
+let shape_factory_circle(params) =
+    ["circle", params[0]]
+
+let shape_factory_rectangle(params) =
+    ["rectangle", params[0], params[1]]
+
+let shape_factory_triangle(params) =
+    ["triangle", params[0], params[1]]
+
+let shape_area(shape) =
+    if shape[0] == "circle"
+        3141593 * shape[1] * shape[1] / 1000000
+    else
+        0
+    if shape[0] == "rectangle"
+        shape[1] * shape[2] / 1000
+    else
+        0
+    if shape[0] == "triangle"
+        shape[1] * shape[2] / 2000
+    else
+        0
+
+let shape_perimeter(shape) =
+    if shape[0] == "circle"
+        2 * 3141593 * shape[1] / 1000000
+    else
+        0
+    if shape[0] == "rectangle"
+        2 * (shape[1] + shape[2]) / 1000
+    else
+        0
+    if shape[0] == "triangle"
+        3 * shape[1] / 1000
+    else
+        0
+
+let parser_factory_json() =
+    ["json_parser", {}]
+
+let parser_factory_xml() =
+    ["xml_parser", {}]
+
+let parser_factory_csv() =
+    ["csv_parser", {}]
+
+let parser_factory_yaml() =
+    ["yaml_parser", {}]
+
+let serializer_factory_json() =
+    ["json_serializer", {}]
+
+let serializer_factory_binary() =
+    ["binary_serializer", {}]
+
+let serializer_factory_xml() =
+    ["xml_serializer", {}]
+
+let database_factory_sqlite(params) =
+    ["sqlite", params]
+
+let database_factory_postgres(params) =
+    ["postgres", params]
+
+let database_factory_mysql(params) =
+    ["mysql", params]
+
+let database_factory_redis(params) =
+    ["redis", params]
+
+let abstract_factory_new() =
+    {
+        shape: {},
+        parser: {},
+        serializer: {},
+        database: {}
+    }
+
+let abstract_factory_register(af, category, type_name, constructor) =
+    af[category][type_name] = constructor
+
+let abstract_factory_create(af, category, type_name, params) =
+    let constructor = af[category][type_name]
+    if constructor != 0
+        constructor(params)
+    else
+        0
+
+let singleton_factory(constructor) =
+    let instance = [0]
+    let get_instance() =
+        if instance[0] == 0
+            instance[0] = constructor()
+        instance[0]
+    get_instance
+
+let prototype_factory(prototype) =
+    let clone() =
+        let copy = []
+        let i = 0
+        for i < prototype.len()
+            copy = copy arr_concat(copy, [prototype[i]])
+            i = i + 1
+        copy
+    clone
+
+let main() =
+    let registry = {}
+    factory_register(registry, "circle", shape_factory_circle)
+    factory_register(registry, "rectangle", shape_factory_rectangle)
+    let circle = factory_create(registry, "circle", [100])
+    print(circle)
+    print(shape_area(circle))
+    let rect = factory_create(registry, "rectangle", [200, 300])
+    print(rect)
+    print(shape_area(rect))
+    0

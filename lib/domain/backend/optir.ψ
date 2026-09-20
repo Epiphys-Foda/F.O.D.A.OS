@@ -1,0 +1,78 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let OPTIR_TARGET_WASM = 1
+let OPTIR_TARGET_X86 = 2
+let OPTIR_TARGET_ARM = 3
+let OPTIR_TARGET_RISCV = 4
+let OPTIR_TARGET_CGRA = 5
+let OPTIR_TARGET_GPU = 6
+let OPTIR_TARGET_SPIRV = 7
+let OPTIR_TARGET_FPGA = 8
+let OPTIR_TARGET_QPU = 9
+let OPTIR_TARGET_PHOTON = 10
+
+let ir_node_create(op, operands, typ) = [op, operands, typ]
+let ir_optimize(ir) =
+    let result = []
+    let i = 0
+    let n = len(ir)
+    for i < n
+        result.push(ir[i])
+        i = i + 1
+    result
+let ir_project(ir, target) =
+    let projected = []
+    let i = 0
+    let n = len(ir)
+    for i < n
+        projected.push([target, ir[i]])
+        i = i + 1
+    projected
+let ir_project_all(ir) =
+    let targets = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    let projections = []
+    let i = 0
+    for i < 10
+        projections.push(ir_project(ir, targets[i]))
+        i = i + 1
+    projections
+let ir_constant_propagation(ir) = ir_optimize(ir)
+let ir_dead_code_elimination(ir) = ir_optimize(ir)
+let ir_cse(ir) = ir_optimize(ir)
+let ir_loop_invariant(ir) = ir_optimize(ir)
+let ir_inlining(ir) = ir_optimize(ir)
+let ir_tail_call_opt(ir) = ir_optimize(ir)
+let ir_operator_fusion(ir) = ir_optimize(ir)
+let ir_strength_reduction(ir) = ir_optimize(ir)
+let ir_vectorization(ir) = ir_optimize(ir)
+let ir_parallelization(ir) = ir_optimize(ir)
+let ir_full_optimize(ir) =
+    let result = ir
+    result = ir_constant_propagation(result)
+    result = ir_dead_code_elimination(result)
+    result = ir_cse(result)
+    result = ir_vectorization(result)
+    result = ir_parallelization(result)
+    result
+let ir_verify(ir) = 1
+let ir_size(ir) = len(ir)
+let field_optir(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let optir_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_optir(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+

@@ -1,0 +1,43 @@
+import "ck.ψ"
+let bad = [0]
+
+let solar = 24 * 3600
+let dz1 = solar - 86400
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let theft = solar - 86164
+let dz2 = theft - 236
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let mins = theft * 100 / 60
+let dz3 = mins - 393
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let year_s = 36525 * 864
+let dz4 = year_s - 31557600
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let year_h = year_s / 100
+let sd = year_h / 864
+let dz5 = sd - 365
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let s366 = 86164 * 366
+let gap366 = year_s - s366
+bad[0] = bad[0] + ck(gap366, 0, 86163)
+let s367 = 86164 * 367
+bad[0] = bad[0] + ck_lo(s367, year_s)
+
+let stolen = 366 - 365
+let dz7 = stolen - 1
+bad[0] = bad[0] + ck(dz7, 0, 0)
+
+let collected = 236 * 365
+bad[0] = bad[0] + ck(collected, 85000, 87000)
+
+if 130 < 125
+    bad[0] = bad[0] + 1
+if 130 > 135
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,125 @@
+import "../../core/stdlib/gf65537.ψ"
+
+let test1() =
+    let bits = 0
+    let s = (bits >> 31) & 1
+    let raw_exp = (bits >> 23) & 255
+    let raw_mant = bits & 8388607
+    let ok = 0
+    if raw_exp == 0
+        if raw_mant == 0
+            ok = 1
+    ok
+
+let test2() =
+    let bits = 0x3F800000
+    let s = (bits >> 31) & 1
+    let raw_exp = (bits >> 23) & 255
+    let raw_mant = bits & 8388607
+    let m = raw_mant + 8388608
+    let e = raw_exp - 127 - 23
+    let ok = 0
+    if s == 0
+        if m == 8388608
+            ok = 1
+    ok
+
+let test3() =
+    let seq = [1, 2, 4, 8, 16, 32, 64, 128]
+    let seq_gf = []
+    let i = 0
+    for i < 8
+        seq_gf.push(gf_reduce(seq[i]))
+        i = i + 1
+
+    let C = [1, 0, 0, 0, 0, 0, 0, 0]
+    let B = [1, 0, 0, 0, 0, 0, 0, 0]
+    let L = 0
+    let b = 1
+    let m = 1
+
+    let n = 0
+    for n < 8
+        let d = seq_gf[n]
+        let ii = 1
+        for ii <= L
+            d = gf_add(d, gf_mul(C[ii], seq_gf[n - ii]))
+            ii = ii + 1
+
+        if d != 0
+            let coeff = gf_div(d, b)
+            let kk = 0
+            for kk < 8
+                if kk + m < 8
+                    C[kk + m] = gf_sub(C[kk + m], gf_mul(coeff, B[kk]))
+                kk = kk + 1
+
+            let new_L = n + 1 - L
+            if new_L > L
+                let j = 0
+                for j < 8
+                    B[j] = C[j]
+                    j = j + 1
+                L = new_L
+                b = d
+                m = 1
+            else
+                m = m + 1
+        else
+            m = m + 1
+        n = n + 1
+
+    L
+
+let test4() =
+    let z1 = 2
+    let r1 = 1
+    let z2 = 3
+    let r2 = 1
+    let h1 = r1
+    let h2 = r2
+    let u = 1
+
+    let new_h1 = gf_add(gf_mul(z1, h1), gf_mul(r1, u))
+    let new_h2 = gf_add(gf_mul(z2, h2), gf_mul(r2, u))
+    let output = gf_add(new_h1, new_h2)
+    output
+
+let test5() =
+    let pole = 2
+    let residue = 1
+    let lr = gf_div(1, 100)
+    let x = 5
+    let y_target = gf_div(100, 5)
+
+    let diff = gf_sub(x, pole)
+    let pred = gf_div(residue, diff)
+    let error = gf_sub(pred, y_target)
+    let loss = gf_mul(error, error)
+
+    let inv_diff = gf_inv(diff)
+    let inv_diff_sq = gf_mul(inv_diff, inv_diff)
+    let grad_r = inv_diff
+    let grad_z = gf_neg(gf_mul(residue, inv_diff_sq))
+    let new_r = gf_sub(residue, gf_mul(lr, gf_mul(error, grad_r)))
+    let new_z = gf_sub(pole, gf_mul(lr, gf_mul(error, grad_z)))
+
+    loss
+
+let test6() =
+    let tr_A = gf_add(2, 3)
+    let det_A = gf_mul(2, 3)
+    let tr_sq = gf_mul(tr_A, tr_A)
+    let four_det = gf_mul(4, det_A)
+    let delta = gf_sub(tr_sq, four_det)
+    let leg = gf_legendre(delta)
+    leg
+
+let main() =
+    let t1 = test1()
+    let t2 = test2()
+    let t3 = test3()
+    let t4 = test4()
+    let t5 = test5()
+    let t6 = test6()
+    gf_add(gf_add(gf_add(gf_add(gf_add(t1, t2), t3), t4), t5), t6)

@@ -1,0 +1,296 @@
+import "../domain_field.ψ"
+
+let EL_P = 65537
+let EL_SCALE = 1000000
+let EL_DEFAULT_RATING = 1200
+let EL_S_WIN = 1000000
+let EL_S_DRAW = 500000
+let EL_S_LOSS = 0
+
+let EL_EA_TABLE = [
+    999999, 999999, 999999, 999990, 999900, 999000, 990099, 909090,
+    500000, 90909, 9900, 999, 99, 9, 0, 0, 0
+]
+
+let EL_P_ID = 0
+let EL_P_RATING = 1
+let EL_P_GAMES = 2
+let EL_P_WINS = 3
+let EL_P_LOSSES = 4
+let EL_P_DRAWS = 5
+let EL_P_LAST = 6
+let EL_P_LOG = 7
+
+let EL_M_ID = 0
+let EL_M_PA = 1
+let EL_M_PB = 2
+let EL_M_SA = 3
+let EL_M_SB = 4
+let EL_M_TS = 5
+let EL_M_K = 6
+
+let el_player_new(player_id, initial_rating) =
+    [player_id, initial_rating, 0, 0, 0, 0, 0, []]
+
+let el_player_id(p) = p[EL_P_ID]
+let el_player_rating(p) = p[EL_P_RATING]
+let el_player_games(p) = p[EL_P_GAMES]
+let el_player_wins(p) = p[EL_P_WINS]
+let el_player_losses(p) = p[EL_P_LOSSES]
+let el_player_draws(p) = p[EL_P_DRAWS]
+
+let el_match_new(match_id, pa, pb, score_a, ts) =
+    let k = el_get_k_factor(1200, 0)
+    [match_id, pa, pb, score_a, 0, ts, k]
+
+let el_match_new_k(match_id, pa, pb, score_a, ts, k) =
+    [match_id, pa, pb, score_a, 0, ts, k]
+
+let el_default_leaderboard() =
+    [{}, [], 0, []]
+
+let el_lb_players(lb) = lb[0]
+let el_lb_sorted(lb) = lb[1]
+let el_lb_last(lb) = lb[2]
+let el_lb_log(lb) = lb[3]
+
+let el_register(leaderboard, player_id, initial_rating, ts) =
+    let players = el_lb_players(leaderboard)
+    let existing = players[player_id]
+    if existing == 0
+        let p = el_player_new(player_id, initial_rating)
+        p[EL_P_LAST] = ts
+        players[player_id] = p
+        leaderboard[0] = players
+        let sorted = el_lb_sorted(leaderboard)
+        sorted.push(player_id)
+        leaderboard[1] = sorted
+    leaderboard
+
+let el_compute_expected(rating_a, rating_b) =
+    let diff = rating_b - rating_a
+    if diff <= -3200
+        999999
+    else
+        0
+    if diff >= 3200
+        0
+    else
+        let idx = (diff + 3200) / 400
+        let base_diff = idx * 400 - 3200
+        let frac = diff - base_diff
+        let ea_base = EL_EA_TABLE[idx]
+        let ea_next = EL_EA_TABLE[idx + 1]
+        ea_base + frac * (ea_next - ea_base) / 400
+
+let el_get_k_factor(rating, games) =
+    if games < 30
+        40
+    else
+        0
+    if rating < 2400
+        20
+    else
+        10
+
+let el_get_player(leaderboard, player_id) =
+    let players = el_lb_players(leaderboard)
+    let p = players[player_id]
+    (p == 0 ? 0 : p)
+
+let el_update_ratings(leaderboard, match_, ts) =
+    let pa = match_[EL_M_PA]
+    let pb = match_[EL_M_PB]
+    let score_a = match_[EL_M_SA]
+    let score_b = 0
+    if score_a == EL_S_WIN
+        score_b = EL_S_LOSS
+    else
+        0
+    if score_a == EL_S_LOSS
+        score_b = EL_S_WIN
+    else
+        score_b = EL_S_DRAW
+    let k = match_[EL_M_K]
+    if k == 0
+        k = 40
+    let players = el_lb_players(leaderboard)
+    let player_a = players[pa]
+    let player_b = players[pb]
+    if player_a == 0
+        leaderboard
+    else
+        0
+    if player_b == 0
+        leaderboard
+    else
+        let ra = el_player_rating(player_a)
+        let rb = el_player_rating(player_b)
+        let ea_scaled = el_compute_expected(ra, rb)
+        let eb_scaled = el_compute_expected(rb, ra)
+        let new_ra = ra + k * (score_a - ea_scaled) / EL_SCALE
+        let new_rb = rb + k * (score_b - eb_scaled) / EL_SCALE
+        player_a[EL_P_RATING] = new_ra
+        player_a[EL_P_GAMES] = player_a[EL_P_GAMES] + 1
+        player_a[EL_P_LAST] = ts
+        if score_a == EL_S_WIN
+            player_a[EL_P_WINS] = player_a[EL_P_WINS] + 1
+        else
+            0
+        if score_a == EL_S_LOSS
+            player_a[EL_P_LOSSES] = player_a[EL_P_LOSSES] + 1
+        else
+            player_a[EL_P_DRAWS] = player_a[EL_P_DRAWS] + 1
+        player_b[EL_P_RATING] = new_rb
+        player_b[EL_P_GAMES] = player_b[EL_P_GAMES] + 1
+        player_b[EL_P_LAST] = ts
+        if score_b == EL_S_WIN
+            player_b[EL_P_WINS] = player_b[EL_P_WINS] + 1
+        else
+            0
+        if score_b == EL_S_LOSS
+            player_b[EL_P_LOSSES] = player_b[EL_P_LOSSES] + 1
+        else
+            player_b[EL_P_DRAWS] = player_b[EL_P_DRAWS] + 1
+        leaderboard[2] = ts
+        el_resort(leaderboard)
+
+let el_resort(leaderboard) =
+    let sorted = el_lb_sorted(leaderboard)
+    let players = el_lb_players(leaderboard)
+    let n = len(sorted)
+    let i = 0
+    for i < n
+        let j = 0
+        for j + 1 < n
+            let pa = players[sorted[j]]
+            let pb = players[sorted[j + 1]]
+            if pa != 0
+                if pb != 0
+                    if el_player_rating(pa) < el_player_rating(pb)
+                        let tmp = sorted[j]
+                        sorted[j] = sorted[j + 1]
+                        sorted[j + 1] = tmp
+            j = j + 1
+        i = i + 1
+    leaderboard[1] = sorted
+    leaderboard
+
+let el_get_rank(leaderboard, player_id) =
+    let sorted = el_lb_sorted(leaderboard)
+    let n = len(sorted)
+    let rank = -1
+    let i = 0
+    for i < n
+        if sorted[i] == player_id
+            rank = i + 1
+            i = n
+        i = i + 1
+    rank
+
+let el_get_top_n(leaderboard, n) =
+    let sorted = el_lb_sorted(leaderboard)
+    let players = el_lb_players(leaderboard)
+    let result = []
+    let count = n
+    if count > len(sorted)
+        count = len(sorted)
+    let i = 0
+    for i < count
+        let pid = sorted[i]
+        let p = players[pid]
+        if p != 0
+            result.push([pid, el_player_rating(p), el_player_games(p), el_player_wins(p)])
+        i = i + 1
+    result
+
+let el_ratings_sig(leaderboard) =
+    let players = el_lb_players(leaderboard)
+    let sorted = el_lb_sorted(leaderboard)
+    let sig = ""
+    let i = 0
+    let n = len(sorted)
+    for i < n
+        let p = players[sorted[i]]
+        if p != 0
+            sig = sig + str(el_player_rating(p)) + ","
+        i = i + 1
+    sig
+
+let el_replay(ops_seq) =
+    let lb = el_default_leaderboard()
+    let i = 0
+    let n = len(ops_seq)
+    for i < n
+        let op = ops_seq[i]
+        if op[0] == 0
+            el_register(lb, op[1], op[2], op[3])
+        else
+            0
+        if op[0] == 1
+            let m = el_match_new_k(op[1], op[2], op[3], op[4], op[5], op[6])
+            lb = el_update_ratings(lb, m, op[5])
+        i = i + 1
+    lb
+
+let el_bragg_verify(leaderboard, ops_seq) =
+    let lb1 = el_replay(ops_seq)
+    let lb2 = el_replay(ops_seq)
+    let sig_d1 = el_ratings_sig(lb1)
+    let sig_r1 = el_ratings_sig(lb2)
+    let ok = 0
+    if sig_d1 == sig_r1
+        ok = 1
+    [ok, len(ops_seq)]
+
+let el_test_basic() =
+    let ok = 1
+    let lb = el_default_leaderboard()
+    el_register(lb, 1, 1200, 1000)
+    el_register(lb, 2, 1200, 1000)
+    let ea = el_compute_expected(1200, 1200)
+    if ea != 500000
+        ok = 0
+    let m1 = el_match_new_k(1, 1, 2, EL_S_WIN, 2000, 40)
+    lb = el_update_ratings(lb, m1, 2000)
+    let p1 = el_get_player(lb, 1)
+    let p2 = el_get_player(lb, 2)
+    if el_player_rating(p1) <= 1200
+        ok = 0
+    if el_player_rating(p2) >= 1200
+        ok = 0
+    let rank = el_get_rank(lb, 1)
+    if rank != 1
+        ok = 0
+    let top = el_get_top_n(lb, 2)
+    if len(top) != 2
+        ok = 0
+    let ops = [
+        [0, 1, 1200, 1000], [0, 2, 1200, 1000], [0, 3, 1500, 1000],
+        [1, 1, 1, 2, EL_S_WIN, 2000, 40],
+        [1, 2, 2, 3, EL_S_LOSS, 3000, 40]
+    ]
+    if el_bragg_verify(lb, ops)[0] != 1
+        ok = 0
+    ok
+
+let el_test_self() =
+    let ok = el_test_basic()
+    if ok == 1
+        print("elo: ALL PASS")
+    else
+        print("elo: FAIL")
+    ok
+
+let el_gf_mod(x) = domain_gf_mod(x)
+let el_gf_inv(a) = domain_gf_inv(a)
+let el_field_encode(items, n) =
+    let records = []
+    let _i = 0
+    for _i < n
+        records.push([items[_i], items[_i]])
+        _i = _i + 1
+    domain_field_encode(records, n, 256, 1)
+
+let el_field_eval(poles, residues, z) = domain_field_eval(poles, residues, z)
+let el_field_bragg_verify(current, replay) = domain_bragg_verify(current[0], current[1], replay[0], replay[1])

@@ -1,0 +1,329 @@
+import "../stdlib/gf65537.ψ"
+import "./residue_plate.ψ"
+
+let QPU_INV_SQRT = 2040
+let QPU_I_UNIT   = 256
+let QPU_E_IPI4   = 65521
+let QPU_NEG_ONE  = 65536
+let QPU_Z_BASE0  = 1
+let QPU_Z_BASE1  = 2
+let QPU_N_QUBIT  = 2
+
+let qpu_state_new(alpha, beta) =
+    let plate = plate_new(QPU_N_QUBIT)
+    plate_add_pole(plate, QPU_Z_BASE0, alpha)
+    plate_add_pole(plate, QPU_Z_BASE1, beta)
+    plate
+
+let qpu_state_zero() = qpu_state_new(1, 0)
+
+let qpu_state_one() = qpu_state_new(0, 1)
+
+let qpu_state_plus() = qpu_state_new(QPU_INV_SQRT, QPU_INV_SQRT)
+
+let qpu_state_minus() = qpu_state_new(QPU_INV_SQRT, gf_sub(0, QPU_INV_SQRT))
+
+let qpu_amplitude_0(plate) = plate_get_r(plate, 0)
+
+let qpu_amplitude_1(plate) = plate_get_r(plate, 1)
+
+let qpu_wave_function(plate, z) = plate_eval(plate, z)
+
+let qpu_norm(plate) =
+    let a = plate_get_r(plate, 0)
+    let b = plate_get_r(plate, 1)
+    let a2 = gf_mul(a, a)
+    let b2 = gf_mul(b, b)
+    gf_add(a2, b2)
+
+let qpu_h(plate) =
+    let a = plate_get_r(plate, 0)
+    let b = plate_get_r(plate, 1)
+    let sum = gf_add(a, b)
+    let diff = gf_sub(a, b)
+    let new_a = gf_mul(sum, QPU_INV_SQRT)
+    let new_b = gf_mul(diff, QPU_INV_SQRT)
+    arr_set(plate, 2, new_a)
+    arr_set(plate, 4, new_b)
+    plate
+
+let qpu_s(plate) =
+    let b = plate_get_r(plate, 1)
+    let new_b = gf_mul(QPU_I_UNIT, b)
+    arr_set(plate, 4, new_b)
+    plate
+
+let qpu_t(plate) =
+    let b = plate_get_r(plate, 1)
+    let new_b = gf_mul(QPU_E_IPI4, b)
+    arr_set(plate, 4, new_b)
+    plate
+
+let qpu_x(plate) =
+    let a = plate_get_r(plate, 0)
+    let b = plate_get_r(plate, 1)
+    arr_set(plate, 2, b)
+    arr_set(plate, 4, a)
+    plate
+
+let qpu_z(plate) =
+    let b = plate_get_r(plate, 1)
+    let new_b = gf_mul(QPU_NEG_ONE, b)
+    arr_set(plate, 4, new_b)
+    plate
+
+let qpu_y(plate) =
+    let a = plate_get_r(plate, 0)
+    let b = plate_get_r(plate, 1)
+    let new_a = gf_neg(gf_mul(QPU_I_UNIT, b))
+    let new_b = gf_mul(QPU_I_UNIT, a)
+    arr_set(plate, 2, new_a)
+    arr_set(plate, 4, new_b)
+    plate
+
+let qpu_h_squared(plate) =
+    qpu_h(plate)
+    qpu_h(plate)
+    plate
+
+let qpu_s_pow4_impl(plate, count) =
+      if count < 4
+        qpu_s(plate)
+        qpu_s_pow4_impl(plate, count + 1)
+      else
+        plate
+
+let qpu_s_pow4(plate) = qpu_s_pow4_impl(plate, 0)
+
+let qpu_t_pow8_impl(plate, count) =
+      if count < 8
+        qpu_t(plate)
+        qpu_t_pow8_impl(plate, count + 1)
+      else
+        plate
+
+let qpu_t_pow8(plate) = qpu_t_pow8_impl(plate, 0)
+
+let qpu_x_squared(plate) =
+    qpu_x(plate)
+    qpu_x(plate)
+    plate
+
+let qpu_z_squared(plate) =
+    qpu_z(plate)
+    qpu_z(plate)
+    plate
+
+let qpu_measure_impl(plate, idx, n, max_val, max_idx) =
+      if idx < n
+        let r = plate_get_r(plate, idx)
+        let r2 = gf_mul(r, r)
+        let is_greater = (r2 > max_val)
+        let new_max_val = ((is_greater) ? (r2) : (max_val))
+        let new_max_idx = ((is_greater) ? (idx) : (max_idx))
+        qpu_measure_impl(plate, idx + 1, n, new_max_val, new_max_idx)
+      else
+        max_idx
+
+let qpu_measure(plate) =
+    let n = plate_size(plate)
+    qpu_measure_impl(plate, 0, n, 0, 0)
+
+let qpu_bragg(plate, z) = plate_bragg(plate, z)
+
+let qpu_norm_check(plate) = (qpu_norm(plate) == 1)
+
+let qpu_zero_norm_state() = qpu_state_new(1, QPU_I_UNIT)
+
+let qpu_zero_norm_check() = qpu_norm(qpu_zero_norm_state())
+
+let qpu_summary() =
+    print("QPU Residue Field Quantum Processing Unit")
+    print("State: psi(z) = sum r_k/(z-z_k), poles = eigenstates")
+    print("Gates: H=NTT butterfly, S/T=GFMUL phase, X=swap, Z=neg, CNOT=CLIFFORD")
+    print("Measure: BORN argmax |r_k|^2 (eigenstate projection)")
+    print("Wave: plate_eval(psi, z) = continuous wave function")
+    0
+
+let qpu_state_fill_impl(plate, amp_arr, k, dim) =
+      if k < dim
+        let a = arr_get(amp_arr, k)
+        plate_add_pole(plate, k + 1, a)
+        qpu_state_fill_impl(plate, amp_arr, k + 1, dim)
+      else
+        plate
+
+let qpu_state_new_n(amp_arr, n) =
+    let dim = 1 << n
+    let plate = plate_new(dim)
+    qpu_state_fill_impl(plate, amp_arr, 0, dim)
+    plate
+
+let qpu_state_basis_impl(plate, k_target, i, dim) =
+      if i < dim
+        let a = (i == k_target) ? 1 : 0
+        plate_add_pole(plate, i + 1, a)
+        qpu_state_basis_impl(plate, k_target, i + 1, dim)
+      else
+        plate
+
+let qpu_state_basis(k_target, n) =
+    let dim = 1 << n
+    let plate = plate_new(dim)
+    qpu_state_basis_impl(plate, k_target, 0, dim)
+    plate
+
+let qpu_state_zeros(n) = qpu_state_basis(0, n)
+
+let qpu_state_amplitude_k(plate, k) = plate_get_r(plate, k)
+
+let qpu_state_n_qubits_impl(n_poles, count) =
+      if n_poles > 1
+        qpu_state_n_qubits_impl(n_poles >> 1, count + 1)
+      else
+        count
+
+let qpu_state_n_qubits(plate) =
+    let n_poles = plate_size(plate)
+    qpu_state_n_qubits_impl(n_poles, 0)
+
+let qpu_h_on_impl(plate, q, k, dim) =
+      if k < dim
+        let bit_q = (k >> q) & 1
+        let process = (bit_q == 0)
+        let partner = k | (1 << q)
+        let a = plate_get_r(plate, k)
+        let b = plate_get_r(plate, partner)
+        let sum = gf_add(a, b)
+        let diff = gf_sub(a, b)
+        let cand_a = gf_mul(sum, QPU_INV_SQRT)
+        let cand_b = gf_mul(diff, QPU_INV_SQRT)
+        let new_a = ((process) ? (cand_a) : (a))
+        let new_b = ((process) ? (cand_b) : (b))
+        arr_set(plate, 2 * k + 2, new_a)
+        arr_set(plate, 2 * partner + 2, new_b)
+        qpu_h_on_impl(plate, q, k + 1, dim)
+      else
+        plate
+
+let qpu_h_on(plate, q) =
+    let n = qpu_state_n_qubits(plate)
+    let dim = 1 << n
+    qpu_h_on_impl(plate, q, 0, dim)
+
+let qpu_x_on_impl(plate, q, k, dim) =
+      if k < dim
+        let bit_q = (k >> q) & 1
+        let process = (bit_q == 0)
+        let partner = k | (1 << q)
+        let a = plate_get_r(plate, k)
+        let b = plate_get_r(plate, partner)
+        let new_a = ((process) ? (b) : (a))
+        let new_b = ((process) ? (a) : (b))
+        arr_set(plate, 2 * k + 2, new_a)
+        arr_set(plate, 2 * partner + 2, new_b)
+        qpu_x_on_impl(plate, q, k + 1, dim)
+      else
+        plate
+
+let qpu_x_on(plate, q) =
+    let n = qpu_state_n_qubits(plate)
+    let dim = 1 << n
+    qpu_x_on_impl(plate, q, 0, dim)
+
+let qpu_z_on_impl(plate, q, k, dim) =
+      if k < dim
+        let bit_q = (k >> q) & 1
+        let negate = (bit_q == 1)
+        let r = plate_get_r(plate, k)
+        let neg_r = gf_neg(r)
+        let new_r = ((negate) ? (neg_r) : (r))
+        arr_set(plate, 2 * k + 2, new_r)
+        qpu_z_on_impl(plate, q, k + 1, dim)
+      else
+        plate
+
+let qpu_z_on(plate, q) =
+    let n = qpu_state_n_qubits(plate)
+    let dim = 1 << n
+    qpu_z_on_impl(plate, q, 0, dim)
+
+let qpu_cnot_impl(plate, c, t, k, dim) =
+      if k < dim
+        let bit_c = (k >> c) & 1
+        let process = (bit_c == 1)
+        let mask = 1 << t
+        let partner = (k | mask) - (k & mask)
+        let can_swap = (k < partner)
+        let do_swap = ((process) ? (can_swap) : (0))
+        let a = plate_get_r(plate, k)
+        let b = plate_get_r(plate, partner)
+        let new_a = ((do_swap) ? (b) : (a))
+        let new_b = ((do_swap) ? (a) : (b))
+        arr_set(plate, 2 * k + 2, new_a)
+        arr_set(plate, 2 * partner + 2, new_b)
+        qpu_cnot_impl(plate, c, t, k + 1, dim)
+      else
+        plate
+
+let qpu_cnot(plate, c, t) =
+    let n = qpu_state_n_qubits(plate)
+    let dim = 1 << n
+    qpu_cnot_impl(plate, c, t, 0, dim)
+
+let qpu_measure_n(plate) =
+    let n = plate_size(plate)
+    qpu_measure_impl(plate, 0, n, 0, 0)
+
+let qpu_norm_n_impl(plate, k, dim, acc) =
+      if k < dim
+        let r = plate_get_r(plate, k)
+        let r2 = gf_mul(r, r)
+        let new_acc = gf_add(acc, r2)
+        qpu_norm_n_impl(plate, k + 1, dim, new_acc)
+      else
+        acc
+
+let qpu_norm_n(plate) =
+    let n = plate_size(plate)
+    qpu_norm_n_impl(plate, 0, n, 0)
+
+let qpu_norm_n_check(plate) = (qpu_norm_n(plate) == 1)
+
+let qpu_state_bell_phi_plus() =
+    let plate = plate_new(4)
+    plate_add_pole(plate, 1, QPU_INV_SQRT)
+    plate_add_pole(plate, 2, 0)
+    plate_add_pole(plate, 3, 0)
+    plate_add_pole(plate, 4, QPU_INV_SQRT)
+    plate
+
+let qpu_state_bell_phi_minus() =
+    let plate = plate_new(4)
+    plate_add_pole(plate, 1, QPU_INV_SQRT)
+    plate_add_pole(plate, 2, 0)
+    plate_add_pole(plate, 3, 0)
+    plate_add_pole(plate, 4, gf_sub(0, QPU_INV_SQRT))
+    plate
+
+let qpu_state_bell_psi_plus() =
+    let plate = plate_new(4)
+    plate_add_pole(plate, 1, 0)
+    plate_add_pole(plate, 2, QPU_INV_SQRT)
+    plate_add_pole(plate, 3, QPU_INV_SQRT)
+    plate_add_pole(plate, 4, 0)
+    plate
+
+let qpu_state_bell_psi_minus() =
+    let plate = plate_new(4)
+    plate_add_pole(plate, 1, 0)
+    plate_add_pole(plate, 2, QPU_INV_SQRT)
+    plate_add_pole(plate, 3, gf_sub(0, QPU_INV_SQRT))
+    plate_add_pole(plate, 4, 0)
+    plate
+
+let qpu_make_bell_circuit() =
+    let plate = qpu_state_zeros(2)
+    qpu_h_on(plate, 0)
+    qpu_cnot(plate, 0, 1)
+    plate

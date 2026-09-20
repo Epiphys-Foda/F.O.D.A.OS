@@ -1,0 +1,55 @@
+import "ck.ψ"
+let bad = [0]
+
+let s3 = 400
+let s6 = 200
+bad[0] = bad[0] + ck(s3, 380, 420)
+bad[0] = bad[0] + ck(s6, 190, 210)
+let dz1 = s3 - s6 * 2
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let p10 = 2 * 2 * 2 * 2 * 2 * 2 * 2 * 2 * 2 * 2
+let dz2 = p10 - 1024
+bad[0] = bad[0] + ck(dz2, 0, 0)
+bad[0] = bad[0] + ck(p10, 1000, 1050)
+
+let uts = 400
+let s_e = 200
+let dz3 = s_e * 2 - uts
+bad[0] = bad[0] + ck(dz3, 0, 0)
+bad[0] = bad[0] + ck_hi(s_e, uts)
+
+let kt_hole = 3
+let dz4 = kt_hole - 3
+bad[0] = bad[0] + ck(dz4, 0, 0)
+let q31 = 31
+bad[0] = bad[0] + ck(q31, 30, 33)
+let kt_crack = 63
+let dz5 = kt_crack - 1 - q31 * 2
+bad[0] = bad[0] + ck(dz5, 0, 0)
+if kt_crack < kt_hole * 10
+    bad[0] = bad[0] + 1
+
+let liberty_broke = 19
+bad[0] = bad[0] + ck(liberty_broke, 15, 25)
+let liberty_cracks = 1500
+bad[0] = bad[0] + ck(liberty_cracks, 1000, 2000)
+
+if 1870 < 1868
+    bad[0] = bad[0] + 1
+if 1870 > 1872
+    bad[0] = bad[0] + 1
+if 1943 < 1941
+    bad[0] = bad[0] + 1
+if 1943 > 1945
+    bad[0] = bad[0] + 1
+if 1943 < 1870
+    bad[0] = bad[0] + 1
+if 1954 < 1952
+    bad[0] = bad[0] + 1
+if 1954 > 1956
+    bad[0] = bad[0] + 1
+if 1954 < 1943
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

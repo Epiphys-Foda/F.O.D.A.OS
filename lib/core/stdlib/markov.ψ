@@ -1,0 +1,118 @@
+let markov_step(transition, state) =
+    let n = state.len()
+    let new_state = []
+    let j = 0
+    for j < n
+        let sum = 0
+        let i = 0
+        for i < n
+            sum = sum + state[i] * transition[i * n + j] / 1000
+            i = i + 1
+        new_state = arr_concat(new_state, [sum])
+        j = j + 1
+    new_state
+
+let markov_n_steps(transition, state, n) =
+    let result = state
+    let i = 0
+    for i < n
+        result = markov_step(transition, result)
+        i = i + 1
+    result
+
+let stationary_distribution(transition, n, max_iter) =
+    let dist = []
+    let i = 0
+    for i < n
+        dist = arr_concat(dist, [1000 / n])
+        i = i + 1
+    let iter = 0
+    for iter < max_iter
+        dist = markov_step(transition, dist)
+        iter = iter + 1
+    dist
+
+let mdp_value_iteration(transitions, rewards, gamma, n_states, n_actions, max_iter) =
+    let values = []
+    let i = 0
+    for i < n_states
+        values = arr_concat(values, [0])
+        i = i + 1
+    let iter = 0
+    for iter < max_iter
+        let new_values = []
+        let s = 0
+        for s < n_states
+            let best = -999999999
+            let a = 0
+            for a < n_actions
+                let q = rewards[a * n_states + s]
+                let future = 0
+                let s2 = 0
+                for s2 < n_states
+                    let t = transitions[a * n_states * n_states + s * n_states + s2]
+                    future = future + t * values[s2] / 1000
+                    s2 = s2 + 1
+                q = q + gamma * future / 1000
+                if q > best
+                    best = q
+                a = a + 1
+            new_values = arr_concat(new_values, [best])
+            s = s + 1
+        values = new_values
+        iter = iter + 1
+    values
+
+let mdp_policy(transitions, rewards, gamma, values, n_states, n_actions) =
+    let policy = []
+    let s = 0
+    for s < n_states
+        let best_a = 0
+        let best_q = -999999999
+        let a = 0
+        for a < n_actions
+            let q = rewards[a * n_states + s]
+            let future = 0
+            let s2 = 0
+            for s2 < n_states
+                let t = transitions[a * n_states * n_states + s * n_states + s2]
+                future = future + t * values[s2] / 1000
+                s2 = s2 + 1
+            q = q + gamma * future / 1000
+            if q > best_q
+                best_q = q
+                best_a = a
+            a = a + 1
+        policy = arr_concat(policy, [best_a])
+        s = s + 1
+    policy
+
+let expected_reward(transition, reward, state, n_steps) =
+    let total = 0
+    let s = state
+    let i = 0
+    for i < n_steps
+        total = total + reward[s]
+        s = markov_step(transition, s)
+        i = i + 1
+    total
+
+let absorbing_states(transition, n) =
+    let absorbing = []
+    let i = 0
+    for i < n
+        if transition[i * n + i] == 1000
+            absorbing = arr_concat(absorbing, [i])
+        i = i + 1
+    absorbing
+
+let main() =
+    let trans = [700, 300, 400, 600]
+    let state = [1000, 0]
+    let v1 = markov_step(trans, state)
+    print(v1)
+    let v2 = markov_n_steps(trans, state, 10)
+    print(v2)
+    let v3 = stationary_distribution(trans, 2, 100)
+    print(v3)
+    0

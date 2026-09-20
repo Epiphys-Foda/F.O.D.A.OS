@@ -1,0 +1,54 @@
+import "ck.ψ"
+let bad = [0]
+
+let d_og = 5295 * 3413 - 172000 * 116
+let aog =
+    if d_og < 0
+        0 - d_og
+    else
+        d_og
+bad[0] = bad[0] + ck_lo(aog, 1000000)
+let d_fl = 5639 * 3133 - 172000 * 112
+let afl =
+    if d_fl < 0
+        0 - d_fl
+    else
+        d_fl
+bad[0] = bad[0] + ck_lo(afl, 1000000)
+let dd = aog - afl
+let add =
+    if dd < 0
+        0 - dd
+    else
+        dd
+bad[0] = bad[0] + ck_hi(add, 500000)
+
+if 3574 < 3574
+    bad[0] = bad[0] + 1
+if 528 < 500
+    bad[0] = bad[0] + 1
+
+let chi_n = 6361 * 100 / 172
+let dchi = chi_n - 3698
+bad[0] = bad[0] + dchi * dchi
+let sqq = 112 * 10000 / chi_n
+let qneed = sqq * sqq
+let dq = qneed - 91204
+bad[0] = bad[0] + dq * dq
+let shell_req = 9820 - qneed / 10
+bad[0] = bad[0] + ck(shell_req, 500, 900)
+
+let deficit = 9820 - 3821
+bad[0] = bad[0] + ck_lo(deficit, 5500)
+
+if 6 * 6 * 6 > 298
+    bad[0] = bad[0] + 1
+if 298 > 7 * 7 * 7
+    bad[0] = bad[0] + 1
+let t23 = 6 * 6
+let den = 200 + 155 * t23 / 100
+let zbeta = 2980000 / den / 100
+let dzb = zbeta - 116
+bad[0] = bad[0] + dzb * dzb
+
+arr_get(arr_new_n(1), bad[0])

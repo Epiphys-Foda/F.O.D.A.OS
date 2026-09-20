@@ -1,0 +1,149 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let cell_new(genes, energy, cell_type) = [genes, energy, cell_type]
+let cell_genes(c) = c[0]
+let cell_energy(c) = c[1]
+let cell_type(c) = c[2]
+
+let cell_signal(c, n) =
+    let genes = cell_genes(c)
+    let total = 0
+    let i = 0
+    for i < n
+        total = gf_add(total, gene_residue(genes[i]))
+        i = i + 1
+    total
+
+let gene_count(genes, n) = n
+
+let cell_function(c, input_signal) =
+    let ctype = cell_type(c)
+    let energy = cell_energy(c)
+    if ctype == 0
+        gf_add(input_signal, energy)
+    else
+        0
+    if ctype == 1
+        gf_mul(input_signal, energy)
+    else
+        0
+    if ctype == 2
+        (input_signal == 0 ? 0 : energy)
+    else
+            0
+    if ctype == 3
+        input_signal
+    else
+        0
+
+let embryo_develop(seed_gene, num_cells) =
+    let body = []
+    let i = 0
+    for i < num_cells
+        let energy = gf_add(i, 1)
+        let cell = cell_new([seed_gene], energy, i % 4)
+        body = body.push(cell)
+        i = i + 1
+    body
+
+let body_communicate(body, n) =
+    let prev_signal = 0
+    let total_output = 0
+    let i = 0
+    for i < n
+        let cell = body[i]
+        let output = cell_function(cell, prev_signal)
+        total_output = gf_add(total_output, output)
+        prev_signal = output
+        i = i + 1
+    total_output
+
+let body_metabolize(body, n, nutrient) =
+    let fed_body = []
+    let i = 0
+    for i < n
+        let cell = body[i]
+        let genes = cell_genes(cell)
+        let energy = cell_energy(cell)
+        let ctype = cell_type(cell)
+        let new_energy = gf_add(energy, nutrient)
+        fed_body = fed_body.push(cell_new(genes, new_energy, ctype))
+        i = i + 1
+    fed_body
+
+let body_fitness(body, n) =
+    let total = 0
+    let i = 0
+    for i < n
+        let cell = body[i]
+        let genes = cell_genes(cell)
+        total = total + fitness(genes[0])
+        i = i + 1
+    total
+
+let body_divide(body, n) =
+    let new_body = []
+    let i = 0
+    for i < n
+        let cell = body[i]
+        new_body = new_body.push(cell)
+        new_body = new_body.push(cell)
+        i = i + 1
+    new_body
+
+let multicell_verify() =
+    let ok = 0
+
+    let gene = gene_new(101, 1, 0)
+    let cell = cell_new([gene], 5, 0)
+    if cell_energy(cell) == 5
+        ok = ok + 1
+
+    let cell2 = cell_new([gene_new(101, 3, 0), gene_new(103, 5, 0)], 10, 0)
+    if cell_signal(cell2, 2) == 8
+        ok = ok + 1
+
+    let neuron = cell_new([gene], 5, 0)
+    if cell_function(neuron, 3) == 8
+        ok = ok + 1
+
+    let muscle = cell_new([gene], 3, 1)
+    if cell_function(muscle, 4) == 12
+        ok = ok + 1
+
+    let immune = cell_new([gene], 7, 2)
+    if cell_function(immune, 0) == 0
+        ok = ok + 1
+    if cell_function(immune, 5) == 7
+        ok = ok + 1
+
+    let repro = cell_new([gene], 9, 3)
+    if cell_function(repro, 42) == 42
+        ok = ok + 1
+
+    let body = embryo_develop(gene, 4)
+    if cell_type(body[0]) == 0
+        ok = ok + 1
+    if cell_type(body[1]) == 1
+        ok = ok + 1
+    if cell_type(body[2]) == 2
+        ok = ok + 1
+    if cell_type(body[3]) == 3
+        ok = ok + 1
+
+    let comm = body_communicate(body, 4)
+    if comm >= 0
+        ok = ok + 1
+
+    let fit = body_fitness(body, 4)
+    if fit >= 0
+        ok = ok + 1
+
+    let divided = body_divide(body, 4)
+    let div_comm = body_communicate(divided, 8)
+    if div_comm >= 0
+        ok = ok + 1
+
+    ok
+
+let main() = multicell_verify()

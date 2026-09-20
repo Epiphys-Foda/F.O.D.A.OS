@@ -1,0 +1,15 @@
+let mf_equal(f1, f2) =
+    let n1 = mf_size(f1)
+    let n2 = mf_size(f2)
+    let eq = 0
+    if n1 == n2
+        eq = 1
+        let i = 0
+        for i < n1
+            if mf_poles(f1)[i] != mf_poles(f2)[i]
+                eq = 0
+            if mf_residues(f1)[i] != mf_residues(f2)[i]
+                eq = 0
+            i = i + 1
+    eq
+

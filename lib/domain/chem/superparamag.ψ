@@ -1,0 +1,33 @@
+import "ck.ψ"
+let bad = [0]
+
+let kt = 26
+bad[0] = bad[0] + ck(kt, 25, 27)
+let bar = 40
+bad[0] = bad[0] + ck(bar, 38, 43)
+let kmev = bar * kt
+bad[0] = bad[0] + ck(kmev, 1000, 1080)
+
+let vmin = kmev * 1000 / 2500
+bad[0] = bad[0] + ck(vmin, 380, 450)
+
+let yr40 = 8
+let yr42 = 60
+let yr44 = 400
+bad[0] = bad[0] + ck(yr40, 6, 10)
+bad[0] = bad[0] + ck(yr42, 50, 80)
+bad[0] = bad[0] + ck(yr44, 350, 500)
+let r1 = yr42 / yr40
+bad[0] = bad[0] + ck(r1, 6, 9)
+
+let kold = 800
+let khamr = 5000
+let hr = khamr / kold
+bad[0] = bad[0] + ck(hr, 5, 8)
+
+if 1949 < 1947
+    bad[0] = bad[0] + 1
+if 1949 > 1951
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

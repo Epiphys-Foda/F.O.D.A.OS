@@ -1,0 +1,870 @@
+import "wasm_interp.ψ"
+import "wasm_compiler.ψ"
+
+let X86_PUSH_RCX = [81]
+let X86_PUSH_RDX = [82]
+let X86_POP_RAX = [88]
+let X86_POP_RCX = [89]
+let X86_POP_RDX = [90]
+let X86_PUSH_RAX = [80]
+let X86_RET = [195]
+
+let X86_ADD_RAX_RCX = [72, 1, 200]
+let X86_SUB_RCX_RAX = [72, 41, 193]
+let X86_IMUL_RAX_RCX = [72, 15, 175, 193]
+let X86_AND_RAX_RCX = [72, 33, 200]
+let X86_OR_RAX_RCX = [72, 9, 200]
+let X86_XOR_RAX_RCX = [72, 49, 200]
+let X86_XOR_RDX_RDX = [72, 49, 210]
+let X86_DIV_R8 = [73, 247, 240]
+let X86_CQO = [72, 153]
+let X86_IDIV_RCX = [72, 247, 249]
+let X86_TEST_RAX_RAX = [72, 133, 192]
+let X86_CMOVNE_RCX_RDX = [72, 15, 69, 202]
+let X86_MOV_R8_RAX = [73, 137, 192]
+let X86_MOV_RAX_RCX = [72, 137, 200]
+let X86_PUSH_RDX_REM = [82]
+let X86_PUSH_R9 = [65, 81]
+let X86_PUSH_R10 = [65, 82]
+let X86_PUSH_R11 = [65, 83]
+let X86_PUSH_R12 = [65, 84]
+let X86_PUSH_R13 = [65, 85]
+let X86_PUSH_R14 = [65, 86]
+let X86_POP_R9 = [65, 89]
+let X86_POP_R10 = [65, 90]
+let X86_POP_R11 = [65, 91]
+let X86_POP_R12 = [65, 92]
+let X86_POP_R13 = [65, 93]
+let X86_POP_R14 = [65, 94]
+let X86_PUSH_R15 = [65, 87]
+let X86_POP_R15 = [65, 95]
+let X86_JMP_REL32 = [233]
+let X86_JZ_REL32 = [15, 132]
+let X86_JNZ_REL32 = [15, 133]
+let X86_SETLE_AL = [15, 158, 192]
+let X86_SETGE_AL = [15, 157, 192]
+
+let X86_CMP_RAX_RCX = [72, 57, 200]
+let X86_SETE_AL = [15, 148, 192]
+let X86_SETNE_AL = [15, 149, 192]
+let X86_SETL_AL = [15, 156, 192]
+let X86_SETG_AL = [15, 159, 192]
+let X86_MOVZX_RAX_AL = [72, 15, 182, 192]
+
+let X86_SHL_RAX_CL = [72, 211, 224]
+let X86_SHR_RAX_CL = [72, 211, 232]
+let X86_SAR_RAX_CL = [72, 211, 248]
+
+let X86_PUSH_RBX = [83]
+let X86_POP_RBX = [91]
+let X86_MOV_RBX_R8 = [76, 137, 195]
+let X86_POP_R8 = [65, 88]
+let X86_CALL_RBX = [255, 211]
+let X86_XOR_RAX_RAX = [72, 49, 192]
+
+let X86_PUSH_RDI = [87]
+let X86_POP_RDI = [95]
+let X86_PUSH_RSI = [86]
+let X86_POP_RSI = [94]
+
+let rel32_bytes(v) =
+    let u = v
+    if u < 0
+      u = u + 4294967296
+    else
+      0
+    let b0 = u - (u / 256) * 256
+    let v1 = u / 256
+    let b1 = v1 - (v1 / 256) * 256
+    let v2 = v1 / 256
+    let b2 = v2 - (v2 / 256) * 256
+    let b3 = v2 / 256
+    [b0, b1, b2, b3]
+
+let aot_patch(x86_code, patch_pos, target) =
+    let tb = rel32_bytes(target)
+    [x86_code.slice(0, patch_pos), tb, x86_code.slice(patch_pos + 4, len(x86_code))].flat()
+
+let aot_sort_patches(ps) =
+    let sp = []
+    let rem = ps
+    for len(rem) > 0
+      let best = 0
+      let bj = 1
+      for bj < len(rem)
+        if rem[bj][0] < rem[best][0]
+          best = bj
+        else
+          0
+        bj = bj + 1
+      sp = sp.push(rem[best])
+      rem = [rem.slice(0, best), rem.slice(best + 1, len(rem))].flat()
+    sp
+
+let aot_apply_patches(code, patches) =
+    let c = code
+    if len(patches) > 0
+      let sp = aot_sort_patches(patches)
+      let parts = []
+      let prev = 0
+      let pi = 0
+      for pi < len(sp)
+        let p = sp[pi]
+        let pos = p[0]
+        parts = parts.push(c.slice(prev, pos))
+        parts = parts.push(rel32_bytes(p[1]))
+        prev = pos + 4
+        pi = pi + 1
+      parts = parts.push(c.slice(prev, len(c)))
+      c = parts.flat()
+    else
+      0
+    c
+
+let aot_br(x86_code, label_idx, block_starts, loop_heads) =
+    if label_idx != 0
+      [x86_code, block_starts]
+    else
+      if len(loop_heads) > 0
+        let head = loop_heads[loop_heads.len() - 1]
+        let seg = [X86_JMP_REL32, 0, 0, 0, 0].flat()
+        let code2 = [x86_code, seg].flat()
+        let patch_pos = len(code2) - 4
+        let target = head - (patch_pos + 4)
+        [aot_patch(code2, patch_pos, target), block_starts]
+      else
+        [x86_code, block_starts]
+
+let aot_br_if(x86_code, label_idx, loop_heads, block_depth, exit_patches) =
+    let seg = [X86_POP_RAX, X86_TEST_RAX_RAX, X86_JNZ_REL32, 0, 0, 0, 0].flat()
+    let code2 = [x86_code, seg].flat()
+    if label_idx == 1
+      [code2, exit_patches.push([len(code2) - 4, block_depth])]
+    else
+      if len(loop_heads) > 0
+        let head = loop_heads[loop_heads.len() - 1]
+        let patch_pos = len(code2) - 4
+        let target = head - (patch_pos + 4)
+        [aot_patch(code2, patch_pos, target), exit_patches]
+      else
+        [code2, exit_patches]
+
+let imm32_bytes(v) =
+    let u = v
+    if u < 0
+      u = u + 4294967296
+    else
+      0
+    let b0 = u - (u / 256) * 256
+    let v1 = u / 256
+    let b1 = v1 - (v1 / 256) * 256
+    let v2 = v1 / 256
+    let b2 = v2 - (v2 / 256) * 256
+    let b3 = v2 / 256
+    [104, b0, b1, b2, b3]
+
+let imm32_bytesslice(v, lo, hi) =
+    let b = imm32_bytes(v)
+    let out = []
+    let k = lo
+    let d = false
+    for !d
+      if k < hi
+        out = out.push(b[k])
+        k = k + 1
+      else
+        d = true
+    out
+
+let X86_MOV_R9_RCX = [73, 137, 201]
+let X86_MOV_R10_RDX = [73, 137, 210]
+
+let wasm_body_to_x86_64(body, types, func_type_idx, n_imports, mem_ptr_idx) =
+    let x86_code = []
+    let pending = []
+    let code_len = len(x86_code)
+    let patches = []
+    let call_patches = []
+    let pc = 0
+    let done = 0
+    let if_patches = []
+    let else_patches = []
+    let loop_heads = []
+    let block_starts = []
+    let exit_patches = []
+    let debug_cnt = 0
+    let depo = 0
+    let prev_opcode = 0
+    let if_depo = []
+
+    for done == 0
+      let opcode = body[pc]
+      pc = pc + 1
+      if opcode == WOP_I32_CONST
+        let pair = sleb128_decode(body, pc)
+        pc = pair[1]
+        let v32 = pair[0] - (pair[0] / 4294967296) * 4294967296
+        let seg = imm32_bytes(v32)
+        pending = pending.push(seg)
+        code_len = code_len + len(seg)
+      else
+        0
+      if opcode == WOP_LOCAL_GET
+        let pair = uleb128_decode(body, pc)
+        pc = pair[1]
+        let idx = pair[0]
+        if idx == mem_ptr_idx
+          pending = pending.push([104, 9, 0, 0, 0, 104, 255, 255, 15, 0, 104, 0, 0, 0, 0, 65, 88, 90, 89, 65, 81, 65, 82, 65, 83, 87, 86, 255, 211, 94, 95, 65, 91, 65, 90, 65, 89, 80])
+          code_len = code_len + 38
+        else
+          0
+        if (idx == 0) && (idx != mem_ptr_idx)
+          pending = pending.push(X86_PUSH_R9)
+          code_len = code_len + len(X86_PUSH_R9)
+        else
+          0
+        if (idx == 1) && (idx != mem_ptr_idx)
+          pending = pending.push(X86_PUSH_R10)
+          code_len = code_len + len(X86_PUSH_R10)
+        else
+          0
+        if (idx == 2) && (idx != mem_ptr_idx)
+          pending = pending.push(X86_PUSH_R11)
+          code_len = code_len + len(X86_PUSH_R11)
+        else
+          0
+        if (idx == 3) && (idx != mem_ptr_idx)
+          pending = pending.push(X86_PUSH_R12)
+          code_len = code_len + len(X86_PUSH_R12)
+        else
+          0
+        if (idx == 4) && (idx != mem_ptr_idx)
+          pending = pending.push(X86_PUSH_R14)
+          code_len = code_len + len(X86_PUSH_R14)
+        else
+          0
+        if (idx == 5) && (idx != mem_ptr_idx)
+          pending = pending.push(X86_PUSH_R15)
+          code_len = code_len + len(X86_PUSH_R15)
+        else
+          0
+        if (idx == 6) && (idx != mem_ptr_idx)
+          pending = pending.push(X86_PUSH_RDI)
+          code_len = code_len + len(X86_PUSH_RDI)
+        else
+          0
+        if (idx == 7) && (idx != mem_ptr_idx)
+          pending = pending.push(X86_PUSH_RSI)
+          code_len = code_len + len(X86_PUSH_RSI)
+        else
+          0
+        if (idx >= 8) && (idx != mem_ptr_idx)
+          let off = (idx - 8) * 8
+          pending = pending.push([73, 139, 133])
+          code_len = code_len + 3
+          pending = pending.push(imm32_bytes(off).slice(1, 5))
+          code_len = code_len + 4
+          pending = pending.push([80])
+          code_len = code_len + 1
+        else
+            0
+      else
+        0
+      if opcode == WOP_LOCAL_SET
+        let pair = uleb128_decode(body, pc)
+        pc = pair[1]
+        let idx = pair[0]
+        if idx == mem_ptr_idx
+          pending = pending.push([88, 104, 8, 0, 0, 0, 104, 255, 255, 15, 0, 80, 65, 88, 90, 89, 65, 81, 65, 82, 65, 83, 87, 86, 255, 211, 94, 95, 65, 91, 65, 90, 65, 89])
+          code_len = code_len + 34
+        else
+          0
+        if (idx == 0) && (idx != mem_ptr_idx)
+          pending = pending.push(X86_POP_R9)
+          code_len = code_len + len(X86_POP_R9)
+        else
+          0
+        if (idx == 1) && (idx != mem_ptr_idx)
+          pending = pending.push(X86_POP_R10)
+          code_len = code_len + len(X86_POP_R10)
+        else
+          0
+        if (idx == 2) && (idx != mem_ptr_idx)
+          pending = pending.push(X86_POP_R11)
+          code_len = code_len + len(X86_POP_R11)
+        else
+          0
+        if (idx == 3) && (idx != mem_ptr_idx)
+          pending = pending.push(X86_POP_R12)
+          code_len = code_len + len(X86_POP_R12)
+        else
+          0
+        if (idx == 4) && (idx != mem_ptr_idx)
+          pending = pending.push(X86_POP_R14)
+          code_len = code_len + len(X86_POP_R14)
+        else
+          0
+        if (idx == 5) && (idx != mem_ptr_idx)
+          pending = pending.push(X86_POP_R15)
+          code_len = code_len + len(X86_POP_R15)
+        else
+          0
+        if (idx == 6) && (idx != mem_ptr_idx)
+          pending = pending.push(X86_POP_RDI)
+          code_len = code_len + len(X86_POP_RDI)
+        else
+          0
+        if (idx == 7) && (idx != mem_ptr_idx)
+          pending = pending.push(X86_POP_RSI)
+          code_len = code_len + len(X86_POP_RSI)
+        else
+          0
+        if (idx >= 8) && (idx != mem_ptr_idx)
+          let off = (idx - 8) * 8
+          pending = pending.push([88])
+          code_len = code_len + 1
+          pending = pending.push([73, 137, 133])
+          code_len = code_len + 3
+          pending = pending.push(imm32_bytes(off).slice(1, 5))
+          code_len = code_len + 4
+        else
+            0
+      else
+        0
+      if opcode == WOP_I32_ADD
+        let seg = [X86_POP_RAX, X86_POP_RCX, X86_ADD_RAX_RCX, X86_PUSH_RAX].flat()
+        pending = pending.push(seg)
+        code_len = code_len + len(seg)
+      else
+        0
+      if opcode == WOP_I32_SUB
+        let seg = [X86_POP_RAX, X86_POP_RCX, X86_SUB_RCX_RAX, [81]].flat()
+        pending = pending.push(seg)
+        code_len = code_len + len(seg)
+      else
+        0
+      if opcode == WOP_I32_MUL
+        let seg = [X86_POP_RAX, X86_POP_RCX, X86_IMUL_RAX_RCX, X86_PUSH_RAX].flat()
+        pending = pending.push(seg)
+        code_len = code_len + len(seg)
+      else
+        0
+      if opcode == WOP_I32_DIV_S
+        let seg = [X86_POP_RCX, X86_POP_RAX, X86_CQO, X86_IDIV_RCX, X86_PUSH_RAX].flat()
+        pending = pending.push(seg)
+        code_len = code_len + len(seg)
+      else
+        0
+      if opcode == WOP_I32_REM_U
+        let seg = [X86_POP_RAX, X86_POP_RCX, X86_MOV_R8_RAX, X86_MOV_RAX_RCX, X86_XOR_RDX_RDX, X86_DIV_R8, X86_PUSH_RDX_REM].flat()
+        pending = pending.push(seg)
+        code_len = code_len + len(seg)
+      else
+        0
+      if opcode == WOP_I32_AND
+        let seg = [X86_POP_RAX, X86_POP_RCX, X86_AND_RAX_RCX, X86_PUSH_RAX].flat()
+        pending = pending.push(seg)
+        code_len = code_len + len(seg)
+      else
+        0
+      if opcode == WOP_I32_OR
+        let seg = [X86_POP_RAX, X86_POP_RCX, X86_OR_RAX_RCX, X86_PUSH_RAX].flat()
+        pending = pending.push(seg)
+        code_len = code_len + len(seg)
+      else
+        0
+      if opcode == WOP_I32_XOR
+        let seg = [X86_POP_RAX, X86_POP_RCX, X86_XOR_RAX_RCX, X86_PUSH_RAX].flat()
+        pending = pending.push(seg)
+        code_len = code_len + len(seg)
+      else
+        0
+      if opcode == WOP_SELECT
+        let seg = [X86_POP_RAX, X86_POP_RCX, X86_POP_RDX, X86_TEST_RAX_RAX, X86_CMOVNE_RCX_RDX, X86_PUSH_RCX].flat()
+        pending = pending.push(seg)
+        code_len = code_len + len(seg)
+      else
+        0
+      if opcode == WOP_IF
+        pc = pc + 1
+        let seg = [X86_POP_RAX, X86_TEST_RAX_RAX, X86_JZ_REL32, 0, 0, 0, 0].flat()
+        pending = pending.push(seg)
+        code_len = code_len + len(seg)
+        if_patches = if_patches.push(code_len - 4)
+        block_starts = block_starts.push(code_len)
+      else
+        0
+      if opcode == WOP_ELSE
+        let seg = [X86_JMP_REL32, 0, 0, 0, 0].flat()
+        pending = pending.push(seg)
+        code_len = code_len + len(seg)
+        let else_start = code_len
+        if len(if_patches) > 0
+          let patch_pos = if_patches[if_patches.len() - 1]
+          patches = patches.push([patch_pos, else_start - (patch_pos + 4)])
+          if_patches = if_patches.slice(0, len(if_patches) - 1)
+        else
+          0
+        else_patches = else_patches.push(code_len - 4)
+      else
+        0
+      if opcode == WOP_LOOP
+        pc = pc + 1
+        loop_heads = loop_heads.push(code_len)
+        block_starts = block_starts.push(code_len)
+      else
+        0
+      if opcode == WOP_BLOCK
+        pc = pc + 1
+        block_starts = block_starts.push(code_len)
+      else
+        0
+      if opcode == WOP_BR
+        let pair = uleb128_decode(body, pc)
+        pc = pair[1]
+        if pair[0] == 0
+          if len(loop_heads) > 0
+            let head = loop_heads[loop_heads.len() - 1]
+            let seg = [X86_JMP_REL32, 0, 0, 0, 0].flat()
+            pending = pending.push(seg)
+            code_len = code_len + len(seg)
+            patches = patches.push([code_len - 4, head - (code_len - 4 + 4)])
+          else
+              0
+        else
+            0
+      else
+        0
+      if opcode == WOP_BR_IF
+        let pair = uleb128_decode(body, pc)
+        pc = pair[1]
+        if len(pending) > 0
+          x86_code = [x86_code, pending].flat()
+          x86_code = x86_code.flat()
+          pending = []
+        else
+          0
+        code_len = len(x86_code)
+        let brif_res = aot_br_if(x86_code, pair[0], loop_heads, len(block_starts) - 1, exit_patches)
+        x86_code = brif_res[0]
+        code_len = len(x86_code)
+        exit_patches = brif_res[1]
+      else
+        0
+      if opcode == WOP_END
+        if len(exit_patches) > 0
+          let ep = exit_patches[exit_patches.len() - 1]
+          let ep_pos = ep[0]
+          let ep_depth = ep[1]
+          if len(block_starts) - 1 == ep_depth
+            patches = patches.push([ep_pos, code_len - (ep_pos + 4)])
+            exit_patches = exit_patches.slice(0, len(exit_patches) - 1)
+          else
+              0
+        else
+          0
+        if len(else_patches) > 0
+          let patch_pos = else_patches[else_patches.len() - 1]
+          patches = patches.push([patch_pos, code_len - (patch_pos + 4)])
+          else_patches = else_patches.slice(0, len(else_patches) - 1)
+        else
+          0
+        if len(loop_heads) > 0 && len(block_starts) == 2
+          loop_heads = loop_heads.slice(0, len(loop_heads) - 1)
+        else
+          0
+        if len(block_starts) > 0
+          block_starts = block_starts.slice(0, len(block_starts) - 1)
+        else
+            0
+      else
+        0
+      if opcode == WOP_I32_EQZ
+        let seg = [X86_POP_RAX, X86_TEST_RAX_RAX, X86_SETE_AL, X86_MOVZX_RAX_AL, X86_PUSH_RAX].flat()
+        pending = pending.push(seg)
+        code_len = code_len + len(seg)
+      else
+        0
+      if opcode == WOP_I32_LE_S
+        let seg = [X86_POP_RCX, X86_POP_RAX, X86_CMP_RAX_RCX, X86_SETLE_AL, X86_MOVZX_RAX_AL, X86_PUSH_RAX].flat()
+        pending = pending.push(seg)
+        code_len = code_len + len(seg)
+      else
+        0
+      if opcode == WOP_I32_GE_S
+        let seg = [X86_POP_RCX, X86_POP_RAX, X86_CMP_RAX_RCX, X86_SETGE_AL, X86_MOVZX_RAX_AL, X86_PUSH_RAX].flat()
+        pending = pending.push(seg)
+        code_len = code_len + len(seg)
+      else
+        0
+      if opcode == WOP_I32_EQ
+        let seg = [X86_POP_RCX, X86_POP_RAX, X86_CMP_RAX_RCX, X86_SETE_AL, X86_MOVZX_RAX_AL, X86_PUSH_RAX].flat()
+        pending = pending.push(seg)
+        code_len = code_len + len(seg)
+      else
+        0
+      if opcode == WOP_I32_NE
+        let seg = [X86_POP_RCX, X86_POP_RAX, X86_CMP_RAX_RCX, X86_SETNE_AL, X86_MOVZX_RAX_AL, X86_PUSH_RAX].flat()
+        pending = pending.push(seg)
+        code_len = code_len + len(seg)
+      else
+        0
+      if opcode == WOP_I32_LT_S
+        let seg = [X86_POP_RCX, X86_POP_RAX, X86_CMP_RAX_RCX, X86_SETL_AL, X86_MOVZX_RAX_AL, X86_PUSH_RAX].flat()
+        pending = pending.push(seg)
+        code_len = code_len + len(seg)
+      else
+        0
+      if opcode == WOP_I32_GT_S
+        let seg = [X86_POP_RCX, X86_POP_RAX, X86_CMP_RAX_RCX, X86_SETG_AL, X86_MOVZX_RAX_AL, X86_PUSH_RAX].flat()
+        pending = pending.push(seg)
+        code_len = code_len + len(seg)
+      else
+        0
+      if opcode == WOP_I32_SHL
+        let seg = [X86_POP_RCX, X86_POP_RAX, X86_SHL_RAX_CL, X86_PUSH_RAX].flat()
+        pending = pending.push(seg)
+        code_len = code_len + len(seg)
+      else
+        0
+      if opcode == WOP_I32_SHR_U
+        let seg = [X86_POP_RCX, X86_POP_RAX, X86_SHR_RAX_CL, X86_PUSH_RAX].flat()
+        pending = pending.push(seg)
+        code_len = code_len + len(seg)
+      else
+        0
+      if opcode == WOP_I32_SHR_S
+        let seg = [X86_POP_RCX, X86_POP_RAX, X86_SAR_RAX_CL, X86_PUSH_RAX].flat()
+        pending = pending.push(seg)
+        code_len = code_len + len(seg)
+      else
+        0
+      if opcode == WOP_DROP
+        if prev_opcode != WOP_I32_STORE
+          let seg = X86_POP_RAX
+          pending = pending.push(seg)
+          code_len = code_len + len(seg)
+        else
+            0
+      else
+        0
+      if opcode == WOP_I32_LOAD
+        let al = uleb128_decode(body, pc)
+        let of = uleb128_decode(body, al[1])
+        pc = of[1]
+        let seg = [88, 104, 9, 0, 0, 0, 80, 104, 0, 0, 0, 0, 65, 88, 90, 89].flat()
+        if depo == 0
+          seg = [seg, X86_PUSH_RAX].flat()
+        else
+          0
+        seg = [seg, X86_PUSH_R9, X86_PUSH_R10, X86_PUSH_R11, X86_PUSH_R12, X86_PUSH_RDI, X86_PUSH_RSI, X86_CALL_RBX, X86_POP_RSI, X86_POP_RDI, X86_POP_R12, X86_POP_R11, X86_POP_R10, X86_POP_R9].flat()
+        if depo == 0
+          seg = [seg, X86_POP_RDX].flat()
+        else
+          0
+        seg = [seg, X86_PUSH_RAX].flat()
+        pending = pending.push(seg)
+        code_len = code_len + len(seg)
+      else
+        0
+      if opcode == WOP_I32_STORE
+        let al2 = uleb128_decode(body, pc)
+        let of2 = uleb128_decode(body, al2[1])
+        pc = of2[1]
+        let offv = of2[0]
+        let seg = [88, 89, 72, 129, 193].flat()
+        seg = [seg, imm32_bytes(offv).slice(1, 5)].flat()
+        seg = [seg, [104, 8, 0, 0, 0, 81, 80, 65, 88, 90, 89]].flat()
+        if depo == 1
+          seg = [seg, X86_PUSH_RAX].flat()
+        else
+          0
+        seg = [seg, X86_PUSH_R9, X86_PUSH_R10, X86_PUSH_R11, X86_PUSH_R12, X86_PUSH_RDI, X86_PUSH_RSI, X86_CALL_RBX, X86_POP_RSI, X86_POP_RDI, X86_POP_R12, X86_POP_R11, X86_POP_R10, X86_POP_R9].flat()
+        if depo == 1
+          seg = [seg, X86_POP_RDX].flat()
+        else
+          0
+        pending = pending.push(seg)
+        code_len = code_len + len(seg)
+      else
+        0
+      if opcode == WOP_CALL
+        let pair = uleb128_decode(body, pc)
+        let func_idx = pair[0]
+        pc = pair[1]
+        if func_idx == 0
+          let seg = [X86_POP_R8, X86_POP_RDX, X86_POP_RCX].flat()
+          if depo == 0
+            seg = [seg, X86_PUSH_RAX].flat()
+          else
+            0
+          seg = [seg, X86_PUSH_R9, X86_PUSH_R10, X86_PUSH_R11, X86_PUSH_R12, X86_PUSH_RDI, X86_PUSH_RSI, X86_CALL_RBX, X86_POP_RSI, X86_POP_RDI, X86_POP_R12, X86_POP_R11, X86_POP_R10, X86_POP_R9].flat()
+          if depo == 0
+            seg = [seg, X86_POP_RDX].flat()
+          else
+            0
+          seg = [seg, X86_PUSH_RAX].flat()
+          pending = pending.push(seg)
+          code_len = code_len + len(seg)
+        else
+          let n_args = types[func_type_idx.get(func_idx - n_imports)][0]
+          let seg = [X86_PUSH_RAX, 232, 0, 0, 0, 0, X86_POP_RDX, X86_PUSH_RAX].flat()
+          pending = pending.push(seg)
+          code_len = code_len + len(seg)
+          call_patches = call_patches.push([code_len - len(seg) + 2, func_idx])
+          if (n_args + 1) - ((n_args + 1) / 2) * 2 == 1
+            depo = 1 - depo
+          else
+              0
+      else
+        0
+      if (opcode != WOP_END) && (opcode != WOP_I32_CONST) && (opcode != WOP_LOCAL_GET) && (opcode != WOP_I32_ADD) && (opcode != WOP_I32_SUB) && (opcode != WOP_I32_MUL) && (opcode != WOP_I32_REM_U) && (opcode != WOP_I32_AND) && (opcode != WOP_I32_OR) && (opcode != WOP_I32_XOR) && (opcode != WOP_SELECT) && (opcode != WOP_I32_EQ) && (opcode != WOP_I32_NE) && (opcode != WOP_I32_LT_S) && (opcode != WOP_I32_GT_S) && (opcode != WOP_I32_SHL) && (opcode != WOP_I32_SHR_U) && (opcode != WOP_LOCAL_SET) && (opcode != WOP_I32_DIV_S) && (opcode != WOP_I32_SHR_S) && (opcode != WOP_DROP) && (opcode != WOP_IF) && (opcode != WOP_ELSE) && (opcode != WOP_BLOCK) && (opcode != WOP_LOOP) && (opcode != WOP_BR) && (opcode != WOP_BR_IF) && (opcode != WOP_END) && (opcode != WOP_I32_LE_S) && (opcode != WOP_I32_GE_S) && (opcode != WOP_I32_EQZ) && (opcode != WOP_CALL) && (opcode != WOP_I32_LOAD) && (opcode != WOP_I32_STORE)
+        done = 1
+      else
+        0
+      if (opcode == WOP_I32_CONST) || (opcode == WOP_LOCAL_GET)
+        depo = 1 - depo
+      else
+        0
+      if (opcode == WOP_LOCAL_SET) || ((opcode == WOP_DROP) && (prev_opcode != WOP_I32_STORE)) || (opcode == WOP_IF) || (opcode == WOP_BR_IF)
+        depo = 1 - depo
+      else
+        0
+      if (opcode == WOP_I32_ADD) || (opcode == WOP_I32_SUB) || (opcode == WOP_I32_MUL) || (opcode == WOP_I32_REM_U) || (opcode == WOP_I32_AND) || (opcode == WOP_I32_OR) || (opcode == WOP_I32_XOR) || (opcode == WOP_I32_DIV_S) || (opcode == WOP_I32_EQ) || (opcode == WOP_I32_NE) || (opcode == WOP_I32_LT_S) || (opcode == WOP_I32_GT_S) || (opcode == WOP_I32_LE_S) || (opcode == WOP_I32_GE_S) || (opcode == WOP_I32_SHL) || (opcode == WOP_I32_SHR_U) || (opcode == WOP_I32_SHR_S)
+        depo = 1 - depo
+      else
+        0
+      if opcode == WOP_IF
+        if_depo = if_depo.push(depo)
+      else
+        0
+      if opcode == WOP_ELSE
+        depo = if_depo[if_depo.len() - 1]
+        if_depo = if_depo.slice(0, len(if_depo) - 1)
+      else
+        0
+      prev_opcode = opcode
+      0
+    x86_code = [x86_code, pending].flat()
+    x86_code = x86_code.flat()
+    x86_code = aot_apply_patches(x86_code, patches)
+    [x86_code, call_patches]
+
+let body_uses_mem(body) =
+    let found = false
+    let bi = 0
+    let bd = false
+    for !bd
+      if bi < len(body)
+        let op = body[bi]
+        if (op == 40) || (op == 54)
+          found = true
+          bd = true
+        else
+          bi = bi + 1
+      else
+        bd = true
+    found
+
+let aot_zero_locals(start_idx, total) =
+    let seg = []
+    let zi = start_idx
+    let zd = false
+    for !zd
+      if (zi < 8) && (zi < total)
+        if zi == 2
+          seg = [seg, [77, 49, 219]].flat()
+        else
+          0
+        if zi == 3
+          seg = [seg, [77, 49, 228]].flat()
+        else
+          0
+        if zi == 4
+          seg = [seg, [77, 49, 246]].flat()
+        else
+          0
+        if zi == 5
+          seg = [seg, [77, 49, 255]].flat()
+        else
+          0
+        if zi == 6
+          seg = [seg, [72, 49, 255]].flat()
+        else
+          0
+        if zi == 7
+          seg = [seg, [72, 49, 246]].flat()
+        else
+          0
+        zi = zi + 1
+      else
+        zd = true
+    if total > 8
+      let fj = 8
+      let fd = false
+      for !fd
+        if fj < total
+          let off = (fj - 8) * 8
+          seg = [seg, [73, 199, 133], imm32_bytes(off).slice(1, 5), [0, 0, 0, 0]].flat()
+          fj = fj + 1
+        else
+          fd = true
+    else
+      0
+    seg
+
+let aot_load_params(code, n_params) =
+    let c = code
+    let pi = 0
+    let pd = false
+    for !pd
+      if pi < n_params
+        let k = pi
+        let off = 104 + (n_params - 1 - k) * 8
+        if k == 7
+          c = [c, [72, 139, 180, 36]].flat()
+        else
+          c = [c, [76, 139, 140 + k * 8, 36]].flat()
+          0
+        c = [c, imm32_bytes(off).slice(1, 5)].flat()
+        pi = pi + 1
+      else
+        pd = true
+    c
+
+let aot_shift_calls(calls, fstart) =
+    let out = []
+    let cpi = 0
+    let cpd = false
+    for !cpd
+      if cpi < len(calls)
+        let cp = calls[cpi]
+        out = out.push([cp[0] + fstart, cp[1]])
+        cpi = cpi + 1
+      else
+        cpd = true
+    out
+
+let aot_build_users(code_bodies, code_locals, types, func_type_idx, n_imports, n_def, code, fn_entries, all_calls) =
+    let c = code
+    let entries = fn_entries
+    let calls = all_calls
+    let ui = 1
+    let ud = false
+    for !ud
+      if ui < n_def
+        let ubody = code_bodies[ui]
+        let ulocals = code_locals[ui]
+        let ur = wasm_body_to_x86_64(ubody, types, func_type_idx, n_imports, code_locals[ui] - 2)
+        let ux = ur[0]
+        let n_params = types[func_type_idx.get(ui)][0]
+        entries = entries.push(len(c))
+        c = [c, [X86_PUSH_RBX, X86_PUSH_RDI, X86_PUSH_RSI, X86_PUSH_R9, X86_PUSH_R10, X86_PUSH_R11, X86_PUSH_R12, X86_PUSH_R14, X86_PUSH_R15, 65, 85, X86_PUSH_RAX].flat()].flat()
+        c = aot_load_params(c, n_params)
+        let uframe = 0
+        if ulocals > 8
+          uframe = (ulocals - 8) * 8
+          if uframe - (uframe / 16) * 16 != 0
+            uframe = uframe + 8
+          else
+            0
+          c = [c, [72, 129, 236]].flat()
+          c = [c, imm32_bytes(uframe).slice(1, 5)].flat()
+          c = [c, [73, 137, 229]].flat()
+        else
+          0
+        if body_uses_mem(ubody)
+          c = [c, aot_zero_locals(n_params, code_locals[ui])].flat()
+        else
+          0
+        let body_start = len(c)
+        c = [c, ux].flat()
+        let retw2 = n_params * 8
+        c = [c, [X86_POP_RAX, 72, 129, 196].flat()].flat()
+        c = [c, imm32_bytes(uframe).slice(1, 5)].flat()
+        c = [c, [65, 88, 65, 93, X86_POP_R15, X86_POP_R14, X86_POP_R12, X86_POP_R11, X86_POP_R10, X86_POP_R9, X86_POP_RSI, X86_POP_RDI, X86_POP_RBX, 194, retw2 - (retw2 / 256) * 256, retw2 / 256].flat()].flat()
+        calls = [calls, aot_shift_calls(ur[1], body_start)].flat()
+        ui = ui + 1
+      else
+        ud = true
+    [c, entries, calls]
+
+let aot_build_calls(all_calls, n_imports, fn_entries) =
+    let call_patches = []
+    let ci = 0
+    let cd2 = false
+    for !cd2
+      if ci < len(all_calls)
+        let cp = all_calls[ci]
+        let fidx = cp[1]
+        if fidx >= n_imports
+          let fn_i = fidx - n_imports
+          if fn_i < len(fn_entries)
+            call_patches = call_patches.push([cp[0], fn_entries[fn_i] - (cp[0] + 4)])
+          else
+              0
+        else
+          0
+        ci = ci + 1
+      else
+        cd2 = true
+    call_patches
+
+let wasm_aot_compile(wasm_bytes) =
+    let mod_obj = parse_module(wasm_bytes)
+    let types = mod_obj[0]
+    let n_imports = mod_obj[1].len()
+    let func_type_idx = mod_obj[2]
+    let code_locals = mod_obj[5]
+    let code_bodies = mod_obj[6]
+    let n_def = len(code_bodies)
+    let main_r = wasm_body_to_x86_64(code_bodies[0], types, func_type_idx, n_imports, code_locals[0] - 2)
+    let main_x = main_r[0]
+    let code = [X86_PUSH_RBX, X86_PUSH_RDI, X86_PUSH_RSI, [65, 85].flat(), X86_MOV_RBX_R8, X86_MOV_R9_RCX, X86_MOV_R10_RDX].flat()
+    let mframe = 0
+    if code_locals[0] > 8
+      mframe = (code_locals[0] - 8) * 8
+    else
+      0
+    if mframe - (mframe / 16) * 16 == 0
+      mframe = mframe + 8
+    else
+      0
+    code = [code, [72, 129, 236]].flat()
+    code = [code, imm32_bytes(mframe).slice(1, 5)].flat()
+    code = [code, [73, 137, 229]].flat()
+    if body_uses_mem(code_bodies[0])
+      code = [code, aot_zero_locals(2, code_locals[0])].flat()
+    else
+      0
+    let main_body_start = len(code)
+    let all_calls = aot_shift_calls(main_r[1], main_body_start)
+    code = [code, main_x].flat()
+    code = [code, [X86_POP_RAX].flat()].flat()
+    code = [code, [72, 129, 196]].flat()
+    code = [code, imm32_bytes(mframe).slice(1, 5)].flat()
+    code = [code, [65, 93].flat()].flat()
+    code = [code, [X86_POP_RSI, X86_POP_RDI, X86_POP_RBX, X86_RET].flat()].flat()
+    let build_r = aot_build_users(code_bodies, code_locals, types, func_type_idx, n_imports, n_def, code, [0], all_calls)
+    let code2 = build_r[0]
+    let entries2 = build_r[1]
+    let calls2 = build_r[2]
+    let call_patches = aot_build_calls(calls2, n_imports, entries2)
+    aot_apply_patches(code2, call_patches)
+
+let aot_gf_mul() = wasm_aot_compile(compile_gf_mul_wasm())
+let aot_clifford() = wasm_aot_compile(compile_clifford_wasm())
+let aot_born_select() = wasm_aot_compile(compile_born_select_wasm())
+let aot_ntt_butterfly() = wasm_aot_compile(compile_ntt_butterfly_wasm())
+let aot_hebbian() = wasm_aot_compile(compile_hebbian_wasm())
+
+let aot_compare_lt() = wasm_aot_compile(compile_compare_lt_wasm())
+let aot_shift_left() = wasm_aot_compile(compile_shift_left_wasm())
+
+let aot_gf_mul_len() = aot_gf_mul().len()
+let aot_clifford_len() = aot_clifford().len()
+let aot_born_select_len() = aot_born_select().len()
+let aot_ntt_butterfly_len() = aot_ntt_butterfly().len()
+let aot_hebbian_len() = aot_hebbian().len()
+let aot_compare_lt_len() = aot_compare_lt().len()
+let aot_shift_left_len() = aot_shift_left().len()

@@ -1,0 +1,107 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let HOST_MAX_PROCS = 1024
+let HOST_MAX_FILES = 65536
+
+let PROC_RUNNING = 1
+let PROC_READY = 2
+let PROC_BLOCKED = 3
+let PROC_TERMINATED = 4
+
+let process_create(id) = [id, PROC_READY, 0, [], []]
+let process_start(proc) = [proc[0], PROC_RUNNING, proc[2], proc[3], proc[4]]
+let process_block(proc) = [proc[0], PROC_BLOCKED, proc[2], proc[3], proc[4]]
+let process_terminate(proc) = [proc[0], PROC_TERMINATED, proc[2], proc[3], proc[4]]
+let process_step(proc) =
+    let pc = proc[2] + 1
+    [proc[0], proc[1], pc, proc[3], proc[4]]
+let host_create() = [[], 0, [], []]
+let host_spawn(host, proc) =
+    let processes = host[0]
+    processes.push(proc)
+    [processes, host[1] + 1, host[2], host[3]]
+let host_schedule(host) =
+    let processes = host[0]
+    let i = 0
+    let n = host[1]
+    for i < n
+        let proc = processes[i]
+        if proc[1] == PROC_READY
+            processes[i] = process_start(proc)
+        [processes, n, host[2], host[3]]
+        i = i + 1
+    [processes, n, host[2], host[3]]
+let syscall_write(fd, data) =
+    len(data)
+let syscall_read(fd, n) =
+    let data = []
+    let i = 0
+    for i < n
+        data.push(0)
+        i = i + 1
+    data
+let syscall_open(path, flags) =
+    path
+let syscall_close(fd) = 0
+let syscall_alloc(size) =
+    let mem = []
+    let i = 0
+    for i < size
+        mem.push(0)
+        i = i + 1
+    mem
+let syscall_free(ptr) = 0
+let host_memory_alloc(host, size) =
+    let mem = host[2]
+    let i = 0
+    for i < size
+        mem.push(0)
+        i = i + 1
+    [host[0], host[1], mem, host[3]]
+let host_file_open(host, path) =
+    let files = host[3]
+    files.push([path, []])
+    [host[0], host[1], host[2], files]
+let host_file_write(host, fd, data) =
+    let files = host[3]
+    let file = files[fd]
+    let content = file[1]
+    let i = 0
+    let n = len(data)
+    for i < n
+        content.push(data[i])
+        i = i + 1
+    files[fd] = [file[0], content]
+    [host[0], host[1], host[2], files]
+let host_file_read(host, fd) =
+    host[3][fd][1]
+let host_interrupt(host, irq) =
+    let processes = host[0]
+    let i = 0
+    let n = host[1]
+    for i < n
+        let proc = processes[i]
+        if proc[1] == PROC_BLOCKED
+            processes[i] = process_start(proc)
+        i = i + 1
+    [processes, n, host[2], host[3]]
+let field_host(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let host_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_host(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+

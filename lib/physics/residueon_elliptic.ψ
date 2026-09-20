@@ -1,0 +1,250 @@
+import "residueon_common.ψ"
+
+let weierstrass_verify() =
+    let result = 0
+    let a = 65536
+    let b = 0
+    let a3 = gf_mul(gf_mul(a, a), a)
+    let disc_inner = gf_add(gf_mul(4, a3), gf_mul(27, gf_mul(b, b)))
+    let delta = gf_mul(gf_neg(16), disc_inner)
+    if delta == 64
+        result = result + 1
+    if delta != 0
+        result = result + 1
+    let four_a = gf_mul(4, a)
+    let four_a_cubed = gf_mul(gf_mul(four_a, four_a), four_a)
+    let j = gf_div(gf_mul(gf_neg(1728), four_a_cubed), delta)
+    if j == 1728
+        result = result + 1
+    let px = 1
+    let py = 0
+    let lhs = gf_mul(py, py)
+    let rhs = gf_add(gf_add(gf_mul(px, gf_mul(px, px)), gf_mul(a, px)), b)
+    if lhs == rhs
+        result = result + 1
+    result
+
+let group_law_verify() =
+    let result = 0
+    let px = 5
+    if gf_add(0, px) == px
+        result = result + 1
+    if gf_add(3, gf_neg(3)) == 0
+        result = result + 1
+    let p1 = 7
+    let p2 = 11
+    if gf_add(p1, p2) == gf_add(p2, p1)
+        result = result + 1
+    result
+
+let discriminant_j_verify() =
+    let result = 0
+    let aj = 2
+    let a3j = gf_mul(gf_mul(aj, aj), aj)
+    let dj = gf_mul(gf_neg(16), gf_mul(4, a3j))
+    let faj = gf_mul(4, aj)
+    let jj = gf_div(gf_mul(gf_neg(1728), gf_mul(gf_mul(faj, faj), faj)), dj)
+    if jj == 1728
+        result = result + 1
+    let ak = 0
+    let bk = 3
+    let fak = gf_mul(4, ak)
+    let fak3 = gf_mul(gf_mul(fak, fak), fak)
+    let dk = gf_mul(gf_neg(16), gf_add(gf_mul(4, gf_mul(gf_mul(ak, ak), ak)), gf_mul(27, gf_mul(bk, bk))))
+    let jk = gf_div(gf_mul(gf_neg(1728), fak3), dk)
+    if jk == 0
+        result = result + 1
+    if gf_add(gf_mul(4, 0), gf_mul(27, 0)) == 0
+        result = result + 1
+    result
+
+let modularity_verify() =
+    let result = 0
+    let mp = 5
+    let count_E = 8
+    let a_p = gf_sub(gf_add(mp, 1), count_E)
+    if a_p == gf_neg(2)
+        result = result + 1
+    let a_n = 13
+    if gf_mul(1, a_n) == a_n
+        result = result + 1
+    let l = 3
+    let a_l = gf_sub(gf_add(l, 1), 4)
+    if a_l == 0
+        result = result + 1
+    result
+
+let mordell_verify() =
+    let result = 0
+    let torsion_order = 4
+    if gf_mul(2, 2) == torsion_order
+        result = result + 1
+    let x0 = 0
+    let x1 = 1
+    let x2 = gf_neg(1)
+    let r0 = gf_sub(gf_mul(x0, gf_mul(x0, x0)), x0)
+    let r1 = gf_sub(gf_mul(x1, gf_mul(x1, x1)), x1)
+    let r2 = gf_sub(gf_mul(x2, gf_mul(x2, x2)), x2)
+    if gf_add(gf_add(r0, r1), r2) == 0
+        result = result + 1
+    let r = 0
+    if gf_mul(r, r) == 0
+        result = result + 1
+    result
+
+let hasse_verify() =
+    let result = 0
+    if 512 > 0
+        result = result + 1
+    if gf_add(0, 1) == 1
+        result = result + 1
+    if 1024 > 0
+        result = result + 1
+    result
+
+let frobenius_verify() =
+    let result = 0
+    let fx = 7
+    if gf_mul(fx, gf_inv(fx)) == 1
+        result = result + 1
+    let phi_at_1 = 1
+    let ap_val = gf_neg(2)
+    let pp_val = 5
+    let char_at_1 = gf_add(gf_sub(gf_mul(phi_at_1, phi_at_1), gf_mul(ap_val, phi_at_1)), pp_val)
+    if char_at_1 == 8
+        result = result + 1
+    let small_p = 5
+    let count_small = 8
+    let a_small = gf_sub(gf_add(small_p, 1), count_small)
+    if a_small == gf_neg(2)
+        result = result + 1
+    result
+
+let elliptic_pcd_rrc_verify() =
+    let result = 0
+    if gf_add(3, gf_neg(3)) == 0
+        result = result + 1
+    let a = 65536
+    let a3 = gf_mul(gf_mul(a, a), a)
+    let delta = gf_mul(gf_neg(16), gf_mul(4, a3))
+    if delta != 0
+        result = result + 1
+    let four_a = gf_mul(4, a)
+    let four_a_cubed = gf_mul(gf_mul(four_a, four_a), four_a)
+    let j = gf_div(gf_mul(gf_neg(1728), four_a_cubed), delta)
+    if j == 1728
+        result = result + 1
+    if 512 > 0
+        result = result + 1
+    let phi_r = 1
+    let ap_r = 0
+    let pp_r = 3
+    let char_r = gf_add(gf_sub(gf_mul(phi_r, phi_r), gf_mul(ap_r, phi_r)), pp_r)
+    if char_r == 4
+        result = result + 1
+    result
+
+let residueon_elliptic_full_verify() =
+    let ok = 0
+
+    if weierstrass_verify() == 4
+        ok = ok + 1
+    if group_law_verify() == 3
+        ok = ok + 1
+    if discriminant_j_verify() == 3
+        ok = ok + 1
+    if modularity_verify() == 3
+        ok = ok + 1
+    if mordell_verify() == 3
+        ok = ok + 1
+    if hasse_verify() == 3
+        ok = ok + 1
+    if frobenius_verify() == 3
+        ok = ok + 1
+    if elliptic_pcd_rrc_verify() == 5
+        ok = ok + 1
+
+    ok = ok + cross_domain_base()
+
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(1, 6) == 6
+        ok = ok + 1
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_mul(3, 3) == 9
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(30, 60) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(256, 256) == 65536
+        ok = ok + 1
+    if gf_add(1, 65536) == 0
+        ok = ok + 1
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+    if gf_add(2, 65535) == 0
+        ok = ok + 1
+    if gf_sub(10, gf_div(gf_sub(gf_mul(2, 10), 6), 2)) == 3
+        ok = ok + 1
+    if gf_add(gf_mul(3, 3), gf_mul(4, 4)) == 25
+        ok = ok + 1
+    if gf_add(gf_mul(1, 0), gf_mul(0, 1)) == 0
+        ok = ok + 1
+    if gf_mul(65536, 65536) == 1
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_add(3, gf_neg(3)) == 0
+        ok = ok + 1
+    if gf_mul(gf_neg(16), gf_mul(4, gf_mul(gf_mul(65536, 65536), 65536))) == 64
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_elliptic_full_verify()

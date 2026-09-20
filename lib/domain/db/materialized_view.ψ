@@ -1,0 +1,295 @@
+import "../domain_field.ψ"
+
+let MV_P = 65537
+
+let MV_REFRESH_ON_COMMIT = 1
+let MV_REFRESH_ON_DEMAND = 2
+let MV_REFRESH_SCHEDULED = 3
+
+let MV_MAINT_FULL      = 1
+let MV_MAINT_INCREMENTAL = 2
+
+let MV_STATE_FRESH     = 1
+let MV_STATE_STALE     = 2
+let MV_STATE_REFRESHING = 3
+
+let mv_def_new(id, name, query_plan, base_tables, refresh_policy, maint_mode) =
+    [id, name, query_plan, base_tables, refresh_policy, maint_mode, MV_STATE_STALE, 0, 0]
+
+let mv_d_id(d)              = d[0]
+let mv_d_name(d)            = d[1]
+let mv_d_plan(d)            = d[2]
+let mv_d_base(d)            = d[3]
+let mv_d_policy(d)          = d[4]
+let mv_d_maint(d)           = d[5]
+let mv_d_state(d)          = d[6]
+let mv_d_last_refresh(d)    = d[7]
+let mv_d_row_count(d)       = d[8]
+
+let mv_d_set_state(d, s) =
+    d[6] = s
+    d
+let mv_d_set_last_refresh(d, ts) =
+    d[7] = ts
+    d
+let mv_d_set_row_count(d, c) =
+    d[8] = c
+    d
+
+let mv_storage_new(view_id) =
+    [view_id, [], [], [0, 0, 0]]
+
+let mv_st_id(s)             = s[0]
+let mv_st_rows(s)           = s[1]
+let mv_st_delta(s)          = s[2]
+let mv_st_stats(s)          = s[3]
+
+let mv_st_set_rows(s, r) =
+    s[1] = r
+    s
+let mv_st_set_delta(s, d) =
+    s[2] = d
+    s
+let mv_st_set_stats(s, st) =
+    s[3] = st
+    s
+
+let mv_st_stats_inc(s, idx) =
+    let st = mv_st_stats(s)
+    st[idx] = st[idx] + 1
+    s = mv_st_set_stats(s, st)
+    s
+
+let mv_st_log_delta(s, ts, op, key, old_val, new_val) =
+    let delta = mv_st_delta(s)
+    delta.push([ts, op, key, old_val, new_val])
+    s = mv_st_set_delta(s, delta)
+    s = mv_st_stats_inc(s, 0)
+    s
+
+let mv_mgr_new() =
+    [{}, {}, {}, {}, [], [0, 0, 0, 0]]
+
+let mv_m_defs(m)            = m[0]
+let mv_m_storages(m)        = m[1]
+let mv_m_deps(m)           = m[2]
+let mv_m_base(m)           = m[3]
+let mv_m_log(m)            = m[4]
+let mv_m_stats(m)          = m[5]
+
+let mv_m_set_defs(m, d) =
+    m[0] = d
+    m
+let mv_m_set_storages(m, s) =
+    m[1] = s
+    m
+let mv_m_set_deps(m, d) =
+    m[2] = d
+    m
+let mv_m_set_base(m, b) =
+    m[3] = b
+    m
+let mv_m_set_log(m, l) =
+    m[4] = l
+    m
+let mv_m_set_stats(m, s) =
+    m[5] = s
+    m
+
+let mv_m_log_append(m, ts, op, view_id, detail) =
+    let log = mv_m_log(m)
+    log.push([ts, op, view_id, detail])
+    m = mv_m_set_log(m, log)
+    m
+
+let mv_m_stats_inc(m, idx) =
+    let st = mv_m_stats(m)
+    st[idx] = st[idx] + 1
+    m = mv_m_set_stats(m, st)
+    m
+
+let mv_m_register(m, spec, now_ts) =
+    let defs = mv_m_defs(m)
+    defs[mv_d_id(spec)] = spec
+    m = mv_m_set_defs(m, defs)
+    let storages = mv_m_storages(m)
+    storages[mv_d_id(spec)] = mv_storage_new(mv_d_id(spec))
+    m = mv_m_set_storages(m, storages)
+    let deps = mv_m_deps(m)
+    let base_tables = mv_d_base(spec)
+    let i = 0
+    let n = len(base_tables)
+    for i < n
+        let bt = base_tables[i]
+        let list = deps[bt]
+        if list == 0
+            list = []
+        list.push(mv_d_id(spec))
+        deps[bt] = list
+        i = i + 1
+    m = mv_m_set_deps(m, deps)
+    m = mv_m_stats_inc(m, 0)
+    m = mv_m_log_append(m, now_ts, "register", mv_d_id(spec), mv_d_name(spec))
+    m
+
+let mv_m_base_insert(m, table, row, now_ts) =
+    let base = mv_m_base(m)
+    let rows = base[table]
+    if rows == 0
+        rows = []
+    rows.push(row)
+    base[table] = rows
+    m = mv_m_set_base(m, base)
+    let deps = mv_m_deps(m)
+    let affected = deps[table]
+    if affected != 0
+        let defs = mv_m_defs(m)
+        let i = 0
+        let n = len(affected)
+        for i < n
+            let d = defs[affected[i]]
+            if d != 0
+                if mv_d_policy(d) == MV_REFRESH_ON_COMMIT
+                    d = mv_d_set_state(d, MV_STATE_STALE)
+                defs[affected[i]] = d
+            i = i + 1
+        m = mv_m_set_defs(m, defs)
+    m = mv_m_log_append(m, now_ts, "base_insert", table, row)
+    m
+
+let mv_m_refresh_full(m, view_id, now_ts) =
+    let defs = mv_m_defs(m)
+    let spec = defs[view_id]
+    if spec == 0
+        m
+    else
+        spec = mv_d_set_state(spec, MV_STATE_REFRESHING)
+        defs[view_id] = spec
+        m = mv_m_set_defs(m, defs)
+        let base = mv_m_base(m)
+        let base_tables = mv_d_base(spec)
+        let all_rows = []
+        let i = 0
+        let n = len(base_tables)
+        for i < n
+            let rows = base[base_tables[i]]
+            if rows != 0
+                let j = 0
+                let m2 = len(rows)
+                for j < m2
+                    all_rows.push(rows[j])
+                    j = j + 1
+            i = i + 1
+        let storages = mv_m_storages(m)
+        let storage = storages[view_id]
+        let old_rows = mv_st_rows(storage)
+        let j = 0
+        for j < len(old_rows)
+            storage = mv_st_log_delta(storage, now_ts, "delete", old_rows[j][0], old_rows[j][1], 0)
+            j = j + 1
+        j = 0
+        for j < len(all_rows)
+            storage = mv_st_log_delta(storage, now_ts, "insert", all_rows[j][0], 0, all_rows[j][1])
+            j = j + 1
+        storage = mv_st_set_rows(storage, all_rows)
+        let st_stats = mv_st_stats(storage)
+        st_stats[1] = st_stats[1] + 1
+        st_stats[2] = len(all_rows)
+        storage = mv_st_set_stats(storage, st_stats)
+        storages[view_id] = storage
+        m = mv_m_set_storages(m, storages)
+        spec = mv_d_set_state(spec, MV_STATE_FRESH)
+        spec = mv_d_set_last_refresh(spec, now_ts)
+        spec = mv_d_set_row_count(spec, len(all_rows))
+        defs[view_id] = spec
+        m = mv_m_set_defs(m, defs)
+        m = mv_m_stats_inc(m, 1)
+        m = mv_m_stats_inc(m, 3)
+        m = mv_m_log_append(m, now_ts, "refresh_full", view_id, len(all_rows))
+        m
+
+let mv_m_refresh_incremental(m, view_id, now_ts, changed_keys) =
+    let defs = mv_m_defs(m)
+    let spec = defs[view_id]
+    if spec == 0
+        m
+    else
+        let storages = mv_m_storages(m)
+        let storage = storages[view_id]
+        let rows = mv_st_rows(storage)
+        let i = 0
+        let n = len(changed_keys)
+        for i < n
+            let key = changed_keys[i]
+            let j = 0
+            let m2 = len(rows)
+            let found = 0
+            for j < m2
+                if rows[j][0] == key
+                    found = 1
+                    j = m2
+                j = j + 1
+            if found == 1
+                storage = mv_st_log_delta(storage, now_ts, "update", key, rows[j-1][1], rows[j-1][1])
+            i = i + 1
+        storages[view_id] = storage
+        m = mv_m_set_storages(m, storages)
+        spec = mv_d_set_last_refresh(spec, now_ts)
+        defs[view_id] = spec
+        m = mv_m_set_defs(m, defs)
+        m = mv_m_stats_inc(m, 1)
+        m = mv_m_stats_inc(m, 2)
+        m = mv_m_log_append(m, now_ts, "refresh_incr", view_id, len(changed_keys))
+        m
+
+let mv_m_query(m, view_id) =
+    let storages = mv_m_storages(m)
+    let storage = storages[view_id]
+    if storage == 0
+        [m, []]
+    else
+        [m, mv_st_rows(storage)]
+
+let mv_m_bragg_verify(m) =
+    let defs = mv_m_defs(m)
+    let storages = mv_m_storages(m)
+    let ok = 1
+    let keys = keys_of(defs)
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let spec = defs[keys[i]]
+        let storage = storages[keys[i]]
+        if storage != 0
+            if mv_d_row_count(spec) != len(mv_st_rows(storage))
+                ok = 0
+        i = i + 1
+    let st = mv_m_stats(m)
+    [ok, st[0], len(keys)]
+
+let mv_default_mgr() =
+    let m = mv_mgr_new()
+    m = mv_m_base_insert(m, "users", [1, "alice"], 1000)
+    m = mv_m_base_insert(m, "users", [2, "bob"], 1001)
+    m = mv_m_base_insert(m, "users", [3, "charlie"], 1002)
+    let spec = mv_def_new(1, "all_users", "select_all", ["users"], MV_REFRESH_ON_COMMIT, MV_MAINT_FULL)
+    m = mv_m_register(m, spec, 1003)
+    m
+
+let mv_self_test() =
+    let m = mv_default_mgr()
+    let ok1 = len(keys_of(mv_m_defs(m))) == 1
+    let spec = mv_m_defs(m)[1]
+    let ok2 = mv_d_state(spec) == MV_STATE_STALE
+    m = mv_m_refresh_full(m, 1, 1004)
+    spec = mv_m_defs(m)[1]
+    let ok3 = mv_d_state(spec) == MV_STATE_FRESH
+    let ok4 = mv_d_row_count(spec) == 3
+    let q = mv_m_query(m, 1)
+    let ok5 = len(q[1]) == 3
+    m = mv_m_refresh_incremental(m, 1, 1005, [1])
+    let st = mv_m_stats(m)
+    let ok6 = st[2] == 1
+    let bv = mv_m_bragg_verify(m)
+    let ok7 = bv[0] == 1
+    ["materialized_view", ok1, ok2, ok3, ok4, ok5, ok6, ok7]

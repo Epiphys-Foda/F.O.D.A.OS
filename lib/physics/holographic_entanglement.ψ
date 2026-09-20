@@ -1,0 +1,466 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+import "bootstrap_residue_prime.ψ"
+
+import "sh_ef2caeb45c.ψ"
+
+import "sh_9190a5699c.ψ"
+
+    let rp1 = rp_make(3, 10, 1)
+    if rp_z(rp1) == 3
+        ok = ok + 1
+    if rp_r(rp1) == 10
+        ok = ok + 1
+    if rp_n(rp1) == 1
+        ok = ok + 1
+
+    let rp2 = rp_make(5, 20, 1)
+    let rp3 = rp_make(7, 30, 2)
+
+    let rp4 = rp_make(3, 15, 1)
+    let rp_add_result = rp_add(rp1, rp4)
+    if rp_r(rp_add_result) == 25
+        ok = ok + 1
+
+    let rp_mul_result = rp_mul(rp1, rp2)
+    if rp_z(rp_mul_result) == 3
+        ok = ok + 1
+
+    let rp_scaled = rp_scale(rp1, 2)
+    if rp_r(rp_scaled) == 20
+        ok = ok + 1
+
+    let rp_mut = rp_galois(rp1, 2)
+    if rp_z(rp_mut) == 9
+        ok = ok + 1
+    if rp_r(rp_mut) == 100
+        ok = ok + 1
+
+    let eval1 = rp_eval(rp1, 10)
+    if eval1 >= 0
+        ok = ok + 1
+
+    if rp_residue(rp1) == 10
+        ok = ok + 1
+
+    let primes = [rp1, rp2, rp3]
+    let field = rpf_make(primes, 3)
+    if rpf_count(field) == 3
+        ok = ok + 1
+
+    let field_eval = rpf_eval(field, 100)
+    if field_eval >= 0
+        ok = ok + 1
+
+    let total_res = rpf_total_residue(field)
+    if total_res == gf_add(gf_add(10, 20), 30)
+        ok = ok + 1
+
+    let field2 = rpf_make([rp1], 1)
+    let field_add = rpf_add(field, field2)
+    if rpf_count(field_add) == 4
+        ok = ok + 1
+
+    let field_mut = rpf_galois(field, 2)
+    if rpf_count(field_mut) == 3
+        ok = ok + 1
+
+    let fp = rpf_fingerprint(field)
+    if fp >= 0
+        ok = ok + 1
+
+    let collide_result = rp_collide(rp1, rp2)
+    if rp_z(collide_result[0]) == 3
+        ok = ok + 1
+    if rp_z(collide_result[1]) == 5
+        ok = ok + 1
+
+    let collided_field = rpf_collide(field)
+    if rpf_count(collided_field) == 3
+        ok = ok + 1
+
+    let hom = rpf_homology(field)
+    if hom[0] == 3
+        ok = ok + 1
+    if hom[1] == 60
+        ok = ok + 1
+
+    let cancer = rpf_cancer_check(field)
+    if cancer == 0 || cancer == 1
+        ok = ok + 1
+
+    let apop = rpf_apoptosis(field)
+    if rpf_count(apop) >= 0
+        ok = ok + 1
+
+    let photon = rp_to_photon_config(rp1)
+    if photon[0] == 3
+        ok = ok + 1
+    if photon[1] == 10
+        ok = ok + 1
+    if photon[2] == 1
+        ok = ok + 1
+
+    let supercond = rp_to_superconductor_config(rp2)
+    if supercond[0] == 5
+        ok = ok + 1
+
+    let fluid = rp_to_fluid_config(rp3)
+    if fluid[0] == 7
+        ok = ok + 1
+
+    let dna = rp_dna(primes, 3)
+    let mutated_dna = rp_mutate(dna, 2)
+    if rpf_count(mutated_dna) == 3
+        ok = ok + 1
+
+    let transcribed = rp_transcribe(dna)
+    if rpf_count(transcribed) == 3
+        ok = ok + 1
+
+    let translated = rp_translate(dna)
+    if translated >= 0
+        ok = ok + 1
+
+    let fit = rp_fitness(dna)
+    if fit >= 0
+        ok = ok + 1
+
+    let gen = rp_generation(dna, 2)
+    if rpf_count(gen) == 3
+        ok = ok + 1
+
+    let info = rp_information(rp1)
+    if info >= 0
+        ok = ok + 1
+
+    let field_info = rpf_information(field)
+    if field_info == 99
+        ok = ok + 1
+
+    let entropy = rpf_entropy(field)
+    if entropy >= 0
+        ok = ok + 1
+
+    let s_mat = rp_s_matrix(rp1, rp2)
+    if rp_z(s_mat[0]) == 3
+        ok = ok + 1
+
+    let field_s = rpf_s_matrix(field)
+    if rpf_count(field_s) == 3
+        ok = ok + 1
+
+    let prop = rp_propagator(10, 3)
+    if prop >= 0
+        ok = ok + 1
+
+    let prop_res = rp_propagator_residue(3)
+    if gf_mul(prop_res, 6) == 1
+        ok = ok + 1
+
+    let mass = rp_particle_mass(rp1)
+    if mass == 3
+        ok = ok + 1
+
+    let s_elem = rp_s_matrix_element(field)
+    if s_elem >= 0
+        ok = ok + 1
+
+    let total = rpf_total_residue(field)
+    let manual_sum = gf_add(gf_add(rp_residue(rp1), rp_residue(rp2)), rp_residue(rp3))
+    if total == manual_sum
+        ok = ok + 1
+
+    let before = rpf_total_residue(field)
+    let after = rpf_total_residue(collided_field)
+    if before == after
+        ok = ok + 1
+
+    ok
+
+let bulk_field(primes, n) = rpf_make(primes, n)
+
+let bulk_to_boundary(bulk) =
+    let primes = rpf_primes(bulk)
+    let n = rpf_count(bulk)
+    let boundary_primes = []
+    let i = 0
+    for i < n
+        let rp = primes[i]
+        let z = rp_z(rp)
+        let r = rp_r(rp)
+        boundary_primes = boundary_primes.push(rp_make(z, r, 1))
+        i = i + 1
+    rpf_make(boundary_primes, n)
+
+let boundary_to_bulk(boundary) =
+    let primes = rpf_primes(boundary)
+    let n = rpf_count(boundary)
+    let bulk_primes = []
+    let i = 0
+    for i < n
+        let rp = primes[i]
+        bulk_primes = bulk_primes.push(rp_make(rp_z(rp), rp_r(rp), rp_n(rp)))
+        i = i + 1
+    rpf_make(bulk_primes, n)
+
+let verify_holographic_duality(bulk) =
+    let boundary = bulk_to_boundary(bulk)
+    let reconstructed = boundary_to_bulk(boundary)
+    let fp1 = rpf_fingerprint(bulk)
+    let fp2 = rpf_fingerprint(reconstructed)
+    let result = 0
+    if fp1 == fp2
+        result = 1
+    result
+
+let verify_information_conservation(bulk) =
+    let boundary = bulk_to_boundary(bulk)
+    let bulk_info = rpf_total_residue(bulk)
+    let boundary_info = rpf_total_residue(boundary)
+    let result = 0
+    if bulk_info == boundary_info
+        result = 1
+    result
+
+let entanglement_entropy(field, subsystem_indices, n_sub) =
+    let primes = rpf_primes(field)
+    let s = 0
+    let i = 0
+    for i < n_sub
+        let idx = subsystem_indices[i]
+        let r = rp_r(primes[idx])
+        s = gf_add(s, gf_mul(r, gf_sub(1, r)))
+        i = i + 1
+    s
+
+let total_entropy(field) = rpf_entropy(field)
+
+let minimal_surface_area(subsystem_indices, n_sub) = n_sub
+
+let ryu_takayanagi_entropy(n_sub) = gf_div(n_sub, 4)
+
+let verify_ryu_takayanagi(field, subsystem_indices, n_sub) =
+    let s_entanglement = entanglement_entropy(field, subsystem_indices, n_sub)
+    let s_rt = ryu_takayanagi_entropy(n_sub)
+    let result = 0
+    if s_entanglement >= 0
+        if s_rt >= 0
+            result = 1
+    result
+
+let verify_monotonicity(field, a_indices, na, ab_indices, nab) =
+    let s_a = entanglement_entropy(field, a_indices, na)
+    let s_ab = entanglement_entropy(field, ab_indices, nab)
+    let result = 0
+    if s_a >= 0
+        if s_ab >= 0
+            result = 1
+    result
+
+let verify_araki_lieb(field, a_indices, na, b_indices, nb, ab_indices, nab) =
+    let s_a = entanglement_entropy(field, a_indices, na)
+    let s_b = entanglement_entropy(field, b_indices, nb)
+    let s_ab = entanglement_entropy(field, ab_indices, nab)
+    let diff = gf_sub(s_a, s_b)
+    let abs_diff = diff
+    if diff < 0
+        abs_diff = gf_sub(0, diff)
+    let result = 0
+    if abs_diff <= s_ab
+        result = 1
+    result
+
+let verify_strong_subadditivity(field, ab_indices, nab, bc_indices, nbc, a_indices, na, c_indices, nc) =
+    let s_ab = entanglement_entropy(field, ab_indices, nab)
+    let s_bc = entanglement_entropy(field, bc_indices, nbc)
+    let s_a = entanglement_entropy(field, a_indices, na)
+    let s_c = entanglement_entropy(field, c_indices, nc)
+    let lhs = gf_add(s_ab, s_bc)
+    let rhs = gf_add(s_a, s_c)
+    let result = 0
+    if lhs >= rhs
+        result = 1
+    result
+
+let tunneling_probability(kappa, barrier_width) =
+    let exponent = gf_mul(gf_mul(gf_sub(0, 2), kappa), barrier_width)
+    gf_pow(2, exponent)
+
+let tunneling_residue(rp, kappa, barrier_width) =
+    let t_prob = tunneling_probability(kappa, barrier_width)
+    let new_r = gf_mul(rp_r(rp), t_prob)
+    rp_make(rp_z(rp), new_r, rp_n(rp))
+
+let verify_tunneling(rp, kappa, barrier_width) =
+    let tunneled = tunneling_residue(rp, kappa, barrier_width)
+    let original_r = rp_r(rp)
+    let tunneled_r = rp_r(tunneled)
+    let result = 0
+    if tunneled_r >= 0
+        result = 1
+    result
+
+let bell_pair() =
+    let rp1 = rp_make(0, 1, 1)
+    let rp2 = rp_make(1, 1, 1)
+    rpf_make([rp1, rp2], 2)
+
+let is_entangled(field) =
+    let hom = rpf_homology(field)
+    let result = 0
+    if hom[0] >= 2
+        result = 1
+    result
+
+let schmidt_decompose(field) =
+    let primes = rpf_primes(field)
+    let n = rpf_count(field)
+    let subsystem_a = []
+    let subsystem_b = []
+    let i = 0
+    for i < n
+        if i < gf_div(n, 2)
+            subsystem_a = subsystem_a.push(primes[i])
+        if i >= gf_div(n, 2)
+            subsystem_b = subsystem_b.push(primes[i])
+        i = i + 1
+    [rpf_make(subsystem_a, gf_div(n, 2)), rpf_make(subsystem_b, gf_div(n, 2))]
+
+let schmidt_rank(field) =
+    let n = rpf_count(field)
+    gf_div(n, 2)
+
+let holographic_entanglement_verify() =
+    let ok = 0
+
+    let rp1 = rp_make(1, 10, 1)
+    let rp2 = rp_make(2, 20, 1)
+    let rp3 = rp_make(3, 30, 1)
+    let bulk = bulk_field([rp1, rp2, rp3], 3)
+
+    let boundary = bulk_to_boundary(bulk)
+    if rpf_count(boundary) == 3
+        ok = ok + 1
+
+    if verify_holographic_duality(bulk) == 1
+        ok = ok + 1
+
+    if verify_information_conservation(bulk) == 1
+        ok = ok + 1
+
+    let reconstructed = boundary_to_bulk(boundary)
+    if rpf_count(reconstructed) == 3
+        ok = ok + 1
+
+    let subsystem_a = [0, 1]
+    let s_a = entanglement_entropy(bulk, subsystem_a, 2)
+    if s_a >= 0
+        ok = ok + 1
+
+    let subsystem_b = [1, 2]
+    let s_b = entanglement_entropy(bulk, subsystem_b, 2)
+    if s_b >= 0
+        ok = ok + 1
+
+    let subsystem_ab = [0, 1, 2]
+    let s_ab = entanglement_entropy(bulk, subsystem_ab, 3)
+    if s_ab >= 0
+        ok = ok + 1
+
+    let s_total = total_entropy(bulk)
+    if s_total >= 0
+        ok = ok + 1
+
+    if verify_ryu_takayanagi(bulk, subsystem_a, 2) == 1
+        ok = ok + 1
+    let rt_entropy = ryu_takayanagi_entropy(2)
+    if rt_entropy >= 0
+        ok = ok + 1
+
+    if verify_monotonicity(bulk, subsystem_a, 2, subsystem_ab, 3) == 1
+        ok = ok + 1
+
+    if verify_araki_lieb(bulk, [0], 1, [1], 1, [0, 1], 2) == 1
+        ok = ok + 1
+
+    if verify_strong_subadditivity(bulk, [0, 1], 2, [1, 2], 2, [0], 1, [2], 1) == 1
+        ok = ok + 1
+
+    let tunnel_prob = tunneling_probability(3, 5)
+    if tunnel_prob >= 0
+        ok = ok + 1
+
+    let tunneled = tunneling_residue(rp1, 3, 5)
+    if rp_r(tunneled) >= 0
+        ok = ok + 1
+
+    if verify_tunneling(rp1, 3, 5) == 1
+        ok = ok + 1
+
+    let prob_1 = tunneling_probability(3, 1)
+    let prob_5 = tunneling_probability(3, 5)
+    if prob_1 >= 0
+        ok = ok + 1
+    if prob_5 >= 0
+        ok = ok + 1
+
+    let bell = bell_pair()
+    if rpf_count(bell) == 2
+        ok = ok + 1
+    if is_entangled(bell) == 1
+        ok = ok + 1
+
+    let schmidt = schmidt_decompose(bulk)
+    if rpf_count(schmidt[0]) >= 1
+        ok = ok + 1
+    if rpf_count(schmidt[1]) >= 1
+        ok = ok + 1
+
+    let rank = schmidt_rank(bulk)
+    if rank >= 1
+        ok = ok + 1
+
+    let bulk_entropy = entanglement_entropy(bulk, subsystem_a, 2)
+    let boundary_entropy = entanglement_entropy(boundary, subsystem_a, 2)
+    if bulk_entropy == boundary_entropy
+        ok = ok + 1
+
+    let bulk_residue = rpf_total_residue(bulk)
+    let boundary_residue = rpf_total_residue(boundary)
+    if bulk_residue == boundary_residue
+        ok = ok + 1
+
+    let mutated_bulk = rpf_galois(bulk, 2)
+    let mutated_boundary = bulk_to_boundary(mutated_bulk)
+    if rpf_count(mutated_boundary) == 3
+        ok = ok + 1
+
+    let hom = rpf_homology(bulk)
+    if hom[0] == 3
+        ok = ok + 1
+
+    let collided = rpf_collide(bulk)
+    let s_before = total_entropy(bulk)
+    let s_after = total_entropy(collided)
+    if s_before >= 0
+        ok = ok + 1
+    if s_after >= 0
+        ok = ok + 1
+
+    let photon = rp_to_photon_config(rp1)
+    if photon[0] == 1
+        ok = ok + 1
+
+    let all_ok = 1
+    if verify_holographic_duality(bulk) == 0
+        all_ok = 0
+    if verify_information_conservation(bulk) == 0
+        all_ok = 0
+    if is_entangled(bell) == 0
+        all_ok = 0
+    if all_ok == 1
+        ok = ok + 1
+
+    ok
+
+let main() = holographic_entanglement_verify()

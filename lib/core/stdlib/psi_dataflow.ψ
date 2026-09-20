@@ -1,0 +1,285 @@
+let TOKEN_TYPE_UNKNOWN     = 0
+let TOKEN_TYPE_GF_ELEMENT  = 1
+let TOKEN_TYPE_CL_MULTI    = 2
+let TOKEN_TYPE_HOMO_COORD  = 3
+let TOKEN_TYPE_FREQ_SPEC   = 4
+
+let DAG_DEFAULT_FIFO_DEPTH = 4
+let DAG_DEFAULT_FUSION_GROUP = -1
+let DAG_DEFAULT_SCHEDULE_HINT = 0
+
+let dag_create() =
+    { nodes: [], edges: [], node_count: 0, edge_count: 0, root: -1 }
+
+let dag_add_node(dag, opcode, pe_type) =
+    let node_id = dag.node_count
+    let node =
+      { node_id: node_id, opcode: opcode, pe_type: pe_type, in_ports: [], out_ports: [], fusion_group: DAG_DEFAULT_FUSION_GROUP, schedule_hint: DAG_DEFAULT_SCHEDULE_HINT, attrs: {} }
+    let new_nodes = dag.nodes.push(node)
+    let new_root = dag.root
+    if opcode == 17
+      new_root = node_id
+    else
+      0
+    { nodes: new_nodes, edges: dag.edges, node_count: node_id + 1, edge_count: dag.edge_count, root: new_root }
+
+let dag_add_node_v13_1(dag, opcode, pe_type, fusion_group, schedule_hint) =
+    let node_id = dag.node_count
+    let node =
+      { node_id: node_id, opcode: opcode, pe_type: pe_type, in_ports: [], out_ports: [], fusion_group: fusion_group, schedule_hint: schedule_hint, attrs: {} }
+    let new_nodes = dag.nodes.push(node)
+    let new_root = dag.root
+    if opcode == 17
+      new_root = node_id
+    else
+      0
+    { nodes: new_nodes, edges: dag.edges, node_count: node_id + 1, edge_count: dag.edge_count, root: new_root }
+
+let dag_add_edge(dag, src_node, src_port, dst_node, dst_port) =
+    let edge =
+      { src_node: src_node, src_port: src_port, dst_node: dst_node, dst_port: dst_port, token_type: TOKEN_TYPE_UNKNOWN, fifo_depth: DAG_DEFAULT_FIFO_DEPTH }
+    let new_edges = dag.edges.push(edge)
+      { nodes: dag.nodes, edges: new_edges, node_count: dag.node_count, edge_count: dag.edge_count + 1, root: dag.root }
+
+let dag_add_edge_v13_1(dag, src_node, src_port, dst_node, dst_port, token_type, fifo_depth) =
+    let edge =
+      { src_node: src_node, src_port: src_port, dst_node: dst_node, dst_port: dst_port, token_type: token_type, fifo_depth: fifo_depth }
+    let new_edges = dag.edges.push(edge)
+      { nodes: dag.nodes, edges: new_edges, node_count: dag.node_count, edge_count: dag.edge_count + 1, root: dag.root }
+
+let dag_get_node(dag, node_id) =
+    if node_id < 0
+      null
+    else
+      if node_id < dag.node_count
+        dag.nodes[node_id]
+      else
+        null
+
+let dag_node_fusion_group(dag, node_id) =
+    let node = dag_get_node(dag, node_id)
+    (node == null ? DAG_DEFAULT_FUSION_GROUP : node.fusion_group)
+
+let dag_node_schedule_hint(dag, node_id) =
+    let node = dag_get_node(dag, node_id)
+    (node == null ? DAG_DEFAULT_SCHEDULE_HINT : node.schedule_hint)
+
+let dag_edge_token_type(dag, edge_idx) =
+    let edge = dag.edges[edge_idx]
+    edge.token_type
+
+let dag_edge_fifo_depth(dag, edge_idx) =
+    let edge = dag.edges[edge_idx]
+    edge.fifo_depth
+
+let dag_count_fusion_groups(dag) =
+    let groups = []
+    let i = 0
+    let n_done = false
+    for !n_done
+      if i < dag.node_count
+        let node = dag.nodes[i]
+        if node.fusion_group >= 0
+          let found = false
+          let j = 0
+          let s_done = false
+          for !s_done
+            if j < len(groups)
+              if groups[j] == node.fusion_group
+                found = true
+                s_done = true
+              else
+                0
+              j = j + 1
+            else
+              s_done = true
+          if !found
+            groups = groups.push(node.fusion_group)
+          else
+              0
+        else
+          0
+        i = i + 1
+      else
+        n_done = true
+    len(groups)
+
+let dag_total_fifo_depth(dag) =
+    let total = 0
+    let i = 0
+    let done = false
+    for !done
+      if i < dag.edge_count
+        let edge = dag.edges[i]
+        total = total + edge.fifo_depth
+        i = i + 1
+      else
+        done = true
+    total
+
+let qqbc_to_dag(qqbc) =
+    let dag = dag_create()
+    let stack = []
+    let pc = 0
+    let done = false
+    for !done
+      if pc < len(qqbc)
+        let op = qqbc[pc]
+        pc = pc + 1
+        if op == 16
+          pc = pc + 1
+          let dag2 = dag_add_node(dag, 16, 16)
+          dag = dag2
+          stack = stack.push(dag2.node_count - 1)
+        else
+          0
+        if op >= 1
+          if op <= 5
+            let pe_type = op
+            let dag2 = dag_add_node(dag, op, pe_type)
+            let new_id = dag2.node_count - 1
+            dag = dag2
+            let n = len(stack)
+            if n >= 2
+              let b_id = stack[n - 1]
+              let a_id = stack[n - 2]
+              let d3 = dag_add_edge(dag, a_id, 0, new_id, 0)
+              let d4 = dag_add_edge(d3, b_id, 0, new_id, 1)
+              dag = d4
+              stack = stack.slice(0, n - 2)
+              stack = stack.push(new_id)
+            else
+                0
+          else
+              0
+        else
+          0
+        if op == 17
+          let dag2 = dag_add_node(dag, 17, 17)
+          let new_id = dag2.node_count - 1
+          dag = dag2
+          let n = len(stack)
+          if n >= 1
+            let src_id = stack[n - 1]
+            let d3 = dag_add_edge(dag, src_id, 0, new_id, 0)
+            dag = d3
+            stack = stack.slice(0, n - 1)
+            stack = stack.push(new_id)
+          else
+              0
+        else
+          0
+        if op == 255
+          done = true
+        else
+            0
+      else
+        done = true
+    dag
+
+let dag_node_count(dag) = dag.node_count
+
+let dag_edge_count(dag) = dag.edge_count
+
+let dag_root(dag) = dag.root
+
+let dag_max_pe_type(dag) =
+    let max_pe = 0
+    let i = 0
+    let done = false
+    for !done
+      if i < dag.node_count
+        let node = dag.nodes[i]
+        if node.pe_type > max_pe
+          max_pe = node.pe_type
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    max_pe
+
+let PDAG_MAGIC = [80, 68, 65, 71]
+let PDAG_VERSION = 1
+
+let dag_serialize(dag) =
+    let out = PDAG_MAGIC
+    out = out.push(PDAG_VERSION)
+    let nc = dag.node_count
+    out = out.push(nc - (nc / 256) * 256)
+    out = out.push(nc / 256)
+    out = out.push(dag.edge_count)
+    let i = 0
+    let n_done = false
+    for !n_done
+      if i < dag.node_count
+        let node = dag.nodes[i]
+        let in_deg = 0
+        let j = 0
+        let e_done = false
+        for !e_done
+          if j < dag.edge_count
+            let e = dag.edges[j]
+            if e.dst_node == node.node_id
+              in_deg = in_deg + 1
+            else
+              0
+            j = j + 1
+          else
+            e_done = true
+        out = out.push(node.node_id)
+        out = out.push(node.opcode)
+        out = out.push(node.pe_type)
+        out = out.push(in_deg)
+        i = i + 1
+      else
+        n_done = true
+        0
+      0
+    let k = 0
+    let ed_done = false
+    for !ed_done
+      if k < dag.edge_count
+        let e = dag.edges[k]
+        out = out.push(e.src_node)
+        out = out.push(e.src_port)
+        out = out.push(e.dst_node)
+        out = out.push(e.dst_port)
+        k = k + 1
+      else
+        ed_done = true
+    out
+
+let dag_serialize_hex(dag) = dag_serialize(dag)
+
+let dag_summary(dag) =
+    let pe_dist = []
+    let pe_init = [0, 0, 0, 0, 0, 0, 0]
+    let i = 0
+    let done = false
+    for !done
+      if i < dag.node_count
+        let node = dag.nodes[i]
+        let idx = (node.pe_type <= 5 ? node.pe_type - 1 : (node.pe_type == 16 ? 5 : 6))
+        let old = pe_init[idx]
+        pe_init = [pe_init.slice(0, idx), [old + 1], pe_init.slice(idx + 1, len(pe_init))].flat()
+        i = i + 1
+      else
+        done = true
+        0
+      0
+      { node_count: dag.node_count, edge_count: dag.edge_count, root: dag.root, max_pe_type: dag_max_pe_type(dag), pe_gfmul: pe_init[0], pe_clifford: pe_init[1], pe_ntt: pe_init[2], pe_born: pe_init[3], pe_hebbian: pe_init[4], pe_token: pe_init[5], pe_emit: pe_init[6] }
+
+let dag_dump(dag) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < dag.node_count
+        let node = dag.nodes[i]
+        let row = [node.node_id, node.opcode, node.pe_type]
+        out = out.push(row)
+        i = i + 1
+      else
+        done = true
+    out

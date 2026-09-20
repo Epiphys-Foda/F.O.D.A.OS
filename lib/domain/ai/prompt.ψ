@@ -1,0 +1,295 @@
+import "../domain_field.ψ"
+let tpl_render(template, vars) =
+    let result = template
+    let keys = keys_of(vars)
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let k = keys[i]
+        let placeholder = str_concat(str_concat(str_concat(str_concat("", chr(123)), ""), chr(123)), "") + k + "}}"
+        let val = vars[k]
+        for str_contains(result, placeholder) == 1
+            result = str_replace(result, placeholder, val)
+        i = i + 1
+    result
+
+let str_replace(s, from_str, to_str) =
+    let pos = str_find(s, from_str)
+    if pos < 0
+        s
+    else
+        let before = str_sub(s, 0, pos)
+        let after = str_sub(s, pos + len(from_str), len(s))
+        before + to_str + after
+
+let str_find(s, sub) =
+    let i = 0
+    let n = len(s)
+    let m = len(sub)
+    if m == 0
+        0
+    else
+        let found = -1
+        for i <= n - m
+            let match_ = 1
+            let j = 0
+            for j < m
+                if s[i + j] != sub[j]
+                    match_ = 0
+                    j = m
+                j = j + 1
+            if match_ == 1
+                found = i
+                i = n
+            i = i + 1
+        found
+
+let str_sub(s, start, end) =
+    let result = ""
+    let i = start
+    for i < end
+        result = result + s[i]
+        i = i + 1
+    result
+
+let msg_new(role, content) =
+    [role, content, ""]
+
+let msg_role(m) = m[0]
+let msg_content(m) = m[1]
+let msg_name(m) = m[2]
+
+let msg_set_name(m, name) =
+    m[2] = name
+    m
+
+let msg_system(content) = msg_new("system", content)
+let msg_user(content) = msg_new("user", content)
+let msg_assistant(content) = msg_new("assistant", content)
+let msg_function(name, content) =
+    let m = msg_new("function", content)
+    msg_set_name(m, name)
+
+let prompt_template_new(name, system_msg) =
+    [name, system_msg, [], "", 1, {}]
+
+let pt_name(t) = t[0]
+let pt_system(t) = t[1]
+let pt_examples(t) = t[2]
+let pt_user_template(t) = t[3]
+let pt_version(t) = t[4]
+let pt_meta(t) = t[5]
+
+let pt_set_user_template(t, template) =
+    t[3] = template
+    t
+
+let pt_add_example(t, user_msg, assistant_msg) =
+    let examples = pt_examples(t)
+    examples.push([user_msg, assistant_msg])
+    t[2] = examples
+    t
+
+let pt_set_meta(t, key, val) =
+    let m = pt_meta(t)
+    m[key] = val
+    t[5] = m
+    t
+
+let pt_render(t, vars) =
+    let messages = []
+    let sys = tpl_render(pt_system(t), vars)
+    messages.push(msg_system(sys))
+    let examples = pt_examples(t)
+    let i = 0
+    let n = len(examples)
+    for i < n
+        let ex = examples[i]
+        messages.push(msg_user(ex[0]))
+        messages.push(msg_assistant(ex[1]))
+        i = i + 1
+    if pt_user_template(t) != ""
+        let user_msg = tpl_render(pt_user_template(t), vars)
+        messages.push(msg_user(user_msg))
+    messages
+
+let ctx_manager_new(max_messages) =
+    [[], max_messages]
+
+let ctx_messages(c) = c[0]
+let ctx_max(c) = c[1]
+
+let ctx_add(c, msg) =
+    let msgs = ctx_messages(c)
+    msgs.push(msg)
+    if len(msgs) > ctx_max(c)
+        let new_msgs = [msgs[0]]
+        let i = len(msgs) - ctx_max(c) + 1
+        let n = len(msgs)
+        for i < n
+            new_msgs.push(msgs[i])
+            i = i + 1
+        c[0] = new_msgs
+    else
+        c[0] = msgs
+    c
+
+let ctx_clear(c) =
+    c[0] = []
+    c
+
+let ctx_token_estimate(c) =
+    let msgs = ctx_messages(c)
+    let total = 0
+    let i = 0
+    let n = len(msgs)
+    for i < n
+        let m = msgs[i]
+        total = total + len(msg_content(m)) / 4 + 4
+        i = i + 1
+    total
+
+let ctx_truncate_tokens(c, max_tokens) =
+    let msgs = ctx_messages(c)
+    if len(msgs) == 0
+        c
+    else
+        let system_msg = msgs[0]
+        let kept = [system_msg]
+        let used = len(msg_content(system_msg)) / 4 + 4
+        let i = len(msgs) - 1
+        for i >= 1
+            let m = msgs[i]
+            let t = len(msg_content(m)) / 4 + 4
+            if used + t > max_tokens
+                i = 0
+            else
+                kept.push(m)
+                used = used + t
+                i = i - 1
+        let new_msgs = [kept[0]]
+        let j = len(kept) - 1
+        for j >= 1
+            new_msgs.push(kept[j])
+            j = j - 1
+        c[0] = new_msgs
+        c
+
+let prompt_chain_new() =
+    [[]]
+
+let pc_steps(c) = c[0]
+
+let prompt_chain_add(c, step_name, template, depends_on_var) =
+    let steps = pc_steps(c)
+    steps.push([step_name, template, depends_on_var])
+    c[0] = steps
+    c
+
+let prompt_chain_run(c, initial_vars) =
+    let vars = initial_vars
+    let outputs = []
+    let steps = pc_steps(c)
+    let i = 0
+    let n = len(steps)
+    for i < n
+        let step = steps[i]
+        let name = step[0]
+        let tpl = step[1]
+        let depends = step[2]
+        if depends != ""
+            let prev_output = 0
+            if len(outputs) > 0
+                prev_output = outputs[len(outputs) - 1][1]
+            if prev_output != 0
+                vars[depends] = prev_output
+        let rendered = tpl_render(tpl, vars)
+        let output = "LLM_OUTPUT:" + rendered
+        outputs.push([name, output])
+        i = i + 1
+    outputs
+
+let tpl_persona(role_desc, task, constraints) =
+    let sys = "You are " + role_desc + ". "
+    sys = sys + "Task: " + task + ". "
+    sys = sys + "Constraints: " + constraints
+    let t = prompt_template_new("persona", sys)
+    t = pt_set_user_template(t, str_concat(str_concat(str_concat(str_concat("", chr(123)), ""), chr(123)), "user_input}}"))
+    t
+
+let tpl_task(task_desc, output_format) =
+    let sys = "Task: " + task_desc + ". "
+    sys = sys + "Output format: " + output_format
+    let t = prompt_template_new("task", sys)
+    t = pt_set_user_template(t, str_concat(str_concat(str_concat(str_concat("", chr(123)), ""), chr(123)), "input}}"))
+    t
+
+let tpl_fewshot(name, system_msg, examples) =
+    let t = prompt_template_new(name, system_msg)
+    let i = 0
+    let n = len(examples)
+    for i < n
+        let ex = examples[i]
+        t = pt_add_example(t, ex[0], ex[1])
+        i = i + 1
+    t = pt_set_user_template(t, str_concat(str_concat(str_concat(str_concat("", chr(123)), ""), chr(123)), "input}}"))
+    t
+
+let tpl_cot(name, task) =
+    let sys = "Task: " + task + ". "
+    sys = sys + "Think step by step before answering. Show your reasoning."
+    let t = prompt_template_new(name, sys)
+    t = pt_set_user_template(t, str_concat(str_concat(str_concat(str_concat("", chr(123)), ""), chr(123)), "question}}"))
+    t
+
+let tpl_registry_new() =
+    [{}]
+
+let tpl_reg_map(r) = r[0]
+
+let tpl_reg_register(r, template) =
+    let m = tpl_reg_map(r)
+    m[pt_name(template)] = template
+    r[0] = m
+    r
+
+let tpl_reg_get(r, name) =
+    tpl_reg_map(r)[name]
+
+let tpl_reg_list(r) =
+    keys_of(tpl_reg_map(r))
+
+let tpl_reg_render(r, name, vars) =
+    let t = tpl_reg_get(r, name)
+    if t == 0
+        []
+    else
+        pt_render(t, vars)
+
+let ab_test_new(name_a, name_b) =
+    [name_a, name_b, 0, 0, 0, 0]
+
+let ab_record(ab, variant, success) =
+    if variant == "a"
+        ab[2] = ab[2] + 1
+        if success == 1
+            ab[4] = ab[4] + 1
+        else
+            0
+        ab[3] = ab[3] + 1
+        if success == 1
+            ab[5] = ab[5] + 1
+    ab
+
+let ab_stats(ab) =
+    let ca = ab[2]
+    let cb = ab[3]
+    let sa = ab[4]
+    let sb = ab[5]
+    let ra = 0
+    let rb = 0
+    if ca > 0
+        ra = sa * 100 / ca
+    if cb > 0
+        rb = sb * 100 / cb
+    [ab[0], ca, sa, ra, ab[1], cb, sb, rb]

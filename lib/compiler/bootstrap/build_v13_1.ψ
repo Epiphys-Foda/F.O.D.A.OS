@@ -1,0 +1,759 @@
+let QQ_GFMUL    = 1
+let QQ_CLIFFORD = 2
+let QQ_NTT      = 3
+let QQ_BORN     = 4
+let QQ_HEBBIAN  = 5
+let QQ_TOKEN    = 16
+let QQ_EMIT     = 17
+let QQ_END      = 255
+let QQ_GFMUL_MOD = 65537
+
+let MICRO_MUL_GF    = 10
+let MICRO_ADD_GF    = 11
+let MICRO_SUB_GF    = 12
+let MICRO_INV_GF    = 13
+let MICRO_ROT_CL    = 20
+let MICRO_REF_CL    = 21
+let MICRO_PROD_CL   = 22
+let MICRO_DUAL_CL   = 23
+let MICRO_FFT_FWD    = 30
+let MICRO_FFT_INV    = 31
+let MICRO_FFT_BITREV = 32
+let MICRO_PROJ_HOM   = 40
+let MICRO_PROJ_AFF   = 41
+let MICRO_INTERP     = 42
+let MICRO_DIFF_FWD   = 50
+let MICRO_DIFF_BWD   = 51
+let MICRO_DIFF_CEN   = 52
+let MICRO_FUSE_GEO_PROJ   = 60
+let MICRO_FUSE_FREQ_DIFF  = 61
+let MICRO_FUSE_TEN_GEO    = 62
+let MICRO_TOKEN     = 16
+let MICRO_EMIT      = 17
+let MICRO_END       = 255
+let MICRO_GF_MOD = 65537
+
+let PE_MAC   = 1
+let PE_LUT   = 2
+let PE_FFT   = 3
+let PE_FIFO  = 4
+let PE_ROUTE = 5
+let PE_ALU   = 6
+let PE_TOKEN = 16
+let PE_EMIT  = 17
+
+let my_qq_match_utf8(b0, b1, b2) =
+    if b0 == 226
+      if b1 == 138
+        (b2 == 153 ? QQ_GFMUL : 0)
+      else
+            0
+        if b1 == 151
+          (b2 == 166 ? QQ_CLIFFORD : 0)
+        else
+              0
+          if b1 == 137
+            (b2 == 139 ? QQ_NTT : 0)
+          else
+                0
+            if b1 == 134
+              (b2 == 161 ? QQ_BORN : 0)
+            else
+                  0
+              if b1 == 136
+                (b2 == 134 ? QQ_HEBBIAN : 0)
+              else
+                    0
+                0
+    else
+                  0
+      0
+
+let my_qq_lexer(src) =
+    let src_len = len(src)
+    let a_val = 0
+    let op_code = 0
+    let b_val = 0
+    let i = 6
+    let a_found = false
+    for !a_found
+      if i < src_len
+        let b = src[i]
+        if b >= 48 && b <= 57
+          a_val = b - 48
+          a_found = true
+        else
+          0
+        i = i + 1
+      else
+        a_found = true
+    let op_found = false
+    for !op_found
+      if i + 2 < src_len
+        let b = src[i]
+        if b == 226
+          let b1 = src[i + 1]
+          let b2 = src[i + 2]
+          op_code = my_qq_match_utf8(b, b1, b2)
+          op_found = true
+          i = i + 3
+        else
+          i = i + 1
+      else
+        op_found = true
+    let b_found = false
+    for !b_found
+      if i < src_len
+        let b = src[i]
+        if b >= 48 && b <= 57
+          b_val = b - 48
+          b_found = true
+        else
+          0
+        i = i + 1
+      else
+        b_found = true
+    [QQ_TOKEN, a_val, QQ_TOKEN, b_val, op_code, QQ_EMIT, QQ_END]
+
+let my_qq_lower_to_micro(qq_opcode) =
+    if qq_opcode == QQ_GFMUL
+        MICRO_MUL_GF
+    else
+      if qq_opcode == QQ_CLIFFORD
+          MICRO_PROD_CL
+      else
+        if qq_opcode == QQ_NTT
+            MICRO_FFT_FWD
+        else
+          if qq_opcode == QQ_BORN
+              MICRO_PROJ_HOM
+          else
+            if qq_opcode == QQ_HEBBIAN
+                MICRO_DIFF_FWD
+            else
+              if qq_opcode == QQ_TOKEN
+                  MICRO_TOKEN
+              else
+                if qq_opcode == QQ_EMIT
+                    MICRO_EMIT
+                else
+                  if qq_opcode == QQ_END
+                      MICRO_END
+                  else
+                      0
+
+let my_micro_to_pe(micro_opcode) =
+    if micro_opcode == MICRO_MUL_GF
+        PE_MAC
+    else
+      if micro_opcode == MICRO_ADD_GF
+          PE_MAC
+      else
+        if micro_opcode == MICRO_SUB_GF
+            PE_ALU
+        else
+          if micro_opcode == MICRO_INV_GF
+              PE_LUT
+          else
+            if micro_opcode == MICRO_ROT_CL
+                PE_LUT
+            else
+              if micro_opcode == MICRO_REF_CL
+                  PE_ALU
+              else
+                if micro_opcode == MICRO_PROD_CL
+                    PE_MAC
+                else
+                  if micro_opcode == MICRO_DUAL_CL
+                      PE_ALU
+                  else
+                    if micro_opcode == MICRO_FFT_FWD
+                        PE_FFT
+                    else
+                      if micro_opcode == MICRO_FFT_INV
+                          PE_FFT
+                      else
+                        if micro_opcode == MICRO_FFT_BITREV
+                            PE_ALU
+                        else
+                          if micro_opcode == MICRO_PROJ_HOM
+                              PE_ALU
+                          else
+                            if micro_opcode == MICRO_PROJ_AFF
+                                PE_ALU
+                            else
+                              if micro_opcode == MICRO_INTERP
+                                  PE_MAC
+                              else
+                                if micro_opcode == MICRO_DIFF_FWD
+                                    PE_ALU
+                                else
+                                  if micro_opcode == MICRO_DIFF_BWD
+                                      PE_ALU
+                                  else
+                                    if micro_opcode == MICRO_DIFF_CEN
+                                        PE_ALU
+                                    else
+                                      if micro_opcode == MICRO_FUSE_GEO_PROJ
+                                          PE_LUT
+                                      else
+                                        if micro_opcode == MICRO_FUSE_FREQ_DIFF
+                                            PE_FFT
+                                        else
+                                          if micro_opcode == MICRO_FUSE_TEN_GEO
+                                              PE_MAC
+                                          else
+                                            if micro_opcode == MICRO_TOKEN
+                                                PE_TOKEN
+                                            else
+                                              if micro_opcode == MICRO_EMIT
+                                                  PE_EMIT
+                                              else
+                                                  0
+
+let my_qqbc_to_micro_seq(qqbc) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(qqbc)
+        let op = qqbc[i]
+        let micro_op = my_qq_lower_to_micro(op)
+        if micro_op == MICRO_TOKEN
+          if i + 1 < len(qqbc)
+            let imm = qqbc[i + 1]
+            out = out.push(micro_op)
+            out = out.push(imm)
+            i = i + 2
+          else
+            i = i + 1
+        else
+          out = out.push(micro_op)
+          i = i + 1
+      else
+        done = true
+    out
+
+let my_micro_seq_to_pe_opcodes(micro_seq) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(micro_seq)
+        let op = micro_seq[i]
+        let pe_type = my_micro_to_pe(op)
+        if op == MICRO_TOKEN
+          if i + 1 < len(micro_seq)
+            let imm = micro_seq[i + 1]
+            out = out.push([pe_type, op])
+            out = out.push([imm])
+            i = i + 2
+          else
+            i = i + 1
+        else
+          out = out.push([pe_type, op])
+          i = i + 1
+      else
+        done = true
+    out
+
+let my_micro_gf_mod(v) =
+    let abs_v = (v < 0 ? 0 - v : v)
+    abs_v - (abs_v / MICRO_GF_MOD) * MICRO_GF_MOD
+
+let my_micro_eval(opcode, args) =
+    if opcode == MICRO_MUL_GF
+      let a = args[0]
+      let b = args[1]
+      my_micro_gf_mod(a * b)
+    else
+      if opcode == MICRO_ADD_GF
+        let a = args[0]
+        let b = args[1]
+        my_micro_gf_mod(a + b)
+      else
+        if opcode == MICRO_SUB_GF
+          let a = args[0]
+          let b = args[1]
+          my_micro_gf_mod(a - b)
+        else
+          if opcode == MICRO_INV_GF
+            let a = args[0]
+            if a == 1
+                1
+            else
+                (a == 0 ? 0 : 1)
+          else
+                0
+            if opcode == MICRO_PROD_CL
+              let a = args[0]
+              let b = args[1]
+              bit_and(bit_xor(a, b), bit_or(a, b))
+            else
+              if opcode == MICRO_FFT_FWD
+                let a = args[0]
+                let b = args[1]
+                bit_or(a + b, a - b)
+              else
+                if opcode == MICRO_FFT_INV
+                  let a = args[0]
+                  let b = args[1]
+                  let fwd = bit_or(a + b, a - b)
+                  fwd / 2
+                else
+                  if opcode == MICRO_PROJ_HOM
+                    let c = args[0]
+                    let t = args[1]
+                    (c != 0 ? t : 0)
+                  else
+                        0
+                    if opcode == MICRO_DIFF_FWD
+                      let a = args[0]
+                      let b = args[1]
+                      a + b
+                    else
+                      if opcode == MICRO_DIFF_BWD
+                        let a = args[0]
+                        let b = args[1]
+                        a - b
+                      else
+                        if opcode == MICRO_DIFF_CEN
+                          let a = args[0]
+                          let b = args[1]
+                          (a + b) / 2
+                        else
+                          if opcode == MICRO_FUSE_GEO_PROJ
+                            let a = args[0]
+                            let b = args[1]
+                            bit_and(bit_xor(a, b), bit_or(a, b))
+                          else
+                            if opcode == MICRO_FUSE_FREQ_DIFF
+                              let a = args[0]
+                              let b = args[1]
+                              let fwd = bit_or(a + b, a - b)
+                              fwd + 0
+                            else
+                              if opcode == MICRO_FUSE_TEN_GEO
+                                let a = args[0]
+                                let b = args[1]
+                                my_micro_gf_mod(a * b)
+                              else
+                                0
+
+let my_qq_interp(qqbc) =
+    let stack = []
+    let pc = 0
+    let result = 0
+    let done = false
+    for !done
+      let op = qqbc[pc]
+      pc = pc + 1
+      if op == QQ_TOKEN
+        let v = qqbc[pc]
+        pc = pc + 1
+        stack = stack.push(v)
+      else
+        0
+      if op <= 5
+        let n = len(stack)
+        if n >= 2
+          let b = stack[n - 1]
+          let a = stack[n - 2]
+          stack = stack.slice(0, n - 2)
+          let args = [a, b]
+          let res = if op == QQ_GFMUL
+            let prod = a * b
+            let abs_prod = (prod < 0 ? 0 - prod : prod)
+            abs_prod - (abs_prod / QQ_GFMUL_MOD) * QQ_GFMUL_MOD
+        else
+            if op == QQ_CLIFFORD
+                bit_and(bit_xor(a, b), bit_or(a, b))
+            else
+              if op == QQ_NTT
+                  bit_or(a + b, a - b)
+              else
+                if op == QQ_BORN
+                    (a != 0 ? b : 0)
+                else
+                  if op == QQ_HEBBIAN
+                      a + b
+                  else
+                      0
+          stack = stack.push(res)
+      else
+        0
+      if op == QQ_EMIT
+        let n = len(stack)
+        if n >= 1
+          result = stack[n - 1]
+        else
+            0
+      else
+        0
+      if op == QQ_END
+        done = true
+      else
+        0
+      if pc >= len(qqbc)
+        done = true
+      else
+          0
+    result
+
+let my_micro_interp(micro_seq) =
+    let stack = []
+    let pc = 0
+    let result = 0
+    let done = false
+    for !done
+      if pc < len(micro_seq)
+        let op = micro_seq[pc]
+        pc = pc + 1
+        if op == MICRO_TOKEN
+          let v = micro_seq[pc]
+          pc = pc + 1
+          stack = stack.push(v)
+        else
+          0
+        if op == MICRO_MUL_GF || op == MICRO_ADD_GF || op == MICRO_SUB_GF || op == MICRO_PROD_CL || op == MICRO_FFT_FWD || op == MICRO_FFT_INV || op == MICRO_DIFF_FWD || op == MICRO_DIFF_BWD || op == MICRO_DIFF_CEN || op == MICRO_FUSE_GEO_PROJ || op == MICRO_FUSE_FREQ_DIFF || op == MICRO_FUSE_TEN_GEO || op == MICRO_ROT_CL || op == MICRO_REF_CL || op == MICRO_DUAL_CL
+          let n = len(stack)
+          if n >= 2
+            let b = stack[n - 1]
+            let a = stack[n - 2]
+            stack = stack.slice(0, n - 2)
+            stack = stack.push(my_micro_eval(op, [a, b]))
+          else
+              0
+        else
+          0
+        if op == MICRO_INV_GF || op == MICRO_FFT_BITREV
+          let n = len(stack)
+          if n >= 1
+            let a = stack[n - 1]
+            stack = stack.slice(0, n - 1)
+            stack = stack.push(my_micro_eval(op, [a]))
+          else
+              0
+        else
+          0
+        if op == MICRO_PROJ_HOM
+          let n = len(stack)
+          if n >= 2
+            let t = stack[n - 1]
+            let c = stack[n - 2]
+            stack = stack.slice(0, n - 2)
+            stack = stack.push(my_micro_eval(op, [c, t]))
+          else
+              0
+        else
+          0
+        if op == MICRO_EMIT
+          let n = len(stack)
+          if n >= 1
+            result = stack[n - 1]
+          else
+              0
+        else
+          0
+        if op == MICRO_END
+          done = true
+        else
+            0
+      else
+        done = true
+    result
+
+let my_pe_interp(pe_seq_with_opcodes) =
+    let stack = []
+    let pc = 0
+    let result = 0
+    let done = false
+    for !done
+      if pc < len(pe_seq_with_opcodes)
+        let entry = pe_seq_with_opcodes[pc]
+        let pe_type = entry[0]
+        let micro_opcode = entry[1]
+        pc = pc + 1
+        if pe_type == PE_TOKEN
+          let v = pe_seq_with_opcodes[pc][0]
+          pc = pc + 1
+          stack = stack.push(v)
+        else
+          0
+        if micro_opcode == MICRO_MUL_GF || micro_opcode == MICRO_ADD_GF || micro_opcode == MICRO_SUB_GF || micro_opcode == MICRO_PROD_CL || micro_opcode == MICRO_FFT_FWD || micro_opcode == MICRO_FFT_INV || micro_opcode == MICRO_DIFF_FWD || micro_opcode == MICRO_DIFF_BWD || micro_opcode == MICRO_DIFF_CEN || micro_opcode == MICRO_FUSE_GEO_PROJ || micro_opcode == MICRO_FUSE_FREQ_DIFF || micro_opcode == MICRO_FUSE_TEN_GEO || micro_opcode == MICRO_ROT_CL || micro_opcode == MICRO_REF_CL || micro_opcode == MICRO_DUAL_CL
+          let n = len(stack)
+          if n >= 2
+            let b = stack[n - 1]
+            let a = stack[n - 2]
+            stack = stack.slice(0, n - 2)
+            stack = stack.push(my_micro_eval(micro_opcode, [a, b]))
+          else
+              0
+        else
+          0
+        if micro_opcode == MICRO_PROJ_HOM
+          let n = len(stack)
+          if n >= 2
+            let t = stack[n - 1]
+            let c = stack[n - 2]
+            stack = stack.slice(0, n - 2)
+            stack = stack.push(my_micro_eval(micro_opcode, [c, t]))
+          else
+              0
+        else
+          0
+        if pe_type == PE_EMIT
+          let n = len(stack)
+          if n >= 1
+            result = stack[n - 1]
+          else
+              0
+        else
+          0
+        if micro_opcode == MICRO_END
+          done = true
+        else
+            0
+      else
+        done = true
+    result
+
+let my_qqbc_to_dag(qqbc) =
+    let nodes = []
+    let edges = []
+    let stack = []
+    let pc = 0
+    let done = false
+    let root = -1
+    for !done
+      let op = qqbc[pc]
+      pc = pc + 1
+      if op == QQ_TOKEN
+        pc = pc + 1
+        let node = {node_id: len(nodes), opcode: op, pe_type: op, in_ports: [], out_ports: [], fusion_group: -1, schedule_hint: 0}
+        nodes = nodes.push(node)
+        stack = stack.push(len(nodes) - 1)
+      else
+        0
+      if op <= 5
+        let node = {node_id: len(nodes), opcode: op, pe_type: op, in_ports: [], out_ports: [], fusion_group: -1, schedule_hint: 0}
+        nodes = nodes.push(node)
+        let new_id = len(nodes) - 1
+        let n = len(stack)
+        if n >= 2
+          let b_id = stack[n - 1]
+          let a_id = stack[n - 2]
+          let e1 = {src_node: a_id, src_port: 0, dst_node: new_id, dst_port: 0, token_type: 0, fifo_depth: 4}
+          let e2 = {src_node: b_id, src_port: 0, dst_node: new_id, dst_port: 1, token_type: 0, fifo_depth: 4}
+          edges = edges.push(e1)
+          edges = edges.push(e2)
+          stack = stack.slice(0, n - 2)
+          stack = stack.push(new_id)
+        else
+            0
+      else
+        0
+      if op == QQ_EMIT
+        let node = {node_id: len(nodes), opcode: op, pe_type: op, in_ports: [], out_ports: [], fusion_group: -1, schedule_hint: 0}
+        nodes = nodes.push(node)
+        let new_id = len(nodes) - 1
+        let n = len(stack)
+        if n >= 1
+          let src_id = stack[n - 1]
+          let e1 = {src_node: src_id, src_port: 0, dst_node: new_id, dst_port: 0, token_type: 0, fifo_depth: 4}
+          edges = edges.push(e1)
+          stack = stack.slice(0, n - 1)
+          stack = stack.push(new_id)
+          root = new_id
+        else
+            0
+      else
+        0
+      if op == QQ_END
+        done = true
+      else
+        0
+      if pc >= len(qqbc)
+        done = true
+      else
+          0
+    {nodes: nodes, edges: edges, node_count: len(nodes), edge_count: len(edges), root: root}
+
+let my_pass_constant_fold(micro_seq) =
+    let n = len(micro_seq)
+    if n == 7
+      let t1 = micro_seq[0]
+      let a = micro_seq[1]
+      let t2 = micro_seq[2]
+      let b = micro_seq[3]
+      let op = micro_seq[4]
+      let emit = micro_seq[5]
+      let end = micro_seq[6]
+      let is_pattern = t1 == MICRO_TOKEN && t2 == MICRO_TOKEN && emit == MICRO_EMIT && end == MICRO_END
+      let foldable = op == MICRO_MUL_GF || op == MICRO_ADD_GF || op == MICRO_SUB_GF || op == MICRO_PROD_CL || op == MICRO_FFT_FWD || op == MICRO_DIFF_FWD || op == MICRO_PROJ_HOM || op == MICRO_FUSE_GEO_PROJ || op == MICRO_FUSE_FREQ_DIFF || op == MICRO_FUSE_TEN_GEO
+      if is_pattern && foldable
+        let result = my_micro_eval(op, [a, b])
+        [MICRO_TOKEN, result, MICRO_EMIT, MICRO_END]
+      else
+          0
+    else
+      0
+    micro_seq
+
+let my_pass_all(micro_seq) = my_pass_constant_fold(micro_seq)
+
+let my_err_offset_to_pos(src, target_offset) =
+    let line = 1
+    let col = 1
+    let i = 0
+    let done = false
+    for !done
+      if i < len(src)
+        if i == target_offset
+          done = true
+        else
+          let b = src[i]
+          if b == 10
+            line = line + 1
+            col = 1
+          else
+            col = col + 1
+            0
+          i = i + 1
+      else
+        done = true
+    [line, col]
+
+let src_gfmul    = [112, 114, 105, 110, 116, 40, 49, 32, 226, 138, 153, 32, 50, 41]
+let src_clifford = [112, 114, 105, 110, 116, 40, 51, 32, 226, 151, 166, 32, 53, 41]
+let src_ntt      = [112, 114, 105, 110, 116, 40, 56, 32, 226, 137, 139, 32, 51, 41]
+let src_born     = [112, 114, 105, 110, 116, 40, 49, 32, 226, 134, 161, 32, 55, 41]
+let src_hebbian  = [112, 114, 105, 110, 116, 40, 50, 32, 226, 136, 134, 32, 51, 41]
+
+let expect_qqbc_gfmul    = [QQ_TOKEN, 1, QQ_TOKEN, 2, QQ_GFMUL,    QQ_EMIT, QQ_END]
+let expect_qqbc_clifford = [QQ_TOKEN, 3, QQ_TOKEN, 5, QQ_CLIFFORD, QQ_EMIT, QQ_END]
+let expect_qqbc_ntt      = [QQ_TOKEN, 8, QQ_TOKEN, 3, QQ_NTT,      QQ_EMIT, QQ_END]
+let expect_qqbc_born     = [QQ_TOKEN, 1, QQ_TOKEN, 7, QQ_BORN,     QQ_EMIT, QQ_END]
+let expect_qqbc_hebbian  = [QQ_TOKEN, 2, QQ_TOKEN, 3, QQ_HEBBIAN,  QQ_EMIT, QQ_END]
+
+let expect_micro_gfmul    = [MICRO_TOKEN, 1, MICRO_TOKEN, 2, MICRO_MUL_GF,    MICRO_EMIT, MICRO_END]
+let expect_micro_clifford = [MICRO_TOKEN, 3, MICRO_TOKEN, 5, MICRO_PROD_CL,   MICRO_EMIT, MICRO_END]
+let expect_micro_ntt      = [MICRO_TOKEN, 8, MICRO_TOKEN, 3, MICRO_FFT_FWD,   MICRO_EMIT, MICRO_END]
+let expect_micro_born     = [MICRO_TOKEN, 1, MICRO_TOKEN, 7, MICRO_PROJ_HOM,  MICRO_EMIT, MICRO_END]
+let expect_micro_hebbian  = [MICRO_TOKEN, 2, MICRO_TOKEN, 3, MICRO_DIFF_FWD,  MICRO_EMIT, MICRO_END]
+
+let expect_pe_gfmul    = [PE_TOKEN, PE_TOKEN, PE_MAC, PE_EMIT, 0]
+let expect_pe_clifford = [PE_TOKEN, PE_TOKEN, PE_MAC, PE_EMIT, 0]
+let expect_pe_ntt      = [PE_TOKEN, PE_TOKEN, PE_FFT, PE_EMIT, 0]
+let expect_pe_born     = [PE_TOKEN, PE_TOKEN, PE_ALU, PE_EMIT, 0]
+let expect_pe_hebbian  = [PE_TOKEN, PE_TOKEN, PE_ALU, PE_EMIT, 0]
+
+let expect_exit_gfmul    = 2
+let expect_exit_clifford = 6
+let expect_exit_ntt      = 15
+let expect_exit_born     = 7
+let expect_exit_hebbian  = 5
+
+let qqbc_gfmul    = my_qq_lexer(src_gfmul)
+let qqbc_clifford = my_qq_lexer(src_clifford)
+let qqbc_ntt      = my_qq_lexer(src_ntt)
+let qqbc_born     = my_qq_lexer(src_born)
+let qqbc_hebbian  = my_qq_lexer(src_hebbian)
+
+let exit_qq_gfmul    = my_qq_interp(qqbc_gfmul)
+let exit_qq_clifford = my_qq_interp(qqbc_clifford)
+let exit_qq_ntt      = my_qq_interp(qqbc_ntt)
+let exit_qq_born     = my_qq_interp(qqbc_born)
+let exit_qq_hebbian  = my_qq_interp(qqbc_hebbian)
+
+let micro_gfmul    = my_qqbc_to_micro_seq(qqbc_gfmul)
+let micro_clifford = my_qqbc_to_micro_seq(qqbc_clifford)
+let micro_ntt      = my_qqbc_to_micro_seq(qqbc_ntt)
+let micro_born     = my_qqbc_to_micro_seq(qqbc_born)
+let micro_hebbian  = my_qqbc_to_micro_seq(qqbc_hebbian)
+
+let exit_micro_gfmul    = my_micro_interp(micro_gfmul)
+let exit_micro_clifford = my_micro_interp(micro_clifford)
+let exit_micro_ntt      = my_micro_interp(micro_ntt)
+let exit_micro_born     = my_micro_interp(micro_born)
+let exit_micro_hebbian  = my_micro_interp(micro_hebbian)
+
+let pe_gfmul    = my_micro_seq_to_pe_opcodes(micro_gfmul)
+let pe_clifford = my_micro_seq_to_pe_opcodes(micro_clifford)
+let pe_ntt      = my_micro_seq_to_pe_opcodes(micro_ntt)
+let pe_born     = my_micro_seq_to_pe_opcodes(micro_born)
+let pe_hebbian  = my_micro_seq_to_pe_opcodes(micro_hebbian)
+
+let exit_pe_gfmul    = my_pe_interp(pe_gfmul)
+let exit_pe_clifford = my_pe_interp(pe_clifford)
+let exit_pe_ntt      = my_pe_interp(pe_ntt)
+let exit_pe_born     = my_pe_interp(pe_born)
+let exit_pe_hebbian  = my_pe_interp(pe_hebbian)
+
+let dag_gfmul    = my_qqbc_to_dag(qqbc_gfmul)
+let dag_clifford = my_qqbc_to_dag(qqbc_clifford)
+let dag_ntt      = my_qqbc_to_dag(qqbc_ntt)
+let dag_born     = my_qqbc_to_dag(qqbc_born)
+let dag_hebbian  = my_qqbc_to_dag(qqbc_hebbian)
+
+let pass_gfmul    = my_pass_all(micro_gfmul)
+let pass_clifford = my_pass_all(micro_clifford)
+let pass_ntt      = my_pass_all(micro_ntt)
+let pass_born     = my_pass_all(micro_born)
+let pass_hebbian  = my_pass_all(micro_hebbian)
+
+let exit_pass_gfmul    = my_micro_interp(pass_gfmul)
+let exit_pass_clifford = my_micro_interp(pass_clifford)
+let exit_pass_ntt      = my_micro_interp(pass_ntt)
+let exit_pass_born     = my_micro_interp(pass_born)
+let exit_pass_hebbian  = my_micro_interp(pass_hebbian)
+
+let err_pos_test_1 = my_err_offset_to_pos(src_gfmul, 6)
+let err_pos_test_2 = my_err_offset_to_pos(src_gfmul, 8)
+
+let dfl_qqbc_gfmul    = qqbc_gfmul == expect_qqbc_gfmul
+let dfl_qqbc_clifford = qqbc_clifford == expect_qqbc_clifford
+let dfl_qqbc_ntt      = qqbc_ntt == expect_qqbc_ntt
+let dfl_qqbc_born     = qqbc_born == expect_qqbc_born
+let dfl_qqbc_hebbian  = qqbc_hebbian == expect_qqbc_hebbian
+
+let dfl_micro_gfmul    = micro_gfmul == expect_micro_gfmul
+let dfl_micro_clifford = micro_clifford == expect_micro_clifford
+let dfl_micro_ntt      = micro_ntt == expect_micro_ntt
+let dfl_micro_born     = micro_born == expect_micro_born
+let dfl_micro_hebbian  = micro_hebbian == expect_micro_hebbian
+
+let dfl_3layer_gfmul    = exit_qq_gfmul == exit_micro_gfmul && exit_micro_gfmul == exit_pe_gfmul
+let dfl_3layer_clifford = exit_qq_clifford == exit_micro_clifford && exit_micro_clifford == exit_pe_clifford
+let dfl_3layer_ntt      = exit_qq_ntt == exit_micro_ntt && exit_micro_ntt == exit_pe_ntt
+let dfl_3layer_born     = exit_qq_born == exit_micro_born && exit_micro_born == exit_pe_born
+let dfl_3layer_hebbian  = exit_qq_hebbian == exit_micro_hebbian && exit_micro_hebbian == exit_pe_hebbian
+
+let dfl_dag_gfmul    = dag_gfmul.node_count == 4 && dag_gfmul.edge_count == 3
+let dfl_dag_clifford = dag_clifford.node_count == 4 && dag_clifford.edge_count == 3
+let dfl_dag_ntt      = dag_ntt.node_count == 4 && dag_ntt.edge_count == 3
+let dfl_dag_born     = dag_born.node_count == 4 && dag_born.edge_count == 3
+let dfl_dag_hebbian  = dag_hebbian.node_count == 4 && dag_hebbian.edge_count == 3
+
+let dfl_pass_gfmul    = exit_pass_gfmul == exit_micro_gfmul
+let dfl_pass_clifford = exit_pass_clifford == exit_micro_clifford
+let dfl_pass_ntt      = exit_pass_ntt == exit_micro_ntt
+let dfl_pass_born     = exit_pass_born == exit_micro_born
+let dfl_pass_hebbian  = exit_pass_hebbian == exit_micro_hebbian
+
+print([len(src_gfmul), len(qqbc_gfmul), len(micro_gfmul), dag_gfmul.node_count, dag_gfmul.edge_count, exit_qq_gfmul, exit_micro_gfmul, exit_pe_gfmul, exit_pass_gfmul])
+print([len(src_clifford), len(qqbc_clifford), len(micro_clifford), dag_clifford.node_count, dag_clifford.edge_count, exit_qq_clifford, exit_micro_clifford, exit_pe_clifford, exit_pass_clifford])
+print([len(src_ntt), len(qqbc_ntt), len(micro_ntt), dag_ntt.node_count, dag_ntt.edge_count, exit_qq_ntt, exit_micro_ntt, exit_pe_ntt, exit_pass_ntt])
+print([len(src_born), len(qqbc_born), len(micro_born), dag_born.node_count, dag_born.edge_count, exit_qq_born, exit_micro_born, exit_pe_born, exit_pass_born])
+print([len(src_hebbian), len(qqbc_hebbian), len(micro_hebbian), dag_hebbian.node_count, dag_hebbian.edge_count, exit_qq_hebbian, exit_micro_hebbian, exit_pe_hebbian, exit_pass_hebbian])
+
+print([dfl_qqbc_gfmul, dfl_qqbc_clifford, dfl_qqbc_ntt, dfl_qqbc_born, dfl_qqbc_hebbian])
+print([dfl_micro_gfmul, dfl_micro_clifford, dfl_micro_ntt, dfl_micro_born, dfl_micro_hebbian])
+print([dfl_3layer_gfmul, dfl_3layer_clifford, dfl_3layer_ntt, dfl_3layer_born, dfl_3layer_hebbian])
+print([dfl_dag_gfmul, dfl_dag_clifford, dfl_dag_ntt, dfl_dag_born, dfl_dag_hebbian])
+print([dfl_pass_gfmul, dfl_pass_clifford, dfl_pass_ntt, dfl_pass_born, dfl_pass_hebbian])
+
+print(err_pos_test_1)
+print(err_pos_test_2)
+
+print([1])

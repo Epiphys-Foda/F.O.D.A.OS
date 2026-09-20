@@ -1,0 +1,119 @@
+let simple_interest(principal, rate, time) =
+    principal * rate * time / 10000
+
+let compound_interest(principal, rate, time, n) =
+    let r = rate * 1000 / 10000
+    let factor = 1000 + r / n
+    let exp = n * time
+    let result = principal
+    let i = 0
+    for i < exp
+        result = result * factor / 1000
+        i = i + 1
+    result
+
+let continuous_compound(principal, rate, time) =
+    let x = rate * time / 10000
+    let exp_x = 1
+    let term = 1000
+    let i = 1
+    for i < 20
+        term = term * x / (i * 1000)
+        exp_x = exp_x + term
+        i = i + 1
+    principal * exp_x / 1000
+
+let annuity_payment(principal, rate, n_periods) =
+    let r = rate * 1000 / 10000
+    let factor = 1000 + r
+    let pow = 1
+    let i = 0
+    for i < n_periods
+        pow = pow * factor / 1000
+        i = i + 1
+    let denom = 1000 - 1000000 / pow
+    if denom == 0
+        principal / n_periods
+    else
+        principal * r / denom
+
+let present_value(future_value, rate, n_periods) =
+    let factor = 1000 + rate * 1000 / 10000
+    let pow = 1
+    let i = 0
+    for i < n_periods
+        pow = pow * factor / 1000
+        i = i + 1
+    future_value * 1000 / pow
+
+let future_value_annuity(payment, rate, n_periods) =
+    let r = rate * 1000 / 10000
+    let factor = 1000 + r
+    let pow = 1
+    let i = 0
+    for i < n_periods
+        pow = pow * factor / 1000
+        i = i + 1
+    if r == 0
+        payment * n_periods
+    else
+        payment * (pow - 1000) / r
+
+let npv(cashflows, rate) =
+    let npv_val = cashflows[0]
+    let factor = 1000 + rate * 1000 / 10000
+    let pow = factor
+    let i = 1
+    for i < cashflows.len()
+        npv_val = npv_val + cashflows[i] * 1000 / pow
+        pow = pow * factor / 1000
+        i = i + 1
+    npv_val
+
+let straight_line_depreciation(cost, salvage, life) =
+    (cost - salvage) / life
+
+let declining_balance_depreciation(cost, rate, year) =
+    let r = rate * 1000 / 10000
+    let factor = 1000 - r
+    let pow = 1
+    let i = 0
+    for i < year - 1
+        pow = pow * factor / 1000
+        i = i + 1
+    cost * r / 1000 * pow / 1000
+
+let payback_period(cashflows) =
+    let cumulative = cashflows[0]
+    let i = 1
+    for i < cashflows.len() && cumulative < 0
+        cumulative = cumulative + cashflows[i]
+        if cumulative >= 0
+            let fraction = -cashflows[i - 1] * 1000 / cashflows[i]
+            return i - 1 + fraction / 1000
+        i = i + 1
+    i
+
+let bond_price(face, coupon_rate, yield_rate, n_periods) =
+    let price = 0
+    let y = yield_rate * 1000 / 10000
+    let c = face * coupon_rate / 10000
+    let factor = 1000 + y
+    let pow = factor
+    let i = 1
+    for i <= n_periods
+        price = price + c * 1000 / pow
+        pow = pow * factor / 1000
+        i = i + 1
+    price + face * 1000 / pow * factor / 1000
+
+let main() =
+    let v1 = simple_interest(10000, 500, 5)
+    print(v1)
+    let v2 = compound_interest(10000, 500, 5, 1)
+    print(v2)
+    let v3 = annuity_payment(100000, 100, 10)
+    print(v3)
+    let v4 = npv([-100000, 30000, 30000, 30000, 30000], 1000)
+    print(v4)
+    0

@@ -1,0 +1,192 @@
+let bloom_create(size, num_hashes) =
+    let num_words = (size + 31) / 32
+    let bits = arr_new_n(num_words)
+    let result = arr_new()
+    result = arr_push(result, bits)
+    result = arr_push(result, size)
+    result = arr_push(result, num_hashes)
+    result = arr_push(result, 0)
+    result
+
+let bloom_hash1(key, size) =
+    let h = key * 265443576
+    if h < 0
+        h = 0 - h
+    h % size
+
+let bloom_hash2(key, size) =
+    let h = key * 40503
+    if h < 0
+        h = 0 - h
+    h % size
+
+let bloom_hash3(key, size) =
+    let h = key * 65599
+    if h < 0
+        h = 0 - h
+    h % size
+
+let bloom_hash_n(key, n, size) =
+    let h1 = bloom_hash1(key, size)
+    let h2 = bloom_hash2(key, size)
+    (h1 + n * h2) % size
+
+let bloom_set_bit(bloom, bit) =
+    let bits = bloom[0]
+    let wi = bit / 32
+    let bo = bit % 32
+    let mask = 1
+    let i = 0
+    for i < bo
+        mask = mask * 2
+        i = i + 1
+    bits[wi] = bits[wi] | mask
+    bloom[0] = bits
+    bloom
+
+let bloom_test_bit(bloom, bit) =
+    let bits = bloom[0]
+    let wi = bit / 32
+    let bo = bit % 32
+    let word = bits[wi]
+    let shifted = word
+    let i = 0
+    for i < bo
+        shifted = shifted / 2
+        i = i + 1
+    shifted % 2
+
+let bloom_insert(bloom, key) =
+    let size = bloom[1]
+    let num_hashes = bloom[2]
+    let i = 0
+    for i < num_hashes
+        let bit = bloom_hash_n(key, i, size)
+        bloom = bloom_set_bit(bloom, bit)
+        i = i + 1
+    bloom[3] = bloom[3] + 1
+    bloom
+
+let bloom_contains(bloom, key) =
+    let size = bloom[1]
+    let num_hashes = bloom[2]
+    let i = 0
+    for i < num_hashes
+        let bit = bloom_hash_n(key, i, size)
+        if bloom_test_bit(bloom, bit) == 0
+            return 0
+        i = i + 1
+    1
+
+let bloom_count(bloom) = bloom[3]
+
+let bloom_size(bloom) = bloom[1]
+
+let bloom_num_hashes(bloom) = bloom[2]
+
+let bloom_clear(bloom) =
+    let bits = bloom[0]
+    let n = bits.len()
+    let i = 0
+    for i < n
+        bits[i] = 0
+        i = i + 1
+    bloom[0] = bits
+    bloom[3] = 0
+    bloom
+
+let bloom_popcount(bloom) =
+    let bits = bloom[0]
+    let n = bits.len()
+    let count = 0
+    let i = 0
+    for i < n
+        let w = bits[i]
+        for w != 0
+            count = count + (w % 2)
+            w = w / 2
+        i = i + 1
+    count
+
+let bloom_estimated_fp_rate(bloom) =
+    let k = bloom[2]
+    let n = bloom[3]
+    let m = bloom[1]
+    if m == 0
+        return 0
+    let ratio = (k * n * 1000) / m
+    let result = ratio
+    let i = 1
+    for i < k
+        result = result * ratio / 1000
+        i = i + 1
+    result / 1000
+
+let bloom_union(a, b) =
+    let bits_a = a[0]
+    let bits_b = b[0]
+    let n = bits_a.len()
+    let result_bits = arr_new_n(n)
+    let i = 0
+    for i < n
+        result_bits[i] = bits_a[i] | bits_b[i]
+        i = i + 1
+    let result = arr_new()
+    result = arr_push(result, result_bits)
+    result = arr_push(result, a[1])
+    result = arr_push(result, a[2])
+    result = arr_push(result, a[3] + b[3])
+    result
+
+let bloom_intersect(a, b) =
+    let bits_a = a[0]
+    let bits_b = b[0]
+    let n = bits_a.len()
+    let result_bits = arr_new_n(n)
+    let i = 0
+    for i < n
+        result_bits[i] = bits_a[i] & bits_b[i]
+        i = i + 1
+    let result = arr_new()
+    result = arr_push(result, result_bits)
+    result = arr_push(result, a[1])
+    result = arr_push(result, a[2])
+    result = arr_push(result, 0)
+    result
+
+let bloom_insert_batch(bloom, keys) =
+    let n = keys.len()
+    let i = 0
+    for i < n
+        bloom = bloom_insert(bloom, keys[i])
+        i = i + 1
+    bloom
+
+let bloom_contains_all(bloom, keys) =
+    let n = keys.len()
+    let i = 0
+    for i < n
+        if bloom_contains(bloom, keys[i]) == 0
+            return 0
+        i = i + 1
+    1
+
+let bloom_optimal_hashes(m, n) =
+    if n == 0
+        return 1
+    let ratio = m / n
+    (ratio * 693) / 1000
+
+let bloom_optimal_size(n, fp_percent) =
+    n * 10
+
+let main() =
+    let bloom = bloom_create(1000, 3)
+    bloom = bloom_insert(bloom, 42)
+    bloom = bloom_insert(bloom, 100)
+    bloom = bloom_insert(bloom, 200)
+    print(bloom_contains(bloom, 42))
+    print(bloom_contains(bloom, 100))
+    print(bloom_contains(bloom, 999))
+    print(bloom_count(bloom))
+    0

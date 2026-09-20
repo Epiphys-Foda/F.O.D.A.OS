@@ -1,0 +1,95 @@
+let repl_create() =
+    let state = arr_new_n(5)
+    state[0] = arr_new()
+    state[1] = 0
+    state[2] = arr_new()
+    state[3] = 0
+    state[4] = 1
+    state
+
+let REPL_CMD_NONE = 0
+let REPL_CMD_HELP = 1
+let REPL_CMD_QUIT = 2
+let REPL_CMD_LOAD = 3
+let REPL_CMD_TYPE = 4
+let REPL_CMD_TIME = 5
+let REPL_CMD_BENCH = 6
+let REPL_CMD_EVAL = 7
+
+let repl_parse_command(line) =
+    if line.len() == 0
+        REPL_CMD_NONE
+    else
+        if line[0] == 58
+            if line.len() >= 5 && line[1] == 104 && line[2] == 101 && line[3] == 108 && line[4] == 112
+                REPL_CMD_HELP
+            else
+                if line.len() >= 5 && line[1] == 113 && line[2] == 117 && line[3] == 105 && line[4] == 116
+                    REPL_CMD_QUIT
+                else
+                    if line.len() >= 5 && line[1] == 108 && line[2] == 111 && line[3] == 97 && line[4] == 100
+                        REPL_CMD_LOAD
+                    else
+                        if line.len() >= 5 && line[1] == 116 && line[2] == 121 && line[3] == 112 && line[4] == 101
+                            REPL_CMD_TYPE
+                        else
+                            if line.len() >= 5 && line[1] == 116 && line[2] == 105 && line[3] == 109 && line[4] == 101
+                                REPL_CMD_TIME
+                            else
+                                if line.len() >= 6 && line[1] == 98 && line[2] == 101 && line[3] == 110 && line[4] == 99 && line[5] == 104
+                                    REPL_CMD_BENCH
+                                else
+                                    REPL_CMD_NONE
+        else
+            REPL_CMD_EVAL
+let repl_help() =
+    let lines = arr_new()
+    lines = arr_push(lines, "PsiLang REPL Commands:")
+    lines = arr_push(lines, "  :help    - show this help")
+    lines = arr_push(lines, "  :quit    - exit REPL")
+    lines = arr_push(lines, "  :load f  - load file ")
+    lines = arr_push(lines, "  :type e  - show type of expression e")
+    lines = arr_push(lines, "  :time e  - time expression e")
+    lines = arr_push(lines, "  :bench e - benchmark expression e")
+    lines = arr_push(lines, "  <expr>   - evaluate expression")
+    lines
+
+let repl_history_add(state, line) =
+    let s0 = state[0]
+    state[0] = arr_push(s0, line)
+    state[1] = s0.len() + 1
+
+let repl_history_prev(state) =
+    if state[1] > 0
+        state[1] = state[1] - 1
+        state[0][state[1]]
+    else
+        arr_new()
+
+let repl_history_next(state) =
+    let s0 = state[0]
+    if state[1] < s0.len() - 1
+        state[1] = state[1] + 1
+        state[0][state[1]]
+    else
+        arr_new()
+
+let repl_eval(state, expr) =
+    state[3] = state[3] + 1
+    expr
+
+let repl_step(state, input_line) =
+    let cmd = repl_parse_command(input_line)
+    if cmd == REPL_CMD_QUIT
+        state[4] = 0
+        state
+    else
+        if cmd == REPL_CMD_HELP
+            repl_help()
+        else
+            if cmd == REPL_CMD_EVAL
+                repl_history_add(state, input_line)
+                repl_eval(state, input_line)
+            else
+                state
+let repl_running(state) = state[4]

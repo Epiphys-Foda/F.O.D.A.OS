@@ -1,0 +1,19 @@
+import "ck.ψ"
+let bad = [0]
+
+let f_abs = 363
+let f_mir = 726
+let dz1 = f_mir - f_abs * 2
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let y_ika = 2010
+bad[0] = bad[0] + ck(y_ika, 2008, 2012)
+
+let y_ls = 2015
+bad[0] = bad[0] + ck(y_ls, 2013, 2017)
+bad[0] = bad[0] + ck_lo(y_ls, y_ika)
+
+if 2019 < 2010
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,21 @@
+import "ck.ψ"
+let bad = [0]
+
+let n_stages = 25
+bad[0] = bad[0] + ck(n_stages, 20, 30)
+
+let e_ph = 200
+bad[0] = bad[0] + ck(e_ph, 180, 250)
+
+let lam_um = 4
+bad[0] = bad[0] + ck(lam_um, 3, 6)
+
+let inv = 1
+bad[0] = bad[0] + ck_lo(inv, 1)
+
+if 1994 < 1992
+    bad[0] = bad[0] + 1
+if 1994 > 1996
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

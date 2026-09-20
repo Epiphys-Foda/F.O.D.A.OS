@@ -1,0 +1,45 @@
+import "ck.ψ"
+let bad = [0]
+
+let v0 = 25
+let g_a = 10
+let vx_a = v0 * 4 / 5
+let vy_a = v0 * 3 / 5
+let sum_sq = vx_a * vx_a + vy_a * vy_a
+let dz1 = sum_sq - v0 * v0
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let t_a = 2 * vy_a / g_a
+let dz2 = t_a - 3
+bad[0] = bad[0] + ck(dz2, 0, 0)
+let r_a = vx_a * t_a
+let dz3 = r_a - 60
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let vx_b = v0 * 3 / 5
+let vy_b = v0 * 4 / 5
+let t_b = 2 * vy_b / g_a
+let dz4 = t_b - 4
+bad[0] = bad[0] + ck(dz4, 0, 0)
+let r_b = vx_b * t_b
+let dz5 = r_b - 60
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let dz6 = r_a - r_b
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+let r45 = v0 * v0 / g_a
+bad[0] = bad[0] + ck_lo(r45, 61)
+
+let h_b = vy_b * vy_b / (2 * g_a)
+let dz8 = h_b - 20
+bad[0] = bad[0] + ck(dz8, 0, 0)
+let h_a = vy_a * vy_a / (2 * g_a)
+bad[0] = bad[0] + ck(h_a, 10, 12)
+
+if 1638 < 1636
+    bad[0] = bad[0] + 1
+if 1638 > 1640
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

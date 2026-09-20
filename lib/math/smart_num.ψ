@@ -1,0 +1,582 @@
+import "../domain/domain_field.ψ"
+
+import "bigint.ψ"
+import "bigint_crt.ψ"
+import "../core/stdlib_lang2/gf_base.ψ"
+
+let sn_int(v) = [0, crt_from_int(v), 0]
+
+let sn_rat(n, d) = sn_normalize([1, crt_from_int(n), crt_from_int(d)])
+
+let sn_zero() = [0, crt_zero(), 0]
+let sn_one() = [0, crt_one(), 0]
+
+let sn_bigint(bi) = [2, bi, 0]
+
+let sn_is_zero(a) =
+    if a[0] == 0
+        crt_is_zero(a[1])
+    else
+        crt_is_zero(a[1])
+
+let sn_is_one(a) =
+    if a[0] == 0
+        crt_is_one(a[1])
+    else
+        0
+
+let sn_normalize(a) =
+    if a[0] == 0 || a[0] == 2 || a[0] == 3 || a[0] == 5
+        a
+    else
+        let g = crt_gcd_bi(a[1], a[2])
+        if bi_is_one(g)
+            a
+        else
+            let num = crt_div_bi(a[1], g)
+            let den = crt_div_bi(a[2], g)
+            if a[0] == 4
+                [4, num, den]
+            else
+                [1, num, den]
+
+let sn_add(a, b) =
+    if a[0] == 3 && b[0] == 3
+        let sum = sn_add([0, a[1], 0], [0, b[1], 0])
+        if sum[0] == 0
+            [3, sum[1], 0]
+        else
+            0
+        if sum[0] == 2
+            [5, sum[1], 0]
+        else
+            sum
+    else
+        0
+    if a[0] == 3 && b[0] == 0
+        sn_sub([0, b[1], 0], [0, a[1], 0])
+    else
+        0
+    if a[0] == 0 && b[0] == 3
+        sn_sub([0, a[1], 0], [0, b[1], 0])
+    else
+        0
+    if a[0] == 2 && b[0] == 2
+        [2, bi_add(a[1], b[1]), 0]
+    else
+        0
+    if a[0] == 2 && b[0] == 0
+        [2, bi_add(a[1], crt_to_bi(b[1])), 0]
+    else
+        0
+    if a[0] == 0 && b[0] == 2
+        [2, bi_add(crt_to_bi(a[1]), b[1]), 0]
+    else
+        0
+    if a[0] == 0 && b[0] == 0
+        [0, crt_add(a[1], b[1]), 0]
+    else
+        0
+    if a[0] == 1 && b[0] == 1
+        let n1d2 = crt_mul(a[1], b[2])
+        let n2d1 = crt_mul(b[1], a[2])
+        let d1d2 = crt_mul(a[2], b[2])
+        sn_normalize([1, crt_add(n1d2, n2d1), d1d2])
+    else
+        0
+    if a[0] == 0 && b[0] == 1
+        let iden = crt_mul(a[1], b[2])
+        sn_normalize([1, crt_add(iden, b[1]), b[2]])
+    else
+        0
+    if a[0] == 1 && b[0] == 0
+        let iden = crt_mul(b[1], a[2])
+        sn_normalize([1, crt_add(a[1], iden), a[2]])
+    else
+        [0, crt_add(a[1], b[1]), 0]
+
+let sn_sub(a, b) =
+    if a[0] == 2 && b[0] == 2
+        let cmp = bi_cmp(a[1], b[1])
+        if cmp >= 0
+            [2, bi_sub(a[1], b[1]), 0]
+        else
+            [5, bi_sub(b[1], a[1]), 0]
+    else
+        0
+    if a[0] == 0 && b[0] == 0
+        let cmp = crt_cmp(a[1], b[1])
+        if cmp >= 0
+            [0, crt_sub(a[1], b[1]), 0]
+        else
+            [3, crt_sub(b[1], a[1]), 0]
+    else
+        0
+    if a[0] == 1 && b[0] == 1
+        let n1d2 = crt_mul(a[1], b[2])
+        let n2d1 = crt_mul(b[1], a[2])
+        let d1d2 = crt_mul(a[2], b[2])
+        let cmp = crt_cmp(n1d2, n2d1)
+        if cmp >= 0
+            sn_normalize([1, crt_sub(n1d2, n2d1), d1d2])
+        else
+            sn_normalize([4, crt_sub(n2d1, n1d2), d1d2])
+    else
+        0
+    if a[0] == 0 && b[0] == 1
+        let iden = crt_mul(a[1], b[2])
+        let cmp = crt_cmp(iden, b[1])
+        if cmp >= 0
+            sn_normalize([1, crt_sub(iden, b[1]), b[2]])
+        else
+            sn_normalize([4, crt_sub(b[1], iden), b[2]])
+    else
+        0
+    if a[0] == 1 && b[0] == 0
+        let iden = crt_mul(b[1], a[2])
+        let cmp = crt_cmp(a[1], iden)
+        if cmp >= 0
+            sn_normalize([1, crt_sub(a[1], iden), a[2]])
+        else
+            sn_normalize([4, crt_sub(iden, a[1]), a[2]])
+    else
+        [0, crt_sub(a[1], b[1]), 0]
+
+let sn_mul(a, b) =
+    if a[0] == 2 && b[0] == 2
+        [2, bi_mul(a[1], b[1]), 0]
+    else
+        0
+    if a[0] == 2 && b[0] == 0
+        [2, bi_mul(a[1], crt_to_bi(b[1])), 0]
+    else
+        0
+    if a[0] == 0 && b[0] == 2
+        [2, bi_mul(crt_to_bi(a[1]), b[1]), 0]
+    else
+        0
+    if a[0] == 0 && b[0] == 0
+        [0, crt_mul(a[1], b[1]), 0]
+    else
+        0
+    if a[0] == 1 && b[0] == 1
+        sn_normalize([1, crt_mul(a[1], b[1]), crt_mul(a[2], b[2])])
+    else
+        0
+    if a[0] == 0 && b[0] == 1
+        sn_normalize([1, crt_mul(a[1], b[1]), b[2]])
+    else
+        0
+    if a[0] == 1 && b[0] == 0
+        sn_normalize([1, crt_mul(a[1], b[1]), a[2]])
+    else
+        [0, crt_mul(a[1], b[1]), 0]
+
+let sn_div(a, b) =
+    if a[0] == 0 && b[0] == 0
+        sn_normalize([1, a[1], b[1]])
+    else
+        0
+    if a[0] == 1 && b[0] == 1
+        sn_normalize([1, crt_mul(a[1], b[2]), crt_mul(a[2], b[1])])
+    else
+        0
+    if a[0] == 0 && b[0] == 1
+        sn_normalize([1, crt_mul(a[1], b[2]), b[1]])
+    else
+        0
+    if a[0] == 1 && b[0] == 0
+        sn_normalize([1, a[1], crt_mul(a[2], b[1])])
+    else
+        sn_normalize([1, a[1], b[1]])
+
+let sn_to_q64(a) =
+    if a[0] == 0
+        crt_to_int(a[1])
+    else
+        0
+    if a[0] == 1
+        let n = crt_to_int(a[1])
+        let d = crt_to_int(a[2])
+        if d == 0
+            0
+        else
+            n / d
+    else
+        crt_to_int(a[1])
+
+let sn_to_str(a) =
+    if a[0] == 0
+        crt_to_str(a[1])
+    else
+        0
+    if a[0] == 1
+        let n_str = crt_to_str(a[1])
+        let d_str = crt_to_str(a[2])
+        let d_val = crt_to_int(a[2])
+        if d_val == 1
+            n_str
+        else
+            0
+        if d_val == 0
+            "inf"
+        else
+            n_str + "/" + d_str
+    else
+        0
+    if a[0] == 2
+        bi_to_str(a[1])
+    else
+        0
+    if a[0] == 3
+        "-" + crt_to_str(a[1])
+    else
+        0
+    if a[0] == 4
+        let n_str = crt_to_str(a[1])
+        let d_str = crt_to_str(a[2])
+        let d_val = crt_to_int(a[2])
+        if d_val == 1
+            "-" + n_str
+        else
+            0
+        if d_val == 0
+            "-inf"
+        else
+            "-" + n_str + "/" + d_str
+    else
+        0
+    if a[0] == 5
+        "-" + bi_to_str(a[1])
+    else
+        crt_to_str(a[1])
+
+let sn_print(a) =
+    print_str(sn_to_str(a))
+
+let sn_cmp(a, b) =
+    let a_neg = a[0] == 3 || a[0] == 4 || a[0] == 5
+    let b_neg = b[0] == 3 || b[0] == 4 || b[0] == 5
+    if a_neg && !b_neg
+        0 - 1
+    else
+        0
+    if !a_neg && b_neg
+        1
+    else
+        0
+    if a_neg && b_neg
+        let abs_a = (a[0] == 3 ? [0, a[1], 0] : (a[0] == 5 ? [2, a[1], 0] : [1, a[1], a[2]]))
+        let abs_b = (b[0] == 3 ? [0, b[1], 0] : (b[0] == 5 ? [2, b[1], 0] : [1, b[1], b[2]]))
+        let c = sn_cmp(abs_a, abs_b)
+        if c > 0
+            0 - 1
+        else
+            0
+        if c < 0
+            1
+        else
+            0
+    else
+        0
+    if a[0] == 0 && b[0] == 0
+        crt_cmp(a[1], b[1])
+    else
+        0
+    if a[0] == 1 && b[0] == 1
+        let lhs = crt_mul(a[1], b[2])
+        let rhs = crt_mul(b[1], a[2])
+        crt_cmp(lhs, rhs)
+    else
+        0
+    if a[0] == 0 && b[0] == 1
+        let lhs = crt_mul(a[1], b[2])
+        crt_cmp(lhs, b[1])
+    else
+        0
+    if a[0] == 1 && b[0] == 0
+        let rhs = crt_mul(b[1], a[2])
+        crt_cmp(a[1], rhs)
+    else
+        crt_cmp(a[1], b[1])
+
+let sn_parse_decimal(s) =
+    let n = len(s)
+    let i = 0
+    let int_part = 0
+    let dec_part = 0
+    let dec_digits = 0
+    let has_dot = 0
+    for i < n && has_dot == 0
+        let c = s[i]
+        if c == 46
+            has_dot = 1
+        else
+            int_part = int_part * 10 + (c - 48)
+        i = i + 1
+    for i < n
+        let c = s[i]
+        dec_part = dec_part * 10 + (c - 48)
+        dec_digits = dec_digits + 1
+        i = i + 1
+    let den = 1
+    let k = 0
+    for k < dec_digits
+        den = den * 10
+        k = k + 1
+    let num = int_part * den + dec_part
+    sn_rat(num, den)
+
+let sn_decimal(int_part, dec_part, dec_digits) =
+    let den = 1
+    let k = 0
+    for k < dec_digits
+        den = den * 10
+        k = k + 1
+    let num = int_part * den + dec_part
+    sn_rat(num, den)
+
+let sn_pow(base, exp) =
+    if exp == 0
+        sn_one()
+    else
+        0
+    if exp == 1
+        base
+    else
+        let result = sn_one()
+        let b = base
+        let e = exp
+        for e > 0
+            if e - (e / 2) * 2 == 1
+                result = sn_mul(result, b)
+            b = sn_mul(b, b)
+            e = e / 2
+        result
+
+let sn_isqrt(a) =
+    if sn_cmp(a, sn_one()) <= 0
+        a
+    else
+        let x = sn_div(a, sn_int(2))
+        let prev = sn_zero()
+        for sn_cmp(x, prev) != 0
+            prev = x
+            let ax = sn_div(a, x)
+            let sum = sn_add(x, ax)
+            x = sn_div(sum, sn_int(2))
+        x
+
+let sn_neg(a) =
+    if a[0] == 0
+        sn_sub(sn_zero(), a)
+    else
+        sn_sub(sn_zero(), a)
+
+let sn_abs(a) =
+    a
+
+let sn_factorial(n) =
+    if n <= 1
+        sn_one()
+    else
+        let result = bi_one()
+        let i = 2
+        for i <= n
+            result = bi_mul_small(result, i)
+            i = i + 1
+        sn_bigint(result)
+
+let sn_fibonacci(n) =
+    if n == 0
+        sn_zero()
+    else
+        0
+    if n == 1
+        sn_one()
+    else
+        let prev = bi_zero()
+        let curr = bi_one()
+        let i = 2
+        for i <= n
+            let next = bi_add(prev, curr)
+            prev = curr
+            curr = next
+            i = i + 1
+        sn_bigint(curr)
+
+let sn_gcd(a, b) =
+    if a[0] == 0 && b[0] == 0
+        let g = crt_gcd_bi(a[1], b[1])
+        [0, crt_from_bi(g), 0]
+    else
+        sn_one()
+
+let sn_lcm(a, b) =
+    if a[0] == 0 && b[0] == 0
+        let g = crt_gcd_bi(a[1], b[1])
+        let prod = crt_mul(a[1], b[1])
+        [0, crt_div_bi(prod, g), 0]
+    else
+        sn_one()
+
+let sn_test() =
+    print_str("=== smart_num test ===")
+
+    let a = sn_int(42)
+    let b = sn_int(58)
+    let sum = sn_add(a, b)
+    print_str("42 + 58 = 100:")
+    sn_print(sum)
+
+    let c = sn_int(1000000000)
+    let d = sn_int(2000000000)
+    let prod = sn_mul(c, d)
+    print_str("1e9 * 2e9 = 2000000000000000000:")
+    sn_print(prod)
+
+    let r1 = sn_rat(1, 3)
+    let r2 = sn_rat(2, 3)
+    let rsum = sn_add(r1, r2)
+    print_str("1/3 + 2/3 = 3/3:")
+    sn_print(rsum)
+
+    let r3 = sn_rat(2, 3)
+    let r4 = sn_rat(3, 4)
+    let rdiv = sn_div(r3, r4)
+    print_str("(2/3)/(3/4) = 8/9:")
+    sn_print(rdiv)
+
+    let mi = sn_int(5)
+    let mr = sn_rat(1, 2)
+    let mixed = sn_add(mi, mr)
+    print_str("5 + 1/2 = 11/2:")
+    sn_print(mixed)
+
+    let q = sn_to_q64(sn_rat(22, 7))
+    print_str("22/7 Q64.64 view = 3:")
+    print(q)
+
+    let x = sn_int(999999999)
+    let y = sn_int(888888888)
+    let xy = sn_mul(x, y)
+    print_str("999999999 * 888888888 = 888888887111111112:")
+    sn_print(xy)
+
+    let diff = sn_sub(sn_int(100), sn_int(37))
+    print_str("100 - 37 = 63:")
+    sn_print(diff)
+
+    let idiv = sn_div(sn_int(10), sn_int(3))
+    print_str("10 / 3 = 10/3:")
+    sn_print(idiv)
+
+    let cmp1 = sn_cmp(sn_int(42), sn_int(58))
+    print_str("cmp(42, 58) = -1:")
+    if cmp1 > 0
+        print_str("1")
+    else
+        0
+    if cmp1 < 0
+        print_str("-1")
+    else
+        print_str("0")
+    let cmp2 = sn_cmp(sn_int(100), sn_int(100))
+    print_str("cmp(100, 100) = 0:")
+    if cmp2 > 0
+        print_str("1")
+    else
+        0
+    if cmp2 < 0
+        print_str("-1")
+    else
+        print_str("0")
+
+    let r5 = sn_rat(6, 8)
+    print_str("6/8 normalized = 3/4:")
+    sn_print(r5)
+
+    let r6 = sn_add(sn_rat(1, 3), sn_rat(2, 3))
+    print_str("1/3 + 2/3 = 1:")
+    sn_print(r6)
+
+    let r7 = sn_mul(sn_rat(2, 3), sn_rat(3, 4))
+    print_str("2/3 * 3/4 = 1/2:")
+    sn_print(r7)
+
+    let d1 = sn_decimal(1, 5, 1)
+    print_str("1.5 = 3/2:")
+    sn_print(d1)
+
+    let d2 = sn_decimal(0, 125, 3)
+    print_str("0.125 = 1/8:")
+    sn_print(d2)
+
+    let d3 = sn_decimal(3, 14, 2)
+    print_str("3.14 = 157/50:")
+    sn_print(d3)
+
+    let d4 = sn_decimal(1, 5, 1)
+    let d5 = sn_decimal(0, 5, 1)
+    let dsum = sn_add(d4, d5)
+    print_str("1.5 + 0.5 = 2:")
+    sn_print(dsum)
+
+    let dprod = sn_mul(sn_decimal(1, 5, 1), sn_int(4))
+    print_str("1.5 * 4 = 6:")
+    sn_print(dprod)
+
+    let p1 = sn_pow(sn_int(2), 10)
+    print_str("2^10 = 1024:")
+    sn_print(p1)
+
+    let p2 = sn_pow(sn_int(3), 5)
+    print_str("3^5 = 243:")
+    sn_print(p2)
+
+    let p3 = sn_pow(sn_int(10), 20)
+    print_str("10^20 = 100000000000000000000:")
+    sn_print(p3)
+
+    let d6 = sn_parse_decimal([50, 46, 53])
+    print_str("parse '2.5' = 5/2:")
+    sn_print(d6)
+
+    let f25 = sn_factorial(25)
+    print_str("25! = 15511210043330985984000000:")
+    sn_print(f25)
+
+    let fib90 = sn_fibonacci(90)
+    print_str("F(90) = 2880067194370816120:")
+    sn_print(fib90)
+
+    let gcd_val = sn_gcd(sn_int(48), sn_int(36))
+    print_str("gcd(48, 36) = 12:")
+    sn_print(gcd_val)
+
+    let lcm_val = sn_lcm(sn_int(4), sn_int(6))
+    print_str("lcm(4, 6) = 12:")
+    sn_print(lcm_val)
+
+    let neg1 = sn_sub(sn_int(5), sn_int(10))
+    print_str("5 - 10 = -5:")
+    sn_print(neg1)
+
+    let neg2 = sn_sub(sn_rat(1, 3), sn_rat(2, 3))
+    print_str("1/3 - 2/3 = -1/3:")
+    sn_print(neg2)
+
+    let neg3 = sn_sub(sn_rat(355, 113), sn_rat(22, 7))
+    print_str("355/113 - 22/7 = -1/791:")
+    sn_print(neg3)
+
+    let neg4 = sn_add(sn_sub(sn_int(0), sn_int(5)), sn_int(3))
+    print_str("-5 + 3 = -2:")
+    sn_print(neg4)
+
+    print_str("=== smart_num done ===")
+    1
+
+let kleene_verify(t1, t2) = domain_kleene_verify(t1, t2)
+
+let pcd_divergence(u, n) = domain_pcd_divergence(u, n)

@@ -1,0 +1,34 @@
+import "ck.ψ"
+let bad = [0]
+
+let ref = 29
+bad[0] = bad[0] + ck(ref, 28, 30)
+
+let seven = 7
+bad[0] = bad[0] + ck(seven, 5, 8)
+
+let mgr = 15
+bad[0] = bad[0] + ck(mgr, 12, 20)
+
+let refrarc = 34
+let sundia = 32
+let lift = refrarc - sundia
+bad[0] = bad[0] + ck_lo(lift, 1)
+
+let inv = 1
+bad[0] = bad[0] + ck_lo(inv, 1)
+
+if 1600 < 1598
+    bad[0] = bad[0] + 1
+if 1600 > 1602
+    bad[0] = bad[0] + 1
+if 1882 < 1880
+    bad[0] = bad[0] + 1
+if 1882 > 1884
+    bad[0] = bad[0] + 1
+if 1950 < 1948
+    bad[0] = bad[0] + 1
+if 1950 > 1952
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

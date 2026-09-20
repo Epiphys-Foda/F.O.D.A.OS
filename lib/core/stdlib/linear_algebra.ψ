@@ -1,0 +1,302 @@
+let la_vec_add(a, b) =
+    let n = a.len()
+    let result = arr_new()
+    let i = 0
+    for i < n
+        result = arr_push(result, a[i] + b[i])
+        i = i + 1
+    result
+
+let la_vec_sub(a, b) =
+    let n = a.len()
+    let result = arr_new()
+    let i = 0
+    for i < n
+        result = arr_push(result, a[i] - b[i])
+        i = i + 1
+    result
+
+let la_vec_scale(v, s) =
+    let n = v.len()
+    let result = arr_new()
+    let i = 0
+    for i < n
+        result = arr_push(result, v[i] * s)
+        i = i + 1
+    result
+
+let la_vec_dot(a, b) =
+    let n = a.len()
+    let result = 0
+    let i = 0
+    for i < n
+        result = result + a[i] * b[i]
+        i = i + 1
+    result
+
+let la_vec_cross(a, b) =
+    let result = arr_new()
+    result = arr_push(result, a[1] * b[2] - a[2] * b[1])
+    result = arr_push(result, a[2] * b[0] - a[0] * b[2])
+    result = arr_push(result, a[0] * b[1] - a[1] * b[0])
+    result
+
+let la_vec_norm_sq(v) = la_vec_dot(v, v)
+
+let la_vec_zeros(n) =
+    let result = arr_new()
+    let i = 0
+    for i < n
+        result = arr_push(result, 0)
+        i = i + 1
+    result
+
+let la_vec_ones(n) =
+    let result = arr_new()
+    let i = 0
+    for i < n
+        result = arr_push(result, 1)
+        i = i + 1
+    result
+
+let la_mat_zeros(rows, cols) =
+    let result = arr_new()
+    let i = 0
+    for i < rows
+        let row = arr_new()
+        let j = 0
+        for j < cols
+            row = arr_push(row, 0)
+            j = j + 1
+        result = arr_push(result, row)
+        i = i + 1
+    result
+
+let la_mat_identity(n) =
+    let result = arr_new()
+    let i = 0
+    for i < n
+        let row = arr_new()
+        let j = 0
+        for j < n
+            if j == i
+                row = arr_push(row, 1)
+            else
+                row = arr_push(row, 0)
+            j = j + 1
+        result = arr_push(result, row)
+        i = i + 1
+    result
+
+let la_mat_add(a, b) =
+    let rows = a.len()
+    let result = arr_new()
+    let i = 0
+    for i < rows
+        let row_a = a[i]
+        let row_b = b[i]
+        let cols = row_a.len()
+        let row = arr_new()
+        let j = 0
+        for j < cols
+            row = arr_push(row, row_a[j] + row_b[j])
+            j = j + 1
+        result = arr_push(result, row)
+        i = i + 1
+    result
+
+let la_mat_sub(a, b) =
+    let rows = a.len()
+    let result = arr_new()
+    let i = 0
+    for i < rows
+        let row_a = a[i]
+        let row_b = b[i]
+        let cols = row_a.len()
+        let row = arr_new()
+        let j = 0
+        for j < cols
+            row = arr_push(row, row_a[j] - row_b[j])
+            j = j + 1
+        result = arr_push(result, row)
+        i = i + 1
+    result
+
+let la_mat_scale(m, s) =
+    let rows = m.len()
+    let result = arr_new()
+    let i = 0
+    for i < rows
+        let row_m = m[i]
+        let cols = row_m.len()
+        let row = arr_new()
+        let j = 0
+        for j < cols
+            row = arr_push(row, row_m[j] * s)
+            j = j + 1
+        result = arr_push(result, row)
+        i = i + 1
+    result
+
+let la_mat_transpose(m) =
+    let rows = m.len()
+    let row0 = m[0]
+    let cols = row0.len()
+    let result = arr_new()
+    let j = 0
+    for j < cols
+        let row = arr_new()
+        let i = 0
+        for i < rows
+            let mi = m[i]
+            row = arr_push(row, mi[j])
+            i = i + 1
+        result = arr_push(result, row)
+        j = j + 1
+    result
+
+let la_mat_mul(a, b) =
+    let rows_a = a.len()
+    let row0_b = b[0]
+    let cols_b = row0_b.len()
+    let row0_a = a[0]
+    let cols_a = row0_a.len()
+    let result = arr_new()
+    let i = 0
+    for i < rows_a
+        let row = arr_new()
+        let j = 0
+        for j < cols_b
+            let sum = 0
+            let k = 0
+            for k < cols_a
+                let aik = a[i]
+                let bkj = b[k]
+                sum = sum + aik[k] * bkj[j]
+                k = k + 1
+            row = arr_push(row, sum)
+            j = j + 1
+        result = arr_push(result, row)
+        i = i + 1
+    result
+
+let la_mat_vec_mul(m, v) =
+    let rows = m.len()
+    let row0 = m[0]
+    let cols = row0.len()
+    let result = arr_new()
+    let i = 0
+    for i < rows
+        let sum = 0
+        let j = 0
+        let mi = m[i]
+        for j < cols
+            sum = sum + mi[j] * v[j]
+            j = j + 1
+        result = arr_push(result, sum)
+        i = i + 1
+    result
+
+let la_mat_trace(m) =
+    let n = m.len()
+    let result = 0
+    let i = 0
+    for i < n
+        let mi = m[i]
+        result = result + mi[i]
+        i = i + 1
+    result
+
+let la_mat_det(m) =
+    let n = m.len()
+    let work = arr_new()
+    let i = 0
+    for i < n
+        let row = arr_new()
+        let mi = m[i]
+        let j = 0
+        for j < n
+            row = arr_push(row, mi[j])
+            j = j + 1
+        work = arr_push(work, row)
+        i = i + 1
+    let det = 1
+    let col = 0
+    for col < n
+        let pivot = col
+        let wi = work[col]
+        if wi[col] == 0
+            let k = col + 1
+            for k < n
+                let wk = work[k]
+                if wk[col] != 0
+                    pivot = k
+                k = k + 1
+            if pivot == col
+                return 0
+            let tmp = work[col]
+            work[col] = work[pivot]
+            work[pivot] = tmp
+            det = 0 - det
+        let wcol = work[col]
+        det = det * wcol[col]
+        let k = col + 1
+        for k < n
+            let wk = work[k]
+            let factor = wk[col]
+            let j = col
+            for j < n
+                wk[j] = wk[j] * wcol[col] - factor * wcol[j]
+                j = j + 1
+            k = k + 1
+        col = col + 1
+    det
+
+let la_solve(m, b) =
+    let n = m.len()
+    let aug = arr_new()
+    let i = 0
+    for i < n
+        let row = arr_new()
+        let mi = m[i]
+        let j = 0
+        for j < n
+            row = arr_push(row, mi[j])
+            j = j + 1
+        row = arr_push(row, b[i])
+        aug = arr_push(aug, row)
+        i = i + 1
+    let col = 0
+    for col < n
+        let acol = aug[col]
+        let pivot = acol[col]
+        let k = col + 1
+        for k < n
+            let ak = aug[k]
+            let factor = ak[col]
+            let j = col
+            for j <= n
+                ak[j] = ak[j] * pivot - factor * acol[j]
+                j = j + 1
+            k = k + 1
+        col = col + 1
+    let x = arr_new_n(n)
+    i = n - 1
+    for i >= 0
+        let ai = aug[i]
+        let sum = ai[n]
+        let j = i + 1
+        for j < n
+            sum = sum - ai[j] * x[j]
+            j = j + 1
+        x[i] = sum / ai[i]
+        i = i - 1
+    x
+
+let main() =
+    let m = la_mat_identity(3)
+    let v = la_vec_ones(3)
+    let result = la_mat_vec_mul(m, v)
+    print(result[0])
+    print(la_mat_det(m))
+    0

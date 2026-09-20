@@ -1,0 +1,28 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+let e20 = 100000000000000000000
+let e13 = 10000000000000
+
+let na = 6022
+bad[0] = bad[0] + ck(na, 6021, 6023)
+
+let fC = small_div(na * 1602, 100)
+bad[0] = bad[0] + ck(fC, 96470, 96500)
+
+let R3 = small_div(na * 13807, 100 * 100)
+bad[0] = bad[0] + ck(R3, 8314, 8317)
+
+let naSi = 602
+bad[0] = bad[0] + ck(naSi, 600, 605)
+
+let ag = 107
+bad[0] = bad[0] + ck(ag, 107, 109)
+
+if naSi * 10 < 6019
+    bad[0] = bad[0] + 1
+if naSi * 10 > 6024
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

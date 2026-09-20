@@ -1,0 +1,292 @@
+import "sh_a9f96f3ee7.ψ"
+import "../core/stdlib/arr.ψ"
+import "../core/stdlib/gf65537.ψ"
+import "bootstrap_residue.ψ"
+
+let _fft_pow(base, exp, acc) =
+    if exp == 0
+      acc
+    else
+        0
+    if (exp & 1) == 1
+      _fft_pow(gfmul(base, base), exp >> 1, gfmul(acc, base))
+    else
+      _fft_pow(gfmul(base, base), exp >> 1, acc)
+let fft_root(n) = _fft_pow(3, 65536 / n, 1)
+
+let _ntt_inner(x, n, w, k, j, acc) =
+      if j >= n
+        acc
+      else
+        let wjk = _fft_pow(w, j * k, 1)
+        let term = gfmul(x[j], wjk)
+        _ntt_inner(x, n, w, k, j + 1, (acc + term) % 65537)
+let _ntt_outer(x, n, w, k, X) =
+      if k >= n
+        X
+      else
+        X[k] = _ntt_inner(x, n, w, k, 0, 0)
+        _ntt_outer(x, n, w, k + 1, X)
+let ntt(x, n) =
+    let w = fft_root(n)
+    let X = arr_new_n(n)
+    _ntt_outer(x, n, w, 0, X)
+    X
+
+let ntt_into(x, n, out) =
+    let X = ntt(x, n)
+    let _cp = _fft_copy_to(X, out, n, 0)
+let _fft_copy_to(src, dst, n, i) =
+    if i >= n
+      dst
+    else
+      dst[i] = src[i]
+      _fft_copy_to(src, dst, n, i + 1)
+let intt_into(X, n, out) =
+    let x = intt(X, n)
+    let _cp = _fft_copy_to(x, out, n, 0)
+
+let _intt_inner(X, n, w_inv, j, k, acc) =
+      if k >= n
+        acc
+      else
+        let wjk = _fft_pow(w_inv, j * k, 1)
+        let term = gfmul(X[k], wjk)
+        _intt_inner(X, n, w_inv, j, k + 1, (acc + term) % 65537)
+let _intt_outer(X, n, w_inv, n_inv, j, x) =
+      if j >= n
+        x
+      else
+        x[j] = gfmul(n_inv, _intt_inner(X, n, w_inv, j, 0, 0))
+        _intt_outer(X, n, w_inv, n_inv, j + 1, x)
+let intt(X, n) =
+    let w = fft_root(n)
+    let w_inv = gfinv(w)
+    let n_inv = gfinv(n)
+    let x = arr_new_n(n)
+    _intt_outer(X, n, w_inv, n_inv, 0, x)
+    x
+
+let cyclic_convolve(a, b, n) =
+    let A = ntt(a, n)
+    let B = ntt(b, n)
+    let C = arr_new_n(n)
+    _convolve_pointwise(A, B, C, n, 0)
+    intt(C, n)
+let _convolve_pointwise(A, B, C, n, i) =
+      if i >= n
+        C
+      else
+        C[i] = gfmul(A[i], B[i])
+        _convolve_pointwise(A, B, C, n, i + 1)
+
+let _ntt_with_w_inner(x, n, w, k, j, acc) =
+    if j >= n
+      acc
+    else
+      let wjk = _fft_pow(w, j * k, 1)
+      let term = gfmul(x[j], wjk)
+      _ntt_with_w_inner(x, n, w, k, j + 1, (acc + term) % 65537)
+let _ntt_with_w_outer(x, n, w, k, X) =
+    if k >= n
+      X
+    else
+      X[k] = _ntt_with_w_inner(x, n, w, k, 0, 0)
+      _ntt_with_w_outer(x, n, w, k + 1, X)
+let ntt_with_w(x, n, w) =
+    let X = arr_new_n(n)
+    _ntt_with_w_outer(x, n, w, 0, X)
+    X
+
+let ntt_transform(x) = ntt(x, arr_len(x))
+let intt_transform(X) = intt(X, arr_len(X))
+
+let _bit_reverse(x, n) =
+    let result = arr_new_n(n)
+    _bit_rev_copy(x, result, n, 0)
+    result
+let _bit_rev_copy(src, dst, n, i) =
+    if i >= n
+      dst
+    else
+      dst[i] = src[_rev_bits(i, n)]
+      _bit_rev_copy(src, dst, n, i + 1)
+let _rev_bits(i, n) = _rev_acc(i, n >> 1, 0, n >> 1)
+let _rev_acc(i, n, rev, bits) =
+    if bits == 0
+      rev
+    else
+      let new_rev = (rev << 1) | (i & 1)
+      _rev_acc(i >> 1, n >> 1, new_rev, bits >> 1)
+let ntt_butterfly(a, invert) =
+    let n = arr_len(a)
+    let x = _bit_reverse(a, n)
+    _ntt_butterfly_stages(x, n, 1, invert)
+    if invert == 1
+      _ntt_butterfly_scale_inv(x, n, 0)
+      x
+    else
+      x
+let _ntt_butterfly_stages(x, n, len, invert) =
+    if len > n
+      x
+    else
+      let wlen = _fft_pow(3, 65536 / len, 1)
+      let wlen_final = (invert == 1 ? gfinv(wlen) : wlen)
+      _ntt_butterfly_one_stage(x, n, len, wlen_final, 0)
+      _ntt_butterfly_stages(x, n, len * 2, invert)
+let _ntt_butterfly_one_stage(x, n, len, wlen, i2) =
+    if i2 >= n
+      x
+    else
+      _ntt_butterfly_inner(x, n, len, wlen, i2, 1, 0)
+      _ntt_butterfly_one_stage(x, n, len, wlen, i2 + len * 2)
+let _ntt_butterfly_inner(x, n, len, wlen, i2, w, j2) =
+    if j2 >= len / 2
+      x
+    else
+      let u = x[i2 + j2]
+      let v = gfmul(w, x[i2 + j2 + len / 2])
+      x[i2 + j2] = gfadd(u, v)
+      x[i2 + j2 + len / 2] = gfsub(u, v)
+      let new_w = gfmul(w, wlen)
+      _ntt_butterfly_inner(x, n, len, wlen, i2, new_w, j2 + 1)
+let _ntt_butterfly_scale_inv(x, n, i) =
+    if i >= n
+      x
+    else
+      let n_inv = gfinv(n)
+      x[i] = gfmul(x[i], n_inv)
+      _ntt_butterfly_scale_inv(x, n, i + 1)
+
+let test_fft() =
+    let w = fft_root(4)
+    assert_eq(_fft_pow(w, 4, 1), 1)
+    let x = arr_new_n(4)
+    x[0] = 1
+    x[1] = 2
+    x[2] = 3
+    x[3] = 4
+    let X = ntt(x, 4)
+    let x_rec = intt(X, 4)
+    assert_eq(x_rec[0], 1)
+    assert_eq(x_rec[1], 2)
+    assert_eq(x_rec[2], 3)
+    assert_eq(x_rec[3], 4)
+    0
+
+let field_fingerprint(residues, n) =
+    let spectrum = arr_new_n(n)
+    ntt_into(residues, n, spectrum)
+    let hash = 0
+    let k = 0
+    for k < n
+        let v = spectrum[k]
+        let weight = gf_pow(3, k)
+        hash = (hash + v * v * weight) % 65537
+        k = k + 1
+    hash
+
+let field_equivalent(r1, n1, r2, n2) =
+    if n1 != n2
+        0
+    else
+        let fp1 = field_fingerprint(r1, n1)
+        let fp2 = field_fingerprint(r2, n2)
+        (fp1 == fp2 ? 1 : 0)
+
+let main() =
+    print(111)
+    let n = 4
+    let prog1 = arr_new_n(n)
+    prog1[0] = 3
+    prog1[1] = 5
+    prog1[2] = 0
+    prog1[3] = 15
+    let fp1 = field_fingerprint(prog1, n)
+    print(fp1)
+
+    print(222)
+    let prog2 = arr_new_n(n)
+    prog2[0] = 3
+    prog2[1] = 5
+    prog2[2] = 0
+    prog2[3] = 15
+    let fp2 = field_fingerprint(prog2, n)
+    print(fp2)
+    let eq12 = field_equivalent(prog1, n, prog2, n)
+    print(eq12)
+
+    print(333)
+    let prog3 = arr_new_n(n)
+    prog3[0] = 7
+    prog3[1] = 11
+    prog3[2] = 0
+    prog3[3] = 77
+    let fp3 = field_fingerprint(prog3, n)
+    print(fp3)
+    let eq13 = field_equivalent(prog1, n, prog3, n)
+    print(eq13)
+
+    print(444)
+    let prog4 = arr_new_n(n)
+    prog4[0] = 5
+    prog4[1] = 3
+    prog4[2] = 15
+    prog4[3] = 0
+    let fp4 = field_fingerprint(prog4, n)
+    print(fp4)
+    let eq14 = field_equivalent(prog1, n, prog4, n)
+    print(eq14)
+
+    print(555)
+    let prog5 = arr_new_n(3)
+    prog5[0] = 3
+    prog5[1] = 5
+    prog5[2] = 15
+    let eq15 = field_equivalent(prog1, n, prog5, 3)
+    print(eq15)
+
+    print(666)
+    let all_ok = 1
+    let test_idx = 0
+    for test_idx < 5
+        let p1 = arr_new_n(n)
+        let p2 = arr_new_n(n)
+        let i = 0
+        for i < n
+            p1[i] = (i + test_idx) * 7 % 65537
+            p2[i] = (i + test_idx) * 7 % 65537
+            i = i + 1
+        let eq = field_equivalent(p1, n, p2, n)
+        if eq != 1
+            all_ok = 0
+        print(eq)
+        test_idx = test_idx + 1
+    print(all_ok)
+
+    print(777)
+    let fingerprints = arr_new_n(10)
+    let collision = 0
+    let t = 0
+    for t < 10
+        let pt = arr_new_n(n)
+        pt[0] = t * 11 + 1
+        pt[1] = t * 13 + 3
+        pt[2] = t * 17 + 5
+        pt[3] = t * 19 + 7
+        let fp = field_fingerprint(pt, n)
+        fingerprints[t] = fp
+        let s = 0
+        for s < t
+            if fingerprints[s] == fp
+                collision = collision + 1
+            s = s + 1
+        t = t + 1
+    print(collision)
+    let u = 0
+    for u < 10
+        print(fingerprints[u])
+        u = u + 1
+
+    eq12

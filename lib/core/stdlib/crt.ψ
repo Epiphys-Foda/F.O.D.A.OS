@@ -1,0 +1,86 @@
+let crt_egcd(a, b) =
+    let old_r = a
+    let r = b
+    let old_s = 1
+    let s = 0
+    let old_t = 0
+    let t = 1
+    for r != 0
+      let q = old_r / r
+      let tmp_r = old_r - q * r
+      old_r = r
+      r = tmp_r
+      let tmp_s = old_s - q * s
+      old_s = s
+      s = tmp_s
+      let tmp_t = old_t - q * t
+      old_t = t
+      t = tmp_t
+    if old_r < 0
+      old_r = 0 - old_r
+    [old_r, old_s, old_t]
+
+let crt_inv(a, m) =
+    let e = crt_egcd(a, m)
+    if e[0] != 1
+      0
+    else
+      let x = e[1]
+      if x < 0
+        x + m
+      else
+        x
+
+let crt_pair(r1, m1, r2, m2) =
+    let m12 = m1 * m2
+    let diff = r2 - r1
+    let diff_m = if diff < 0
+      let q = (0 - diff) / m2
+      diff + (q + 1) * m2
+    else
+      diff
+    let m1_mod = if m1 >= m2
+      m1 - (m1 / m2) * m2
+    else
+      m1
+    let inv = crt_inv(m1_mod, m2)
+    let k = (diff_m * inv) % m2
+    let x = r1 + m1 * k
+    if x >= m12
+      x - m12
+    else
+      x
+
+let crt_apply(list) =
+    let x = list[0][0]
+    let m = list[0][1]
+    let i = 1
+    for i < len(list)
+      let r = list[i][0]
+      let mi = list[i][1]
+      x = crt_pair(x, m, r, mi)
+      m = m * mi
+      i = i + 1
+    x
+
+let crt_verify() =
+    let results = []
+    let x1 = crt_pair(2, 3, 3, 5)
+    let ok1 = x1 == 8
+    let ok2 = x1 % 3 == 2
+    let ok3 = x1 % 5 == 3
+    let x2 = crt_apply([[2, 3], [3, 5], [2, 7]])
+    let ok4 = x2 % 3 == 2
+    let ok5 = x2 % 5 == 3
+    let ok6 = x2 % 7 == 2
+    let a = 50000
+    let b = 60000
+    let m1 = 65537
+    let m2 = 65539
+    let big = a * b
+    let r1 = big % m1
+    let r2 = big % m2
+    let rec = crt_pair(r1, m1, r2, m2)
+    let ok7 = rec == big
+    let ok8 = ok1 && ok2 && ok3 && ok4 && ok5 && ok6 && ok7
+    [ok1, ok2, ok3, ok4, ok5, ok6, ok7, ok8]

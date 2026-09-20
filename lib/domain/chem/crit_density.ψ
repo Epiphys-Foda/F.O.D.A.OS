@@ -1,0 +1,42 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+let e6 = 1000000
+let e8 = e6 * 100
+let e12 = e6 * e6
+let e19 = e12 * e6 * 10
+let e21 = e19 * 100
+
+let MPC2 = 30857 * 30857
+let GPI = 251327412 * 6674
+let rho30 = small_div(3 * 454276 * e21, MPC2 * GPI * 100)
+if 8300 * MPC2 * GPI * 100 > 3 * 454276 * e21
+    bad[0] = bad[0] + 1
+if 3 * 454276 * e21 > 8700 * MPC2 * GPI * 100
+    bad[0] = bad[0] + 1
+
+let omSum = 315 + 685
+bad[0] = bad[0] + ck(omSum, 980, 1020)
+
+if 200 * 315 > 100 * 685
+    bad[0] = bad[0] + 1
+if 100 * 685 > 230 * 315
+    bad[0] = bad[0] + 1
+
+let nb2 = small_div(49 * rho30, 16726)
+bad[0] = bad[0] + ck(nb2, 23, 27)
+
+let etaN = 49 * rho30 * (e6 / 10)
+let DENeta = 16726 * 411
+if 5800 * DENeta > etaN
+    bad[0] = bad[0] + 1
+if etaN > 6400 * DENeta
+    bad[0] = bad[0] + 1
+
+if 500 * 49 > 100 * 267
+    bad[0] = bad[0] + 1
+if 100 * 267 > 600 * 49
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

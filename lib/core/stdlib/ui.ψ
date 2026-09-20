@@ -1,0 +1,164 @@
+import "gfx.ψ"
+import "font.ψ"
+
+let ui_color_r(c) = c / 16777216
+
+let ui_color_g(c) = (c / 65536) - (c / 16777216) * 256
+
+let ui_color_b(c) = (c / 256) - (c / 65536) * 256
+
+let ui_clamp_byte(v) =
+    let r = v
+    if v < 0
+      r = 0
+    else
+      0
+    if v > 255
+      r = 255
+    else
+      0
+    r
+
+let ui_lighten(color, amt) =
+    let r = ui_clamp_byte(ui_color_r(color) + amt)
+    let g = ui_clamp_byte(ui_color_g(color) + amt)
+    let b = ui_clamp_byte(ui_color_b(color) + amt)
+    gfx_pack_rgb(r, g, b)
+
+let ui_darken(color, amt) =
+    let r = ui_clamp_byte(ui_color_r(color) - amt)
+    let g = ui_clamp_byte(ui_color_g(color) - amt)
+    let b = ui_clamp_byte(ui_color_b(color) - amt)
+    gfx_pack_rgb(r, g, b)
+
+let ui_draw_rect_border(fb, w, h, x, y, rw, rh, color) =
+    let fb2 = fb
+    if (rw >= 2) && (rh >= 2)
+      fb2 = gfx_fill_rect(fb2, w, h, x, y, rw, 1, color)
+      fb2 = gfx_fill_rect(fb2, w, h, x, y + rh - 1, rw, 1, color)
+      fb2 = gfx_fill_rect(fb2, w, h, x, y, 1, rh, color)
+      fb2 = gfx_fill_rect(fb2, w, h, x + rw - 1, y, 1, rh, color)
+    else
+      fb2 = gfx_fill_rect(fb2, w, h, x, y, rw, rh, color)
+      0
+    fb2
+
+let ui_button(fb, w, h, x, y, bw, bh, bg, border, hovered) =
+    let fill = bg
+    if hovered == 1
+      fill = ui_lighten(bg, 20)
+    else
+      0
+    let fb2 = gfx_fill_rect(fb, w, h, x, y, bw, bh, fill)
+    fb2 = ui_draw_rect_border(fb2, w, h, x, y, bw, bh, border)
+    fb2
+
+let ui_panel(fb, w, h, x, y, pw, ph, title_h, bg, border, title_bg) =
+    let fb2 = fb
+    fb2 = gfx_fill_rect(fb2, w, h, x, y, pw, ph, bg)
+    fb2 = gfx_fill_rect(fb2, w, h, x, y, pw, title_h, title_bg)
+    fb2 = ui_draw_rect_border(fb2, w, h, x, y, pw, ph, border)
+    fb2
+
+let ui_input(fb, w, h, x, y, iw, ih, focused, cursor_visible, bg, border, cursor_color) =
+    let fb2 = fb
+    fb2 = gfx_fill_rect(fb2, w, h, x, y, iw, ih, bg)
+    fb2 = ui_draw_rect_border(fb2, w, h, x, y, iw, ih, border)
+    if (focused) && (cursor_visible)
+      fb2 = gfx_fill_rect(fb2, w, h, x + 1, y + 1, 1, ih - 2, cursor_color)
+    else
+      0
+    fb2
+
+let ui_checkbox(fb, w, h, x, y, size, checked, bg, border, check_color) =
+    let fb2 = fb
+    fb2 = gfx_fill_rect(fb2, w, h, x, y, size, size, bg)
+    fb2 = ui_draw_rect_border(fb2, w, h, x, y, size, size, border)
+    if checked
+      let mid = size / 2
+      fb2 = gfx_draw_line(fb2, w, x + 1, y + mid, x + mid, y + 1, check_color)
+      fb2 = gfx_draw_line(fb2, w, x + mid, y + 1, x + size - 2, y + size - 2, check_color)
+    else
+      0
+    fb2
+
+let ui_progress(fb, w, h, x, y, pw, ph, value, max, bg, fill) =
+    let fb2 = fb
+    fb2 = gfx_fill_rect(fb2, w, h, x, y, pw, ph, bg)
+    let fill_w = (pw * value) / max
+    if fill_w > 0
+      fb2 = gfx_fill_rect(fb2, w, h, x, y, fill_w, ph, fill)
+    else
+      0
+    fb2
+
+let ui_slider(fb, w, h, x, y, sw, sh, value, vmin, vmax, track, knob) =
+    let fb2 = fb
+    let mid_y = y + sh / 2
+    if sw > 0
+      fb2 = gfx_fill_rect(fb2, w, h, x, mid_y, sw, 1, track)
+    else
+      0
+    let range = vmax - vmin
+    if range > 0
+      let knob_x = x + ((sw - 1) * (value - vmin)) / range
+      fb2 = gfx_fill_rect(fb2, w, h, knob_x, mid_y - 1, 3, 3, knob)
+    else
+      0
+    fb2
+
+let ui_separator_h(fb, w, h, x, y, sw, color) = gfx_fill_rect(fb, w, h, x, y, sw, 1, color)
+
+let ui_vbox_y_positions(y, count, item_h, gap) =
+    let positions = []
+    let i = 0
+    let stride = item_h + gap
+    for i < count
+      positions = positions.push(y + i * stride)
+      i = i + 1
+    positions
+
+let ui_hbox_x_positions(x, count, item_w, gap) =
+    let positions = []
+    let i = 0
+    let stride = item_w + gap
+    for i < count
+      positions = positions.push(x + i * stride)
+      i = i + 1
+    positions
+
+let ui_label(fb, w, h, x, y, codes, color) = gfx_draw_text(fb, w, h, x, y, codes, color)
+
+let ui_scene_demo(w, h) =
+    let bg = gfx_pack_rgb(24, 28, 36)
+    let panel_bg = gfx_pack_rgb(48, 54, 66)
+    let panel_border = gfx_pack_rgb(90, 100, 120)
+    let title_bg = gfx_pack_rgb(64, 72, 92)
+    let btn_bg = gfx_pack_rgb(64, 158, 255)
+    let btn_border = gfx_pack_rgb(120, 180, 255)
+    let btn_bg2 = gfx_pack_rgb(80, 90, 110)
+    let input_bg = gfx_pack_rgb(30, 34, 44)
+    let cursor = gfx_pack_rgb(220, 220, 220)
+    let check = gfx_pack_rgb(80, 220, 120)
+    let prog_bg = gfx_pack_rgb(50, 56, 70)
+    let prog_fill = gfx_pack_rgb(80, 220, 120)
+    let track = gfx_pack_rgb(70, 78, 96)
+    let knob = gfx_pack_rgb(220, 220, 220)
+    let sep = gfx_pack_rgb(70, 78, 96)
+    let fb0 = gfx_create(w, h)
+    let fb1 = gfx_fill_rect(fb0, w, h, 0, 0, w, h, bg)
+    let pw = w - 2
+    let ph = h - 2
+    let fb2 = ui_panel(fb1, w, h, 1, 1, pw, ph, 2, panel_bg, panel_border, title_bg)
+    let ys = ui_vbox_y_positions(4, 2, 2, 1)
+    let yb0 = ys[0]
+    let yb1 = ys[1]
+    let fb3 = ui_button(fb2, w, h, 3, yb0, 7, 2, btn_bg, btn_border, true)
+    let fb4 = ui_button(fb3, w, h, 12, yb0, 7, 2, btn_bg2, btn_border, false)
+    let fb5 = ui_button(fb4, w, h, 3, yb1, 16, 2, btn_bg2, btn_border, false)
+    let fb6 = ui_separator_h(fb5, w, h, 3, 8, 16, sep)
+    let fb7 = ui_input(fb6, w, h, 3, 9, 16, 2, true, true, input_bg, panel_border, cursor)
+    let fb8 = ui_checkbox(fb7, w, h, 3, 12, 2, true, input_bg, panel_border, check)
+    let fb9 = ui_progress(fb8, w, h, 7, 12, 12, 2, 3, 4, prog_bg, prog_fill)
+    let fb10 = ui_slider(fb9, w, h, 3, 15, 16, 1, 2, 0, 4, track, knob)
+    fb10

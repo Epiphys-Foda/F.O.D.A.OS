@@ -1,0 +1,31 @@
+let bad = [0]
+
+let N = 6674 * 1989 * 16726
+let D = 3 * 6957 * 13807
+let E4 = D * 10000
+let V = N * 100
+if 7 * E4 > V
+    bad[0] = bad[0] + 1
+if V > 8 * E4
+    bad[0] = bad[0] + 1
+
+if 14 * E4 > 2 * V
+    bad[0] = bad[0] + 1
+if 2 * V > 17 * E4
+    bad[0] = bad[0] + 1
+
+if 2 * V < 4 * E4
+    bad[0] = bad[0] + 1
+
+let NUM = 6674 * 1989 * 1989
+let SCALE = 6957 * 3828 * 315576
+let V4 = NUM * 10000
+if 25 * SCALE > V4
+    bad[0] = bad[0] + 1
+if V4 > 40 * SCALE
+    bad[0] = bad[0] + 1
+
+if V4 * 100 > 46000 * SCALE
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

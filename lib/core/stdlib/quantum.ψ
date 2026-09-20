@@ -1,0 +1,174 @@
+let Q_P = 65537
+
+let Q_H_A = 46341
+let Q_H_NEG_A = 19196
+
+let Q_GATE_H_ID    = 1
+let Q_GATE_X_ID    = 2
+let Q_GATE_Z_ID    = 3
+let Q_GATE_CNOT_ID = 4
+
+let q_mod(x) =
+    let r = x - (x / Q_P) * Q_P
+    if r < 0
+      r + Q_P
+    else
+      r
+
+let q_pow2(n) =
+    let r = 1
+    let i = 0
+    for i < n
+      r = r * 2
+      i = i + 1
+    r
+
+let q_array_set(arr, idx, val) =
+    let result = []
+    let i = 0
+    let n = len(arr)
+    let done = false
+    for !done
+      if i < n
+        if i == idx
+          result = result.push(val)
+        else
+          result = result.push(arr[i])
+          0
+        i = i + 1
+      else
+        done = true
+    result
+
+let quantum_init_state(n) =
+    let dim = q_pow2(n)
+    let state = []
+    let i = 0
+    for i < dim
+      if i == 0
+        state = state.push(1)
+      else
+        state = state.push(0)
+        0
+      i = i + 1
+    state
+
+let quantum_apply_2x2(state, n, target, a, b, c, d) =
+    let dim = q_pow2(n)
+    let new_state = []
+    let i = 0
+    for i < dim
+      new_state = new_state.push(0)
+      i = i + 1
+    let target_bit = q_pow2(target)
+    let i = 0
+    for i < dim
+      let bit_set = (i / target_bit) - (i / (target_bit * 2)) * 2
+      if bit_set == 0
+        let i_pair = i + target_bit
+        let s0 = state[i] + 0
+        let s1 = state[i_pair] + 0
+        let new0 = q_mod(a * s0 + b * s1)
+        let new1 = q_mod(c * s0 + d * s1)
+        new_state = q_array_set(new_state, i, new0)
+        new_state = q_array_set(new_state, i_pair, new1)
+      else
+        0
+      i = i + 1
+    new_state
+
+let quantum_hadamard(state, n, target) = quantum_apply_2x2(state, n, target, Q_H_A, Q_H_A, Q_H_A, Q_H_NEG_A)
+
+let quantum_pauli_x(state, n, target) = quantum_apply_2x2(state, n, target, 0, 1, 1, 0)
+
+let quantum_pauli_z(state, n, target) = quantum_apply_2x2(state, n, target, 1, 0, 0, Q_P - 1)
+
+let quantum_cnot(state, n, control, target) =
+    let dim = q_pow2(n)
+    let new_state = []
+    let i = 0
+    for i < dim
+      new_state = new_state.push(0)
+      i = i + 1
+    let ctrl_bit = q_pow2(control)
+    let tgt_bit = q_pow2(target)
+    let i = 0
+    for i < dim
+      let ctrl_set = (i / ctrl_bit) - (i / (ctrl_bit * 2)) * 2
+      let new_idx = if ctrl_set == 1
+        i - (i / tgt_bit - (i / (tgt_bit * 2)) * 2) * tgt_bit + (1 - ((i / tgt_bit) - (i / (tgt_bit * 2)) * 2)) * tgt_bit
+      else
+        i
+      new_state = q_array_set(new_state, new_idx, state[i] + 0)
+      0
+      i = i + 1
+    new_state
+
+let quantum_measure(state, qubit) =
+    let n = qubit
+    let dim = len(state)
+    let tgt_bit = q_pow2(qubit)
+    let amp_0 = 0
+    let amp_1 = 0
+    let i = 0
+    for i < dim
+      let bit_set = (i / tgt_bit) - (i / (tgt_bit * 2)) * 2
+      let amp = state[i] + 0
+      let abs_amp = (amp < 0 ? 0 - amp : amp)
+      if bit_set == 0
+        amp_0 = amp_0 + abs_amp
+      else
+        amp_1 = amp_1 + abs_amp
+        0
+      i = i + 1
+      0
+    (amp_0 >= amp_1 ? 0 : 1)
+
+let q_schmidt_rank(state) =
+    let dim = len(state)
+    let rank = 0
+    let i = 0
+    for i < dim
+      let amp = state[i]
+      if amp != 0
+        rank = rank + 1
+      else
+        0
+      i = i + 1
+    rank
+
+let q_purity(state) =
+    let dim = len(state)
+    let s = 0
+    let i = 0
+    for i < dim
+      let amp = state[i]
+      s = s + amp * amp
+      i = i + 1
+    q_mod(s)
+
+let quantum_bell_state() =
+    let state0 = quantum_init_state(2)
+    let state1 = quantum_hadamard(state0, 2, 0)
+    quantum_cnot(state1, 2, 0, 1)
+
+let quantum_grover(state, n, oracle, iterations) =
+    let s = state
+    let it = 0
+    for it < iterations
+      let dim = q_pow2(n)
+      let new_s = []
+      let i = 0
+      for i < dim
+        let amp = s[i] + 0
+        let is_target = oracle(i)
+        if is_target == 1
+          new_s = new_s.push(q_mod(0 - amp))
+        else
+          new_s = new_s.push(amp)
+          0
+        i = i + 1
+      s = new_s
+      it = it + 1
+    s
+

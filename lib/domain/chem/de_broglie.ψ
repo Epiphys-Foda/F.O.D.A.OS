@@ -1,0 +1,32 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let lam100 = small_div(1227, 10)
+bad[0] = bad[0] + ck(lam100, 115, 130)
+
+let at_spac = 100
+bad[0] = bad[0] + ck_lo(lam100, at_spac)
+if lam100 > 2 * at_spac
+    bad[0] = bad[0] + 1
+
+let p_baseball = 6
+let lam_b = small_div(66, p_baseball)
+bad[0] = bad[0] + ck(lam_b, 9, 15)
+
+let e_mass = 1
+let p_mass = 1836
+if p_mass < 1000 * e_mass
+    bad[0] = bad[0] + 1
+
+if 1924 < 1922
+    bad[0] = bad[0] + 1
+if 1924 > 1926
+    bad[0] = bad[0] + 1
+if 1927 < 1925
+    bad[0] = bad[0] + 1
+if 1927 > 1929
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

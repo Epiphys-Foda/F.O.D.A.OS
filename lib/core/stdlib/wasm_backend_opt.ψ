@@ -1,0 +1,262 @@
+import "gf65537.ψ"
+import "arr.ψ"
+
+let SIMD_NONE    = 0
+let SIMD_I8X16  = 1
+let SIMD_I16X8  = 2
+let SIMD_I32X4  = 3
+let SIMD_I64X2  = 4
+let SIMD_F32X4  = 5
+
+let simd_analyze_loop(loop_body) =
+    let n = arr_len(loop_body)
+    if n < 4
+        SIMD_NONE
+    let first_op = arr_get(loop_body, 0)
+    if _simd_uniform_acc(loop_body, first_op, n, 1) == 1
+      if n >= 16
+          SIMD_I8X16
+      if n >= 8
+          SIMD_I16X8
+      if n >= 4
+          SIMD_I32X4
+    SIMD_NONE
+let _simd_uniform_acc(loop_body, expected, n, i) =
+    if i >= n
+        1
+    if arr_get(loop_body, i) != expected
+        0
+    _simd_uniform_acc(loop_body, expected, n, i + 1)
+
+let simd_estimate_speedup(simd_type, op_count) =
+    if simd_type == SIMD_I8X16
+        op_count / 16
+    if simd_type == SIMD_I16X8
+        op_count / 8
+    if simd_type == SIMD_I32X4
+        op_count / 4
+    if simd_type == SIMD_I64X2
+        op_count / 2
+    1
+
+let simd_lane_count(simd_type) =
+    if simd_type == SIMD_I8X16
+        16
+    if simd_type == SIMD_I16X8
+        8
+    if simd_type == SIMD_I32X4
+        4
+    if simd_type == SIMD_I64X2
+        2
+    1
+
+let simd_generate_v128_op(op_id, simd_type) =
+    if op_id == 1
+        100 + simd_type
+    if op_id == 2
+        200 + simd_type
+    if op_id == 3
+        300 + simd_type
+    0
+
+let bulk_memory_detect_copy(stores) =
+    let n = arr_len(stores)
+    if n < 4
+        0
+    _bulk_copy_acc(stores, n, 1, 1)
+let _bulk_copy_acc(stores, n, i, count) =
+      if i >= n
+          count
+      let prev = arr_get(stores, i - 1)
+      let curr = arr_get(stores, i)
+      if curr == prev + 1
+        _bulk_copy_acc(stores, n, i + 1, count + 1)
+      else
+        count
+
+let bulk_memory_detect_fill(stores, value) =
+    let n = arr_len(stores)
+    _bulk_fill_acc(stores, value, n, 0, 0)
+let _bulk_fill_acc(stores, value, n, i, count) =
+      if i >= n
+          count
+      if arr_get(stores, i) == value
+        _bulk_fill_acc(stores, value, n, i + 1, count + 1)
+      else
+        _bulk_fill_acc(stores, value, n, i + 1, count)
+
+let bulk_memory_estimate_savings(op_count) = op_count * 5
+
+let REFTYPE_NONE      = 0
+let REFTYPE_EXTERNREF = 1
+let REFTYPE_FUNCREF   = 2
+
+let reftype_analyze_host_calls(call_count, total_calls) =
+    if total_calls == 0
+        REFTYPE_NONE
+    if call_count * 2 > total_calls
+        REFTYPE_EXTERNREF
+    REFTYPE_NONE
+
+let reftype_analyze_indirect_calls(table_size, call_sites) =
+    if table_size > 10 && call_sites > table_size
+        REFTYPE_FUNCREF
+    REFTYPE_NONE
+
+let reftype_estimate_overhead_reduction(call_count) = call_count * 10
+
+let component_analyze_exports(exports) =
+    let n = arr_len(exports)
+    _component_acc(exports, n, 0, 0)
+let _component_acc(exports, n, i, count) =
+      if i >= n
+          count
+      let export = arr_get(exports, i)
+      if export > 0
+        _component_acc(exports, n, i + 1, count + 1)
+      else
+        _component_acc(exports, n, i + 1, count)
+
+let component_estimate_interop_cost(export_count) = export_count * 5
+
+let tailcall_analyze_function(body, fn_name) =
+    let n = arr_len(body)
+    if n == 0
+        0
+    let last_op = arr_get(body, n - 1)
+    ((last_op == fn_name) ? (1) : (0))
+
+let tailcall_estimate_stack_savings(call_depth) = call_depth * 1024
+
+let tailcall_check_recursive(call_graph, fn_id) =
+    let n = arr_len(call_graph)
+    if fn_id >= n
+        0
+    let calls = arr_get(call_graph, fn_id)
+    _tailcall_rec_acc(calls, fn_id, arr_len(calls), 0)
+let _tailcall_rec_acc(calls, target, n, i) =
+    if i >= n
+        0
+    if arr_get(calls, i) == target
+        1
+    _tailcall_rec_acc(calls, target, n, i + 1)
+
+let regalloc_analyze_locals(locals_used) =
+    let n = arr_len(locals_used)
+    let max_concurrent = _regalloc_max_acc(locals_used, n, 0, 0)
+    let v = arr_new_n(2)
+    arr_set(v, 0, max_concurrent)
+    arr_set(v, 1, n)
+    v
+let _regalloc_max_acc(locals, n, i, max) =
+    if i >= n
+        max
+    let cur = arr_get(locals, i)
+    let new_max = ((cur > max) ? (cur) : (max))
+    _regalloc_max_acc(locals, n, i + 1, new_max)
+
+let regalloc_estimate_locals_needed(max_concurrent) = max_concurrent + 4
+
+let regalloc_estimate_spill_cost(locals_count, machine_regs) =
+    if locals_count <= machine_regs
+        0
+    (locals_count - machine_regs) * 10
+
+let loop_unroll_analyze(body_size, trip_count) =
+      let v = arr_new_n(2)
+      if body_size <= 4 && trip_count <= 100
+        arr_set(v, 0, 1)
+        arr_set(v, 1, trip_count)
+      else
+          0
+    if body_size <= 10 && trip_count <= 16
+        arr_set(v, 0, 1)
+        arr_set(v, 1, 4)
+    else
+        arr_set(v, 0, 0)
+        arr_set(v, 1, 1)
+      v
+
+let loop_unroll_estimate_speedup(body_size, unroll_factor) =
+    if unroll_factor <= 1
+        1
+    let saved_cycles = unroll_factor
+    let total_cycles = body_size * unroll_factor
+    (total_cycles + saved_cycles) / total_cycles
+
+let loop_unroll_check_constant_trip(trip_count, is_constant) =
+    ((is_constant == 1 && trip_count > 0 && trip_count <= 1000) ? (1) : (0))
+
+let const_pool_analyze(constants) =
+    let n = arr_len(constants)
+    let seen = arr_new_n(n)
+    let unique = _const_pool_unique_acc(constants, seen, n, 0, 0)
+    let v = arr_new_n(2)
+    arr_set(v, 0, unique)
+    arr_set(v, 1, n - unique)
+    v
+let _const_pool_unique_acc(constants, seen, n, i, count) =
+    if i >= n
+        count
+    let c = arr_get(constants, i)
+    let found = _const_pool_contains(seen, c, count, 0)
+    if found == 0
+      arr_set(seen, count, c)
+    let new_count = ((found == 0) ? (count + 1) : (count))
+    _const_pool_unique_acc(constants, seen, n, i + 1, new_count)
+let _const_pool_contains(arr, val, n, i) =
+    if i >= n
+        0
+    if arr_get(arr, i) == val
+        1
+    _const_pool_contains(arr, val, n, i + 1)
+
+let const_pool_estimate_savings(duplicate_count, const_size) = duplicate_count * 5
+
+let const_pool_build_dedup_table(constants) =
+    let n = arr_len(constants)
+    let seen = arr_new_n(n)
+    let unique = _const_pool_dedup_acc(constants, seen, n, 0, 0)
+    sa_slice(seen, 0, unique)
+let _const_pool_dedup_acc(constants, seen, n, i, count) =
+    if i >= n
+        count
+    let c = arr_get(constants, i)
+    let found = _const_pool_contains(seen, c, count, 0)
+    if found == 0
+      arr_set(seen, count, c)
+    let new_count = ((found == 0) ? (count + 1) : (count))
+    _const_pool_dedup_acc(constants, seen, n, i + 1, new_count)
+
+let optimization_pipeline_analyze(ast) =
+    let suggestions = arr_new()
+    let simd = simd_analyze_loop(ast)
+    if simd != SIMD_NONE
+      arr_push(suggestions, ai_make_suggestion(1, 2, simd))
+    let n = arr_len(ast)
+    let unroll = loop_unroll_analyze(n, n)
+    if arr_get(unroll, 0) == 1
+      arr_push(suggestions, ai_make_suggestion(1, 1, arr_get(unroll, 1)))
+    let const_pool = const_pool_analyze(ast)
+    let dup_count = arr_get(const_pool, 1)
+    if dup_count > 0
+      arr_push(suggestions, ai_make_suggestion(2, 1, dup_count))
+    suggestions
+
+let ai_make_suggestion(category, priority, action) =
+    let v = arr_new_n(3)
+    arr_set(v, 0, category)
+    arr_set(v, 1, priority)
+    arr_set(v, 2, action)
+    v
+
+let optimization_estimate_total_benefit(suggestions) =
+    let n = arr_len(suggestions)
+    _opt_benefit_acc(suggestions, n, 0, 0)
+let _opt_benefit_acc(suggestions, n, i, total) =
+    if i >= n
+        total
+    let s = arr_get(suggestions, i)
+    let priority = arr_get(s, 1)
+    let benefit = priority * 10
+    _opt_benefit_acc(suggestions, n, i + 1, total + benefit)

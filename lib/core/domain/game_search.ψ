@@ -1,0 +1,126 @@
+import "../stdlib/gf65537.ψ"
+
+let minimax_gf(game_state, depth, is_maximizing) =
+        if depth == 0
+            evaluate_position_gf(game_state)
+        else
+            let moves = generate_moves_gf(game_state)
+            if is_maximizing
+                let best = gf_neg(1)
+                for i in 0..len(moves)
+                    let child = make_move_gf(game_state, moves[i])
+                    let val = minimax_gf(child, depth - 1, 0)
+                    if val > best
+                        best = val
+                best
+            else
+                let best = gf_pow(65537, 2)
+                for i in 0..len(moves)
+                    let child = make_move_gf(game_state, moves[i])
+                    let val = minimax_gf(child, depth - 1, 1)
+                    if val < best
+                        best = val
+                best
+
+let alpha_beta_gf(game_state, depth, alpha, beta, is_maximizing) =
+        if depth == 0
+            evaluate_position_gf(game_state)
+        else
+            let moves = generate_moves_gf(game_state)
+            if is_maximizing
+                let best = gf_neg(1)
+                for i in 0..len(moves)
+                    let child = make_move_gf(game_state, moves[i])
+                    let val = alpha_beta_gf(child, depth - 1, alpha, beta, 0)
+                    if val > best
+                        best = val
+                    if best > alpha
+                        alpha = best
+                    if beta <= alpha
+                        i = len(moves)
+                best
+            else
+                let best = gf_pow(65537, 2)
+                for i in 0..len(moves)
+                    let child = make_move_gf(game_state, moves[i])
+                    let val = alpha_beta_gf(child, depth - 1, alpha, beta, 1)
+                    if val < best
+                        best = val
+                    if best < beta
+                        beta = best
+                    if beta <= alpha
+                        i = len(moves)
+                best
+
+let evaluate_position_gf(game_state) =
+    game_state
+
+let board_feature_gf(feature_type, value) =
+    gf_mul(feature_type, value)
+
+let generate_moves_gf(game_state) =
+    [game_state, gf_add(game_state, 1), gf_sub(game_state, 1)]
+
+let make_move_gf(game_state, move) =
+    gf_add(game_state, move)
+
+let deterministic_tree_search_gf(game_state, depth) =
+    minimax_gf(game_state, depth, 1)
+
+let ucb_replacement_gf(mean_value, n_parent, n_child) =
+    gf_add(mean_value, gf_div(n_parent, n_child))
+
+let zobrist_hash_gf(board, zobrist_table) =
+    let hash = 0
+    for i in 0..len(board)
+        if board[i] != 0
+            hash = gf_add(hash, zobrist_table)
+    hash
+
+let transposition_lookup_gf(table, hash) =
+    table[hash]
+
+let transposition_store_gf(table, hash, value, depth) =
+    [hash, value, depth]
+
+let iterative_deepening_gf(game_state, max_depth) =
+    let best_move = 0
+    for depth in 1..max_depth
+        best_move = alpha_beta_gf(game_state, depth, gf_neg(1), gf_pow(65537, 2), 1)
+    best_move
+
+let negascout_gf(game_state, depth, alpha, beta) =
+    if depth == 0
+        evaluate_position_gf(game_state)
+    let moves = generate_moves_gf(game_state)
+    let best = gf_neg(1)
+    for i in 0..len(moves)
+        let child = make_move_gf(game_state, moves[i])
+        let val = gf_neg(negascout_gf(child, depth - 1, gf_neg(beta), gf_neg(alpha)))
+        if val > best
+            best = val
+        if best > alpha
+            alpha = best
+        if alpha >= beta
+            i = len(moves)
+    best
+
+let quiescence_search_gf(game_state, alpha, beta) =
+    let stand_pat = evaluate_position_gf(game_state)
+    if stand_pat >= beta
+        beta
+    if stand_pat > alpha
+        alpha = stand_pat
+    stand_pat
+
+let game_value_gf(game_state, depth) =
+    minimax_gf(game_state, depth, 1)
+
+let game_outcome_gf(game_value) =
+        if game_value > 0
+            1
+        else
+            if game_value < 0
+                gf_neg(1)
+            else
+                0

@@ -1,0 +1,65 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let g = 14
+let R = 8314
+let M = 289
+bad[0] = bad[0] + ck(g, 13, 15)
+bad[0] = bad[0] + ck(M, 285, 295)
+
+let v2 = small_div(g * R * 288, M * 100)
+bad[0] = bad[0] + ck(v2, 1130, 1190)
+
+let v = isqrt(v2 * 100)
+bad[0] = bad[0] + ck(v, 335, 345)
+
+let sec3 = small_div(10000, v)
+bad[0] = bad[0] + ck(sec3, 27, 32)
+
+let v2he = small_div(1667 * R * 288, 4000000)
+bad[0] = bad[0] + ck(v2he, 950, 1050)
+
+let vhe = isqrt(v2he * 1000)
+bad[0] = bad[0] + ck(vhe, 950, 1050)
+
+let rat = small_div(vhe * 100, v * 10)
+bad[0] = bad[0] + ck(rat, 27, 31)
+
+let s14 = isqrt(1400000)
+bad[0] = bad[0] + ck(s14, 1175, 1190)
+
+let vn = small_div(v * 10 * 100, s14)
+bad[0] = bad[0] + ck(vn, 270, 300)
+
+bad[0] = bad[0] + ck_hi(vn, v)
+
+let err = small_div(v * 10 - vn * 10, 34)
+bad[0] = bad[0] + ck(err, 12, 18)
+
+let vw = 1480
+bad[0] = bad[0] + ck(vw, 1400, 1550)
+bad[0] = bad[0] + ck_lo(vw, v)
+
+let rw = small_div(vw * 10, v)
+bad[0] = bad[0] + ck(rw, 40, 46)
+
+let v211 = small_div(g * R * 2167, M * 1000)
+bad[0] = bad[0] + ck(v211, 850, 895)
+
+let v11 = isqrt(v211 * 100)
+bad[0] = bad[0] + ck(v11, 290, 300)
+
+bad[0] = bad[0] + ck_hi(v11, v)
+
+if 1686 < 1680
+    bad[0] = bad[0] + 1
+if 1686 > 1690
+    bad[0] = bad[0] + 1
+if 1816 < 1810
+    bad[0] = bad[0] + 1
+if 1816 > 1820
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

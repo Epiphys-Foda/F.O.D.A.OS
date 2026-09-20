@@ -1,0 +1,19 @@
+let array(n, v) = 0
+
+let array_new(n) =
+    array(n, 0)
+
+let array_copy(src, n) =
+    let dst = array_new(n)
+    let i = 0
+    for i < n
+        dst[i] = src[i]
+        i = i + 1
+    dst
+
+let array_fill(arr, n, v) =
+    let i = 0
+    for i < n
+        arr[i] = v
+        i = i + 1
+    arr

@@ -1,0 +1,36 @@
+import "ck.ψ"
+let bad = [0]
+
+let c_water = 4200
+let m_water = 1
+let d_t = 10
+let q_in = c_water * m_water * d_t
+let dz1 = q_in - 42000
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let c_iron = 450
+if c_water < c_iron * 5
+    bad[0] = bad[0] + 1
+
+let t_hot = 80
+let t_cold = 20
+let t_mix = 50
+let dz2 = t_mix * 2 - t_hot - t_cold
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let c_sand = 800
+let ratio = c_water / c_sand
+bad[0] = bad[0] + ck(ratio, 3, 7)
+
+if 1760 < 1758
+    bad[0] = bad[0] + 1
+if 1760 > 1762
+    bad[0] = bad[0] + 1
+if 1840 < 1838
+    bad[0] = bad[0] + 1
+if 1840 > 1842
+    bad[0] = bad[0] + 1
+if 1840 < 1760
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

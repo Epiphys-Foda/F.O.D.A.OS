@@ -1,0 +1,171 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let phi_add(z1, z2) = [gf_add(z1[0], z2[0]), gf_add(z1[1], z2[1])]
+
+let phi_sub(z1, z2) = [gf_sub(z1[0], z2[0]), gf_sub(z1[1], z2[1])]
+
+let phi_mul(z1, z2) =
+    let re = gf_add(gf_mul(z1[0], z2[0]), gf_mul(z1[1], z2[1]))
+    let im = gf_add(gf_add(gf_mul(z1[0], z2[1]), gf_mul(z1[1], z2[0])), gf_mul(z1[1], z2[1]))
+    [re, im]
+
+let phi_golden() = [0, 1]
+
+let phi_squared() = [1, 1]
+
+let phi_square_test() =
+    let phi = phi_golden()
+    let phi_sq = phi_mul(phi, phi)
+    let phi_plus_1 = phi_add(phi, [1, 0])
+    if phi_sq[0] == phi_plus_1[0]
+        (phi_sq[1] == phi_plus_1[1] ? 1 : 0)
+    else
+        0
+
+let phi_conjugate(z) = [gf_add(z[0], z[1]), gf_neg(z[1])]
+
+let phi_norm(z) =
+    let a = z[0]
+    let b = z[1]
+    gf_sub(gf_add(gf_mul(a, a), gf_mul(a, b)), gf_mul(b, b))
+
+let phi_inv(z) =
+    let n = phi_norm(z)
+    if n == 0
+        [0, 0]
+    else
+        let conj = phi_conjugate(z)
+        [gf_div(conj[0], n), gf_div(conj[1], n)]
+
+let phi_inv_val() = [gf_neg(1), 1]
+
+let ANYON_VACUUM = 0
+let ANYON_TAU = 1
+
+let fusion_rule(a, b) =
+    if a == ANYON_VACUUM
+        if b == ANYON_VACUUM
+            [ANYON_VACUUM]
+        else
+            [ANYON_TAU]
+    else
+        if b == ANYON_VACUUM
+            [ANYON_TAU]
+        else
+            [ANYON_VACUUM, ANYON_TAU]
+
+let quantum_dim(label) =
+    if label == ANYON_VACUUM
+        [1, 0]
+    else
+        phi_golden()
+
+let quantum_dim_product_test() =
+    let d_tau = quantum_dim(ANYON_TAU)
+    let d_tau_sq = phi_mul(d_tau, d_tau)
+    let one_plus_phi = phi_add([1, 0], d_tau)
+    if d_tau_sq[0] == one_plus_phi[0]
+        (d_tau_sq[1] == one_plus_phi[1] ? 1 : 0)
+    else
+        0
+
+let total_quantum_dim() = phi_norm(phi_add([2, 0], phi_golden()))
+
+let zeta_10() = gf_pow(3, 6553)
+let zeta_5() = gf_pow(zeta_10(), 2)
+
+let zeta_10_test() =
+    let z = zeta_10()
+    (gf_pow(z, 10) == 1 ? 1 : 0)
+
+let r_matrix_eigenvalue_vacuum() = gf_pow(zeta_10(), 6)
+let r_matrix_eigenvalue_tau() = gf_pow(zeta_10(), 3)
+
+let topological_spin(label) =
+    if label == ANYON_VACUUM
+        1
+    else
+        gf_pow(zeta_10(), 4)
+
+let phi_inv_value() = phi_sub(phi_golden(), [1, 0])
+
+let phi_sqrt(z) =
+    let target = z
+    let x = 0
+    for x < 256
+        let y = 0
+        for y < 256
+            let w = [x, y]
+            let w_sq = phi_mul(w, w)
+            if w_sq[0] == target[0]
+                (w_sq[1] == target[1] ? w : 0)
+            y = y + 1
+        x = x + 1
+    [0, 0]
+
+let f_matrix() =
+    let phi_inv_v = phi_inv_value()
+    let sqrt_phi_inv = phi_sqrt(phi_inv_v)
+    [[phi_inv_v, sqrt_phi_inv],
+     [sqrt_phi_inv, [gf_neg(phi_inv_v[0]), gf_neg(phi_inv_v[1])]]]
+
+let jones_polynomial_trace(braid_word, n) =
+    let trace = 0
+    let i = 0
+    for i < n
+        let sigma = braid_word[i]
+        if sigma > 0
+            trace = gf_add(trace, r_matrix_eigenvalue_tau())
+        else
+            trace = gf_add(trace, gf_inv(r_matrix_eigenvalue_tau()))
+        i = i + 1
+    trace
+
+let TOPOLOGICAL_GAP = 1
+
+let topological_protection_test() =
+    let braid1 = [1, 2, 1]
+    let braid2 = [2, 1, 2]
+    let j1 = jones_polynomial_trace(braid1, 3)
+    let j2 = jones_polynomial_trace(braid2, 3)
+    (j1 == j2 ? 1 : 0)
+
+let modular_s_matrix() =
+    let d_tau = quantum_dim(ANYON_TAU)
+    let d_total = total_quantum_dim()
+    [[[1, 0], d_tau],
+     [d_tau, [gf_neg(1), 0]]]
+
+let modular_t_matrix() =
+    [[1, 0],
+     [0, gf_pow(zeta_10(), 4)]]
+
+let verlinde_test() =
+    let fusion = fusion_rule(ANYON_TAU, ANYON_TAU)
+    (len(fusion) == 2 ? 1 : 0)
+
+let field_tqc(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 900 + i * 700
+        let diff = gf_sub(z, pole)
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let tqc_verify() =
+    let ok1 = phi_square_test()
+
+    let ok2 = quantum_dim_product_test()
+
+    let ok3 = zeta_10_test()
+
+    let fusion = fusion_rule(ANYON_TAU, ANYON_TAU)
+    let ok4 = (len(fusion) == 2 ? 1 : 0)
+
+    let ok5 = topological_protection_test()
+
+    let ok6 = verlinde_test()
+
+    ok1 + ok2 + ok3 + ok4 + ok5 + ok6

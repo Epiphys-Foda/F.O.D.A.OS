@@ -1,0 +1,36 @@
+import "ck.ψ"
+let bad = [0]
+
+let a_ratio = (8 * 8) / (4 * 4)
+let dz1 = a_ratio - 4
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let t_ratio = 500 / 125
+let dz2 = t_ratio - 4
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let dz3 = a_ratio - t_ratio
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let iso_ratio = 400 / 200
+let dz4 = iso_ratio - 2
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let r1 = 1000 / 500
+let r2 = 500 / 250
+let r3 = 250 / 125
+let dz5 = r1 + r2 + r3 - 6
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let closed = 2 + 2
+let opened = 2 + 2
+let net = closed - opened
+let dz6 = net
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+if 1888 < 1886
+    bad[0] = bad[0] + 1
+if 1888 > 1890
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

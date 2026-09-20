@@ -1,0 +1,21 @@
+import "ck.ψ"
+let bad = [0]
+
+let tU = 447
+bad[0] = bad[0] + ck(tU, 440, 460)
+
+let tEarth = 454
+bad[0] = bad[0] + ck(tEarth, 448, 460)
+
+let zircon = 440
+bad[0] = bad[0] + ck(zircon, 430, 450)
+
+bad[0] = bad[0] + ck_hi(zircon, tEarth)
+
+let tC = 573
+bad[0] = bad[0] + ck(tC, 570, 576)
+
+let tU235 = 70
+bad[0] = bad[0] + ck(tU235, 69, 72)
+
+arr_get(arr_new_n(1), bad[0])

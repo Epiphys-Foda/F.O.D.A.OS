@@ -1,0 +1,39 @@
+import "ck.ψ"
+let bad = [0]
+
+let unit = 100
+let dash = 3 * unit
+let dz1 = dash - 300
+bad[0] = bad[0] + ck(dz1, 0, 0)
+let letgap = 3 * unit
+let dz2 = letgap - 300
+bad[0] = bad[0] + ck(dz2, 0, 0)
+let wordgap = 7 * unit
+let dz3 = wordgap - 700
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let let_s = unit + unit + unit + unit + unit
+let dz4 = let_s - 500
+bad[0] = bad[0] + ck(dz4, 0, 0)
+let let_o = dash + unit + dash + unit + dash
+let dz5 = let_o - 1100
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let sos = let_s + letgap + let_o + letgap + let_s
+let dz6 = sos - 2700
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+let let_e = unit
+let let_a = unit + unit + dash
+bad[0] = bad[0] + ck_lo(let_a, let_e)
+
+if 1844 < 1842
+    bad[0] = bad[0] + 1
+if 1844 > 1846
+    bad[0] = bad[0] + 1
+if 1906 < 1904
+    bad[0] = bad[0] + 1
+if 1906 > 1908
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

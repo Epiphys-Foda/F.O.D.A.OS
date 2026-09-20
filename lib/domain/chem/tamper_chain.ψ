@@ -1,0 +1,71 @@
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let ver_orig = [0]
+let ver_tamp = [0]
+
+let t0 = smod(101 * 1002, 65537)
+ver_orig[0] = smod(ver_orig[0] + t0, 65537)
+let t1 = smod(90 * 716, 65537)
+ver_orig[0] = smod(ver_orig[0] + t1, 65537)
+let t2 = smod(41875 * 1366, 65537)
+ver_orig[0] = smod(ver_orig[0] + t2, 65537)
+let t3 = smod(40362 * 1926, 65537)
+ver_orig[0] = smod(ver_orig[0] + t3, 65537)
+let t4 = smod(5 * 1002, 65537)
+ver_orig[0] = smod(ver_orig[0] + t4, 65537)
+let t5 = smod(12 * 716, 65537)
+ver_orig[0] = smod(ver_orig[0] + t5, 65537)
+let t6 = smod(31 * 1366, 65537)
+ver_orig[0] = smod(ver_orig[0] + t6, 65537)
+let t7 = smod(157 * 1926, 65537)
+ver_orig[0] = smod(ver_orig[0] + t7, 65537)
+let t8 = smod(14 * 1002, 65537)
+ver_orig[0] = smod(ver_orig[0] + t8, 65537)
+let t9 = smod(26 * 716, 65537)
+ver_orig[0] = smod(ver_orig[0] + t9, 65537)
+let t10 = smod(318 * 1366, 65537)
+ver_orig[0] = smod(ver_orig[0] + t10, 65537)
+let t11 = smod(13119 * 1926, 65537)
+ver_orig[0] = smod(ver_orig[0] + t11, 65537)
+
+let u0 = smod(101 * 1002, 65537)
+ver_tamp[0] = smod(ver_tamp[0] + u0, 65537)
+let u1 = smod(89 * 716, 65537)
+ver_tamp[0] = smod(ver_tamp[0] + u1, 65537)
+let u2 = smod(41875 * 1366, 65537)
+ver_tamp[0] = smod(ver_tamp[0] + u2, 65537)
+let u3 = smod(40362 * 1926, 65537)
+ver_tamp[0] = smod(ver_tamp[0] + u3, 65537)
+let u4 = smod(5 * 1002, 65537)
+ver_tamp[0] = smod(ver_tamp[0] + u4, 65537)
+let u5 = smod(12 * 716, 65537)
+ver_tamp[0] = smod(ver_tamp[0] + u5, 65537)
+let u6 = smod(31 * 1366, 65537)
+ver_tamp[0] = smod(ver_tamp[0] + u6, 65537)
+let u7 = smod(157 * 1926, 65537)
+ver_tamp[0] = smod(ver_tamp[0] + u7, 65537)
+let u8 = smod(14 * 1002, 65537)
+ver_tamp[0] = smod(ver_tamp[0] + u8, 65537)
+let u9 = smod(26 * 716, 65537)
+ver_tamp[0] = smod(ver_tamp[0] + u9, 65537)
+let u10 = smod(318 * 1366, 65537)
+ver_tamp[0] = smod(ver_tamp[0] + u10, 65537)
+let u11 = smod(13119 * 1926, 65537)
+ver_tamp[0] = smod(ver_tamp[0] + u11, 65537)
+let dd = ver_tamp[0] - ver_orig[0]
+let add =
+    if dd < 0
+        0 - dd
+    else
+        dd
+let td = add - 716
+let wd =
+    if td < 0
+        0 - td
+    else
+        td
+bad[0] = bad[0] + wd
+
+arr_get(arr_new_n(1), bad[0])

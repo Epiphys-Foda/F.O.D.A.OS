@@ -1,0 +1,357 @@
+let route_new(methods, path_prefix, service_name) =
+    [methods, path_prefix, "", service_name, 0, [], 100]
+
+let route_methods(r) = r[0]
+let route_path(r) = r[1]
+let route_host(r) = r[2]
+let route_service(r) = r[3]
+let route_strip(r) = r[4]
+let route_tags(r) = r[5]
+let route_weight(r) = r[6]
+
+let route_set_host(r, host) =
+    r[2] = host
+    r
+
+let route_set_strip(r, flag) =
+    r[4] = flag
+    r
+
+let route_set_weight(r, w) =
+    r[6] = w
+    r
+
+let route_add_tag(r, tag) =
+    r[5].push(tag)
+    r
+
+let route_matches(r, method, path, host) =
+    let method_ok = 1
+    let methods = route_methods(r)
+    if len(methods) > 0
+        method_ok = 0
+        let i = 0
+        let n = len(methods)
+        for i < n
+            if methods[i] == method
+                method_ok = 1
+                i = n
+            i = i + 1
+    let path_ok = str_starts_with(path, route_path(r))
+    let host_ok = 1
+    if route_host(r) != ""
+        host_ok = host == route_host(r)
+    method_ok * path_ok * host_ok
+
+let router_new() =
+    [[]]
+
+let router_routes(rt) = rt[0]
+
+let router_add(rt, route) =
+    let routes = router_routes(rt)
+    routes.push(route)
+    rt[0] = routes
+    rt
+
+let router_match(rt, method, path, host) =
+    let routes = router_routes(rt)
+    let i = 0
+    let n = len(routes)
+    let result = 0
+    for i < n
+        let r = routes[i]
+        if route_matches(r, method, path, host) == 1
+            result = r
+            i = n
+        i = i + 1
+    result
+
+let router_match_all(rt, method, path, host) =
+    let routes = router_routes(rt)
+    let result = []
+    let i = 0
+    let n = len(routes)
+    for i < n
+        let r = routes[i]
+        if route_matches(r, method, path, host) == 1
+            result.push(r)
+        i = i + 1
+    result
+
+let request_new(method, path, host) =
+    [method, path, host, {}, {}, "", ""]
+
+let req_method(r) = r[0]
+let req_path(r) = r[1]
+let req_host(r) = r[2]
+let req_headers(r) = r[3]
+let req_query(r) = r[4]
+let req_body(r) = r[5]
+let req_remote(r) = r[6]
+
+let req_set_header(r, key, val) =
+    let h = req_headers(r)
+    h[key] = val
+    r[3] = h
+    r
+
+let req_get_header(r, key) =
+    req_headers(r)[key]
+
+let req_set_path(r, path) =
+    r[1] = path
+    r
+
+let response_new(status, body) =
+    [status, {}, body]
+
+let resp_status(r) = r[0]
+let resp_headers(r) = r[1]
+let resp_body(r) = r[2]
+
+let resp_set_header(r, key, val) =
+    let h = resp_headers(r)
+    h[key] = val
+    r[1] = h
+    r
+
+let resp_set_status(r, status) =
+    r[0] = status
+    r
+
+let middleware_new(name, run_fn) =
+    [name, run_fn]
+
+let mw_name(m) = m[0]
+let true MW_AUTH_KEYS = []
+let true MW_RL = [0, 0, 0, 0]
+let true MW_CORS_ORIGINS = []
+let true MW_CORS_METHODS = []
+let true MW_LOG = []
+let mw_handler_auth(req) =
+    let key = req_get_header(req, "X-API-Key")
+    let found = 0
+    let i = 0
+    let n = len(MW_AUTH_KEYS)
+    for i < n
+        if MW_AUTH_KEYS[i] == key
+            found = 1
+            i = n
+        i = i + 1
+    if found == 1
+        0
+    else
+        response_new(401, "Unauthorized")
+let mw_handler_rate_limit(req) =
+    let window_start = MW_RL[1]
+    let count = MW_RL[0]
+    if MW_RL[2] - window_start > MW_RL[3]
+        MW_RL[1] = MW_RL[2]
+        MW_RL[0] = 1
+        0
+    else
+        if count >= MW_RL[3]
+            response_new(429, "Too Many Requests")
+        else
+            MW_RL[0] = count + 1
+            0
+let mw_handler_cors(req) =
+    let resp = response_new(200, "")
+    let i = 0
+    let n = len(MW_CORS_ORIGINS)
+    let origin = req_get_header(req, "Origin")
+    let allow = 0
+    for i < n
+        if MW_CORS_ORIGINS[i] == "*" || MW_CORS_ORIGINS[i] == origin
+            allow = 1
+            i = n
+        i = i + 1
+    if allow == 1
+        resp = resp_set_header(resp, "Access-Control-Allow-Origin", origin)
+        resp = resp_set_header(resp, "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE")
+    0
+let mw_handler_logging(req) =
+    let msg = str_concat(str_concat(str_concat(req_method(req), " "), str_concat(req_path(req), " ")), req_host(req))
+    MW_LOG.push([0, msg])
+    0
+let mw_handler_apply(handler_id, req) =
+    if handler_id == 1
+        mw_handler_auth(req)
+    else
+        if handler_id == 2
+            mw_handler_rate_limit(req)
+        else
+            if handler_id == 3
+                mw_handler_cors(req)
+            else
+                if handler_id == 4
+                    mw_handler_logging(req)
+                else
+                    0
+let mw_run(m, req) = mw_handler_apply(m[1], req)
+
+let mw_pipeline_new() =
+    [[]]
+
+let mw_pipeline_list(p) = p[0]
+
+let mw_pipeline_add(p, mw) =
+    let list = mw_pipeline_list(p)
+    list.push(mw)
+    p[0] = list
+    p
+
+let mw_pipeline_run(p, req) =
+    let list = mw_pipeline_list(p)
+    let result = 0
+    let i = 0
+    let n = len(list)
+    for i < n
+        let mw = list[i]
+        let resp = mw_run(mw, req)
+        if resp != 0
+            result = resp
+            i = n
+        i = i + 1
+    result
+
+let auth_mw_new(valid_keys) =
+    MW_AUTH_KEYS.clear()
+    let i = 0
+    let n = len(valid_keys)
+    for i < n
+        MW_AUTH_KEYS.push(valid_keys[i])
+        i = i + 1
+    middleware_new("auth", 1)
+
+let rate_limit_mw_new(limit, window_ms, current_ts) =
+    MW_RL[0] = 0
+    MW_RL[1] = current_ts
+    MW_RL[2] = current_ts
+    MW_RL[3] = limit
+    middleware_new("rate_limit", 2)
+
+let cors_mw_new(allow_origins, allow_methods) =
+    MW_CORS_ORIGINS.clear()
+    MW_CORS_METHODS.clear()
+    let i = 0
+    let n = len(allow_origins)
+    for i < n
+        MW_CORS_ORIGINS.push(allow_origins[i])
+        i = i + 1
+    i = 0
+    n = len(allow_methods)
+    for i < n
+        MW_CORS_METHODS.push(allow_methods[i])
+        i = i + 1
+    middleware_new("cors", 3)
+
+let logging_mw_new(logger) =
+    middleware_new("logging", 4)
+
+let gateway_new() =
+    [[], [], {}, 0]
+
+let gateway_routes(g) = g[0]
+let gateway_mws(g) = g[1]
+let gateway_services(g) = g[2]
+let gateway_counter(g) = g[3]
+
+let gateway_add_route(g, route) =
+    let routes = gateway_routes(g)
+    routes.push(route)
+    g[0] = routes
+    g
+
+let gateway_add_mw(g, mw) =
+    let mws = gateway_mws(g)
+    mws.push(mw)
+    g[1] = mws
+    g
+
+let gateway_register_service(g, name, host, port) =
+    let services = gateway_services(g)
+    services[name] = [name, host, port]
+    g[2] = services
+    g
+
+let gateway_handle(g, req) =
+    g[3] = gateway_counter(g) + 1
+    let mws = gateway_mws(g)
+    let i = 0
+    let n = len(mws)
+    let short_resp = 0
+    for i < n
+        let mw = mws[i]
+        let resp = mw_run(mw, req)
+        if resp != 0
+            short_resp = resp
+            i = n
+        i = i + 1
+    if short_resp != 0
+        short_resp
+    else
+        let routes = gateway_routes(g)
+        i = 0
+        n = len(routes)
+        let matched = 0
+        for i < n
+            let r = routes[i]
+            if route_matches(r, req_method(req), req_path(req), req_host(req)) == 1
+                matched = r
+                i = n
+            i = i + 1
+        if matched == 0
+            response_new(404, "Not Found")
+        else
+            let svc_name = route_service(matched)
+            let services = gateway_services(g)
+            let svc = services[svc_name]
+            if svc == 0
+                response_new(502, "Bad Gateway: service not found")
+            else
+                let resp = response_new(200, "proxied to " + svc[1] + ":" + svc[2])
+                resp = resp_set_header(resp, "X-Service", svc_name)
+                if route_strip(matched) == 1
+                    let new_path = req_path(req)
+                    let prefix_len = len(route_path(matched))
+                    new_path = str_slice_from(new_path, prefix_len)
+                    resp = resp_set_header(resp, "X-Stripped-Path", new_path)
+                resp
+
+let gateway_handle_canary(g, req) =
+    let routes = gateway_routes(g)
+    let candidates = []
+    let i = 0
+    let n = len(routes)
+    for i < n
+        let r = routes[i]
+        if route_matches(r, req_method(req), req_path(req), req_host(req)) == 1
+            candidates.push(r)
+        i = i + 1
+    if len(candidates) == 0
+        response_new(404, "Not Found")
+    else
+        let total_weight = 0
+        i = 0
+        let nc = len(candidates)
+        for i < nc
+            total_weight = total_weight + route_weight(candidates[i])
+            i = i + 1
+        let pick = gateway_counter(g) % total_weight
+        let cum = 0
+        let selected = candidates[0]
+        i = 0
+        for i < nc
+            cum = cum + route_weight(candidates[i])
+            if pick < cum
+                selected = candidates[i]
+                i = nc
+            i = i + 1
+        let svc_name = route_service(selected)
+        let services = gateway_services(g)
+        let svc = services[svc_name]
+        let resp = response_new(200, "canary -> " + svc[1] + ":" + svc[2])
+        resp = resp_set_header(resp, "X-Canary-Service", svc_name)
+        resp

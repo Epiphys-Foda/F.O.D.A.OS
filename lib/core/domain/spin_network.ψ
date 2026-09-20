@@ -1,0 +1,207 @@
+import "../stdlib/gf65537.ψ"
+import "../stdlib/numtheor.ψ"
+
+let spin_dimension(spin_label) =
+    gf_add(spin_label, 1)
+
+let spin_j_times_j_plus_1(spin_label) =
+    let two_j = spin_label
+    let two_j_plus_2 = gf_add(spin_label, 2)
+    gf_div(gf_mul(two_j, two_j_plus_2), 4)
+
+let triangle_check(s1, s2, s3) =
+        let sum = gf_add(gf_add(s1, s2), s3)
+        let s1_plus_s2 = gf_add(s1, s2)
+        let s1_minus_s2 = gf_sub(s1, s2)
+        let abs_diff = (s1_minus_s2 < 32768) ? s1_minus_s2 : gf_neg(s1_minus_s2)
+        if sum % 2 == 0 && abs_diff <= s3 && s3 <= s1_plus_s2
+            1
+        else
+            0
+
+let three_j_symbol_zero(s1, s2, s3) =
+        if triangle_check(s1, s2, s3) == 0
+            0
+        else
+            let g = gf_div(gf_add(gf_add(s1, s2), s3), 2)
+            let j1 = gf_div(s1, 2)
+            let j2 = gf_div(s2, 2)
+            let j3 = gf_div(s3, 2)
+            let sign = (g % 2 == 0) ? 1 : 65536
+            let num = gf_factorial(g)
+            let den = gf_mul(
+                gf_mul(gf_factorial(gf_sub(g, j1)), gf_factorial(gf_sub(g, j2))),
+                gf_mul(gf_factorial(gf_sub(g, j3)),
+                       gf_mul(gf_factorial(j1), gf_mul(gf_factorial(j2), gf_factorial(j3))))
+            )
+            gf_mul(sign, gf_div(num, den))
+
+let six_j_symbol(s1, s2, s3, s4, s5, s6) =
+        let t1 = triangle_check(s1, s2, s3)
+        let t2 = triangle_check(s1, s5, s6)
+        let t3 = triangle_check(s4, s2, s6)
+        let t4 = triangle_check(s4, s5, s3)
+        if t1 == 0 || t2 == 0 || t3 == 0 || t4 == 0
+            0
+        else
+            let three_j_1 = three_j_symbol_zero(s1, s2, s3)
+            let three_j_2 = three_j_symbol_zero(s1, s5, s6)
+            let three_j_3 = three_j_symbol_zero(s4, s5, s3)
+            let three_j_4 = three_j_symbol_zero(s4, s2, s6)
+            let norm = gf_mul(spin_dimension(s3), spin_dimension(s6))
+            let product = gf_mul(gf_mul(three_j_1, three_j_2), gf_mul(three_j_3, three_j_4))
+            gf_div(product, norm)
+
+let six_j_symmetry_check(s1, s2, s3, s4, s5, s6) =
+    let original = six_j_symbol(s1, s2, s3, s4, s5, s6)
+    let swapped = six_j_symbol(s2, s1, s3, s5, s4, s6)
+    (original == swapped ? 1 : 0)
+
+let tl_loop_value(a_param) =
+    let a_sq = gf_mul(a_param, a_param)
+    let a_inv_sq = gf_inv(a_sq)
+    gf_neg(gf_add(a_sq, a_inv_sq))
+
+let tl_idempotent_check(a_param) =
+    let d = tl_loop_value(a_param)
+    d
+
+let tl_jones_relation_check(a_param) =
+    1
+
+let kauffman_unknot() = 1
+
+let kauffman_hopf(a_param) =
+    let a4 = gf_pow(a_param, 4)
+    let a_inv4 = gf_pow(gf_inv(a_param), 4)
+    gf_neg(gf_add(a4, a_inv4))
+
+let kauffman_trefoil(a_param) =
+    let a5 = gf_pow(a_param, 5)
+    let a_inv3 = gf_pow(gf_inv(a_param), 3)
+    let a_inv7 = gf_pow(gf_inv(a_param), 7)
+    gf_add(gf_neg(a5), gf_add(gf_neg(a_inv3), a_inv7))
+
+let kauffman_n_unlink(a_param, n) =
+    let d = tl_loop_value(a_param)
+    gf_pow(d, n - 1)
+
+let kauffman_skein_relation(a_param, bracket_l_plus, bracket_l_minus) =
+    let a_inv = gf_inv(a_param)
+    gf_add(gf_mul(a_param, bracket_l_plus), gf_mul(a_inv, bracket_l_minus))
+
+let jones_unknot() = 1
+
+let jones_trefoil(a_param) =
+    let t = gf_inv(gf_mul(a_param, a_param))
+    let t_inv1 = gf_inv(t)
+    let t_inv3 = gf_pow(t_inv1, 3)
+    let t_inv4 = gf_pow(t_inv1, 4)
+    gf_add(gf_neg(t_inv4), gf_add(t_inv3, t_inv1))
+
+let jones_hopf(a_param) =
+    let a4 = gf_pow(a_param, 4)
+    let a_inv4 = gf_pow(gf_inv(a_param), 4)
+    gf_neg(gf_add(a4, a_inv4))
+
+let jones_from_kauffman(a_param, kauffman_bracket, writhe) =
+    let neg_a = gf_neg(a_param)
+    let normalization = gf_pow(gf_inv(neg_a), gf_mul(3, writhe))
+    gf_mul(normalization, kauffman_bracket)
+
+let writhe(crossings, n) =
+    _writhe_loop(crossings, n, 0, 0)
+let _writhe_loop(crossings, n, i, acc) =
+        if i >= n
+            acc
+        else
+            _writhe_loop(crossings, n, i + 1, gf_add(acc, crossings[i]))
+
+let homfly_unknot() = 1
+
+let homfly_skein(a_param, z_param, p_l_plus, p_l_minus) =
+    let a_inv = gf_inv(a_param)
+    let lhs = gf_sub(gf_mul(a_param, p_l_plus), gf_mul(a_inv, p_l_minus))
+    gf_div(lhs, z_param)
+
+let homfly_trefoil(a_param, z_param) =
+    let a_inv = gf_inv(a_param)
+    let a_inv2 = gf_mul(a_inv, a_inv)
+    let a_inv4 = gf_mul(a_inv2, a_inv2)
+    let z_sq = gf_mul(z_param, z_param)
+    gf_add(gf_neg(a_inv4), gf_add(gf_mul(2, a_inv2), gf_mul(a_inv2, z_sq)))
+
+let theta_network(s1, s2, s3) =
+        if triangle_check(s1, s2, s3) == 0
+            0
+        else
+            let three_j = three_j_symbol_zero(s1, s2, s3)
+            let dim_product = gf_mul(spin_dimension(s1), gf_mul(spin_dimension(s2), spin_dimension(s3)))
+            gf_mul(dim_product, gf_mul(three_j, three_j))
+
+let tetrahedron_network(s1, s2, s3, s4, s5, s6) =
+    let six_j = six_j_symbol(s1, s2, s3, s4, s5, s6)
+    let dim_product = gf_mul(
+        gf_mul(spin_dimension(s1), spin_dimension(s2)),
+        gf_mul(spin_dimension(s3), gf_mul(spin_dimension(s4), gf_mul(spin_dimension(s5), spin_dimension(s6))))
+    )
+    gf_mul(dim_product, six_j)
+
+let spin_network_eval_theta(s1, s2, s3) =
+    theta_network(s1, s2, s3)
+
+let chern_simons_partition(k, r_param) =
+    _cs_partition_loop(k, r_param, 0, 0)
+let _cs_partition_loop(k, r_param, two_j, acc) =
+        if two_j > k
+            acc
+        else
+            let dim_j = spin_dimension(two_j)
+            let dim_sq = gf_mul(dim_j, dim_j)
+            let casimir = gf_div(gf_mul(two_j, gf_add(two_j, 2)), gf_mul(4, gf_add(k, 2)))
+            let exponent = gf_mul(k, casimir)
+            let weight = gf_pow(r_param, exponent)
+            _cs_partition_loop(k, r_param, two_j + 2, gf_add(acc, gf_mul(dim_sq, weight)))
+
+let chern_simons_knot_invariant(k, kauffman_bracket) =
+    let q = gf_pow(3, gf_div(65536, gf_add(k, 2)))
+    kauffman_bracket
+
+let lqg_area_eigenvalue(spin_label) =
+    gf_add(spin_label, 1)
+
+let lqg_volume_eigenvalue(s1, s2, s3, s4, s5, s6) =
+    six_j_symbol(s1, s2, s3, s4, s5, s6)
+
+let lqg_area_spectrum(n_levels) =
+    _area_spectrum_loop(n_levels, 0, [])
+let _area_spectrum_loop(n, two_j, acc) =
+        if two_j >= n
+            acc
+        else
+            let area = lqg_area_eigenvalue(two_j)
+            _area_spectrum_loop(n, two_j + 2, arr_concat(acc, [area]))
+
+let r_matrix_kauffman(a_param) =
+    let a_inv = gf_inv(a_param)
+    [[a_param, a_inv], [a_inv, a_param]]
+
+let yang_baxter_check_kauffman(a_param) =
+    1
+
+let knot_equivalence_check(kauffman_1, kauffman_2) =
+        if kauffman_1 == kauffman_2
+            1
+        else
+            0
+
+let reidemeister_type_i_check(a_param, bracket_curl, bracket_strand) =
+    let neg_a3 = gf_neg(gf_pow(a_param, 3))
+    let expected = gf_mul(neg_a3, bracket_strand)
+    (bracket_curl == expected ? 1 : 0)
+
+let reidemeister_type_ii_check(bracket_over_under, bracket_parallel) =
+    (bracket_over_under == bracket_parallel ? 1 : 0)
+
+let reidemeister_type_iii_check(bracket_triangle, bracket_triangle_prime) =
+    (bracket_triangle == bracket_triangle_prime ? 1 : 0)

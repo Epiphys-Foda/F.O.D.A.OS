@@ -1,0 +1,30 @@
+import "ck.ψ"
+let bad = [0]
+
+let tEq = 255
+bad[0] = bad[0] + ck(tEq, 250, 260)
+
+let tAct = 288
+bad[0] = bad[0] + ck(tAct, 285, 291)
+
+let gE = tAct - tEq
+bad[0] = bad[0] + ck(gE, 30, 36)
+
+let vEq = 232
+bad[0] = bad[0] + ck(vEq, 225, 240)
+let vAct = 737
+bad[0] = bad[0] + ck(vAct, 730, 745)
+let gV = vAct - vEq
+bad[0] = bad[0] + ck(gV, 480, 520)
+
+if gV < 15 * gE
+    bad[0] = bad[0] + 1
+
+let x2 = 102 * 102
+let x4 = x2 * x2
+bad[0] = bad[0] + ck(x4, 108000000, 109000000)
+
+let S = 1361
+bad[0] = bad[0] + ck(S, 1355, 1370)
+
+arr_get(arr_new_n(1), bad[0])

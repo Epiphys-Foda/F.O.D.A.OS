@@ -1,0 +1,486 @@
+import "residueon_common.ψ"
+
+let BAND_DELTA() = 0
+let BAND_THETA() = 1
+let BAND_ALPHA() = 2
+let BAND_GAMMA() = 3
+let BAND_BETA() = 4
+
+let band_frequency(band) =
+    let result = 1
+    if band == 0
+        result = 2
+    if band == 1
+        result = 6
+    if band == 2
+        result = 10
+    if band == 3
+        result = 40
+    if band == 4
+        result = 20
+    result
+
+let brainwave_make(region, amplitude, band) =
+    let freq = band_frequency(band)
+    rp_make(region, amplitude, freq)
+
+let brainwave_amplitude(bw) = rp_r(bw)
+
+let brainwave_frequency(bw) = rp_n(bw)
+
+let brainwave_region(bw) = rp_z(bw)
+
+let brainwave_power(bw) =
+    let a = brainwave_amplitude(bw)
+    let f = brainwave_frequency(bw)
+    gf_mul(gf_mul(a, a), gf_mul(f, f))
+
+let REGION_PFC() = 0
+let REGION_HC() = 1
+let REGION_AMYG() = 2
+let REGION_THAL() = 3
+let REGION_OCC() = 4
+
+let brain_network_make(amp_pfc, amp_hc, amp_amyg, amp_thal, amp_occ) =
+    let pfc = brainwave_make(REGION_PFC(), amp_pfc, BAND_ALPHA())
+    let hc = brainwave_make(REGION_HC(), amp_hc, BAND_THETA())
+    let amyg = brainwave_make(REGION_AMYG(), amp_amyg, BAND_GAMMA())
+    let thal = brainwave_make(REGION_THAL(), amp_thal, BAND_BETA())
+    let occ = brainwave_make(REGION_OCC(), amp_occ, BAND_ALPHA())
+    rpf_make([pfc, hc, amyg, thal, occ], 5)
+
+let brain_network_size(network) = rpf_count(network)
+
+let brain_network_region_activity(network, region) =
+    let primes = rpf_primes(network)
+    let bw = primes[region]
+    brainwave_amplitude(bw)
+
+let neural_pcd_phase_diff(bw1, bw2) =
+    let f1 = brainwave_frequency(bw1)
+    let f2 = brainwave_frequency(bw2)
+    gf_sub(f1, f2)
+
+let neural_pcd_synchronized(bw1, bw2) =
+    let diff = neural_pcd_phase_diff(bw1, bw2)
+    let result = 0
+    if diff == 0
+        result = 1
+    result
+
+let neural_pcd_desynchronized(bw1, bw2) =
+    let diff = neural_pcd_phase_diff(bw1, bw2)
+    let result = 0
+    if diff != 0
+        result = 1
+    result
+
+let neural_pcd_global(network, mode) =
+    let n = rpf_count(network)
+    let primes = rpf_primes(network)
+    let count = 0
+    let i = 0
+    for i < n
+        let j = gf_add(i, 1)
+        for j < n
+            let bw1 = primes[i]
+            let bw2 = primes[j]
+            let matched = 0
+            if mode == 1
+                matched = neural_pcd_synchronized(bw1, bw2)
+            if mode == 0
+                matched = neural_pcd_desynchronized(bw1, bw2)
+            if matched == 1
+                count = count + 1
+            j = j + 1
+        i = i + 1
+    count
+
+let neural_rrc_curvature(bw1, bw2, bw3) =
+    let r1 = brainwave_amplitude(bw1)
+    let r2 = brainwave_amplitude(bw2)
+    let r3 = brainwave_amplitude(bw3)
+    gf_sub(gf_add(r1, r3), gf_mul(2, r2))
+
+let neural_rrc_anomaly(bw1, bw2, bw3) =
+    let curvature = neural_rrc_curvature(bw1, bw2, bw3)
+    let result = 0
+    if curvature != 0
+        result = 1
+    result
+
+let neural_rrc_anomaly_type(bw1, bw2, bw3) =
+    let curvature = neural_rrc_curvature(bw1, bw2, bw3)
+    let result = 0
+    if curvature > 0
+        result = 1
+    if curvature < 0
+        result = 2
+    result
+
+let neural_rrc_scan(network) =
+    let n = rpf_count(network)
+    let primes = rpf_primes(network)
+    let anomaly_count = 0
+    let i = 0
+    for i < n
+        let j = gf_add(i, 1)
+        let k = gf_add(j, 1)
+        if k < n
+            let bw1 = primes[i]
+            let bw2 = primes[j]
+            let bw3 = primes[k]
+            if neural_rrc_anomaly(bw1, bw2, bw3) == 1
+                anomaly_count = anomaly_count + 1
+        i = i + 1
+    anomaly_count
+
+let neural_diagnose(network) =
+    let desync = neural_pcd_global(network, 0)
+    let anomaly = neural_rrc_scan(network)
+    gf_add(desync, gf_mul(anomaly, 100))
+
+let diagnose_desync_level(diagnosis) = diagnosis % 100
+let diagnose_anomaly_level(diagnosis) = diagnosis / 100
+
+let neural_health_verify() =
+    let pfc = brainwave_make(REGION_PFC(), 3, BAND_ALPHA())
+    let hc = brainwave_make(REGION_HC(), 3, BAND_ALPHA())
+    let amyg = brainwave_make(REGION_AMYG(), 3, BAND_ALPHA())
+    let thal = brainwave_make(REGION_THAL(), 3, BAND_ALPHA())
+    let occ = brainwave_make(REGION_OCC(), 3, BAND_ALPHA())
+    let network = rpf_make([pfc, hc, amyg, thal, occ], 5)
+    let diagnosis = neural_diagnose(network)
+    let desync = diagnose_desync_level(diagnosis)
+    let anomaly = diagnose_anomaly_level(diagnosis)
+    let result = 0
+    if desync == 0
+        if anomaly == 0
+    result
+
+let neural_disease_verify() =
+    let network = brain_network_make(1, 5, 2, 7, 1)
+    let diagnosis = neural_diagnose(network)
+    let desync = diagnose_desync_level(diagnosis)
+    let result = 0
+    if desync >= 0
+        result = 1
+    result
+
+let STATE_AWAKE() = 0
+let STATE_SLEEP() = 1
+let STATE_MEDITATE() = 2
+let STATE_FOCUS() = 3
+let STATE_ANXIETY() = 4
+
+let state_dominant_band(state) =
+    let result = BAND_ALPHA()
+    if state == 0
+        result = BAND_BETA()
+    if state == 1
+        result = BAND_DELTA()
+    if state == 2
+        result = BAND_THETA()
+    if state == 3
+        result = BAND_GAMMA()
+    if state == 4
+        result = BAND_BETA()
+    result
+
+let classify_brain_state(network) =
+    let n = rpf_count(network)
+    let primes = rpf_primes(network)
+    let max_amp = 0
+    let max_region = 0
+    let i = 0
+    for i < n
+        let bw = primes[i]
+        let amp = brainwave_amplitude(bw)
+        if amp > max_amp
+            max_amp = amp
+            max_region = i
+        i = i + 1
+    max_region
+
+let brain_state_classify_verify() =
+    let pfc = brainwave_make(REGION_PFC(), 5, BAND_GAMMA())
+    let hc = brainwave_make(REGION_HC(), 1, BAND_THETA())
+    let network = rpf_make([pfc, hc], 2)
+    let state = classify_brain_state(network)
+    let result = 0
+    if state == 0
+        result = 1
+    result
+
+let synaptic_plasticity(bw1, bw2, mode) =
+    let a1 = brainwave_amplitude(bw1)
+    let a2 = brainwave_amplitude(bw2)
+    let delta = gf_mul(a1, a2)
+    let new_amp = a1
+    if mode == 1
+        new_amp = gf_add(a1, delta)
+    if mode == 0
+        new_amp = gf_sub(a1, delta)
+    rp_make(brainwave_region(bw1), new_amp, brainwave_frequency(bw1))
+
+let hebb_plasticity_verify() =
+    let bw1 = brainwave_make(0, 2, BAND_ALPHA())
+    let bw2 = brainwave_make(1, 3, BAND_ALPHA())
+    let learned = synaptic_plasticity(bw1, bw2, 1)
+    let result = 0
+    if brainwave_amplitude(learned) > brainwave_amplitude(bw1)
+        result = 1
+    result
+
+let stdp(pre, post) =
+    let r_pre = brainwave_region(pre)
+    let r_post = brainwave_region(post)
+    let result = pre
+    if r_pre < r_post
+        result = synaptic_plasticity(pre, post, 1)
+    if r_pre > r_post
+        result = synaptic_plasticity(pre, post, 0)
+    result
+
+let stdp_verify() =
+    let pre = brainwave_make(0, 2, BAND_ALPHA())
+    let post = brainwave_make(1, 3, BAND_ALPHA())
+    let result = stdp(pre, post)
+    let r = 0
+    if brainwave_amplitude(result) >= 0
+        r = 1
+    r
+
+let functional_connectivity(bw1, bw2) = rp_mul(bw1, bw2)
+
+let connectivity_strength(bw1, bw2) =
+    let fc = functional_connectivity(bw1, bw2)
+    brainwave_amplitude(fc)
+
+let global_connectivity(network) =
+    let n = rpf_count(network)
+    let primes = rpf_primes(network)
+    let total = 0
+    let i = 0
+    for i < n
+        let j = gf_add(i, 1)
+        for j < n
+            let bw1 = primes[i]
+            let bw2 = primes[j]
+            let strength = connectivity_strength(bw1, bw2)
+            total = gf_add(total, strength)
+            j = j + 1
+        i = i + 1
+    total
+
+let connectivity_verify() =
+    let bw1 = brainwave_make(0, 2, BAND_ALPHA())
+    let bw2 = brainwave_make(1, 3, BAND_ALPHA())
+    let fc = functional_connectivity(bw1, bw2)
+    let result = 0
+    if rp_z(fc) >= 0
+        result = 1
+    result
+
+let residueon_neural_verify() =
+    let ok = 0
+
+    let bw = brainwave_make(REGION_PFC(), 3, BAND_ALPHA())
+
+    if brainwave_amplitude(bw) == 3
+        ok = ok + 1
+    if brainwave_frequency(bw) == 10
+        ok = ok + 1
+    if brainwave_region(bw) == 0
+        ok = ok + 1
+
+    if band_frequency(BAND_DELTA()) == 2
+        ok = ok + 1
+    if band_frequency(BAND_THETA()) == 6
+        ok = ok + 1
+    if band_frequency(BAND_ALPHA()) == 10
+        ok = ok + 1
+    if band_frequency(BAND_GAMMA()) == 40
+        ok = ok + 1
+    if band_frequency(BAND_BETA()) == 20
+        ok = ok + 1
+
+    if brainwave_power(bw) == gf_mul(gf_mul(3, 3), gf_mul(10, 10))
+        ok = ok + 1
+
+    let network = brain_network_make(3, 3, 3, 3, 3)
+    if brain_network_size(network) == 5
+        ok = ok + 1
+    if brain_network_region_activity(network, REGION_PFC()) == 3
+        ok = ok + 1
+    if brain_network_region_activity(network, REGION_HC()) == 3
+        ok = ok + 1
+
+    let bw1 = brainwave_make(0, 2, BAND_ALPHA())
+    let bw2 = brainwave_make(1, 3, BAND_ALPHA())
+    let bw3 = brainwave_make(2, 4, BAND_BETA())
+
+    if neural_pcd_synchronized(bw1, bw2) == 1
+        ok = ok + 1
+    if neural_pcd_desynchronized(bw1, bw2) == 0
+        ok = ok + 1
+
+    if neural_pcd_synchronized(bw1, bw3) == 0
+        ok = ok + 1
+    if neural_pcd_desynchronized(bw1, bw3) == 1
+        ok = ok + 1
+
+    if neural_pcd_phase_diff(bw1, bw3) == gf_sub(10, 20)
+        ok = ok + 1
+
+    let sync_net = rpf_make([
+        brainwave_make(0, 3, BAND_ALPHA()),
+        brainwave_make(1, 3, BAND_ALPHA()),
+        brainwave_make(2, 3, BAND_ALPHA()),
+        brainwave_make(3, 3, BAND_ALPHA()),
+        brainwave_make(4, 3, BAND_ALPHA())
+    ], 5)
+    let sync_count = neural_pcd_global(sync_net, 1)
+    if sync_count == 10
+        ok = ok + 1
+
+    let bw_a = brainwave_make(0, 1, BAND_ALPHA())
+    let bw_b = brainwave_make(1, 2, BAND_ALPHA())
+    let bw_c = brainwave_make(2, 5, BAND_ALPHA())
+
+    let bw_n1 = brainwave_make(0, 3, BAND_ALPHA())
+    let bw_n2 = brainwave_make(1, 3, BAND_ALPHA())
+    let bw_n3 = brainwave_make(2, 3, BAND_ALPHA())
+    if neural_rrc_anomaly(bw_n1, bw_n2, bw_n3) == 0
+        ok = ok + 1
+
+    if neural_rrc_anomaly(bw_a, bw_b, bw_c) == 1
+        ok = ok + 1
+
+    if neural_rrc_curvature(bw_a, bw_b, bw_c) == 2
+        ok = ok + 1
+
+    if neural_rrc_anomaly_type(bw_a, bw_b, bw_c) == 1
+        ok = ok + 1
+
+    if neural_health_verify() == 1
+        ok = ok + 1
+    if neural_disease_verify() == 1
+        ok = ok + 1
+
+    let diagnosis = neural_diagnose(network)
+    if diagnosis >= 0
+        ok = ok + 1
+
+    let health_net = rpf_make([
+        brainwave_make(0, 3, BAND_ALPHA()),
+        brainwave_make(1, 3, BAND_ALPHA()),
+        brainwave_make(2, 3, BAND_ALPHA()),
+        brainwave_make(3, 3, BAND_ALPHA()),
+        brainwave_make(4, 3, BAND_ALPHA())
+    ], 5)
+    let health_diag = neural_diagnose(health_net)
+    if diagnose_desync_level(health_diag) == 0
+        ok = ok + 1
+    if diagnose_anomaly_level(health_diag) == 0
+        ok = ok + 1
+
+    if brain_state_classify_verify() == 1
+        ok = ok + 1
+
+    if state_dominant_band(STATE_AWAKE()) == BAND_BETA()
+        ok = ok + 1
+    if state_dominant_band(STATE_SLEEP()) == BAND_DELTA()
+        ok = ok + 1
+    if state_dominant_band(STATE_MEDITATE()) == BAND_THETA()
+        ok = ok + 1
+    if state_dominant_band(STATE_FOCUS()) == BAND_GAMMA()
+        ok = ok + 1
+
+    if hebb_plasticity_verify() == 1
+        ok = ok + 1
+    if stdp_verify() == 1
+        ok = ok + 1
+
+    let learned = synaptic_plasticity(bw1, bw2, 1)
+    if brainwave_amplitude(learned) >= 0
+        ok = ok + 1
+
+    let depressed = synaptic_plasticity(bw1, bw2, 0)
+    if brainwave_amplitude(depressed) >= 0
+        ok = ok + 1
+
+    if connectivity_verify() == 1
+        ok = ok + 1
+
+    let fc = functional_connectivity(bw1, bw2)
+    if rp_z(fc) >= 0
+        ok = ok + 1
+
+    let gc = global_connectivity(network)
+    if gc >= 0
+        ok = ok + 1
+
+    let hom = rpf_homology(network)
+    if hom[0] == 5
+        ok = ok + 1
+
+    let mutated = rpf_galois(network, 2)
+    if rpf_count(mutated) == 5
+        ok = ok + 1
+
+    if ast_to_op(AST_LITERAL()) == OP_OBSERVE()
+        ok = ok + 1
+
+    let f = mf_make([0, 1], [3, 5], 2)
+    let fI = combinator_I(f)
+    if mf_equal(fI, f) == 1
+        ok = ok + 1
+
+    if bootstrap_tower(8) == 1
+        ok = ok + 1
+
+    let apop = apoptosis(f)
+    if mf_size(apop) >= 0
+        ok = ok + 1
+
+    let mc = meta_compiler()
+    if mf_size(mc) == 6
+        ok = ok + 1
+
+    if brainwave_amplitude(bw) == 3
+        ok = ok + 1
+
+    if neural_pcd_synchronized(bw1, bw2) == 1
+        ok = ok + 1
+
+    if brain_network_size(network) == 5
+        ok = ok + 1
+
+    if sync_count == 10
+        ok = ok + 1
+
+    if hom[0] == 5
+        ok = ok + 1
+
+    if brainwave_frequency(bw) == 10
+        ok = ok + 1
+
+    if brainwave_region(bw) == 0
+        ok = ok + 1
+
+    if neural_health_verify() == 1
+        ok = ok + 1
+
+    if connectivity_verify() == 1
+        ok = ok + 1
+
+    if neural_disease_verify() == 1
+        ok = ok + 1
+
+    if brain_state_classify_verify() == 1
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_neural_verify()

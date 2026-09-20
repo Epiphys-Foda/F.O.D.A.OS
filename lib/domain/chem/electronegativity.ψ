@@ -1,0 +1,45 @@
+import "ck.ψ"
+let bad = [0]
+
+let dP20 = 153 - 98
+bad[0] = bad[0] + ck_lo(dP20, 1)
+let dP21 = 204 - 153
+bad[0] = bad[0] + ck_lo(dP21, 1)
+let dP22 = 255 - 204
+bad[0] = bad[0] + ck_lo(dP22, 1)
+let dP23 = 304 - 255
+bad[0] = bad[0] + ck_lo(dP23, 1)
+let dP24 = 344 - 304
+bad[0] = bad[0] + ck_lo(dP24, 1)
+let dP25 = 398 - 344
+bad[0] = bad[0] + ck_lo(dP25, 1)
+
+let dP30 = 131 - 93
+bad[0] = bad[0] + ck_lo(dP30, 1)
+let dP31 = 154 - 131
+bad[0] = bad[0] + ck_lo(dP31, 1)
+let dP32 = 178 - 154
+bad[0] = bad[0] + ck_lo(dP32, 1)
+let dP33 = 219 - 178
+bad[0] = bad[0] + ck_lo(dP33, 1)
+let dP34 = 258 - 219
+bad[0] = bad[0] + ck_lo(dP34, 1)
+let dP35 = 316 - 258
+bad[0] = bad[0] + ck_lo(dP35, 1)
+
+let dhl = 398 - 316
+bad[0] = bad[0] + ck_lo(dhl, 1)
+let dhl2 = 316 - 285
+bad[0] = bad[0] + ck_lo(dhl2, 1)
+let dhl3 = 285 - 266
+bad[0] = bad[0] + ck_lo(dhl3, 1)
+let dalk = 98 - 93
+bad[0] = bad[0] + ck_lo(dalk, 1)
+let dalk2 = 93 - 82
+bad[0] = bad[0] + ck_lo(dalk2, 1)
+let dalk3 = 82 - 79
+bad[0] = bad[0] + ck_lo(dalk3, 1)
+let dfmax = 398 - 398
+bad[0] = bad[0] + dfmax * dfmax
+
+arr_get(arr_new_n(1), bad[0])

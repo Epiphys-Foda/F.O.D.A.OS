@@ -1,0 +1,7 @@
+let wfc_mul(a, b) =
+    let a2 = a / 256
+    let a1 = a % 256
+    let t1 = (a2 * b) % P
+    let t1s = (t1 * 256) % P
+    let t2 = (a1 * b) % P
+    (t1s + t2) % P

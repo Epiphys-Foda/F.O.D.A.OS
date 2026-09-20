@@ -1,0 +1,14 @@
+let project(f) =
+    let n = mf_size(f)
+    let out_p = []
+    let out_r = []
+    let count = 0
+    let i = 0
+    for i < n
+        if mf_poles(f)[i] == OP_COMPILE()
+            out_p = out_p.push(mf_poles(f)[i])
+            out_r = out_r.push(mf_residues(f)[i])
+            count = count + 1
+        i = i + 1
+    mf_make(out_p, out_r, count)
+

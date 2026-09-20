@@ -1,0 +1,196 @@
+import "gf65537.ψ"
+import "arr.ψ"
+import "linalg_gf.ψ"
+
+let tropical_add(a, b) =
+    if a == 65536
+        b
+    if b == 65536
+        a
+    ((gf_sub(a, b) > 32768) ? (a) : (b))
+
+let tropical_mul(a, b) = gf_add(a, b)
+
+let tropical_zero() = 65536
+
+let tropical_one() = 0
+
+let tropical_pow(a, n) = gf_mul(a, n)
+
+let tropical_matrix_mul(A, B) =
+    let rows = mat_rows(A)
+    let cols = mat_cols(B)
+    let inner = mat_cols(A)
+    let C = mat_new(rows, cols)
+    _tmm_acc(A, B, C, rows, cols, inner, 0, 0)
+    C
+let _tmm_acc(A, B, C, rows, cols, inner, i, j) =
+      if i >= rows
+          C
+      if j >= cols
+        _tmm_acc(A, B, C, rows, cols, inner, i + 1, 0)
+      else
+        let val = _tmm_inner(A, B, i, j, inner, 0, tropical_zero())
+        mat_set(C, i, j, val)
+        _tmm_acc(A, B, C, rows, cols, inner, i, j + 1)
+let _tmm_inner(A, B, i, j, inner, k, acc) =
+    if k >= inner
+        acc
+    let a = mat_get(A, i, k)
+    let b = mat_get(B, k, j)
+    let prod = tropical_mul(a, b)
+    let next = tropical_add(acc, prod)
+    _tmm_inner(A, B, i, j, inner, k + 1, next)
+
+let gf2_make(a, b) =
+    let v = arr_new_n(2)
+    arr_set(v, 0, a)
+    arr_set(v, 1, b)
+    v
+
+let gf2_real(z) = arr_get(z, 0)
+
+let gf2_imag(z) = arr_get(z, 1)
+
+let gf2_add(z1, z2) =
+    gf2_make(gf_add(gf2_real(z1), gf2_real(z2)),
+             gf_add(gf2_imag(z1), gf2_imag(z2)))
+
+let gf2_sub(z1, z2) =
+    gf2_make(gf_sub(gf2_real(z1), gf2_real(z2)),
+             gf_sub(gf2_imag(z1), gf2_imag(z2)))
+
+let gf2_mul(z1, z2) =
+    let a = gf2_real(z1)
+    let b = gf2_imag(z1)
+    let c = gf2_real(z2)
+    let d = gf2_imag(z2)
+    let ac = gf_mul(a, c)
+    let bd = gf_mul(b, d)
+    let ad = gf_mul(a, d)
+    let bc = gf_mul(b, c)
+    let real = gf_sub(ac, bd)
+    let imag = gf_add(ad, bc)
+    gf2_make(real, imag)
+
+let gf2_conj(z) = gf2_make(gf2_real(z), gf_neg(gf2_imag(z)))
+
+let gf2_norm_sq(z) =
+    let a = gf2_real(z)
+    let b = gf2_imag(z)
+    gf_add(gf_mul(a, a), gf_mul(b, b))
+
+let gf2_inv(z) =
+    let conj = gf2_conj(z)
+    let norm = gf2_norm_sq(z)
+    let inv_norm = gf_inv(norm)
+    let real = gf_mul(gf2_real(conj), inv_norm)
+    let imag = gf_mul(gf2_imag(conj), inv_norm)
+    gf2_make(real, imag)
+
+let gf2_div(z1, z2) = gf2_mul(z1, gf2_inv(z2))
+
+let gf2_from_int(a) = gf2_make(a, 0)
+
+let gf2_i() = gf2_make(0, 1)
+
+let gf2_eq(z1, z2) =
+      gf2_real(z1) == gf2_real(z2) && gf2_imag(z1) == gf2_imag(z2) ? 1 : 0
+
+let gf2_zero() = gf2_make(0, 0)
+
+let gf2_one() = gf2_make(1, 0)
+
+let gf2_pow(z, n) =
+    if n == 0
+        gf2_one()
+    if n == 1
+        z
+    let half = gf2_pow(z, n >> 1)
+    let sq = gf2_mul(half, half)
+    (((n & 1) == 1) ? (gf2_mul(sq, z)) : (sq))
+
+let functor_make(map_obj_id, map_mor_id) =
+    let v = arr_new_n(2)
+    arr_set(v, 0, map_obj_id)
+    arr_set(v, 1, map_mor_id)
+    v
+
+let functor_map_obj(F, x) = host_call(arr_get(F, 0), x, 0)
+
+let functor_map_mor(F, f_id) = arr_get(F, 1)
+
+let functor_compose(F, G) =
+    let f_obj = arr_get(F, 0)
+    let g_obj = arr_get(G, 0)
+    let f_mor = arr_get(F, 1)
+    let g_mor = arr_get(G, 1)
+    let composed_obj = g_obj
+    let composed_mor = gf_add(f_mor, g_mor)
+    functor_make(composed_obj, composed_mor)
+
+let functor_identity() = functor_make(0, 0)
+
+let nat_transform_make(F, G, component_id) =
+    let v = arr_new_n(3)
+    arr_set(v, 0, F)
+    arr_set(v, 1, G)
+    arr_set(v, 2, component_id)
+    v
+
+let nat_transform_component(eta, x) = host_call(arr_get(eta, 2), x, 0)
+
+let meta_gfmul(F, G) = functor_compose(F, G)
+
+let hopf_make(mu_id, delta_id, s_id, eta_id, eps_id) =
+    let v = arr_new_n(5)
+    arr_set(v, 0, mu_id)
+    arr_set(v, 1, delta_id)
+    arr_set(v, 2, s_id)
+    arr_set(v, 3, eta_id)
+    arr_set(v, 4, eps_id)
+    v
+
+let hopf_mul(H, a, b) = host_call(arr_get(H, 0), a, b)
+
+let hopf_comul(H, a) = host_call(arr_get(H, 1), a, 0)
+
+let hopf_antipode(H, a) = host_call(arr_get(H, 2), a, 0)
+
+let hopf_unit(H, k) = host_call(arr_get(H, 3), k, 0)
+
+let hopf_counit(H, a) = host_call(arr_get(H, 4), a, 0)
+
+let hopf_check_antipode_axiom(H, a) =
+    let pair = hopf_comul(H, a)
+    let a1 = arr_get(pair, 0)
+    let a2 = arr_get(pair, 1)
+    let s_a1 = hopf_antipode(H, a1)
+    let lhs = hopf_mul(H, s_a1, a2)
+    let eps_a = hopf_counit(H, a)
+    let rhs = hopf_unit(H, eps_a)
+    ((lhs == rhs) ? (1) : (0))
+
+let hopf_check_coassociativity(H, a) =
+    let pair1 = hopf_comul(H, a)
+    let a1 = arr_get(pair1, 0)
+    let a2 = arr_get(pair1, 1)
+    let pair11 = hopf_comul(H, a1)
+    let pair22 = hopf_comul(H, a2)
+    let b1 = arr_get(pair11, 0)
+    let b2 = arr_get(pair11, 1)
+    let b3 = arr_get(pair22, 0)
+    let b4 = arr_get(pair22, 1)
+    ((b1 + b2 + b3 + b4 >= 0) ? (1) : (0))
+
+let ggf_mul(a, b) = gf_mul(a, b)
+let ggf_comul(a) =
+    let v = arr_new_n(2)
+    arr_set(v, 0, a)
+    arr_set(v, 1, 1)
+    v
+let ggf_antipode(a) = gf_inv(a)
+let ggf_unit(k) = k
+let ggf_counit(a) = ((a == 1) ? (1) : (0))
+
+let hopf_group_algebra() = hopf_make(0, 0, 0, 0, 0)

@@ -1,0 +1,100 @@
+import "opt.ψ"
+
+let mc_pow_id() = opt_mod_pow(7, 0, 65537) == 1 && opt_mod_pow(7, 1, 65537) == 7
+
+let mc_pow_mult() =
+    let lhs = opt_mod_pow(3, 5 + 7, 65537)
+    let rhs = (opt_mod_pow(3, 5, 65537) * opt_mod_pow(3, 7, 65537)) % 65537
+    lhs == rhs
+
+let mc_pow_pow() =
+    let lhs = opt_mod_pow(opt_mod_pow(5, 3, 65537), 4, 65537)
+    let rhs = opt_mod_pow(5, 12, 65537)
+    lhs == rhs
+
+let mc_pow_fermat() = opt_mod_pow(12345, 65536, 65537) == 1
+
+let mc_pow_qc() = opt_mod_pow(12345, 65536, 65537) == 1
+
+let mc_inv_roundtrip() =
+    let i = opt_inv(345, 65537)
+    (345 * i) % 65537 == 1
+
+let mc_inv_double() = opt_inv(opt_inv(987, 65537), 65537) == 987
+
+let mc_inv_composite() =
+    let i = opt_inv(37, 3120)
+    (37 * i) % 3120 == 1
+
+let mc_gcd_divides() =
+    let g = opt_gcd(84, 30)
+    (84 % g == 0) && (30 % g == 0)
+
+let mc_gcd_swap() = opt_gcd(84, 30) == 6 && opt_gcd(30, 84) == 6
+
+let mc_gcd_step() =
+    let g1 = opt_gcd(1071, 462)
+    let g2 = opt_gcd(462, 1071 % 462)
+    g1 == g2 && g1 == 21
+
+let mc_dist_sym() = opt_dist(100, 37, 65537) == opt_dist(37, 100, 65537)
+
+let mc_dist_zero() = opt_dist(12345, 12345, 65537) == 0
+
+let mc_dist_pos() = opt_dist(1, 2, 65537) > 0
+
+let mc_barrett() = opt_barrett_mul(12345, 54321, 65537) == (12345 * 54321) % 65537
+
+let mc_barrett_large() =
+    let a = 65000
+    let b = 65000
+    opt_barrett_mul(a, b, 65537) == (a * b) % 65537
+
+let mc_ntt_roundtrip() =
+    let x = [1, 2, 3, 4, 5, 6, 7, 8]
+    let wt = opt_omega_pows(4096, 8, 65537)
+    let X = opt_ntt8_fast(x, wt, 65537)
+    let ok = true
+    let k = 0
+    let done = false
+    for !done
+      if k < 8
+        k = k + 1
+      else
+        done = true
+    ok
+
+let mc_ntt_impulse() =
+    let wt = opt_omega_pows(4096, 8, 65537)
+    let X = opt_ntt8_fast([1, 0, 0, 0, 0, 0, 0, 0], wt, 65537)
+    X[0] == 1 && X[3] == 1 && X[7] == 1
+
+let mc_ntt_linear() =
+    let wt = opt_omega_pows(4096, 8, 65537)
+    let a = [1, 1, 1, 1, 1, 1, 1, 1]
+    let b = [2, 3, 4, 5, 6, 7, 8, 9]
+    let Xab = opt_ntt8_fast([3, 4, 5, 6, 7, 8, 9, 10], wt, 65537)
+    let Xa = opt_ntt8_fast(a, wt, 65537)
+    let Xb = opt_ntt8_fast(b, wt, 65537)
+    Xab[0] == (Xa[0] + Xb[0]) % 65537 && Xab[7] == (Xa[7] + Xb[7]) % 65537
+
+let mc_verify() =
+    let results = []
+    results = results.push(mc_pow_id())
+    results = results.push(mc_pow_mult())
+    results = results.push(mc_pow_pow())
+    results = results.push(mc_pow_fermat())
+    results = results.push(mc_inv_roundtrip())
+    results = results.push(mc_inv_double())
+    results = results.push(mc_inv_composite())
+    results = results.push(mc_gcd_divides())
+    results = results.push(mc_gcd_swap())
+    results = results.push(mc_gcd_step())
+    results = results.push(mc_dist_sym())
+    results = results.push(mc_dist_zero())
+    results = results.push(mc_dist_pos())
+    results = results.push(mc_barrett())
+    results = results.push(mc_barrett_large())
+    results = results.push(mc_ntt_impulse())
+    results = results.push(mc_ntt_linear())
+    results

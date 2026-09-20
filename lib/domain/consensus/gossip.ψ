@@ -1,0 +1,267 @@
+import "../domain_field.ψ"
+
+let GO_P = 65537
+
+let GO_STATE_ALIVE    = 1
+let GO_STATE_SUSPECT  = 2
+let GO_STATE_DEAD     = 3
+
+let GO_MSG_PUSH       = 1
+let GO_MSG_PULL       = 2
+let GO_MSG_PUSHPULL   = 3
+
+let GO_DEFAULT_K         = 3
+let GO_DEFAULT_ROUNDS    = 3
+let GO_PHI_SUSPECT_LIMIT = 8
+let GO_PHI_DEAD_LIMIT    = 16
+
+let go_digest_new(node_id, state, heartbeat) =
+    [node_id, state, heartbeat, 1]
+
+let go_dig_id(d)         = d[0]
+let go_dig_state(d)       = d[1]
+let go_dig_hb(d)         = d[2]
+let go_dig_ver(d)        = d[3]
+
+let go_dig_set_state(d, s) =
+    d[1] = s
+    d[3] = d[3] + 1
+    d
+
+let go_dig_tick(d) =
+    d[2] = d[2] + 1
+    d[3] = d[3] + 1
+    d
+
+let go_cluster_new(node_id) =
+    let c = [{}, node_id, 0]
+    let d = go_digest_new(node_id, GO_STATE_ALIVE, 1)
+    c[0][node_id] = d
+    c
+
+let go_c_digests(c)    = c[0]
+let go_c_id(c)         = c[1]
+let go_c_round(c)      = c[2]
+
+let go_c_set_round(c, r) =
+    c[2] = r
+    c
+
+let go_c_add_node(c, node_id) =
+    let digests = go_c_digests(c)
+    if digests[node_id] == 0
+        digests[node_id] = go_digest_new(node_id, GO_STATE_ALIVE, 1)
+    [digests, go_c_id(c), go_c_round(c)]
+
+let go_c_heartbeat(c) =
+    let digests = go_c_digests(c)
+    let self_d = digests[go_c_id(c)]
+    self_d = go_dig_tick(self_d)
+    digests[go_c_id(c)] = self_d
+    [digests, go_c_id(c), go_c_round(c) + 1]
+
+let go_c_select_peers(c, k) =
+    let digests = go_c_digests(c)
+    let keys = keys_of(digests)
+    let n = len(keys)
+    let self_id = go_c_id(c)
+    let round = go_c_round(c)
+    let peers = []
+    let i = 0
+    let picked = 0
+    for picked < k
+        if i >= n * 2
+            picked = k
+        else
+            let idx = (self_id * 31 + round * 17 + i * 13) % n
+            let candidate = keys[idx]
+            if candidate != self_id
+                let already = 0
+                let j = 0
+                let pn = len(peers)
+                for j < pn
+                    if peers[j] == candidate
+                        already = 1
+                        j = pn
+                    j = j + 1
+                if already == 0
+                    peers.push(candidate)
+                    picked = picked + 1
+            i = i + 1
+    peers
+
+let go_c_merge_digest(local_d, remote_d) =
+    if go_dig_hb(remote_d) > go_dig_hb(local_d)
+        remote_d
+    else
+        if go_dig_hb(remote_d) == go_dig_hb(local_d)
+            if go_dig_state(remote_d) > go_dig_state(local_d)
+                remote_d
+            else
+                local_d
+        else
+            local_d
+
+let go_c_receive(c, remote_digests) =
+    let digests = go_c_digests(c)
+    let i = 0
+    let n = len(remote_digests)
+    for i < n
+        let r = remote_digests[i]
+        let rid = go_dig_id(r)
+        let local = digests[rid]
+        if local == 0
+            digests[rid] = r
+        else
+            let merged = go_c_merge_digest(local, r)
+            digests[rid] = merged
+        i = i + 1
+    [digests, go_c_id(c), go_c_round(c)]
+
+let go_c_make_push(c) =
+    let digests = go_c_digests(c)
+    let keys = keys_of(digests)
+    let result = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        result.push(digests[keys[i]])
+        i = i + 1
+    result
+
+let go_fd_phi(node_digest, current_ts) =
+    let hb = go_dig_hb(node_digest) * 1000
+    let phi = (current_ts - hb) / 1000
+    if phi < 0
+        phi = 0
+    phi
+
+let go_fd_check(c, node_id, current_ts) =
+    let digests = go_c_digests(c)
+    let d = digests[node_id]
+    if d == 0
+        c
+    else
+        if go_dig_id(d) == go_c_id(c)
+            c
+        else
+            let phi = go_fd_phi(d, current_ts)
+            let new_state = go_dig_state(d)
+            if phi > GO_PHI_DEAD_LIMIT
+                new_state = GO_STATE_DEAD
+            else
+                if phi > GO_PHI_SUSPECT_LIMIT
+                    new_state = GO_STATE_SUSPECT
+            if new_state != go_dig_state(d)
+                d = go_dig_set_state(d, new_state)
+                digests[node_id] = d
+                [digests, go_c_id(c), go_c_round(c)]
+            else
+                c
+
+let go_anti_entropy(local_c, remote_c) =
+    let local_push = go_c_make_push(local_c)
+    let remote_push = go_c_make_push(remote_c)
+    let local_after = go_c_receive(local_c, remote_push)
+    let remote_after = go_c_receive(remote_c, local_push)
+    [local_after, remote_after]
+
+let go_bragg_convergence(cluster_a, cluster_b, n_rounds) =
+    let ca = cluster_a
+    let cb = cluster_b
+    let i = 0
+    for i < n_rounds
+        ca = go_c_heartbeat(ca)
+        cb = go_c_heartbeat(cb)
+        let push_a = go_c_make_push(ca)
+        let push_b = go_c_make_push(cb)
+        ca = go_c_receive(ca, push_b)
+        cb = go_c_receive(cb, push_a)
+        i = i + 1
+    let da = go_c_digests(ca)
+    let db = go_c_digests(cb)
+    let keys_a = keys_of(da)
+    let keys_b = keys_of(db)
+    let pass = 1
+    if len(keys_a) != len(keys_b)
+        pass = 0
+    else
+        let j = 0
+        let n = len(keys_a)
+        for j < n
+            let k = keys_a[j]
+            let la = da[k]
+            let lb = db[k]
+            if lb == 0
+                pass = 0
+            else
+                if go_dig_hb(la) != go_dig_hb(lb)
+                    pass = 0
+                if go_dig_state(la) != go_dig_state(lb)
+                    pass = 0
+            j = j + 1
+    pass
+
+let go_self_test() =
+    let c = go_cluster_new(1)
+    let t_init = 0
+    let self_d = go_c_digests(c)[1]
+    if go_dig_state(self_d) == GO_STATE_ALIVE
+        t_init = 1
+
+    c = go_c_add_node(c, 2)
+    c = go_c_add_node(c, 3)
+    let t_add = 0
+    if len(keys_of(go_c_digests(c))) == 3
+        t_add = 1
+
+    let hb_before = go_dig_hb(go_c_digests(c)[1])
+    c = go_c_heartbeat(c)
+    let hb_after = go_dig_hb(go_c_digests(c)[1])
+    let t_hb = 0
+    if hb_after == hb_before + 1
+        t_hb = 1
+
+    let peers = go_c_select_peers(c, 2)
+    let t_peer = 0
+    if len(peers) == 2
+        t_peer = 1
+
+    let d1 = go_digest_new(10, GO_STATE_ALIVE, 5)
+    let d2 = go_digest_new(10, GO_STATE_ALIVE, 10)
+    let merged = go_c_merge_digest(d1, d2)
+    let t_merge = 0
+    if go_dig_hb(merged) == 10
+        t_merge = 1
+
+    let d3 = go_digest_new(20, GO_STATE_ALIVE, 100)
+    let d4 = go_digest_new(20, GO_STATE_SUSPECT, 100)
+    let merged2 = go_c_merge_digest(d3, d4)
+    let t_merge2 = 0
+    if go_dig_state(merged2) == GO_STATE_SUSPECT
+        t_merge2 = 1
+
+    let c2 = go_cluster_new(2)
+    c2 = go_c_add_node(c2, 1)
+    c2 = go_c_add_node(c2, 3)
+    c2 = go_c_heartbeat(c2)
+    let remote = [go_digest_new(2, GO_STATE_ALIVE, 100), go_digest_new(3, GO_STATE_ALIVE, 1)]
+    let c2_after = go_c_receive(c2, remote)
+    let d2_after = go_c_digests(c2_after)[2]
+    let t_receive = 0
+    if go_dig_hb(d2_after) == 100
+        t_receive = 1
+
+    let ca = go_cluster_new(1)
+    ca = go_c_add_node(ca, 2)
+    let cb = go_cluster_new(2)
+    cb = go_c_add_node(cb, 1)
+    let converge = go_bragg_convergence(ca, cb, 5)
+    let t_converge = 0
+    if converge == 1
+        t_converge = 1
+
+    [t_init, t_add, t_hb, t_peer, t_merge, t_merge2, t_receive, t_converge]
+
+let go_default_cluster(node_id) =
+    go_cluster_new(node_id)

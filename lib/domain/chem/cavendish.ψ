@@ -1,0 +1,23 @@
+import "ck.ψ"
+let bad = [0]
+
+let f1 = 4
+let f2 = 1
+let dz1 = f2 * 4 - f1
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let f_twist = 145
+bad[0] = bad[0] + ck(f_twist, 100, 200)
+
+let rho = 5500
+bad[0] = bad[0] + ck(rho, 5400, 5600)
+
+let m_e = 6
+bad[0] = bad[0] + ck(m_e, 5, 7)
+
+if 1798 < 1796
+    bad[0] = bad[0] + 1
+if 1798 > 1800
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

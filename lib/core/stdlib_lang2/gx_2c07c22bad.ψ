@@ -1,0 +1,59 @@
+let verdict_core8(XX, YY, n, nk, outk) =
+    outk[0] = score_bm(YY, n)
+    outk[1] = score_poly(XX, YY, n)
+    outk[2] = score_harm(XX, YY, n)
+    let RD = arr_new_n(2)
+    let dum = scan_pow(XX, YY, n, nk, RD)
+    outk[3] = RD[0]
+    outk[4] = score_exp(YY, n)
+    let PD = arr_new_n(2)
+    let dum2 = score_period(XX, YY, n, PD)
+    outk[5] = PD[0]
+    let GD = arr_new_n(2)
+    let dum3 = score_perdrift(YY, n, GD)
+    outk[6] = GD[0]
+    let GE = arr_new_n(2)
+    let dum4 = score_pergeo(YY, n, GE)
+    outk[7] = GE[0]
+    let PD2 = arr_new_n(2)
+    let dum5 = score_perdrift2(YY, n, PD2)
+    outk[8] = PD2[0]
+    let HD = arr_new_n(2)
+    let dum6 = score_hyp(YY, n, HD)
+    outk[15] = HD[0]
+    outk[9] = PD[1]
+    outk[10] = GD[1]
+    outk[11] = GE[1]
+    outk[14] = PD2[1]
+    let win = 0
+    let bw = outk[0]
+    if outk[1] < bw
+        bw = outk[1]
+        win = 1
+    if outk[2] < bw
+        bw = outk[2]
+        win = 2
+    if outk[3] < bw
+        bw = outk[3]
+        win = 3
+    if outk[4] < bw
+        bw = outk[4]
+        win = 4
+    if outk[5] < bw
+        bw = outk[5]
+        win = 5
+    if outk[6] < bw
+        bw = outk[6]
+        win = 6
+    if outk[7] < bw
+        bw = outk[7]
+        win = 7
+    if outk[8] < bw
+        bw = outk[8]
+        win = 8
+    if outk[15] < bw
+        bw = outk[15]
+        win = 9
+    outk[20] = win
+    RD[1]
+

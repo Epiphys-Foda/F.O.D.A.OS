@@ -1,0 +1,183 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let RAG_MAX_DOCS = 65536
+let RAG_EMBED_DIM = 256
+let RAG_TOP_K = 10
+
+let vs_create() = [[], [], 0]
+let vs_add(store, doc) =
+    let docs = store[0]
+    let idx = store[1]
+    docs.push(doc)
+    idx.push(doc[0])
+    [docs, idx, store[2] + 1]
+let cosine_sim(a, b) =
+    let dot = 0
+    let norm_a = 0
+    let norm_b = 0
+    let i = 0
+    let n = len(a)
+    for i < n
+        dot = gf_add(dot, gf_mul(a[i], b[i]))
+        norm_a = gf_add(norm_a, gf_mul(a[i], a[i]))
+        norm_b = gf_add(norm_b, gf_mul(b[i], b[i]))
+        i = i + 1
+    gf_div(dot, gf_mul(gf_sqrt(norm_a), gf_sqrt(norm_b)))
+let euclidean_dist(a, b) =
+    let dist = 0
+    let i = 0
+    let n = len(a)
+    for i < n
+        let diff = gf_sub(a[i], b[i])
+        dist = gf_add(dist, gf_mul(diff, diff))
+        i = i + 1
+    dist
+let vs_search(store, query_embedding, top_k) =
+    let docs = store[0]
+    let scores = []
+    let i = 0
+    let n = len(docs)
+    for i < n
+        let score = cosine_sim(query_embedding, docs[i][2])
+        scores.push([docs[i][0], score])
+        i = i + 1
+    let sorted = []
+    let count = 0
+    for count < top_k && count < len(scores)
+        let best_idx = 0
+        let best_score = 0
+        let j = 0
+        let m = len(scores)
+        for j < m
+            if scores[j][1] > best_score
+                best_idx = j
+            best_score = scores[j][1]
+            j = j + 1
+        sorted.push(scores[best_idx])
+        count = count + 1
+    sorted
+let rag_context(query, retrieved_docs) =
+    let context = query
+    let i = 0
+    let n = len(retrieved_docs)
+    for i < n
+        context = gf_add(context, retrieved_docs[i][0])
+        i = i + 1
+    context
+let rag_generate(query, store) =
+    let results = vs_search(store, query, RAG_TOP_K)
+    let context = rag_context(query, results)
+    context
+let rag_field_retrieve(query, docs, n, z) =
+    let scores = arr_new_n(n)
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        scores[i] = gf_mul(docs[i], gf_inv(diff))
+        i = i + 1
+    let best = 0
+    let best_score = 0
+    let j = 0
+    for j < n
+        if scores[j] > best_score
+            best_score = scores[j]
+            best = j
+        j = j + 1
+    best
+
+let rag_verify() =
+    let docs = arr_new_n(3)
+    docs[0] = 100
+    docs[1] = 300
+    docs[2] = 200
+    let best = rag_field_retrieve(0, docs, 3, 500)
+    let ok = 0
+    (best == 1 ? (ok = 1) : (ok = 0))
+    ok
+
+let pmul_abs(x) =
+    if x < 0
+        0 - x
+    else
+        x
+let pmul(a0, b0) =
+    let a = pmul_abs(a0)
+    let b = pmul_abs(b0)
+    let r = 0
+    for b > 0
+        if b % 2 == 1
+            r = r + a
+        a = a + a
+        b = b / 2
+    r
+
+let RAG2_POLES = [
+    1000, 1500, 2600, 3400,
+    5000, 6100, 7300, 8800,
+]
+let RAG2_RES = [
+    500, 800, 300, 900,
+    200, 700, 400, 600,
+]
+let RAG2_IDS = [
+    11, 22, 33, 44,
+    55, 66, 77, 88,
+]
+let RAG2_CHK_POLES = 17321
+let RAG2_CHK_RES = 964
+let RAG2_CHK_IDS = 54076
+
+let rag2_scores(z) =
+    let s = []
+    let i = 0
+    for i < 8
+        let d = z - RAG2_POLES[i]
+        let dn = (d < 0 ? 0 - d : d)
+        s.push(pmul(RAG2_RES[i], 1024) / (1 + dn))
+        i = i + 1
+    s
+
+let rag2_retrieve(z) =
+    let s = rag2_scores(z)
+    let best = 0
+    let i = 1
+    for i < 8
+        if s[i] > s[best]
+            best = i
+        i = i + 1
+    best
+
+let rag2_chk(T) =
+    let s = 0
+    let i = 0
+    let n = len(T)
+    for i < n
+        s = gf_norm(gf_norm(s) * 3 + gf_norm(T[i]))
+        i = i + 1
+    s
+
+let rag2_verify() =
+    let c1 = rag2_chk(RAG2_POLES) == RAG2_CHK_POLES
+    let c2 = rag2_chk(RAG2_RES) == RAG2_CHK_RES
+    let c3 = rag2_chk(RAG2_IDS) == RAG2_CHK_IDS
+    let uniq = 1
+    let i4 = 0
+    for i4 < 8
+        let j4 = i4 + 1
+        for j4 < 8
+            if RAG2_POLES[i4] == RAG2_POLES[j4]
+                uniq = 0
+            j4 = j4 + 1
+        i4 = i4 + 1
+    let selfhit = 1
+    let i5 = 0
+    for i5 < 8
+        if rag2_retrieve(RAG2_POLES[i5]) != i5
+            selfhit = 0
+        i5 = i5 + 1
+    let qhit = rag2_retrieve(3200) == 3
+    let det = rag2_retrieve(3200) == rag2_retrieve(3200)
+    let sp = rag2_scores(RAG2_POLES[0])
+    let nz = sp[0] > 0
+    c1 && c2 && c3 && uniq == 1 && selfhit == 1 && qhit && det && nz

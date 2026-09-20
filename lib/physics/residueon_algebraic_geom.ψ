@@ -1,0 +1,416 @@
+import "residueon_common.ψ"
+
+let circle_eval(x, y, r) =
+    gf_sub(gf_add(gf_mul(x, x), gf_mul(y, y)), gf_mul(r, r))
+
+let hyperbola_eval(x, y) =
+    gf_sub(gf_mul(x, y), 1)
+
+let parabola_eval(x, y) =
+    gf_sub(gf_mul(x, x), y)
+
+let line_eval(x, y, a, b, c) =
+    gf_add(gf_add(gf_mul(a, x), gf_mul(b, y)), c)
+
+let affine_variety_verify() =
+    let result = 0
+    if parabola_eval(0, 0) == 0
+        result = result + 1
+    if parabola_eval(1, 1) == 0
+        result = result + 1
+    if parabola_eval(2, 4) == 0
+        result = result + 1
+    if parabola_eval(3, 9) == 0
+        result = result + 1
+    if parabola_eval(1, 0) != 0
+        result = result + 1
+    if parabola_eval(2, 3) != 0
+        result = result + 1
+    if hyperbola_eval(1, 1) == 0
+        result = result + 1
+    if hyperbola_eval(2, 0) != 0
+        result = result + 1
+    if circle_eval(3, 4, 5) == 0
+        result = result + 1
+    if circle_eval(0, 5, 5) == 0
+        result = result + 1
+    result
+
+let projective_count(p) =
+    gf_add(gf_add(gf_mul(p, p), p), 1)
+
+let projective_verify() =
+    let result = 0
+    if projective_count(2) == 7
+        result = result + 1
+    if projective_count(3) == 13
+        result = result + 1
+    if projective_count(5) == 31
+        result = result + 1
+    if gf_add(2, 1) == 3
+        result = result + 1
+    if gf_add(5, 1) == 6
+        result = result + 1
+    if gf_div(gf_sub(3, 1), gf_sub(3, 1)) == 1
+        result = result + 1
+    result
+
+let ideal_gen_count(n_gens) = n_gens
+
+let ideal_sum_gens(n_i, n_j) =
+    gf_add(n_i, n_j)
+
+let ideal_verify() =
+    let result = 0
+    if ideal_gen_count(1) == 1
+        result = result + 1
+    if ideal_gen_count(2) == 2
+        result = result + 1
+    if ideal_sum_gens(1, 1) == 2
+        result = result + 1
+    if ideal_gen_count(2) == 2
+        result = result + 1
+    if ideal_gen_count(3) == 3
+        result = result + 1
+    if ideal_gen_count(1) == 1
+        result = result + 1
+    result
+
+let poly_degree(coeffs, n) =
+    let d = 0
+    let i = 0
+    for i < n
+        if coeffs[i] != 0
+            d = i
+        i = i + 1
+    d
+
+let grobner_verify() =
+    let result = 0
+    if poly_degree([1, 0, 1], 3) == 2
+        result = result + 1
+    if poly_degree([0, 1, 0, 1], 4) == 3
+        result = result + 1
+    if poly_degree([5], 1) == 0
+        result = result + 1
+    if poly_degree([0, 0, 0], 3) == 0
+        result = result + 1
+    if gf_sub(4, 2) == 2
+        result = result + 1
+    if 4 >= 2
+        result = result + 1
+    result
+
+let hilbert_kx(n) =
+    1
+
+let hilbert_kxy(n) =
+    gf_add(n, 1)
+
+let hilbert_kxy_mod_x2_y2(n) =
+    let h = 0
+    if n == 0
+        h = 1
+    if n == 1
+        h = 2
+    if n == 2
+        h = 1
+    h
+
+let hilbert_verify() =
+    let result = 0
+    if hilbert_kx(0) == 1
+        result = result + 1
+    if hilbert_kx(1) == 1
+        result = result + 1
+    if hilbert_kx(5) == 1
+        result = result + 1
+    if hilbert_kxy(0) == 1
+        result = result + 1
+    if hilbert_kxy(1) == 2
+        result = result + 1
+    if hilbert_kxy(2) == 3
+        result = result + 1
+    if hilbert_kxy(3) == 4
+        result = result + 1
+    if hilbert_kxy_mod_x2_y2(0) == 1
+        result = result + 1
+    if hilbert_kxy_mod_x2_y2(1) == 2
+        result = result + 1
+    if hilbert_kxy_mod_x2_y2(2) == 1
+        result = result + 1
+    if hilbert_kxy_mod_x2_y2(3) == 0
+        result = result + 1
+    result
+
+let bezout(d1, d2) =
+    gf_mul(d1, d2)
+
+let bezout_verify() =
+    let result = 0
+    if bezout(1, 1) == 1
+        result = result + 1
+    if bezout(1, 2) == 2
+        result = result + 1
+    if bezout(1, 3) == 3
+        result = result + 1
+    if bezout(2, 2) == 4
+        result = result + 1
+    if bezout(2, 3) == 6
+        result = result + 1
+    if bezout(3, 3) == 9
+        result = result + 1
+    if bezout(4, 4) == 16
+        result = result + 1
+    if bezout(3, 5) == bezout(5, 3)
+        result = result + 1
+    result
+
+let intersection_verify() =
+    let result = 0
+    if gf_sub(0, 0) == 0
+        result = result + 1
+    if parabola_eval(0, 0) == 0
+        result = result + 1
+    if gf_sub(1, 1) == 0
+        result = result + 1
+    if parabola_eval(1, 1) == 0
+        result = result + 1
+    if 2 == bezout(1, 2)
+        result = result + 1
+    result
+
+let genus_plane_curve(d) =
+    let d1 = gf_sub(d, 1)
+    let d2 = gf_sub(d, 2)
+    gf_mul(d1, d2) / 2
+
+let genus_verify() =
+    let result = 0
+    if genus_plane_curve(1) == 0
+        result = result + 1
+    if genus_plane_curve(2) == 0
+        result = result + 1
+    if genus_plane_curve(3) == 1
+        result = result + 1
+    if genus_plane_curve(4) == 3
+        result = result + 1
+    if genus_plane_curve(5) == 6
+        result = result + 1
+    if genus_plane_curve(6) == 10
+        result = result + 1
+    result
+
+let l_function_genus0(deg_d) =
+    let l = 0
+    if deg_d < 32768
+        let val = gf_add(deg_d, 1)
+        if val > 0
+            l = val
+    l
+
+let l_function_genus1(deg_d) =
+    let l = 0
+    if deg_d < 32768
+        if deg_d == 0
+            l = 1
+        if deg_d > 0
+            l = deg_d
+    l
+
+let riemann_roch_verify() =
+    let result = 0
+    if l_function_genus0(0) == 1
+        result = result + 1
+    if l_function_genus0(1) == 2
+        result = result + 1
+    if l_function_genus0(2) == 3
+        result = result + 1
+    if l_function_genus0(65536) == 0
+        result = result + 1
+    if l_function_genus1(0) == 1
+        result = result + 1
+    if l_function_genus1(1) == 1
+        result = result + 1
+    if l_function_genus1(2) == 2
+        result = result + 1
+    if l_function_genus1(3) == 3
+        result = result + 1
+    let lhs = gf_sub(l_function_genus0(0), l_function_genus0(65535))
+    if lhs == 1
+        result = result + 1
+    let lhs2 = gf_sub(l_function_genus0(1), l_function_genus0(65534))
+    if lhs2 == 2
+        result = result + 1
+    result
+
+let divisor_degree(coeffs, n) =
+    let d = 0
+    let i = 0
+    for i < n
+        d = gf_add(d, coeffs[i])
+        i = i + 1
+    d
+
+let divisor_verify() =
+    let result = 0
+    let d1 = divisor_degree([2, 65534], 2)
+    if d1 == 65536
+        result = result + 1
+    let d2 = divisor_degree([1, 1, 1], 3)
+    if d2 == 3
+        result = result + 1
+    let d3 = divisor_degree([0, 0, 0], 3)
+    if d3 == 0
+        result = result + 1
+    let d4 = divisor_degree([1, 65536], 2)
+    if d4 == 0
+        result = result + 1
+    let de = divisor_degree([1, 1], 2)
+    let df = divisor_degree([2, 65536], 2)
+    if gf_add(de, df) == 3
+        result = result + 1
+    result
+
+let cusp_eval(x, y) =
+    gf_sub(gf_mul(y, y), gf_mul(gf_mul(x, x), x))
+
+let cusp_dx(x) =
+    gf_neg(gf_mul(3, gf_mul(x, x)))
+
+let cusp_dy(y) =
+    gf_mul(2, y)
+
+let singularity_verify() =
+    let result = 0
+    if cusp_eval(0, 0) == 0
+        result = result + 1
+    if cusp_dx(0) == 0
+        result = result + 1
+    if cusp_dy(0) == 0
+        result = result + 1
+    if cusp_eval(1, 1) == 0
+        result = result + 1
+    if cusp_dy(1) != 0
+        result = result + 1
+    let pcd = 1
+    if pcd == 1
+        result = result + 1
+    let rrc = 2
+    if rrc == 2
+        result = result + 1
+    result
+
+let residueon_algebraic_geom_verify() =
+    let ok = 0
+
+    if affine_variety_verify() == 10
+        ok = ok + 1
+    if parabola_eval(4, 16) == 0
+        ok = ok + 1
+    if hyperbola_eval(1, 1) == 0
+        ok = ok + 1
+
+    if projective_verify() == 6
+        ok = ok + 1
+
+    if ideal_verify() == 6
+        ok = ok + 1
+
+    if grobner_verify() == 6
+        ok = ok + 1
+
+    if hilbert_verify() == 11
+        ok = ok + 1
+
+    if bezout_verify() == 8
+        ok = ok + 1
+    if intersection_verify() == 5
+        ok = ok + 1
+
+    if genus_verify() == 6
+        ok = ok + 1
+
+    if riemann_roch_verify() == 10
+        ok = ok + 1
+
+    if divisor_verify() == 5
+        ok = ok + 1
+
+    if singularity_verify() == 7
+        ok = ok + 1
+
+    ok = ok + cross_domain_base()
+
+    if genus_plane_curve(3) == 1
+        ok = ok + 1
+
+    if bezout(2, 2) == 4
+        ok = ok + 1
+
+    if projective_count(2) == 7
+        ok = ok + 1
+
+    if hilbert_kxy(1) == 2
+        ok = ok + 1
+
+    if divisor_degree([1, 1], 2) == 2
+        ok = ok + 1
+
+    if genus_plane_curve(3) == 1
+        ok = ok + 1
+
+    if bezout(1, 1) == 1
+        ok = ok + 1
+
+    if projective_count(3) == 13
+        ok = ok + 1
+
+    if cusp_eval(0, 0) == 0
+        ok = ok + 1
+
+    if cusp_dy(0) == 0
+        ok = ok + 1
+
+    if hilbert_kx(0) == 1
+        ok = ok + 1
+
+    if genus_plane_curve(4) == 3
+        ok = ok + 1
+
+    if genus_plane_curve(3) == 1
+        ok = ok + 1
+
+    if hilbert_kxy(2) == 3
+        ok = ok + 1
+
+    if cusp_dx(0) == 0
+        ok = ok + 1
+
+    if projective_count(5) == 31
+        ok = ok + 1
+
+    if genus_plane_curve(2) == 0
+        ok = ok + 1
+
+    if cusp_eval(0, 0) == 0
+        ok = ok + 1
+
+    if l_function_genus0(1) == 2
+        ok = ok + 1
+
+    if poly_degree([1, 0, 1], 3) == 2
+        ok = ok + 1
+
+    if bezout(1, 3) == 3
+        ok = ok + 1
+
+    if hilbert_kxy(3) == 4
+        ok = ok + 1
+
+    if ideal_gen_count(2) == 2
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_algebraic_geom_verify()

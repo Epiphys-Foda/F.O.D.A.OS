@@ -1,0 +1,445 @@
+import "../domain_field.ψ"
+
+import "../../core/stdlib/gf65537.ψ"
+
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let doc_new(id, content, vector) =
+    [id, content, vector, [], 0]
+
+let doc_id(d) = d[0]
+let doc_content(d) = d[1]
+let doc_vector(d) = d[2]
+let doc_terms(d) = d[3]
+let doc_ts(d) = d[4]
+
+let doc_set_terms(d, terms) =
+    d[3] = terms
+    d
+
+let doc_set_ts(d, ts) =
+    d[4] = ts
+    d
+
+let tokenize(content) =
+    let tokens = []
+    let n = len(content)
+    let i = 0
+    for i < n
+        tokens.push(content[i])
+        i = i + 1
+    tokens
+
+let index_new() =
+    [{}, 0]
+
+let idx_map(idx) = idx[0]
+let idx_count(idx) = idx[1]
+
+let index_add_doc(idx, doc) =
+    let content = doc_content(doc)
+    let tokens = tokenize(content)
+    doc = doc_set_terms(doc, tokens)
+    let m = idx_map(idx)
+    let i = 0
+    let n = len(tokens)
+    for i < n
+        let t = tokens[i]
+        let lst = m[t]
+        if lst == 0
+            lst = []
+            lst.push(doc_id(doc))
+            m[t] = lst
+        else
+            let found = 0
+            let j = 0
+            let k = len(lst)
+            for j < k
+                if lst[j] == doc_id(doc)
+                    found = 1
+                    j = k
+                j = j + 1
+            if found == 0
+                lst.push(doc_id(doc))
+        i = i + 1
+    idx[0] = m
+    idx[1] = idx_count(idx) + 1
+    idx
+
+let index_search(idx, query) =
+    let tokens = tokenize(query)
+    let m = idx_map(idx)
+    let n = len(tokens)
+    if n == 0
+        []
+    else
+        let result = 0
+        let i = 0
+        for i < n
+            let t = tokens[i]
+            let lst = m[t]
+            if lst == 0
+                result = []
+                i = n
+            else
+                if result == 0
+                    result = lst
+                else
+                    let inter = []
+                    let j = 0
+                    let jn = len(result)
+                    for j < jn
+                        let k = 0
+                        let kn = len(lst)
+                        let found = 0
+                        for k < kn
+                            if result[j] == lst[k]
+                                found = 1
+                                k = kn
+                            k = k + 1
+                        if found == 1
+                            inter.push(result[j])
+                        j = j + 1
+                    result = inter
+            i = i + 1
+        if result == 0
+            []
+        else
+            result
+
+let ri_mulmod(a, b) =
+    let r = 0
+    let x = a % 65537
+    let y = b % 65537
+    for y > 0
+        if y % 2 == 1
+            r = (r + x) % 65537
+        x = (x + x) % 65537
+        y = y / 2
+    r
+
+let vector_dot(a, b) =
+    let sum = 0
+    let n = len(a)
+    let i = 0
+    for i < n
+        sum = sum + ri_mulmod(a[i], b[i])
+        i = i + 1
+    sum % 65537
+
+let vector_norm_sq(a) =
+    let sum = 0
+    let n = len(a)
+    let i = 0
+    for i < n
+        sum = sum + ri_mulmod(a[i], a[i])
+        i = i + 1
+    sum % 65537
+
+let manhattan_dist(a, b) =
+    let dist = 0
+    let n = len(a)
+    let i = 0
+    for i < n
+        let diff = a[i] - b[i]
+        if diff < 0
+            dist = dist - diff
+        else
+            dist = dist + diff
+        i = i + 1
+    dist
+
+let vector_search(docs, query_vec, k) =
+    let scored = []
+    let i = 0
+    let n = len(docs)
+    for i < n
+        let d = docs[i]
+        let vec = doc_vector(d)
+        if len(vec) > 0
+            let dist = manhattan_dist(query_vec, vec)
+            scored.push([dist, d])
+        i = i + 1
+    let result = []
+    let j = 0
+    for j < k && j < len(scored)
+        let max_idx = j
+        let m = j + 1
+        for m < len(scored)
+            if scored[m][0] < scored[max_idx][0]
+                max_idx = m
+            m = m + 1
+        let tmp = scored[j]
+        scored[j] = scored[max_idx]
+        scored[max_idx] = tmp
+        result.push(scored[j][1])
+        j = j + 1
+    result
+
+let rrf_k() = 60
+
+let rrf_score(rank) =
+    let denom = rrf_k() + rank
+    if denom == 0
+        0
+    else
+        65537 / denom
+
+let rrf_fuse(rankings) =
+    let scores = []
+    let max_id = 0
+    let i = 0
+    let n = len(rankings)
+    for i < n
+        let ranking = rankings[i]
+        let j = 0
+        let m = len(ranking)
+        for j < m
+            if ranking[j] > max_id
+                max_id = ranking[j]
+            j = j + 1
+        i = i + 1
+    let z = 0
+    for z <= max_id
+        scores.push(0)
+        z = z + 1
+    i = 0
+    for i < n
+        let ranking = rankings[i]
+        let j = 0
+        let m = len(ranking)
+        for j < m
+            let did = ranking[j]
+            scores[did] = scores[did] + rrf_score(j)
+            j = j + 1
+        i = i + 1
+    let ids = []
+    let k0 = 0
+    for k0 <= max_id
+        ids.push(k0)
+        k0 = k0 + 1
+    let vals = []
+    let k = 0
+    let kn = len(ids)
+    for k < kn
+        vals.push(scores[ids[k]])
+        k = k + 1
+    let L = len(ids)
+    let p = 0
+    for p < L - 1
+        let max_i = p
+        let q = p + 1
+        for q < L
+            if vals[q] > vals[max_i]
+                max_i = q
+            q = q + 1
+        let tmp_id = ids[p]
+        ids[p] = ids[max_i]
+        ids[max_i] = tmp_id
+        let tmp_v = vals[p]
+        vals[p] = vals[max_i]
+        vals[max_i] = tmp_v
+        p = p + 1
+    ids
+
+let hybrid_search(docs, idx, query, query_vec, k) =
+    let vec_results = vector_search(docs, query_vec, k * 2)
+    let vec_ids = []
+    let i = 0
+    for i < len(vec_results)
+        vec_ids.push(doc_id(vec_results[i]))
+        i = i + 1
+    let kw_ids = index_search(idx, query)
+    let rankings = [vec_ids, kw_ids]
+    let fused_ids = rrf_fuse(rankings)
+    let result = []
+    let j = 0
+    for j < k && j < len(fused_ids)
+        result.push(fused_ids[j])
+        j = j + 1
+    result
+
+let kg_new() =
+    [arr_new_n(64), [], [], 0, []]
+
+let kg_entities(kg) = kg[0]
+let kg_relations(kg) = kg[1]
+let kg_next_id(kg) = kg[3]
+
+let kg_add_entity(kg, name, vector) =
+    let eid = kg_next_id(kg)
+    let ents = kg_entities(kg)
+    ents[eid] = [eid, name, vector, 0]
+    kg[0] = ents
+    kg[3] = eid + 1
+    eid
+
+let kg_add_relation(kg, src_id, target_id, rel_type) =
+    let srcs = kg[1]
+    let dsts = kg[2]
+    let types = kg[4]
+    srcs.push(src_id)
+    dsts.push(target_id)
+    types.push(rel_type)
+    kg[1] = srcs
+    kg[2] = dsts
+    kg[4] = types
+    kg
+
+let graphrag_expand(kg, seed_ids, depth) =
+    let n_total = kg_next_id(kg)
+    let visited = []
+    let z = 0
+    for z < n_total
+        visited.push(0)
+        z = z + 1
+    let out_ids = []
+    let frontier = []
+    let i = 0
+    let n = len(seed_ids)
+    for i < n
+        frontier.push(seed_ids[i])
+        visited[seed_ids[i]] = 1
+        out_ids.push(seed_ids[i])
+        i = i + 1
+    let d = 0
+    for d < depth && len(frontier) > 0
+        let next_frontier = []
+        let j = 0
+        let m = len(frontier)
+        for j < m
+            let eid = frontier[j]
+            let srcs = kg[1]
+            let dsts = kg[2]
+            let rn = len(srcs)
+            let k = 0
+            for k < rn
+                if srcs[k] == eid
+                    let target = dsts[k]
+                    if visited[target] == 0
+                        visited[target] = 1
+                        next_frontier.push(target)
+                        out_ids.push(target)
+                k = k + 1
+            j = j + 1
+        frontier = next_frontier
+        d = d + 1
+    out_ids
+
+let riv_ok1_docs() =
+    let d1 = doc_new(1, "hello", [10, 20, 30])
+    let toks = tokenize("abc")
+    if doc_id(d1) != 1
+        0
+    else
+        (len(toks) != 3 ? 0 : 1)
+
+let riv_ok2_inverted() =
+    let idx = index_new()
+    idx = index_add_doc(idx, doc_new(1, "hello", []))
+    idx = index_add_doc(idx, doc_new(2, "help", []))
+    idx = index_add_doc(idx, doc_new(3, "world", []))
+    let found = index_search(idx, "h")
+    if idx_count(idx) != 3
+        0
+    else
+        (len(found) != 2 ? 0 : 1)
+
+let riv_ok3_vectors() =
+    let dot = vector_dot([3, 4], [2, 5])
+    let nsq = vector_norm_sq([3, 4])
+    if dot != 26
+        0
+    else
+        (nsq != 25 ? 0 : 1)
+
+let riv_ok4_gf_inv() = (domain_gf_mul(7, domain_gf_inv(7)) == 1 ? 1 : 0)
+
+let riv_ok5_cosine() =
+    let sim_same = cosine_sim([1, 0], [1, 0])
+    let sim_orth = cosine_sim([1, 0], [0, 1])
+    if sim_same != 1
+        0
+    else
+        (sim_orth != 0 ? 0 : 1)
+
+let riv_ok6_vector_search() =
+    let docs = []
+    docs.push(doc_new(1, "a", [10, 0]))
+    docs.push(doc_new(2, "b", [0, 10]))
+    docs.push(doc_new(3, "c", [9, 1]))
+    let top = vector_search(docs, [10, 0], 2)
+    if len(top) != 2
+        0
+    else
+        (doc_id(top[0]) != 1 ? 0 : 1)
+
+let riv_ok7_rrf() =
+    let fused = rrf_fuse([[1, 2, 3], [3, 2, 1]])
+    if len(fused) != 3
+        0
+    else
+        (fused[0] != 1 && fused[0] != 3 ? 0 : 1)
+
+let riv_ok8_graph() =
+    let kg = kg_new()
+    let e1 = kg_add_entity(kg, "alice", [1, 0])
+    let e2 = kg_add_entity(kg, "bob", [0, 1])
+    let e3 = kg_add_entity(kg, "carol", [1, 1])
+    kg = kg_add_relation(kg, e1, e2, "friend")
+    kg = kg_add_relation(kg, e2, e3, "friend")
+    let visited = graphrag_expand(kg, [e1], 2)
+    if kg_next_id(kg) != 3
+        0
+    else
+        if len(kg_relations(kg)) != 2
+            0
+        else
+            if len(visited) != 3
+                0
+            else
+                1
+
+let riv_ok9_hybrid() =
+    let docs2 = []
+    docs2.push(doc_new(1, "hello", [10, 0]))
+    docs2.push(doc_new(2, "help", [9, 1]))
+    docs2.push(doc_new(3, "world", [0, 10]))
+    let idx2 = index_new()
+    idx2 = index_add_doc(idx2, docs2[0])
+    idx2 = index_add_doc(idx2, docs2[1])
+    idx2 = index_add_doc(idx2, docs2[2])
+    let fused2 = hybrid_search(docs2, idx2, "h", [10, 0], 3)
+    if len(fused2) != 3
+        0
+    else
+        if fused2[0] != 1
+            0
+        else
+            1
+
+let rag_index_verify() =
+    let o1 = riv_ok1_docs()
+    let o2 = riv_ok2_inverted()
+    let o3 = riv_ok3_vectors()
+    let o4 = riv_ok4_gf_inv()
+    let o5 = riv_ok5_cosine()
+    let o6 = riv_ok6_vector_search()
+    let o7 = riv_ok7_rrf()
+    let o8 = riv_ok8_graph()
+    let o9 = riv_ok9_hybrid()
+    let all_ok = o1 * o2 * o3 * o4 * o5 * o6 * o7 * o8 * o9
+    if all_ok == 1
+        print("rag_index_verify: ALL PASS")
+    else
+        print("rag_index_verify: FAIL")
+        print(o1)
+        print(o2)
+        print(o3)
+        print(o4)
+        print(o5)
+        print(o6)
+        print(o7)
+        print(o8)
+        print(o9)
+    all_ok

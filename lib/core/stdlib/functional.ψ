@@ -1,0 +1,329 @@
+let fn_range(start, end) =
+    let result = arr_new()
+    let i = start
+    for i < end
+        result = arr_push(result, i)
+        i = i + 1
+    result
+
+let fn_range_step(start, end, step) =
+    let result = arr_new()
+    let i = start
+    if step > 0
+        for i < end
+            result = arr_push(result, i)
+            i = i + step
+    result
+
+let fn_take(arr, n) =
+    let result = arr_new()
+    let len = arr.len()
+    let count = n
+    if count > len
+        count = len
+    let i = 0
+    for i < count
+        result = arr_push(result, arr[i])
+        i = i + 1
+    result
+
+let fn_drop(arr, n) =
+    let result = arr_new()
+    let len = arr.len()
+    let i = n
+    for i < len
+        result = arr_push(result, arr[i])
+        i = i + 1
+    result
+
+let fn_zip(a, b) =
+    let na = a.len()
+    let nb = b.len()
+    let n = na
+    if nb < n
+        n = nb
+    let result = arr_new()
+    let i = 0
+    for i < n
+        let pair = arr_new()
+        pair = arr_push(pair, a[i])
+        pair = arr_push(pair, b[i])
+        result = arr_push(result, pair)
+        i = i + 1
+    result
+
+let fn_flatten(arr) =
+    let result = arr_new()
+    let i = 0
+    let n = arr.len()
+    for i < n
+        let inner = arr[i]
+        let j = 0
+        let m = inner.len()
+        for j < m
+            result = arr_push(result, inner[j])
+            j = j + 1
+        i = i + 1
+    result
+
+let fn_chunk(arr, size) =
+    let result = arr_new()
+    let n = arr.len()
+    let i = 0
+    for i < n
+        let chunk = arr_new()
+        let j = 0
+        for j < size && i + j < n
+            chunk = arr_push(chunk, arr[i + j])
+            j = j + 1
+        result = arr_push(result, chunk)
+        i = i + size
+    result
+
+let fn_map(arr, op) =
+    let result = arr_new()
+    let i = 0
+    let n = arr.len()
+    for i < n
+        let v = arr[i]
+        if op == 1
+            v = v * v
+        else
+            0
+        if op == 2
+            v = v * 2
+        else
+            0
+        if op == 3
+            v = 0 - v
+        else
+            0
+        if op == 4
+            v = v + 1
+        else
+            0
+        if op == 5
+            v = v - 1
+        else
+            0
+        if op == 6
+            if v < 0
+                v = 0 - v
+        result = arr_push(result, v)
+        i = i + 1
+    result
+
+let fn_filter(arr, pred) =
+    let result = arr_new()
+    let i = 0
+    let n = arr.len()
+    for i < n
+        let v = arr[i]
+        let keep = 0
+        if pred == 1
+            if v % 2 == 0
+                keep = 1
+            else
+                0
+        if pred == 2
+            if v % 2 != 0
+                keep = 1
+            else
+                0
+        if pred == 3
+            if v > 0
+                keep = 1
+            else
+                0
+        if pred == 4
+            if v < 0
+                keep = 1
+            else
+                0
+        if pred == 5
+            if v != 0
+                keep = 1
+            else
+                0
+        if pred == 6
+            if v > 1
+                keep = 1
+                let d = 2
+                for d * d <= v
+                    if v % d == 0
+                        keep = 0
+                    d = d + 1
+        if keep == 1
+            result = arr_push(result, v)
+        i = i + 1
+    result
+
+let fn_reduce(arr, op, init) =
+    let acc = init
+    let i = 0
+    let n = arr.len()
+    for i < n
+        let v = arr[i]
+        if op == 1
+            acc = acc + v
+        else
+            0
+        if op == 2
+            acc = acc * v
+        else
+            0
+        if op == 3
+            if v > acc
+                acc = v
+            else
+                0
+        if op == 4
+            if v < acc
+                acc = v
+            else
+                0
+        if op == 5
+            acc = acc + v
+        else
+            0
+        if op == 6
+            acc = acc + v - 2 * (acc * v)
+        i = i + 1
+    acc
+
+let fn_find_index(arr, pred) =
+    let i = 0
+    let n = arr.len()
+    for i < n
+        let v = arr[i]
+        let match_ = 0
+        if pred == 1
+            if v % 2 == 0
+                match_ = 1
+            else
+                0
+        if pred == 2
+            if v % 2 != 0
+                match_ = 1
+            else
+                0
+        if pred == 3
+            if v > 0
+                match_ = 1
+            else
+                0
+        if pred == 4
+            if v < 0
+                match_ = 1
+            else
+                0
+        if pred == 5
+            if v != 0
+                match_ = 1
+        if match_ == 1
+            return i
+        i = i + 1
+    0 - 1
+
+let fn_any(arr, pred) =
+    let idx = fn_find_index(arr, pred)
+    (idx >= 0 ? 1 : 0)
+
+let fn_all(arr, pred) =
+    let i = 0
+    let n = arr.len()
+    for i < n
+        let v = arr[i]
+        let match_ = 0
+        if pred == 1
+            if v % 2 == 0
+                match_ = 1
+            else
+                0
+        if pred == 2
+            if v % 2 != 0
+                match_ = 1
+            else
+                0
+        if pred == 3
+            if v > 0
+                match_ = 1
+            else
+                0
+        if pred == 4
+            if v < 0
+                match_ = 1
+            else
+                0
+        if pred == 5
+            if v != 0
+                match_ = 1
+        if match_ == 0
+            return 0
+        i = i + 1
+    1
+
+let fn_count(arr, pred) =
+    let filtered = fn_filter(arr, pred)
+    filtered.len()
+
+let fn_group_by(arr) =
+    let n = arr.len()
+    let values = arr_new()
+    let counts = arr_new()
+    let i = 0
+    for i < n
+        let v = arr[i]
+        let found = 0 - 1
+        let j = 0
+        let m = values.len()
+        for j < m
+            if values[j] == v
+                found = j
+            j = j + 1
+        if found >= 0
+            counts[found] = counts[found] + 1
+        else
+            values = arr_push(values, v)
+            counts = arr_push(counts, 1)
+        i = i + 1
+    let result = arr_new()
+    i = 0
+    let m = values.len()
+    for i < m
+        let pair = arr_new()
+        pair = arr_push(pair, values[i])
+        pair = arr_push(pair, counts[i])
+        result = arr_push(result, pair)
+        i = i + 1
+    result
+
+let fn_slice(arr, start, end) =
+    let result = arr_new()
+    let i = start
+    for i < end && i < arr.len()
+        result = arr_push(result, arr[i])
+        i = i + 1
+    result
+
+let fn_concat(a, b) =
+    let result = arr_new()
+    let i = 0
+    let na = a.len()
+    for i < na
+        result = arr_push(result, a[i])
+        i = i + 1
+    i = 0
+    let nb = b.len()
+    for i < nb
+        result = arr_push(result, b[i])
+        i = i + 1
+    result
+
+let main() =
+    let r = fn_range(1, 6)
+    let squares = fn_map(r, 1)
+    let evens = fn_filter(r, 1)
+    let sum = fn_reduce(squares, 1, 0)
+    print(sum)
+    0

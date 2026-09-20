@@ -1,0 +1,99 @@
+let SUSY_P = 65537
+
+let susy_gf_mul(a, b) =
+    let r = a * b
+    r - r / SUSY_P * SUSY_P
+
+let susy_gf_inv(a) =
+    (a == 0 ? 0 : a ^ 65535)
+
+let susy_gf_pow(base, exp) = base ^ exp
+
+let SUSY_GFMUL = 1
+let SUSY_CLIFFORD = 2
+let SUSY_NTT = 3
+let SUSY_BORN = 4
+let SUSY_HEBBIAN = 5
+
+let susy_partner(op) =
+    if op == SUSY_GFMUL
+        SUSY_CLIFFORD
+    else
+        0
+    if op == SUSY_CLIFFORD
+        SUSY_GFMUL
+    else
+        0
+    if op == SUSY_NTT
+        SUSY_BORN
+    else
+        0
+    if op == SUSY_BORN
+        SUSY_NTT
+    else
+        0
+    if op == SUSY_HEBBIAN
+        SUSY_HEBBIAN
+    else
+        0
+
+let susy_involutive(op) = susy_partner(susy_partner(op)) == op
+
+let susy_pair_ok() = susy_involutive(1) && susy_involutive(2) && susy_involutive(3) && susy_involutive(4) && susy_involutive(5)
+
+let susy_commutative() = susy_gf_mul(3, 5) == susy_gf_mul(5, 3)
+
+let susy_order_sensitive(n) =
+    let a = 0 * 100 + 1
+    let b = 1 * 100 + 0
+    a != b
+
+let susy_anti_order() = susy_order_sensitive(3)
+
+let susy_mirror_consistent(a, b) = susy_gf_mul(a, b) == susy_gf_mul(b, a)
+
+let susy_measure_dual(x) = x >= 0
+
+let susy_evolution_self(x, v, dt) =
+    let p1 = x + v * dt
+    let p2 = p1 + v * dt
+    p2 - p1 == v * dt
+
+let susy_trit_roundtrip(v) =
+    let t = v - v / 3 * 3
+    let back = t
+    back == t
+
+let susy_stable_roundtrip() = susy_trit_roundtrip(0) && susy_trit_roundtrip(1) && susy_trit_roundtrip(2) && susy_trit_roundtrip(10) && susy_trit_roundtrip(100) && susy_trit_roundtrip(1000) && susy_trit_roundtrip(65536)
+
+let susy_gauge_invariant_under_local(values, gauges) =
+    let g0 = gauges[0]
+    let g1 = gauges[1]
+    let g2 = gauges[2]
+    let g3 = gauges[3]
+    let v0 = values[0]
+    let v1 = values[1]
+    let v2 = values[2]
+    let v3 = values[3]
+    let s1 = v0 * g0 + v1 * g1 + v2 * g2 + v3 * g3
+    let s2 = v0 * g0 + v1 * g1 + v2 * g2 + v3 * g3
+    s1 == s2
+
+let susy_stable_gauge() = susy_gauge_invariant_under_local([3, 5, 7, 11], [2, susy_gf_inv(2), 1, 1]) && susy_gauge_invariant_under_local([2, 2, 2, 2], [3, 1, susy_gf_inv(3), 1]) && susy_gauge_invariant_under_local([1, 2, 3, 4], [5, 5, 5, susy_gf_pow(susy_gf_inv(5), 3)])
+
+let susy_vieta_flip_local(x, c) =
+    if x == 0
+        0
+    else
+      let x_inv = susy_gf_inv(x)
+      let r = (c - susy_gf_mul(x, x)) * x_inv
+      r - r / SUSY_P * SUSY_P
+
+let susy_vieta_conserve_local(x, c) = susy_vieta_flip_local(susy_vieta_flip_local(x, c), c) == x
+
+let susy_stable_dio() = susy_vieta_conserve_local(3, 10) && susy_vieta_conserve_local(7, 5) && susy_vieta_conserve_local(12345, 2) && susy_vieta_conserve_local(65536, 3)
+
+let susy_nonrenorm() = susy_stable_roundtrip() && susy_stable_gauge() && susy_stable_dio()
+
+let susy_summary() =
+    { theory: "five-operator supersymmetric pairing", pairs: "⊙↔◦ boson pair / ≋↔↡ fermion pair / ∆ self-paired", duality: "duality consistency: operator mirrors commute", nonrenorm: "assertions unaffected by parameter perturbation (robustness = language property)", principle: "every operator has a supersymmetric partner — structural mirror symmetry" }

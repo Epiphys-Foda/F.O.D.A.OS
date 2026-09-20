@@ -1,0 +1,127 @@
+import "gf65537.ψ"
+
+let _bfs_visit(adj, n, visited, queue, q_head, q_tail) =
+      if q_head >= q_tail
+        visited
+      else
+        let u = queue[q_head]
+        let nq_head = q_head + 1
+        let nq_tail = _bfs_expand(adj, n, visited, queue, u, nq_tail)
+        _bfs_visit(adj, n, visited, queue, nq_head, nq_tail)
+let _bfs_expand(adj, n, visited, queue, u, q_tail) =
+    _bfs_expand_loop(adj, n, visited, queue, u, 0, q_tail)
+let _bfs_expand_loop(adj, n, visited, queue, u, v, q_tail) =
+    if v >= n
+      q_tail
+    else
+        0
+    if adj[u * n + v] > 0
+      if visited[v] == 0
+        visited[v] = 1
+        queue[q_tail] = v
+        _bfs_expand_loop(adj, n, visited, queue, u, v + 1, q_tail + 1)
+      else
+        _bfs_expand_loop(adj, n, visited, queue, u, v + 1, q_tail)
+    else
+      _bfs_expand_loop(adj, n, visited, queue, u, v + 1, q_tail)
+let bfs(adj, n, start) =
+    let visited = arr_new_n(n)
+    let queue = arr_new_n(n)
+    visited[start] = 1
+    queue[0] = start
+    _bfs_visit(adj, n, visited, queue, 0, 1)
+
+let _dfs_visit(adj, n, visited, u) =
+    _dfs_loop(adj, n, visited, u, 0)
+let _dfs_loop(adj, n, visited, u, v) =
+    if v >= n
+      visited
+    else
+        0
+    if adj[u * n + v] > 0
+      if visited[v] == 0
+        visited[v] = 1
+        _dfs_visit(adj, n, visited, v)
+        _dfs_loop(adj, n, visited, u, v + 1)
+      else
+        _dfs_loop(adj, n, visited, u, v + 1)
+    else
+      _dfs_loop(adj, n, visited, u, v + 1)
+let dfs(adj, n, start) =
+    let visited = arr_new_n(n)
+    visited[start] = 1
+    _dfs_visit(adj, n, visited, start)
+
+let _dijkstra_init(dist, visited, n, start) =
+    _dijkstra_init_loop(dist, visited, n, start, 0)
+let _dijkstra_init_loop(dist, visited, n, start, i) =
+      if i >= n
+        dist
+      else
+        dist[i] = 65537
+        visited[i] = 0
+        _dijkstra_init_loop(dist, visited, n, start, i + 1)
+let dijkstra(adj, n, start) =
+    let dist = arr_new_n(n)
+    let visited = arr_new_n(n)
+    _dijkstra_init(dist, visited, n, start)
+    dist[start] = 0
+    _dijkstra_round(adj, n, dist, visited, 0)
+let _dijkstra_round(adj, n, dist, visited, round) =
+      if round >= n
+        dist
+      else
+        let u = _dijkstra_find_min(dist, visited, n, 0, -1, 65537)
+        if u < 0
+          dist
+        else
+          visited[u] = 1
+          _dijkstra_relax(adj, n, dist, visited, u, 0)
+          _dijkstra_round(adj, n, dist, visited, round + 1)
+let _dijkstra_find_min(dist, visited, n, i, best_u, best_d) =
+    if i >= n
+      best_u
+    else
+        0
+    if visited[i] == 0
+      if dist[i] < best_d
+        _dijkstra_find_min(dist, visited, n, i + 1, i, dist[i])
+      else
+        _dijkstra_find_min(dist, visited, n, i + 1, best_u, best_d)
+    else
+      _dijkstra_find_min(dist, visited, n, i + 1, best_u, best_d)
+let _dijkstra_relax(adj, n, dist, visited, u, v) =
+    if v >= n
+      dist
+    else
+      if adj[u * n + v] > 0
+        if visited[v] == 0
+          let new_d = dist[u] + adj[u * n + v]
+          if new_d < dist[v]
+            dist[v] = new_d
+          _dijkstra_relax(adj, n, dist, visited, u, v + 1)
+        else
+          _dijkstra_relax(adj, n, dist, visited, u, v + 1)
+      else
+        _dijkstra_relax(adj, n, dist, visited, u, v + 1)
+
+let test_graph() =
+    let adj = arr_new_n(9)
+    adj[0] = 0
+    adj[1] = 1
+    adj[2] = 0
+    adj[3] = 1
+    adj[4] = 0
+    adj[5] = 1
+    adj[6] = 0
+    adj[7] = 1
+    adj[8] = 0
+    let vis = bfs(adj, 3, 0)
+    assert_eq(vis[0], 1)
+    assert_eq(vis[1], 1)
+    assert_eq(vis[2], 1)
+    let d = dijkstra(adj, 3, 0)
+    assert_eq(d[0], 0)
+    assert_eq(d[1], 1)
+    assert_eq(d[2], 2)
+    0

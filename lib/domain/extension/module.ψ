@@ -1,0 +1,238 @@
+let EM_P = 65537
+
+let EM_STATE_LOADED    = 1
+let EM_STATE_INSTANTIATED = 2
+let EM_STATE_DISABLED  = 3
+let EM_STATE_ERROR     = 4
+
+let EM_IMPORT_FUNC   = 1
+let EM_IMPORT_MEMORY = 2
+let EM_IMPORT_TABLE  = 3
+let EM_IMPORT_GLOBAL = 4
+
+let EM_EXPORT_FUNC   = 1
+let EM_EXPORT_MEMORY = 2
+let EM_EXPORT_TABLE  = 3
+let EM_EXPORT_GLOBAL = 4
+
+let EM_DEFAULT_GAS    = 65536
+let EM_DEFAULT_MEM    = 65536
+let EM_MAX_MEM        = 16 * 1024 * 1024
+let EM_MAX_MODULES    = 256
+
+let em_manifest_new(name, version, gas, mem) =
+    [name, version, [], [], gas, mem, 0, 0]
+
+let em_mf_name(m)        = m[0]
+let em_mf_version(m)     = m[1]
+let em_mf_exports(m)     = m[2]
+let em_mf_imports(m)     = m[3]
+let em_mf_gas(m)         = m[4]
+let em_mf_mem(m)         = m[5]
+let em_mf_size(m)        = m[6]
+let em_mf_hash(m)        = m[7]
+
+let em_mf_set_size(m, size) =
+    m[6] = size
+    m
+
+let em_mf_set_hash(m, h) =
+    m[7] = h
+    m
+
+let em_mf_add_export(m, name, kind, fn_ref) =
+    let exps = em_mf_exports(m)
+    exps.push([name, kind, fn_ref])
+    m[2] = exps
+    m
+
+let em_mf_add_import(m, module_name, field_name, kind) =
+    let imps = em_mf_imports(m)
+    imps.push([module_name, field_name, kind])
+    m[3] = imps
+    m
+
+let em_exp_name(e)    = e[0]
+let em_exp_kind(e)    = e[1]
+let em_exp_ref(e)     = e[2]
+
+let em_imp_module(e)  = e[0]
+let em_imp_field(e)   = e[1]
+let em_imp_kind(e)    = e[2]
+
+let em_resolver_new() =
+    [{}, {}]
+
+let em_resolver_funcs(r)  = r[0]
+let em_resolver_mems(r)   = r[1]
+
+let em_resolver_register_func(r, module_name, field_name, fn_ref) =
+    let funcs = em_resolver_funcs(r)
+    let key = module_name * EM_P + field_name
+    funcs[key] = fn_ref
+    [funcs, em_resolver_mems(r)]
+
+let em_resolver_lookup(r, module_name, field_name) =
+    let funcs = em_resolver_funcs(r)
+    let key = module_name * EM_P + field_name
+    funcs[key]
+
+let em_instance_new(manifest) =
+    [manifest, [], EM_STATE_INSTANTIATED, 0, 0]
+
+let em_inst_manifest(i)   = i[0]
+let em_inst_memory(i)     = i[1]
+let em_inst_state(i)      = i[2]
+let em_inst_gas(i)        = i[3]
+let em_inst_calls(i)      = i[4]
+
+let em_inst_set_state(i, s) =
+    i[2] = s
+    i
+
+let em_inst_set_memory(i, mem) =
+    i[1] = mem
+    i
+
+let em_registry_new() =
+    [{}, {}, 1]
+
+let em_reg_modules(r)   = r[0]
+let em_reg_instances(r) = r[1]
+let em_reg_next(r)     = r[2]
+
+let em_reg_register(r, manifest) =
+    let name = em_mf_name(manifest)
+    let modules = em_reg_modules(r)
+    if modules[name] != 0
+        let existing = modules[name]
+        if em_mf_hash(existing) != em_mf_hash(manifest)
+            modules[name] = manifest
+        else
+            0
+        modules[name] = manifest
+    [modules, em_reg_instances(r), em_reg_next(r)]
+
+let em_reg_instantiate(r, name, resolver) =
+    let modules = em_reg_modules(r)
+    let m = modules[name]
+    if m == 0
+        [r, 0, 0]
+    else
+        let imps = em_mf_imports(m)
+        let ok = 1
+        let i = 0
+        let n = len(imps)
+        for i < n
+            let imp = imps[i]
+            let fn_ref = em_resolver_lookup(resolver, em_imp_module(imp), em_imp_field(imp))
+            if fn_ref == 0
+                ok = 0
+            i = i + 1
+        if ok == 0
+            [r, 0, 0]
+        else
+            let inst = em_instance_new(m)
+            let inst_id = em_reg_next(r)
+            let instances = em_reg_instances(r)
+            instances[inst_id] = inst
+            [[modules, instances, inst_id + 1], inst_id, 1]
+
+let em_reg_call(r, inst_id, func_name) =
+    let instances = em_reg_instances(r)
+    let inst = instances[inst_id]
+    if inst == 0
+        0
+    else
+        let m = em_inst_manifest(inst)
+        let exps = em_mf_exports(m)
+        let i = 0
+        let n = len(exps)
+        let found = 0
+        for i < n
+            if em_exp_name(exps[i]) == func_name
+                found = em_exp_ref(exps[i])
+                i = n
+            i = i + 1
+        found
+
+let em_reg_bragg_reload(r, name, manifest, resolver) =
+    let modules = em_reg_modules(r)
+    let m_old = modules[name]
+    if m_old == 0
+        0
+    else
+        let hash_old = em_mf_hash(m_old)
+        let hash_new = em_mf_hash(manifest)
+        if hash_old != hash_new
+            0
+        else
+            let inst_res = em_reg_instantiate(r, name, resolver)
+            let new_r = inst_res[0]
+            let inst_id = inst_res[1]
+            if inst_id == 0
+                0
+            else
+                1
+
+let em_self_test() =
+    let m = em_manifest_new(100, 1, EM_DEFAULT_GAS, EM_DEFAULT_MEM)
+    m = em_mf_set_size(m, 1024)
+    m = em_mf_set_hash(m, 12345)
+    m = em_mf_add_export(m, 1, EM_EXPORT_FUNC, 200)
+    m = em_mf_add_import(m, 1, 1, EM_IMPORT_FUNC)
+    let t_manifest = 0
+    if em_mf_name(m) == 100
+        if len(em_mf_exports(m)) == 1
+            t_manifest = 1
+
+    let r = em_resolver_new()
+    r = em_resolver_register_func(r, 1, 1, 999)
+    let ref = em_resolver_lookup(r, 1, 1)
+    let t_resolve = 0
+    if ref == 999
+        t_resolve = 1
+
+    let reg = em_registry_new()
+    reg = em_reg_register(reg, m)
+    let modules = em_reg_modules(reg)
+    let t_reg = 0
+    if modules[100] != 0
+        t_reg = 1
+
+    let inst_res = em_reg_instantiate(reg, 100, r)
+    let new_reg = inst_res[0]
+    let inst_id = inst_res[1]
+    let status = inst_res[2]
+    let t_inst = 0
+    if status == 1
+        if inst_id > 0
+            t_inst = 1
+
+    let fn_ref = em_reg_call(new_reg, inst_id, 1)
+    let t_call = 0
+    if fn_ref == 200
+        t_call = 1
+
+    let r_empty = em_resolver_new()
+    let inst_res2 = em_reg_instantiate(new_reg, 100, r_empty)
+    let status2 = inst_res2[2]
+    let t_fail = 0
+    if status2 == 0
+        t_fail = 1
+
+    let m_same = em_manifest_new(100, 1, EM_DEFAULT_GAS, EM_DEFAULT_MEM)
+    m_same = em_mf_set_hash(m_same, 12345)
+    m_same = em_mf_add_export(m_same, 1, EM_EXPORT_FUNC, 200)
+    let bragg = em_reg_bragg_reload(new_reg, 100, m_same, r)
+    let t_bragg = 0
+    if bragg == 1
+        t_bragg = 1
+
+    [t_manifest, t_resolve, t_reg, t_inst, t_call, t_fail, t_bragg]
+
+let em_default_registry() =
+    em_registry_new()
+
+let em_default_resolver() =
+    em_resolver_new()

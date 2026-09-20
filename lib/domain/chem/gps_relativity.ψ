@@ -1,0 +1,38 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+let e9 = 1000000000
+let e12 = 1000000000000
+
+let GMi = 398600 * e9
+let c2i = 299792 * 299792 * 1000000
+let Ri = 6371 * 1000
+let ri = 26571 * 1000
+
+let num_g = GMi * (ri - Ri) * e12
+let den_g = c2i * Ri * ri
+let Dg12 = small_div(num_g, den_g)
+if 520 * den_g > num_g
+    bad[0] = bad[0] + 1
+if num_g > 535 * den_g
+    bad[0] = bad[0] + 1
+
+let num_v = GMi * e12
+let den_v = 2 * c2i * ri
+let Dv12 = small_div(num_v, den_v)
+if 80 * den_v > num_v
+    bad[0] = bad[0] + 1
+if num_v > 85 * den_v
+    bad[0] = bad[0] + 1
+
+let net2 = (Dg12 - Dv12) * 864 / 100
+bad[0] = bad[0] + ck(net2, 3800, 3900)
+
+if net2 * 3 < 5000
+    bad[0] = bad[0] + 1
+
+if Dg12 < 6 * Dv12
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

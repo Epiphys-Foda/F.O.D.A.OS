@@ -1,0 +1,6 @@
+let is_digit = (a >= 48) && (a <= 57)
+let is_upper = (a >= 65) && (a <= 90)
+let is_lower = (a >= 97) && (a <= 122)
+let is_letter = is_upper || is_lower
+let result = (is_digit ? 1 : ((is_letter ? 2 : 0)))
+host_call(1, result, 0)

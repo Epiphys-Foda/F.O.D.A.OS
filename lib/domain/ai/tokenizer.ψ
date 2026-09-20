@@ -1,0 +1,310 @@
+import "../domain_field.ψ"
+
+let tokenizer_new() =
+    [{}, {}, {}, {}, 0]
+
+let tok_vocab(t) = t[0]
+let tok_inv(t) = t[1]
+let tok_merges(t) = t[2]
+let tok_special(t) = t[3]
+let tok_next_id(t) = t[4]
+
+let tok_alloc_id(t) =
+    let id = t[4]
+    t[4] = id + 1
+    id
+
+let tok_add_token(t, token) =
+    let vocab = tok_vocab(t)
+    if vocab[token] == 0
+        let id = tok_alloc_id(t)
+        vocab[token] = id
+        t[0] = vocab
+        let inv = tok_inv(t)
+        inv[id] = token
+        t[1] = inv
+        id
+    else
+        vocab[token]
+
+let tok_add_special(t, name, token) =
+    let id = tok_add_token(t, token)
+    let special = tok_special(t)
+    special[name] = id
+    t[3] = special
+    id
+
+let tok_bos(t) = tok_special(t)["bos"]
+let tok_eos(t) = tok_special(t)["eos"]
+let tok_pad(t) = tok_special(t)["pad"]
+let tok_unk(t) = tok_special(t)["unk"]
+
+let tok_init_specials(t) =
+    tok_add_special(t, "bos", "<BOS>")
+    tok_add_special(t, "eos", "<EOS>")
+    tok_add_special(t, "pad", "<PAD>")
+    tok_add_special(t, "unk", "<UNK>")
+    t
+
+let bpe_count_pairs(segments_list) =
+    let pairs = {}
+    let i = 0
+    let n = len(segments_list)
+    for i < n
+        let seg = segments_list[i]
+        let j = 0
+        let m = len(seg)
+        for j < m - 1
+            let pair = seg[j] + "|" + seg[j + 1]
+            let cnt = pairs[pair]
+            if cnt == 0
+                cnt = 0
+            pairs[pair] = cnt + 1
+            j = j + 1
+        i = i + 1
+    pairs
+
+let bpe_merge_pair(seg, a, b, merged) =
+    let new_seg = []
+    let i = 0
+    let n = len(seg)
+    for i < n
+        if i < n - 1
+            if seg[i] == a
+                if seg[i + 1] == b
+                    new_seg.push(merged)
+                    i = i + 2
+                else
+                    new_seg.push(seg[i])
+                    i = i + 1
+            else
+                new_seg.push(seg[i])
+                i = i + 1
+        else
+            new_seg.push(seg[i])
+            i = i + 1
+    new_seg
+
+let bpe_find_max_pair(pairs) =
+    let max_pair = ""
+    let max_count = 0
+    let keys = keys_of(pairs)
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let k = keys[i]
+        let c = pairs[k]
+        if c > max_count
+            max_count = c
+            max_pair = k
+        i = i + 1
+    [max_pair, max_count]
+
+let bpe_train(t, corpus, target_vocab_size) =
+    let segments = []
+    let i = 0
+    let n = len(corpus)
+    for i < n
+        let word = corpus[i]
+        let seg = []
+        let j = 0
+        let m = len(word)
+        for j < m
+            seg.push(word[j])
+            j = j + 1
+        segments.push(seg)
+        i = i + 1
+    i = 0
+    n = len(segments)
+    for i < n
+        let seg = segments[i]
+        let j = 0
+        let m = len(seg)
+        for j < m
+            tok_add_token(t, seg[j])
+            j = j + 1
+        i = i + 1
+    let merges = tok_merges(t)
+    for tok_next_id(t) < target_vocab_size
+        let pairs = bpe_count_pairs(segments)
+        let max_info = bpe_find_max_pair(pairs)
+        let max_pair = max_info[0]
+        let max_count = max_info[1]
+        if max_count < 2
+            t
+        else
+            let parts = max_pair.split("|")
+            let a = parts[0]
+            let b = parts[1]
+            let merged = a + b
+            tok_add_token(t, merged)
+            merges.push([a, b, merged])
+            i = 0
+            n = len(segments)
+            for i < n
+                segments[i] = bpe_merge_pair(segments[i], a, b, merged)
+                i = i + 1
+    t[2] = merges
+    t
+
+let bpe_encode_word(t, word) =
+    let seg = []
+    let i = 0
+    let n = len(word)
+    for i < n
+        seg.push(word[i])
+        i = i + 1
+    let merges = tok_merges(t)
+    i = 0
+    let nm = len(merges)
+    for i < nm
+        let merge = merges[i]
+        let a = merge[0]
+        let b = merge[1]
+        let merged = merge[2]
+        let changed = 1
+        for changed == 1
+            changed = 0
+            let j = 0
+            let m = len(seg)
+            let new_seg = []
+            for j < m
+                if j < m - 1
+                    if seg[j] == a
+                        if seg[j + 1] == b
+                            new_seg.push(merged)
+                            j = j + 2
+                            changed = 1
+                        else
+                            new_seg.push(seg[j])
+                            j = j + 1
+                    else
+                        new_seg.push(seg[j])
+                        j = j + 1
+                else
+                    new_seg.push(seg[j])
+                    j = j + 1
+            seg = new_seg
+        i = i + 1
+    let ids = []
+    let k = 0
+    let ns = len(seg)
+    for k < ns
+        let tok = seg[k]
+        let id = tok_vocab(t)[tok]
+        if id == 0
+            id = tok_unk(t)
+        ids.push(id)
+        k = k + 1
+    ids
+
+let tokenizer_encode(t, text, add_special) =
+    let ids = []
+    if add_special == 1
+        ids.push(tok_bos(t))
+    let words = text.split(" ")
+    let i = 0
+    let n = len(words)
+    for i < n
+        let word_ids = bpe_encode_word(t, words[i])
+        let j = 0
+        let m = len(word_ids)
+        for j < m
+            ids.push(word_ids[j])
+            j = j + 1
+        i = i + 1
+    if add_special == 1
+        ids.push(tok_eos(t))
+    ids
+
+let tokenizer_decode(t, ids) =
+    let text = ""
+    let i = 0
+    let n = len(ids)
+    for i < n
+        let id = ids[i]
+        let inv = tok_inv(t)
+        let tok = inv[id]
+        if tok != 0
+            if tok != "<BOS>" && tok != "<EOS>" && tok != "<PAD>" && tok != "<UNK>"
+                if text == ""
+                    text = tok
+                else
+                    text = text + " " + tok
+        i = i + 1
+    text
+
+let tokenizer_encode_batch(t, texts, add_special, max_len) =
+    let batch = []
+    let i = 0
+    let n = len(texts)
+    for i < n
+        let ids = tokenizer_encode(t, texts[i], add_special)
+        let pad_id = tok_pad(t)
+        let j = len(ids)
+        for j < max_len
+            ids.push(pad_id)
+            j = j + 1
+        if len(ids) > max_len
+            let truncated = []
+            j = 0
+            for j < max_len
+                truncated.push(ids[j])
+                j = j + 1
+            ids = truncated
+        batch.push(ids)
+        i = i + 1
+    batch
+
+let tokenizer_vocab_size(t) =
+    tok_next_id(t)
+
+let tokenizer_coverage(t, words) =
+    let total = 0
+    let known = 0
+    let i = 0
+    let n = len(words)
+    for i < n
+        let ids = bpe_encode_word(t, words[i])
+        let j = 0
+        let m = len(ids)
+        for j < m
+            total = total + 1
+            if ids[j] != tok_unk(t)
+                known = known + 1
+            j = j + 1
+        i = i + 1
+    if total == 0
+        0
+    else
+        known * 100 / total
+
+let tokenizer_export_vocab(t) =
+    let vocab = tok_vocab(t)
+    let keys = keys_of(vocab)
+    let result = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let k = keys[i]
+        result.push([k, vocab[k]])
+        i = i + 1
+    result
+
+let tokenizer_import_vocab(t, vocab_list) =
+    let i = 0
+    let n = len(vocab_list)
+    for i < n
+        let item = vocab_list[i]
+        let token = item[0]
+        let id = item[1]
+        let vocab = tok_vocab(t)
+        vocab[token] = id
+        let inv = tok_inv(t)
+        inv[id] = token
+        t[0] = vocab
+        t[1] = inv
+        if id >= t[4]
+            t[4] = id + 1
+        i = i + 1
+    t

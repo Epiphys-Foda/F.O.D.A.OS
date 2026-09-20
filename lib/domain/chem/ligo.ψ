@@ -1,0 +1,32 @@
+import "ck.ψ"
+let bad = [0]
+
+let armz = 90
+bad[0] = bad[0] + ck(armz, 90, 90)
+
+let dark = 0
+bad[0] = bad[0] + ck(dark, 0, 0)
+
+let strain = 1000
+bad[0] = bad[0] + ck(strain, 500, 2000)
+
+let chirp = 250
+bad[0] = bad[0] + ck(chirp, 200, 300)
+
+let quant = 1
+bad[0] = bad[0] + ck_lo(quant, 1)
+
+if 1916 < 1914
+    bad[0] = bad[0] + 1
+if 1916 > 1918
+    bad[0] = bad[0] + 1
+if 1970 < 1968
+    bad[0] = bad[0] + 1
+if 1970 > 1972
+    bad[0] = bad[0] + 1
+if 2015 < 2013
+    bad[0] = bad[0] + 1
+if 2015 > 2017
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

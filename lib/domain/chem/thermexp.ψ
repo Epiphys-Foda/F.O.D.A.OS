@@ -1,0 +1,35 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let a_steel = 12
+let a_brass = 19
+bad[0] = bad[0] + ck(a_steel, 11, 13)
+bad[0] = bad[0] + ck(a_brass, 17, 21)
+
+let d_eiffel = small_div(a_steel * 300 * 40, 1000)
+bad[0] = bad[0] + ck(d_eiffel, 130, 160)
+
+let d_rail = small_div(a_steel * 20 * 50, 1000)
+bad[0] = bad[0] + ck(d_rail, 10, 15)
+
+let d_gate = small_div(a_steel * 1280 * 50, 1000)
+bad[0] = bad[0] + ck(d_gate, 740, 800)
+
+bad[0] = bad[0] + ck_lo(d_gate, d_rail)
+
+let drift = small_div(6 * 86400, 100000)
+bad[0] = bad[0] + ck(drift, 4, 7)
+
+let a_invar = 12
+bad[0] = bad[0] + ck_hi(a_invar, a_steel)
+
+bad[0] = bad[0] + ck_lo(a_brass, a_steel)
+
+if 1889 < 1887
+    bad[0] = bad[0] + 1
+if 1889 > 1891
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

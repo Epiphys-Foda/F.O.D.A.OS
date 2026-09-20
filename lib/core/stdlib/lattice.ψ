@@ -1,0 +1,168 @@
+import "numtheor.ψ"
+let gram_schmidt(basis, n, dim) =
+    let ortho = []
+    let i = 0
+    for i < n * dim
+        ortho = arr_concat(ortho, [basis[i]])
+        i = i + 1
+    let i = 1
+    for i < n
+        let j = 0
+        for j < i
+            let num = 0
+            let den = 0
+            let k = 0
+            for k < dim
+                num = num + basis[i * dim + k] * ortho[j * dim + k]
+                den = den + ortho[j * dim + k] * ortho[j * dim + k]
+                k = k + 1
+            if den != 0
+                let k = 0
+                for k < dim
+                    ortho[i * dim + k] = ortho[i * dim + k] - num * ortho[j * dim + k] / den
+                    k = k + 1
+            j = j + 1
+        i = i + 1
+    ortho
+
+let lll_reduce(basis, n, dim, delta) =
+    let b = []
+    let i = 0
+    for i < n * dim
+        b = arr_concat(b, [basis[i]])
+        i = i + 1
+    let changed = 1
+    for changed == 1
+        changed = 0
+        let k = 1
+        for k < n
+            let ortho = gram_schmidt(b, n, dim)
+            let num = 0
+            let den = 0
+            let j = 0
+            for j < dim
+                num = num + b[k * dim + j] * ortho[(k - 1) * dim + j]
+                den = den + ortho[(k - 1) * dim + j] * ortho[(k - 1) * dim + j]
+                j = j + 1
+            if den != 0
+                let mu = num * 1000 / den
+                if mu > 500 || mu < -500
+                    let r = (mu + 500) / 1000
+                    let j = 0
+                    for j < dim
+                        b[k * dim + j] = b[k * dim + j] - r * b[(k - 1) * dim + j]
+                        j = j + 1
+                    changed = 1
+            let norm_k = 0
+            let norm_k1 = 0
+            let j = 0
+            for j < dim
+                norm_k = norm_k + b[k * dim + j] * b[k * dim + j]
+                norm_k1 = norm_k1 + b[(k - 1) * dim + j] * b[(k - 1) * dim + j]
+                j = j + 1
+            if delta * norm_k1 / 1000 > norm_k
+                let j = 0
+                for j < dim
+                    let tmp = b[k * dim + j]
+                    b[k * dim + j] = b[(k - 1) * dim + j]
+                    b[(k - 1) * dim + j] = tmp
+                    j = j + 1
+                changed = 1
+            k = k + 1
+    b
+
+let vector_norm_sq(v, dim) =
+    let sum = 0
+    let i = 0
+    for i < dim
+        sum = sum + v[i] * v[i]
+        i = i + 1
+    sum
+
+let shortest_vector(basis, n, dim) =
+    let best_norm = 999999999
+    let best = []
+    let i = 0
+    for i < dim
+        best = arr_concat(best, [0])
+        i = i + 1
+    let i = 0
+    for i < n
+        let norm = 0
+        let j = 0
+        for j < dim
+            norm = norm + basis[i * dim + j] * basis[i * dim + j]
+            j = j + 1
+        if norm > 0 && norm < best_norm
+            best_norm = norm
+            best = []
+            let j = 0
+            for j < dim
+                best = arr_concat(best, [basis[i * dim + j]])
+                j = j + 1
+        i = i + 1
+    let i = 0
+    for i < n
+        let j = i + 1
+        for j < n
+            let signs = [1, -1]
+            let si = 0
+            for si < 2
+                let sj = 0
+                for sj < 2
+                    let v = []
+                    let d = 0
+                    for d < dim
+                        v = arr_concat(v, [signs[si] * basis[i * dim + d] + signs[sj] * basis[j * dim + d]])
+                        d = d + 1
+                    let norm = vector_norm_sq(v, dim)
+                    if norm > 0 && norm < best_norm
+                        best_norm = norm
+                        best = v
+                    sj = sj + 1
+                si = si + 1
+            j = j + 1
+        i = i + 1
+    best
+
+let determinant(matrix, n) =
+    if n == 1
+        matrix[0]
+    else
+        0
+    if n == 2
+        matrix[0] * matrix[3] - matrix[1] * matrix[2]
+    else
+        0
+    if n == 3
+        matrix[0] * (matrix[4] * matrix[8] - matrix[5] * matrix[7]) - matrix[1] * (matrix[3] * matrix[8] - matrix[5] * matrix[6]) + matrix[2] * (matrix[3] * matrix[7] - matrix[4] * matrix[6])
+    else
+        0
+
+let hadamard_ratio(basis, n, dim) =
+    let det = determinant(basis, n)
+    let prod_norms = 1
+    let i = 0
+    for i < n
+        let norm_sq = 0
+        let j = 0
+        for j < dim
+            norm_sq = norm_sq + basis[i * dim + j] * basis[i * dim + j]
+            j = j + 1
+        let norm = isqrt(norm_sq)
+        prod_norms = prod_norms * norm / 1000
+        i = i + 1
+    if prod_norms == 0
+        0
+    else
+        det * 1000 / prod_norms
+
+let main() =
+    let basis = [1000, 0, 0, 1000]
+    let reduced = lll_reduce(basis, 2, 2, 750)
+    print(reduced)
+    let sv = shortest_vector(basis, 2, 2)
+    print(sv)
+    let hr = hadamard_ratio(basis, 2, 2)
+    print(hr)
+    0

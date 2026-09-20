@@ -1,0 +1,529 @@
+import "../domain_field.ψ"
+
+let MD_P = 65537
+
+let MD_NODE_DOC = 0
+let MD_NODE_HEADING = 1
+let MD_NODE_PARAGRAPH = 2
+let MD_NODE_LIST = 3
+let MD_NODE_LIST_ITEM = 4
+let MD_NODE_CODE_BLOCK = 5
+let MD_NODE_QUOTE = 6
+let MD_NODE_HR = 7
+let MD_NODE_TEXT = 10
+let MD_NODE_BOLD = 11
+let MD_NODE_ITALIC = 12
+let MD_NODE_CODE = 13
+let MD_NODE_LINK = 14
+let MD_NODE_IMAGE = 15
+
+let MD_CH_HASH = 35
+let MD_CH_STAR = 42
+let MD_CH_DASH = 45
+let MD_CH_GT = 62
+let MD_CH_BTICK = 96
+let MD_CH_BANG = 33
+let MD_CH_LBR = 91
+let MD_CH_RBR = 93
+let MD_CH_LPAR = 40
+let MD_CH_RPAR = 41
+
+let md_node(kind, content) =
+    [kind, content, [], {}]
+
+let md_node_t(kind) =
+    [kind, "", [], {}]
+
+let md_type(n) = n[0]
+let md_content(n) = n[1]
+let md_children(n) = n[2]
+let md_attrs(n) = n[3]
+
+let md_add_child(n, child) =
+    let children = md_children(n)
+    children.push(child)
+    n
+
+let md_set_attr(n, key, val) =
+    let attrs = md_attrs(n)
+    attrs[key] = val
+    n
+
+let md_get_attr(n, key) =
+    let v = md_attrs(n)[key]
+    (v == 0 ? 0 : v)
+
+let md_str_join(arr, sep) =
+    let result = ""
+    let i = 0
+    let n = len(arr)
+    for i < n
+        if i > 0
+            result = result + sep
+        result = result + arr[i]
+        i = i + 1
+    result
+
+let md_default_parser() =
+    [[], 0, md_node_t(MD_NODE_DOC), []]
+
+let md_parser_ast(p) = p[2]
+
+let md_parse(parser, text) =
+    let lines = str_split(text, "\n")
+    parser[0] = lines
+    let root = md_node_t(MD_NODE_DOC)
+    let n = len(lines)
+    let i = 0
+    for i < n
+        let result = md_parse_block(parser, lines, i)
+        if result[0] != 0
+            root = md_add_child(root, result[0])
+        i = result[1]
+    parser[2] = root
+    parser
+
+let md_count_heading(line) =
+    let n = len(line)
+    let count = 0
+    let i = 0
+    for i < n
+        if line[i] == MD_CH_HASH
+            count = count + 1
+            i = i + 1
+        else
+            i = n
+    (count > 6 ? (count = 6) : count)
+
+let md_starts_code(line) =
+    if len(line) >= 3
+        if line[0] == MD_CH_BTICK
+            if line[1] == MD_CH_BTICK
+                if line[2] == MD_CH_BTICK
+                    1
+                else
+                    0
+            else
+                0
+        else
+            0
+    else
+        0
+
+let md_is_hr(line) =
+    if len(line) < 3
+        0
+    else
+        0
+    if line[0] == MD_CH_DASH
+        if line[1] == MD_CH_DASH
+            (line[2] == MD_CH_DASH ? 1 : 0)
+        else
+                0
+    else
+            0
+    if line[0] == MD_CH_STAR
+        if line[1] == MD_CH_STAR
+            (line[2] == MD_CH_STAR ? 1 : 0)
+        else
+                0
+    else
+            0
+
+let md_parse_block(parser, lines, start) =
+    let i = start
+    let n = len(lines)
+    if i >= n
+        [0, i]
+    else
+        let line = lines[i]
+        if len(line) == 0
+            [0, i + 1]
+        else
+            0
+        if line[0] == MD_CH_HASH
+            let level = md_count_heading(line)
+            let content = ""
+            if level + 1 < len(line)
+                content = line[level + 1]
+            let node = md_node(MD_NODE_HEADING, content)
+            md_set_attr(node, "level", level)
+            [node, i + 1]
+        if md_starts_code(line)
+            let code_lines = []
+            i = i + 1
+            for i < n
+                if md_starts_code(lines[i])
+                    i = n
+                else
+                    code_lines.push(lines[i])
+                    i = i + 1
+            [md_node(MD_NODE_CODE_BLOCK, md_str_join(code_lines, "\n")), i + 1]
+        else
+            0
+        if line[0] == MD_CH_GT
+            let qlines = []
+            for i < n
+                if len(lines[i]) > 0
+                    if lines[i][0] == MD_CH_GT
+                        qlines.push(lines[i])
+                        i = i + 1
+                    else
+                        i = n
+                else
+                    i = n
+            [md_node(MD_NODE_QUOTE, md_str_join(qlines, "\n")), i]
+        else
+            0
+        if md_is_hr(line)
+            [md_node_t(MD_NODE_HR), i + 1]
+        else
+            0
+        if line[0] == MD_CH_DASH
+            let node = md_node_t(MD_NODE_LIST)
+            for i < n
+                if len(lines[i]) > 0
+                    if lines[i][0] == MD_CH_DASH
+                        let itext = lines[i]
+                        if len(itext) > 2
+                            itext = itext[2]
+                        md_add_child(node, md_node(MD_NODE_LIST_ITEM, itext))
+                        i = i + 1
+                    else
+                        i = n
+            [node, i]
+            let plines = []
+            for i < n
+                if len(lines[i]) == 0
+                    i = n
+                else
+                    0
+                if lines[i][0] == MD_CH_HASH
+                    i = n
+                else
+                    0
+                if lines[i][0] == MD_CH_GT
+                    i = n
+                else
+                    0
+                if md_starts_code(lines[i])
+                    i = n
+                else
+                    0
+                if md_is_hr(lines[i])
+                    i = n
+                else
+                    plines.push(lines[i])
+                    i = i + 1
+            [md_node(MD_NODE_PARAGRAPH, md_str_join(plines, "\n")), i]
+
+let md_find_char(text, ch, start) =
+    let i = start
+    let n = len(text)
+    let result = -1
+    for i < n
+        if text[i] == ch
+            result = i
+            i = n
+        else
+            i = i + 1
+    result
+
+let md_find_pair(text, ch, start) =
+    let i = start
+    let n = len(text)
+    let result = -1
+    for i + 1 < n
+        if text[i] == ch
+            if text[i + 1] == ch
+                result = i
+                i = n
+            else
+                i = i + 1
+        else
+            i = i + 1
+    result
+
+let md_parse_inline(parser, text) =
+    let nodes = []
+    let i = 0
+    let n = len(text)
+    let ts = 0
+    for i < n
+        let c = text[i]
+        if c == MD_CH_STAR
+            if i + 1 < n
+                if text[i + 1] == MD_CH_STAR
+                    if i > ts
+                        nodes.push(md_node(MD_NODE_TEXT, text[ts..i]))
+                    let end = md_find_pair(text, MD_CH_STAR, i + 2)
+                    if end >= 0
+                        nodes.push(md_node(MD_NODE_BOLD, text[i + 2..end]))
+                        i = end + 2
+                        ts = i
+                    else
+                        i = i + 1
+                    if i > ts
+                        nodes.push(md_node(MD_NODE_TEXT, text[ts..i]))
+                    let end = md_find_char(text, MD_CH_STAR, i + 1)
+                    if end >= 0
+                        nodes.push(md_node(MD_NODE_ITALIC, text[i + 1..end]))
+                        i = end + 1
+                        ts = i
+                    else
+                        i = i + 1
+                        ts = i
+                else
+                    0
+        if c == MD_CH_BTICK
+            if i > ts
+                nodes.push(md_node(MD_NODE_TEXT, text[ts..i]))
+            let end = md_find_char(text, MD_CH_BTICK, i + 1)
+            if end >= 0
+                nodes.push(md_node(MD_NODE_CODE, text[i + 1..end]))
+                i = end + 1
+                ts = i
+            else
+                i = i + 1
+        if c == MD_CH_LBR
+            if i > ts
+                nodes.push(md_node(MD_NODE_TEXT, text[ts..i]))
+            let rbr = md_find_char(text, MD_CH_RBR, i + 1)
+            if rbr >= 0
+                if rbr + 1 < n
+                    if text[rbr + 1] == MD_CH_LPAR
+                        let rpar = md_find_char(text, MD_CH_RPAR, rbr + 2)
+                        if rpar >= 0
+                            let ltext = text[i + 1..rbr]
+                            let lurl = text[rbr + 2..rpar]
+                            let ln = md_node(MD_NODE_LINK, ltext)
+                            md_set_attr(ln, "url", lurl)
+                            nodes.push(ln)
+                            i = rpar + 1
+                            ts = i
+                        else
+                            i = i + 1
+                    else
+                        i = i + 1
+                else
+                    i = i + 1
+            else
+                i = i + 1
+    if i > ts
+        nodes.push(md_node(MD_NODE_TEXT, text[ts..i]))
+    nodes
+
+let md_render_html_node(node, sb) =
+    let nt = md_type(node)
+    let content = md_content(node)
+    let children = md_children(node)
+    if nt == MD_NODE_DOC
+        let i = 0
+        let n = len(children)
+        for i < n
+            md_render_html_node(children[i], sb)
+            i = i + 1
+    else
+        0
+    if nt == MD_NODE_HEADING
+        let level = md_get_attr(node, "level")
+        if level == 0
+            level = 1
+        sb.push("<h" + str(level) + ">")
+        sb.push(content)
+        sb.push("</h" + str(level) + ">")
+    if nt == MD_NODE_PARAGRAPH
+        sb.push("<p>" + content + "</p>")
+    else
+        0
+    if nt == MD_NODE_LIST
+        sb.push("<ul>")
+        let i = 0
+        for i < len(children)
+            md_render_html_node(children[i], sb)
+            i = i + 1
+        sb.push("</ul>")
+    else
+        0
+    if nt == MD_NODE_LIST_ITEM
+        sb.push("<li>" + content + "</li>")
+    else
+        0
+    if nt == MD_NODE_CODE_BLOCK
+        sb.push("<pre><code>" + content + "</code></pre>")
+    else
+        0
+    if nt == MD_NODE_QUOTE
+        sb.push("<blockquote>" + content + "</blockquote>")
+    else
+        0
+    if nt == MD_NODE_HR
+        sb.push("<hr>")
+    else
+        0
+    if nt == MD_NODE_TEXT
+        sb.push(content)
+    else
+        0
+    if nt == MD_NODE_BOLD
+        sb.push("<strong>" + content + "</strong>")
+    else
+        0
+    if nt == MD_NODE_ITALIC
+        sb.push("<em>" + content + "</em>")
+    else
+        0
+    if nt == MD_NODE_CODE
+        sb.push("<code>" + content + "</code>")
+    else
+        0
+    if nt == MD_NODE_LINK
+        sb.push("<a href=\"" + md_get_attr(node, "url") + "\">" + content + "</a>")
+    else
+        0
+    if nt == MD_NODE_IMAGE
+        sb.push("<img src=\"" + md_get_attr(node, "url") + "\" alt=\"" + content + "\">")
+
+let md_render_html(ast) =
+    let sb = []
+    md_render_html_node(ast, sb)
+    md_str_join(sb, "\n")
+
+let md_render_plaintext_node(node, sb) =
+    let nt = md_type(node)
+    let content = md_content(node)
+    let children = md_children(node)
+    if nt == MD_NODE_DOC
+        let i = 0
+        for i < len(children)
+            md_render_plaintext_node(children[i], sb)
+            i = i + 1
+    else
+        0
+    if nt == MD_NODE_HEADING
+        sb.push(content + "\n")
+    else
+        0
+    if nt == MD_NODE_PARAGRAPH
+        sb.push(content + "\n")
+    else
+        0
+    if nt == MD_NODE_LIST
+        let i = 0
+        for i < len(children)
+            md_render_plaintext_node(children[i], sb)
+            i = i + 1
+    else
+        0
+    if nt == MD_NODE_LIST_ITEM
+        sb.push("- " + content + "\n")
+    else
+        0
+    if nt == MD_NODE_CODE_BLOCK
+        sb.push(content + "\n")
+    else
+        0
+    if nt == MD_NODE_QUOTE
+        sb.push(content + "\n")
+    else
+        0
+    if nt == MD_NODE_HR
+        sb.push("---\n")
+    else
+        0
+    if nt == MD_NODE_TEXT
+        sb.push(content)
+    else
+        0
+    if nt == MD_NODE_BOLD
+        sb.push(content)
+    else
+        0
+    if nt == MD_NODE_ITALIC
+        sb.push(content)
+    else
+        0
+    if nt == MD_NODE_CODE
+        sb.push(content)
+    else
+        0
+    if nt == MD_NODE_LINK
+        sb.push(content)
+    else
+        0
+    if nt == MD_NODE_IMAGE
+        sb.push(content)
+
+let md_render_plaintext(ast) =
+    let sb = []
+    md_render_plaintext_node(ast, sb)
+    md_str_join(sb, "")
+
+let md_walk(ast, visitor_fn) =
+    visitor_fn(ast)
+    let children = md_children(ast)
+    let i = 0
+    let n = len(children)
+    for i < n
+        md_walk(children[i], visitor_fn)
+        i = i + 1
+
+let md_ast_sig(ast) =
+    let sb = []
+    md_render_html_node(ast, sb)
+    md_str_join(sb, "|")
+
+let md_bragg_verify(parser, samples) =
+    let ok = 1
+    let i = 0
+    let n = len(samples)
+    for i < n
+        let text = samples[i]
+        let p1 = md_default_parser()
+        p1 = md_parse(p1, text)
+        let sig_d1 = md_ast_sig(md_parser_ast(p1))
+        let p2 = md_default_parser()
+        p2 = md_parse(p2, text)
+        let sig_r1 = md_ast_sig(md_parser_ast(p2))
+        if sig_d1 != sig_r1
+            ok = 0
+            i = n
+        i = i + 1
+    [ok, n]
+
+let md_test_basic() =
+    let ok = 1
+    let p = md_default_parser()
+    p = md_parse(p, "# Heading\n\nParagraph\n\n- item1\n- item2\n")
+    let children = md_children(md_parser_ast(p))
+    if len(children) != 3
+        ok = 0
+    let samples = ["# Test\n\nHello", "## A\n\nB\nC", "- x\n- y\n"]
+    if md_bragg_verify(p, samples)[0] != 1
+        ok = 0
+    ok
+
+let md_test_self() =
+    let ok = md_test_basic()
+    if ok == 1
+        print("markdown: ALL PASS")
+    else
+        print("markdown: FAIL")
+    ok
+
+let md_gf_mod(x) = domain_gf_mod(x)
+
+let md_gf_inv(a) = domain_gf_inv(a)
+
+let md_field_encode(items, n) =
+    let records = []
+    let _i = 0
+    for _i < n
+        records.push([items[_i], items[_i]])
+        _i = _i + 1
+    domain_field_encode(records, n, 256, 1)
+
+let md_field_eval(poles, residues, z) = domain_field_eval(poles, residues, z)
+
+let md_field_bragg_verify(current, replay) = domain_bragg_verify(current[0], current[1], replay[0], replay[1])
+

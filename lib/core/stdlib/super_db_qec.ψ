@@ -1,0 +1,62 @@
+let rf_db_qec_store(db) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(db)
+        out = out.push(db[i])
+        out = out.push(db[i + 1])
+        out = out.push(db[i + 2])
+        out = out.push(db[i])
+        out = out.push(db[i + 1])
+        out = out.push(db[i + 2])
+        out = out.push(db[i])
+        out = out.push(db[i + 1])
+        out = out.push(db[i + 2])
+        i = i + 3
+      else
+        done = true
+    out
+
+let rf_db_qec_flip(db, copy_idx, new_r) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(db)
+        if i == copy_idx * 3 + 2
+          out = out.push(new_r)
+        else
+          out = out.push(db[i])
+        i = i + 1
+      else
+        done = true
+    out
+
+let rf_db_qec_recover(db) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i + 8 < len(db)
+        let r0 = db[i + 2]
+        let r1 = db[i + 5]
+        let r2 = db[i + 8]
+        let r = (r0 == r1 ? r0 : (r0 == r2 ? r0 : (r1 == r2 ? r1 : r0)))
+        out = out.push(db[i])
+        out = out.push(db[i + 1])
+        out = out.push(r)
+        i = i + 9
+      else
+        done = true
+    out
+
+let rf_db_qec_verify() =
+    let stored = rf_db_qec_store([0, 0, 5])
+    let t1 = len(stored) == 9
+    let t2 = rf_db_qec_recover(stored)[2] == 5
+    let damaged = rf_db_qec_flip(stored, 0, 99)
+    let t3 = rf_db_qec_recover(damaged)[2] == 5
+    let d2 = rf_db_qec_flip(rf_db_qec_flip(stored, 0, 99), 1, 88)
+    let t4 = rf_db_qec_recover(d2)[2] == 99
+    t1 && t2 && t3 && t4

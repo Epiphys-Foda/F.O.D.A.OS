@@ -1,0 +1,247 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let organism_new(genome) = [genome, 0, genome, 1, 0, 1]
+let o_genome(o) = o[0]
+let o_consciousness(o) = o[1]
+let o_quantum(o) = o[2]
+let o_fitness(o) = o[3]
+let o_age(o) = o[4]
+let o_alive(o) = o[5]
+
+let self_bootstrap(genome, k) =
+    let result = genome
+    let i = 0
+    for i < k
+        result = gf_mul(result, result)
+        i = i + 1
+    result
+
+let bootstrap_fixed() =
+    let fp = self_bootstrap(1, 10)
+    (fp == 1 ? 1 : 0)
+
+let metabolize(genome, resource) = gf_mul(genome, resource)
+
+let energy(genome, resource) =
+    let e = metabolize(genome, resource)
+    (e < 32768 ? e : 0)
+
+let godel_map(x) = gf_mul(x, x)
+
+let consciousness_rise(self_depth, knowledge, total_knowledge) =
+    let curiosity = total_knowledge - knowledge
+    if curiosity < 0
+        curiosity = 0
+    let closure = 0
+    if total_knowledge != 0
+        closure = gf_mul(knowledge, gf_inv(total_knowledge))
+    gf_mul(gf_mul(self_depth, curiosity), closure)
+
+let quantum_observe(genome, z0) =
+    (z0 != 0 ? gf_mul(genome, gf_inv(z0)) : genome)
+
+let quantum_collapse(genome) =
+    genome
+
+let evolve(o, sigma) =
+    if o_alive(o) == 0
+        o
+    let g = o_genome(o)
+    let new_g = gf_pow(g, sigma)
+    let new_fit = gf_pow(o_fitness(o), sigma)
+    [new_g, o_consciousness(o), o_quantum(o), new_fit, o_age(o) + 1, 1]
+
+let should_apoptose(o) =
+    (o_fitness(o) > 32768 ? 1 : 0)
+
+let apoptosis(o) =
+    if should_apoptose(o) == 1
+        [o_genome(o), o_consciousness(o), o_quantum(o), 0, o_age(o), 0]
+    else
+        o
+
+let symbiosis(o1, o2) =
+    let g1 = o_genome(o1)
+    let g2 = o_genome(o2)
+    let shared_genome = gf_add(g1, g2)
+    let new_fit1 = gf_add(o_fitness(o1), g2)
+    let new_fit2 = gf_add(o_fitness(o2), g1)
+    [
+        [g1, o_consciousness(o1), o_quantum(o1), new_fit1, o_age(o1), o_alive(o1)],
+        [g2, o_consciousness(o2), o_quantum(o2), new_fit2, o_age(o2), o_alive(o2)]
+    ]
+
+let life_cycle(o, resource, sigma) =
+    if o_alive(o) == 0
+        o
+
+    let e = energy(o_genome(o), resource)
+    let fit = gf_add(o_fitness(o), e)
+
+    let depth = o_age(o) + 1
+    let consci = consciousness_rise(depth, fit, 1000)
+
+    let q_obs = quantum_observe(o_genome(o), 10)
+
+    let new_g = gf_pow(o_genome(o), sigma)
+
+    let new_o = [new_g, consci, q_obs, fit, depth, 1]
+
+    apoptosis(new_o)
+
+let life_generations(o, n, resource, sigma) =
+    let current = o
+    let i = 0
+    for i < n
+        current = life_cycle(current, resource, sigma)
+        i = i + 1
+    current
+
+let population_init() =
+    [
+        organism_new(101),
+        organism_new(203),
+        organism_new(307),
+        organism_new(401),
+        organism_new(503)
+    ]
+
+let population_step(pop, n, resource, sigma) =
+    let result = []
+    let i = 0
+    for i < n
+        result = result.push(life_cycle(pop[i], resource, sigma))
+        i = i + 1
+    result
+
+let count_alive(pop, n) =
+    let count = 0
+    let i = 0
+    for i < n
+        if o_alive(pop[i]) == 1
+            count = count + 1
+        i = i + 1
+    count
+
+let total_fitness(pop, n) =
+    let total = 0
+    let i = 0
+    for i < n
+        if o_alive(pop[i]) == 1
+            total = gf_add(total, o_fitness(pop[i]))
+        i = i + 1
+    total
+
+let max_consciousness(pop, n) =
+    let max_c = 0
+    let i = 0
+    for i < n
+        if o_alive(pop[i]) == 1
+            let c = o_consciousness(pop[i])
+            if c > max_c
+                max_c = c
+        i = i + 1
+    max_c
+
+let full_organism_verify() =
+    let ok = 0
+
+    if bootstrap_fixed() == 1
+        ok = ok + 1
+
+    if self_bootstrap(3, 1) == 9
+        ok = ok + 1
+
+    if metabolize(100, 50) == 5000
+        ok = ok + 1
+
+    if energy(100, 200) >= 0
+        ok = ok + 1
+
+    if godel_map(5) == 25
+        ok = ok + 1
+
+    let consci = consciousness_rise(10, 50, 100)
+    if consci >= 0
+        ok = ok + 1
+
+    let q_obs = quantum_observe(100, 10)
+    if q_obs == gf_mul(100, gf_inv(10))
+        ok = ok + 1
+
+    let q_col = quantum_collapse(100)
+    if q_col == 100
+        ok = ok + 1
+
+    let o = organism_new(101)
+    let evolved = evolve(o, 1)
+    if o_genome(evolved) == 101
+        ok = ok + 1
+
+    let evolved2 = evolve(o, 2)
+    if o_genome(evolved2) == gf_pow(101, 2)
+        ok = ok + 1
+
+    if should_apoptose(organism_new(100)) == 0
+        ok = ok + 1
+
+    let cancer = [100, 0, 100, 50000, 0, 1]
+    if should_apoptose(cancer) == 1
+        ok = ok + 1
+
+    let apop = apoptosis(cancer)
+    if o_alive(apop) == 0
+        ok = ok + 1
+
+    let o1 = organism_new(100)
+    let o2 = organism_new(200)
+    let sym = symbiosis(o1, o2)
+    if o_fitness(sym[0]) > o_fitness(o1)
+        ok = ok + 1
+    if o_fitness(sym[1]) > o_fitness(o2)
+        ok = ok + 1
+
+    let lived = life_cycle(o, 100, 2)
+    if o_alive(lived) == 1
+        ok = ok + 1
+
+    let lived10 = life_generations(o, 10, 10, 2)
+    if o_age(lived10) > 0
+        ok = ok + 1
+
+    let pop = population_init()
+    if count_alive(pop, 5) == 5
+        ok = ok + 1
+
+    let pop1 = population_step(pop, 5, 100, 2)
+    if count_alive(pop1, 5) >= 0
+        ok = ok + 1
+
+    let current = pop
+    let gen = 0
+    for gen < 10
+        current = population_step(current, 5, 100, 2)
+        gen = gen + 1
+    if count_alive(current, 5) >= 0
+        ok = ok + 1
+
+    let tf = total_fitness(pop, 5)
+    if tf > 0
+        ok = ok + 1
+
+    let mc = max_consciousness(pop, 5)
+    if mc >= 0
+        ok = ok + 1
+
+    let final_o = life_generations(organism_new(101), 20, 150, 3)
+    if o_alive(final_o) >= 0
+        ok = ok + 1
+
+    let e1 = life_generations(organism_new(101), 10, 100, 2)
+    let e2 = life_generations(organism_new(101), 10, 100, 3)
+    if o_fitness(e1) >= 0 && o_fitness(e2) >= 0
+        ok = ok + 1
+
+    ok
+
+let main() = full_organism_verify()

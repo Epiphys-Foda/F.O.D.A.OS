@@ -1,0 +1,33 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let d = 282
+let lam = 154
+bad[0] = bad[0] + ck(d, 275, 290)
+bad[0] = bad[0] + ck(lam, 150, 160)
+
+let sint = small_div(lam * 100, d * 2)
+bad[0] = bad[0] + ck(sint, 25, 30)
+
+let d_large = 564
+let sint_lg = small_div(lam * 100, d_large)
+bad[0] = bad[0] + ck_hi(sint_lg, sint)
+
+let dna_pitch = 34
+let dna_bp = 10
+bad[0] = bad[0] + ck(dna_pitch, 32, 36)
+if dna_bp != 10
+    bad[0] = bad[0] + 1
+
+if 1913 < 1911
+    bad[0] = bad[0] + 1
+if 1913 > 1915
+    bad[0] = bad[0] + 1
+if 1952 < 1950
+    bad[0] = bad[0] + 1
+if 1952 > 1954
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

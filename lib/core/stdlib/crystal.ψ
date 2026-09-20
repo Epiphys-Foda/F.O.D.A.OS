@@ -1,0 +1,51 @@
+let CR_PCD_THRESHOLD = 500
+let CR_ACTIVATION_MIN = 100
+let CR_POTENTIAL_MIN = 1000
+
+let cr_consistent(pcd_x10000) = pcd_x10000 < CR_PCD_THRESHOLD
+
+let cr_active(count) = count > CR_ACTIVATION_MIN
+
+let cr_potential(energy) = energy > CR_POTENTIAL_MIN
+
+let cr_crystallize(pcd, count, energy) = cr_consistent(pcd) && cr_active(count) && cr_potential(energy)
+
+let cr_reject(pcd, count, energy) = !cr_crystallize(pcd, count, energy)
+
+let cr_gas() = !cr_crystallize(3000, 10, 100)
+
+let cr_liquid() = !cr_crystallize(800, 150, 800)
+
+let cr_solid() = cr_crystallize(100, 200, 5000)
+
+let cr_boundary() = !cr_crystallize(500, 200, 5000)
+
+let CR_ARBITRATE_MAX = 5000
+
+let cr_arbitrate(pcd_a, pcd_b) =
+    if pcd_a > CR_ARBITRATE_MAX
+        0
+    else
+        0
+    if pcd_b > CR_ARBITRATE_MAX
+        0
+    else
+        1
+
+let cr_arbitrate_ok() = cr_arbitrate(100, 200) == 1 && cr_arbitrate(6000, 100) == 0 && cr_arbitrate(100, 6000) == 0
+
+let cr_fuse(pcd_a, pcd_b) = cr_arbitrate(pcd_a, pcd_b)
+
+let cr_counterfactual(cond, conclusion, alt) =
+    (cond ? conclusion : alt)
+
+let cr_forced_cf(pcd_a, pcd_b, conclusion, alt) =
+    if cr_arbitrate(pcd_a, pcd_b) == 1
+        conclusion
+    else
+        alt
+
+let cr_cf_demo() = cr_forced_cf(100, 200, 42, 0) == 42 && cr_forced_cf(6000, 100, 42, 0) == 0
+
+let cr_summary() =
+    { theory: "Knowledge crystallization protocol (silicon cognition thermodynamics)", hard: "Three hard constraints: consistency + activation + potential above threshold", arbitrate: "Constitutional arbitration: PCD > 0.5 → logic fuse", counterfactual: "Counterfactual enforcement: generate alternative branch on contradiction", principle: "Crystallization = three computable hard conditions — assertion protocol" }

@@ -1,0 +1,63 @@
+let bm_discover(s, n, T, C) =
+    let z = 0
+    for z < n + 1
+        T[z] = 0
+        C[z] = 0
+        z = z + 1
+    C[0] = 1
+    let B = arr_new_n(n + 1)
+    let zb = 0
+    for zb < n + 1
+        B[zb] = 0
+        zb = zb + 1
+    B[0] = 1
+    let L = 0
+    let m = 1
+    let bq = 1
+    let coef = 0
+    let upd = 0
+    let take = 0
+    let i = 0
+    for i < n
+        let d = s[i]
+        let k1 = 1
+        for k1 < L + 1
+            d = gf_add(d, gf_mul(C[k1], s[i - k1]))
+            k1 = k1 + 1
+        let nz = 0
+        if d != 0
+            nz = 1
+        let keep = 0
+        let dz = 0
+        take = 0
+        upd = 0
+        if nz == 1
+            coef = gf_mul(d, gf_inv(bq))
+            let k2 = 0
+            for k2 < n + 1
+                T[k2] = C[k2]
+                k2 = k2 + 1
+            let k3 = 0
+            for k3 < n + 1 - m
+                C[k3 + m] = gf_sub(C[k3 + m], gf_mul(coef, B[k3]))
+                k3 = k3 + 1
+            if 2 * L <= i
+                upd = 1
+            take = upd * nz
+            if take == 1
+                let k4 = 0
+                for k4 < n + 1
+                    B[k4] = T[k4]
+                    k4 = k4 + 1
+                L = i + 1 - L
+                bq = d
+                m = 1
+            if take == 0
+                keep = 1
+        if d == 0
+            dz = 1
+        m = m + keep
+        m = m + dz
+        i = i + 1
+    L
+

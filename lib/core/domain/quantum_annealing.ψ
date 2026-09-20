@@ -1,0 +1,161 @@
+import "../stdlib/gf65537.ψ"
+
+let adiabatic_hamiltonian_gf(s, H_init, H_final) =
+    let one_minus_s = gf_sub(1, s)
+    let term1 = gf_mul(one_minus_s, H_init)
+    let term2 = gf_mul(s, H_final)
+    gf_add(term1, term2)
+
+let adiabatic_path_gf(step, total_steps) =
+    gf_div(step, total_steps)
+
+let adiabatic_condition_gf(delta_min) =
+    let delta_sq = gf_mul(delta_min, delta_min)
+    gf_inv(delta_sq)
+
+let adiabatic_evolution_steps_gf(delta_min) =
+    adiabatic_condition_gf(delta_min)
+
+let energy_gap_gf(E_excited, E_ground) =
+    gf_sub(E_excited, E_ground)
+
+let minimum_gap_gf(gap_function, n_steps) =
+    let min_gap = gf_pow(65537, 2)
+    for s in 0..n_steps
+        let gap = gap_function(s)
+        if gap < min_gap
+            min_gap = gap
+    min_gap
+
+let gap_lower_bound_gf() =
+    1
+
+let ising_hamiltonian_gf(spins, J_coupling, h_field) =
+    let energy = 0
+    let n = len(spins)
+    for i in 0..n
+        for j in 0..n
+            let pair_energy = gf_mul(gf_mul(J_coupling, spins[i]), spins[j])
+            energy = gf_add(energy, pair_energy)
+    for i in 0..n
+        let field_energy = gf_mul(h_field, spins[i])
+        energy = gf_add(energy, field_energy)
+    gf_neg(energy)
+
+let ising_ground_state_gf(J_coupling, h_field, n_spins) =
+    let best_energy = gf_pow(65537, 2)
+    let best_config = [0] * n_spins
+    for config in 0..gf_pow(2, n_spins)
+        let spins = []
+        let temp = config
+        for i in 0..n_spins
+            spins = arr_concat(spins, [gf_mod(temp, 2)])
+            temp = gf_div(temp, 2)
+        let energy = ising_hamiltonian_gf(spins, J_coupling, h_field)
+        if energy < best_energy
+            best_energy = energy
+            best_config = spins
+    [best_config, best_energy]
+
+let qubo_objective_gf(x, Q) =
+    let n = len(x)
+    let result = 0
+    for i in 0..n
+        for j in 0..n
+            let term = gf_mul(gf_mul(x[i], Q), x[j])
+            result = gf_add(result, term)
+    result
+
+let qubo_solve_gf(Q, n_vars) =
+    let best_val = gf_pow(65537, 2)
+    let best_x = [0] * n_vars
+    for x_val in 0..gf_pow(2, n_vars)
+        let x = []
+        let temp = x_val
+        for i in 0..n_vars
+            x = arr_concat(x, [gf_mod(temp, 2)])
+            temp = gf_div(temp, 2)
+        let val = qubo_objective_gf(x, Q)
+        if val < best_val
+            best_val = val
+            best_x = x
+    [best_x, best_val]
+
+let quantum_tunneling_gf(barrier_height) =
+    gf_inv(gf_mul(barrier_height, barrier_height))
+
+let tunneling_vs_thermal_gf(barrier_height, temperature) =
+    let tunneling = gf_inv(gf_mul(barrier_height, barrier_height))
+    let thermal = gf_inv(gf_pow(barrier_height, 3))
+    [tunneling, thermal]
+
+let linear_annealing_schedule_gf(T_init, step, total_steps) =
+    let remaining = gf_sub(total_steps, step)
+    let fraction = gf_div(remaining, total_steps)
+    gf_mul(T_init, fraction)
+
+let exponential_annealing_schedule_gf(T_init, step, ratio) =
+    gf_mul(T_init, gf_pow(ratio, step))
+
+let kibble_zurek_defects_gf(quench_rate) =
+    gf_inv(gf_sqrt(quench_rate))
+
+let kibble_zurek_relaxation_gf(gap) =
+    gf_inv(gf_mul(gap, gap))
+
+let qaoa_layer_gf(gamma, beta, H_cost, H_mixer) =
+    let cost_evolution = gf_pow(3, gf_mul(gamma, H_cost))
+    let mixer_evolution = gf_pow(3, gf_mul(beta, H_mixer))
+    gf_mul(mixer_evolution, cost_evolution)
+
+let qaoa_expectation_gf(state, H_cost) =
+    gf_mul(state, gf_mul(H_cost, state))
+
+let qaoa_optimize_gf(H_cost, H_mixer, p_layers) =
+    let best_val = 0
+    let best_params = [0] * (2 * p_layers)
+    for gamma in 0..65537
+        for beta in 0..65537
+            let state = qaoa_layer_gf(gamma, beta, H_cost, H_mixer)
+            let val = qaoa_expectation_gf(state, H_cost)
+            if val > best_val
+                best_val = val
+                best_params = [gamma, beta]
+    [best_params, best_val]
+
+let spin_glass_energy_gf(spins, J_matrix) =
+    let n = len(spins)
+    let energy = 0
+    for i in 0..n
+        for j in 0..n
+            let term = gf_mul(gf_mul(J_matrix, spins[i]), spins[j])
+            energy = gf_add(energy, term)
+    gf_neg(energy)
+
+let spin_glass_ground_state_gf(J_matrix, n_spins) =
+    let best_energy = gf_pow(65537, 2)
+    let best_config = [0] * n_spins
+    for config in 0..gf_pow(2, n_spins)
+        let spins = []
+        let temp = config
+        for i in 0..n_spins
+            spins = arr_concat(spins, [gf_mod(temp, 2)])
+            temp = gf_div(temp, 2)
+        let energy = spin_glass_energy_gf(spins, J_matrix)
+        if energy < best_energy
+            best_energy = energy
+            best_config = spins
+    [best_config, best_energy]
+
+let non_adiabatic_correction_gf(T_evolution, gap) =
+    let delta_sq = gf_mul(gap, gap)
+    gf_inv(gf_mul(T_evolution, delta_sq))
+
+let adiabatic_quality_gf(T_evolution, gap) =
+    let correction = non_adiabatic_correction_gf(T_evolution, gap)
+    gf_sub(1, correction)
+
+let annealing_advantage_gf(barrier_height) =
+    let tunneling = quantum_tunneling_gf(barrier_height)
+    let thermal = gf_inv(gf_pow(barrier_height, 3))
+    gf_div(tunneling, thermal)

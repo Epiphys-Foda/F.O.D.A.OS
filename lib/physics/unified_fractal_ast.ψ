@@ -1,0 +1,492 @@
+let P = 65537
+
+let unode(z, r) = [z, r]
+let unode1(z, r, c0) = [z, r, c0]
+let unode2(z, r, c0, c1) = [z, r, c0, c1]
+let unode3(z, r, c0, c1, c2) = [z, r, c0, c1, c2]
+
+let uz(node) = node[0]
+let ur(node) = node[1]
+let uc(node, i) = node[i + 2]
+let uarity(node) = len(node) - 2
+
+let unify_add(a, b) =
+    if uz(a) == 0
+        if uz(b) == 0
+            unode(0, (ur(a) + ur(b)) % P)
+    unode2(2, 43, a, b)
+
+let unify_mul(a, b) =
+    if uz(a) == 0
+        if uz(b) == 0
+            let r = 0
+            let x = ur(a) % P
+            let y = ur(b)
+            for y > 0
+                if y % 2 == 1
+                    r = (r + x) % P
+                x = (x + x) % P
+                y = y / 2
+            unode(0, r)
+    unode2(2, 42, a, b)
+
+let unify_evolve(node) =
+    let z = uz(node)
+    if z == 0
+        unode(0, ur(node) + 1)
+    if z == 2
+        let l = unify_evolve(uc(node, 0))
+        let r = unify_evolve(uc(node, 1))
+        unode2(2, ur(node), l, r)
+    node
+
+let unify_norm(node) =
+    let z = uz(node)
+    if z == 2
+        let op = ur(node)
+        let l = uc(node, 0)
+        let r = uc(node, 1)
+        if op == 43
+            if uz(l) == 0
+                (uz(r) == 0 ? unode(0, (ur(l) + ur(r)) % P) : 0)
+        if op == 42
+            if uz(l) == 0
+                (uz(r) == 0 ? unify_mul(l, r) : 0)
+    node
+
+let unify_collapse(node) =
+    let z = uz(node)
+    if z == 0
+        ur(node)
+    if z == 2
+        let op = ur(node)
+        let l = unify_collapse(uc(node, 0))
+        let r = unify_collapse(uc(node, 1))
+        if op == 43
+            (l + r) % P
+        if op == 45
+            (l - r + P) % P
+        if op == 42
+            let res = 0
+            let x = l % P
+            let y = r
+            for y > 0
+                if y % 2 == 1
+                    res = (res + x) % P
+                x = (x + x) % P
+                y = y / 2
+            res
+        if op == 47
+            let inv = 1
+            let base = r % P
+            let exp = P - 2
+            for exp > 0
+                if exp % 2 == 1
+                    inv = inv * base % P
+                base = base * base % P
+                exp = exp / 2
+            l * inv % P
+        if op == 60
+            (l < r ? 1 : 0)
+        0
+        if op == 62
+            (l > r ? 1 : 0)
+        0
+        if op == 61
+            if l == r
+                1
+            0
+    if z == 1
+        0
+    if z == 15
+        let n = uarity(node)
+        if n == 0
+            0
+        unify_collapse(uc(node, n - 1))
+    if z == 10
+        let cond = unify_collapse(uc(node, 0))
+        if cond != 0
+            unify_collapse(uc(node, 1))
+        unify_collapse(uc(node, 2))
+    0
+
+let unify_inject(env, var_id, value) =
+    arr_push(arr_push(env, var_id), value)
+
+let fractal_fib(n) =
+    if n == 0
+        0
+    if n == 1
+        1
+    let a = 0
+    let b = 1
+    let i = 2
+    for i <= n
+        let c = (a + b) % P
+        a = b
+        b = c
+        i = i + 1
+    b
+
+let fractal_lucas(n) =
+    if n == 0
+        2
+    if n == 1
+        1
+    let a = 2
+    let b = 1
+    let i = 2
+    for i <= n
+        let c = (a + b) % P
+        a = b
+        b = c
+        i = i + 1
+    b
+
+let fractal_pell(n) =
+    if n == 0
+        0
+    if n == 1
+        1
+    let a = 0
+    let b = 1
+    let i = 2
+    for i <= n
+        let c = (2 * b + a) % P
+        a = b
+        b = c
+        i = i + 1
+    b
+
+let fractal_catalan(n) =
+    let c = 1
+    let i = 0
+    for i < n
+        c = c * 2 * (2 * i + 1) / (i + 2)
+        i = i + 1
+    c
+
+let fractal_gcd(a, b) =
+    let x = a
+    let y = b
+    for y != 0
+        let t = x % y
+        x = y
+        y = t
+    x
+
+let fractal_is_prime(n) =
+    let ok = 0
+    if n >= 2
+        ok = 1
+        let i = 2
+        for i * i <= n
+            if n % i == 0
+                ok = 0
+            i = i + 1
+    ok
+
+let fractal_binomial(n, k) =
+    if k > n
+        0
+    if k == 0
+        1
+    if k == n
+        1
+    let result = 1
+    let i = 0
+    for i < k
+        result = result * (n - i) / (i + 1)
+        i = i + 1
+    result
+
+let fractal_stirling2(n, k) =
+    let result = 0
+    if n == 0
+        if k == 0
+    if n > 0
+        if k == 0
+            result = 0
+        if k == n
+            result = 1
+        if k == 1
+            result = 1
+        if k > 1
+            if k < n
+                result = fractal_stirling2(n - 1, k - 1) + k * fractal_stirling2(n - 1, k)
+    result
+
+let fractal_burnside(fixes, n) =
+    let len = len(fixes)
+    let sum = 0
+    let i = 0
+    for i < len
+        sum = sum + fixes[i]
+        i = i + 1
+    sum / n
+
+let fractal_legendre(a, p) =
+    let val = 1
+    let base = a % p
+    let exp = (p - 1) / 2
+    for exp > 0
+        if exp % 2 == 1
+            val = val * base % p
+        base = base * base % p
+        exp = exp / 2
+    let result = 0 - 1
+    if val == 1
+        result = 1
+    if val == 0
+        result = 0
+    result
+
+let fractal_verify() =
+    let ok = 0
+    let total = 0
+
+    total = total + 1
+    if fractal_fib(10) == 55
+        ok = ok + 1
+
+    total = total + 1
+    if fractal_lucas(10) == 123
+        ok = ok + 1
+
+    total = total + 1
+    if fractal_pell(10) == 2378
+        ok = ok + 1
+
+    total = total + 1
+    if fractal_catalan(5) == 42
+        ok = ok + 1
+
+    total = total + 1
+    if fractal_gcd(12, 8) == 4
+        ok = ok + 1
+
+    total = total + 1
+    if fractal_is_prime(17) == 1
+        ok = ok + 1
+
+    total = total + 1
+    if fractal_is_prime(15) == 0
+        ok = ok + 1
+
+    total = total + 1
+    if fractal_binomial(10, 5) == 252
+        ok = ok + 1
+
+    total = total + 1
+    if fractal_stirling2(4, 2) == 7
+        ok = ok + 1
+
+    total = total + 1
+    let fixes = [3, 1, 1, 1, 0, 0]
+    if fractal_burnside(fixes, 6) == 1
+        ok = ok + 1
+
+    total = total + 1
+    if fractal_legendre(2, 7) == 1
+        ok = ok + 1
+
+    total = total + 1
+    let node = unode2(2, 43, unode(0, 1), unode(0, 2))
+    if unify_collapse(node) == 3
+        ok = ok + 1
+
+    total = total + 1
+    let folded = unify_norm(unode2(2, 43, unode(0, 10), unode(0, 20)))
+    if uz(folded) == 0
+        if ur(folded) == 30
+            ok = ok + 1
+
+    total = total + 1
+    let evolved = unify_evolve(unode(0, 5))
+    if ur(evolved) == 6
+        ok = ok + 1
+
+    ok * 10000 + total
+
+let unify_opt_pass(node) =
+    let z = uz(node)
+    let result = node
+
+    if z == 2
+        let op = ur(node)
+        let l = unify_norm(uc(node, 0))
+        let r = unify_norm(uc(node, 1))
+        result = unode2(2, op, l, r)
+
+        if uz(l) == 0
+            if uz(r) == 0
+                if op == 43
+                    result = unode(0, (ur(l) + ur(r)) % P)
+                if op == 45
+                    result = unode(0, (ur(l) - ur(r) + P) % P)
+                if op == 42
+                    result = unify_mul(l, r)
+
+        if op == 43
+            if uz(r) == 0
+                if ur(r) == 0
+            if uz(l) == 0
+                if ur(l) == 0
+        if op == 42
+            if uz(r) == 0
+                if ur(r) == 1
+            if uz(r) == 0
+                if ur(r) == 0
+            if uz(l) == 0
+                if ur(l) == 1
+            if uz(l) == 0
+                if ur(l) == 0
+
+    if z == 15
+        let n = uarity(node)
+        if n == 0
+            result = unode(0, 0)
+
+    if z == 10
+        let cond = unify_norm(uc(node, 0))
+        if uz(cond) == 0
+            if ur(cond) != 0
+                result = uc(node, 1)
+            if ur(cond) == 0
+                result = uc(node, 2)
+
+    result
+
+let unify_optimize(node) =
+    let current = node
+    let changed = 1
+    for changed == 1
+        let next = unify_opt_pass(current)
+        if next == current
+            changed = 0
+        current = next
+    current
+
+let unify_compile(ast, env) =
+    let injected = unify_inject(env, 0, 0)
+    let optimized = unify_optimize(ast)
+    let evolved = unify_evolve(optimized)
+    unify_collapse(evolved)
+
+let unify_compile_pure(ast) =
+    let optimized = unify_optimize(ast)
+    unify_collapse(optimized)
+
+let universal_recur(c1, c0, init0, init1) =
+    [c1, c0, init0, init1]
+
+let universal_eval(desc, n) =
+    let c1 = desc[0]
+    let c0 = desc[1]
+    let a = desc[2]
+    let b = desc[3]
+    if n == 0
+        a
+    if n == 1
+        b
+    let i = 2
+    for i <= n
+        let c = (c1 * b + c0 * a) % P
+        a = b
+        b = c
+        i = i + 1
+    b
+
+let universal_comb(n, k) =
+    if k > n
+        0
+    if k == 0
+        1
+    if k == n
+        1
+    universal_comb(n - 1, k - 1) + universal_comb(n - 1, k)
+
+let universal_phi(n) =
+    let result = n
+    let p = 2
+    for p * p <= n
+        if n % p == 0
+            for n % p == 0
+                n = n / p
+            result = result - result / p
+        p = p + 1
+    if n > 1
+        result = result - result / n
+    result
+
+let fractal_verify2() =
+    let ok = 0
+    let total = 0
+
+    total = total + 1
+    let ast1 = unode2(2, 43, unode(0, 10), unode(0, 20))
+    if unify_compile_pure(ast1) == 30
+        ok = ok + 1
+
+    total = total + 1
+    let ast2 = unode2(2, 43, unode(1, 100), unode(0, 0))
+    let opt2 = unify_optimize(ast2)
+    if uz(opt2) == 1
+        ok = ok + 1
+
+    total = total + 1
+    let ast3 = unode2(2, 42, unode(1, 100), unode(0, 1))
+    let opt3 = unify_optimize(ast3)
+    if uz(opt3) == 1
+        ok = ok + 1
+
+    total = total + 1
+    let ast4 = unode2(2, 42, unode(0, 5), unode(0, 6))
+    let opt4 = unify_optimize(ast4)
+    if uz(opt4) == 0
+        if ur(opt4) == 30
+
+    total = total + 1
+    let fib_desc = universal_recur(1, 1, 0, 1)
+    if universal_eval(fib_desc, 10) == 55
+        ok = ok + 1
+
+    total = total + 1
+    let lucas_desc = universal_recur(1, 1, 2, 1)
+    if universal_eval(lucas_desc, 10) == 123
+        ok = ok + 1
+
+    total = total + 1
+    let pell_desc = universal_recur(2, 1, 0, 1)
+    if universal_eval(pell_desc, 10) == 2378
+        ok = ok + 1
+
+    total = total + 1
+    if universal_comb(10, 5) == 252
+        ok = ok + 1
+
+    total = total + 1
+    if universal_comb(7, 3) == 35
+        ok = ok + 1
+
+    total = total + 1
+    if universal_phi(12) == 4
+        ok = ok + 1
+
+    total = total + 1
+    if universal_phi(36) == 12
+        ok = ok + 1
+
+    total = total + 1
+    let single_fib = universal_eval(universal_recur(1, 1, 0, 1), 15)
+    if single_fib == 610
+        ok = ok + 1
+
+    total = total + 1
+    let single_lucas = universal_eval(universal_recur(1, 1, 2, 1), 15)
+    if single_lucas == 1364
+        ok = ok + 1
+
+    ok * 10000 + total
+
+let main() = fractal_verify() + fractal_verify2()

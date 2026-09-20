@@ -1,0 +1,176 @@
+import "../core/stdlib_lang2/gf_base.ψ"
+import "bootstrap_residue.ψ"
+
+let gcd(a, b) =
+    if b == 0
+        a
+    else
+        gcd(b, a % b)
+
+let rat_normalize(n, d) =
+    if d == 0
+        [0, 1]
+    else
+        let g = gcd(n, d)
+        if g == 0
+            [0, 1]
+        else
+            [n / g, d / g]
+
+let rat_make(n, d) = rat_normalize(n, d)
+
+let rat_zero() = [0, 1]
+let rat_one() = [1, 1]
+
+let rat_mul(a, b) =
+    let n1 = a[0]
+    let d1 = a[1]
+    let n2 = b[0]
+    let d2 = b[1]
+    rat_normalize(n1 * n2, d1 * d2)
+
+let rat_add(a, b) =
+    let n1 = a[0]
+    let d1 = a[1]
+    let n2 = b[0]
+    let d2 = b[1]
+    rat_normalize(n1 * d2 + n2 * d1, d1 * d2)
+
+let rat_sub(a, b) =
+    let n1 = a[0]
+    let d1 = a[1]
+    let n2 = b[0]
+    let d2 = b[1]
+    rat_normalize(n1 * d2 - n2 * d1, d1 * d2)
+
+let rat_div(a, b) =
+    let n1 = a[0]
+    let d1 = a[1]
+    let n2 = b[0]
+    let d2 = b[1]
+    if n2 == 0
+        [0, 1]
+    else
+        rat_normalize(n1 * d2, d1 * n2)
+
+let rat_inv(a) =
+    let n = a[0]
+    let d = a[1]
+    if n == 0
+        [0, 1]
+    else
+        [d, n]
+
+let rat_eq(a, b) =
+    let n1 = a[0]
+    let d1 = a[1]
+    let n2 = b[0]
+    let d2 = b[1]
+    n1 * d2 == n2 * d1
+
+let _find_sqrt(m, n) =
+    if n * n >= m
+        n
+    else
+        _find_sqrt(m, n + 1)
+
+let rat_reconstruct(r, m) =
+    if r == 0
+        [0, 1]
+    else
+        let bound = _find_sqrt(m, 1)
+        _cf_reconstruct(r, m, 1, 0, 0, 1, bound)
+
+let _cf_reconstruct(r, m, n_prev, n_curr, d_prev, d_curr, bound) =
+    if m == 0
+        [n_curr, d_curr]
+    else
+        let q = r / m
+        let n_new = q * n_curr + n_prev
+        let d_new = q * d_curr + d_prev
+        if d_new > bound
+            [n_curr, d_curr]
+        else
+            _cf_reconstruct(m, r % m, n_curr, n_new, d_curr, d_new, bound)
+
+let rat_to_q31(a) =
+    let n = a[0]
+    let d = a[1]
+    if d == 0
+        0
+    else
+        (n << 31) / d
+
+let rational_verify() =
+    let ok1 = (gcd(12, 18) == 6) && (gcd(7, 13) == 1) && (gcd(100, 25) == 25) && (gcd(65536, 65536) == 65536)
+    let r1 = rat_make(6, 4)
+    let ok2 = (r1[0] == 3) && (r1[1] == 2)
+    let r2 = rat_make(10, 15)
+    let ok3 = (r2[0] == 2) && (r2[1] == 3)
+    let r4 = rat_mul(rat_make(2, 3), rat_make(3, 4))
+    let ok4 = (r4[0] == 1) && (r4[1] == 2)
+    let r5 = rat_add(rat_make(1, 2), rat_make(1, 3))
+    let ok5 = (r5[0] == 5) && (r5[1] == 6)
+    let r6 = rat_div(rat_make(2, 3), rat_make(4, 5))
+    let ok6 = (r6[0] == 5) && (r6[1] == 6)
+    let ok7 = rat_eq(rat_make(2, 3), rat_make(4, 6))
+    let r8 = rat_inv(rat_make(2, 3))
+    let ok8 = (r8[0] == 3) && (r8[1] == 2)
+    let ok9 = gcd(786432, 65536) == 65536
+    let q = rat_to_q31(rat_make(3, 2))
+    let ok10 = q == (3 << 30)
+    if ok1 && ok2 && ok3 && ok4 && ok5 && ok6 && ok7 && ok8 && ok9 && ok10
+        1
+    else
+        0
+
+let main() = rational_verify()
+
+import "sh_a9f96f3ee7.ψ"
+
+import "sh_8c6baeb7bd.ψ"
+
+let kleene_verify(t1, t2) = domain_kleene_verify(t1, t2)
+
+let pcd_divergence(u, n) = domain_pcd_divergence(u, n)
+
+let v3_absorb_verify() =
+    let ok = 0
+
+    let primes = [7, 11, 13]
+    let a = crtp_from_int(12, primes)
+    let b = crtp_from_int(34, primes)
+    let c = crtp_mul(a, b, primes)
+    if crtp_reconstruct(c, primes) == 408
+        ok = ok + 1
+
+    let d = crtp_add(a, b, primes)
+    if crtp_reconstruct(d, primes) == 46
+        ok = ok + 1
+
+    if is_irreducible(2, 2, 7) == 1
+        ok = ok + 1
+
+    if is_irreducible(3, 2, 7) == 1
+        ok = ok + 1
+
+    let gear = gear_analyze([1, 2, 1, 0])
+    if gear[0] == 2
+        ok = ok + 1
+    if gear[1] == 4
+        ok = ok + 1
+
+    let q = to_q16_16(1, 3)
+    if q > 21840 && q < 21850
+        ok = ok + 1
+
+    let zeta4 = prim_root_of_unity(4, 65537, 3)
+    if pow_mod(zeta4, 4, 65537) == 1
+        ok = ok + 1
+    if pow_mod(zeta4, 2, 65537) != 1
+        ok = ok + 1
+
+    if prime_pool_audit() == 8
+        ok = ok + 1
+
+    ok

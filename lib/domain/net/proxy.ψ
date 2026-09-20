@@ -1,0 +1,200 @@
+let proxy_config_new(mode, listen_addr) =
+    [mode, listen_addr, [], [], [], [], [], 16]
+
+let pc_mode(c) = c[0]
+let pc_listen(c) = c[1]
+let pc_upstreams(c) = c[2]
+let pc_header_rules(c) = c[3]
+let pc_path_rules(c) = c[4]
+let pc_acl_allow(c) = c[5]
+let pc_acl_deny(c) = c[6]
+let pc_keepalive(c) = c[7]
+
+let pc_add_upstream(c, host, port) =
+    pc_upstreams(c).push([host, port])
+    c
+
+let pc_add_header_rule(c, action, name, value) =
+    pc_header_rules(c).push([action, name, value])
+    c
+
+let pc_add_path_rule(c, match_prefix, replace_with) =
+    pc_path_rules(c).push([match_prefix, replace_with])
+    c
+
+let pc_add_allow(c, cidr) =
+    pc_acl_allow(c).push(cidr)
+    c
+
+let pc_add_deny(c, cidr) =
+    pc_acl_deny(c).push(cidr)
+    c
+
+let proxy_new(config) =
+    [config, 0, [], {}, 0]
+
+let proxy_config(p) = p[0]
+let proxy_count(p) = p[1]
+let proxy_pool_list(p) = p[2]
+let proxy_pool_map(p) = p[3]
+
+let proxy_acl_check(p, client_ip) =
+    let config = proxy_config(p)
+    let allow = pc_acl_allow(config)
+    let deny = pc_acl_deny(config)
+    let allowed = 1
+    let i = 0
+    let n = len(deny)
+    for i < n
+        if str_starts_with(client_ip, deny[i]) == 1
+            allowed = 0
+            i = n
+        i = i + 1
+    if allowed == 1
+        if len(allow) > 0
+            allowed = 0
+            i = 0
+            n = len(allow)
+            for i < n
+                if str_starts_with(client_ip, allow[i]) == 1
+                    allowed = 1
+                    i = n
+                i = i + 1
+    allowed
+
+let proxy_apply_header_rules(p, request_headers) =
+    let config = proxy_config(p)
+    let rules = pc_header_rules(config)
+    let headers = request_headers
+    let i = 0
+    let n = len(rules)
+    for i < n
+        let rule = rules[i]
+        let action = rule[0]
+        let name = rule[1]
+        let value = rule[2]
+        if action == 0
+            if headers[name] == 0
+                headers[name] = value
+            else
+                0
+        if action == 1
+            headers[name] = value
+        else
+            0
+        if action == 2
+            headers[name] = 0
+        i = i + 1
+    headers
+
+let proxy_apply_path_rules(p, path) =
+    let config = proxy_config(p)
+    let rules = pc_path_rules(config)
+    let new_path = path
+    let i = 0
+    let n = len(rules)
+    for i < n
+        let rule = rules[i]
+        let prefix = rule[0]
+        let replace = rule[1]
+        if str_starts_with(new_path, prefix) == 1
+            let rest = str_slice_from(new_path, len(prefix))
+            new_path = replace + rest
+            i = n
+        i = i + 1
+    new_path
+
+let proxy_forward_handle(p, client_ip, target_host, target_port, method, path, headers, body) =
+    p[1] = p[1] + 1
+    if proxy_acl_check(p, client_ip) == 0
+        ["error", 403, "Forbidden by ACL"]
+    else
+        let new_headers = proxy_apply_header_rules(p, headers)
+        let new_path = proxy_apply_path_rules(p, path)
+        ["forwarded", target_host, target_port, method, new_path, new_headers, body]
+
+let proxy_reverse_handle(p, client_ip, host, method, path, headers, body, lb_pick_fn) =
+    p[1] = p[1] + 1
+    if proxy_acl_check(p, client_ip) == 0
+        ["error", 403, "Forbidden by ACL"]
+    else
+        let config = proxy_config(p)
+        let upstreams = pc_upstreams(config)
+        if len(upstreams) == 0
+            ["error", 502, "No upstream configured"]
+        else
+            let backend = lb_pick_fn(upstreams)
+            if backend == 0
+                ["error", 502, "No healthy upstream"]
+            else
+                let new_headers = proxy_apply_header_rules(p, headers)
+                new_headers["X-Forwarded-For"] = client_ip
+                new_headers["X-Forwarded-Proto"] = "http"
+                new_headers["X-Real-IP"] = client_ip
+                let new_path = proxy_apply_path_rules(p, path)
+                ["proxied", backend[0], backend[1], method, new_path, new_headers, body]
+
+let proxy_pool_acquire(p, host, port) =
+    let pool = proxy_pool_map(p)
+    let key = host + ":" + port
+    let count = pool[key]
+    if count == 0
+        count = 0
+    if count > 0
+        pool[key] = count - 1
+        p[3] = pool
+        1
+    else
+        0
+
+let proxy_pool_release(p, host, port) =
+    let pool = proxy_pool_map(p)
+    let key = host + ":" + port
+    let count = pool[key]
+    if count == 0
+        count = 0
+    let config = proxy_config(p)
+    let max = pc_keepalive(config)
+    if count < max
+        pool[key] = count + 1
+        p[3] = pool
+    1
+
+let proxy_transparent_handle(p, client_ip, target_host, target_port, data) =
+    p[1] = p[1] + 1
+    if proxy_acl_check(p, client_ip) == 0
+        ["error", 403, "Forbidden by ACL"]
+    else
+        ["transparent", target_host, target_port, data]
+
+let proxy_ws_upgrade(p, client_ip, host, path, headers, lb_pick_fn) =
+    p[1] = p[1] + 1
+    if proxy_acl_check(p, client_ip) == 0
+        ["error", 403, "Forbidden by ACL"]
+    else
+        let upgrade = headers["Upgrade"]
+        if upgrade != "websocket"
+            ["error", 400, "Not a WebSocket upgrade request"]
+        else
+            let config = proxy_config(p)
+            let upstreams = pc_upstreams(config)
+            let backend = lb_pick_fn(upstreams)
+            if backend == 0
+                ["error", 502, "No upstream"]
+            else
+                ["ws_upgraded", backend[0], backend[1], host, path]
+
+let proxy_stats(p) =
+    let config = proxy_config(p)
+    let mode_str = "forward"
+    if pc_mode(config) == 1
+        mode_str = "reverse"
+    let pool = proxy_pool_map(p)
+    let pool_keys = keys_of(pool)
+    let total_conns = 0
+    let i = 0
+    let n = len(pool_keys)
+    for i < n
+        total_conns = total_conns + pool[pool_keys[i]]
+        i = i + 1
+    [mode_str, pc_listen(config), p[1], len(pc_upstreams(config)), total_conns]

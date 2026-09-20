@@ -1,0 +1,71 @@
+import "super_db.ψ"
+import "super_db_quantum.ψ"
+let rf_dbq_signal(db, x, y, n) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < n
+        out = out.push(rf_db_field(db, x + i, y))
+        i = i + 1
+      else
+        done = true
+    out
+
+let rf_dbq_qft(signal) = rf_db_q_qft8(signal)
+
+let rf_dbq_period_freq(freq) =
+    let best = 0
+    let best_v = 0
+    let i = 1
+    let done = false
+    for !done
+      if i < 8
+        if freq[i] > best_v
+          best_v = freq[i]
+          best = i
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    best
+
+let rf_dbq_pattern(db, x, y, n) =
+    let sig = rf_dbq_signal(db, x, y, n)
+    let freq = rf_db_q_qft8(sig)
+    let peak = rf_dbq_period_freq(freq)
+    [freq[0], peak, freq[peak]]
+
+let rf_dbq_correlation(db, x1, y1, x2, y2, n) =
+    let f1 = rf_db_q_qft8(rf_dbq_signal(db, x1, y1, n))
+    let f2 = rf_db_q_qft8(rf_dbq_signal(db, x2, y2, n))
+    let p1 = rf_dbq_period_freq(f1)
+    let p2 = rf_dbq_period_freq(f2)
+    [p1, p2]
+
+let rf_dbq_scan(db, x, y, n, points) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < points
+        out = out.push(rf_dbq_period_freq(rf_db_q_qft8(rf_dbq_signal(db, x, y + i * 3, n))))
+        i = i + 1
+      else
+        done = true
+    out
+
+let rf_dbq_test() =
+    let db = [0, 0, 100, 0, 1, 100]
+    let sig = rf_dbq_signal(db, 3, 0, 8)
+    let t1 = len(sig) == 8
+    let t2 = len(rf_db_q_qft8(sig)) == 8
+    let pf = rf_dbq_period_freq(rf_db_q_qft8(sig))
+    let t3 = pf >= 0 && pf < 8
+    let pat = rf_dbq_pattern(db, 3, 0, 8)
+    let t4 = len(pat) == 3
+    let corr = rf_dbq_correlation(db, 3, 0, 3, 1, 8)
+    let t5 = len(corr) == 2
+    let t6 = len(rf_dbq_scan(db, 3, 0, 8, 2)) == 2
+    t1 && t2 && t3 && t4 && t5 && t6

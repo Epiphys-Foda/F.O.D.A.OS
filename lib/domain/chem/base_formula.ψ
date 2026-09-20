@@ -1,0 +1,58 @@
+let bad = [0]
+let C = 12011
+let H = 1008
+let N = 14007
+let O = 15999
+
+let mwA = 5*C + 5*H + 5*N
+let dA = mwA - 135130
+let aA =
+    if dA < 0
+        0 - dA
+    else
+        dA
+if aA > 200
+    bad[0] = bad[0] + aA
+
+let mwG = 5*C + 5*H + 5*N + O
+let dG = mwG - 151129
+let aG =
+    if dG < 0
+        0 - dG
+    else
+        dG
+if aG > 200
+    bad[0] = bad[0] + aG
+
+let mwC = 4*C + 5*H + 3*N + O
+let dC = mwC - 111100
+let aC =
+    if dC < 0
+        0 - dC
+    else
+        dC
+if aC > 200
+    bad[0] = bad[0] + aC
+
+let mwT = 5*C + 6*H + 2*N + 2*O
+let dT = mwT - 126110
+let aT =
+    if dT < 0
+        0 - dT
+    else
+        dT
+if aT > 200
+    bad[0] = bad[0] + aT
+
+let mwU = 4*C + 4*H + 2*N + 2*O
+let dU = mwU - 112088
+let aU =
+    if dU < 0
+        0 - dU
+    else
+        dU
+if aU > 200
+    bad[0] = bad[0] + aU
+
+print(bad[0])
+arr_get(arr_new_n(1), bad[0])

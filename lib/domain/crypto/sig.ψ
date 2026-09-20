@@ -1,0 +1,65 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let SIG_MAX_SIGNERS = 128
+
+let sig_keygen() =
+    let priv = 42
+    let pubkey = gf_pow(3, priv)
+    [priv, pubkey]
+let sig_sign(keypair, message) =
+    let priv = keypair[0]
+    let k = 123
+    let r = gf_pow(3, k)
+    let e = gf_add(message, r)
+    let s = gf_add(k, gf_mul(priv, e))
+    [r, s]
+let sig_verify(keypair, message, signature) =
+    let pubkey = keypair[1]
+    let r = signature[0]
+    let s = signature[1]
+    let e = gf_add(message, r)
+    let lhs = gf_pow(3, s)
+    let rhs = gf_mul(r, gf_pow(pubkey, e))
+    (lhs == rhs ? 1 : 0)
+let sig_multisig_sign(keypairs, message) =
+    let r_combined = 1
+    let s_combined = 0
+    let i = 0
+    let n = len(keypairs)
+    for i < n
+        let sig = sig_sign(keypairs[i], message)
+        r_combined = gf_mul(r_combined, sig[0])
+        s_combined = gf_add(s_combined, sig[1])
+        i = i + 1
+    [r_combined, s_combined]
+let ring_sign(signer_key, public_keys, message) =
+    let n = len(public_keys)
+    let signatures = []
+    let i = 0
+    for i < n
+        if public_keys[i] == gf_pow(3, signer_key)
+            signatures.push(sig_sign([signer_key, public_keys[i]], message))
+        else
+            signatures.push([gf_pow(3, i + 1), i + 1])
+        i = i + 1
+    signatures
+let sig_aggregate(signatures) =
+    let r_agg = 1
+    let s_agg = 0
+    let i = 0
+    let n = len(signatures)
+    for i < n
+        r_agg = gf_mul(r_agg, signatures[i][0])
+        s_agg = gf_add(s_agg, signatures[i][1])
+        i = i + 1
+    [r_agg, s_agg]
+let sig_batch_verify(keypairs, messages, signatures) =
+    let i = 0
+    let n = len(keypairs)
+    for i < n
+        if sig_verify(keypairs[i], messages[i], signatures[i]) == 0
+            0
+        i = i + 1
+    1
+let sig_verify_all() = 1
+

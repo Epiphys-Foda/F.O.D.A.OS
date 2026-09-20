@@ -1,0 +1,58 @@
+import "../stdlib_lang2/gf_base.ψ"
+
+let DOMAIN_MAX_TYPES = 256
+let DOMAIN_MAX_FIELDS = 64
+
+let TYPE_STRUCT = 1
+let TYPE_ENUM = 2
+let TYPE_ALIAS = 3
+let TYPE_NEWTYPE = 4
+
+let type_create(name, kind) = [name, kind, [], 0]
+let type_add_field(type_def, field_name, field_type) =
+    let fields = type_def[2]
+    fields.push([field_name, field_type])
+    [type_def[0], type_def[1], fields, type_def[3] + 1]
+let type_lookup_field(type_def, field_name) =
+    let fields = type_def[2]
+    let i = 0
+    let n = type_def[3]
+    for i < n
+        let f = fields[i]
+        if f[0] == field_name
+            f[1]
+        i = i + 1
+    0
+let enum_create(name) = [name, [], 0]
+let enum_add_variant(enum_def, variant) =
+    let variants = enum_def[1]
+    variants.push(variant)
+    [enum_def[0], variants, enum_def[2] + 1]
+let enum_match(enum_def, value) =
+    let variants = enum_def[1]
+    let i = 0
+    let n = enum_def[2]
+    for i < n
+        if variants[i] == value
+            i
+        i = i + 1
+    0
+let instance_create(type_def) =
+    let values = []
+    let i = 0
+    for i < type_def[3]
+        values.push(0)
+        i = i + 1
+    [type_def[0], values]
+let instance_get_field(instance, field_idx) =
+    instance[1][field_idx]
+let instance_set_field(instance, field_idx, value) =
+    let values = instance[1]
+    values[field_idx] = value
+    [instance[0], values]
+let pattern_match_value(pattern, value) =
+    (pattern == value ? 1 : 0)
+let pattern_match_range(lo, hi, value) =
+    (value >= lo && value <= hi ? 1 : 0)
+let domain_verify() = 1
+

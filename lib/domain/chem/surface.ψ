@@ -1,0 +1,82 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let vRatio = 0
+let eRatio = 17500000 * 10000 - 11075 * 15800000
+if eRatio < 0
+    vRatio = vRatio + 1
+let fRatio = (11075 + 1) * 15800000 - 17500000 * 10000
+if fRatio < 1
+    vRatio = vRatio + 1
+bad[0] = bad[0] + vRatio * vRatio
+
+let eRatioBw = 17500000 * 2 - 15800000 * 3
+bad[0] = bad[0] + ck_hi(eRatioBw, 0)
+
+let vR13Fe = 0
+let r13 = icbrt(56000000)
+let eR13Fe = r13 - 382
+if eR13Fe < 0
+    vR13Fe = vR13Fe + 1
+let fR13Fe = 383 - r13
+if fR13Fe < 1
+    vR13Fe = vR13Fe + 1
+bad[0] = bad[0] + vR13Fe * vR13Fe
+
+let vT23Fe = 0
+let t23 = 382 * 382
+let eT23Fe = t23 - 1459 * 100
+if eT23Fe < 0
+    vT23Fe = vT23Fe + 1
+let fT23Fe = 1460 * 100 - t23
+if fT23Fe < 1
+    vT23Fe = vT23Fe + 1
+bad[0] = bad[0] + vT23Fe * vT23Fe
+
+let vCoulFe = 0
+let coul = 714000 * 676 * 100
+let eCoulFe = coul - 126351832 * 382
+if eCoulFe < 0
+    vCoulFe = vCoulFe + 1
+let fCoulFe = 126351833 * 382 - coul
+if fCoulFe < 1
+    vCoulFe = vCoulFe + 1
+bad[0] = bad[0] + vCoulFe * vCoulFe
+
+let vAsymFe = 0
+let asym = 23200000 * 16
+let eAsymFe = asym - 6628571 * 56
+if eAsymFe < 0
+    vAsymFe = vAsymFe + 1
+let fAsymFe = 6628572 * 56 - asym
+if fAsymFe < 1
+    vAsymFe = vAsymFe + 1
+bad[0] = bad[0] + vAsymFe * vAsymFe
+
+let num = 15800000 * 56 - 492300000 - 126351832 - 6628571
+let vAsFe = 0
+let eAsFe = num - 177874 * 1459
+if eAsFe < 0
+    vAsFe = vAsFe + 1
+let fAsFe = 177875 * 1459 - num
+if fAsFe < 1
+    vAsFe = vAsFe + 1
+bad[0] = bad[0] + vAsFe * vAsFe
+
+let dAsFeLit = 177874 - 175000
+let aAsFeLit =
+    if dAsFeLit < 0
+        0 - dAsFeLit
+    else
+        dAsFeLit
+let tAsFeLit = aAsFeLit - 4194
+let wAsFeLit =
+    if tAsFeLit < 0
+        0 - tAsFeLit
+    else
+        tAsFeLit
+bad[0] = bad[0] + ck_hi(aAsFeLit, 4194)
+
+arr_get(arr_new_n(1), bad[0])

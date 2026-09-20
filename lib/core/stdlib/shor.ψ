@@ -1,0 +1,266 @@
+let sh_gcd(a, b) =
+    let x = a
+    let y = b
+    for y != 0
+      let t = x % y
+      x = y
+      y = t
+    x
+
+let sh_mulmod(a, b, m) =
+    let r = 0
+    let x = a % m
+    let y = b
+    for y > 0
+      let odd = y % 2 == 1
+      if odd
+        r = (r + x) % m
+      else
+        0
+      x = (x + x) % m
+      y = y / 2
+    r
+
+let sh_mod_pow(a, b, n) =
+    let base = a
+    let exp = b
+    let acc = 1
+    for exp > 0
+      let odd = exp % 2 == 1
+      if odd
+        acc = sh_mulmod(acc, base, n)
+      else
+        0
+      base = sh_mulmod(base, base, n)
+      exp = exp / 2
+    acc
+
+let sh_order(a, n) =
+    let k = 1
+    let v = a % n
+    for v != 1 && k < n
+      v = (v * a) % n
+      k = k + 1
+    if v == 1
+      k
+    else
+      0
+
+let sh_try_factor(n, a) =
+    let r = sh_order(a, n)
+    let r_even = r != 0 && r % 2 == 0
+    if !r_even
+      []
+    else
+      let half = sh_mod_pow(a, r / 2, n)
+      let is_trivial = half == 1 || half == n - 1
+      if is_trivial
+        []
+      else
+        let d = sh_gcd(half - 1, n)
+        let ok_d = d > 1 && d < n
+        if ok_d
+          [d, n / d]
+        else
+          []
+
+let sh_factor(n) =
+    let a = 2
+    let result = []
+    for a < n && len(result) == 0
+      result = sh_try_factor(n, a)
+      a = a + 1
+    result
+
+let sh_verify() =
+    let results = []
+    let f15 = sh_factor(15)
+    let ok1 = len(f15) == 2 && f15[0] * f15[1] == 15
+    let ok2 = f15[0] > 1 && f15[1] > 1
+    let f21 = sh_factor(21)
+    let ok3 = len(f21) == 2 && f21[0] * f21[1] == 21
+    let f35 = sh_factor(35)
+    let ok4 = len(f35) == 2 && f35[0] * f35[1] == 35
+    let o1 = sh_order(2, 7)
+    let ok5 = o1 == 3
+    let o2 = sh_order(2, 15)
+    let ok6 = o2 == 4
+    let ok7 = sh_gcd(28, 35) == 7
+    let ok8 = sh_mod_pow(3, 7, 17) == 11
+    let ok9 = ok1 && ok2 && ok3 && ok4 && ok5 && ok6 && ok7 && ok8
+    [ok1, ok2, ok3, ok4, ok5, ok6, ok7, ok8, ok9]
+
+let sh_ntt_l(sig, L, w, p) =
+    let out = []
+    let wtbl = [1]
+    let wi = 1
+    let wdone = false
+    for !wdone
+      if wi < L
+        let prev = wtbl[wi - 1]
+        wtbl = wtbl.push(sh_mulmod(prev, w, p))
+        wi = wi + 1
+      else
+        wdone = true
+    let k = 0
+    let kdone = false
+    for !kdone
+      if k < L
+        let acc = 0
+        let i = 0
+        let idone = false
+        for !idone
+          if i < L
+            let e = (k * i) % L
+            let term = sh_mulmod(sig[i], wtbl[e], p)
+            acc = acc + term
+            i = i + 1
+          else
+            idone = true
+        out = out.push(acc % p)
+        k = k + 1
+      else
+        kdone = true
+    out
+
+let sh_zero_mode(a, n, L, w, p) =
+    let seq = []
+    let i = 0
+    let done = false
+    for !done
+      if i < L
+        seq = seq.push(sh_mod_pow(a, i, n))
+        i = i + 1
+      else
+        done = true
+    let x = sh_ntt_l(seq, L, w, p)
+    let nz = 0
+    let k = 1
+    let kdone = false
+    for !kdone
+      if k < L
+        if x[k] != 0
+          if nz == 0
+            nz = k
+          else
+              0
+        else
+          0
+        k = k + 1
+      else
+        kdone = true
+    if nz == 0
+      1
+    else
+      let cand = L / nz
+      let ok = L % nz == 0 && sh_mod_pow(a, cand, n) == 1
+      if ok
+        sh_min_order(a, n, cand)
+      else
+        0
+
+let sh_min_order(a, n, max) =
+    let d = 1
+    let found = 0
+    let done = false
+    for !done
+      if d <= max
+        if found == 0
+          if sh_mod_pow(a, d, n) == 1
+            found = d
+          else
+              0
+        else
+          0
+        d = d + 1
+      else
+        done = true
+    found
+
+let sh_qpe_order(a, n) =
+    let r1 = sh_zero_mode(a, n, 16, 64, 65537)
+    if r1 > 0
+      r1
+    else
+      let r2 = sh_zero_mode(a, n, 24, 729835, 786433)
+      if r2 > 0
+        r2
+      else
+        let r5 = sh_zero_mode(a, n, 40, 36643, 70001)
+        if r5 > 0
+          r5
+        else
+          sh_zero_mode(a, n, 56, 61781, 65633)
+
+let sh_qpe_factor(n) =
+    let a = 2
+    let result = []
+    let done = false
+    for !done
+      if a < n && len(result) == 0
+        let r = sh_qpe_order(a, n)
+        let r_even = r != 0 && r % 2 == 0
+        if r_even
+          let half = sh_mod_pow(a, r / 2, n)
+          let ok = half != 1 && half != n - 1
+          if ok
+            let d = sh_gcd(half - 1, n)
+            if d > 1 && d < n
+              result = [d, n / d]
+            else
+                0
+          else
+              0
+        else
+          0
+        a = a + 1
+      else
+        done = true
+    result
+
+let sh_verify_qpe() =
+    let results = []
+    results = results.push(sh_zero_mode(2, 15, 16, 64, 65537) == 4)
+    results = results.push(sh_zero_mode(3, 17, 16, 64, 65537) == 16)
+    results = results.push(sh_zero_mode(1, 15, 16, 64, 65537) == 1)
+    results = results.push(sh_zero_mode(2, 21, 24, 729835, 786433) == 6)
+    results = results.push(sh_zero_mode(2, 35, 24, 729835, 786433) == 12)
+    results = results.push(sh_qpe_order(2, 15) == 4)
+    results = results.push(sh_qpe_order(2, 21) == 6)
+    results = results.push(sh_qpe_order(2, 35) == 12)
+    results = results.push(sh_qpe_order(2, 15) == sh_order(2, 15))
+    results = results.push(sh_qpe_order(2, 21) == sh_order(2, 21))
+    results = results.push(sh_qpe_order(2, 35) == sh_order(2, 35))
+    let f15 = sh_qpe_factor(15)
+    results = results.push(len(f15) == 2 && f15[0] * f15[1] == 15)
+    let f21 = sh_qpe_factor(21)
+    results = results.push(len(f21) == 2 && f21[0] * f21[1] == 21)
+    let f35 = sh_qpe_factor(35)
+    results = results.push(len(f35) == 2 && f35[0] * f35[1] == 35)
+    results = results.push(sh_zero_mode(2, 341, 40, 36643, 70001) == 10)
+    results = results.push(sh_zero_mode(2, 93, 40, 36643, 70001) == 10)
+    results = results.push(sh_qpe_order(2, 341) == 10)
+    let f341 = sh_qpe_factor(341)
+    results = results.push(len(f341) == 2 && f341[0] * f341[1] == 341)
+    results = results.push(sh_qpe_order(2, 341) == sh_order(2, 341))
+    results = results.push(sh_zero_mode(2, 381, 56, 61781, 65633) == 14)
+    results = results.push(sh_qpe_order(2, 381) == 14)
+    let f381 = sh_qpe_factor(381)
+    results = results.push(len(f381) == 2 && f381[0] * f381[1] == 381)
+    results = results.push(sh_qpe_order(2, 381) == sh_order(2, 381))
+    results = results.push(sh_qpe_order(4, 19) == 0)
+    let all_ok = true
+    let j = 0
+    let done = false
+    for !done
+      if j < len(results)
+        let v = results[j]
+        if v == false
+          all_ok = false
+        else
+          0
+        j = j + 1
+      else
+        done = true
+    results = results.push(all_ok)
+    results

@@ -1,0 +1,88 @@
+import "qqbc_bin.ψ"
+
+let QF_MAGIC_0 = 81
+let QF_MAGIC_1 = 70
+let QF_MAGIC_2 = 76
+let QF_MAGIC_3 = 87
+let QF_VERSION = 1
+let QF_TYPE_FULL = 0
+let QF_TYPE_DELTA = 1
+let QF_HEADER_SIZE = 12
+
+let qqbin_append_all(acc, payload, idx) =
+    let n = len(payload)
+    let r = if idx < n
+      qqbin_append_all(acc.push(payload[idx]), payload, idx + 1)
+    else
+      acc
+    r
+
+let qqframe_build_full(dag, seq) =
+    let payload = qqbin_encode(dag)
+    let len = qqbin_u32_bytes(len(payload))
+    let sb = qqbin_u16_bytes(seq)
+    let head = [QF_MAGIC_0, QF_MAGIC_1, QF_MAGIC_2, QF_MAGIC_3, QF_VERSION, QF_TYPE_FULL, sb[0], sb[1], len[0], len[1], len[2], len[3]]
+    qqbin_append_all(head, payload, 0)
+
+let qqframe_build_delta(delta, seq) =
+    let payload = qqbin_delta_encode(delta)
+    let len = qqbin_u32_bytes(len(payload))
+    let sb = qqbin_u16_bytes(seq)
+    let head = [QF_MAGIC_0, QF_MAGIC_1, QF_MAGIC_2, QF_MAGIC_3, QF_VERSION, QF_TYPE_DELTA, sb[0], sb[1], len[0], len[1], len[2], len[3]]
+    qqbin_append_all(head, payload, 0)
+
+let qqframe_magic_ok(buf) = buf[0] == QF_MAGIC_0 && buf[1] == QF_MAGIC_1 && buf[2] == QF_MAGIC_2 && buf[3] == QF_MAGIC_3
+
+let qqframe_type(buf) = buf[5]
+
+let qqframe_seq(buf) = buf[6] + buf[7] * 256
+
+let qqframe_payload_len(buf) = qqbin_u32_from(buf[8], buf[9], buf[10], buf[11])
+
+let qqframe_size(buf) = QF_HEADER_SIZE + qqframe_payload_len(buf)
+
+let qqframe_payload(buf, idx, acc) =
+    let n = qqframe_payload_len(buf)
+    let r = if idx < n
+      qqframe_payload(buf, idx + 1, acc.push(buf[QF_HEADER_SIZE + idx]))
+    else
+      acc
+    r
+
+let qqframe_parse(buf) =
+    { kind: qqframe_type(buf), seq: qqframe_seq(buf), payload: qqframe_payload(buf, 0, []) }
+
+let qqframe_process(prev, frame) =
+    let parsed = qqframe_parse(frame)
+    if parsed.kind == QF_TYPE_FULL
+      qqbin_decode(parsed.payload)
+    else
+      if parsed.kind == QF_TYPE_DELTA
+        let delta = qqbin_delta_decode(parsed.payload)
+        if prev == null
+          null
+        else
+          qqbin_apply_delta(prev, delta)
+      else
+        null
+
+let qqframe_process_ok(prev, frame) =
+    let r = qqframe_process(prev, frame)
+    if r == null
+      false
+    else
+      r.node_count > 0
+
+let qqframe_demo(v1, v2) =
+    let full = qqframe_build_full(v1, 0)
+    let delta = qqbin_make_delta(v1, v2)
+    let dframe = qqframe_build_delta(delta, 1)
+    let rebuilt = qqframe_process(v1, dframe)
+    let equiv_ok = qqbin_equiv(rebuilt, v2)
+    let full_size = len(full)
+    let delta_size = len(dframe)
+    let savings = (full_size > 0 ? (full_size - delta_size) * 100 / full_size : 0)
+    [full_size, delta_size, savings, equiv_ok]
+
+let qqframe_summary() =
+    { protocol: "QFLW", version: QF_VERSION, header_bytes: QF_HEADER_SIZE, frame_types: "0=FULL (qqbin_encode) / 1=DELTA (qqbin_delta_encode)", state: "prev + frame → next (client state machine)", principle: "bandwidth ∝ delta, independent of scene size" }

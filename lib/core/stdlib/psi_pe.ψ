@@ -1,0 +1,304 @@
+import "qqbc_micro.ψ"
+let PE_MAC   = 1
+let PE_LUT   = 2
+let PE_FFT   = 3
+let PE_FIFO  = 4
+let PE_ROUTE = 5
+let PE_ALU   = 6
+
+let PE_TOKEN = 16
+let PE_EMIT  = 17
+
+let PE_SPECS = [
+  { pe_type: 1, name: "PE_MAC",   note: "multiply-accumulate unit (INT8/INT4 DP4A direct MAC)" },
+  { pe_type: 2, name: "PE_LUT",   note: "lookup table (GF inverses / trig / bit reversal)" },
+  { pe_type: 3, name: "PE_FFT",   note: "FFT butterfly unit (NTT forward/inverse)" },
+  { pe_type: 4, name: "PE_FIFO",  note: "FIFO buffer unit (dataflow channel buffering)" },
+  { pe_type: 5, name: "PE_ROUTE", note: "routing crossbar (inter-PE data routing)" },
+  { pe_type: 6, name: "PE_ALU",   note: "arithmetic logic unit (add/sub/and/or/xor)" },
+  { pe_type: 16, name: "PE_TOKEN", note: "input token source (I/O source)" },
+  { pe_type: 17, name: "PE_EMIT",  note: "output token sink (I/O sink)" }
+]
+
+let pe_spec(pe_type) =
+    let found = null
+    let i = 0
+    let n = len(PE_SPECS)
+    let done = false
+    for !done
+      if i < n
+        let spec = PE_SPECS[i]
+        if spec.pe_type == pe_type
+          found = spec
+          done = true
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    found
+
+let pe_name(pe_type) =
+    let spec = pe_spec(pe_type)
+    (spec == null ? "?" : spec.name)
+
+let pe_count() = len(PE_SPECS)
+
+let micro_to_pe(micro_opcode) =
+    if micro_opcode == 10
+        PE_MAC
+    else
+      if micro_opcode == 11
+          PE_MAC
+      else
+        if micro_opcode == 12
+            PE_ALU
+        else
+          if micro_opcode == 13
+              PE_LUT
+          else
+            if micro_opcode == 20
+                PE_LUT
+            else
+              if micro_opcode == 21
+                  PE_ALU
+              else
+                if micro_opcode == 22
+                    PE_MAC
+                else
+                  if micro_opcode == 23
+                      PE_ALU
+                  else
+                    if micro_opcode == 30
+                        PE_FFT
+                    else
+                      if micro_opcode == 31
+                          PE_FFT
+                      else
+                        if micro_opcode == 32
+                            PE_ALU
+                        else
+                          if micro_opcode == 40
+                              PE_ALU
+                          else
+                            if micro_opcode == 41
+                                PE_ALU
+                            else
+                              if micro_opcode == 42
+                                  PE_MAC
+                              else
+                                if micro_opcode == 50
+                                    PE_ALU
+                                else
+                                  if micro_opcode == 51
+                                      PE_ALU
+                                  else
+                                    if micro_opcode == 52
+                                        PE_ALU
+                                    else
+                                      if micro_opcode == 60
+                                          PE_LUT
+                                      else
+                                        if micro_opcode == 61
+                                            PE_FFT
+                                        else
+                                          if micro_opcode == 62
+                                              PE_MAC
+                                          else
+                                            if micro_opcode == 16
+                                                PE_TOKEN
+                                            else
+                                              if micro_opcode == 17
+                                                  PE_EMIT
+                                              else
+                                                if micro_opcode == 255
+                                                    0
+                                                else
+                                                    0
+
+let micro_seq_to_pe_seq(micro_seq) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(micro_seq)
+        let op = micro_seq[i]
+        let pe_type = micro_to_pe(op)
+        if op == 16
+          if i + 1 < len(micro_seq)
+            let imm = micro_seq[i + 1]
+            out = out.push(pe_type)
+            out = out.push(imm)
+            i = i + 2
+          else
+            i = i + 1
+        else
+          out = out.push(pe_type)
+          i = i + 1
+      else
+        done = true
+    out
+
+let pe_eval(pe_type, micro_opcode, args) = micro_eval(micro_opcode, args)
+
+let pe_interp(pe_seq_with_opcodes) =
+    let stack = []
+    let pc = 0
+    let result = 0
+    let done = false
+    for !done
+      if pc < len(pe_seq_with_opcodes)
+        let entry = pe_seq_with_opcodes[pc]
+        let pe_type = entry[0]
+        let micro_opcode = entry[1]
+        pc = pc + 1
+        if pe_type == PE_TOKEN
+          let v = pe_seq_with_opcodes[pc][0]
+          pc = pc + 1
+          stack = stack.push(v)
+        else
+          0
+        if micro_opcode == 10 || micro_opcode == 11 || micro_opcode == 12
+          let n = len(stack)
+          if n >= 2
+            let b = stack[n - 1]
+            let a = stack[n - 2]
+            stack = stack.slice(0, n - 2)
+            stack = stack.push(pe_eval(pe_type, micro_opcode, [a, b]))
+          else
+              0
+        else
+          0
+        if micro_opcode == 22 || micro_opcode == 30 || micro_opcode == 31
+          let n = len(stack)
+          if n >= 2
+            let b = stack[n - 1]
+            let a = stack[n - 2]
+            stack = stack.slice(0, n - 2)
+            stack = stack.push(pe_eval(pe_type, micro_opcode, [a, b]))
+          else
+              0
+        else
+          0
+        if micro_opcode == 50 || micro_opcode == 51 || micro_opcode == 52
+          let n = len(stack)
+          if n >= 2
+            let b = stack[n - 1]
+            let a = stack[n - 2]
+            stack = stack.slice(0, n - 2)
+            stack = stack.push(pe_eval(pe_type, micro_opcode, [a, b]))
+          else
+              0
+        else
+          0
+        if micro_opcode == 60 || micro_opcode == 61 || micro_opcode == 62
+          let n = len(stack)
+          if n >= 2
+            let b = stack[n - 1]
+            let a = stack[n - 2]
+            stack = stack.slice(0, n - 2)
+            stack = stack.push(pe_eval(pe_type, micro_opcode, [a, b]))
+          else
+              0
+        else
+          0
+        if micro_opcode == 20 || micro_opcode == 21 || micro_opcode == 23
+          let n = len(stack)
+          if n >= 2
+            let b = stack[n - 1]
+            let a = stack[n - 2]
+            stack = stack.slice(0, n - 2)
+            stack = stack.push(pe_eval(pe_type, micro_opcode, [a, b]))
+          else
+              0
+        else
+          0
+        if micro_opcode == 13 || micro_opcode == 32
+          let n = len(stack)
+          if n >= 1
+            let a = stack[n - 1]
+            stack = stack.slice(0, n - 1)
+            stack = stack.push(pe_eval(pe_type, micro_opcode, [a]))
+          else
+              0
+        else
+          0
+        if micro_opcode == 40
+          let n = len(stack)
+          if n >= 2
+            let t = stack[n - 1]
+            let c = stack[n - 2]
+            stack = stack.slice(0, n - 2)
+            stack = stack.push(pe_eval(pe_type, micro_opcode, [c, t]))
+          else
+              0
+        else
+          0
+        if micro_opcode == 41 || micro_opcode == 42
+          let n = len(stack)
+          if n >= 3
+            let e = stack[n - 1]
+            let t = stack[n - 2]
+            let c = stack[n - 3]
+            stack = stack.slice(0, n - 3)
+            stack = stack.push(pe_eval(pe_type, micro_opcode, [c, t, e]))
+          else
+              0
+        else
+          0
+        if pe_type == PE_EMIT
+          let n = len(stack)
+          if n >= 1
+            result = stack[n - 1]
+          else
+              0
+        else
+          0
+        if micro_opcode == 255
+          done = true
+        else
+            0
+      else
+        done = true
+    result
+
+let micro_seq_to_pe_opcodes(micro_seq) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(micro_seq)
+        let op = micro_seq[i]
+        let pe_type = micro_to_pe(op)
+        if op == 16
+          if i + 1 < len(micro_seq)
+            let imm = micro_seq[i + 1]
+            out = out.push([pe_type, op])
+            out = out.push([imm])
+            i = i + 2
+          else
+            i = i + 1
+        else
+          out = out.push([pe_type, op])
+          i = i + 1
+      else
+        done = true
+    out
+
+let pe_dump_all() =
+    let out = []
+    let i = 0
+    let n = len(PE_SPECS)
+    let done = false
+    for !done
+      if i < n
+        let spec = PE_SPECS[i]
+        let row = [spec.pe_type, spec.name, spec.note]
+        out = out.push(row)
+        i = i + 1
+      else
+        done = true
+    out
+
+let pe_summary() =
+    { total: len(PE_SPECS), compute_pes: 6, io_pes: 2, pe_types: "MAC/LUT/FFT/FIFO/ROUTE/ALU + TOKEN/EMIT" }

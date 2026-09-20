@@ -1,0 +1,96 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let FLUID_MAX_CELLS = 65536
+let FLUID_REYNOLDS = 1000
+
+let fluid_grid_create(nx, ny) =
+    let cells = []
+    let i = 0
+    for i < nx * ny
+        cells.push([0, 0, 0, 1])
+        i = i + 1
+    [cells, nx, ny, 1, 1]
+let fluid_cell_get(grid, i, j) =
+    let nx = grid[1]
+    grid[0][i * nx + j]
+let fluid_cell_set(grid, i, j, cell) =
+    let cells = grid[0]
+    let nx = grid[1]
+    cells[i * nx + j] = cell
+    [cells, nx, grid[2], grid[3], grid[4]]
+let fluid_grad_x(grid, i, j, field_idx) =
+    let nx = grid[1]
+    let ny = grid[2]
+    let ip = (i + 1) % nx
+    let im = (i - 1 + nx) % nx
+    let c_p = fluid_cell_get(grid, ip, j)
+    let c_m = fluid_cell_get(grid, im, j)
+    gf_div(gf_sub(c_p[field_idx], c_m[field_idx]), 2)
+let fluid_grad_y(grid, i, j, field_idx) =
+    let nx = grid[1]
+    let ny = grid[2]
+    let jp = (j + 1) % ny
+    let jm = (j - 1 + ny) % ny
+    let c_p = fluid_cell_get(grid, i, jp)
+    let c_m = fluid_cell_get(grid, i, jm)
+    gf_div(gf_sub(c_p[field_idx], c_m[field_idx]), 2)
+let fluid_divergence(grid, i, j) =
+    gf_add(fluid_grad_x(grid, i, j, 0), fluid_grad_y(grid, i, j, 1))
+let fluid_laplacian(grid, i, j, field_idx) =
+    let nx = grid[1]
+    let ny = grid[2]
+    let c = fluid_cell_get(grid, i, j)
+    let c_xp = fluid_cell_get(grid, (i + 1) % nx, j)
+    let c_xm = fluid_cell_get(grid, (i - 1 + nx) % nx, j)
+    let c_yp = fluid_cell_get(grid, i, (j + 1) % ny)
+    let c_ym = fluid_cell_get(grid, i, (j - 1 + ny) % ny)
+    gf_add(gf_add(gf_sub(c_xp[field_idx], gf_mul(2, c[field_idx])), c_xm[field_idx]), gf_add(gf_sub(c_yp[field_idx], gf_mul(2, c[field_idx])), c_ym[field_idx]))
+let fluid_step(grid, i, j, nu) =
+    let c = fluid_cell_get(grid, i, j)
+    let vx = c[0]
+    let vy = c[1]
+    let adv_x = gf_add(gf_mul(vx, fluid_grad_x(grid, i, j, 0)), gf_mul(vy, fluid_grad_y(grid, i, j, 0)))
+    let adv_y = gf_add(gf_mul(vx, fluid_grad_x(grid, i, j, 1)), gf_mul(vy, fluid_grad_y(grid, i, j, 1)))
+    let diff_x = gf_mul(nu, fluid_laplacian(grid, i, j, 0))
+    let diff_y = gf_mul(nu, fluid_laplacian(grid, i, j, 1))
+    let p_grad_x = fluid_grad_x(grid, i, j, 2)
+    let p_grad_y = fluid_grad_y(grid, i, j, 2)
+    let new_vx = gf_sub(vx, gf_add(adv_x, gf_sub(diff_x, p_grad_x)))
+    let new_vy = gf_sub(vy, gf_add(adv_y, gf_sub(diff_y, p_grad_y)))
+    [new_vx, new_vy, c[2], c[3]]
+let fluid_project(grid) =
+    let nx = grid[1]
+    let ny = grid[2]
+    let i = 0
+    for i < nx
+        let j = 0
+        for j < ny
+            let c = fluid_cell_get(grid, i, j)
+            let div = fluid_divergence(grid, i, j)
+            let new_p = gf_add(c[2], div)
+            grid = fluid_cell_set(grid, i, j, [c[0], c[1], new_p, c[3]])
+            j = j + 1
+        i = i + 1
+    grid
+let field_fluid(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = gf_sub(z, pole)
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let fluid_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_fluid(test_data, 3, 500)
+    let ok = 0
+    if result != 0
+        ok = 1
+    else
+        ok = 0
+    ok

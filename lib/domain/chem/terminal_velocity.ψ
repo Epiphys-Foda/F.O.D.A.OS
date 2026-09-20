@@ -1,0 +1,44 @@
+import "ck.ψ"
+let bad = [0]
+
+let vt = 4
+let dz1 = vt * 9 * 5 - 2 * 3 * 3 * 10 * 1
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let v1 = 4
+let v2 = 16
+let v3 = 36
+let dz2 = v2 - v1 * 4
+bad[0] = bad[0] + ck(dz2, 0, 0)
+let dz3 = v3 - v1 * 9
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let v_fog = 12
+bad[0] = bad[0] + ck(v_fog, 10, 15)
+
+let v_stokes = 121
+bad[0] = bad[0] + ck(v_stokes, 115, 125)
+let v_real = 9
+bad[0] = bad[0] + ck(v_real, 8, 10)
+if v_real > v_stokes / 10
+    bad[0] = bad[0] + 1
+
+let re_fog = 13
+bad[0] = bad[0] + ck(re_fog, 10, 20)
+let re_rain = 13444444
+bad[0] = bad[0] + ck(re_rain, 13000000, 14000000)
+if re_rain < re_fog * 100000
+    bad[0] = bad[0] + 1
+
+if 1851 < 1849
+    bad[0] = bad[0] + 1
+if 1851 > 1853
+    bad[0] = bad[0] + 1
+if 1904 < 1902
+    bad[0] = bad[0] + 1
+if 1904 > 1906
+    bad[0] = bad[0] + 1
+if 1904 < 1851
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

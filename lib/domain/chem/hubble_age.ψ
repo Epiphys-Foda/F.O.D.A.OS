@@ -1,0 +1,35 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+let e7 = 10000000
+let e8 = e7 * 10
+let e9 = e8 * 10
+
+let NUM = 30857 * 1000000000000000
+let DEN = 674 * 315576 * e9
+let t100 = small_div(NUM, DEN)
+if 140 * DEN > NUM
+    bad[0] = bad[0] + 1
+if NUM > 150 * DEN
+    bad[0] = bad[0] + 1
+
+if 94 * 145 > 13800
+    bad[0] = bad[0] + 1
+if 13800 > 97 * 145
+    bad[0] = bad[0] + 1
+
+let age = 138
+bad[0] = bad[0] + ck(age, 135, 142)
+
+let numC = 380000 * e7
+let denC = 138 * e8
+if 260 * denC > numC
+    bad[0] = bad[0] + 1
+if numC > 290 * denC
+    bad[0] = bad[0] + 1
+
+if 138 - 46 < 54
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

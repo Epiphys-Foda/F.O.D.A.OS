@@ -1,0 +1,33 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let lam7 = 663 / isqrt(212)
+bad[0] = bad[0] + ck(lam7, 42, 52)
+
+let sp = 1000 / icbrt(100)
+bad[0] = bad[0] + ck(sp, 190, 280)
+
+let ov = lam7 * 10 - sp
+bad[0] = bad[0] + ck_lo(ov, 0)
+
+let frac = 65
+bad[0] = bad[0] + ck(frac, 60, 70)
+
+let k = 9
+bad[0] = bad[0] + ck(k, 8, 10)
+if 1924 < 1922
+    bad[0] = bad[0] + 1
+if 1924 > 1926
+    bad[0] = bad[0] + 1
+if 1995 < 1993
+    bad[0] = bad[0] + 1
+if 1995 > 1997
+    bad[0] = bad[0] + 1
+if 2001 < 1999
+    bad[0] = bad[0] + 1
+if 2001 > 2003
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

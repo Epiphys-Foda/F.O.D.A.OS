@@ -1,0 +1,33 @@
+import "ck.ψ"
+let bad = [0]
+
+let v = 340
+let t = 2
+let radius = v * t
+let dz1 = radius - v * t
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let step1 = 340
+let step2 = 680
+let step3 = 1020
+let dz2 = step2 - step1 - v
+bad[0] = bad[0] + ck(dz2, 0, 0)
+let dz3 = step3 - step2 - v
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let ang_in = 45
+let ang_out = 45
+let dz4 = ang_out - ang_in
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let lam_before = 2
+let lam_after = 2
+let dz5 = lam_after - lam_before
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+if 1690 < 1688
+    bad[0] = bad[0] + 1
+if 1690 > 1692
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

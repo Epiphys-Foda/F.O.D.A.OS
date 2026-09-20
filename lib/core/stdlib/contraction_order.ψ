@@ -1,0 +1,129 @@
+import "qof.ψ"
+import "algebra_rules.ψ"
+
+let qof_cost_node(node) =
+    let arg = node.args[0]
+    (arg < 0 ? 0 - arg : arg)
+
+let qof_cost_pipeline_impl(nodes, idx, acc) =
+    if idx < len(nodes)
+      let c = qof_cost_node(nodes[idx])
+      qof_cost_pipeline_impl(nodes, idx + 1, acc + c)
+    else
+      acc
+
+let qof_cost_pipeline(nodes) = qof_cost_pipeline_impl(nodes, 0, 0)
+
+let qof_cost_peak_impl(nodes, idx, peak) =
+    if idx < len(nodes)
+      let c = qof_cost_node(nodes[idx])
+      let new_peak = (c > peak ? c : peak)
+      qof_cost_peak_impl(nodes, idx + 1, new_peak)
+    else
+      peak
+
+let qof_cost_peak(nodes) = qof_cost_peak_impl(nodes, 0, 0)
+
+let is_const_source(node) =
+    let op = node.op
+    if op == 0
+      { is_const: true, value: node.args[0] }
+    else
+      if op == 1
+        if node.args[0] == 0
+            { is_const: true, value: 0 }
+        else
+            { is_const: false, value: 0 }
+      else
+        if op == 4
+          if node.args[0] == 0
+              { is_const: true, value: 0 }
+          else
+              { is_const: false, value: 0 }
+        else
+          { is_const: false, value: 0 }
+
+let pass_const_prop_impl(nodes, idx, val_known, val, out) =
+    if idx < len(nodes)
+      let node = nodes[idx]
+      if val_known
+        let folded = qof_eval_node(node, val)
+        pass_const_prop_impl(nodes, idx + 1, true, folded, out)
+      else
+        let src = is_const_source(node)
+        if src.is_const
+          pass_const_prop_impl(nodes, idx + 1, true, src.value, out)
+        else
+          pass_const_prop_impl(nodes, idx + 1, false, 0, out.push(node))
+    else
+      if val_known
+        out.push({ op: 0, args: [val], name: "CONST" })
+      else
+        out
+
+let pass_const_prop(nodes) = pass_const_prop_impl(nodes, 0, false, 0, [])
+
+let pass_dead_code_elim(nodes) =
+    let n = len(nodes)
+    if n > 0
+      let last = nodes[n - 1]
+      if last.op == 0
+        [last]
+      else
+        nodes
+    else
+      nodes
+
+let pass_contraction_optimize(nodes) =
+    let s1 = pass_algebra_fixpoint(nodes)
+    let s2 = pass_const_prop(s1)
+    let s3 = pass_dead_code_elim(s2)
+    pass_algebra_fixpoint(s3)
+
+let qof_constant_fold(seed, nodes) = qof_chain(seed, nodes)
+
+let qof_optimize_report(nodes) =
+    let orig_cost = qof_cost_pipeline(nodes)
+    let orig_peak = qof_cost_peak(nodes)
+    let opt_nodes = pass_contraction_optimize(nodes)
+    let opt_cost = qof_cost_pipeline(opt_nodes)
+    let opt_peak = qof_cost_peak(opt_nodes)
+    let savings = orig_cost - opt_cost
+    let ratio = (orig_cost > 0 ? (savings * 100) / orig_cost : 0)
+      { original: { node_count: len(nodes), cost: orig_cost, peak: orig_peak }, optimized: { node_count: len(opt_nodes), cost: opt_cost, peak: opt_peak }, savings: savings, savings_ratio: ratio, optimized_nodes: opt_nodes }
+
+let qof_verify_equiv_impl(seed, orig, optimized, test_idx) =
+    if test_idx < 50
+      let s = seed + test_idx
+      let r1 = qof_chain(s, orig)
+      let r2 = qof_chain(s, optimized)
+      if r1 == r2
+        qof_verify_equiv_impl(seed, orig, optimized, test_idx + 1)
+      else
+        false
+    else
+      true
+
+let qof_verify_equiv(seed, orig, optimized) = qof_verify_equiv_impl(seed, orig, optimized, 0)
+
+let qof_optimizer_passes() =
+    [ { name: "pass_algebra_fixpoint",  layer: "V13.2", target: "syntactic",  physics: "ground state" },
+      { name: "pass_const_prop",        layer: "V13.3", target: "semantic",   physics: "tensor collapse" },
+      { name: "pass_dead_code_elim",    layer: "V13.3", target: "semantic",   physics: "redundant edge removal" }
+    ]
+
+let qof_const_sources() =
+    [ { op: 0, name: "CONST",  pattern: "CONST(c) → c",         physics: "scalar state (zero-dim tensor)" },
+      { op: 1, name: "GFMUL",  pattern: "⊙(0) → 0",              physics: "GF zero element (annihilator)" },
+      { op: 4, name: "BORN",   pattern: "↡(0) → 0",              physics: "zero projection (Born collapse)" }
+    ]
+
+let qof_optimizer_demo() =
+    let nodes = [
+      qof_node_gfmul(3),
+      qof_node_born(0),
+      qof_node_gfmul(5),
+      qof_node_hebbian(3)
+    ]
+    let report = qof_optimize_report(nodes)
+      { original_count: len(nodes), optimized_count: report.optimized.node_count, original_cost: report.original.cost, optimized_cost: report.optimized.cost, savings: report.savings, savings_ratio: report.savings_ratio, final_value: qof_chain(42, nodes), optimized_value: qof_chain(42, report.optimized_nodes) }

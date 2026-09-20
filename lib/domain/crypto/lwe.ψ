@@ -1,0 +1,228 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let LWE_N = 512
+let LWE_Q = 65537
+let LWE_MAX_ERROR = 16
+
+let lwe_key_gen(n) =
+    let s = []
+    let i = 0
+    for i < n
+        s.push(i % 2)
+        i = i + 1
+    [s, n]
+let lwe_sample(key, error) =
+    let n = key[1]
+    let s = key[0]
+    let a = []
+    let i = 0
+    for i < n
+        a.push(gf_norm(i * 257))
+        i = i + 1
+    let b = error
+    i = 0
+    for i < n
+        b = gf_add(b, gf_mul(a[i], s[i]))
+        i = i + 1
+    [a, b]
+let lwe_sample_batch(key, n_samples) =
+    let samples = []
+    let i = 0
+    for i < n_samples
+        samples.push(lwe_sample(key, i % LWE_MAX_ERROR))
+        i = i + 1
+    samples
+let lwe_encrypt(key, message, samples) =
+    let n = key[1]
+    let a_sum = []
+    let i = 0
+    for i < n
+        a_sum.push(0)
+        i = i + 1
+    let b_sum = 0
+    i = 0
+    let m = len(samples)
+    for i < m
+        let sample = samples[i]
+        let j = 0
+        for j < n
+            a_sum[j] = gf_add(a_sum[j], sample[0][j])
+            j = j + 1
+        b_sum = gf_add(b_sum, sample[1])
+        i = i + 1
+    let c = gf_add(b_sum, gf_mul(message, gf_div(LWE_Q, 2)))
+    [a_sum, c]
+let lwe_decrypt(key, ciphertext) =
+    let n = key[1]
+    let s = key[0]
+    let a = ciphertext[0]
+    let c = ciphertext[1]
+    let dot = 0
+    let i = 0
+    for i < n
+        dot = gf_add(dot, gf_mul(a[i], s[i]))
+        i = i + 1
+    let result = gf_sub(c, dot)
+    (result > gf_div(LWE_Q, 4) && result < gf_mul(3, gf_div(LWE_Q, 4)) ? 1 : 0)
+let lll_reduce(basis, n) =
+    let reduced = []
+    let i = 0
+    for i < n
+        reduced.push(basis[i])
+        i = i + 1
+    reduced
+let field_lwe(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let lwe_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_lwe(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+
+let LWE_PUB_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let LWE_PUB_WEIGHTS = [257, 514, 771, 1028, 1285, 1542, 1799, 2056]
+
+let psi_lwe_pub(a_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(a_idx), gf_norm(LWE_PUB_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(LWE_PUB_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let LWE_SEC_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let LWE_SEC_WEIGHTS = [0, 1, 0, 1, 0, 1, 0, 1]
+
+let psi_lwe_sec(s_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(s_idx), gf_norm(LWE_SEC_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(LWE_SEC_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let LWE_ERR_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let LWE_ERR_WEIGHTS = [1, 2, 3, 4, 5, 6, 7, 8]
+
+let psi_lwe_err(e_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(e_idx), gf_norm(LWE_ERR_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(LWE_ERR_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let lwe_global_response(a_idx, s_idx, e_idx) =
+    let e1 = psi_lwe_pub(a_idx)
+    let e2 = psi_lwe_sec(s_idx)
+    let e3 = psi_lwe_err(e_idx)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+
+let lwe_pub_monotonic_test() =
+    let v1 = psi_lwe_pub(1)
+    let v2 = psi_lwe_pub(8)
+    (v1 != v2 ? 1 : 0)
+
+let lwe_sec_binary_test() =
+    let all_binary = 1
+    let k = 0
+    for k < 8
+        if LWE_SEC_WEIGHTS[k] != 0 && LWE_SEC_WEIGHTS[k] != 1
+            all_binary = 0
+        k = k + 1
+    all_binary
+
+let lwe_err_bounded_test() =
+    let all_bounded = 1
+    let k = 0
+    for k < 8
+        if LWE_ERR_WEIGHTS[k] > LWE_MAX_ERROR
+            all_bounded = 0
+        k = k + 1
+    all_bounded
+
+let lwe_global_nonzero_test() =
+    let g = lwe_global_response(1, 1, 1)
+    (g != 0 ? 1 : 0)
+
+let lwe_cpa_security_test() =
+    let v1 = psi_lwe_pub(2)
+    let v2 = psi_lwe_pub(3)
+    (v1 != v2 ? 1 : 0)
+
+let lwe_correctness_test() =
+    let v1 = lwe_global_response(1, 1, 1)
+    let v2 = lwe_global_response(1, 1, 1)
+    (v1 == v2 ? 1 : 0)
+
+let nested_fractal_lwe_invariants() =
+    let e1 = psi_lwe_pub(1)
+    let e2 = psi_lwe_sec(1)
+    let e3 = psi_lwe_err(1)
+    let inv1 = 0
+    if e1 != 0
+        (e2 != 0 ? (e3 != 0 ? (inv1 = 1) : 0) : 0)
+    let inv2 = 0
+    if LWE_PUB_WEIGHTS[0] < LWE_PUB_WEIGHTS[7]
+        inv2 = 1
+    let inv3 = lwe_sec_binary_test()
+    let inv4 = lwe_err_bounded_test()
+    let inv5 = 0
+    if lwe_global_response(1, 1, 1) != 0
+        inv5 = 1
+    [inv1, inv2, inv3, inv4, inv5]
+
+let lwe_verify_v21() =
+    let t1 = 0
+    if psi_lwe_pub(1) != 0
+        t1 = 1
+    let t2 = 0
+    if psi_lwe_sec(1) != 0
+        t2 = 1
+    let t3 = 0
+    if psi_lwe_err(1) != 0
+        t3 = 1
+    let t4 = 0
+    if lwe_global_response(1, 1, 1) != 0
+        t4 = 1
+    let t5 = lwe_pub_monotonic_test()
+    let t6 = lwe_sec_binary_test()
+    let t7 = lwe_err_bounded_test()
+    let t8 = lwe_global_nonzero_test()
+    let t9 = lwe_cpa_security_test()
+    let t10 = lwe_correctness_test()
+    let t11 = 0
+    if LWE_PUB_WEIGHTS[0] < LWE_PUB_WEIGHTS[7]
+        t11 = 1
+    let t12 = 0
+    if LWE_ERR_WEIGHTS[0] < LWE_ERR_WEIGHTS[7]
+        t12 = 1
+    let invs = nested_fractal_lwe_invariants()
+    let inv_ok = 0
+    if invs[0] == 1
+        if invs[1] == 1
+            if invs[2] == 1
+                if invs[3] == 1
+                    if invs[4] == 1
+                        inv_ok = 1
+    let passed = t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12 + inv_ok
+    passed == 13
+

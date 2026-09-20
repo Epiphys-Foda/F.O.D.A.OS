@@ -1,0 +1,811 @@
+import "arr.ψ"
+import "str.ψ"
+
+let _fold_binop(op, left, right) =
+    if left[0] == 0
+      if right[0] == 0
+        let lv = left[1]
+        let rv = right[1]
+        if op == 43
+            mk_int(lv + rv)
+        if op == 45
+            mk_int(lv - rv)
+        if op == 42
+            mk_int(lv * rv)
+        if op == 47
+            (rv == 0 ? mk_int(0) : 0)
+        mk_int(lv / rv)
+        if op == 37
+            (rv == 0 ? mk_int(0) : 0)
+        mk_int(lv % rv)
+        if op == 60
+            mk_int(lv << rv)
+        if op == 62
+            mk_int(lv >> rv)
+        if op == 38
+            mk_int(lv & rv)
+        if op == 124
+            mk_int(lv | rv)
+        if op == 94
+            mk_int(lv ^ rv)
+        if op == 13
+            mk_int(((lv == rv) ? (1) : (0)))
+        if op == 14
+            mk_int(((lv != rv) ? (1) : (0)))
+        if op == 60
+            mk_int(((lv < rv) ? (1) : (0)))
+    let node = arr_new_n(4)
+    node[0] = 3
+    node[1] = op
+    node[2] = left
+    node[3] = right
+    node
+
+let opt_const_fold_expr(node) =
+    if node == 0
+        0
+    let t = node[0]
+    if t == 0
+        node
+    if t == 5
+        node
+    if t == 2
+        node
+    if t == 3
+      let op = node[1]
+      let left = opt_const_fold_expr(node[2])
+      let right = opt_const_fold_expr(node[3])
+      _fold_binop(op, left, right)
+    if t == 1
+      let name = node[1]
+      let args = node[2]
+      let new_args = arr_new()
+      let i = 0
+      let n = arr_len(args)
+      let _fold_call_acc = 0
+      _fold_call_args(node, name, args, arr_new(), 0, arr_len(args))
+    if t == 12
+      let cond = opt_const_fold_expr(node[1])
+      let then_n = opt_const_fold_expr(node[2])
+      let els_n = opt_const_fold_expr(node[3])
+      if cond[0] == 0
+        if cond[1] == 0
+            els_n
+        then_n
+      let new_node = arr_new_n(4)
+      new_node[0] = 12
+      new_node[1] = cond
+      new_node[2] = then_n
+      new_node[3] = els_n
+      new_node
+    node
+
+let _fold_call_args(orig_node, name, args, new_args, i, n) =
+    if i >= n
+      let node = arr_new_n(3)
+      node[0] = 1
+      node[1] = name
+      node[2] = new_args
+      node
+    let folded = opt_const_fold_expr(arr_get(args, i))
+    let new_args2 = arr_push(new_args, folded)
+    _fold_call_args(orig_node, name, args, new_args2, i + 1, n)
+
+let _fold_stmts_acc(stmts, new_stmts, i, n) =
+    if i >= n
+        new_stmts
+    let stmt = arr_get(stmts, i)
+    let t = stmt[0]
+    if t == 10
+      let folded = opt_const_fold_expr(stmt[2])
+      let new_stmt = arr_new_n(3)
+      new_stmt[0] = 10
+      new_stmt[1] = stmt[1]
+      new_stmt[2] = folded
+      _fold_stmts_acc(stmts, arr_push(new_stmts, new_stmt), i + 1, n)
+    if t == 14
+      let folded = opt_const_fold_expr(stmt[1])
+      let new_stmt = arr_new_n(2)
+      new_stmt[0] = 14
+      new_stmt[1] = folded
+      _fold_stmts_acc(stmts, arr_push(new_stmts, new_stmt), i + 1, n)
+    if t == 16
+      let cond = opt_const_fold_expr(stmt[1])
+      let then_folded = _fold_stmts_acc(stmt[2], arr_new(), 0, arr_len(stmt[2]))
+      let els_folded = (stmt[3] == 0 ? 0 : _fold_stmts_acc(stmt[3], arr_new(), 0, arr_len(stmt[3])))
+      let new_stmt = arr_new_n(4)
+      new_stmt[0] = 16
+      new_stmt[1] = cond
+      new_stmt[2] = then_folded
+      new_stmt[3] = els_folded
+      _fold_stmts_acc(stmts, arr_push(new_stmts, new_stmt), i + 1, n)
+    if t == 17
+      let folded = opt_const_fold_expr(stmt[1])
+      let new_stmt = arr_new_n(2)
+      new_stmt[0] = 17
+      new_stmt[1] = folded
+      _fold_stmts_acc(stmts, arr_push(new_stmts, new_stmt), i + 1, n)
+    if t == 20
+      let body_folded = _fold_stmts_acc(stmt[3], arr_new(), 0, arr_len(stmt[3]))
+      let new_stmt = arr_new_n(5)
+      new_stmt[0] = 20
+      new_stmt[1] = stmt[1]
+      new_stmt[2] = stmt[2]
+      new_stmt[3] = body_folded
+      new_stmt[4] = stmt[4]
+      _fold_stmts_acc(stmts, arr_push(new_stmts, new_stmt), i + 1, n)
+    _fold_stmts_acc(stmts, arr_push(new_stmts, stmt), i + 1, n)
+
+let opt_const_fold_stmts(stmts) = _fold_stmts_acc(stmts, arr_new(), 0, arr_len(stmts))
+
+let _dce_stmts_acc(stmts, new_stmts, i, n, reached_return) =
+    if i >= n
+      new_stmts
+    if reached_return == 1
+      _dce_stmts_acc(stmts, new_stmts, i + 1, n, 1)
+    let stmt = arr_get(stmts, i)
+    let t = stmt[0]
+    if t == 14
+      _dce_stmts_acc(stmts, arr_push(new_stmts, stmt), i + 1, n, 1)
+    if t == 16
+      let cond = stmt[1]
+      if cond[0] == 0
+        if cond[1] == 0
+          let els = stmt[3]
+          if els != 0
+            let j = 0
+            let els_n = arr_len(els)
+            _dce_unfold_else(stmts, new_stmts, i + 1, n, els, 0, arr_len(els))
+          _dce_stmts_acc(stmts, new_stmts, i + 1, n, 0)
+        let then_block = stmt[2]
+        _dce_unfold_else(stmts, new_stmts, i + 1, n, then_block, 0, arr_len(then_block))
+      let then_dce = _dce_stmts_acc(stmt[2], arr_new(), 0, arr_len(stmt[2]), 0)
+      let els_dce = (stmt[3] == 0 ? 0 : _dce_stmts_acc(stmt[3], arr_new(), 0, arr_len(stmt[3]), 0))
+      let new_stmt = arr_new_n(4)
+      new_stmt[0] = 16
+      new_stmt[1] = cond
+      new_stmt[2] = then_dce
+      new_stmt[3] = els_dce
+      _dce_stmts_acc(stmts, arr_push(new_stmts, new_stmt), i + 1, n, 0)
+    _dce_stmts_acc(stmts, arr_push(new_stmts, stmt), i + 1, n, 0)
+
+let _dce_unfold_else(stmts, new_stmts, next_i, n, block, j, block_n) =
+    if j >= block_n
+      _dce_stmts_acc(stmts, new_stmts, next_i, n, 0)
+    _dce_unfold_else(stmts, arr_push(new_stmts, arr_get(block, j)), next_i, n, block, j + 1, block_n)
+
+let opt_dce_stmts(stmts) = _dce_stmts_acc(stmts, arr_new(), 0, arr_len(stmts), 0)
+
+let _is_power_of_2(n) =
+    if n <= 0
+        0 - 1
+    if n == 1
+        0
+    _pow2_acc(n, 0)
+let _pow2_acc(n, k) =
+    if n == 1
+        k
+    if (n & 1) == 1
+        0 - 1
+    _pow2_acc(n >> 1, k + 1)
+
+let opt_strength_reduce_expr(node) =
+    if node == 0
+        0
+    let t = node[0]
+    if t == 3
+        let op = node[1]
+        let left = opt_strength_reduce_expr(node[2])
+        let right = opt_strength_reduce_expr(node[3])
+        if op == 42
+            if right[0] == 0
+                let k = _is_power_of_2(right[1])
+                if k >= 1
+                    let shift_node = arr_new_n(4)
+                    shift_node[0] = 3
+                    shift_node[1] = 60
+                    shift_node[2] = left
+                    shift_node[3] = mk_int(k)
+                    shift_node
+                if right[1] == 1
+                    left
+                if right[1] == 0
+                    mk_int(0)
+        if op == 47
+            if right[0] == 0
+                let k = _is_power_of_2(right[1])
+                if k >= 1
+                    let shift_node = arr_new_n(4)
+                    shift_node[0] = 3
+                    shift_node[1] = 62
+                    shift_node[2] = left
+                    shift_node[3] = mk_int(k)
+                    shift_node
+        if op == 43 || op == 45
+            if right[0] == 0
+                if right[1] == 0
+                    left
+        if op == 45
+            if left[0] == 2
+                if right[0] == 2
+                    if str_equal(left[1], right[1]) == 1
+                        mk_int(0)
+        let new_node = arr_new_n(4)
+        new_node[0] = 3
+        new_node[1] = op
+        new_node[2] = left
+        new_node[3] = right
+        new_node
+    if t == 1
+        _sr_call_args(node, node[1], node[2], arr_new(), 0, arr_len(node[2]))
+    if t == 12
+        let cond = opt_strength_reduce_expr(node[1])
+        let then_n = opt_strength_reduce_expr(node[2])
+        let els_n = opt_strength_reduce_expr(node[3])
+        let new_node = arr_new_n(4)
+        new_node[0] = 12
+        new_node[1] = cond
+        new_node[2] = then_n
+        new_node[3] = els_n
+        new_node
+    node
+let _sr_call_args(orig, name, args, new_args, i, n) =
+    if i >= n
+      let node = arr_new_n(3)
+      node[0] = 1
+      node[1] = name
+      node[2] = new_args
+      node
+    let reduced = opt_strength_reduce_expr(arr_get(args, i))
+    _sr_call_args(orig, name, args, arr_push(new_args, reduced), i + 1, n)
+
+let _sr_stmts_acc(stmts, new_stmts, i, n) =
+    if i >= n
+        new_stmts
+    let stmt = arr_get(stmts, i)
+    let t = stmt[0]
+    if t == 10
+      let reduced = opt_strength_reduce_expr(stmt[2])
+      let new_stmt = arr_new_n(3)
+      new_stmt[0] = 10
+      new_stmt[1] = stmt[1]
+      new_stmt[2] = reduced
+      _sr_stmts_acc(stmts, arr_push(new_stmts, new_stmt), i + 1, n)
+    if t == 14
+      let reduced = opt_strength_reduce_expr(stmt[1])
+      let new_stmt = arr_new_n(2)
+      new_stmt[0] = 14
+      new_stmt[1] = reduced
+      _sr_stmts_acc(stmts, arr_push(new_stmts, new_stmt), i + 1, n)
+    if t == 16
+      let cond = opt_strength_reduce_expr(stmt[1])
+      let then_sr = _sr_stmts_acc(stmt[2], arr_new(), 0, arr_len(stmt[2]))
+      let els_sr = (stmt[3] == 0 ? 0 : _sr_stmts_acc(stmt[3], arr_new(), 0, arr_len(stmt[3])))
+      let new_stmt = arr_new_n(4)
+      new_stmt[0] = 16
+      new_stmt[1] = cond
+      new_stmt[2] = then_sr
+      new_stmt[3] = els_sr
+      _sr_stmts_acc(stmts, arr_push(new_stmts, new_stmt), i + 1, n)
+    if t == 20
+      let body_sr = _sr_stmts_acc(stmt[3], arr_new(), 0, arr_len(stmt[3]))
+      let new_stmt = arr_new_n(5)
+      new_stmt[0] = 20
+      new_stmt[1] = stmt[1]
+      new_stmt[2] = stmt[2]
+      new_stmt[3] = body_sr
+      new_stmt[4] = stmt[4]
+      _sr_stmts_acc(stmts, arr_push(new_stmts, new_stmt), i + 1, n)
+    _sr_stmts_acc(stmts, arr_push(new_stmts, stmt), i + 1, n)
+
+let opt_strength_reduce_stmts(stmts) = _sr_stmts_acc(stmts, arr_new(), 0, arr_len(stmts))
+
+let _cp_lookup(env, name, i, n) =
+    if i >= n
+        0
+    let pair = arr_get(env, i)
+    if str_equal(arr_get(pair, 0), name) == 1
+        arr_get(pair, 1)
+    _cp_lookup(env, name, i + 1, n)
+
+let _cp_bind(env, name, val) =
+    let pair = arr_new_n(2)
+    pair[0] = name
+    pair[1] = val
+    arr_push(env, pair)
+
+let opt_const_prop_expr(node, env) =
+    if node == 0
+        0
+    let t = node[0]
+    if t == 0
+        node
+    if t == 5
+        node
+    if t == 2
+      let val = _cp_lookup(env, node[1], 0, arr_len(env))
+      if val != 0
+          val
+      node
+    if t == 3
+      let left = opt_const_prop_expr(node[2], env)
+      let right = opt_const_prop_expr(node[3], env)
+      let new_node = arr_new_n(4)
+      new_node[0] = 3
+      new_node[1] = node[1]
+      new_node[2] = left
+      new_node[3] = right
+      new_node
+    if t == 1
+      _cp_call_args(node, node[1], node[2], env, arr_new(), 0, arr_len(node[2]))
+    node
+
+let _cp_call_args(orig, name, args, env, new_args, i, n) =
+    if i >= n
+      let node = arr_new_n(3)
+      node[0] = 1
+      node[1] = name
+      node[2] = new_args
+      node
+    let propagated = opt_const_prop_expr(arr_get(args, i), env)
+    _cp_call_args(orig, name, args, env, arr_push(new_args, propagated), i + 1, n)
+
+let _cp_stmts_acc(stmts, new_stmts, env, i, n) =
+    if i >= n
+        new_stmts
+    let stmt = arr_get(stmts, i)
+    let t = stmt[0]
+    if t == 10
+      let propagated = opt_const_prop_expr(stmt[2], env)
+      let new_stmt = arr_new_n(3)
+      new_stmt[0] = 10
+      new_stmt[1] = stmt[1]
+      new_stmt[2] = propagated
+      let new_env = (propagated[0] == 0 ? _cp_bind(env, stmt[1], propagated) : env)
+      _cp_stmts_acc(stmts, arr_push(new_stmts, new_stmt), new_env, i + 1, n)
+    if t == 14
+      let propagated = opt_const_prop_expr(stmt[1], env)
+      let new_stmt = arr_new_n(2)
+      new_stmt[0] = 14
+      new_stmt[1] = propagated
+      _cp_stmts_acc(stmts, arr_push(new_stmts, new_stmt), env, i + 1, n)
+    if t == 17
+      let propagated = opt_const_prop_expr(stmt[1], env)
+      let new_stmt = arr_new_n(2)
+      new_stmt[0] = 17
+      new_stmt[1] = propagated
+      _cp_stmts_acc(stmts, arr_push(new_stmts, new_stmt), env, i + 1, n)
+    if t == 16
+      let cond = opt_const_prop_expr(stmt[1], env)
+      let then_cp = _cp_stmts_acc(stmt[2], arr_new(), env, 0, arr_len(stmt[2]))
+      let els_cp = (stmt[3] == 0 ? 0 : _cp_stmts_acc(stmt[3], arr_new(), env, 0, arr_len(stmt[3])))
+      let new_stmt = arr_new_n(4)
+      new_stmt[0] = 16
+      new_stmt[1] = cond
+      new_stmt[2] = then_cp
+      new_stmt[3] = els_cp
+      _cp_stmts_acc(stmts, arr_push(new_stmts, new_stmt), env, i + 1, n)
+    if t == 20
+      let body_cp = _cp_stmts_acc(stmt[3], arr_new(), arr_new(), 0, arr_len(stmt[3]))
+      let new_stmt = arr_new_n(5)
+      new_stmt[0] = 20
+      new_stmt[1] = stmt[1]
+      new_stmt[2] = stmt[2]
+      new_stmt[3] = body_cp
+      new_stmt[4] = stmt[4]
+      _cp_stmts_acc(stmts, arr_push(new_stmts, new_stmt), env, i + 1, n)
+    _cp_stmts_acc(stmts, arr_push(new_stmts, stmt), env, i + 1, n)
+
+let opt_const_prop_stmts(stmts) = _cp_stmts_acc(stmts, arr_new(), arr_new(), 0, arr_len(stmts))
+
+let opt_pipeline_once(stmts) =
+    let s1 = opt_const_prop_stmts(stmts)
+    let s2 = opt_const_fold_stmts(s1)
+    let s3 = opt_dce_stmts(s2)
+    let s4 = opt_strength_reduce_stmts(s3)
+    s4
+
+let _ast_eq_stmts(a, b) =
+    let na = arr_len(a)
+    let nb = arr_len(b)
+    if na != nb
+        0
+    _ast_eq_acc(a, b, 0, na)
+let _ast_eq_acc(a, b, i, n) =
+    if i >= n
+        1
+    let sa = arr_get(a, i)
+    let sb = arr_get(b, i)
+    if sa[0] != sb[0]
+        0
+    _ast_eq_acc(a, b, i + 1, n)
+
+let _pipeline_acc(stmts, iter, max_iter) =
+    if iter >= max_iter
+        stmts
+    let optimized = opt_pipeline_once(stmts)
+    if _ast_eq_stmts(stmts, optimized) == 1
+      optimized
+    _pipeline_acc(optimized, iter + 1, max_iter)
+
+let opt_pipeline(stmts) = _pipeline_acc(stmts, 0, 8)
+
+let mk_int(n) =
+    let node = arr_new_n(2)
+    node[0] = 0
+    node[1] = n
+    node
+
+let INLINE_THRESHOLD = 3
+
+let _inline_collect_fns(stmts, env, i, n) =
+    if i >= n
+        env
+    let stmt = arr_get(stmts, i)
+    if stmt[0] == 20
+      let body = stmt[3]
+      if arr_len(body) <= INLINE_THRESHOLD
+        let triple = arr_new_n(3)
+        triple[0] = stmt[1]
+        triple[1] = stmt[2]
+        triple[2] = body
+        _inline_collect_fns(stmts, arr_push(env, triple), i + 1, n)
+    _inline_collect_fns(stmts, env, i + 1, n)
+
+let _inline_lookup(env, name, i, n) =
+    if i >= n
+        0
+    let triple = arr_get(env, i)
+    if str_equal(arr_get(triple, 0), name) == 1
+        triple
+    _inline_lookup(env, name, i + 1, n)
+
+let _inline_subst_params(body, params, args, i, n) =
+    if i >= n
+        body
+    _inline_subst_params(_inline_subst_one(body, arr_get(params, i), arr_get(args, i), 0, arr_len(body)), params, args, i + 1, n)
+
+let _inline_subst_one(stmts, param, arg, i, n) =
+    if i >= n
+        stmts
+    let stmt = arr_get(stmts, i)
+    let t = stmt[0]
+    if t == 14
+      let new_expr = _inline_subst_expr(stmt[1], param, arg)
+      arr_set(stmts, i, _mk_return(new_expr))
+    _inline_subst_one(stmts, param, arg, i + 1, n)
+
+let _inline_subst_expr(node, param, arg) =
+    if node == 0
+        0
+    let t = node[0]
+    if t == 0
+        node
+    if t == 5
+        node
+    if t == 2
+      if str_equal(node[1], param) == 1
+          arg
+      node
+    if t == 3
+      let left = _inline_subst_expr(node[2], param, arg)
+      let right = _inline_subst_expr(node[3], param, arg)
+      let new_node = arr_new_n(4)
+      new_node[0] = 3
+      new_node[1] = node[1]
+      new_node[2] = left
+      new_node[3] = right
+      new_node
+    if t == 1
+      _inline_subst_call_args(node, node[2], param, arg, arr_new(), 0, arr_len(node[2]))
+    node
+
+let _inline_subst_call_args(orig, args, param, arg, new_args, i, n) =
+    if i >= n
+      let node = arr_new_n(3)
+      node[0] = 1
+      node[1] = orig[1]
+      node[2] = new_args
+      node
+    _inline_subst_call_args(orig, args, param, arg, arr_push(new_args, _inline_subst_expr(arr_get(args, i), param, arg)), i + 1, n)
+
+let opt_inline_expr(node, env) =
+    if node == 0
+        0
+    let t = node[0]
+    if t == 1
+      let name = node[1]
+      let args = node[2]
+      let triple = _inline_lookup(env, name, 0, arr_len(env))
+      if triple != 0
+        let params = arr_get(triple, 1)
+        let body = arr_get(triple, 2)
+        let body_copy = _inline_deep_copy_stmts(body, 0, arr_len(body))
+        let body_subst = _inline_subst_params(body_copy, params, args, 0, arr_len(params))
+        let last = arr_get(body_subst, arr_len(body_subst) - 1)
+        if last[0] == 14
+          opt_inline_expr(last[1], env)
+    if t == 3
+      let left = opt_inline_expr(node[2], env)
+      let right = opt_inline_expr(node[3], env)
+      let new_node = arr_new_n(4)
+      new_node[0] = 3
+      new_node[1] = node[1]
+      new_node[2] = left
+      new_node[3] = right
+      new_node
+    node
+
+let _inline_deep_copy_stmts(stmts, i, n) =
+    if i >= n
+        arr_new()
+    let dst = arr_new_n(n)
+    _inline_copy_acc(stmts, dst, 0, n)
+let _inline_copy_acc(src, dst, i, n) =
+    if i >= n
+        dst
+    arr_set(dst, i, arr_get(src, i))
+    _inline_copy_acc(src, dst, i + 1, n)
+
+let _inline_stmts_acc(stmts, new_stmts, env, i, n) =
+    if i >= n
+        new_stmts
+    let stmt = arr_get(stmts, i)
+    let t = stmt[0]
+    if t == 20
+      let body = stmt[3]
+      let body_inlined = _inline_stmts_acc(body, arr_new(), env, 0, arr_len(body))
+      let new_stmt = arr_new_n(5)
+      new_stmt[0] = 20
+      new_stmt[1] = stmt[1]
+      new_stmt[2] = stmt[2]
+      new_stmt[3] = body_inlined
+      new_stmt[4] = stmt[4]
+      let new_env = (arr_len(body) <= INLINE_THRESHOLD ? _inline_add_fn(env, stmt[1], stmt[2], body_inlined) : env)
+      _inline_stmts_acc(stmts, arr_push(new_stmts, new_stmt), new_env, i + 1, n)
+    if t == 10
+      let inlined = opt_inline_expr(stmt[2], env)
+      let new_stmt = arr_new_n(3)
+      new_stmt[0] = 10
+      new_stmt[1] = stmt[1]
+      new_stmt[2] = inlined
+      _inline_stmts_acc(stmts, arr_push(new_stmts, new_stmt), env, i + 1, n)
+    if t == 14
+      let inlined = opt_inline_expr(stmt[1], env)
+      let new_stmt = arr_new_n(2)
+      new_stmt[0] = 14
+      new_stmt[1] = inlined
+      _inline_stmts_acc(stmts, arr_push(new_stmts, new_stmt), env, i + 1, n)
+    if t == 16
+      let cond = opt_inline_expr(stmt[1], env)
+      let then_inl = _inline_stmts_acc(stmt[2], arr_new(), env, 0, arr_len(stmt[2]))
+      let els_inl = (stmt[3] == 0 ? 0 : _inline_stmts_acc(stmt[3], arr_new(), env, 0, arr_len(stmt[3])))
+      let new_stmt = arr_new_n(4)
+      new_stmt[0] = 16
+      new_stmt[1] = cond
+      new_stmt[2] = then_inl
+      new_stmt[3] = els_inl
+      _inline_stmts_acc(stmts, arr_push(new_stmts, new_stmt), env, i + 1, n)
+    _inline_stmts_acc(stmts, arr_push(new_stmts, stmt), env, i + 1, n)
+
+let _inline_add_fn(env, name, params, body) =
+    let triple = arr_new_n(3)
+    triple[0] = name
+    triple[1] = params
+    triple[2] = body
+    arr_push(env, triple)
+
+let opt_inline_stmts(stmts) =
+    let env = _inline_collect_fns(stmts, arr_new(), 0, arr_len(stmts))
+    _inline_stmts_acc(stmts, arr_new(), env, 0, arr_len(stmts))
+
+let opt_licm_stmts(stmts) = stmts
+
+let _deforest_compose(f_name, g_name) =
+    let g_call = arr_new_n(3)
+    g_call[0] = 1
+    g_call[1] = g_name
+    g_call[2] = arr_new_n(1)
+    let x_var = arr_new_n(2)
+    x_var[0] = 2
+    x_var[1] = "x"
+    arr_set(g_call[2], 0, x_var)
+
+    let f_call = arr_new_n(3)
+    f_call[0] = 1
+    f_call[1] = f_name
+    f_call[2] = arr_new_n(1)
+    arr_set(f_call[2], 0, g_call)
+    f_call
+
+let opt_deforest_expr(node) =
+    if node == 0
+        0
+    let t = node[0]
+    if t == 1
+      let name = node[1]
+      let args = node[2]
+
+      if str_equal(name, "arr_map") == 1
+        if arr_len(args) == 2
+          let inner = arr_get(args, 1)
+          if inner[0] == 1
+            if str_equal(inner[1], "arr_map") == 1
+              let f_name = arr_get(args, 0)[1]
+              let g_name = arr_get(inner[2], 0)[1]
+              let xs = arr_get(inner[2], 1)
+              let new_args = arr_new_n(2)
+              let f_var = arr_new_n(2)
+              f_var[0] = 2
+              f_var[1] = str_append(f_name, str_append("_", g_name))
+              arr_set(new_args, 0, f_var)
+              arr_set(new_args, 1, xs)
+              let new_node = arr_new_n(3)
+              new_node[0] = 1
+              new_node[1] = "arr_map"
+              new_node[2] = new_args
+              new_node
+
+      if str_equal(name, "arr_len") == 1
+        if arr_len(args) == 1
+          let inner = arr_get(args, 0)
+          if inner[0] == 1
+            if str_equal(inner[1], "arr_map") == 1
+              let xs = arr_get(inner[2], 1)
+              let new_args = arr_new_n(1)
+              arr_set(new_args, 0, xs)
+              let new_node = arr_new_n(3)
+              new_node[0] = 1
+              new_node[1] = "arr_len"
+              new_node[2] = new_args
+              new_node
+    node
+
+let _deforest_stmts_acc(stmts, new_stmts, i, n) =
+    if i >= n
+        new_stmts
+    let stmt = arr_get(stmts, i)
+    let t = stmt[0]
+    if t == 10
+      let deforested = opt_deforest_expr(stmt[2])
+      let new_stmt = arr_new_n(3)
+      new_stmt[0] = 10
+      new_stmt[1] = stmt[1]
+      new_stmt[2] = deforested
+      _deforest_stmts_acc(stmts, arr_push(new_stmts, new_stmt), i + 1, n)
+    if t == 14
+      let deforested = opt_deforest_expr(stmt[1])
+      let new_stmt = arr_new_n(2)
+      new_stmt[0] = 14
+      new_stmt[1] = deforested
+      _deforest_stmts_acc(stmts, arr_push(new_stmts, new_stmt), i + 1, n)
+    if t == 17
+      let deforested = opt_deforest_expr(stmt[1])
+      let new_stmt = arr_new_n(2)
+      new_stmt[0] = 17
+      new_stmt[1] = deforested
+      _deforest_stmts_acc(stmts, arr_push(new_stmts, new_stmt), i + 1, n)
+    _deforest_stmts_acc(stmts, arr_push(new_stmts, stmt), i + 1, n)
+
+let opt_deforest_stmts(stmts) = _deforest_stmts_acc(stmts, arr_new(), 0, arr_len(stmts))
+
+let opt_gf_rewrite_expr(node) =
+    if node == 0
+        0
+    let t = node[0]
+    if t == 3
+      let op = node[1]
+      let left = opt_gf_rewrite_expr(node[2])
+      let right = opt_gf_rewrite_expr(node[3])
+
+      if op == 42
+        if right[0] == 0
+          if right[1] == 1
+              left
+          if right[1] == 0
+              mk_int(0)
+      if op == 43 || op == 45
+        if right[0] == 0
+          if right[1] == 0
+              left
+      if op == 42
+        if left[0] == 2
+          if right[0] == 2
+            if str_equal(left[1], right[1]) == 1
+              let args = arr_new_n(1)
+              arr_set(args, 0, left)
+              let call = arr_new_n(3)
+              call[0] = 1
+              call[1] = "math_sqr"
+              call[2] = args
+              call
+
+      let new_node = arr_new_n(4)
+      new_node[0] = 3
+      new_node[1] = op
+      new_node[2] = left
+      new_node[3] = right
+      new_node
+    if t == 1
+      let name = node[1]
+      if str_equal(name, "gf_mul") == 1
+        let args = node[2]
+        if arr_len(args) == 2
+          let right = arr_get(args, 1)
+          if right[0] == 0
+            if right[1] == 1
+                arr_get(args, 0)
+            if right[1] == 0
+                mk_int(0)
+      _gf_rewrite_call_args(node, name, node[2], arr_new(), 0, arr_len(node[2]))
+    node
+
+let _gf_rewrite_call_args(orig, name, args, new_args, i, n) =
+    if i >= n
+      let node = arr_new_n(3)
+      node[0] = 1
+      node[1] = name
+      node[2] = new_args
+      node
+    _gf_rewrite_call_args(orig, name, args, arr_push(new_args, opt_gf_rewrite_expr(arr_get(args, i))), i + 1, n)
+
+let _gf_rewrite_stmts_acc(stmts, new_stmts, i, n) =
+    if i >= n
+        new_stmts
+    let stmt = arr_get(stmts, i)
+    let t = stmt[0]
+    if t == 10
+      let rewritten = opt_gf_rewrite_expr(stmt[2])
+      let new_stmt = arr_new_n(3)
+      new_stmt[0] = 10
+      new_stmt[1] = stmt[1]
+      new_stmt[2] = rewritten
+      _gf_rewrite_stmts_acc(stmts, arr_push(new_stmts, new_stmt), i + 1, n)
+    if t == 14
+      let rewritten = opt_gf_rewrite_expr(stmt[1])
+      let new_stmt = arr_new_n(2)
+      new_stmt[0] = 14
+      new_stmt[1] = rewritten
+      _gf_rewrite_stmts_acc(stmts, arr_push(new_stmts, new_stmt), i + 1, n)
+    if t == 16
+      let cond = opt_gf_rewrite_expr(stmt[1])
+      let then_rw = _gf_rewrite_stmts_acc(stmt[2], arr_new(), 0, arr_len(stmt[2]))
+      let els_rw = (stmt[3] == 0 ? 0 : _gf_rewrite_stmts_acc(stmt[3], arr_new(), 0, arr_len(stmt[3])))
+      let new_stmt = arr_new_n(4)
+      new_stmt[0] = 16
+      new_stmt[1] = cond
+      new_stmt[2] = then_rw
+      new_stmt[3] = els_rw
+      _gf_rewrite_stmts_acc(stmts, arr_push(new_stmts, new_stmt), i + 1, n)
+    if t == 20
+      let body_rw = _gf_rewrite_stmts_acc(stmt[3], arr_new(), 0, arr_len(stmt[3]))
+      let new_stmt = arr_new_n(5)
+      new_stmt[0] = 20
+      new_stmt[1] = stmt[1]
+      new_stmt[2] = stmt[2]
+      new_stmt[3] = body_rw
+      new_stmt[4] = stmt[4]
+      _gf_rewrite_stmts_acc(stmts, arr_push(new_stmts, new_stmt), i + 1, n)
+    _gf_rewrite_stmts_acc(stmts, arr_push(new_stmts, stmt), i + 1, n)
+
+let opt_gf_rewrite_stmts(stmts) = _gf_rewrite_stmts_acc(stmts, arr_new(), 0, arr_len(stmts))
+
+let _mk_return(expr) =
+    let node = arr_new_n(2)
+    node[0] = 14
+    node[1] = expr
+    node
+
+let opt_pipeline_once(stmts) =
+    let s1 = opt_const_prop_stmts(stmts)
+    let s2 = opt_const_fold_stmts(s1)
+    let s3 = opt_gf_rewrite_stmts(s2)
+    let s4 = opt_strength_reduce_stmts(s3)
+    let s5 = opt_deforest_stmts(s4)
+    let s6 = opt_inline_stmts(s5)
+    let s7 = opt_licm_stmts(s6)
+    let s8 = opt_dce_stmts(s7)
+    s8
+
+let opt_passes_layer_id() = 80
+let opt_passes_module_count() = 12

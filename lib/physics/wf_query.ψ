@@ -1,0 +1,61 @@
+let P = 65537
+let P2 = 131071
+
+import "../core/stdlib_lang2/gf_canon_shared.ψ"
+import "sh_d39d441e28.ψ"
+import "../core/stdlib_lang2/bm_canon.ψ"
+import "sh_ee308d734f.ψ"
+import "wf_brain.ψ"
+import "sh_bffc56f968.ψ"
+import "sh_0fe08dee05.ψ"
+let q_support(R, F, ST, id, out2) =
+    let bfc = ST[3]
+    let fc = ST[1]
+    let isb = f_known(F, bfc, id)
+    let found = 0
+    let ri = 0 - 1
+    let i = 0
+    for i < ST[0]
+        let cc = R[3 * i + 2]
+        let eq = 0
+        if cc == id
+            eq = 1
+        let k1 = f_known(F, fc, R[3 * i])
+        let k2 = f_known(F, fc, R[3 * i + 1])
+        let ready = eq * k1 * k2
+        let take = 0
+        if ready == 1
+            if found == 0
+                take = 1
+        if take == 1
+            ri = i
+            found = 1
+        i = i + 1
+    let useb = 0
+    if isb == 1
+        useb = 1
+    if useb == 1
+        if found == 0
+            ri = 0 - 1
+            found = 1
+    out2[0] = ri
+    out2[1] = found
+    out2[2] = useb
+    0
+
+let q_when(PF, pc, id, out2) =
+    let pos = 0 - 1
+    let i = 0
+    for i < pc
+        let eq = 0
+        if PF[i] == id
+            eq = 1
+        let take = 0
+        if eq == 1
+            if pos < 0
+                take = 1
+        if take == 1
+            pos = i
+        i = i + 1
+    out2[0] = pos
+    0

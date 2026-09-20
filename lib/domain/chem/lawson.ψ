@@ -1,0 +1,27 @@
+import "ck.ψ"
+let bad = [0]
+
+let qDT = 176
+bad[0] = bad[0] + ck(qDT, 175, 177)
+
+let nI = 100
+
+let tau = 37
+
+let TP = nI * 10 * tau
+bad[0] = bad[0] + ck(TP, 30000, 40000)
+
+let nt = nI * tau
+bad[0] = bad[0] + ck_lo(nt, 1500)
+
+let temp = 10
+bad[0] = bad[0] + ck(temp, 10, 13)
+
+let qFactor = 10
+bad[0] = bad[0] + ck(qFactor, 8, 12)
+
+let nMag = 100
+let nInert = 100000
+bad[0] = bad[0] + ck_hi(nMag, nInert)
+
+arr_get(arr_new_n(1), bad[0])

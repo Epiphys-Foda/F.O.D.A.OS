@@ -1,0 +1,135 @@
+let dph_cfrac_encode_impl(a, b, acc) =
+    let r = if b > 0
+      let q = a / b
+      let rem = a - q * b
+      if rem == 0
+        acc.push(q)
+      else
+        dph_cfrac_encode_impl(b, rem, acc.push(q))
+    else
+      acc
+    r
+
+let dph_cfrac_encode(a, b) =
+    (b == 0 ? [] : dph_cfrac_encode_impl(a, b, []))
+
+let dph_cfrac_decode_impl(cf, idx, num, den) =
+    let n = len(cf)
+    let r = if idx >= 0
+      let q = cf[idx]
+      if idx == n - 1
+        dph_cfrac_decode_impl(cf, idx - 1, q, 1)
+      else
+        let new_num = q * num + den
+        dph_cfrac_decode_impl(cf, idx - 1, new_num, num)
+    else
+      [num, den]
+    r
+
+let dph_cfrac_decode(cf) =
+    (len(cf) == 0 ? [0, 1] : dph_cfrac_decode_impl(cf, len(cf) - 1, 0, 0))
+
+let dph_cfrac_roundtrip(a, b) =
+    let cf = dph_cfrac_encode(a, b)
+    let back = dph_cfrac_decode(cf)
+    back[0] == a && back[1] == b
+
+let dph_mod_mul(a, b) =
+    let r = a * b
+    r - r / 65537 * 65537
+
+let dph_mod_pow(base, exp) =
+    let result = 1
+    let b = base
+    let e = exp
+    let done = false
+    for !done
+      if e > 0
+        if e - (e / 2) * 2 == 1
+          result = dph_mod_mul(result, b)
+        else
+          0
+        b = dph_mod_mul(b, b)
+        e = e / 2
+      else
+        done = true
+    result
+
+let dph_mod_inv(x) =
+    (x == 0 ? 0 : dph_mod_pow(x, 65535))
+
+let dph_vieta_flip(x, c) =
+    let inv = dph_mod_inv(x)
+    dph_mod_mul(c, inv)
+
+let dph_vieta_conserve(x, c) = dph_vieta_flip(dph_vieta_flip(x, c), c) == x
+
+let dph_vieta_orbit_impl(x, c, n, acc) =
+    let r = if n > 0
+      let nx = dph_vieta_flip(x, c)
+      if nx == x
+        acc.push(nx)
+      else
+        dph_vieta_orbit_impl(nx, c, n - 1, acc.push(nx))
+    else
+      acc
+    r
+
+let dph_vieta_orbit(x, c, n) = dph_vieta_orbit_impl(x, c, n, [])
+
+let dph_pow7_impl(i, acc) =
+    let r = if i > 0
+      let a2 = acc * 7
+      dph_pow7_impl(i - 1, a2 - a2 / 65537 * 65537)
+    else
+      acc
+    r
+
+let dph_pow7(i) = dph_pow7_impl(i, 1)
+
+let dph_cfrac_prefix_hash_impl(cf, m, idx, acc) =
+    let r = if idx < m
+      let w = dph_pow7(idx)
+      let term = cf[idx] * w
+      let acc2 = acc + term
+      let acc3 = acc2 - acc2 / 65537 * 65537
+      dph_cfrac_prefix_hash_impl(cf, m, idx + 1, acc3)
+    else
+      acc
+    r
+
+let dph_cfrac_prefix_hash(cf, m, idx, acc) = dph_cfrac_prefix_hash_impl(cf, m, 0, 0)
+
+let dph_token_hash(t, q, k) =
+    let cf = dph_cfrac_encode(t, q)
+    let m = (len(cf) < k ? len(cf) : k)
+    dph_cfrac_prefix_hash(cf, m, 0, 0)
+
+let dph_token_hash_ok(t, q, k) = dph_token_hash(t, q, k) == dph_token_hash(t, q, k)
+
+let dph_descend_impl(x, acc) =
+    let r = if x > 0
+      dph_descend_impl(x / 2, acc + 1)
+    else
+      acc
+    r
+
+let dph_descend(x) = dph_descend_impl(x, 0)
+
+let dph_descend_terminates(x) = dph_descend(x) <= x
+
+let dph_descend_monotone_impl(x) =
+    let r = if x > 1
+      let nx = x / 2
+      if nx < x
+        dph_descend_monotone_impl(nx)
+      else
+        false
+    else
+      true
+    r
+
+let dph_descend_monotone(x) = dph_descend_monotone_impl(x)
+
+let dph_summary() =
+    { theory: "Viete jumping · continued fractions · infinite descent", decoder: "Continued-fraction token hash (rational approximation, Softmax eliminated)", flip: "x → c/x mod 65537 (invertible conservation, O(1) context flip)", proof: "Descent termination = the physical form of program verification", keyword: "Diophantine decoding — from probability to number theory" }

@@ -1,0 +1,190 @@
+let clu_a2_step(xp, xc) = (1 + xc) / xp
+
+let clu_a2_seq_impl(xp, xc, n, k, acc) =
+    if k >= n
+        acc
+    else
+      let nx = (1 + xc) / xp
+      clu_a2_seq_impl(xc, nx, n, k + 1, acc.push(nx))
+
+let clu_a2_seq(x0, x1, n) = clu_a2_seq_impl(x0, x1, n, 2, [x0, x1])
+
+let clu_a1_step(xp, xc) = (xc * xc + 1) / xp
+
+let clu_a1_seq_impl(xp, xc, n, k, acc) =
+    if k >= n
+        acc
+    else
+      let nx = (xc * xc + 1) / xp
+      clu_a1_seq_impl(xc, nx, n, k + 1, acc.push(nx))
+
+let clu_a1_seq(x0, x1, n) = clu_a1_seq_impl(x0, x1, n, 2, [x0, x1])
+
+let clu_fib_impl(a, b, k, n) =
+    if k >= 2 * n - 1
+        b
+    else
+        clu_fib_impl(b, a + b, k + 1, n)
+
+let clu_fib_odd(n) = clu_fib_impl(1, 1, 2, n)
+
+let clu_markov_check(x, y, z) = x * x + y * y + z * z == 3 * x * y * z
+
+let clu_check_a2_rel_impl(s, i, end, ok) =
+    if i < end
+      let lhs = s[i + 1] * s[i - 1]
+      let rhs = 1 + s[i]
+      if lhs != rhs
+          false
+      else
+          clu_check_a2_rel_impl(s, i + 1, end, ok)
+    else
+        ok
+
+let clu_all_true_impl(results, i, n, ok) =
+    if i < n
+      let v = results[i]
+      if v == false
+          false
+      else
+          clu_all_true_impl(results, i + 1, n, ok)
+    else
+        ok
+
+let clu_all_true(results) = clu_all_true_impl(results, 0, len(results), true)
+
+let clu_verify() =
+    let s = clu_a2_seq(1, 1, 10)
+    let rel_ok = clu_check_a2_rel_impl(s, 1, 8, true)
+    let t = clu_a1_seq(1, 1, 7)
+    let t_ok = t[2] == 2 && t[3] == 5 && t[4] == 13 && t[5] == 34 && t[6] == 89
+    let fib_match = t[3] == clu_fib_odd(3) && t[4] == clu_fib_odd(4) && t[6] == clu_fib_odd(6)
+    let markov_ok = clu_markov_check(1, 2, 1) && clu_markov_check(clu_fib_odd(2), clu_fib_odd(3), 1) && clu_markov_check(clu_fib_odd(3), clu_fib_odd(4), 1) && clu_markov_check(clu_fib_odd(4), clu_fib_odd(5), 1)
+    let fib_correct = clu_fib_odd(1) == 1 && clu_fib_odd(2) == 2 && clu_fib_odd(3) == 5 && clu_fib_odd(5) == 34
+    let a2_period = s[0] == 1 && s[1] == 1 && s[2] == 2 && s[3] == 3 && s[4] == 2 && s[5] == 1 && s[6] == 1 && s[7] == 2
+    let t8 = clu_a1_seq(1, 1, 8)
+    let a1_ext = t8[7] == 233
+    let fib_ext = clu_fib_odd(6) == 89 && clu_fib_odd(7) == 233
+    let markov_ext = clu_markov_check(1, 5, 13) && clu_markov_check(1, 13, 34)
+    let a2_tail = s[8] == 3 && s[9] == 2
+    let rel_ext = clu_check_a2_rel_impl(s, 1, 9, true)
+    let inv_ext = clu_inv(5, 13) == 8
+    let fib_ext2 = clu_fib_odd(8) == 610
+    let markov_ext2 = clu_markov_check(1, 34, 89)
+    let a2_13 = clu_a2_gf(13, 5)
+    let a2_13_ok = a2_13[4] == 2
+    let inv_ext2 = clu_inv(3, 11) == 4
+    [
+      a2_period,
+      rel_ok,
+      t_ok,
+      fib_match,
+      markov_ok,
+      fib_correct,
+      a1_ext,
+      fib_ext,
+      markov_ext,
+      a2_tail,
+      rel_ext,
+      inv_ext,
+      fib_ext2,
+      markov_ext2,
+      a2_13_ok,
+      inv_ext2
+    ]
+
+let clu_inv(a, p) =
+    if a == 0
+        0
+    else
+      clu_pow_mod(a, p - 2, p)
+
+let clu_pow_mod_impl(base, exp, p, acc) =
+    if exp > 0
+        let new_acc = if exp - (exp / 2) * 2 == 1
+            let r = acc * base
+            r - r / p * p
+        else
+            acc
+        let r2 = base * base
+        let new_base = r2 - r2 / p * p
+        clu_pow_mod_impl(new_base, exp / 2, p, new_acc)
+    else
+        acc
+let clu_pow_mod(base, exp, p) = clu_pow_mod_impl(base, exp, p, 1)
+
+let clu_a2_gf_impl(p, n, k, xp, xc, acc) =
+    if k > n
+        acc
+    else
+      let inv_xp = clu_inv(xp, p)
+      let nx = ((1 + xc) * inv_xp) - ((1 + xc) * inv_xp) / p * p
+      clu_a2_gf_impl(p, n, k + 1, xc, nx, acc.push(nx))
+
+let clu_a2_gf(p, n) = clu_a2_gf_impl(p, n, 2, 1, 1, [1, 1])
+
+let clu_a1_gf_impl(p, n, k, xp, xc, acc) =
+    if k > n
+        acc
+    else
+      let inv_xp = clu_inv(xp, p)
+      let num = xc * xc + 1
+      let nx_raw = num * inv_xp
+      let nx = nx_raw - nx_raw / p * p
+      clu_a1_gf_impl(p, n, k + 1, xc, nx, acc.push(nx))
+
+let clu_a1_gf(p, n) = clu_a1_gf_impl(p, n, 2, 1, 1, [1, 1])
+
+let clu_a1_period_impl(p, limit, k, xp, xc) =
+    if k > limit
+        0
+    else
+      let inv_xp = clu_inv(xp, p)
+      let num = xc * xc + 1
+      let nx_raw = num * inv_xp
+      let nx = nx_raw - nx_raw / p * p
+      if xc == 1 && nx == 1
+          k - 1
+      else
+          0
+      if nx == 0
+          0
+      else
+          clu_a1_period_impl(p, limit, k + 1, xc, nx)
+
+let clu_a1_period(p, limit) = clu_a1_period_impl(p, limit, 2, 1, 1)
+
+let clu_verify_gf() =
+    let a2_7 = clu_a2_gf(7, 9)
+    let a2_7_ok = a2_7[0] == 1 && a2_7[1] == 1 && a2_7[2] == 2 && a2_7[3] == 3 && a2_7[4] == 2 && a2_7[5] == 1 && a2_7[6] == 1 && a2_7[7] == 2
+    let a2_65537 = clu_a2_gf(65537, 6)
+    let a2_65537_ok = a2_65537[5] == 1 && a2_65537[6] == 1
+    let p7 = clu_a1_period(7, 20) == 8
+    let p11 = clu_a1_period(11, 20) == 5
+    let a1_7 = clu_a1_gf(7, 9)
+    let a1_7_ok = a1_7[4] == 6 && a1_7[5] == 6 && a1_7[8] == 1
+    let a1_13 = clu_a1_gf(13, 5)
+    let a1_13_ok = a1_13[4] == 0
+    let a1_17 = clu_a1_gf(17, 5)
+    let a1_17_ok = a1_17[5] == 0
+    let fib_div_13 = clu_fib_odd(4) - clu_fib_odd(4) / 13 * 13 == 0
+    let fib_div_17 = clu_fib_odd(5) - clu_fib_odd(5) / 17 * 17 == 0
+    let s11 = clu_a1_seq(1, 1, 8)
+    let s12 = clu_a1_seq(1, 2, 7)
+    let sim_ok = s12[0] == s11[1] && s12[3] == s11[4] && s12[6] == s11[7]
+    let a2_11 = clu_a2_gf(11, 6)
+    let a2_11_ok = a2_11[2] == 2 && a2_11[3] == 3 && a2_11[4] == 2 && a2_11[5] == 1
+    let a2_big = clu_a2_gf(65537, 4)
+    let a2_big_ok = a2_big[2] == 2 && a2_big[3] == 3
+    let fib_exact = clu_fib_odd(4) == 13 && clu_fib_odd(5) == 34
+    let sim_ok2 = s11[2] == s12[1] && s11[3] == s12[2]
+    [
+      a2_7_ok, a2_65537_ok,
+      p7, p11,
+      a1_7_ok,
+      a1_13_ok, a1_17_ok,
+      fib_div_13, fib_div_17,
+      sim_ok,
+      a2_11_ok, a2_big_ok,
+      fib_exact, sim_ok2
+    ]

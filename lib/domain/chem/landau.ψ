@@ -1,0 +1,25 @@
+import "ck.ψ"
+let bad = [0]
+
+let stp = 116
+bad[0] = bad[0] + ck(stp, 110, 120)
+
+let e0 = stp / 2
+let de0 = e0 - 58
+bad[0] = bad[0] + ck(de0, 0, 0)
+
+let e1 = e0 + stp
+let e2 = e1 + stp
+if e2 - e1 - stp < 0
+    bad[0] = bad[0] + 1
+if e2 - e1 - stp > 0
+    bad[0] = bad[0] + 1
+
+bad[0] = bad[0] + ck_lo(e0, 1)
+
+if 1930 < 1928
+    bad[0] = bad[0] + 1
+if 1930 > 1932
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

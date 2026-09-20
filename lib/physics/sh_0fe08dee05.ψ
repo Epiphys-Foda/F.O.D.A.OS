@@ -1,0 +1,14 @@
+let rrns_commit(arr, n, prev1, prev2) =
+    let a1 = prev1
+    let a2 = prev2
+    let w1 = 1
+    let w2 = 1
+    let i = 0
+    for i < n
+        a1 = (a1 + arr[i] * w1) % P
+        a2 = (a2 + (arr[i] % P2) * w2) % P2
+        w1 = w1 * 3 % P
+        w2 = w2 * 3 % P2
+        i = i + 1
+    [a1, a2]
+

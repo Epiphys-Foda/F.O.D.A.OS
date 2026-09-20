@@ -1,0 +1,111 @@
+import "psi_dataflow.ψ"
+import "dag_scheduler.ψ"
+import "operator_spec.ψ"
+
+let md_build() =
+    let d = dag_create()
+    d = dag_add_node_v13_1(d, 1, 1, -1, 0)
+    d = dag_add_node_v13_1(d, 2, 6, -1, 1)
+    d = dag_add_node_v13_1(d, 3, 3, -1, 2)
+    d = dag_add_node_v13_1(d, 4, 6, -1, 3)
+    d = dag_add_node_v13_1(d, 5, 6, -1, 4)
+    d = dag_add_node_v13_1(d, 1, 1, -1, 5)
+    d = dag_add_node_v13_1(d, 2, 2, -1, 6)
+    d = dag_add_node_v13_1(d, 3, 3, -1, 7)
+    d = dag_add_node_v13_1(d, 4, 4, -1, 8)
+    d = dag_add_node_v13_1(d, 5, 5, -1, 9)
+    d = dag_add_node_v13_1(d, 6, 6, -1, 10)
+    d = dag_add_node_v13_1(d, 16, 16, -1, 11)
+    d = dag_add_node_v13_1(d, 17, 17, -1, 12)
+    d = dag_add_node_v13_1(d, 10, 1, -1, 13)
+    d = dag_add_node_v13_1(d, 22, 6, -1, 14)
+    d = dag_add_node_v13_1(d, 30, 3, -1, 15)
+    d = dag_add_node_v13_1(d, 40, 6, -1, 16)
+    d = dag_add_node_v13_1(d, 50, 6, -1, 17)
+    d = dag_add_edge_v13_1(d, 0, 0, 13, 0, 0, 4)
+    d = dag_add_edge_v13_1(d, 1, 0, 14, 0, 0, 4)
+    d = dag_add_edge_v13_1(d, 2, 0, 15, 0, 0, 4)
+    d = dag_add_edge_v13_1(d, 3, 0, 16, 0, 0, 4)
+    d = dag_add_edge_v13_1(d, 4, 0, 17, 0, 0, 4)
+    d = dag_add_edge_v13_1(d, 0, 0, 5, 0, 0, 4)
+    d = dag_add_edge_v13_1(d, 1, 0, 10, 0, 0, 4)
+    d = dag_add_edge_v13_1(d, 2, 0, 7, 0, 0, 4)
+    d = dag_add_edge_v13_1(d, 3, 0, 10, 0, 0, 4)
+    d = dag_add_edge_v13_1(d, 4, 0, 10, 0, 0, 4)
+    d
+
+let md_project_ops(md) =
+    let result = []
+    let i = 0
+    let n = md.node_count
+    let done = false
+    let micro = -1
+    for !done
+      if i < 5
+        micro = -1
+        let node = md.nodes[i]
+        let ei = 0
+        let en = len(md.edges)
+        let ed = false
+        for !ed
+          if ei < en
+            let e = md.edges[ei]
+            if e.src_node == i && e.dst_node >= 13
+              micro = md.nodes[e.dst_node].opcode
+            else
+              0
+            ei = ei + 1
+          else
+            ed = true
+        result = result.push({ opcode: node.opcode, micro: micro })
+        i = i + 1
+      else
+        done = true
+    result
+
+let md_project_pes(md) =
+    let result = []
+    let i = 0
+    let done = false
+    let pe = -1
+    for !done
+      if i < 5
+        pe = -1
+        let ei = 0
+        let en = len(md.edges)
+        let ed = false
+        for !ed
+          if ei < en
+            let e = md.edges[ei]
+            if e.src_node == i && e.dst_node >= 5 && e.dst_node <= 12
+              pe = md.nodes[e.dst_node].pe_type
+            else
+              0
+            ei = ei + 1
+          else
+            ed = true
+        result = result.push({ opcode: md.nodes[i].opcode, pe: pe })
+        i = i + 1
+      else
+        done = true
+    result
+
+let md_eval_one(node_id, opcode, pe_type) =
+    1
+let md_run(md) =
+    sched_run(md, md_eval_one)
+
+let md_consistency(md) =
+    let results = []
+    let ops = md_project_ops(md)
+    let pes = md_project_pes(md)
+    results = results.push(len(ops) == 5)
+    results = results.push(ops[0].micro == op_micro(1))
+    results = results.push(ops[1].micro == op_micro(2))
+    results = results.push(ops[4].micro == op_micro(5))
+    results = results.push(pes[0].pe == op_pe_type(1))
+    results = results.push(pes[2].pe == op_pe_type(3))
+    results = results.push(pes[4].pe == op_pe_type(5))
+    results
+
+let md_meta_count(md) = md.node_count

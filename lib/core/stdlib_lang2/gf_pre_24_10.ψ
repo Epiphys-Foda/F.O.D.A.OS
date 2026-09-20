@@ -1,0 +1,10 @@
+let wfc_pow(base, exp) =
+    let result = 1
+    let b = base % P
+    let e = exp
+    for e > 0
+        if e % 2 == 1
+            result = wfc_mul(result, b)
+        b = wfc_mul(b, b)
+        e = e / 2
+    result

@@ -1,0 +1,173 @@
+let linear_regression(xs, ys) =
+    let n = xs.len()
+    let sum_x = 0
+    let sum_y = 0
+    let sum_xy = 0
+    let sum_x2 = 0
+    let sum_y2 = 0
+    let i = 0
+    for i < n
+        sum_x = sum_x + xs[i]
+        sum_y = sum_y + ys[i]
+        sum_xy = sum_xy + xs[i] * ys[i]
+        sum_x2 = sum_x2 + xs[i] * xs[i]
+        sum_y2 = sum_y2 + ys[i] * ys[i]
+        i = i + 1
+    let denom = n * sum_x2 - sum_x * sum_x
+    if denom == 0
+        [0, 0, 0]
+    else
+        let b = (n * sum_xy - sum_x * sum_y) / denom
+        let a = (sum_y - b * sum_x) / n
+        let mean_y = sum_y / n
+        let ss_tot = 0
+        let ss_res = 0
+        let i = 0
+        for i < n
+            let residual = ys[i] - (a + b * xs[i])
+            ss_res = ss_res + residual * residual
+            let tot = ys[i] - mean_y
+            ss_tot = ss_tot + tot * tot
+            i = i + 1
+        let r2 = 0
+        if ss_tot > 0
+            r2 = 1000 - ss_res * 1000 / ss_tot
+        [a, b, r2]
+
+let polynomial_fit(xs, ys, degree) =
+    if degree == 1
+        let lr = linear_regression(xs, ys)
+        [lr[0], lr[1]]
+    else
+        0
+    if degree == 2
+        let n = xs.len()
+        let s0 = n
+        let s1 = 0
+        let s2 = 0
+        let s3 = 0
+        let s4 = 0
+        let t0 = 0
+        let t1 = 0
+        let t2 = 0
+        let i = 0
+        for i < n
+            let x = xs[i]
+            let x2 = x * x
+            let x3 = x2 * x
+            let x4 = x3 * x
+            s1 = s1 + x
+            s2 = s2 + x2
+            s3 = s3 + x3
+            s4 = s4 + x4
+            t0 = t0 + ys[i]
+            t1 = t1 + ys[i] * x
+            t2 = t2 + ys[i] * x2
+            i = i + 1
+        let det = s0 * (s2 * s4 - s3 * s3) - s1 * (s1 * s4 - s3 * s2) + s2 * (s1 * s3 - s2 * s2)
+        if det == 0
+            [0, 0, 0]
+        else
+            let a = (t0 * (s2 * s4 - s3 * s3) - s1 * (t1 * s4 - s3 * t2) + s2 * (t1 * s3 - t2 * s2)) / det
+            let b = (s0 * (t1 * s4 - s3 * t2) - t0 * (s1 * s4 - s3 * s2) + s2 * (s1 * t2 - t1 * s2)) / det
+            let c = (s0 * (s2 * t2 - t1 * s3) - s1 * (s1 * t2 - t1 * s2) + t0 * (s1 * s3 - s2 * s2)) / det
+            [a, b, c]
+    else
+        [0]
+
+let exponential_fit(xs, ys) =
+    let log_ys = []
+    let i = 0
+    for i < ys.len()
+        if ys[i] > 0
+            let x = ys[i]
+            let log_val = 0
+            for x > 1
+                x = x / 2
+                log_val = log_val + 1
+            log_ys = arr_concat(log_ys, [log_val * 1000])
+        else
+            log_ys = arr_concat(log_ys, [0])
+        i = i + 1
+    let lr = linear_regression(xs, log_ys)
+    let a = 1
+    let i = 0
+    for i < lr[0] / 693
+        a = a * 2
+        i = i + 1
+    [a, lr[1]]
+
+let power_fit(xs, ys) =
+    let log_xs = []
+    let log_ys = []
+    let i = 0
+    for i < xs.len()
+        if xs[i] > 0 && ys[i] > 0
+            let x = xs[i]
+            let lx = 0
+            for x > 1
+                x = x / 2
+                lx = lx + 1
+            log_xs = arr_concat(log_xs, [lx])
+            let y = ys[i]
+            let ly = 0
+            for y > 1
+                y = y / 2
+                ly = ly + 1
+            log_ys = arr_concat(log_ys, [ly])
+        else
+            log_xs = arr_concat(log_xs, [0])
+            log_ys = arr_concat(log_ys, [0])
+        i = i + 1
+    let lr = linear_regression(log_xs, log_ys)
+    [lr[0], lr[1]]
+
+let moving_average(data, window) =
+    let result = []
+    let i = 0
+    for i < data.len()
+        let sum = 0
+        let count = 0
+        let j = i - window / 2
+        for j <= i + window / 2
+            if j >= 0 && j < data.len()
+                sum = sum + data[j]
+                count = count + 1
+            j = j + 1
+        result = arr_concat(result, [sum / count])
+        i = i + 1
+    result
+
+let weighted_least_squares(xs, ys, weights) =
+    let sw = 0
+    let swx = 0
+    let swy = 0
+    let swxy = 0
+    let swx2 = 0
+    let i = 0
+    for i < xs.len()
+        let w = weights[i]
+        sw = sw + w
+        swx = swx + w * xs[i]
+        swy = swy + w * ys[i]
+        swxy = swxy + w * xs[i] * ys[i]
+        swx2 = swx2 + w * xs[i] * xs[i]
+        i = i + 1
+    let denom = sw * swx2 - swx * swx
+    if denom == 0
+        [0, 0]
+    else
+        let b = (sw * swxy - swx * swy) / denom
+        let a = (swy - b * swx) / sw
+        [a, b]
+
+let main() =
+    let xs = [1, 2, 3, 4, 5]
+    let ys = [2, 4, 5, 4, 5]
+    let lr = linear_regression(xs, ys)
+    print(lr)
+    let pf = polynomial_fit(xs, ys, 2)
+    print(pf)
+    let ma = moving_average(ys, 3)
+    print(ma)
+    0

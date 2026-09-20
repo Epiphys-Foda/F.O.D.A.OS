@@ -1,0 +1,36 @@
+let P = 65537
+let P2 = 131071
+
+import "../core/stdlib_lang2/gf_canon_shared.ψ"
+import "sh_d39d441e28.ψ"
+import "wf_brain.ψ"
+import "../core/stdlib_lang2/bm_canon.ψ"
+import "sh_ee308d734f.ψ"
+import "sh_bffc56f968.ψ"
+import "sh_0fe08dee05.ψ"
+let tol_hit(num, den, actual, tol) =
+    let aden = abs_i(den)
+    let diff = abs_i(num - actual * den)
+    let lim = tol * aden
+    let hit = 0
+    if diff <= lim
+        hit = 1
+    hit
+
+let rydberg_frac(nn, tt, out2) =
+    let q1 = nn[0] * nn[0]
+    let q2 = nn[1] * nn[1]
+    out2[0] = (tt[1] - tt[0]) * q1 * q2
+    out2[1] = q2 - q1
+    0
+
+let ryd_ok(num, den) =
+    let lhs = num * 100
+    let rhs = 10967759 * den
+    let diff = abs_i(lhs - rhs)
+    let lim = rhs / 1000
+    let ok = 0
+    if diff <= lim
+        ok = 1
+    ok
+

@@ -1,0 +1,135 @@
+let CMEM_P = 65537
+
+let cmem_pow(b, e) =
+    let r = 1
+    let base = b % CMEM_P
+    let ex = e
+    for ex > 0
+        if ex % 2 == 1
+            r = r * base % CMEM_P
+        base = base * base % CMEM_P
+        ex = ex / 2
+    r
+
+let cmem_inv(a) =
+    cmem_pow(a, CMEM_P - 2)
+
+let cmem_distinct(keys, n) =
+    let ok = 1
+    let i = 0
+    for i < n
+        let j = i + 1
+        for j < n
+            if keys[i] == keys[j]
+                ok = 0
+            j = j + 1
+        i = i + 1
+    ok
+
+let cmem_bary(keys, n) =
+    let lam = arr_new_n(n)
+    let j = 0
+    for j < n
+        let pr = 1
+        let l = 0
+        for l < n
+            if l != j
+                pr = pr * ((keys[j] - keys[l]) % CMEM_P) % CMEM_P
+            l = l + 1
+        lam[j] = cmem_inv(pr)
+        j = j + 1
+    lam
+
+let cmem_recall(keys, vals, lam, n, q) =
+    let i = 0
+    for i < n
+        if keys[i] == q
+            return vals[i]
+        i = i + 1
+    let sum = 0
+    let j = 0
+    for j < n
+        let pr = 1
+        let l = 0
+        for l < n
+            if l != j
+                pr = pr * ((q - keys[l]) % CMEM_P) % CMEM_P
+            l = l + 1
+        sum = (sum + vals[j] * lam[j] % CMEM_P * pr) % CMEM_P
+        j = j + 1
+    sum
+
+let cmem_forget(vals, n, c) =
+    let out = arr_new_n(n)
+    let i = 0
+    for i < n
+        out[i] = vals[i] * c % CMEM_P
+        i = i + 1
+    out
+
+let cmem_v_all() =
+    let ok = 1
+    let k64 = arr_new_n(64)
+    let v64 = arr_new_n(64)
+    let i = 0
+    for i < 64
+        k64[i] = 100 + 3 * i
+        v64[i] = (7 + 11 * i) % CMEM_P
+        i = i + 1
+    ok = ok * cmem_distinct(k64, 64)
+    let lam64 = cmem_bary(k64, 64)
+    let hit = 1
+    let i2 = 0
+    for i2 < 64
+        if cmem_recall(k64, v64, lam64, 64, k64[i2]) != v64[i2]
+            hit = 0
+        i2 = i2 + 1
+    ok = ok * hit
+    let k128 = arr_new_n(128)
+    let v128 = arr_new_n(128)
+    let i3 = 0
+    for i3 < 128
+        k128[i3] = 100 + 3 * i3
+        v128[i3] = (7 + 11 * i3) % CMEM_P
+        i3 = i3 + 1
+    let lam128 = cmem_bary(k128, 128)
+    let grow = 1
+    let i4 = 0
+    for i4 < 64
+        if cmem_recall(k128, v128, lam128, 128, k128[i4]) != v64[i4]
+            grow = 0
+        i4 = i4 + 1
+    let i5 = 64
+    for i5 < 128
+        if cmem_recall(k128, v128, lam128, 128, k128[i5]) != v128[i5]
+            grow = 0
+        i5 = i5 + 1
+    ok = ok * grow
+    let kr = arr_new_n(64)
+    let vr = arr_new_n(64)
+    let i6 = 0
+    for i6 < 64
+        kr[i6] = k64[63 - i6]
+        vr[i6] = v64[63 - i6]
+        i6 = i6 + 1
+    let lamr = cmem_bary(kr, 64)
+    let ord = 1
+    let t = 0
+    for t < 5
+        let probe = 101 + 7 * t
+        if cmem_recall(k64, v64, lam64, 64, probe) != cmem_recall(kr, vr, lamr, 64, probe)
+            ord = 0
+        t = t + 1
+    ok = ok * ord
+    let c = 222
+    let vd = cmem_forget(v64, 64, c)
+    let dec = 1
+    if cmem_recall(k64, vd, lam64, 64, 380) != cmem_recall(k64, v64, lam64, 64, 380) * c % CMEM_P
+        dec = 0
+    let i7 = 0
+    for i7 < 64
+        if cmem_recall(k64, vd, lam64, 64, k64[i7]) != v64[i7] * c % CMEM_P
+            dec = 0
+        i7 = i7 + 1
+    ok = ok * dec
+    ok

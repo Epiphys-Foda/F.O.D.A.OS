@@ -1,0 +1,109 @@
+let bytecode_new() =
+    [[], 0]
+
+let bytecode_emit(bc, opcode, operand) =
+    bc[0] = arr_concat(bc[0], [[opcode, operand]])
+    bc[1] = bc[1] + 1
+
+let bytecode_emit_op(bc, opcode) =
+    bytecode_emit(bc, opcode, 0)
+
+let bytecode_size(bc) =
+    bc[1]
+
+let bytecode_get(bc, index) =
+    bc[0][index]
+
+let inline_cache_new() =
+    [0, 0, 0]
+
+let inline_cache_record(cache, shape) =
+    if cache[0] == 0
+        cache[0] = shape
+        cache[1] = 1
+    else
+        0
+    if cache[0] == shape
+        cache[1] = cache[1] + 1
+    else
+        cache[1] = 0
+
+let inline_cache_hit(cache, shape) =
+    cache[0] == shape && cache[1] > 0
+
+let tier_new(threshold, compiler) =
+    [threshold, compiler, 0, 0]
+
+let tier_record_call(tier) =
+    tier[2] = tier[2] + 1
+    if tier[2] >= tier[0] && tier[3] == 0
+        tier[3] = 1
+        1
+    else
+        0
+
+let tier_should_compile(tier) =
+    tier[2] >= tier[0] && tier[3] == 0
+
+let tier_is_compiled(tier) =
+    tier[3]
+
+let profiler_new() =
+    [{}, {}, []]
+
+let profiler_record(prof, method, time) =
+    let count = prof[0][method]
+    if count == 0
+        count = 1
+    else
+        count = count + 1
+    prof[0][method] = count
+    let total_time = prof[1][method]
+    if total_time == 0
+        total_time = time
+    else
+        total_time = total_time + time
+    prof[1][method] = total_time
+
+let profiler_get_hot(prof, threshold) =
+    let hot = []
+    hot
+
+let deopt_new(reason, frame) =
+    [reason, frame]
+
+let spec_guard(expected, actual) =
+    (expected == actual ? 1 : 0)
+
+let ir_new() =
+    [[], 0]
+
+let ir_add(ir, op, args) =
+    let id = ir[1]
+    ir[0] = arr_concat(ir[0], [[id, op, args]])
+    ir[1] = ir[1] + 1
+    id
+
+let ir_get(ir, id) =
+    ir[0][id]
+
+let ir_count(ir) =
+    ir[1]
+
+let main() =
+    let bc = bytecode_new()
+    bytecode_emit(bc, 1, 42)
+    bytecode_emit(bc, 2, 10)
+    bytecode_emit_op(bc, 3)
+    print(bytecode_size(bc))
+    print(bytecode_get(bc, 0))
+    let cache = inline_cache_new()
+    inline_cache_record(cache, 100)
+    print(inline_cache_hit(cache, 100))
+    let tier = tier_new(100, 0)
+    let i = 0
+    for i < 105
+        tier_record_call(tier)
+        i = i + 1
+    print(tier_is_compiled(tier))
+    0

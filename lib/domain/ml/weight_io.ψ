@@ -1,0 +1,212 @@
+import "../../core/stdlib/gf65537.ψ"
+
+let FP32_SIGN_MASK = 0x80000000
+let FP32_EXP_MASK  = 0x7F800000
+let FP32_MANT_MASK = 0x007FFFFF
+let FP32_EXP_BIAS  = 127
+let FP32_MANT_BITS = 23
+
+let f32_sign(bits) = (bits >> 31) & 1
+
+let f32_exponent(bits) = (bits >> 23) & 255
+
+let f32_mantissa(bits) = bits & 8388607
+
+let f32_decompose(bits) =
+    let s = f32_sign(bits)
+    let raw_exp = f32_exponent(bits)
+    let raw_mant = f32_mantissa(bits)
+
+    if raw_exp == 0
+        if raw_mant == 0
+            [s, 0, 0]
+        else
+            let e = -126 - 23
+            [s, raw_mant, e]
+    else
+        if raw_exp == 255
+            [s, 1, 128]
+        else
+            let m = raw_mant + 8388608
+            let e = raw_exp - 127 - 23
+            [s, m, e]
+
+let f32_to_gf(bits) =
+    let d = f32_decompose(bits)
+    let s = d[0]
+    let m = d[1]
+    let e = d[2]
+
+    if m == 0
+        0
+    else
+        let m_gf = gf_reduce(m)
+        let e_val = 0
+        if e >= 0
+            e_val = gf_pow(2, e)
+        else
+            e_val = gf_inv(gf_pow(2, 0 - e))
+        let val = gf_mul(m_gf, e_val)
+        if s == 1
+            gf_neg(val)
+        else
+            val
+
+let f32_array_to_gf(f32_array) =
+    let result = []
+    let i = 0
+    let n = len(f32_array)
+    for i < n
+        result.push(f32_to_gf(f32_array[i]))
+        i = i + 1
+    result
+
+let parse_external_weights(raw_data) =
+    let n = raw_data[0]
+    let weights = []
+    let i = 0
+    for i < n
+        let bits = raw_data[i + 1]
+        weights.push(f32_to_gf(bits))
+        i = i + 1
+    weights
+
+let import_weight_layer(layer_weights, external_data) =
+    let gf_weights = f32_array_to_gf(external_data)
+    let n = len(gf_weights)
+    let result = []
+    let i = 0
+    for i < n
+        result.push(gf_weights[i])
+        i = i + 1
+    result
+
+let int8_to_gf(int8_array) =
+    let result = []
+    let i = 0
+    let n = len(int8_array)
+    for i < n
+        let v = int8_array[i]
+        if v < 0
+            result.push(gf_reduce(v + 65537))
+        else
+            result.push(gf_reduce(v))
+        i = i + 1
+    result
+
+let int4_to_gf(int4_array) =
+    let result = []
+    let i = 0
+    let n = len(int4_array)
+    for i < n
+        let v = int4_array[i] - 8
+        if v < 0
+            result.push(gf_reduce(v + 65537))
+        else
+            result.push(gf_reduce(v))
+        i = i + 1
+    result
+
+let CRT_DEFAULT_TOLERANCE = 100
+
+let f64_to_gf_approx(f64_bits) =
+    let high32 = f64_bits >> 32
+    f32_to_gf(high32)
+
+let crt_verify(gf_result, f64_ref_bits, tolerance) =
+    let ref_gf = f64_to_gf_approx(f64_ref_bits)
+    let diff = gf_sub(gf_result, ref_gf)
+    let abs_diff = gf_abs(diff)
+    if abs_diff <= tolerance
+        1
+    else
+        0
+
+let crt_verify_array(gf_results, f64_refs, tolerance) =
+    let n = len(gf_results)
+    let pass_count = 0
+    let i = 0
+    for i < n
+        let ok = crt_verify(gf_results[i], f64_refs[i], tolerance)
+        pass_count = pass_count + ok
+        i = i + 1
+    pass_count
+
+let FODA_MAGIC = 0x464F4441
+let FODA_VERSION = 1
+
+let foda_pack(layers) =
+    let packed = [FODA_MAGIC, FODA_VERSION, len(layers)]
+    let i = 0
+    let n = len(layers)
+    for i < n
+        let layer = layers[i]
+        packed.push(len(layer))
+        let j = 0
+        let m = len(layer)
+        for j < m
+            packed.push(layer[j])
+            j = j + 1
+        i = i + 1
+    packed
+
+let foda_unpack(packed) =
+    let magic = packed[0]
+    let version = packed[1]
+    let n_layers = packed[2]
+    let layers = []
+    let idx = 3
+    let i = 0
+    for i < n_layers
+        let layer_len = packed[idx]
+        idx = idx + 1
+        let layer = []
+        let j = 0
+        for j < layer_len
+            layer.push(packed[idx])
+            idx = idx + 1
+            j = j + 1
+        layers.push(layer)
+        i = i + 1
+    layers
+
+let import_and_verify(external_data, f64_refs, tolerance) =
+    let gf_weights = parse_external_weights(external_data)
+    let n = len(gf_weights)
+    let pass_count = 0
+    let i = 0
+    for i < n
+        let ok = crt_verify(gf_weights[i], f64_refs[i], tolerance)
+        pass_count = pass_count + ok
+        i = i + 1
+    [gf_weights, pass_count]
+
+let fp_self_test() =
+    let pass = 0
+
+    let bits_zero = 0
+    let gf_zero = f32_to_gf(bits_zero)
+    if gf_zero == 0
+        pass = pass + 1
+
+    let bits_one = 0x3F800000
+    let gf_one = f32_to_gf(bits_one)
+    let expected_one = gf_pow(2, 23)
+    if gf_one == expected_one
+        pass = pass + 1
+
+    let bits_neg_one = 0xBF800000
+    let gf_neg_one = f32_to_gf(bits_neg_one)
+    let expected_neg = gf_neg(gf_pow(2, 23))
+    if gf_neg_one == expected_neg
+        pass = pass + 1
+
+    pass
+
+let fp_customs_report() =
+    let t1 = fp_self_test()
+    let total = 3
+    let status = 0
+    if t1 == total
+        status = 1
+    status

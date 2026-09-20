@@ -1,0 +1,224 @@
+let IAM_USER_STATUS_ACTIVE = 0
+let IAM_USER_STATUS_DISABLED = 1
+let IAM_USER_STATUS_LOCKED = 2
+
+let IAM_CRED_PASSWORD = 0
+let IAM_CRED_OAUTH = 1
+let IAM_CRED_API_KEY = 2
+let IAM_CRED_MFA = 3
+
+let IAM_HASH_SALT_BASE = 65537
+
+let iam_user_new(id, username, email, created_at) =
+    [id, username, email, IAM_USER_STATUS_ACTIVE, [], {}, created_at, 0, 0, 0]
+
+let iam_user_id(u) = u[0]
+let iam_user_username(u) = u[1]
+let iam_user_email(u) = u[2]
+let iam_user_status(u) = u[3]
+let iam_user_credentials(u) = u[4]
+let iam_user_attributes(u) = u[5]
+let iam_user_created_at(u) = u[6]
+let iam_user_last_login(u) = u[7]
+let iam_user_login_count(u) = u[8]
+let iam_user_failed_attempts(u) = u[9]
+
+let iam_user_set_status(u, s) = [u[0], u[1], u[2], s, u[4], u[5], u[6], u[7], u[8], u[9]]
+let iam_user_set_credentials(u, c) = [u[0], u[1], u[2], u[3], c, u[5], u[6], u[7], u[8], u[9]]
+let iam_user_set_attributes(u, a) = [u[0], u[1], u[2], u[3], u[4], a, u[6], u[7], u[8], u[9]]
+let iam_user_set_last_login(u, t) = [u[0], u[1], u[2], u[3], u[4], u[5], u[6], t, u[8], u[9]]
+let iam_user_set_login_count(u, c) = [u[0], u[1], u[2], u[3], u[4], u[5], u[6], u[7], c, u[9]]
+let iam_user_set_failed_attempts(u, c) = [u[0], u[1], u[2], u[3], u[4], u[5], u[6], u[7], u[8], c]
+
+let iam_cred_new(kind, value, salt) = [kind, value, salt]
+
+let iam_cred_type(c) = c[0]
+let iam_cred_value(c) = c[1]
+let iam_cred_salt(c) = c[2]
+
+let iam_hash_password(username, password) =
+    let salt = 0
+    let i = 0
+    let n = len(username)
+    for i < n
+        salt = (salt * 31 + username[i]) % IAM_HASH_SALT_BASE
+        i = i + 1
+    let hash = salt
+    i = 0
+    for i < 1000
+        let j = 0
+        let m = len(password)
+        for j < m
+            hash = (hash * 31 + password[j]) % IAM_HASH_SALT_BASE
+            j = j + 1
+        hash = (hash * 7 + salt) % IAM_HASH_SALT_BASE
+        i = i + 1
+    [hash, salt]
+
+let iam_verify_password(username, password, expected_hash, expected_salt) =
+    let hash_res = iam_hash_password(username, password)
+    if hash_res[0] == expected_hash
+        if hash_res[1] == expected_salt
+            1
+        else
+            0
+    else
+        0
+
+let iam_user_set_password(u, username, password) =
+    let hash_res = iam_hash_password(username, password)
+    let cred = iam_cred_new(IAM_CRED_PASSWORD, hash_res[0], hash_res[1])
+    let creds = iam_user_credentials(u)
+    let new_creds = []
+    let i = 0
+    let n = len(creds)
+    for i < n
+        if iam_cred_type(creds[i]) != IAM_CRED_PASSWORD
+            new_creds.push(creds[i])
+        i = i + 1
+    new_creds.push(cred)
+    iam_user_set_credentials(u, new_creds)
+
+let iam_user_set_attribute(u, key, value) =
+    let attrs = iam_user_attributes(u)
+    attrs[key] = value
+    iam_user_set_attributes(u, attrs)
+
+let iam_user_get_attribute(u, key) =
+    let attrs = iam_user_attributes(u)
+    attrs[key]
+
+let iam_store_new() = [{}, {}, {}, 1, 0]
+
+let iam_store_users(s) = s[0]
+let iam_store_by_username(s) = s[1]
+let iam_store_by_email(s) = s[2]
+let iam_store_next_id(s) = s[3]
+let iam_store_total(s) = s[4]
+
+let iam_store_set_users(s, u) = [u, s[1], s[2], s[3], s[4]]
+let iam_store_set_by_username(s, b) = [s[0], b, s[2], s[3], s[4]]
+let iam_store_set_by_email(s, b) = [s[0], s[1], b, s[3], s[4]]
+let iam_store_set_next_id(s, n) = [s[0], s[1], s[2], n, s[4]]
+let iam_store_set_total(s, t) = [s[0], s[1], s[2], s[3], t]
+
+let iam_store_register(s, username, email, password, created_at) =
+    let id = iam_store_next_id(s)
+    let user = iam_user_new(id, username, email, created_at)
+    user = iam_user_set_password(user, username, password)
+    let users = iam_store_users(s)
+    users[id] = user
+    let by_user = iam_store_by_username(s)
+    by_user[username] = id
+    let by_email = iam_store_by_email(s)
+    by_email[email] = id
+    let s2 = iam_store_set_users(s, users)
+    s2 = iam_store_set_by_username(s2, by_user)
+    s2 = iam_store_set_by_email(s2, by_email)
+    s2 = iam_store_set_next_id(s2, id + 1)
+    s2 = iam_store_set_total(s2, iam_store_total(s2) + 1)
+    [s2, id]
+
+let iam_store_authenticate(s, username, password, now_ms, max_attempts) =
+    let by_user = iam_store_by_username(s)
+    let id = by_user[username]
+    if id == 0
+        [s, 0, 0]
+    else
+        let users = iam_store_users(s)
+        let user = users[id]
+        if iam_user_status(user) == IAM_USER_STATUS_LOCKED
+            [s, 0, 0]
+        else
+            if iam_user_status(user) == IAM_USER_STATUS_DISABLED
+                [s, 0, 0]
+            else
+                let creds = iam_user_credentials(user)
+                let found = 0
+                let i = 0
+                let n = len(creds)
+                for i < n
+                    if iam_cred_type(creds[i]) == IAM_CRED_PASSWORD
+                        if iam_verify_password(username, password, iam_cred_value(creds[i]), iam_cred_salt(creds[i])) == 1
+                            found = 1
+                            i = n
+                        else
+                            i = n
+                    i = i + 1
+                if found == 1
+                    let user2 = iam_user_set_last_login(user, now_ms)
+                    user2 = iam_user_set_login_count(user2, iam_user_login_count(user) + 1)
+                    user2 = iam_user_set_failed_attempts(user2, 0)
+                    users[id] = user2
+                    let s2 = iam_store_set_users(s, users)
+                    [s2, 1, id]
+                else
+                    let attempts = iam_user_failed_attempts(user) + 1
+                    let user2 = iam_user_set_failed_attempts(user, attempts)
+                    if attempts >= max_attempts
+                        user2 = iam_user_set_status(user2, IAM_USER_STATUS_LOCKED)
+                    users[id] = user2
+                    let s2 = iam_store_set_users(s, users)
+                    [s2, 0, 0]
+
+let iam_bragg_verify_hash_determinism(username, password) =
+    let h1 = iam_hash_password(username, password)
+    let h2 = iam_hash_password(username, password)
+    if h1[0] == h2[0]
+        if h1[1] == h2[1]
+            1
+        else
+            0
+    else
+        0
+
+let iam_bragg_verify_hash_irreversibility(username, password1, password2) =
+    let h1 = iam_hash_password(username, password1)
+    let h2 = iam_hash_password(username, password2)
+    if h1[0] != h2[0]
+        1
+    else
+        0
+
+let iam_self_test() =
+    let results = []
+
+    results.push(iam_bragg_verify_hash_determinism("alice", "password123"))
+    results.push(iam_bragg_verify_hash_determinism("bob", "secret"))
+
+    results.push(iam_bragg_verify_hash_irreversibility("alice", "pass1", "pass2"))
+
+    let store = iam_store_new()
+    let reg_res = iam_store_register(store, "alice", "alice@example.com", "secret123", 1000)
+    store = reg_res[0]
+    let user_id = reg_res[1]
+    results.push(user_id == 1)
+    results.push(iam_store_total(store) == 1)
+
+    let auth_res = iam_store_authenticate(store, "alice", "secret123", 2000, 5)
+    store = auth_res[0]
+    results.push(auth_res[1] == 1)
+    results.push(auth_res[2] == 1)
+
+    auth_res = iam_store_authenticate(store, "alice", "wrongpass", 3000, 5)
+    store = auth_res[0]
+    results.push(auth_res[1] == 0)
+
+    let i = 0
+    for i < 5
+        auth_res = iam_store_authenticate(store, "alice", "wrongpass", 4000 + i * 1000, 5)
+        store = auth_res[0]
+        i = i + 1
+    let users = iam_store_users(store)
+    let user = users[1]
+    results.push(iam_user_status(user) == IAM_USER_STATUS_LOCKED)
+
+    auth_res = iam_store_authenticate(store, "alice", "secret123", 10000, 5)
+    results.push(auth_res[1] == 0)
+
+    user = iam_user_set_attribute(user, "department", "engineering")
+    results.push(iam_user_get_attribute(user, "department") == "engineering")
+
+    results
+
+let iam_default_store() = iam_store_new()

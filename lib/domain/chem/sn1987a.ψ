@@ -1,0 +1,27 @@
+import "ck.ψ"
+let bad = [0]
+
+let total = 11 + 8 + 5
+bad[0] = bad[0] + ck(total, 19, 30)
+
+let dur = 13
+bad[0] = bad[0] + ck(dur, 10, 15)
+
+let share = 99
+bad[0] = bad[0] + ck(share, 97, 100)
+
+if 10000000 > 30000000
+    bad[0] = bad[0] + 1
+if 30000000 > 50000000
+    bad[0] = bad[0] + 1
+
+let delay = 3
+bad[0] = bad[0] + ck(delay, 2, 4)
+
+let dist = 168
+bad[0] = bad[0] + ck(dist, 160, 170)
+
+if delay * 1000000 < dur
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

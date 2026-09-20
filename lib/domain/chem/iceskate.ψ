@@ -1,0 +1,42 @@
+import "ck.ψ"
+let bad = [0]
+
+let w_load = 700
+let p_nmm2 = w_load / 100
+let dz1 = p_nmm2 - 7
+bad[0] = bad[0] + ck(dz1, 0, 0)
+let p4 = p_nmm2 * 100
+let dz2 = p4 - 700
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let dcredit = 736 * 700 / 100 / 1000
+let dz3 = dcredit - 5
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let need = 200
+let shortfall = need - dcredit
+let dz4 = shortfall - 195
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let mu_x100 = 10
+let v_glide = 5
+let p_fr = mu_x100 * w_load * v_glide / 100
+let dz5 = p_fr - 350
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let melt = p_fr * 1000 / 334 / 1000
+let dz6 = melt - 1
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+bad[0] = bad[0] + ck_lo(p_fr, dcredit)
+
+if 1850 < 1848
+    bad[0] = bad[0] + 1
+if 1850 > 1852
+    bad[0] = bad[0] + 1
+if 1850 < 1848
+    bad[0] = bad[0] + 1
+if 1850 > 1852
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,151 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let SLIT1 = 100
+let SLIT2 = 200
+let OBSERVE = 150
+
+let interfere(a, b) =
+    let d1 = wfc_sub(OBSERVE, SLIT1)
+    let d2 = wfc_sub(OBSERVE, SLIT2)
+    let inv_d1 = wfc_inv(d1)
+    let inv_d2 = wfc_inv(d2)
+    let term1 = wfc_mul(a, inv_d1)
+    let term2 = wfc_mul(b, inv_d2)
+    wfc_add(term1, term2)
+
+let verify_xor() =
+    let pass = 1
+    if xor_gate(0, 0) != 0
+        pass = 0
+    if xor_gate(0, 1) != 1
+        pass = 0
+    if xor_gate(1, 0) != 1
+        pass = 0
+    if xor_gate(1, 1) != 0
+        pass = 0
+    pass
+
+let verify_and() =
+    let pass = 1
+    if and_gate(0, 0) != 0
+        pass = 0
+    if and_gate(0, 1) != 0
+        pass = 0
+    if and_gate(1, 0) != 0
+        pass = 0
+    if and_gate(1, 1) != 1
+        pass = 0
+    pass
+
+let verify_not() =
+    let pass = 1
+    if not_gate(0) != 1
+        pass = 0
+    if not_gate(1) != 0
+        pass = 0
+    pass
+
+let verify_or() =
+    let pass = 1
+    if or_gate(0, 0) != 0
+        pass = 0
+    if or_gate(0, 1) != 1
+        pass = 0
+    if or_gate(1, 0) != 1
+        pass = 0
+    if or_gate(1, 1) != 1
+        pass = 0
+    pass
+
+let verify_nand() =
+    let pass = 1
+    if nand_gate(0, 0) != 1
+        pass = 0
+    if nand_gate(0, 1) != 1
+        pass = 0
+    if nand_gate(1, 0) != 1
+        pass = 0
+    if nand_gate(1, 1) != 0
+        pass = 0
+    pass
+
+let verify_nor() =
+    let pass = 1
+    if nor_gate(0, 0) != 1
+        pass = 0
+    if nor_gate(0, 1) != 0
+        pass = 0
+    if nor_gate(1, 0) != 0
+        pass = 0
+    if nor_gate(1, 1) != 0
+        pass = 0
+    pass
+
+let verify_xnor() =
+    let pass = 1
+    if xnor_gate(0, 0) != 1
+        pass = 0
+    if xnor_gate(0, 1) != 0
+        pass = 0
+    if xnor_gate(1, 0) != 0
+        pass = 0
+    if xnor_gate(1, 1) != 1
+        pass = 0
+    pass
+
+let verify_interference_pattern() =
+    let pass = 1
+
+    let psi_00 = interfere(0, 0)
+    if psi_00 != 0
+        pass = 0
+
+    let psi_11 = interfere(1, 1)
+    if psi_11 != 0
+        pass = 0
+
+    let psi_01 = interfere(0, 1)
+    if psi_01 == 0
+        pass = 0
+
+    let psi_10 = interfere(1, 0)
+    if psi_10 == 0
+        pass = 0
+
+    pass
+
+let verify_universal() =
+    let pass = 1
+
+    if nand_gate(0, 0) != 1
+        pass = 0
+    if nand_gate(0, 1) != 1
+        pass = 0
+    if nand_gate(1, 0) != 1
+        pass = 0
+    if nand_gate(1, 1) != 0
+        pass = 0
+
+    pass
+
+let main() =
+    let result = 0
+    if verify_xor() == 1
+        result = result + 1
+    if verify_and() == 1
+        result = result + 1
+    if verify_not() == 1
+        result = result + 1
+    if verify_or() == 1
+        result = result + 1
+    if verify_nand() == 1
+        result = result + 1
+    if verify_nor() == 1
+        result = result + 1
+    if verify_xnor() == 1
+        result = result + 1
+    if verify_interference_pattern() == 1
+        result = result + 1
+    if verify_universal() == 1
+        result = result + 1
+    result

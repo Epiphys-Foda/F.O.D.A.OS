@@ -1,0 +1,446 @@
+let device_new(id, name, kind, sm_count, mem_total) =
+    [id, name, kind, sm_count, mem_total, mem_total, 0]
+
+let dev_id(d) = d[0]
+let dev_name_str(d) = d[1]
+let dev_dtype(d) = d[2]
+let dev_sms(d) = d[3]
+let dev_mem_total(d) = d[4]
+let dev_mem_free(d) = d[5]
+let dev_cap(d) = d[6]
+
+let dev_alloc_mem(d, size) =
+    if dev_mem_free(d) >= size
+        d[5] = dev_mem_free(d) - size
+        1
+    else
+        0
+
+let dev_free_mem(d, size) =
+    d[5] = dev_mem_free(d) + size
+    if d[5] > dev_mem_total(d)
+        d[5] = dev_mem_total(d)
+    d
+
+let dev_set_cap(d, cap) =
+    d[6] = cap
+    d
+
+let dev_supports_fp64(d) =
+    if dev_cap(d) - (dev_cap(d) / 2) * 2 == 1
+        1
+    else
+        0
+
+let context_new(device_id) =
+    [device_id, {}, [], 1, 1]
+
+let ctx_dev_id(c) = c[0]
+let ctx_mem_pool(c) = c[1]
+let ctx_streams(c) = c[2]
+let ctx_active(c) = c[3]
+let ctx_refcount(c) = c[4]
+
+let ctx_retain(c) =
+    c[4] = ctx_refcount(c) + 1
+    c
+
+let ctx_release(c) =
+    if ctx_refcount(c) > 0
+        c[4] = ctx_refcount(c) - 1
+    if ctx_refcount(c) == 0
+        c[3] = 0
+    c
+
+let ctx_alloc_buffer(c, size) =
+    let pool = ctx_mem_pool(c)
+    let buf_id = len(pool) + 1
+    pool[buf_id] = [size, 0]
+    c[1] = pool
+    buf_id
+
+let ctx_free_buffer(c, buf_id) =
+    let pool = ctx_mem_pool(c)
+    let buf = pool[buf_id]
+    if buf != 0
+        pool[buf_id] = 0
+        c[1] = pool
+        1
+    else
+        0
+
+let stream_new(id, priority) =
+    [id, [], priority, 0, 0]
+
+let stream_id(s) = s[0]
+let stream_queue(s) = s[1]
+let stream_priority(s) = s[2]
+let stream_last_event(s) = s[4]
+
+let stream_enqueue_kernel(s, name, grid, block, args) =
+    let q = stream_queue(s)
+    let cmd = [0, name, grid, block, args, 0]
+    q.push(cmd)
+    s[1] = q
+    s
+
+let stream_enqueue_memcpy(s, dst, src, size, dir) =
+    let q = stream_queue(s)
+    let cmd = [1, dst, src, size, dir, 0]
+    q.push(cmd)
+    s[1] = q
+    s
+
+let stream_enqueue_event(s, event_id) =
+    let q = stream_queue(s)
+    let cmd = [2, event_id, 0, 0, 0, 0]
+    q.push(cmd)
+    s[1] = q
+    s[4] = event_id
+    s
+
+let stream_synchronize(s) =
+    let q = stream_queue(s)
+    let n = len(q)
+    let i = 0
+    let results = []
+    for i < n
+        let cmd = q[i]
+        cmd[5] = 1
+        results.push(cmd)
+        i = i + 1
+    s[1] = []
+    results
+
+let stream_query(s) =
+    if len(stream_queue(s)) == 0
+        1
+    else
+        0
+
+let event_new(id) =
+    [id, 0, 0, 0, 0]
+
+let event_id(e) = e[0]
+let event_recorded(e) = e[1]
+let event_stream(e) = e[2]
+let event_ts(e) = e[3]
+let event_value(e) = e[4]
+
+let event_record(e, stream_id, ts) =
+    e[1] = 1
+    e[2] = stream_id
+    e[3] = ts
+    e
+
+let event_reset(e) =
+    e[1] = 0
+    e
+
+let event_query(e) =
+    event_recorded(e)
+
+let event_synchronize(e) =
+    let max_poll = 1024
+    let n = 0
+    for n < max_poll
+        if event_recorded(e) == 1
+            n = max_poll
+        n = n + 1
+    event_recorded(e)
+
+let kernel_new(name, params, body_ops, local_size, shared_mem) =
+    [name, params, body_ops, local_size, shared_mem]
+
+let krn_name(k) = k[0]
+let krn_params(k) = k[1]
+let krn_body(k) = k[2]
+let krn_local(k) = k[3]
+let krn_shared(k) = k[4]
+
+let krn_launch(k, grid, block, args) =
+    let total = grid[0] * grid[1] * grid[2] * block[0] * block[1] * block[2]
+    let result = []
+    let i = 0
+    for i < total
+        result.push(i)
+        i = i + 1
+    [total, result]
+
+let umem_new(ptr, size) =
+    [ptr, size, 0, 0, 0, 1]
+
+let umem_ptr(u) = u[0]
+let umem_size(u) = u[1]
+let umem_host(u) = u[2]
+let umem_device(u) = u[3]
+let umem_valid_on(u) = u[4]
+
+let umem_to_device(u, device_addr) =
+    u[3] = device_addr
+    u[4] = 1
+    u
+
+let umem_to_host(u, host_addr) =
+    u[2] = host_addr
+    u[4] = 0
+    u
+
+let umem_prefetch(u, target) =
+    u[4] = target
+    u
+
+let umem_advise(u, advice) =
+    u
+
+let sx_reduce(stream, data, init, op) =
+    let i = 0
+    let n = len(data)
+    let result = init
+    for i < n
+        if op == 0
+            result = result + data[i]
+        else
+            0
+        if op == 1
+            result = result * data[i]
+        else
+            0
+        if op == 2
+            if data[i] < result
+                result = data[i]
+            else
+                0
+        if op == 3
+            if data[i] > result
+                result = data[i]
+        i = i + 1
+    result
+
+let sx_scan(stream, data, init, op) =
+    let result = [init]
+    let i = 0
+    let n = len(data)
+    let acc = init
+    for i < n
+        if op == 0
+            acc = acc + data[i]
+        else
+            0
+        if op == 1
+            acc = acc * data[i]
+        result.push(acc)
+        i = i + 1
+    result
+
+let sx_transform(stream, data, op, scalar) =
+    let result = []
+    let i = 0
+    let n = len(data)
+    for i < n
+        let v = data[i]
+        if op == 0
+            v = v + scalar
+        else
+            0
+        if op == 1
+            v = v * scalar
+        else
+            0
+        if op == 2
+            v = 0 - v
+        result.push(v)
+        i = i + 1
+    result
+
+let sx_sort(stream, data, ascending) =
+    let arr = data
+    let n = len(arr)
+    let i = 0
+    for i < n - 1
+        let j = 0
+        for j < n - 1 - i
+            let swap = 0
+            if ascending == 1
+                if arr[j] > arr[j + 1]
+                    swap = 1
+                else
+                    0
+                if arr[j] < arr[j + 1]
+                    swap = 1
+            if swap == 1
+                let tmp = arr[j]
+                arr[j] = arr[j + 1]
+                arr[j + 1] = tmp
+            j = j + 1
+        i = i + 1
+    arr
+
+let sx_gather(stream, src, indices) =
+    let result = []
+    let i = 0
+    let n = len(indices)
+    for i < n
+        result.push(src[indices[i]])
+        i = i + 1
+    result
+
+let sx_scatter(stream, dst, indices, values) =
+    let result = dst
+    let i = 0
+    let n = len(indices)
+    for i < n
+        if indices[i] < len(result)
+            result[indices[i]] = values[i]
+        i = i + 1
+    result
+
+let compute_unified_verify() =
+    let ok1 = 1
+    let dev = device_new(0, "fodaos_gpu", 1, 80, 16 * 1024 * 1024)
+    if dev_id(dev) != 0
+        ok1 = 0
+    if dev_dtype(dev) != 1
+        ok1 = 0
+    let alloc = dev_alloc_mem(dev, 1024)
+    if alloc != 1
+        ok1 = 0
+    if dev_mem_free(dev) != 16 * 1024 * 1024 - 1024
+        ok1 = 0
+    dev = dev_free_mem(dev, 1024)
+    if dev_mem_free(dev) != 16 * 1024 * 1024
+        ok1 = 0
+
+    let ok2 = 1
+    let ctx = context_new(0)
+    if ctx_active(ctx) != 1
+        ok2 = 0
+    let buf_id = ctx_alloc_buffer(ctx, 256)
+    if buf_id != 1
+        ok2 = 0
+    let freed = ctx_free_buffer(ctx, buf_id)
+    if freed != 1
+        ok2 = 0
+    ctx = ctx_retain(ctx)
+    if ctx_refcount(ctx) != 2
+        ok2 = 0
+    ctx = ctx_release(ctx)
+    if ctx_refcount(ctx) != 1
+        ok2 = 0
+
+    let ok3 = 1
+    let s = stream_new(1, 0)
+    s = stream_enqueue_kernel(s, "vecadd", [16, 1, 1], [256, 1, 1], [0, 0])
+    s = stream_enqueue_memcpy(s, 0x100, 0x200, 64, 2)
+    if stream_query(s) != 0
+        ok3 = 0
+    let res = stream_synchronize(s)
+    if len(res) != 2
+        ok3 = 0
+    if stream_query(s) != 1
+        ok3 = 0
+
+    let ok4 = 1
+    let e1 = event_new(1)
+    if event_recorded(e1) != 0
+        ok4 = 0
+    e1 = event_record(e1, 1, 100)
+    if event_recorded(e1) != 1
+        ok4 = 0
+    if event_query(e1) != 1
+        ok4 = 0
+    e1 = event_reset(e1)
+    if event_recorded(e1) != 0
+        ok4 = 0
+
+    let ok5 = 1
+    let k = kernel_new("vecadd", ["a", "b"], [0], [256, 1, 1], 0)
+    let launch = krn_launch(k, [16, 1, 1], [256, 1, 1], [0, 0])
+    if launch[0] != 16 * 256
+        ok5 = 0
+
+    let ok6 = 1
+    let um = umem_new(0x1000, 1024)
+    um = umem_to_device(um, 0x8000)
+    if umem_valid_on(um) != 1
+        ok6 = 0
+    um = umem_to_host(um, 0x1000)
+    if umem_valid_on(um) != 0
+        ok6 = 0
+
+    let ok7 = 1
+    let data = [1, 2, 3, 4, 5]
+    let sum = sx_reduce(s, data, 0, 0)
+    if sum != 15
+        ok7 = 0
+    let prod = sx_reduce(s, data, 1, 1)
+    if prod != 120
+        ok7 = 0
+    let mn = sx_reduce(s, data, 100, 2)
+    if mn != 1
+        ok7 = 0
+    let mx = sx_reduce(s, data, 0, 3)
+    if mx != 5
+        ok7 = 0
+
+    let ok8 = 1
+    let scan = sx_scan(s, data, 0, 0)
+    if scan[0] != 0
+        ok8 = 0
+    if scan[1] != 1
+        ok8 = 0
+    if scan[5] != 15
+        ok8 = 0
+
+    let ok9 = 1
+    let t = sx_transform(s, data, 0, 10)
+    if t[0] != 11
+        ok9 = 0
+    if t[4] != 15
+        ok9 = 0
+
+    let ok10 = 1
+    let unsorted = [3, 1, 4, 1, 5, 9, 2, 6]
+    let sorted = sx_sort(s, unsorted, 1)
+    if sorted[0] != 1
+        ok10 = 0
+    if sorted[7] != 9
+        ok10 = 0
+
+    let ok11 = 1
+    let src = [10, 20, 30, 40, 50]
+    let idx = [0, 2, 4]
+    let gathered = sx_gather(s, src, idx)
+    if gathered[0] != 10
+        ok11 = 0
+    if gathered[1] != 30
+        ok11 = 0
+    if gathered[2] != 50
+        ok11 = 0
+
+    let dst = [0, 0, 0, 0, 0]
+    let scattered = sx_scatter(s, dst, [0, 2, 4], [100, 200, 300])
+    if scattered[0] != 100
+        ok11 = 0
+    if scattered[2] != 200
+        ok11 = 0
+    if scattered[4] != 300
+        ok11 = 0
+
+    let all_ok = ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7 * ok8 * ok9 * ok10 * ok11
+    if all_ok == 1
+        print("compute_unified_verify: ALL 11 PASS")
+    else
+        print("compute_unified_verify: FAIL")
+        print(ok1)
+        print(ok2)
+        print(ok3)
+        print(ok4)
+        print(ok5)
+        print(ok6)
+        print(ok7)
+        print(ok8)
+        print(ok9)
+        print(ok10)
+        print(ok11)
+    all_ok

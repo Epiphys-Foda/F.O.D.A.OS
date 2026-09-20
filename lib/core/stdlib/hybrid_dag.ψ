@@ -1,0 +1,73 @@
+import "psi_dataflow.ψ"
+import "pe_dispatch.ψ"
+import "dag_scheduler.ψ"
+
+let hd_build_pipeline() =
+    let d = dag_create()
+    d = dag_add_node_v13_1(d, 16, 16, -1, 0)
+    d = dag_add_node_v13_1(d, 3, 3, -1, 1)
+    d = dag_add_node_v13_1(d, 4, 6, -1, 2)
+    d = dag_add_node_v13_1(d, 1, 1, -1, 3)
+    d = dag_add_node_v13_1(d, 2, 6, -1, 4)
+    d = dag_add_node_v13_1(d, 17, 17, -1, 5)
+    d = dag_add_edge_v13_1(d, 0, 0, 1, 0, 0, 4)
+    d = dag_add_edge_v13_1(d, 1, 0, 2, 0, 0, 4)
+    d = dag_add_edge_v13_1(d, 2, 0, 3, 0, 0, 4)
+    d = dag_add_edge_v13_1(d, 3, 0, 4, 0, 0, 4)
+    d = dag_add_edge_v13_1(d, 4, 0, 5, 0, 0, 4)
+    d
+
+let hd_dispatch(dag) =
+    let result = []
+    let i = 0
+    let n = dag.node_count
+    let done = false
+    for !done
+      if i < n
+        let node = dag.nodes[i]
+        let backend = pe_dispatch(node.opcode)
+        result = result.push({ node_id: i, opcode: node.opcode, backend: backend })
+        i = i + 1
+      else
+        done = true
+    result
+
+let hd_execute(dag, eval_fn) =
+    let r = sched_run(dag, eval_fn)
+    r.results
+
+let hd_demo_eval(node_id, opcode, pe_type) =
+    if node_id == 0
+        7
+    else
+        opcode
+
+let hd_quantum_nodes(dag) =
+    let count = 0
+    let disp = hd_dispatch(dag)
+    let i = 0
+    let n = len(disp)
+    let done = false
+    for !done
+      if i < n
+        if disp[i].opcode == 3
+          count = count + 1
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    count
+
+let hd_verify() =
+    let results = []
+    let pipe = hd_build_pipeline()
+    results = results.push(pipe.node_count == 6 && pipe.edge_count == 5)
+    let disp = hd_dispatch(pipe)
+    results = results.push(len(disp) == 6)
+    results = results.push(disp[1].backend == "gpu")
+    results = results.push(disp[3].backend == "simd")
+    results = results.push(disp[0].backend == "io")
+    let res = hd_execute(pipe, hd_demo_eval)
+    results = results.push(len(res) == 6)
+    results

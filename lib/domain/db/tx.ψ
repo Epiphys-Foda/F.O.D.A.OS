@@ -1,0 +1,104 @@
+import "./engine.ψ"
+
+let TX_P = 65537
+let TX_MAX = 4096
+
+let TX_ACTIVE = 0
+let TX_COMMITTED = 1
+let TX_ROLLED_BACK = 2
+
+let TX_OP_INSERT = 1
+let TX_OP_DELETE = 2
+let TX_OP_UPDATE = 3
+
+let tx_table = array_new(TX_MAX)
+let tx_counter = 0
+let tx_global_snapshot = 0
+
+let tx_begin() =
+    let txid = 1
+    for txid < TX_MAX
+        if tx_table[txid] == 0
+            tx_counter = tx_counter + 1
+            let tx = { txid: txid, state: TX_ACTIVE, ops: array_new(256), op_count: 0, start_time: tx_counter, snapshot: tx_global_snapshot }
+            tx_table[txid] = tx
+            txid
+        txid = txid + 1
+    0
+
+let tx_record_op(txid, op_type, did, id, old_val, new_val) =
+    let tx = tx_table[txid]
+    if tx == 0
+        0
+    if tx.state != TX_ACTIVE
+        0
+
+    let op = { kind: op_type, did: did, id: id, old_val: old_val, new_val: new_val, next: 0 }
+    tx.ops[tx.op_count] = op
+    tx.op_count = tx.op_count + 1
+    1
+
+let tx_commit(txid) =
+    let tx = tx_table[txid]
+    if tx == 0
+        0
+    if tx.state != TX_ACTIVE
+        0
+
+    tx.state = TX_COMMITTED
+    tx_global_snapshot = tx_global_snapshot + 1
+    1
+
+let tx_rollback(txid) =
+    let tx = tx_table[txid]
+    if tx == 0
+        0
+    if tx.state != TX_ACTIVE
+        0
+
+    let i = tx.op_count - 1
+    for i >= 0
+        let op = tx.ops[i]
+        if op.kind == TX_OP_INSERT
+            db_delete(op.did, op.id)
+        else
+            if op.kind == TX_OP_DELETE
+                db_insert(op.did, op.id, op.old_val, 0)
+            else
+                if op.kind == TX_OP_UPDATE
+                    db_update(op.did, op.id, op.old_val)
+        i = i - 1
+    tx.state = TX_ROLLED_BACK
+    1
+
+let tx_insert(txid, did, id, residue, tag) =
+    tx_record_op(txid, TX_OP_INSERT, did, id, 0, residue)
+    db_insert(did, id, residue, tag)
+
+let tx_delete(txid, did, id) =
+    let old_val = db_query_exact(did, id)
+    tx_record_op(txid, TX_OP_DELETE, did, id, old_val, 0)
+    db_delete(did, id)
+
+let tx_update(txid, did, id, new_val) =
+    let old_val = db_query_exact(did, id)
+    tx_record_op(txid, TX_OP_UPDATE, did, id, old_val, new_val)
+    db_update(did, id, new_val)
+
+let tx_cleanup(txid) =
+    let tx = tx_table[txid]
+    if tx == 0
+        0
+    if tx.state == TX_ACTIVE
+        0
+    tx_table[txid] = 0
+    1
+
+let tx_is_isolated(txid) =
+    let tx = tx_table[txid]
+    if tx == 0
+        0
+    (tx.snapshot <= tx_global_snapshot ? 1 : 0)
+
+let array_new(n) = arr_new_n(n)
+

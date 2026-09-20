@@ -1,0 +1,30 @@
+import "ck.ψ"
+let bad = [0]
+
+let g1 = 511
+let ez = g1 - 511
+bad[0] = bad[0] + ck(ez, 0, 0)
+
+let ang = 180
+bad[0] = bad[0] + ck(ang, 180, 180)
+
+let coin = 50
+bad[0] = bad[0] + ck(coin, 30, 70)
+
+let fdg = 1
+bad[0] = bad[0] + ck_lo(fdg, 1)
+
+if 1928 < 1926
+    bad[0] = bad[0] + 1
+if 1928 > 1930
+    bad[0] = bad[0] + 1
+if 1932 < 1930
+    bad[0] = bad[0] + 1
+if 1932 > 1934
+    bad[0] = bad[0] + 1
+if 1970 < 1968
+    bad[0] = bad[0] + 1
+if 1970 > 1972
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

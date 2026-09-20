@@ -1,0 +1,248 @@
+import "../domain_field.ψ"
+
+let TS_TYPE_ONESHOT = 0
+let TS_TYPE_RECURRING = 1
+let TS_TYPE_DELAYED = 2
+
+let TS_WHEEL_SIZE = 64
+let TS_TICK_MS = 100
+
+let ts_timer_new(tid, kind, fire_tick, interval, reducer, args, caller, created) =
+    [tid, kind, fire_tick, interval, reducer, args, caller, 0, 0, created]
+
+let ts_id(t) = t[0]
+let ts_kind(t) = t[1]
+let ts_fire(t) = t[2]
+let ts_interval(t) = t[3]
+let ts_reducer(t) = t[4]
+let ts_args(t) = t[5]
+let ts_caller(t) = t[6]
+let ts_status(t) = t[7]
+let ts_fires(t) = t[8]
+let ts_created(t) = t[9]
+
+let ts_set_fire(t, v) = [t[0], t[1], v, t[3], t[4], t[5], t[6], t[7], t[8], t[9]]
+let ts_set_status(t, v) = [t[0], t[1], t[2], t[3], t[4], t[5], t[6], v, t[8], t[9]]
+let ts_set_fires(t, v) = [t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7], v, t[9]]
+
+let ts_scheduler_new() =
+    let wheel = []
+    let i = 0
+    for i < TS_WHEEL_SIZE
+        wheel.push([])
+        i = i + 1
+    [wheel, {}, 1, 0, 0, 0, 0]
+
+let ts_wheel(s) = s[0]
+let ts_timers(s) = s[1]
+let ts_next_id(s) = s[2]
+let ts_tick(s) = s[3]
+let ts_fired(s) = s[4]
+let ts_cancelled(s) = s[5]
+let ts_active(s) = s[6]
+
+let ts_set_timers(s, v) = [s[0], v, s[2], s[3], s[4], s[5], s[6]]
+let ts_set_next_id(s, v) = [s[0], s[1], v, s[3], s[4], s[5], s[6]]
+let ts_set_tick(s, v) = [s[0], s[1], s[2], v, s[4], s[5], s[6]]
+let ts_set_fired(s, v) = [s[0], s[1], s[2], s[3], v, s[5], s[6]]
+let ts_set_cancelled(s, v) = [s[0], s[1], s[2], s[3], s[4], v, s[6]]
+let ts_set_active(s, v) = [s[0], s[1], s[2], s[3], s[4], s[5], v]
+
+let ts_schedule(s, kind, fire_tick, interval, reducer, args, caller) =
+    let tid = ts_next_id(s)
+    s = ts_set_next_id(s, tid + 1)
+    let timer = ts_timer_new(tid, kind, fire_tick, interval, reducer, args, caller, ts_tick(s))
+    let timers = ts_timers(s)
+    timers[tid] = timer
+    s = ts_set_timers(s, timers)
+    let slot = fire_tick % TS_WHEEL_SIZE
+    let wheel = ts_wheel(s)
+    wheel[slot].push(tid)
+    s = ts_set_active(s, ts_active(s) + 1)
+    [s, tid]
+
+let ts_schedule_oneshot(s, delay_ticks, reducer, args, caller) =
+    ts_schedule(s, TS_TYPE_ONESHOT, ts_tick(s) + delay_ticks, 0, reducer, args, caller)
+
+let ts_schedule_recurring(s, interval_ticks, reducer, args, caller) =
+    ts_schedule(s, TS_TYPE_RECURRING, ts_tick(s) + interval_ticks, interval_ticks, reducer, args, caller)
+
+let ts_cancel(s, tid) =
+    let timers = ts_timers(s)
+    let timer = timers[tid]
+    if timer == 0
+        [s, 0]
+    else
+        timer = ts_set_status(timer, 2)
+        timers[tid] = timer
+        s = ts_set_timers(s, timers)
+        s = ts_set_cancelled(s, ts_cancelled(s) + 1)
+        s = ts_set_active(s, ts_active(s) - 1)
+        [s, 1]
+
+let ts_advance(s) =
+    s = ts_set_tick(s, ts_tick(s) + 1)
+    let current = ts_tick(s)
+    let slot = current % TS_WHEEL_SIZE
+    let wheel = ts_wheel(s)
+    let slot_timers = wheel[slot]
+    let fired_list = []
+    let remaining = []
+    let i = 0
+    let n = len(slot_timers)
+    for i < n
+        let tid = slot_timers[i]
+        let timers = ts_timers(s)
+        let timer = timers[tid]
+        if timer != 0
+            let status = ts_status(timer)
+            let fire = ts_fire(timer)
+            if status == 0
+                if fire <= current
+                    timer = ts_set_status(timer, 1)
+                    timer = ts_set_fires(timer, ts_fires(timer) + 1)
+                    fired_list.push([tid, ts_reducer(timer), ts_args(timer)])
+                    s = ts_set_fired(s, ts_fired(s) + 1)
+                    if ts_kind(timer) == TS_TYPE_RECURRING
+                        let interval = ts_interval(timer)
+                        timer = ts_set_fire(timer, current + interval)
+                        timer = ts_set_status(timer, 0)
+                        remaining.push(tid)
+                    else
+                        s = ts_set_active(s, ts_active(s) - 1)
+                    timers[tid] = timer
+                    s = ts_set_timers(s, timers)
+                else
+                    remaining.push(tid)
+            else
+                if status == 0
+                    remaining.push(tid)
+        i = i + 1
+    wheel[slot] = remaining
+    s = [wheel, s[1], s[2], s[3], s[4], s[5], s[6]]
+    [s, fired_list]
+
+let ts_advance_to(s, target_tick) =
+    let all_fired = []
+    for ts_tick(s) < target_tick
+        let result = ts_advance(s)
+        s = result[0]
+        let fired = result[1]
+        let i = 0
+        let n = len(fired)
+        for i < n
+            all_fired.push(fired[i])
+            i = i + 1
+    [s, all_fired]
+
+let ts_persist(s) =
+    let timers = ts_timers(s)
+    let keys = keys_of(timers)
+    let out = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let k = keys[i]
+        let t = timers[k]
+        if ts_status(t) == 0
+            out.push(t)
+        i = i + 1
+    out
+
+let ts_restore(s, timer_list) =
+    let i = 0
+    let n = len(timer_list)
+    for i < n
+        let t = timer_list[i]
+        let tid = ts_id(t)
+        let timers = ts_timers(s)
+        timers[tid] = t
+        s = ts_set_timers(s, timers)
+        let slot = ts_fire(t) % TS_WHEEL_SIZE
+        let wheel = ts_wheel(s)
+        wheel[slot].push(tid)
+        s = ts_set_active(s, ts_active(s) + 1)
+        i = i + 1
+    s
+
+let ts_bragg_check(s) =
+    let fired = ts_fired(s)
+    let cancelled = ts_cancelled(s)
+    let active = ts_active(s)
+    let next_id = ts_next_id(s)
+    let total_scheduled = next_id - 1
+    if fired + cancelled + active == total_scheduled
+        1
+    else
+        0
+
+let ts_test_basic() =
+    let s = ts_scheduler_new()
+    let ok1 = 1
+    if ts_tick(s) != 0
+        ok1 = 0
+    if ts_active(s) != 0
+        ok1 = 0
+
+    let r = ts_schedule_oneshot(s, 5, "say_hello", ["alice"], "client1")
+    s = r[0]
+    let tid1 = r[1]
+    let ok2 = 1
+    if tid1 != 1
+        ok2 = 0
+    if ts_active(s) != 1
+        ok2 = 0
+
+    let r2 = ts_schedule_recurring(s, 3, "heartbeat", [], "client2")
+    s = r2[0]
+    let tid2 = r2[1]
+    let ok3 = 1
+    if tid2 != 2
+        ok3 = 0
+    if ts_active(s) != 2
+        ok3 = 0
+
+    let adv = ts_advance_to(s, 5)
+    s = adv[0]
+    let fires = adv[1]
+    let ok4 = 1
+    if len(fires) < 1
+        ok4 = 0
+    let ok5 = 1
+    if ts_fired(s) < 1
+        ok5 = 0
+
+    let ok6 = 1
+    if ts_active(s) < 1
+        ok6 = 0
+
+    let cr = ts_cancel(s, tid2)
+    s = cr[0]
+    let ok7 = 1
+    if cr[1] != 1
+        ok7 = 0
+    if ts_cancelled(s) != 1
+        ok7 = 0
+    if ts_active(s) != 0
+        ok7 = 0
+
+    let ok8 = 1
+    if ts_bragg_check(s) != 1
+        ok8 = 0
+
+    let persisted = ts_persist(s)
+    let ok9 = 1
+    if len(persisted) != 0
+        ok9 = 0
+
+    ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7 * ok8 * ok9
+
+let ts_test_self() =
+        let ok = ts_test_basic()
+        if ok == 1
+            print("timer_scheduler: ALL PASS")
+        else
+            print("timer_scheduler: FAIL")
+        ok
+
+    ts_test_self()

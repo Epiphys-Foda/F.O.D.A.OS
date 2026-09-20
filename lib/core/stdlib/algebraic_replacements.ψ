@@ -1,0 +1,231 @@
+import "gf65537.ψ"
+import "arr.ψ"
+
+let gf_exp(x) = gf_pow(GF_G, x)
+
+let _gf_log_acc(target, x) =
+    if x >= GF_P_MINUS_1
+        0 - 1
+    if gf_pow(GF_G, x) == target
+        x
+    _gf_log_acc(target, x + 1)
+
+let gf_log(target) = _gf_log_acc(target, 0)
+
+let gf_sin(k) =
+    let gk = gf_pow(GF_G, k)
+    let g_neg_k = gf_inv(gk)
+    let two_i = gf_mul(2, GF_I)
+    gf_div(gf_sub(gk, g_neg_k), two_i)
+
+let gf_cos(k) =
+    let gk = gf_pow(GF_G, k)
+    let g_neg_k = gf_inv(gk)
+    gf_div(gf_add(gk, g_neg_k), 2)
+
+let gf_tanh(x) =
+    let gx = gf_exp(x)
+    let g_neg_x = gf_inv(gx)
+    gf_div(gf_sub(gx, g_neg_x), gf_add(gx, g_neg_x))
+
+let gf_deriv(f_vals, x) = gf_sub(arr_get(f_vals, x + 1), arr_get(f_vals, x))
+
+let gf_deriv2(f_vals, x) =
+    let f_plus = arr_get(f_vals, x + 1)
+    let f_mid = arr_get(f_vals, x)
+    let f_minus = arr_get(f_vals, x - 1)
+    gf_sub(gf_add(f_plus, f_minus), gf_mul(2, f_mid))
+
+let _gf_integral_acc(f_vals, b, i, acc) =
+    if i >= b
+        acc
+    _gf_integral_acc(f_vals, b, i + 1, gf_add(acc, arr_get(f_vals, i)))
+
+let gf_integral(f_vals, a, b) = _gf_integral_acc(f_vals, b, a, 0)
+
+let gf_limit(f_vals, n) = arr_get(f_vals, n)
+
+let _gf_finite_search_min_acc(f_vals, i, n, best_x, best_y) =
+    if i >= n
+        best_x
+    let y = arr_get(f_vals, i)
+    let take = ((y < best_y) ? (1) : (0))
+    let new_x = ((take) ? (i) : (best_x))
+    let new_y = ((take) ? (y) : (best_y))
+    _gf_finite_search_min_acc(f_vals, i + 1, n, new_x, new_y)
+
+let gf_finite_search_min(f_vals) =
+    _gf_finite_search_min_acc(f_vals, 1, arr_len(f_vals), 0, arr_get(f_vals, 0))
+
+let _gf_finite_search_max_acc(f_vals, i, n, best_x, best_y) =
+    if i >= n
+        best_x
+    let y = arr_get(f_vals, i)
+    let take = ((y > best_y) ? (1) : (0))
+    let new_x = ((take) ? (i) : (best_x))
+    let new_y = ((take) ? (y) : (best_y))
+    _gf_finite_search_max_acc(f_vals, i + 1, n, new_x, new_y)
+
+let gf_finite_search_max(f_vals) =
+    _gf_finite_search_max_acc(f_vals, 1, arr_len(f_vals), 0, arr_get(f_vals, 0))
+
+let _gf_pareto_dominated(f_vals, g_vals, i, j, n) =
+    if j >= n
+        0
+    if j == i
+        _gf_pareto_dominated(f_vals, g_vals, i, j + 1, n)
+    let fi = arr_get(f_vals, i)
+    let fj = arr_get(f_vals, j)
+    let gi = arr_get(g_vals, i)
+    let gj = arr_get(g_vals, j)
+    if fj <= fi
+      if gj <= gi
+        if fj < fi
+            1
+        if gj < gi
+            1
+    _gf_pareto_dominated(f_vals, g_vals, i, j + 1, n)
+
+let _gf_pareto_count_acc(f_vals, g_vals, i, n, count) =
+    if i >= n
+        count
+    let dominated = _gf_pareto_dominated(f_vals, g_vals, i, 0, n)
+    let new_count = ((dominated) ? (count) : (count + 1))
+    _gf_pareto_count_acc(f_vals, g_vals, i + 1, n, new_count)
+
+let gf_pareto_front_size(f_vals, g_vals) =
+    _gf_pareto_count_acc(f_vals, g_vals, 0, arr_len(f_vals), 0)
+
+let gf_sigmoid(x) =
+    let gx = gf_exp(x)
+    gf_div(gx, gf_add(gx, 1))
+
+let _gf_softmax_total_acc(x_vals, i, n, total) =
+    if i >= n
+        total
+    _gf_softmax_total_acc(x_vals, i + 1, n, gf_add(total, gf_exp(arr_get(x_vals, i))))
+
+let _gf_softmax_norm_acc(x_vals, i, n, total, result) =
+    if i >= n
+        result
+    arr_set(result, i, gf_div(gf_exp(arr_get(x_vals, i)), total))
+    _gf_softmax_norm_acc(x_vals, i + 1, n, total, result)
+
+let gf_softmax(x_vals) =
+    let n = arr_len(x_vals)
+    let total = _gf_softmax_total_acc(x_vals, 0, n, 0)
+    let result = arr_new_n(n)
+    _gf_softmax_norm_acc(x_vals, 0, n, total, result)
+
+let gf_relu(x) = ((x > 0) ? (x) : (0))
+
+let GF_LK = 100
+let gf_leaky_relu(x) = ((x > 0) ? (x) : (gf_div(x, GF_LK)))
+
+let gf_uniform(x, n) =
+    if n == 0
+        0
+    gf_mod(x, n)
+
+let gf_mod(a, b) =
+    if b == 0
+        0
+    let r = a % b
+    ((r < 0) ? (r + b) : (r))
+
+let _gf_expectation_acc(values, weights, i, n, num, den) =
+    if i >= n
+        gf_div(num, den)
+    let v = arr_get(values, i)
+    let w = arr_get(weights, i)
+    _gf_expectation_acc(values, weights, i + 1, n,
+                       gf_add(num, gf_mul(v, w)),
+                       gf_add(den, w))
+
+let gf_expectation(values, weights) =
+    _gf_expectation_acc(values, weights, 0, arr_len(values), 0, 0)
+
+let _gf_square_arr_acc(values, sq, i, n) =
+    if i >= n
+        sq
+    let v = arr_get(values, i)
+    arr_set(sq, i, gf_mul(v, v))
+    _gf_square_arr_acc(values, sq, i + 1, n)
+
+let gf_variance(values, weights) =
+    let n = arr_len(values)
+    let sq = arr_new_n(n)
+    _gf_square_arr_acc(values, sq, 0, n)
+    let ex = gf_expectation(values, weights)
+    let ex2 = gf_expectation(sq, weights)
+    gf_sub(ex2, gf_mul(ex, ex))
+
+let gf_complex_mul(a, b, c, d) =
+    let real = gf_sub(gf_mul(a, c), gf_mul(b, d))
+    let imag = gf_add(gf_mul(a, d), gf_mul(b, c))
+    [real, imag]
+
+let gf_complex_conj(a, b) = [a, gf_neg(b)]
+
+let gf_complex_abs_sq(a, b) = gf_add(gf_mul(a, a), gf_mul(b, b))
+
+import "fft.ψ"
+
+let gf_ntt_fast(x) =
+    let n = arr_len(x)
+    ntt(x, n)
+
+let gf_intt_fast(X) =
+    let n = arr_len(X)
+    intt(X, n)
+
+let _gf_pointwise_mul_acc(A, B, C, i, n) =
+    if i >= n
+        C
+    arr_set(C, i, gf_mul(arr_get(A, i), arr_get(B, i)))
+    _gf_pointwise_mul_acc(A, B, C, i + 1, n)
+
+let gf_ntt_convolve_fast(a, b) =
+    let n = arr_len(a)
+    let A = gf_ntt_fast(a)
+    let B = gf_ntt_fast(b)
+    let C = arr_new_n(n)
+    _gf_pointwise_mul_acc(A, B, C, 0, n)
+    gf_intt_fast(C)
+
+let gf_is_dfl(f_vals, n) = ((n > 0) ? (1) : (0))
+
+let gf_termination_bound(k) =
+    if k == 0
+        1
+    if k == 1
+        GF_P
+    0
+
+let gf_pass_idempotent_check(f_in, f_out, n) =
+    if n == 0
+        1
+    let x = arr_get(f_in, 0)
+    let y = arr_get(f_out, 0)
+    ((x == y) ? (1) : (0))
+
+let PARADIGM_REPLACE_EXP_TO_GX      = 1
+let PARADIGM_REPLACE_LOG_TO_COUNT    = 2
+let PARADIGM_REPLACE_SIN_TO_SYMM     = 3
+let PARADIGM_REPLACE_COS_TO_SYMM     = 4
+let PARADIGM_REPLACE_DERIV_TO_DELTA  = 5
+let PARADIGM_REPLACE_DERIV2_TO_DELTA2 = 6
+let PARADIGM_REPLACE_INTEGRAL_TO_SUM = 7
+let PARADIGM_REPLACE_LIMIT_TO_DIRECT = 8
+let PARADIGM_REPLACE_GRAD_TO_SEARCH  = 9
+let PARADIGM_REPLACE_SQRT_TO_INT     = 10
+let PARADIGM_REPLACE_I_TO_256        = 11
+let PARADIGM_REPLACE_PI_TO_52011     = 12
+let PARADIGM_REPLACE_RAND_TO_DFL     = 13
+let PARADIGM_REPLACE_FFT_TO_NTT      = 14
+let PARADIGM_REPLACE_SIGMOID_TO_GX   = 15
+let PARADIGM_REPLACE_SOFTMAX_TO_GF  = 16
+let PARADIGM_REPLACE_CONJ_TO_SELF    = 17
+let PARADIGM_REPLACE_HADAMARD_TO_NTT = 18
+
+let PARADIGM_REPLACE_TOTAL = 18

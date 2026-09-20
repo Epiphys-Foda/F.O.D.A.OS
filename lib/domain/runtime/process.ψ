@@ -1,0 +1,863 @@
+let PROC_P = 65537
+
+let PROC_STATE_NEW        = 0
+let PROC_STATE_READY      = 1
+let PROC_STATE_RUNNING    = 2
+let PROC_STATE_BLOCKED    = 3
+let PROC_STATE_TERMINATED = 4
+
+let PROC_SCHED_FCFS     = 1
+let PROC_SCHED_SJF      = 2
+let PROC_SCHED_RR       = 3
+let PROC_SCHED_PRIORITY = 4
+
+let PROC_IPC_PIPE      = 1
+let PROC_IPC_MSGQUEUE  = 2
+let PROC_IPC_SHAREDMEM = 3
+let PROC_IPC_SEMAPHORE = 4
+
+let PROC_SIG_TERM = 1
+let PROC_SIG_INT  = 2
+let PROC_SIG_KILL = 3
+let PROC_SIG_HUP  = 4
+let PROC_SIG_USR1 = 5
+let PROC_SIG_USR2 = 6
+
+let PROC_ACT_TERM  = 1
+let PROC_ACT_IGN   = 2
+let PROC_ACT_BLOCK = 3
+
+let PROC_DEFAULT_RR_QUANTUM = 8
+let PROC_DEFAULT_STACK     = 65536
+let PROC_DEFAULT_PRIORITY  = 16
+let PROC_MAX_CHILDREN      = 256
+let PROC_MAX_SIGNALS       = 32
+let PROC_DEFAULT_MAX_PID   = 65536
+
+let proc_new(pid, name, priority, parent_pid, mem_base, mem_size, started_at) =
+    [pid, name, PROC_STATE_NEW, priority, parent_pid, [],
+     mem_base, mem_size, 0, started_at, 0]
+
+let proc_pid(p) = p[0]
+let proc_name(p) = p[1]
+let proc_state(p) = p[2]
+let proc_priority(p) = p[3]
+let proc_parent(p) = p[4]
+let proc_children(p) = p[5]
+let proc_mem_base(p) = p[6]
+let proc_mem_size(p) = p[7]
+let proc_cpu_time(p) = p[8]
+let proc_started(p) = p[9]
+let proc_exit_code(p) = p[10]
+
+let proc_set_state(p, s) =
+    p[2] = s
+    p
+
+let proc_set_priority(p, prio) =
+    p[3] = prio
+    p
+
+let proc_set_exit(p, code) =
+    p[10] = code
+    p
+
+let proc_inc_cpu(p, ticks) =
+    p[8] = p[8] + ticks
+    p
+
+let proc_add_child(p, child_pid) =
+    let kids = proc_children(p)
+    if len(kids) < PROC_MAX_CHILDREN
+        kids.push(child_pid)
+        p[5] = kids
+    p
+
+let proc_remove_child(p, child_pid) =
+    let kids = proc_children(p)
+    let out = []
+    let i = 0
+    let n = len(kids)
+    for i < n
+        if kids[i] != child_pid
+            out.push(kids[i])
+        i = i + 1
+    p[5] = out
+    p
+
+let pt_new(max_pid) =
+    [{}, {}, 1, 0, max_pid]
+
+let pt_procs(t) = t[0]
+let pt_by_state(t) = t[1]
+let pt_next_pid(t) = t[2]
+let pt_count(t) = t[3]
+let pt_max_pid(t) = t[4]
+
+let pt_set_procs(t, p) =
+    t[0] = p
+    t
+
+let pt_set_by_state(t, s) =
+    t[1] = s
+    t
+
+let pt_set_next_pid(t, n) =
+    t[2] = n
+    t
+
+let pt_set_count(t, c) =
+    t[3] = c
+    t
+
+let pt_alloc_pid(t) =
+    let n = pt_next_pid(t)
+    let max_v = pt_max_pid(t)
+    let result = 0
+    if n <= max_v
+        result = n
+        pt_set_next_pid(t, n + 1)
+    result
+
+let pt_add(t, p) =
+    let procs = pt_procs(t)
+    let pid = proc_pid(p)
+    procs[pid] = p
+    pt_set_procs(t, procs)
+    let st = proc_state(p)
+    let by_state = pt_by_state(t)
+    let list = by_state[st]
+    if list == 0
+        list = []
+        by_state[st] = list
+    list.push(pid)
+    pt_set_by_state(t, by_state)
+    pt_set_count(t, pt_count(t) + 1)
+    t
+
+let pt_remove(t, pid) =
+    let procs = pt_procs(t)
+    let p = procs[pid]
+    if p != 0
+        let st = proc_state(p)
+        let by_state = pt_by_state(t)
+        let list = by_state[st]
+        if list != 0
+            let out = []
+            let i = 0
+            let n = len(list)
+            for i < n
+                if list[i] != pid
+                    out.push(list[i])
+                i = i + 1
+            by_state[st] = out
+            pt_set_by_state(t, by_state)
+        procs[pid] = 0
+        pt_set_procs(t, procs)
+        pt_set_count(t, pt_count(t) - 1)
+    t
+
+let pt_get(t, pid) =
+    pt_procs(t)[pid]
+
+let pt_list_state(t, state) =
+    let by_state = pt_by_state(t)
+    let list = by_state[state]
+    if list == 0
+        []
+    else
+        list
+
+let pt_move_state(t, pid, new_state) =
+    let procs = pt_procs(t)
+    let p = procs[pid]
+    if p != 0
+        let old = proc_state(p)
+        if old != new_state
+            let by_state = pt_by_state(t)
+            let old_list = by_state[old]
+            if old_list != 0
+                let out = []
+                let i = 0
+                let n = len(old_list)
+                for i < n
+                    if old_list[i] != pid
+                        out.push(old_list[i])
+                    i = i + 1
+                by_state[old] = out
+            let new_list = by_state[new_state]
+            if new_list == 0
+                new_list = []
+                by_state[new_state] = new_list
+            new_list.push(pid)
+            pt_set_by_state(t, by_state)
+            proc_set_state(p, new_state)
+            procs[pid] = p
+            pt_set_procs(t, procs)
+    t
+
+let ps_can_transition(from, to_) =
+    let ok = 0
+    if from == PROC_STATE_NEW
+        if to_ == PROC_STATE_READY
+            ok = 1
+        else
+            0
+    if from == PROC_STATE_READY
+        if to_ == PROC_STATE_RUNNING
+            ok = 1
+        else
+            0
+        if to_ == PROC_STATE_TERMINATED
+            ok = 1
+        else
+            0
+    if from == PROC_STATE_RUNNING
+        if to_ == PROC_STATE_READY
+            ok = 1
+        else
+            0
+        if to_ == PROC_STATE_BLOCKED
+            ok = 1
+        else
+            0
+        if to_ == PROC_STATE_TERMINATED
+            ok = 1
+        else
+            0
+    if from == PROC_STATE_BLOCKED
+        if to_ == PROC_STATE_READY
+            ok = 1
+    ok
+
+let ps_state_name(s) =
+    let n = "unknown"
+    if s == PROC_STATE_NEW
+        n = "new"
+    else
+        0
+    if s == PROC_STATE_READY
+        n = "ready"
+    else
+        0
+    if s == PROC_STATE_RUNNING
+        n = "running"
+    else
+        0
+    if s == PROC_STATE_BLOCKED
+        n = "blocked"
+    else
+        0
+    if s == PROC_STATE_TERMINATED
+        n = "terminated"
+    n
+
+let ps_transition(table, pid, to_) =
+    let p = pt_get(table, pid)
+    let result = 0
+    if p != 0
+        let from = proc_state(p)
+        if ps_can_transition(from, to_) != 0
+            pt_move_state(table, pid, to_)
+            result = 1
+    result
+
+let sched_new(algorithm, rr_quantum) =
+    [algorithm, [], 0, rr_quantum, 0, {}, 0]
+
+let sched_algo(s) = s[0]
+let sched_ready(s) = s[1]
+let sched_current(s) = s[2]
+let sched_quantum(s) = s[3]
+let sched_remaining(s) = s[4]
+let sched_blocked(s) = s[5]
+let sched_ctx_count(s) = s[6]
+
+let sched_set_ready(s, q) =
+    s[1] = q
+    s
+
+let sched_set_current(s, c) =
+    s[2] = c
+    s
+
+let sched_set_remaining(s, r) =
+    s[4] = r
+    s
+
+let sched_set_blocked(s, b) =
+    s[5] = b
+    s
+
+let sched_inc_ctx(s) =
+    s[6] = s[6] + 1
+    s
+
+let sched_enqueue(s, pid) =
+    let q = sched_ready(s)
+    q.push(pid)
+    sched_set_ready(s, q)
+    s
+
+let sched_pick_next(s, table) =
+    let algo = sched_algo(s)
+    let result = 0
+    if algo == PROC_SCHED_FCFS
+        result = sched_pick_fcfs(s)
+    else
+        0
+    if algo == PROC_SCHED_SJF
+        result = sched_pick_sjf(s, table)
+    else
+        0
+    if algo == PROC_SCHED_RR
+        result = sched_pick_fcfs(s)
+    else
+        0
+    if algo == PROC_SCHED_PRIORITY
+        result = sched_pick_priority(s, table)
+    result
+
+let sched_pick_fcfs(s) =
+    let q = sched_ready(s)
+    let n = len(q)
+    let result = 0
+    if n > 0
+        result = q[0]
+        let out = []
+        let i = 1
+        for i < n
+            out.push(q[i])
+            i = i + 1
+        sched_set_ready(s, out)
+    result
+
+let sched_pick_sjf(s, table) =
+    let q = sched_ready(s)
+    let n = len(q)
+    let result = 0
+    if n > 0
+        let best_i = 0
+        let best_key = 0
+        let i = 0
+        for i < n
+            let pid = q[i]
+            let p = pt_get(table, pid)
+            if p != 0
+                let key = proc_mem_size(p)
+                if i == 0
+                    best_i = 0
+                    best_key = key
+                else
+                    0
+                if key < best_key
+                    best_i = i
+                    best_key = key
+            i = i + 1
+        result = q[best_i]
+        let out = []
+        let j = 0
+        for j < n
+            if j != best_i
+                out.push(q[j])
+            j = j + 1
+        sched_set_ready(s, out)
+    result
+
+let sched_pick_priority(s, table) =
+    let q = sched_ready(s)
+    let n = len(q)
+    let result = 0
+    if n > 0
+        let best_i = 0
+        let best_prio = 0
+        let i = 0
+        for i < n
+            let pid = q[i]
+            let p = pt_get(table, pid)
+            if p != 0
+                let prio = proc_priority(p)
+                if i == 0
+                    best_i = 0
+                    best_prio = prio
+                else
+                    0
+                if prio < best_prio
+                    best_i = i
+                    best_prio = prio
+            i = i + 1
+        result = q[best_i]
+        let out = []
+        let j = 0
+        for j < n
+            if j != best_i
+                out.push(q[j])
+            j = j + 1
+        sched_set_ready(s, out)
+    result
+
+let sched_context_switch(s, table, next_pid) =
+    let cur = sched_current(s)
+    if cur != 0
+        let p = pt_get(table, cur)
+        if p != 0
+            ps_transition(table, cur, PROC_STATE_READY)
+    if next_pid != 0
+        let np = pt_get(table, next_pid)
+        if np != 0
+            ps_transition(table, next_pid, PROC_STATE_RUNNING)
+    sched_set_current(s, next_pid)
+    if sched_algo(s) == PROC_SCHED_RR
+        sched_set_remaining(s, sched_quantum(s))
+    sched_inc_ctx(s)
+    s
+
+let sched_tick(s, table) =
+    let cur = sched_current(s)
+    if cur != 0
+        let p = pt_get(table, cur)
+        if p != 0
+            proc_inc_cpu(p, 1)
+            if sched_algo(s) == PROC_SCHED_RR
+                let r = sched_remaining(s) - 1
+                sched_set_remaining(s, r)
+                if r <= 0
+                    let next = sched_pick_next(s, table)
+                    if next != 0
+                        sched_enqueue(s, cur)
+                        sched_context_switch(s, table, next)
+                    else
+                        sched_set_remaining(s, sched_quantum(s))
+                else
+                    0
+        let next = sched_pick_next(s, table)
+        if next != 0
+            sched_context_switch(s, table, next)
+    s
+
+let sched_block(s, table, reason) =
+    let cur = sched_current(s)
+    if cur != 0
+        ps_transition(table, cur, PROC_STATE_BLOCKED)
+        let blk = sched_blocked(s)
+        blk[cur] = reason
+        sched_set_blocked(s, blk)
+        sched_set_current(s, 0)
+        let next = sched_pick_next(s, table)
+        if next != 0
+            sched_context_switch(s, table, next)
+    s
+
+let sched_wake(s, table, pid) =
+    let blk = sched_blocked(s)
+    if blk[pid] != 0
+        blk[pid] = 0
+        sched_set_blocked(s, blk)
+        let p = pt_get(table, pid)
+        if p != 0
+            ps_transition(table, pid, PROC_STATE_READY)
+            sched_enqueue(s, pid)
+    s
+
+let ipc_new() =
+    [{}, 1, {}, 1, {}, 1]
+
+let ipc_channels(m) = m[0]
+let ipc_next_cid(m) = m[1]
+let ipc_shmem(m) = m[2]
+let ipc_next_sid(m) = m[3]
+let ipc_sems(m) = m[4]
+let ipc_next_semid(m) = m[5]
+
+let ipc_set_channels(m, c) =
+    m[0] = c
+    m
+
+let ipc_set_next_cid(m, n) =
+    m[1] = n
+    m
+
+let ipc_set_shmem(m, s) =
+    m[2] = s
+    m
+
+let ipc_set_next_sid(m, n) =
+    m[3] = n
+    m
+
+let ipc_set_sems(m, s) =
+    m[4] = s
+    m
+
+let ipc_set_next_semid(m, n) =
+    m[5] = n
+    m
+
+let ipc_create_channel(m, type_v, owner, peer, capacity) =
+    let cid = ipc_next_cid(m)
+    ipc_set_next_cid(m, cid + 1)
+    let ch = [cid, type_v, owner, peer, capacity, [], 0]
+    let channels = ipc_channels(m)
+    channels[cid] = ch
+    ipc_set_channels(m, channels)
+    cid
+
+let ipc_create_pipe(m, owner, peer, capacity) =
+    ipc_create_channel(m, PROC_IPC_PIPE, owner, peer, capacity)
+
+let ipc_create_msgqueue(m, owner, capacity) =
+    ipc_create_channel(m, PROC_IPC_MSGQUEUE, owner, 0, capacity)
+
+let ipc_send(m, cid, src, data) =
+    let channels = ipc_channels(m)
+    let ch = channels[cid]
+    let result = 0
+    if ch != 0
+        if ch[6] == 0
+            let q = ch[5]
+            let cap = ch[4]
+            if len(q) < cap
+                q.push({src: src, data: data, seq: cid * PROC_P + len(q)})
+                ch[5] = q
+                channels[cid] = ch
+                ipc_set_channels(m, channels)
+                result = 1
+    result
+
+let ipc_recv(m, cid) =
+    let channels = ipc_channels(m)
+    let ch = channels[cid]
+    let result = 0
+    if ch != 0
+        let q = ch[5]
+        if len(q) > 0
+            let msg = q[0]
+            let out = []
+            let i = 1
+            let n = len(q)
+            for i < n
+                out.push(q[i])
+                i = i + 1
+            ch[5] = out
+            channels[cid] = ch
+            ipc_set_channels(m, channels)
+            result = msg
+    result
+
+let ipc_close(m, cid) =
+    let channels = ipc_channels(m)
+    let ch = channels[cid]
+    if ch != 0
+        ch[6] = 1
+        channels[cid] = ch
+        ipc_set_channels(m, channels)
+    m
+
+let ipc_shmem_create(m, base, size, owner) =
+    let sid = ipc_next_sid(m)
+    ipc_set_next_sid(m, sid + 1)
+    let shmem = ipc_shmem(m)
+    shmem[sid] = [base, size, [owner]]
+    ipc_set_shmem(m, shmem)
+    sid
+
+let ipc_shmem_attach(m, sid, owner) =
+    let shmem = ipc_shmem(m)
+    let block = shmem[sid]
+    if block != 0
+        let owners = block[2]
+        owners.push(owner)
+        block[2] = owners
+        shmem[sid] = block
+        ipc_set_shmem(m, shmem)
+    sid
+
+let ipc_shmem_read(m, sid) =
+    let shmem = ipc_shmem(m)
+    let block = shmem[sid]
+    if block == 0
+        [0, 0, []]
+    else
+        block
+
+let ipc_sem_create(m, initial, owner) =
+    let semid = ipc_next_semid(m)
+    ipc_set_next_semid(m, semid + 1)
+    let sems = ipc_sems(m)
+    sems[semid] = [initial, [], owner]
+    ipc_set_sems(m, sems)
+    semid
+
+let ipc_sem_wait(m, semid, pid) =
+    let sems = ipc_sems(m)
+    let sem = sems[semid]
+    let result = 1
+    if sem != 0
+        let cnt = sem[0]
+        if cnt > 0
+            sem[0] = cnt - 1
+            sems[semid] = sem
+            ipc_set_sems(m, sems)
+            result = 1
+        else
+            let wq = sem[1]
+            wq.push(pid)
+            sem[1] = wq
+            sems[semid] = sem
+            ipc_set_sems(m, sems)
+            result = 0
+    result
+
+let ipc_sem_post(m, semid) =
+    let sems = ipc_sems(m)
+    let sem = sems[semid]
+    let result = 0
+    if sem != 0
+        let wq = sem[1]
+        if len(wq) > 0
+            let woken = wq[0]
+            let out = []
+            let i = 1
+            let n = len(wq)
+            for i < n
+                out.push(wq[i])
+                i = i + 1
+            sem[1] = out
+            result = woken
+        else
+            sem[0] = sem[0] + 1
+            result = 0
+        sems[semid] = sem
+        ipc_set_sems(m, sems)
+    result
+
+let sigmgr_new() =
+    [{}, {}, {}]
+
+let sigmgr_handlers(m) = m[0]
+let sigmgr_pending(m) = m[1]
+let sigmgr_defaults(m) = m[2]
+
+let sigmgr_set_handlers(m, h) =
+    m[0] = h
+    m
+
+let sigmgr_set_pending(m, p) =
+    m[1] = p
+    m
+
+let sigmgr_set_defaults(m, d) =
+    m[2] = d
+    m
+
+let sigmgr_init_defaults(m) =
+    let d = sigmgr_defaults(m)
+    d[PROC_SIG_TERM] = PROC_ACT_TERM
+    d[PROC_SIG_INT] = PROC_ACT_TERM
+    d[PROC_SIG_KILL] = PROC_ACT_TERM
+    d[PROC_SIG_HUP] = PROC_ACT_TERM
+    d[PROC_SIG_USR1] = PROC_ACT_IGN
+    d[PROC_SIG_USR2] = PROC_ACT_IGN
+    sigmgr_set_defaults(m, d)
+    m
+
+let sigmgr_register(m, pid, sig, action) =
+    let h = sigmgr_handlers(m)
+    let key = str(pid) + ":" + str(sig)
+    h[key] = action
+    sigmgr_set_handlers(m, h)
+    m
+
+let sigmgr_send(m, pid, sig) =
+    let p = sigmgr_pending(m)
+    let queue = p[pid]
+    if queue == 0
+        queue = []
+        p[pid] = queue
+    if len(queue) < PROC_MAX_SIGNALS
+        queue.push(sig)
+    sigmgr_set_pending(m, p)
+    m
+
+let sigmgr_dispatch(m, table, pid) =
+    let p = sigmgr_pending(m)
+    let queue = p[pid]
+    let result = 0
+    if queue != 0
+        if len(queue) > 0
+            let sig = queue[0]
+            let out = []
+            let i = 1
+            let n = len(queue)
+            for i < n
+                out.push(queue[i])
+                i = i + 1
+            p[pid] = out
+            sigmgr_set_pending(m, p)
+            let h = sigmgr_handlers(m)
+            let key = str(pid) + ":" + str(sig)
+            let act = h[key]
+            if act == 0
+                let d = sigmgr_defaults(m)
+                act = d[sig]
+                if act == 0
+                    act = PROC_ACT_TERM
+            result = act
+            if act == PROC_ACT_TERM
+                let proc_p = pt_get(table, pid)
+                if proc_p != 0
+                    ps_transition(table, pid, PROC_STATE_TERMINATED)
+                    proc_set_exit(proc_p, 128 + sig)
+    result
+
+let exitmgr_new() =
+    [[], {}, 0]
+
+let exitmgr_zombies(m) = m[0]
+let exitmgr_waiters(m) = m[1]
+let exitmgr_reap_count(m) = m[2]
+
+let exitmgr_set_zombies(m, z) =
+    m[0] = z
+    m
+
+let exitmgr_set_waiters(m, w) =
+    m[1] = w
+    m
+
+let exitmgr_set_reap_count(m, c) =
+    m[2] = c
+    m
+
+let exitmgr_exit(m, table, pid, code) =
+    let p = pt_get(table, pid)
+    if p != 0
+        let from = proc_state(p)
+        if from == PROC_STATE_RUNNING
+            ps_transition(table, pid, PROC_STATE_TERMINATED)
+        else
+            0
+        if from == PROC_STATE_BLOCKED
+            ps_transition(table, pid, PROC_STATE_TERMINATED)
+        proc_set_exit(p, code)
+        let procs = pt_procs(table)
+        procs[pid] = p
+        pt_set_procs(table, procs)
+        let z = exitmgr_zombies(m)
+        z.push(pid)
+        exitmgr_set_zombies(m, z)
+    m
+
+let exitmgr_wait(m, parent_pid, child_pid) =
+    let w = exitmgr_waiters(m)
+    let list = w[child_pid]
+    if list == 0
+        list = []
+        w[child_pid] = list
+    list.push(parent_pid)
+    exitmgr_set_waiters(m, w)
+    m
+
+let exitmgr_reap_one(m, table) =
+    let z = exitmgr_zombies(m)
+    let result = 0
+    if len(z) > 0
+        let pid = z[0]
+        let p = pt_get(table, pid)
+        if p != 0
+            let code = proc_exit_code(p)
+            result = [pid, code]
+            let w = exitmgr_waiters(m)
+            let waiters = w[pid]
+            if waiters != 0
+                w[pid] = 0
+                exitmgr_set_waiters(m, w)
+            let parent = proc_parent(p)
+            if parent != 0
+                let pp = pt_get(table, parent)
+                if pp != 0
+                    proc_remove_child(pp, pid)
+                    let procs = pt_procs(table)
+                    procs[parent] = pp
+                    pt_set_procs(table, procs)
+            pt_remove(table, pid)
+            let out = []
+            let i = 1
+            let n = len(z)
+            for i < n
+                out.push(z[i])
+                i = i + 1
+            exitmgr_set_zombies(m, out)
+            exitmgr_set_reap_count(m, exitmgr_reap_count(m) + 1)
+    result
+
+let exitmgr_reap_all(m, table) =
+    let reaped = 0
+    let z = exitmgr_zombies(m)
+    let n = len(z)
+    let i = 0
+    for i < n
+        exitmgr_reap_one(m, table)
+        i = i + 1
+    reaped = n
+    reaped
+
+let pr_new(max_pid, algorithm, rr_quantum) =
+    let pt = pt_new(max_pid)
+    let sched = sched_new(algorithm, rr_quantum)
+    let ipc = ipc_new()
+    let sigmgr = sigmgr_new()
+    sigmgr_init_defaults(sigmgr)
+    [pt, sched, ipc, sigmgr, exitmgr_new(), 0]
+
+let pr_table(r) = r[0]
+let pr_sched(r) = r[1]
+let pr_ipc(r) = r[2]
+let pr_sigmgr(r) = r[3]
+let pr_exitmgr(r) = r[4]
+let pr_tick(r) = r[5]
+
+let pr_set_tick(r, t) =
+    r[5] = t
+    r
+
+let pr_create(r, name, priority, parent_pid, mem_base, mem_size) =
+    let table = pr_table(r)
+    let pid = pt_alloc_pid(table)
+    let result = 0
+    if pid != 0
+        let p = proc_new(pid, name, priority, parent_pid, mem_base, mem_size, pr_tick(r))
+        pt_add(table, p)
+        ps_transition(table, pid, PROC_STATE_READY)
+        let sched = pr_sched(r)
+        sched_enqueue(sched, pid)
+        if parent_pid != 0
+            let pp = pt_get(table, parent_pid)
+            if pp != 0
+                proc_add_child(pp, pid)
+                let procs = pt_procs(table)
+                procs[parent_pid] = pp
+                pt_set_procs(table, procs)
+        result = pid
+    result
+
+let pr_destroy(r, pid, code) =
+    let table = pr_table(r)
+    let exitmgr = pr_exitmgr(r)
+    exitmgr_exit(exitmgr, table, pid, code)
+    r
+
+let pr_step(r) =
+    let tick = pr_tick(r) + 1
+    pr_set_tick(r, tick)
+    let sched = pr_sched(r)
+    let table = pr_table(r)
+    sched_tick(sched, table)
+    let cur = sched_current(sched)
+    if cur != 0
+        let sigmgr = pr_sigmgr(r)
+        sigmgr_dispatch(sigmgr, table, cur)
+    let exitmgr = pr_exitmgr(r)
+    exitmgr_reap_all(exitmgr, table)
+    r
+

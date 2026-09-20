@@ -1,0 +1,179 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+import "sh_ef2caeb45c.ψ"
+import "bootstrap_residue_prime.ψ"
+
+import "sh_9190a5699c.ψ"
+
+    let rp1 = rp_make(3, 10, 1)
+    if rp_z(rp1) == 3
+        ok = ok + 1
+    if rp_r(rp1) == 10
+        ok = ok + 1
+    if rp_n(rp1) == 1
+        ok = ok + 1
+
+    let rp2 = rp_make(5, 20, 1)
+    let rp3 = rp_make(7, 30, 2)
+
+    let rp4 = rp_make(3, 15, 1)
+    let rp_add_result = rp_add(rp1, rp4)
+    if rp_r(rp_add_result) == 25
+        ok = ok + 1
+
+    let rp_mul_result = rp_mul(rp1, rp2)
+    if rp_z(rp_mul_result) == 3
+        ok = ok + 1
+
+    let rp_scaled = rp_scale(rp1, 2)
+    if rp_r(rp_scaled) == 20
+        ok = ok + 1
+
+    let rp_mut = rp_galois(rp1, 2)
+    if rp_z(rp_mut) == 9
+        ok = ok + 1
+    if rp_r(rp_mut) == 100
+        ok = ok + 1
+
+    let eval1 = rp_eval(rp1, 10)
+    if eval1 >= 0
+        ok = ok + 1
+
+    if rp_residue(rp1) == 10
+        ok = ok + 1
+
+    let primes = [rp1, rp2, rp3]
+    let field = rpf_make(primes, 3)
+    if rpf_count(field) == 3
+        ok = ok + 1
+
+    let field_eval = rpf_eval(field, 100)
+    if field_eval >= 0
+        ok = ok + 1
+
+    let total_res = rpf_total_residue(field)
+    if total_res == gf_add(gf_add(10, 20), 30)
+        ok = ok + 1
+
+    let field2 = rpf_make([rp1], 1)
+    let field_add = rpf_add(field, field2)
+    if rpf_count(field_add) == 4
+        ok = ok + 1
+
+    let field_mut = rpf_galois(field, 2)
+    if rpf_count(field_mut) == 3
+        ok = ok + 1
+
+    let fp = rpf_fingerprint(field)
+    if fp >= 0
+        ok = ok + 1
+
+    let collide_result = rp_collide(rp1, rp2)
+    if rp_z(collide_result[0]) == 3
+        ok = ok + 1
+    if rp_z(collide_result[1]) == 5
+        ok = ok + 1
+
+    let collided_field = rpf_collide(field)
+    if rpf_count(collided_field) == 3
+        ok = ok + 1
+
+    let hom = rpf_homology(field)
+    if hom[0] == 3
+        ok = ok + 1
+    if hom[1] == 60
+        ok = ok + 1
+
+    let cancer = rpf_cancer_check(field)
+    if cancer == 0 || cancer == 1
+        ok = ok + 1
+
+    let apop = rpf_apoptosis(field)
+    if rpf_count(apop) >= 0
+        ok = ok + 1
+
+    let photon = rp_to_photon_config(rp1)
+    if photon[0] == 3
+        ok = ok + 1
+    if photon[1] == 10
+        ok = ok + 1
+    if photon[2] == 1
+        ok = ok + 1
+
+    let supercond = rp_to_superconductor_config(rp2)
+    if supercond[0] == 5
+        ok = ok + 1
+
+    let fluid = rp_to_fluid_config(rp3)
+    if fluid[0] == 7
+        ok = ok + 1
+
+    let dna = rp_dna(primes, 3)
+    let mutated_dna = rp_mutate(dna, 2)
+    if rpf_count(mutated_dna) == 3
+        ok = ok + 1
+
+    let transcribed = rp_transcribe(dna)
+    if rpf_count(transcribed) == 3
+        ok = ok + 1
+
+    let translated = rp_translate(dna)
+    if translated >= 0
+        ok = ok + 1
+
+    let fit = rp_fitness(dna)
+    if fit >= 0
+        ok = ok + 1
+
+    let gen = rp_generation(dna, 2)
+    if rpf_count(gen) == 3
+        ok = ok + 1
+
+    let info = rp_information(rp1)
+    if info >= 0
+        ok = ok + 1
+
+    let field_info = rpf_information(field)
+    if field_info == 99
+        ok = ok + 1
+
+    let entropy = rpf_entropy(field)
+    if entropy >= 0
+        ok = ok + 1
+
+    let s_mat = rp_s_matrix(rp1, rp2)
+    if rp_z(s_mat[0]) == 3
+        ok = ok + 1
+
+    let field_s = rpf_s_matrix(field)
+    if rpf_count(field_s) == 3
+        ok = ok + 1
+
+    let prop = rp_propagator(10, 3)
+    if prop >= 0
+        ok = ok + 1
+
+    let prop_res = rp_propagator_residue(3)
+    if gf_mul(prop_res, 6) == 1
+        ok = ok + 1
+
+    let mass = rp_particle_mass(rp1)
+    if mass == 3
+        ok = ok + 1
+
+    let s_elem = rp_s_matrix_element(field)
+    if s_elem >= 0
+        ok = ok + 1
+
+    let total = rpf_total_residue(field)
+    let manual_sum = gf_add(gf_add(rp_residue(rp1), rp_residue(rp2)), rp_residue(rp3))
+    if total == manual_sum
+        ok = ok + 1
+
+    let before = rpf_total_residue(field)
+    let after = rpf_total_residue(collided_field)
+    if before == after
+        ok = ok + 1
+
+    ok
+

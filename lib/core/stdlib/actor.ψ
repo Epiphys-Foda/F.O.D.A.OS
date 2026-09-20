@@ -1,0 +1,120 @@
+let actor_behavior_incr(state, msg) =
+    [state + 1, state + 1]
+let actor_behavior_counter(state, msg) =
+    if msg == "increment"
+        [state + 1, state + 1]
+    else
+        if msg == "get"
+            [state, state]
+        else
+            [state, 0]
+
+let actor_new(init_state, handler) =
+    [init_state, handler, [], 1]
+
+let actor_send(actor, message) =
+    if actor[3] == 1
+        actor[2] = arr_concat(actor[2], [message])
+        1
+    else
+        0
+
+let actor_process(actor) =
+    if actor[3] == 0 || actor[2].len() == 0
+        0
+    else
+        let message = actor[2][0]
+        actor[2] = arr_drop(actor[2], 1)
+        let handler = actor[1]
+        let result = handler(actor[0], message)
+        actor[0] = result[0]
+        result[1]
+
+let actor_process_all(actor) =
+    let last_reply = 0
+    for actor[2].len() > 0 && actor[3] == 1
+        last_reply = actor_process(actor)
+    last_reply
+
+let actor_stop(actor) =
+    actor[3] = 0
+
+let actor_is_alive(actor) =
+    actor[3]
+
+let actor_state(actor) =
+    actor[0]
+
+let actor_mailbox_size(actor) =
+    actor[2].len()
+
+let supervisor_new(strategy) =
+    [[], strategy, []]
+
+let supervisor_add_child(sup, actor) =
+    sup[0] = arr_concat(sup[0], [actor])
+    sup
+
+let supervisor_handle_failure(sup, failed_index) =
+    let strategy = sup[1]
+    if strategy == 0
+        actor_stop(sup[0][failed_index])
+    else
+        0
+    if strategy == 1
+        let i = 0
+        for i < sup[0].len()
+            actor_stop(sup[0][i])
+            i = i + 1
+    else
+        let i = failed_index
+        for i < sup[0].len()
+            actor_stop(sup[0][i])
+            i = i + 1
+
+let router_new(n_workers) =
+    let workers = []
+    let i = 0
+    for i < n_workers
+        workers = arr_concat(workers, [actor_new(0, actor_behavior_incr)])
+        i = i + 1
+    [workers, 0]
+
+let router_send(router, message) =
+    let workers = router[0]
+    let idx = router[1]
+    actor_send(workers[idx], message)
+    router[1] = (idx + 1) % workers.len()
+
+let router_collect(router) =
+    let results = []
+    let workers = router[0]
+    let i = 0
+    for i < workers.len()
+        let reply = actor_process_all(workers[i])
+        results = arr_concat(results, [reply])
+        i = i + 1
+    results
+
+let pubsub_new() =
+    [[]]
+
+let pubsub_subscribe(ps, actor) =
+    ps[0] = arr_concat(ps[0], [actor])
+
+let pubsub_publish(ps, message) =
+    let i = 0
+    for i < ps[0].len()
+        actor_send(ps[0][i], message)
+        i = i + 1
+    ps[0].len()
+
+let main() =
+    let counter = actor_new(0, actor_behavior_counter)
+    actor_send(counter, "increment")
+    actor_send(counter, "increment")
+    actor_send(counter, "increment")
+    actor_send(counter, "get")
+    let result = actor_process_all(counter)
+    print(result)
+    0

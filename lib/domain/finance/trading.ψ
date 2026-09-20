@@ -1,0 +1,363 @@
+import "../domain_field.ψ"
+let order_new(id, side, kind, price, qty, ts, account) =
+    [id, side, kind, price, qty, 0, 1, ts, account]
+
+let ord_id(o) = o[0]
+let ord_side(o) = o[1]
+let ord_type(o) = o[2]
+let ord_price(o) = o[3]
+let ord_qty(o) = o[4]
+let ord_filled(o) = o[5]
+let ord_status(o) = o[6]
+let ord_ts(o) = o[7]
+let ord_account(o) = o[8]
+
+let ord_remaining(o) =
+    ord_qty(o) - ord_filled(o)
+
+let ord_set_filled(o, filled) =
+    o[5] = filled
+    if filled >= ord_qty(o)
+        o[6] = 3
+    else
+        if filled > 0
+            o[6] = 2
+    o
+
+let ord_cancel(o) =
+    o[6] = 0
+    o
+
+let lob_new(symbol) =
+    [symbol, {}, {}, 0]
+
+let lob_symbol(b) = b[0]
+let lob_bids(b) = b[1]
+let lob_asks(b) = b[2]
+let lob_next_id(b) = b[3]
+
+let lob_alloc_id(b) =
+    let id = b[3]
+    b[3] = id + 1
+    id
+
+let lob_add_order(b, side, kind, price, qty, ts, account) =
+    let id = lob_alloc_id(b)
+    let order = order_new(id, side, kind, price, qty, ts, account)
+    if kind == 0
+        b
+    else
+        if side == 0
+            let bids = lob_bids(b)
+            let level = bids[price]
+            if level == 0
+                level = []
+            level.push(order)
+            bids[price] = level
+            b[1] = bids
+        else
+            let asks = lob_asks(b)
+            let level = asks[price]
+            if level == 0
+                level = []
+            level.push(order)
+            asks[price] = level
+            b[2] = asks
+        order
+
+let lob_cancel_order(b, side, price, order_id) =
+    let found = 0
+    if side == 0
+        let bids = lob_bids(b)
+        let level = bids[price]
+        if level != 0
+            let new_level = []
+            let i = 0
+            let n = len(level)
+            for i < n
+                if ord_id(level[i]) == order_id
+                    found = 1
+                else
+                    new_level.push(level[i])
+                i = i + 1
+            bids[price] = new_level
+            b[1] = bids
+        else
+            0
+        let asks = lob_asks(b)
+        let level = asks[price]
+        if level != 0
+            let new_level = []
+            let i = 0
+            let n = len(level)
+            for i < n
+                if ord_id(level[i]) == order_id
+                    found = 1
+                else
+                    new_level.push(level[i])
+                i = i + 1
+            asks[price] = new_level
+            b[2] = asks
+    found
+
+let lob_best_bid(b) =
+    let bids = lob_bids(b)
+    let keys = keys_of(bids)
+    let best_price = 0
+    let best_level = 0
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let p = keys[i]
+        let lvl = bids[p]
+        if len(lvl) > 0
+            if p > best_price
+                best_price = p
+                best_level = lvl
+        i = i + 1
+    if best_price == 0
+        0
+    else
+        let total = 0
+        i = 0
+        let m = len(best_level)
+        for i < m
+            total = total + ord_remaining(best_level[i])
+            i = i + 1
+        [best_price, total]
+
+let lob_best_ask(b) =
+    let asks = lob_asks(b)
+    let keys = keys_of(asks)
+    let best_price = 0
+    let best_level = 0
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let p = keys[i]
+        let lvl = asks[p]
+        if len(lvl) > 0
+            if best_price == 0 || p < best_price
+                best_price = p
+                best_level = lvl
+        i = i + 1
+    if best_price == 0
+        0
+    else
+        let total = 0
+        i = 0
+        let m = len(best_level)
+        for i < m
+            total = total + ord_remaining(best_level[i])
+            i = i + 1
+        [best_price, total]
+
+let lob_top_of_book(b) =
+    [lob_best_bid(b), lob_best_ask(b)]
+
+let match_market_buy(b, qty, ts, account) =
+    let asks = lob_asks(b)
+    let keys = keys_of(asks)
+    let sorted_prices = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let p = keys[i]
+        if len(asks[p]) > 0
+            sorted_prices.push(p)
+        i = i + 1
+    i = 0
+    let ns = len(sorted_prices)
+    for i < ns - 1
+        let j = i + 1
+        for j < ns
+            if sorted_prices[j] < sorted_prices[i]
+                let tmp = sorted_prices[i]
+                sorted_prices[i] = sorted_prices[j]
+                sorted_prices[j] = tmp
+            j = j + 1
+        i = i + 1
+    let remaining = qty
+    let trades = []
+    i = 0
+    for i < ns
+        if remaining <= 0
+            i = ns
+        else
+            let price = sorted_prices[i]
+            let level = asks[price]
+            let j = 0
+            let m = len(level)
+            for j < m
+                if remaining <= 0
+                    j = m
+                else
+                    let order = level[j]
+                    let avail = ord_remaining(order)
+                    let fill = avail
+                    if fill > remaining
+                        fill = remaining
+                    order = ord_set_filled(order, ord_filled(order) + fill)
+                    level[j] = order
+                    remaining = remaining - fill
+                    trades.push([price, fill, ord_id(order), account])
+                    j = j + 1
+            asks[price] = level
+        i = i + 1
+    b[2] = asks
+    [trades, qty - remaining]
+
+let match_market_sell(b, qty, ts, account) =
+    let bids = lob_bids(b)
+    let keys = keys_of(bids)
+    let sorted_prices = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let p = keys[i]
+        if len(bids[p]) > 0
+            sorted_prices.push(p)
+        i = i + 1
+    i = 0
+    let ns = len(sorted_prices)
+    for i < ns - 1
+        let j = i + 1
+        for j < ns
+            if sorted_prices[j] > sorted_prices[i]
+                let tmp = sorted_prices[i]
+                sorted_prices[i] = sorted_prices[j]
+                sorted_prices[j] = tmp
+            j = j + 1
+        i = i + 1
+    let remaining = qty
+    let trades = []
+    i = 0
+    for i < ns
+        if remaining <= 0
+            i = ns
+        else
+            let price = sorted_prices[i]
+            let level = bids[price]
+            let j = 0
+            let m = len(level)
+            for j < m
+                if remaining <= 0
+                    j = m
+                else
+                    let order = level[j]
+                    let avail = ord_remaining(order)
+                    let fill = avail
+                    if fill > remaining
+                        fill = remaining
+                    order = ord_set_filled(order, ord_filled(order) + fill)
+                    level[j] = order
+                    remaining = remaining - fill
+                    trades.push([price, fill, ord_id(order), account])
+                    j = j + 1
+            bids[price] = level
+        i = i + 1
+    b[1] = bids
+    [trades, qty - remaining]
+
+let vwap(trades) =
+    let total_value = 0
+    let total_qty = 0
+    let i = 0
+    let n = len(trades)
+    for i < n
+        let t = trades[i]
+        total_value = total_value + t[0] * t[1]
+        total_qty = total_qty + t[1]
+        i = i + 1
+    if total_qty == 0
+        0
+    else
+        total_value / total_qty
+
+let twap(prices_over_time) =
+    let sum = 0
+    let i = 0
+    let n = len(prices_over_time)
+    for i < n
+        sum = sum + prices_over_time[i]
+        i = i + 1
+    if n == 0
+        0
+    else
+        sum / n
+
+let vwap_split(total_qty, volume_profile, num_slices) =
+    let total_vol = 0
+    let i = 0
+    let n = len(volume_profile)
+    for i < n
+        total_vol = total_vol + volume_profile[i]
+        i = i + 1
+    if total_vol == 0
+        let slices = []
+        i = 0
+        for i < num_slices
+            slices.push(total_qty / num_slices)
+            i = i + 1
+        slices
+    else
+        let slices = []
+        i = 0
+        for i < num_slices
+            slices.push(total_qty * volume_profile[i] / total_vol)
+            i = i + 1
+        slices
+
+let clearing_new() =
+    [[], 0]
+
+let clearing_record(c, trade) =
+    let trades = c[0]
+    trades.push(trade)
+    c[0] = trades
+    c
+
+let clearing_match_trades(c) =
+    let trades = c[0]
+    let positions = {}
+    let i = 0
+    let n = len(trades)
+    for i < n
+        let t = trades[i]
+        let qty = t[1]
+        let acct = t[3]
+        let pos = positions[acct]
+        if pos == 0
+            pos = 0
+        positions[acct] = pos + qty
+        i = i + 1
+    positions
+
+let settlement_new(clearing_cycle_days) =
+    [clearing_cycle_days, [], 0]
+
+let settlement_record(s, trade, trade_date) =
+    let settle_date = trade_date + s[0]
+    let item = [s[2], trade, settle_date, 0]
+    s[2] = s[2] + 1
+    let pending = s[1]
+    pending.push(item)
+    s[1] = pending
+    item[0]
+
+let settlement_process(s, current_date) =
+    let pending = s[1]
+    let still_pending = []
+    let settled = []
+    let i = 0
+    let n = len(pending)
+    for i < n
+        let item = pending[i]
+        if item[2] <= current_date
+            item[3] = 1
+            settled.push(item)
+        else
+            still_pending.push(item)
+        i = i + 1
+    s[1] = still_pending
+    settled

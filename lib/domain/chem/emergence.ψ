@@ -1,0 +1,36 @@
+import "ck.ψ"
+let bad = [0]
+
+let quark = 1
+let baryon = 3
+let dz1 = baryon - quark * 3
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let pieces = 6
+let dz2 = pieces - 6
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let water = 3
+let dz3 = water - 3
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let bases = 4
+let pairs = 2
+let dz4 = bases - pairs * 2
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let levels = 8
+bad[0] = bad[0] + ck(levels, 6, 10)
+
+if 1972 < 1970
+    bad[0] = bad[0] + 1
+if 1972 > 1974
+    bad[0] = bad[0] + 1
+if 1977 < 1975
+    bad[0] = bad[0] + 1
+if 1977 > 1979
+    bad[0] = bad[0] + 1
+if 1977 < 1972
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

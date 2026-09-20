@@ -1,0 +1,448 @@
+import "gf65537.ψ"
+import "arr.ψ"
+
+let LSP_METHOD_COMPLETION  = 1
+let LSP_METHOD_HOVER       = 2
+let LSP_METHOD_DEFINITION  = 3
+let LSP_METHOD_REFERENCES  = 4
+let LSP_METHOD_RENAME      = 5
+let LSP_METHOD_DIAGNOSTIC = 6
+let LSP_METHOD_FORMATTING  = 7
+let LSP_METHOD_SIGNATURE   = 8
+
+let lsp_request_make(method_id, params) =
+    let v = arr_new_n(2)
+    arr_set(v, 0, method_id)
+    arr_set(v, 1, params)
+    v
+
+let lsp_request_method(req) = arr_get(req, 0)
+
+let lsp_request_params(req) = arr_get(req, 1)
+
+let lsp_response_make(success, result) =
+    let v = arr_new_n(2)
+    arr_set(v, 0, success)
+    arr_set(v, 1, result)
+    v
+
+let lsp_completion(symbols, prefix) =
+    let matches = arr_new()
+    _lsp_completion_acc(symbols, prefix, matches, arr_len(symbols), 0)
+    matches
+let _lsp_completion_acc(symbols, prefix, matches, n, i) =
+    if i >= n
+        matches
+    let sym = arr_get(symbols, i)
+    if sym >= prefix
+      arr_push(matches, sym)
+    _lsp_completion_acc(symbols, prefix, matches, n, i + 1)
+
+let lsp_hover(symbol_id, doc_table) =
+    let n = arr_len(doc_table)
+    _lsp_hover_acc(doc_table, symbol_id, n, 0)
+let _lsp_hover_acc(doc_table, symbol_id, n, i) =
+    if i >= n
+        0 - 1
+    let entry = arr_get(doc_table, i)
+    if arr_get(entry, 0) == symbol_id
+      arr_get(entry, 1)
+    _lsp_hover_acc(doc_table, symbol_id, n, i + 1)
+
+let lsp_goto_definition(symbol_id, def_table) =
+    let n = arr_len(def_table)
+    _lsp_def_acc(def_table, symbol_id, n, 0)
+let _lsp_def_acc(def_table, symbol_id, n, i) =
+    if i >= n
+        0 - 1
+    let entry = arr_get(def_table, i)
+    if arr_get(entry, 0) == symbol_id
+      entry
+    _lsp_def_acc(def_table, symbol_id, n, i + 1)
+
+let lsp_find_references(symbol_id, ref_table) =
+    let refs = arr_new()
+    _lsp_refs_acc(ref_table, symbol_id, refs, arr_len(ref_table), 0)
+    refs
+let _lsp_refs_acc(ref_table, symbol_id, refs, n, i) =
+    if i >= n
+        refs
+    let entry = arr_get(ref_table, i)
+    if arr_get(entry, 0) == symbol_id
+      arr_push(refs, entry)
+    _lsp_refs_acc(ref_table, symbol_id, refs, n, i + 1)
+
+let lsp_rename(old_id, new_id, ref_table) =
+    let n = arr_len(ref_table)
+    _lsp_rename_acc(ref_table, old_id, new_id, n, 0, 0)
+let _lsp_rename_acc(ref_table, old_id, new_id, n, i, count) =
+      if i >= n
+          count
+      let entry = arr_get(ref_table, i)
+      if arr_get(entry, 0) == old_id
+        arr_set(entry, 0, new_id)
+        _lsp_rename_acc(ref_table, old_id, new_id, n, i + 1, count + 1)
+      else
+        _lsp_rename_acc(ref_table, old_id, new_id, n, i + 1, count)
+
+let lsp_diagnostic(errors) =
+    let diags = arr_new()
+    _lsp_diag_acc(errors, diags, arr_len(errors), 0)
+    diags
+let _lsp_diag_acc(errors, diags, n, i) =
+    if i >= n
+        diags
+    let err = arr_get(errors, i)
+    let v = arr_new_n(4)
+    arr_set(v, 0, 2)
+    arr_set(v, 1, arr_get(err, 0))
+    arr_set(v, 2, arr_get(err, 1))
+    arr_set(v, 3, arr_get(err, 2))
+    arr_push(diags, v)
+    _lsp_diag_acc(errors, diags, n, i + 1)
+
+let lsp_handle_request(req, symbol_table, doc_table, def_table, ref_table) =
+    let method = lsp_request_method(req)
+    let params = lsp_request_params(req)
+    if method == LSP_METHOD_COMPLETION
+      lsp_response_make(1, lsp_completion(symbol_table, params))
+    if method == LSP_METHOD_HOVER
+      lsp_response_make(1, lsp_hover(params, doc_table))
+    if method == LSP_METHOD_DEFINITION
+      lsp_response_make(1, lsp_goto_definition(params, def_table))
+    if method == LSP_METHOD_REFERENCES
+      lsp_response_make(1, lsp_find_references(params, ref_table))
+    lsp_response_make(0, 0)
+
+let ts_tree_make(nodes, ranges) =
+    let v = arr_new_n(2)
+    arr_set(v, 0, nodes)
+    arr_set(v, 1, ranges)
+    v
+
+let ts_tree_nodes(tree) = arr_get(tree, 0)
+
+let ts_tree_ranges(tree) = arr_get(tree, 1)
+
+let ts_edit_make(start_byte, old_end_byte, new_end_byte) =
+    let v = arr_new_n(3)
+    arr_set(v, 0, start_byte)
+    arr_set(v, 1, old_end_byte)
+    arr_set(v, 2, new_end_byte)
+    v
+
+let ts_incremental_parse(old_tree, edit) =
+    let affected = arr_new()
+    let ranges = ts_tree_ranges(old_tree)
+    let n = arr_len(ranges)
+    _ts_incr_acc(ranges, edit, affected, n, 0)
+    affected
+let _ts_incr_acc(ranges, edit, affected, n, i) =
+    if i >= n
+        affected
+    let range = arr_get(ranges, i)
+    let start = arr_get(range, 0)
+    let end = arr_get(range, 1)
+    let edit_start = arr_get(edit, 0)
+    let edit_old_end = arr_get(edit, 1)
+    if start <= edit_old_end && end >= edit_start
+      arr_push(affected, range)
+    _ts_incr_acc(ranges, edit, affected, n, i + 1)
+
+let ts_estimate_savings(affected_count, total_count) =
+    if affected_count == 0
+        total_count
+    total_count / affected_count
+
+let DAP_METHOD_LAUNCH        = 1
+let DAP_METHOD_SET_BREAKPOINT = 2
+let DAP_METHOD_CONTINUE      = 3
+let DAP_METHOD_STEP_OVER     = 4
+let DAP_METHOD_STEP_IN       = 5
+let DAP_METHOD_STEP_OUT      = 6
+let DAP_METHOD_VARIABLES     = 7
+let DAP_METHOD_STACK_TRACE   = 8
+let DAP_METHOD_EVALUATE      = 9
+
+let dap_breakpoint_make(line, condition) =
+    let v = arr_new_n(2)
+    arr_set(v, 0, line)
+    arr_set(v, 1, condition)
+    v
+
+let dap_breakpoint_line(bp) = arr_get(bp, 0)
+
+let dap_breakpoint_condition(bp) = arr_get(bp, 1)
+
+let dap_stack_frame_make(file_id, line, fn_id) =
+    let v = arr_new_n(3)
+    arr_set(v, 0, file_id)
+    arr_set(v, 1, line)
+    arr_set(v, 2, fn_id)
+    v
+
+let dap_stack_frame_file(frame) = arr_get(frame, 0)
+
+let dap_stack_frame_line(frame) = arr_get(frame, 1)
+
+let dap_stack_frame_fn(frame) = arr_get(frame, 2)
+
+let dap_variable_make(name_id, value, type_id) =
+    let v = arr_new_n(3)
+    arr_set(v, 0, name_id)
+    arr_set(v, 1, value)
+    arr_set(v, 2, type_id)
+    v
+
+let dap_variable_name(v) = arr_get(v, 0)
+
+let dap_variable_value(v) = arr_get(v, 1)
+
+let dap_variable_type(v) = arr_get(v, 2)
+
+let dap_check_breakpoint(breakpoints, line) =
+    let n = arr_len(breakpoints)
+    _dap_bp_acc(breakpoints, line, n, 0)
+let _dap_bp_acc(breakpoints, line, n, i) =
+    if i >= n
+        0
+    let bp = arr_get(breakpoints, i)
+    if dap_breakpoint_line(bp) == line
+      let cond = dap_breakpoint_condition(bp)
+      if cond == 0
+          1
+      1
+    _dap_bp_acc(breakpoints, line, n, i + 1)
+
+let dap_get_variables(scope_id, var_table) =
+    let vars = arr_new()
+    _dap_vars_acc(var_table, scope_id, vars, arr_len(var_table), 0)
+    vars
+let _dap_vars_acc(var_table, scope_id, vars, n, i) =
+    if i >= n
+        vars
+    let entry = arr_get(var_table, i)
+    if arr_get(entry, 0) == scope_id
+      arr_push(vars, arr_get(entry, 1))
+    _dap_vars_acc(var_table, scope_id, vars, n, i + 1)
+
+let dap_stack_trace(call_stack) = call_stack
+
+let dap_evaluate(expr_id, env) = host_call(expr_id, env, 0)
+
+let dap_step_over(state) = state + 1
+
+let dap_step_in(state, fn_entry) = fn_entry
+
+let dap_step_out(state, return_line) = return_line
+
+let source_map_entry_make(wasm_offset, file_id, line, col) =
+    let v = arr_new_n(4)
+    arr_set(v, 0, wasm_offset)
+    arr_set(v, 1, file_id)
+    arr_set(v, 2, line)
+    arr_set(v, 3, col)
+    v
+
+let source_map_make(entries) = entries
+
+let source_map_lookup(map, wasm_offset) =
+    let n = arr_len(map)
+    _source_map_acc(map, wasm_offset, n, 0)
+let _source_map_acc(map, offset, n, i) =
+    if i >= n
+        0 - 1
+    let entry = arr_get(map, i)
+    if arr_get(entry, 0) == offset
+      entry
+    _source_map_acc(map, offset, n, i + 1)
+
+let source_map_reverse_lookup(map, file_id, line) =
+    let n = arr_len(map)
+    _source_map_rev_acc(map, file_id, line, n, 0)
+let _source_map_rev_acc(map, file_id, line, n, i) =
+    if i >= n
+        0 - 1
+    let entry = arr_get(map, i)
+    if arr_get(entry, 1) == file_id && arr_get(entry, 2) == line
+      entry
+    _source_map_rev_acc(map, file_id, line, n, i + 1)
+
+let source_map_build(wasm_sections, ast) =
+    let n = arr_len(ast)
+    let map = arr_new()
+    _source_map_build_acc(wasm_sections, ast, map, n, 0, 0)
+    map
+let _source_map_build_acc(wasm, ast, map, n, i, offset) =
+    if i >= n
+        map
+    let node = arr_get(ast, i)
+    let entry = source_map_entry_make(offset, arr_get(node, 0), arr_get(node, 1), arr_get(node, 2))
+    arr_push(map, entry)
+    let next_offset = offset + 4
+    _source_map_build_acc(wasm, ast, map, n, i + 1, next_offset)
+
+let incremental_make(file_deps, file_hashes) =
+    let v = arr_new_n(2)
+    arr_set(v, 0, file_deps)
+    arr_set(v, 1, file_hashes)
+    v
+
+let incremental_find_affected(ctx, changed_file) =
+    let deps = arr_get(ctx, 0)
+    let affected = arr_new()
+    arr_push(affected, changed_file)
+    _incremental_aff_acc(deps, changed_file, affected, arr_len(deps), 0)
+    affected
+let _incremental_aff_acc(deps, file, affected, n, i) =
+      if i >= n
+          affected
+      let dep = arr_get(deps, i)
+      if arr_get(dep, 1) == file
+        let dependent = arr_get(dep, 0)
+        arr_push(affected, dependent)
+        _incremental_aff_acc(deps, dependent, affected, n, i + 1)
+      else
+        _incremental_aff_acc(deps, file, affected, n, i + 1)
+
+let incremental_check_hash(ctx, file_id, new_hash) =
+    let hashes = arr_get(ctx, 1)
+    if file_id >= arr_len(hashes)
+        1
+    let old_hash = arr_get(hashes, file_id)
+    ((old_hash != new_hash) ? (1) : (0))
+
+let incremental_update_hash(ctx, file_id, new_hash) =
+    let hashes = arr_get(ctx, 1)
+    arr_set(hashes, file_id, new_hash)
+    ctx
+
+let incremental_estimate_savings(affected_count, total_count) =
+    if affected_count == 0
+        total_count
+    total_count / affected_count
+
+let playground_request_make(code, opt_level) =
+    let v = arr_new_n(2)
+    arr_set(v, 0, code)
+    arr_set(v, 1, opt_level)
+    v
+
+let playground_response_make(success, output, wasm_size, time_ms) =
+    let v = arr_new_n(4)
+    arr_set(v, 0, success)
+    arr_set(v, 1, output)
+    arr_set(v, 2, wasm_size)
+    arr_set(v, 3, time_ms)
+    v
+
+let playground_compile(req, compile_fn_id) =
+    let code = arr_get(req, 0)
+    let result = host_call(compile_fn_id, code, 0)
+    if result < 0
+      playground_response_make(0, result, 0, 0)
+    playground_response_make(1, result, result, 100)
+
+let playground_estimate_response_time(code_size) = code_size
+
+let JUPYTER_MSG_EXECUTE     = 1
+let JUPYTER_MSG_COMPLETE     = 2
+let JUPYTER_MSG_INSPECT     = 3
+let JUPYTER_MSG_HISTORY      = 4
+let JUPYTER_MSG_INTERRUPT    = 5
+
+let jupyter_request_make(msg_type, code, session_id) =
+    let v = arr_new_n(3)
+    arr_set(v, 0, msg_type)
+    arr_set(v, 1, code)
+    arr_set(v, 2, session_id)
+    v
+
+let jupyter_response_make(status, output, execution_count) =
+    let v = arr_new_n(3)
+    arr_set(v, 0, status)
+    arr_set(v, 1, output)
+    arr_set(v, 2, execution_count)
+    v
+
+let jupyter_execute(code, env_fn_id) = host_call(env_fn_id, code, 0)
+
+let jupyter_complete(code, cursor_pos) =
+    let v = arr_new_n(2)
+    arr_set(v, 0, 0)
+    arr_set(v, 1, arr_new())
+    v
+
+let jupyter_inspect(code, cursor_pos) =
+    let v = arr_new_n(2)
+    arr_set(v, 0, 0)
+    arr_set(v, 1, code)
+    v
+
+let jupyter_history(session_id, n) =
+    let history = arr_new()
+    _jupyter_hist_acc(history, n, 0)
+    history
+let _jupyter_hist_acc(history, n, i) =
+    if i >= n
+        history
+    let entry = arr_new_n(3)
+    arr_set(entry, 0, i)
+    arr_set(entry, 1, i + 1)
+    arr_set(entry, 2, i)
+    arr_push(history, entry)
+    _jupyter_hist_acc(history, n, i + 1)
+
+let VSCODE_CMD_COMPILE        = 1
+let VSCODE_CMD_RUN             = 2
+let VSCODE_CMD_DEBUG           = 3
+let VSCODE_CMD_FORMAT          = 4
+let VSCODE_CMD_LINT            = 5
+let VSCODE_CMD_HOVER           = 6
+let VSCODE_CMD_DEFINITION      = 7
+let VSCODE_CMD_REFERENCES     = 8
+let VSCODE_CMD_RENAME          = 9
+
+let vscode_command_make(cmd_id, args) =
+    let v = arr_new_n(2)
+    arr_set(v, 0, cmd_id)
+    arr_set(v, 1, args)
+    v
+
+let vscode_command_id(cmd) = arr_get(cmd, 0)
+
+let vscode_command_args(cmd) = arr_get(cmd, 1)
+
+let vscode_response_make(success, result, error_msg_id) =
+    let v = arr_new_n(3)
+    arr_set(v, 0, success)
+    arr_set(v, 1, result)
+    arr_set(v, 2, error_msg_id)
+    v
+
+let vscode_handle_command(cmd, compile_fn_id) =
+    let cmd_id = vscode_command_id(cmd)
+    let args = vscode_command_args(cmd)
+    if cmd_id == VSCODE_CMD_COMPILE
+      let result = host_call(compile_fn_id, args, 0)
+      if result < 0
+        vscode_response_make(0, 0, 0 - result)
+      vscode_response_make(1, result, 0)
+    if cmd_id == VSCODE_CMD_RUN
+      vscode_response_make(1, 0, 0)
+    if cmd_id == VSCODE_CMD_FORMAT
+      vscode_response_make(1, args, 0)
+    vscode_response_make(0, 0, 99)
+
+let vscode_config_make(tab_size, insert_spaces, render_whitespace) =
+    let v = arr_new_n(3)
+    arr_set(v, 0, tab_size)
+    arr_set(v, 1, insert_spaces)
+    arr_set(v, 2, render_whitespace)
+    v
+
+let vscode_config_tab_size(cfg) = arr_get(cfg, 0)
+
+let vscode_config_insert_spaces(cfg) = arr_get(cfg, 1)
+
+let vscode_config_render_whitespace(cfg) = arr_get(cfg, 2)

@@ -1,0 +1,242 @@
+let IAM_PERM_ALLOW = 1
+let IAM_PERM_DENY = 0
+
+let IAM_ACTION_READ = 0
+let IAM_ACTION_WRITE = 1
+let IAM_ACTION_DELETE = 2
+let IAM_ACTION_ADMIN = 3
+
+let iam_perm_new(resource, action, effect) = [resource, action, effect]
+let iam_perm_resource(p) = p[0]
+let iam_perm_action(p) = p[1]
+let iam_perm_effect(p) = p[2]
+
+let iam_role_new(id, name, description) =
+    [id, name, [], 0, description]
+
+let iam_role_id(r) = r[0]
+let iam_role_name(r) = r[1]
+let iam_role_permissions(r) = r[2]
+let iam_role_parent(r) = r[3]
+let iam_role_description(r) = r[4]
+
+let iam_role_set_permissions(r, p) = [r[0], r[1], p, r[3], r[4]]
+let iam_role_set_parent(r, p) = [r[0], r[1], r[2], p, r[4]]
+
+let iam_role_add_permission(r, perm) =
+    let perms = iam_role_permissions(r)
+    perms.push(perm)
+    iam_role_set_permissions(r, perms)
+
+let iam_role_store_new() = [{}, {}, {}, 1, 0]
+
+let iam_rs_roles(s) = s[0]
+let iam_rs_user_roles(s) = s[1]
+let iam_rs_role_users(s) = s[2]
+let iam_rs_next_id(s) = s[3]
+let iam_rs_total(s) = s[4]
+
+let iam_rs_set_roles(s, r) = [r, s[1], s[2], s[3], s[4]]
+let iam_rs_set_user_roles(s, u) = [s[0], u, s[2], s[3], s[4]]
+let iam_rs_set_role_users(s, r) = [s[0], s[1], r, s[3], s[4]]
+let iam_rs_set_next_id(s, n) = [s[0], s[1], s[2], n, s[4]]
+let iam_rs_set_total(s, t) = [s[0], s[1], s[2], s[3], t]
+
+let iam_rs_create_role(s, name, description) =
+    let id = iam_rs_next_id(s)
+    let role = iam_role_new(id, name, description)
+    let roles = iam_rs_roles(s)
+    roles[id] = role
+    let s2 = iam_rs_set_roles(s, roles)
+    s2 = iam_rs_set_next_id(s2, id + 1)
+    s2 = iam_rs_set_total(s2, iam_rs_total(s2) + 1)
+    [s2, id]
+
+let iam_rs_assign_role(s, user_id, role_id) =
+    let user_roles = iam_rs_user_roles(s)
+    let roles_list = user_roles[user_id]
+    if roles_list == 0
+        roles_list = []
+    let already = 0
+    let i = 0
+    let n = len(roles_list)
+    for i < n
+        if roles_list[i] == role_id
+            already = 1
+            i = n
+        i = i + 1
+    if already == 0
+        roles_list.push(role_id)
+        user_roles[user_id] = roles_list
+    let role_users = iam_rs_role_users(s)
+    let users_list = role_users[role_id]
+    if users_list == 0
+        users_list = []
+    already = 0
+    i = 0
+    n = len(users_list)
+    for i < n
+        if users_list[i] == user_id
+            already = 1
+            i = n
+        i = i + 1
+    if already == 0
+        users_list.push(user_id)
+        role_users[role_id] = users_list
+    let s2 = iam_rs_set_user_roles(s, user_roles)
+    s2 = iam_rs_set_role_users(s2, role_users)
+    s2
+
+let iam_rs_revoke_role(s, user_id, role_id) =
+    let user_roles = iam_rs_user_roles(s)
+    let roles_list = user_roles[user_id]
+    if roles_list == 0
+        s
+    else
+        let new_list = []
+        let i = 0
+        let n = len(roles_list)
+        for i < n
+            if roles_list[i] != role_id
+                new_list.push(roles_list[i])
+            i = i + 1
+        user_roles[user_id] = new_list
+        let role_users = iam_rs_role_users(s)
+        let users_list = role_users[role_id]
+        if users_list != 0
+            new_list = []
+            i = 0
+            n = len(users_list)
+            for i < n
+                if users_list[i] != user_id
+                    new_list.push(users_list[i])
+                i = i + 1
+            role_users[role_id] = new_list
+        let s2 = iam_rs_set_user_roles(s, user_roles)
+        s2 = iam_rs_set_role_users(s2, role_users)
+        s2
+
+let iam_rs_collect_permissions(s, role_id, visited) =
+    let result = []
+    if visited[role_id] == 1
+        result
+    else
+        visited[role_id] = 1
+        let roles = iam_rs_roles(s)
+        let role = roles[role_id]
+        if role == 0
+            result
+        else
+            let perms = iam_role_permissions(role)
+            let i = 0
+            let n = len(perms)
+            for i < n
+                result.push(perms[i])
+                i = i + 1
+            let parent_id = iam_role_parent(role)
+            if parent_id != 0
+                let parent_perms = iam_rs_collect_permissions(s, parent_id, visited)
+                i = 0
+                n = len(parent_perms)
+                for i < n
+                    result.push(parent_perms[i])
+                    i = i + 1
+            result
+
+let iam_rs_check_permission(s, user_id, resource, action) =
+    let user_roles = iam_rs_user_roles(s)
+    let roles_list = user_roles[user_id]
+    if roles_list == 0
+        0
+    else
+        let visited = {}
+        let all_perms = []
+        let i = 0
+        let n = len(roles_list)
+        for i < n
+            let role_perms = iam_rs_collect_permissions(s, roles_list[i], visited)
+            let j = 0
+            let m = len(role_perms)
+            for j < m
+                all_perms.push(role_perms[j])
+                j = j + 1
+            i = i + 1
+        let allowed = 0
+        i = 0
+        n = len(all_perms)
+        for i < n
+            let p = all_perms[i]
+            if iam_perm_resource(p) == resource
+                if iam_perm_action(p) == action
+                    if iam_perm_effect(p) == IAM_PERM_DENY
+                        i = n
+                        allowed = 0
+                    else
+                        allowed = 1
+            i = i + 1
+        allowed
+
+let iam_bragg_verify_inheritance(s, role_id, expected_count) =
+    let visited = {}
+    let perms = iam_rs_collect_permissions(s, role_id, visited)
+    if len(perms) == expected_count
+        1
+    else
+        0
+
+let iam_bragg_verify_deny_priority(s, user_id, resource, action) =
+    let result = iam_rs_check_permission(s, user_id, resource, action)
+    if result == 0
+        1
+    else
+        0
+
+let iam_role_self_test() =
+    let results = []
+
+    let s = iam_role_store_new()
+    let cr_res = iam_rs_create_role(s, "admin", "Administrator role")
+    s = cr_res[0]
+    let admin_id = cr_res[1]
+    results.push(admin_id == 1)
+    results.push(iam_rs_total(s) == 1)
+
+    let roles = iam_rs_roles(s)
+    let admin_role = roles[admin_id]
+    admin_role = iam_role_add_permission(admin_role, iam_perm_new("users", IAM_ACTION_ADMIN, IAM_PERM_ALLOW))
+    admin_role = iam_role_add_permission(admin_role, iam_perm_new("users", IAM_ACTION_READ, IAM_PERM_ALLOW))
+    roles[admin_id] = admin_role
+    s = iam_rs_set_roles(s, roles)
+
+    s = iam_rs_assign_role(s, 1, admin_id)
+    let user_roles = iam_rs_user_roles(s)
+    results.push(len(user_roles[1]) == 1)
+
+    results.push(iam_rs_check_permission(s, 1, "users", IAM_ACTION_ADMIN) == 1)
+    results.push(iam_rs_check_permission(s, 1, "users", IAM_ACTION_READ) == 1)
+    results.push(iam_rs_check_permission(s, 1, "users", IAM_ACTION_DELETE) == 0)
+
+    cr_res = iam_rs_create_role(s, "sub_admin", "Sub-admin role")
+    s = cr_res[0]
+    let sub_id = cr_res[1]
+    roles = iam_rs_roles(s)
+    let sub_role = roles[sub_id]
+    sub_role = iam_role_set_parent(sub_role, admin_id)
+    sub_role = iam_role_add_permission(sub_role, iam_perm_new("logs", IAM_ACTION_READ, IAM_PERM_ALLOW))
+    roles[sub_id] = sub_role
+    s = iam_rs_set_roles(s, roles)
+
+    results.push(iam_bragg_verify_inheritance(s, sub_id, 3))
+
+    s = iam_rs_assign_role(s, 2, sub_id)
+    results.push(iam_rs_check_permission(s, 2, "users", IAM_ACTION_ADMIN) == 1)
+    results.push(iam_rs_check_permission(s, 2, "logs", IAM_ACTION_READ) == 1)
+
+    s = iam_rs_revoke_role(s, 1, admin_id)
+    user_roles = iam_rs_user_roles(s)
+    results.push(len(user_roles[1]) == 0)
+    results.push(iam_rs_check_permission(s, 1, "users", IAM_ACTION_ADMIN) == 0)
+
+    results
+
+let iam_role_default_store() = iam_role_store_new()

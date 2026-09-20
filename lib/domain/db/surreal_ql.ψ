@@ -1,0 +1,379 @@
+import "../domain_field.ψ"
+let SQ_P = 65537
+
+let SQ_TOK_IDENT      = 1
+let SQ_TOK_NUMBER     = 2
+let SQ_TOK_STRING     = 3
+let SQ_TOK_KEYWORD    = 4
+let SQ_TOK_OP         = 5
+let SQ_TOK_ARROW      = 6
+let SQ_TOK_LPAREN     = 7
+let SQ_TOK_RPAREN     = 8
+let SQ_TOK_LBRACE     = 9
+let SQ_TOK_RBRACE     = 10
+let SQ_TOK_LBRACKET   = 11
+let SQ_TOK_RBRACKET   = 12
+let SQ_TOK_COMMA      = 13
+let SQ_TOK_COLON      = 14
+let SQ_TOK_SEMICOLON  = 15
+let SQ_TOK_EOF        = 16
+
+let SQ_AST_SELECT     = 1
+let SQ_AST_CREATE     = 2
+let SQ_AST_INSERT     = 3
+let SQ_AST_UPDATE     = 4
+let SQ_AST_DELETE     = 5
+let SQ_AST_RELATE     = 6
+let SQ_AST_LIVE       = 7
+let SQ_AST_FETCH      = 8
+
+let SQ_KW_SELECT = "SELECT"
+let SQ_KW_FROM = "FROM"
+let SQ_KW_WHERE = "WHERE"
+let SQ_KW_CREATE = "CREATE"
+let SQ_KW_INSERT = "INSERT"
+let SQ_KW_UPDATE = "UPDATE"
+let SQ_KW_DELETE = "DELETE"
+let SQ_KW_RELATE = "RELATE"
+let SQ_KW_LIVE = "LIVE"
+let SQ_KW_FETCH = "FETCH"
+let SQ_KW_AND = "AND"
+let SQ_KW_OR = "OR"
+
+let sq_tok_new(kind, value, pos) =
+    [kind, value, pos]
+
+let sq_t_type(t) = t[0]
+let sq_t_value(t) = t[1]
+let sq_t_pos(t) = t[2]
+
+let sq_lex(tokens) =
+    tokens
+
+let sq_ast_select(columns, from, where_pred, fetch_fields, is_live) =
+    [SQ_AST_SELECT, columns, from, where_pred, fetch_fields, is_live]
+
+let sq_ast_create(table, fields) =
+    [SQ_AST_CREATE, table, fields]
+
+let sq_ast_insert(table, records) =
+    [SQ_AST_INSERT, table, records]
+
+let sq_ast_update(table, set_fields, where_pred) =
+    [SQ_AST_UPDATE, table, set_fields, where_pred]
+
+let sq_ast_delete(table, where_pred) =
+    [SQ_AST_DELETE, table, where_pred]
+
+let sq_ast_relate(from_node, edge_type, to_node, props) =
+    [SQ_AST_RELATE, from_node, edge_type, to_node, props]
+
+let sq_ast_fetch(fields) =
+    [SQ_AST_FETCH, fields]
+
+let sq_ast_live(select_ast) =
+    [SQ_AST_LIVE, select_ast]
+
+let sq_graph_path_new(from_node) =
+    [from_node, [], 0]
+
+let sq_gp_from(g)        = g[0]
+let sq_gp_edges(g)       = g[1]
+let sq_gp_to(g)          = g[2]
+
+let sq_gp_add_edge(g, edge_type, direction) =
+    let edges = sq_gp_edges(g)
+    edges.push([edge_type, direction])
+    g[1] = edges
+    g
+
+let sq_gp_set_to(g, to_node) =
+    g[2] = to_node
+    g
+
+let sq_live_new(id, query_ast) =
+    [id, query_ast, [], [], [0, 0, 0]]
+
+let sq_lq_id(l)           = l[0]
+let sq_lq_ast(l)          = l[1]
+let sq_lq_subs(l)         = l[2]
+let sq_lq_results(l)      = l[3]
+let sq_lq_stats(l)        = l[4]
+
+let sq_lq_set_subs(l, s) =
+    l[2] = s
+    l
+let sq_lq_set_results(l, r) =
+    l[3] = r
+    l
+let sq_lq_set_stats(l, s) =
+    l[4] = s
+    l
+
+let sq_lq_add_subscriber(l, sub_id) =
+    let subs = sq_lq_subs(l)
+    subs.push(sub_id)
+    l = sq_lq_set_subs(l, subs)
+    l
+
+let sq_lq_remove_subscriber(l, sub_id) =
+    let subs = sq_lq_subs(l)
+    let new_subs = []
+    let i = 0
+    let n = len(subs)
+    for i < n
+        if subs[i] != sub_id
+            new_subs.push(subs[i])
+        i = i + 1
+    l = sq_lq_set_subs(l, new_subs)
+    l
+
+let sq_lq_push(l, new_results, now_ts) =
+    let old = sq_lq_results(l)
+    let changes = 0
+    if len(old) != len(new_results)
+        changes = 1
+    else
+        let i = 0
+        for i < len(old)
+            if old[i] != new_results[i]
+                changes = 1
+                i = len(old)
+            i = i + 1
+    l = sq_lq_set_results(l, new_results)
+    let st = sq_lq_stats(l)
+    st[0] = st[0] + 1
+    if changes == 1
+        st[1] = st[1] + len(sq_lq_subs(l))
+        st[2] = st[2] + 1
+    l = sq_lq_set_stats(l, st)
+    [l, changes]
+
+let sq_store_new() =
+    [{}, [], {}, [], [0, 0, 0, 0, 0]]
+
+let sq_st_tables(s)       = s[0]
+let sq_st_edges(s)        = s[1]
+let sq_st_live(s)         = s[2]
+let sq_st_log(s)          = s[3]
+let sq_st_stats(s)        = s[4]
+
+let sq_st_set_tables(s, t) =
+    s[0] = t
+    s
+let sq_st_set_edges(s, e) =
+    s[1] = e
+    s
+let sq_st_set_live(s, l) =
+    s[2] = l
+    s
+let sq_st_set_log(s, l) =
+    s[3] = l
+    s
+let sq_st_set_stats(s, st) =
+    s[4] = st
+    s
+
+let sq_st_log_append(s, ts, op, detail) =
+    let log = sq_st_log(s)
+    log.push([ts, op, detail])
+    s = sq_st_set_log(s, log)
+    s
+
+let sq_st_stats_inc(s, idx) =
+    let st = sq_st_stats(s)
+    st[idx] = st[idx] + 1
+    s = sq_st_set_stats(s, st)
+    s
+
+let sq_st_create(s, table, now_ts) =
+    let tables = sq_st_tables(s)
+    if tables[table] == 0
+        tables[table] = []
+    s = sq_st_set_tables(s, tables)
+    s = sq_st_stats_inc(s, 1)
+    s = sq_st_log_append(s, now_ts, "create", table)
+    s
+
+let sq_st_insert(s, table, record_id, fields, now_ts) =
+    let tables = sq_st_tables(s)
+    let records = tables[table]
+    if records == 0
+        records = []
+    records.push([record_id, fields])
+    tables[table] = records
+    s = sq_st_set_tables(s, tables)
+    s = sq_st_stats_inc(s, 2)
+    s = sq_st_log_append(s, now_ts, "insert", [table, record_id])
+    s = sq_st_notify_live(s, table, now_ts)
+    s
+
+let sq_st_select(s, table, where_pred) =
+    let tables = sq_st_tables(s)
+    let records = tables[table]
+    if records == 0
+        records = []
+    let result = records
+    if where_pred != 0
+        result = []
+        let i = 0
+        let n = len(records)
+        for i < n
+            let rec = records[i]
+            let fields = rec[1]
+            let val = fields[where_pred[0]]
+            if val == 0
+                val = 0
+            let match_ = 0
+            if where_pred[1] == "="
+                if val == where_pred[2]
+                    match_ = 1
+                else
+                    0
+            if where_pred[1] == ">"
+                if val > where_pred[2]
+                    match_ = 1
+                else
+                    0
+            if where_pred[1] == "<"
+                if val < where_pred[2]
+                    match_ = 1
+            if match_ == 1
+                result.push(rec)
+            i = i + 1
+    s = sq_st_stats_inc(s, 0)
+    s = sq_st_log_append(s, 0, "select", table)
+    [s, result]
+
+let sq_st_update(s, table, record_id, new_fields, now_ts) =
+    let tables = sq_st_tables(s)
+    let records = tables[table]
+    if records != 0
+        let i = 0
+        let n = len(records)
+        for i < n
+            if records[i][0] == record_id
+                let rec = records[i]
+                let fields = rec[1]
+                let keys = keys_of(new_fields)
+                let j = 0
+                let m = len(keys)
+                for j < m
+                    fields[keys[j]] = new_fields[keys[j]]
+                    j = j + 1
+                rec[1] = fields
+                records[i] = rec
+                j = n
+            i = i + 1
+        tables[table] = records
+        s = sq_st_set_tables(s, tables)
+    s = sq_st_stats_inc(s, 3)
+    s = sq_st_log_append(s, now_ts, "update", [table, record_id])
+    s = sq_st_notify_live(s, table, now_ts)
+    s
+
+let sq_st_delete(s, table, record_id, now_ts) =
+    let tables = sq_st_tables(s)
+    let records = tables[table]
+    if records != 0
+        let new_records = []
+        let i = 0
+        let n = len(records)
+        for i < n
+            if records[i][0] != record_id
+                new_records.push(records[i])
+            i = i + 1
+        tables[table] = new_records
+        s = sq_st_set_tables(s, tables)
+    s = sq_st_stats_inc(s, 4)
+    s = sq_st_log_append(s, now_ts, "delete", [table, record_id])
+    s = sq_st_notify_live(s, table, now_ts)
+    s
+
+let sq_st_relate(s, from_id, edge_type, to_id, props, now_ts) =
+    let edges = sq_st_edges(s)
+    edges.push([from_id, edge_type, to_id, props])
+    s = sq_st_set_edges(s, edges)
+    s = sq_st_log_append(s, now_ts, "relate", [from_id, edge_type, to_id])
+    s
+
+let sq_st_fetch(s, from_id, edge_type, direction) =
+    let edges = sq_st_edges(s)
+    let result = []
+    let i = 0
+    let n = len(edges)
+    for i < n
+        let edge = edges[i]
+        let match_ = 0
+        if direction == 1
+            if edge[0] == from_id && edge[1] == edge_type
+                match_ = 1
+            else
+                0
+            if edge[2] == from_id && edge[1] == edge_type
+                match_ = 1
+        if match_ == 1
+            if direction == 1
+                result.push(edge[2])
+            else
+                result.push(edge[0])
+        i = i + 1
+    [s, result]
+
+let sq_st_notify_live(s, table, now_ts) =
+    let lives = sq_st_live(s)
+    let keys = keys_of(lives)
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let lq = lives[keys[i]]
+        let sel_r = sq_st_select(s, table, 0)
+        let new_results = sel_r[1]
+        let push_r = sq_lq_push(lq, new_results, now_ts)
+        lq = push_r[0]
+        lives[keys[i]] = lq
+        i = i + 1
+    s = sq_st_set_live(s, lives)
+    s
+
+let sq_st_bragg_verify(s) =
+    let st = sq_st_stats(s)
+    let log = sq_st_log(s)
+    let ok = 1
+    let total_ops = st[0] + st[1] + st[2] + st[3] + st[4]
+    ok = total_ops == len(log)
+    [ok, total_ops, len(log)]
+
+let sq_default_store() =
+    let s = sq_store_new()
+    s = sq_st_create(s, "user", 1000)
+    s = sq_st_create(s, "post", 1001)
+    s = sq_st_insert(s, "user", 1, {name: "alice", age: 30}, 1002)
+    s = sq_st_insert(s, "user", 2, {name: "bob", age: 25}, 1003)
+    s = sq_st_insert(s, "post", 10, {title: "hello", author: 1}, 1004)
+    s = sq_st_relate(s, 1, "wrote", 10, {}, 1005)
+    s
+
+let sq_self_test() =
+    let s = sq_default_store()
+    let ok1 = len(sq_st_tables(s)["user"]) == 2
+    let sel_r = sq_st_select(s, "user", 0)
+    s = sel_r[0]
+    let ok2 = len(sel_r[1]) == 2
+    let sel_r2 = sq_st_select(s, "user", ["age", ">", 26])
+    s = sel_r2[0]
+    let ok3 = len(sel_r2[1]) == 1
+    let fetch_r = sq_st_fetch(s, 1, "wrote", 1)
+    s = fetch_r[0]
+    let ok4 = len(fetch_r[1]) == 1 && fetch_r[1][0] == 10
+    let lq = sq_live_new(1, 0)
+    lq = sq_lq_add_subscriber(lq, "client1")
+    let lives = sq_st_live(s)
+    lives[1] = lq
+    s = sq_st_set_live(s, lives)
+    s = sq_st_insert(s, "user", 3, {name: "charlie", age: 40}, 1006)
+    let lq2 = sq_st_live(s)[1]
+    let ok5 = sq_lq_stats(lq2)[2] >= 1
+    let bv = sq_st_bragg_verify(s)
+    let ok6 = bv[0] == 1
+    ["surreal_ql", ok1, ok2, ok3, ok4, ok5, ok6]

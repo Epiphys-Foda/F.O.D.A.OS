@@ -1,0 +1,69 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let AERO_G = 981
+let AERO_R_EARTH = 6371
+let AERO_GM = 398600
+
+let orbit_create(semi_major, eccentricity, inclination) =
+    let period = gf_mul(gf_mul(2, 31415), gf_sqrt(gf_div(gf_pow(semi_major, 3), AERO_GM)))
+    [semi_major, eccentricity, inclination, period]
+let orbit_velocity(orbit, r) =
+    let a = orbit[0]
+    let e = orbit[1]
+    gf_sqrt(gf_sub(gf_div(AERO_GM, r), gf_div(AERO_GM, a)))
+let orbit_position(orbit, theta) =
+    let a = orbit[0]
+    let e = orbit[1]
+    let r = gf_div(gf_mul(a, gf_sub(1, gf_mul(e, e))), gf_add(1, gf_mul(e, theta)))
+    r
+let kepler_solve(M, e, iterations) =
+    let E = M
+    let i = 0
+    for i < iterations
+        E = gf_add(M, gf_mul(e, E))
+        i = i + 1
+    E
+let thrust_force(mass_flow, exhaust_velocity) =
+    gf_mul(mass_flow, exhaust_velocity)
+let rocket_equation(delta_v, exhaust_velocity, initial_mass) =
+    let mass_ratio = gf_div(delta_v, exhaust_velocity)
+    gf_mul(initial_mass, gf_pow(3, mass_ratio))
+let atmospheric_density(altitude) =
+    let scale_height = 8500
+    gf_mul(1225, gf_pow(gf_div(1, 3), gf_div(altitude, scale_height)))
+let atmospheric_drag(density, velocity, area, drag_coeff) =
+    gf_mul(gf_mul(gf_div(1, 2), gf_mul(density, gf_mul(velocity, velocity))), gf_mul(area, drag_coeff))
+let satellite_create(id, x, y, z, vx, vy, vz, mass) = [id, x, y, z, vx, vy, vz, mass]
+let satellite_step(sat, dt) =
+    let r = gf_sqrt(gf_add(gf_add(gf_mul(sat[1], sat[1]), gf_mul(sat[2], sat[2])), gf_mul(sat[3], sat[3])))
+    let a = gf_div(gf_neg(AERO_GM), gf_mul(r, gf_mul(r, r)))
+    let ax = gf_mul(a, sat[1])
+    let ay = gf_mul(a, sat[2])
+    let az = gf_mul(a, sat[3])
+    let vx = gf_add(sat[4], gf_mul(ax, dt))
+    let vy = gf_add(sat[5], gf_mul(ay, dt))
+    let vz = gf_add(sat[6], gf_mul(az, dt))
+    let x = gf_add(sat[1], gf_mul(vx, dt))
+    let y = gf_add(sat[2], gf_mul(vy, dt))
+    let z = gf_add(sat[3], gf_mul(vz, dt))
+    [sat[0], x, y, z, vx, vy, vz, sat[7]]
+let field_aerospace(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let aerospace_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_aerospace(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+

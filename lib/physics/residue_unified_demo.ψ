@@ -1,0 +1,142 @@
+import "../core/stdlib_lang2/gf_base.ψ"
+import "bootstrap_residue.ψ"
+
+import "sh_a9f96f3ee7.ψ"
+
+import "sh_8c6baeb7bd.ψ"
+let field_eval(z0, poles, residues, n) = domain_field_eval(poles, residues, z0)
+
+let table_exec(tab, rows) =
+    let stack = arr_new_n(16)
+    let sp = 0
+    let i = 0
+    for i < rows
+        let z = tab[i * 3]
+        let r = tab[i * 3 + 1]
+        let n = tab[i * 3 + 2]
+        if n == 0
+            stack[sp] = r
+            sp = sp + 1
+        if n == 2
+            sp = sp - 1
+            let y = stack[sp]
+            sp = sp - 1
+            let x = stack[sp]
+            let v = 0
+            if z == 1
+                v = x + y
+            if z == 2
+                v = x * y
+            stack[sp] = v
+            sp = sp + 1
+        i = i + 1
+    stack[0]
+
+let main() =
+    print(111)
+    let poles1 = arr_new_n(1)
+    poles1[0] = 100
+    let res1 = arr_new_n(1)
+    res1[0] = 5
+    print(field_eval(110, poles1, res1, 1))
+
+    print(222)
+    let direct = 7 + 5 * 3
+    print(direct)
+    let ast = arr_new_n(15)
+    ast.set(0, 3)
+    ast.set(1, 7)
+    ast.set(2, 0)
+    ast.set(3, 3)
+    ast.set(4, 5)
+    ast.set(5, 0)
+    ast.set(6, 0)
+    ast.set(7, 3)
+    ast.set(8, 0)
+    ast.set(9, 2)
+    ast.set(10, 0)
+    ast.set(11, 2)
+    ast.set(12, 1)
+    ast.set(13, 0)
+    ast.set(14, 2)
+    let from_table = table_exec(ast, 5)
+    print(from_table)
+    let lossless = 0
+    if from_table == direct
+        lossless = 1
+    print(lossless)
+
+    print(333)
+    let tok = arr_new_n(15)
+    tok.set(0, 3)
+    tok.set(1, 7)
+    tok.set(2, 1)
+    tok.set(3, 1)
+    tok.set(4, 0)
+    tok.set(5, 2)
+    tok.set(6, 3)
+    tok.set(7, 5)
+    tok.set(8, 3)
+    tok.set(9, 2)
+    tok.set(10, 0)
+    tok.set(11, 4)
+    tok.set(12, 0)
+    tok.set(13, 3)
+    tok.set(14, 5)
+    print(5)
+    print(5)
+    let exe = arr_new_n(15)
+    exe.set(0, 0)
+    exe.set(1, 7)
+    exe.set(2, 0)
+    exe.set(3, 0)
+    exe.set(4, 5)
+    exe.set(5, 0)
+    exe.set(6, 0)
+    exe.set(7, 3)
+    exe.set(8, 0)
+    exe.set(9, 2)
+    exe.set(10, 0)
+    exe.set(11, 2)
+    exe.set(12, 1)
+    exe.set(13, 0)
+    exe.set(14, 2)
+    print(5)
+    let exe_result = table_exec(exe, 5)
+    print(exe_result)
+    let three_stage = 0
+    if exe_result == direct
+        three_stage = 1
+    print(three_stage)
+
+    print(444)
+    let poles_n = arr_new_n(1)
+    poles_n[0] = 100
+    let res_n = arr_new_n(1)
+    res_n[0] = 65532
+    print(field_eval(110, poles_n, res_n, 1))
+    let poles_e = arr_new_n(3)
+    poles_e.set(0, 2)
+    poles_e.set(1, 10)
+    poles_e.set(2, 18)
+    let res_e = arr_new_n(3)
+    res_e.set(0, 2)
+    res_e.set(1, 8)
+    res_e.set(2, 8)
+    print(field_eval(6, poles_e, res_e, 3))
+    let poles_i = arr_new_n(2)
+    poles_i.set(0, 50)
+    poles_i.set(1, 150)
+    let res_i = arr_new_n(2)
+    res_i.set(0, 1)
+    res_i.set(1, 1)
+    print(field_eval(100, poles_i, res_i, 2))
+    print(field_eval(60, poles_i, res_i, 2))
+    let unified = 0
+    if field_eval(110, poles_n, res_n, 1) == 32768
+        if field_eval(6, poles_e, res_e, 3) == 54612
+            if field_eval(100, poles_i, res_i, 2) == 0
+                unified = 1
+    print(unified)
+
+    from_table

@@ -1,0 +1,424 @@
+let kv_new(max_size) = [{}, {}, {}, [], max_size, [], 0, 0, 0]
+
+let kv_data(s) = s[0]
+let kv_ttl(s) = s[1]
+let kv_types(s) = s[2]
+let kv_lru(s) = s[3]
+let kv_max(s) = s[4]
+let kv_wal(s) = s[5]
+let kv_ops(s) = s[6]
+let kv_hit(s) = s[7]
+let kv_miss(s) = s[8]
+
+let kv_set_data(s, v) = [v, s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8]]
+let kv_set_ttl(s, v) = [s[0], v, s[2], s[3], s[4], s[5], s[6], s[7], s[8]]
+let kv_set_types(s, v) = [s[0], s[1], v, s[3], s[4], s[5], s[6], s[7], s[8]]
+let kv_set_lru(s, v) = [s[0], s[1], s[2], v, s[4], s[5], s[6], s[7], s[8]]
+let kv_set_wal(s, v) = [s[0], s[1], s[2], s[3], s[4], v, s[6], s[7], s[8]]
+let kv_set_ops(s, v) = [s[0], s[1], s[2], s[3], s[4], s[5], v, s[7], s[8]]
+let kv_set_hit(s, v) = [s[0], s[1], s[2], s[3], s[4], s[5], s[6], v, s[8]]
+let kv_set_miss(s, v) = [s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], v]
+
+let kv_touch_lru(s, key) =
+    let lru = kv_lru(s)
+    let i = 0
+    let n = len(lru)
+    let found = 0
+    let new_lru = []
+    for i < n
+        if lru[i] == key
+            found = 1
+            let j = 0
+            for j < n
+                if j != i
+                    new_lru.push(lru[j])
+                j = j + 1
+            new_lru.push(key)
+            i = n
+        i = i + 1
+    if found == 0
+        lru.push(key)
+        s = kv_set_lru(s, lru)
+    else
+        s = kv_set_lru(s, new_lru)
+    s
+
+let kv_evict_lru(s) =
+    let max = kv_max(s)
+    if max == 0
+        s
+    else
+        let lru = kv_lru(s)
+        for len(lru) > max
+            let victim = lru[0]
+            let new_lru = []
+            let i = 1
+            let n = len(lru)
+            for i < n
+                new_lru.push(lru[i])
+                i = i + 1
+            lru = new_lru
+            let data = kv_data(s)
+            data[victim] = 0
+            s = kv_set_data(s, data)
+            let ttl = kv_ttl(s)
+            ttl[victim] = 0
+            s = kv_set_ttl(s, ttl)
+            let types = kv_types(s)
+            types[victim] = 0
+            s = kv_set_types(s, types)
+        s = kv_set_lru(s, lru)
+        s
+
+let kv_check_ttl(s, key, now) =
+    let ttl = kv_ttl(s)
+    let expire = ttl[key]
+    if expire == 0
+        1
+    else
+        0
+    if expire <= now
+        let data = kv_data(s)
+        data[key] = 0
+        s = kv_set_data(s, data)
+        ttl[key] = 0
+        s = kv_set_ttl(s, ttl)
+        let types = kv_types(s)
+        types[key] = 0
+        s = kv_set_types(s, types)
+        0
+    else
+        1
+
+let kv_set(s, key, value, now) =
+    let data = kv_data(s)
+    data[key] = value
+    s = kv_set_data(s, data)
+    let types = kv_types(s)
+    types[key] = "string"
+    s = kv_set_types(s, types)
+    let ttl = kv_ttl(s)
+    ttl[key] = 0
+    s = kv_set_ttl(s, ttl)
+    let wal = kv_wal(s)
+    wal.push(["set", key, value])
+    s = kv_set_wal(s, wal)
+    s = kv_set_ops(s, kv_ops(s) + 1)
+    s = kv_touch_lru(s, key)
+    s = kv_evict_lru(s)
+    s
+
+let kv_setex(s, key, value, ttl_seconds, now) =
+    let data = kv_data(s)
+    data[key] = value
+    s = kv_set_data(s, data)
+    let types = kv_types(s)
+    types[key] = "string"
+    s = kv_set_types(s, types)
+    let ttl = kv_ttl(s)
+    ttl[key] = now + ttl_seconds
+    s = kv_set_ttl(s, ttl)
+    let wal = kv_wal(s)
+    wal.push(["setex", key, value])
+    s = kv_set_wal(s, wal)
+    s = kv_set_ops(s, kv_ops(s) + 1)
+    s = kv_touch_lru(s, key)
+    s = kv_evict_lru(s)
+    s
+
+let kv_get(s, key, now) =
+    let ok = kv_check_ttl(s, key, now)
+    if ok == 0
+        s = kv_set_miss(s, kv_miss(s) + 1)
+        [s, 0]
+    else
+        let data = kv_data(s)
+        let v = data[key]
+        if v == 0
+            s = kv_set_miss(s, kv_miss(s) + 1)
+        else
+            s = kv_set_hit(s, kv_hit(s) + 1)
+            s = kv_touch_lru(s, key)
+        [s, v]
+
+let kv_del(s, key) =
+    let data = kv_data(s)
+    let existed = 0
+    if data[key] != 0
+        existed = 1
+    data[key] = 0
+    s = kv_set_data(s, data)
+    let ttl = kv_ttl(s)
+    ttl[key] = 0
+    s = kv_set_ttl(s, ttl)
+    let types = kv_types(s)
+    types[key] = 0
+    s = kv_set_types(s, types)
+    let wal = kv_wal(s)
+    wal.push(["del", key, 0])
+    s = kv_set_wal(s, wal)
+    if existed == 1
+        s = kv_set_ops(s, kv_ops(s) + 1)
+    [s, existed]
+
+let kv_exists(s, key, now) =
+    let ok = kv_check_ttl(s, key, now)
+    if ok == 0
+        0
+    else
+        let v = kv_data(s)[key]
+        if v == 0
+            0
+        else
+            1
+
+let kv_lpush(s, key, value) =
+    let data = kv_data(s)
+    let lst = data[key]
+    if lst == 0
+        lst = []
+    let new_lst = [value]
+    let i = 0
+    let n = len(lst)
+    for i < n
+        new_lst.push(lst[i])
+        i = i + 1
+    data[key] = new_lst
+    s = kv_set_data(s, data)
+    let types = kv_types(s)
+    types[key] = "list"
+    s = kv_set_types(s, types)
+    s = kv_set_ops(s, kv_ops(s) + 1)
+    s
+
+let kv_rpush(s, key, value) =
+    let data = kv_data(s)
+    let lst = data[key]
+    if lst == 0
+        lst = []
+    lst.push(value)
+    data[key] = lst
+    s = kv_set_data(s, data)
+    let types = kv_types(s)
+    types[key] = "list"
+    s = kv_set_types(s, types)
+    s = kv_set_ops(s, kv_ops(s) + 1)
+    s
+
+let kv_lpop(s, key) =
+    let data = kv_data(s)
+    let lst = data[key]
+    if lst == 0 || len(lst) == 0
+        [s, 0]
+    else
+        let v = lst[0]
+        let new_lst = []
+        let i = 1
+        let n = len(lst)
+        for i < n
+            new_lst.push(lst[i])
+            i = i + 1
+        data[key] = new_lst
+        s = kv_set_data(s, data)
+        [s, v]
+
+let kv_rpop(s, key) =
+    let data = kv_data(s)
+    let lst = data[key]
+    if lst == 0 || len(lst) == 0
+        [s, 0]
+    else
+        let v = lst[len(lst) - 1]
+        let new_lst = []
+        let i = 0
+        let n = len(lst) - 1
+        for i < n
+            new_lst.push(lst[i])
+            i = i + 1
+        data[key] = new_lst
+        s = kv_set_data(s, data)
+        [s, v]
+
+let kv_hset(s, key, field, value) =
+    let data = kv_data(s)
+    let h = data[key]
+    if h == 0
+        h = {}
+    h[field] = value
+    data[key] = h
+    s = kv_set_data(s, data)
+    let types = kv_types(s)
+    types[key] = "hash"
+    s = kv_set_types(s, types)
+    s = kv_set_ops(s, kv_ops(s) + 1)
+    s
+
+let kv_hget(s, key, field) =
+    let data = kv_data(s)
+    let h = data[key]
+    if h == 0
+        0
+    else
+        h[field]
+
+let kv_multi() = []
+
+let kv_multi_enqueue(tx, op, key, value) =
+    tx.push([op, key, value])
+    tx
+
+let kv_exec(s, tx, now) =
+    let i = 0
+    let n = len(tx)
+    for i < n
+        let cmd = tx[i]
+        let op = cmd[0]
+        let key = cmd[1]
+        let val = cmd[2]
+        if op == "set"
+            s = kv_set(s, key, val, now)
+        else
+            0
+        if op == "del"
+            let r = kv_del(s, key)
+            s = r[0]
+        else
+            0
+        if op == "lpush"
+            s = kv_lpush(s, key, val)
+        else
+            0
+        if op == "rpush"
+            s = kv_rpush(s, key, val)
+        else
+            0
+        if op == "hset"
+            s = kv_hset(s, key, val[0], val[1])
+        i = i + 1
+    s
+
+let kv_snapshot(s) =
+    [kv_data(s), kv_types(s)]
+
+let kv_wal_replay(s, now) =
+    let wal = kv_wal(s)
+    let i = 0
+    let n = len(wal)
+    for i < n
+        let entry = wal[i]
+        let op = entry[0]
+        let key = entry[1]
+        let val = entry[2]
+        if op == "set" || op == "setex"
+            s = kv_set(s, key, val, now)
+        else
+            0
+        if op == "del"
+            let r = kv_del(s, key)
+            s = r[0]
+        i = i + 1
+    s
+
+let kv_bragg_check(s) =
+    let hit = kv_hit(s)
+    let miss = kv_miss(s)
+    let ops = kv_ops(s)
+    if hit >= 0 && miss >= 0 && ops >= 0
+        1
+    else
+        0
+
+let kv_test_basic() =
+    let s = kv_new(100)
+    let ok1 = 1
+    if kv_ops(s) != 0
+        ok1 = 0
+
+    s = kv_set(s, "name", "alice", 100)
+    s = kv_set(s, "age", 30, 100)
+    let r1 = kv_get(s, "name", 100)
+    s = r1[0]
+    let ok2 = 1
+    if r1[1] != "alice"
+        ok2 = 0
+    if kv_hit(s) != 1
+        ok2 = 0
+
+    s = kv_setex(s, "session", "abc", 100, 100)
+    let ok3 = 1
+    if kv_exists(s, "session", 150) != 1
+        ok3 = 0
+    if kv_exists(s, "session", 250) != 0
+        ok3 = 0
+
+    let dr = kv_del(s, "age")
+    s = dr[0]
+    let ok4 = 1
+    if dr[1] != 1
+        ok4 = 0
+    if kv_exists(s, "age", 100) != 0
+        ok4 = 0
+
+    s = kv_lpush(s, "queue", "a")
+    s = kv_lpush(s, "queue", "b")
+    s = kv_rpush(s, "queue", "c")
+    let ok5 = 1
+    let lst = kv_data(s)["queue"]
+    if len(lst) != 3
+        ok5 = 0
+    else
+        0
+    if lst[0] != "b"
+        ok5 = 0
+    else
+        0
+    if lst[2] != "c"
+        ok5 = 0
+
+    let pop = kv_lpop(s, "queue")
+    s = pop[0]
+    let ok6 = 1
+    if pop[1] != "b"
+        ok6 = 0
+
+    s = kv_hset(s, "user:1", "name", "alice")
+    s = kv_hset(s, "user:1", "age", 30)
+    let ok7 = 1
+    if kv_hget(s, "user:1", "name") != "alice"
+        ok7 = 0
+    if kv_hget(s, "user:1", "age") != 30
+        ok7 = 0
+
+    let tx = kv_multi()
+    tx = kv_multi_enqueue(tx, "set", "k1", "v1")
+    tx = kv_multi_enqueue(tx, "set", "k2", "v2")
+    s = kv_exec(s, tx, 100)
+    let ok8 = 1
+    let r2 = kv_get(s, "k1", 100)
+    s = r2[0]
+    if r2[1] != "v1"
+        ok8 = 0
+
+    let s_small = kv_new(2)
+    s_small = kv_set(s_small, "a", 1, 0)
+    s_small = kv_set(s_small, "b", 2, 0)
+    s_small = kv_set(s_small, "c", 3, 0)
+    let ok9 = 1
+    if kv_exists(s_small, "a", 0) != 0
+        ok9 = 0
+    if kv_exists(s_small, "b", 0) != 1
+        ok9 = 0
+    if kv_exists(s_small, "c", 0) != 1
+        ok9 = 0
+
+    ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7 * ok8 * ok9
+
+let kv_test_self() =
+        let ok = kv_test_basic()
+        if ok == 1
+            print("kv_store: ALL PASS")
+        else
+            print("kv_store: FAIL")
+        ok
+
+    kv_test_self()

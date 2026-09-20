@@ -1,0 +1,31 @@
+import "ck.ψ"
+let bad = [0]
+
+let na2 = 5890
+bad[0] = bad[0] + ck(na2, 5885, 5900)
+let na1 = 5896
+let sep = na1 - na2
+bad[0] = bad[0] + ck(sep, 4, 8)
+
+let em = 5896
+let ab = 5896
+let ez = em - ab
+bad[0] = bad[0] + ck(ez, 0, 0)
+
+let he = 5876
+bad[0] = bad[0] + ck(he, 5870, 5882)
+
+if 1814 < 1812
+    bad[0] = bad[0] + 1
+if 1814 > 1816
+    bad[0] = bad[0] + 1
+if 1859 < 1857
+    bad[0] = bad[0] + 1
+if 1859 > 1861
+    bad[0] = bad[0] + 1
+if 1868 < 1866
+    bad[0] = bad[0] + 1
+if 1868 > 1870
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

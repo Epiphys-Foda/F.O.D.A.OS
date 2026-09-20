@@ -1,0 +1,227 @@
+import "../domain/domain_field.ψ"
+import "../core/stdlib/rational.ψ"
+
+import "../core/stdlib_lang2/gf_base.ψ"
+
+let domain_inverse(n) = gf_inv(n)
+
+let exponent_ring_inverse(n) =
+    let m = P - 1
+    let nm = gf_mod(n, m)
+    if nm == 0
+        0
+    else
+        let old_r = m
+        let r = nm
+        let old_t = 0
+        let t = 1
+        for r != 0
+            let q = old_r / r
+            let temp_r = old_r - q * r
+            old_r = r
+            r = temp_r
+            let temp_t = old_t - q * t
+            old_t = t
+            t = temp_t
+        gf_mod(old_t, m)
+
+let is_closure(n) =
+    (gcd(n, P - 1) == 1 ? 1 : 0)
+
+let is_split(n) =
+    ((P - 1) % n == 0 ? 1 : 0)
+
+let radical_classify(n) =
+    let g = gcd(n, P - 1)
+    if g == 1
+        0
+    else
+        0
+    if n == g
+        1
+    else
+        2
+
+let radical_eval(a, n) =
+    let nm = gf_mod(n, P - 1)
+    if nm == 0
+        1
+    else
+        let exp_inv = exponent_ring_inverse(n)
+        if exp_inv == 0
+            0
+        else
+            gf_pow(a, exp_inv)
+
+let radical_eval_wrong(a, n) =
+    let domain_inv = domain_inverse(n)
+    gf_pow(a, domain_inv)
+
+let verify_root(a, n, root) =
+    (gf_pow(root, n) == gf_norm(a) ? 1 : 0)
+
+let tonelli_shanks_sqrt(a) =
+    let a = gf_norm(a)
+    if a == 0
+        0
+    else
+        let Q = 1
+        let S = 16
+        let z = 3
+        let c = gf_pow(z, Q)
+        let t = gf_pow(a, Q)
+        let M = S
+        let R = gf_pow(a, (Q + 1) / 2)
+        for t != 1
+            let i = 0
+            let temp = t
+            for temp != 1
+                temp = gf_mul(temp, temp)
+                i = i + 1
+            let b = gf_pow(c, 1 << (M - i - 1))
+            R = gf_mul(R, b)
+            t = gf_mul(t, gf_mul(b, b))
+            c = gf_mul(b, b)
+            M = i
+        R
+
+let nth_root_amm(a, n) =
+    let a = gf_norm(a)
+    if a == 0
+        0
+    else
+        0
+    if n == 2
+        tonelli_shanks_sqrt(a)
+    else
+        0
+    if n == 4
+        let s = tonelli_shanks_sqrt(a)
+        (verify_root(a, n, s) == 1 ? s : tonelli_shanks_sqrt(s))
+    else
+            0
+        radical_eval(a, n)
+
+let PRIME_65537 = 65537
+let PRIME_131071 = 131071
+
+let is_closure_in_field(n, p) =
+    (gcd(n, p - 1) == 1 ? 1 : 0)
+
+let is_split_in_field(n, p) =
+    ((p - 1) % n == 0 ? 1 : 0)
+
+let closure_split_duality_test() =
+    let ok1 = is_closure_in_field(3, PRIME_65537)
+    let ok2 = is_closure_in_field(5, PRIME_65537)
+    let ok3 = is_closure_in_field(7, PRIME_65537)
+    let ok4 = is_split_in_field(3, PRIME_131071)
+    let ok5 = is_split_in_field(5, PRIME_131071)
+    ok1 + ok2 + ok3 + ok4 + ok5
+
+let make_pole(domain_prime, fn_hash, arity) =
+    [domain_prime, fn_hash, arity]
+
+let pole_domain(pole) = pole[0]
+
+let validate_pole_domain(pole) =
+    let d = pole_domain(pole)
+    if d == PRIME_65537
+        1
+    else
+        0
+    if d == PRIME_131071
+        1
+    else
+        0
+
+let radical_in_field(a, n, p) =
+    if p == PRIME_65537
+        radical_eval(a, n)
+    else
+        let m = p - 1
+        let nm = gf_mod(n, m)
+        if nm == 0
+            1
+        else
+            let old_r = m
+            let r = nm
+            let old_t = 0
+            let t = 1
+            for r != 0
+                let q = old_r / r
+                let temp_r = old_r - q * r
+                old_r = r
+                r = temp_r
+                let temp_t = old_t - q * t
+                old_t = t
+                t = temp_t
+            let exp_inv = gf_mod(old_t, m)
+            if exp_inv == 0
+                0
+            else
+                let result = 1
+                let base = a % p
+                let e = exp_inv
+                for e > 0
+                    if e % 2 == 1
+                        result = (result * base) % p
+                    base = (base * base) % p
+                    e = e / 2
+                result
+
+let crt_reconstruct(r1, p1, r2, p2) =
+    let diff = gf_mod(r2 - r1, p2)
+    let p1_inv_mod_p2 = 0
+    let old_r = p2
+    let r = p1
+    let old_t = 0
+    let t = 1
+    for r != 0
+        let q = old_r / r
+        let temp_r = old_r - q * r
+        old_r = r
+        r = temp_r
+        let temp_t = old_t - q * t
+        old_t = t
+        t = temp_t
+    p1_inv_mod_p2 = gf_mod(old_t, p2)
+    r1 + p1 * gf_mod(gf_mul(diff, p1_inv_mod_p2), p2)
+
+let radical_three_channel_cert(a, n) =
+    let v1 = radical_in_field(a, n, PRIME_65537)
+    let v2 = radical_in_field(a, n, PRIME_131071)
+    crt_reconstruct(v1, PRIME_65537, v2, PRIME_131071)
+
+let field_radical(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 300 + i * 500
+        let diff = gf_sub(z, pole)
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let radical_verify() =
+    let cbrt_8 = radical_eval(8, 3)
+    let ok1 = verify_root(8, 3, cbrt_8)
+
+    let cbrt_8_wrong = radical_eval_wrong(8, 3)
+    let ok2 = (verify_root(8, 3, cbrt_8_wrong) == 0 ? 1 : 0)
+
+    let root5_32 = radical_eval(32, 5)
+    let ok3 = verify_root(32, 5, root5_32)
+
+    let ok4 = is_closure(3)
+
+    let ok5 = closure_split_duality_test()
+
+    let pole = make_pole(PRIME_65537, 12345, 2)
+    let ok6 = validate_pole_domain(pole)
+
+    ok1 + ok2 + ok3 + ok4 + ok5 + ok6
+
+let kleene_verify(t1, t2) = domain_kleene_verify(t1, t2)
+
+let pcd_divergence(u, n) = domain_pcd_divergence(u, n)

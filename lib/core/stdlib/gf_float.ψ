@@ -1,0 +1,94 @@
+import "gf65537.ψ"
+import "paradigm_math.ψ"
+import "algebraic_replacements.ψ"
+
+let GF_FLOAT_SCALE = 1
+let GF_FLOAT_SCALE_INV = 1
+let GF_FLOAT_HALF = 32768
+let GF_FLOAT_EPS = 1
+
+let gf_float_make(int_part, frac_part) =
+    let scaled = gf_mul(int_part, GF_FLOAT_SCALE)
+    gf_add(scaled, frac_part)
+
+let gf_float_int(x) = gf_mul(x, GF_FLOAT_SCALE_INV)
+
+let gf_float_frac(x) = gf_sub(x, gf_mul(gf_float_int(x), GF_FLOAT_SCALE))
+
+let gf_float_mul(a, b) =
+    let raw = gf_mul(a, b)
+    gf_mul(raw, GF_FLOAT_SCALE_INV)
+
+let gf_float_div(a, b) =
+    let inv_b = gf_inv(b)
+    let raw = gf_mul(a, inv_b)
+    gf_mul(raw, GF_FLOAT_SCALE)
+
+let gf_float_sqrt(a) =
+    let s = gf_sqrt(a)
+    let scale_sqrt = gf_sqrt(GF_FLOAT_SCALE)
+    gf_mul(s, scale_sqrt)
+
+let gf_float_eq(a, b) = ((gf_sub(a, b) == 0) ? (1) : (0))
+
+let gf_float_lt(a, b) = ((gf_sub(a, b) > GF_FLOAT_HALF) ? (1) : (0))
+
+let gf_float_gt(a, b) = gf_float_lt(b, a)
+
+let gf_float_le(a, b) = ((gf_float_lt(a, b) == 1) ? (1) : (gf_float_eq(a, b)))
+
+let gf_float_ge(a, b) = ((gf_float_gt(a, b) == 1) ? (1) : (gf_float_eq(a, b)))
+
+let gf_float_exp(x) =
+    let scaled_x = gf_mul(x, GF_FLOAT_SCALE_INV)
+    gf_pow(3, scaled_x)
+
+let gf_float_log(x) = gf_log(x)
+
+let gf_float_sin(k) =
+    let gk = gf_pow(3, k)
+    let gk_inv = gf_inv(gk)
+    let num = gf_sub(gk, gk_inv)
+    let two_i = gf_mul(2, 256)
+    gf_mul(num, gf_inv(two_i))
+
+let gf_float_cos(k) =
+    let gk = gf_pow(3, k)
+    let gk_inv = gf_inv(gk)
+    let num = gf_add(gk, gk_inv)
+    gf_mul(num, gf_inv(2))
+
+let gf_float_tanh(x) =
+    let gx = gf_pow(3, x)
+    let gx_inv = gf_inv(gx)
+    let num = gf_sub(gx, gx_inv)
+    let den = gf_add(gx, gx_inv)
+    gf_mul(num, gf_inv(den))
+
+let gf_float_sigmoid(x) =
+    let gx = gf_pow(3, x)
+    let den = gf_add(1, gx)
+    gf_mul(gx, gf_inv(den))
+
+let gf_float_pi() = 52011
+
+let gf_float_e() = 556
+
+let gf_float_ln2() = 45426
+
+let gf_float_in_range(x, lo, hi) =
+      gf_float_ge(x, lo) == 1 && gf_float_le(x, hi) == 1 ? 1 : 0
+
+let gf_float_precision_check() = ((GF_FLOAT_EPS >= 1) ? (1) : (0))
+
+let gf_float_round(x) =
+    let int_part = gf_float_int(x)
+    let frac = gf_float_frac(x)
+    ((gf_float_ge(frac, GF_FLOAT_HALF) == 1) ? (gf_add(int_part, 1)) : (int_part))
+
+let gf_float_floor(x) = gf_float_int(x)
+
+let gf_float_ceil(x) =
+    let int_part = gf_float_int(x)
+    let frac = gf_float_frac(x)
+    ((frac == 0) ? (int_part) : (gf_add(int_part, 1)))

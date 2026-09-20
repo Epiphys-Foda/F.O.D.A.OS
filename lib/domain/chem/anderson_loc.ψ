@@ -1,0 +1,28 @@
+import "ck.ψ"
+let bad = [0]
+
+let dim_1d = 1
+let dim_2d = 2
+let dim_3d = 3
+bad[0] = bad[0] + ck_hi(dim_1d, 2)
+bad[0] = bad[0] + ck_hi(dim_2d, 2)
+
+let w_crit = 1650
+bad[0] = bad[0] + ck(w_crit, 1600, 1700)
+
+let d_scale = 3
+bad[0] = bad[0] + ck_lo(d_scale, 3)
+
+let xi = 100
+bad[0] = bad[0] + ck_lo(xi, 50)
+
+if 1958 < 1956
+    bad[0] = bad[0] + 1
+if 1958 > 1960
+    bad[0] = bad[0] + 1
+if 1977 < 1975
+    bad[0] = bad[0] + 1
+if 1977 > 1979
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

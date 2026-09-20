@@ -1,0 +1,41 @@
+import "ck.ψ"
+let bad = [0]
+
+let nw = 133
+bad[0] = bad[0] + ck(nw, 130, 136)
+let tanw = 4000 / 3
+let dw = tanw - 1330
+bad[0] = bad[0] + ck(dw, 0, 10)
+
+let thb = 53
+let tht = 37
+let perp = thb + tht - 90
+bad[0] = bad[0] + ck(perp, 0, 0)
+
+let s53 = 80
+let s37 = 60
+let pyth = s53 * s53 + s37 * s37 - 100 * 100
+bad[0] = bad[0] + ck(pyth, 0, 0)
+
+let thg = 56
+let thtg = 34
+let perpg = thg + thtg - 90
+bad[0] = bad[0] + ck(perpg, 0, 0)
+let tang = 829 * 1000 / 559
+bad[0] = bad[0] + ck(tang, 1460, 1510)
+
+let thd = 67
+bad[0] = bad[0] + ck(thd, 65, 70)
+let glare_pol = 100
+bad[0] = bad[0] + ck_lo(glare_pol, 95)
+
+if 1808 < 1806
+    bad[0] = bad[0] + 1
+if 1808 > 1810
+    bad[0] = bad[0] + 1
+if 1815 < 1813
+    bad[0] = bad[0] + 1
+if 1815 > 1817
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

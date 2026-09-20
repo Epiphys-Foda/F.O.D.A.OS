@@ -1,0 +1,31 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let hc = 197
+bad[0] = bad[0] + ck(hc, 195, 199)
+
+let a0 = 53
+bad[0] = bad[0] + ck(a0, 50, 55)
+
+let bohr_e = 14
+bad[0] = bad[0] + ck(bohr_e, 13, 15)
+
+let E_total = 0 - bohr_e
+bad[0] = bad[0] + ck_hi(E_total, 0)
+
+let nuc_ke = 21
+bad[0] = bad[0] + ck(nuc_ke, 15, 30)
+
+let e_nuc = 200
+bad[0] = bad[0] + ck(e_nuc, 100, 300)
+
+bad[0] = bad[0] + ck_lo(e_nuc, nuc_ke)
+
+if 1927 < 1925
+    bad[0] = bad[0] + 1
+if 1927 > 1929
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

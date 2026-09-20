@@ -1,0 +1,28 @@
+import "ck.ψ"
+let bad = [0]
+
+let cold = 129
+let dz1 = cold - 129
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let hot = cold * 273 / 373
+let dz2 = hot - 94
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let diff = cold - hot
+let dz3 = diff - 35
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let balloon = 1000
+let lift = diff * balloon / 100
+let dz4 = lift - 350
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+bad[0] = bad[0] + ck_hi(hot, cold)
+
+if 1783 < 1781
+    bad[0] = bad[0] + 1
+if 1783 > 1785
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

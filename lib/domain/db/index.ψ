@@ -1,0 +1,114 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let INDEX_ORDER = 64
+let INDEX_MAX_KEYS = 65536
+
+let node_create_leaf() = [[], [], [], 1, 0]
+let node_create_internal() = [[], [], [], 0, 0]
+let node_insert_leaf(node, key, value) =
+    let keys = node[0]
+    let values = node[1]
+    let pos = 0
+    let i = 0
+    let n = len(keys)
+    for i < n && keys[i] < key
+        pos = i + 1
+        i = i + 1
+    keys.insert(pos, key)
+    values.insert(pos, value)
+    [keys, values, node[2], 1, node[4]]
+let node_search_leaf(node, key) =
+    let keys = node[0]
+    let values = node[1]
+    let i = 0
+    let n = len(keys)
+    for i < n
+        if keys[i] == key
+            values[i]
+        i = i + 1
+    0
+let node_split_leaf(node) =
+    let keys = node[0]
+    let values = node[1]
+    let n = len(keys)
+    let mid = n / 2
+    let left_keys = []
+    let left_vals = []
+    let right_keys = []
+    let right_vals = []
+    let i = 0
+    for i < mid
+        left_keys.push(keys[i])
+        left_vals.push(values[i])
+        i = i + 1
+    for i < n
+        right_keys.push(keys[i])
+        right_vals.push(values[i])
+        i = i + 1
+    let left = [left_keys, left_vals, [], 1, 0]
+    let right = [right_keys, right_vals, [], 1, 0]
+    [left, right, right_keys[0]]
+let hash_index_put(table, key, value, table_size) =
+    let slot = gf_norm(key) % table_size
+    let bucket = table[slot]
+    bucket.push([key, value])
+    table[slot] = bucket
+    table
+let hash_index_get(table, key, table_size) =
+    let slot = gf_norm(key) % table_size
+    let bucket = table[slot]
+    let i = 0
+    let n = len(bucket)
+    for i < n
+        let entry = bucket[i]
+        if entry[0] == key
+            entry[1]
+        i = i + 1
+    0
+let spatial_index_put(grid, x, y, value, grid_size) =
+    let cell = (gf_norm(x) % grid_size) * grid_size + (gf_norm(y) % grid_size)
+    let bucket = grid[cell]
+    bucket.push([x, y, value])
+    grid[cell] = bucket
+    grid
+let spatial_index_query(grid, x, y, grid_size) =
+    let cell = (gf_norm(x) % grid_size) * grid_size + (gf_norm(y) % grid_size)
+    grid[cell]
+let field_index_build(keys, values, n, poles, residues) =
+    let i = 0
+    for i < n
+        poles[i] = 127 + i * 1000
+        residues[i] = values[i]
+        i = i + 1
+
+let field_index_query(poles, residues, n, key) =
+    let z = key
+    let val = 0
+    let j = 0
+    for j < n
+        let diff = (z + 65537 - poles[j]) % 65537
+        let inv_diff = gf_inv(diff)
+        val = gf_add(val, gf_mul(residues[j], inv_diff))
+        j = j + 1
+    val
+
+let index_verify() =
+    let keys = arr_new_n(3)
+    keys[0] = 10
+    keys[1] = 20
+    keys[2] = 30
+    let vals = arr_new_n(3)
+    vals[0] = 100
+    vals[1] = 200
+    vals[2] = 300
+    let poles = arr_new_n(3)
+    let residues = arr_new_n(3)
+    field_index_build(keys, vals, 3, poles, residues)
+    let q = field_index_query(poles, residues, 3, 10)
+    let node = node_create_leaf()
+    let inserted = node_insert_leaf(node, 10, 100)
+    let found = node_search_leaf(inserted, 10)
+    let ok = 0
+    (found == 100 ? (ok = 1) : (ok = 0))
+    ok
+

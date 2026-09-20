@@ -1,0 +1,210 @@
+let TI_INT = 0
+let TI_BIGINT = 1
+let TI_FIXED = 2
+let TI_RATIONAL = 3
+let TI_ARRAY = 4
+let TI_CRT = 5
+let TI_BOOL = 6
+let TI_STR = 7
+let TI_FN = 8
+let TI_UNKNOWN = 99
+
+let ti_make(tag, elem_type, size) =
+    let t = arr_new_n(3)
+    t[0] = tag
+    t[1] = elem_type
+    t[2] = size
+    t
+
+let ti_int() = ti_make(TI_INT, 0, 0)
+let ti_bigint() = ti_make(TI_BIGINT, 0, 0)
+let ti_fixed() = ti_make(TI_FIXED, 0, 0)
+let ti_rational() = ti_make(TI_RATIONAL, 0, 0)
+let ti_bool() = ti_make(TI_BOOL, 0, 0)
+let ti_str() = ti_make(TI_STR, 0, 0)
+let ti_array(elem_tag) = ti_make(TI_ARRAY, elem_tag, -1)
+let ti_unknown() = ti_make(TI_UNKNOWN, 0, 0)
+
+let ti_rank(tag) =
+    if tag == TI_INT
+        0
+    else
+        0
+    if tag == TI_FIXED
+        1
+    else
+        0
+    if tag == TI_RATIONAL
+        2
+    else
+        0
+    if tag == TI_BIGINT
+        3
+    else
+        0
+    if tag == TI_CRT
+        4
+    else
+        0
+
+let ti_promote(a_tag, b_tag) =
+    let ra = ti_rank(a_tag)
+    let rb = ti_rank(b_tag)
+    (ra >= rb ? a_tag : b_tag)
+
+let doi_add(type_a, type_b) =
+    let promoted = ti_promote(type_a[0], type_b[0])
+    ti_make(promoted, 0, 0)
+
+let doi_mul(type_a, type_b) =
+    if type_a[0] == TI_INT && type_b[0] == TI_INT
+        ti_bigint()
+    else
+        let promoted = ti_promote(type_a[0], type_b[0])
+        ti_make(promoted, 0, 0)
+
+let doi_div(type_a, type_b) =
+    if type_a[0] == TI_INT && type_b[0] == TI_INT
+        ti_rational()
+    else
+        0
+    if type_a[0] == TI_FIXED && type_b[0] == TI_FIXED
+        ti_fixed()
+    else
+        ti_rational()
+
+let ti_is_numeric(t) =
+    let tag = t[0]
+    if tag == TI_INT
+        1
+    else
+        0
+    if tag == TI_BIGINT
+        1
+    else
+        0
+    if tag == TI_FIXED
+        1
+    else
+        0
+    if tag == TI_RATIONAL
+        1
+    else
+        0
+    if tag == TI_CRT
+        1
+    else
+        0
+
+let ti_is_integer(t) =
+    let tag = t[0]
+    if tag == TI_INT
+        1
+    else
+        0
+    if tag == TI_BIGINT
+        1
+    else
+        0
+    if tag == TI_CRT
+        1
+    else
+        0
+
+let ti_compatible(a, b) =
+    if a[0] == b[0]
+        1
+    else
+        0
+    if ti_is_numeric(a) == 1 && ti_is_numeric(b) == 1
+        1
+    else
+        0
+
+let smart_add(a, b, tag) =
+    let result = arr_new_n(2)
+    if tag == TI_INT
+        let s = a + b
+        if s > 65536
+            result[0] = s
+            result[1] = TI_BIGINT
+        else
+            result[0] = s
+            result[1] = TI_INT
+    else
+        0
+    if tag == TI_BIGINT
+        result[0] = a + b
+        result[1] = TI_BIGINT
+    else
+        0
+    if tag == TI_FIXED
+        result[0] = a + b
+        result[1] = TI_FIXED
+    else
+        result[0] = a + b
+        result[1] = tag
+    result
+
+let smart_mul(a, b, tag) =
+    let result = arr_new_n(2)
+    if tag == TI_INT
+        let p = a * b
+        if p > 65536
+            result[0] = p
+            result[1] = TI_BIGINT
+        else
+            result[0] = p
+            result[1] = TI_INT
+    else
+        0
+    if tag == TI_BIGINT
+        result[0] = a * b
+        result[1] = TI_BIGINT
+    else
+        0
+    if tag == TI_FIXED
+        result[0] = (a * b) / 65536
+        result[1] = TI_FIXED
+    else
+        result[0] = a * b
+        result[1] = tag
+    result
+
+let ti_tag_name(tag) =
+    if tag == TI_INT
+        "int"
+    else
+        0
+    if tag == TI_BIGINT
+        "bigint"
+    else
+        0
+    if tag == TI_FIXED
+        "fixed"
+    else
+        0
+    if tag == TI_RATIONAL
+        "rational"
+    else
+        0
+    if tag == TI_ARRAY
+        "array"
+    else
+        0
+    if tag == TI_CRT
+        "crt"
+    else
+        0
+    if tag == TI_BOOL
+        "bool"
+    else
+        0
+    if tag == TI_STR
+        "str"
+    else
+        0
+    if tag == TI_FN
+        "fn"
+    else
+        "unknown"

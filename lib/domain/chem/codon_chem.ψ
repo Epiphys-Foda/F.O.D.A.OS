@@ -1,0 +1,41 @@
+import "ck.ψ"
+let bad = [0]
+
+let u1 = 280
+bad[0] = bad[0] + ck_lo(u1, 1)
+let u2 = 380
+bad[0] = bad[0] + ck_lo(u2, 1)
+let u3 = 450
+bad[0] = bad[0] + ck_lo(u3, 1)
+let u4 = 190
+bad[0] = bad[0] + ck_lo(u4, 1)
+let u5 = 420
+bad[0] = bad[0] + ck_lo(u5, 1)
+
+let a1 = 0 - 130
+bad[0] = bad[0] + ck_hi(a1, 0)
+let a2 = 0 - 320
+bad[0] = bad[0] + ck_hi(a2, 0)
+let a3 = 0 - 350
+bad[0] = bad[0] + ck_hi(a3, 0)
+let a4 = 0 - 350
+bad[0] = bad[0] + ck_hi(a4, 0)
+let a5 = 0 - 390
+bad[0] = bad[0] + ck_hi(a5, 0)
+let a6 = 0 - 350
+bad[0] = bad[0] + ck_hi(a6, 0)
+let a7 = 0 - 350
+bad[0] = bad[0] + ck_hi(a7, 0)
+
+let su = 280 + 380 + 450 + 190 + 420
+let sa = 0 - 130 - 320 - 350 - 390 - 350 - 350
+let l1 = su * 7
+let l2 = sa * 5
+let dsp = l1 - l2
+bad[0] = bad[0] + ck_lo(dsp, 1)
+
+let gw = 250 + 450
+let dgw = gw - 700
+bad[0] = bad[0] + dgw * dgw
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,401 @@
+let QQ_GFMUL    = 1
+let QQ_CLIFFORD = 2
+let QQ_NTT      = 3
+let QQ_BORN     = 4
+let QQ_HEBBIAN  = 5
+let QQ_TOKEN    = 16
+let QQ_EMIT     = 17
+let QQ_END      = 255
+
+let QQ_GFMUL_MOD = 65537
+
+let my_qq_match_utf8(b0, b1, b2) =
+    if b0 == 226
+      if b1 == 138
+        (b2 == 153 ? QQ_GFMUL : 0)
+      else
+            0
+        if b1 == 151
+          (b2 == 166 ? QQ_CLIFFORD : 0)
+        else
+              0
+          if b1 == 137
+            (b2 == 139 ? QQ_NTT : 0)
+          else
+                0
+            if b1 == 134
+              (b2 == 161 ? QQ_BORN : 0)
+            else
+                  0
+              if b1 == 136
+                (b2 == 134 ? QQ_HEBBIAN : 0)
+              else
+                    0
+                0
+    else
+                  0
+      0
+
+let my_qq_lexer(src) =
+    let src_len = len(src)
+    let a_val = 0
+    let op_code = 0
+    let b_val = 0
+    let i = 6
+    let a_found = false
+    for !a_found
+      if i < src_len
+        let b = src[i]
+        if b >= 48 && b <= 57
+          a_val = b - 48
+          a_found = true
+        else
+          0
+        i = i + 1
+      else
+        a_found = true
+        0
+      0
+    let op_found = false
+    for !op_found
+      if i + 2 < src_len
+        let b = src[i]
+        if b == 226
+          let b1 = src[i + 1]
+          let b2 = src[i + 2]
+          op_code = my_qq_match_utf8(b, b1, b2)
+          op_found = true
+          i = i + 3
+        else
+          i = i + 1
+      else
+        op_found = true
+        0
+      0
+    let b_found = false
+    for !b_found
+      if i < src_len
+        let b = src[i]
+        if b >= 48 && b <= 57
+          b_val = b - 48
+          b_found = true
+        else
+          0
+        i = i + 1
+      else
+        b_found = true
+        0
+      0
+    [QQ_TOKEN, a_val, QQ_TOKEN, b_val, op_code, QQ_EMIT, QQ_END]
+
+let my_qq_eval(opcode, args) =
+    if opcode == QQ_GFMUL
+      let a = args[0]
+      let b = args[1]
+      let prod = a * b
+      let abs_prod = (prod < 0 ? 0 - prod : prod)
+      abs_prod - (abs_prod / QQ_GFMUL_MOD) * QQ_GFMUL_MOD
+    else
+      if opcode == QQ_CLIFFORD
+        let a = args[0]
+        let b = args[1]
+        bit_and(bit_xor(a, b), bit_or(a, b))
+      else
+        if opcode == QQ_NTT
+          let a = args[0]
+          let b = args[1]
+          bit_or(a + b, a - b)
+        else
+          if opcode == QQ_BORN
+            let c = args[0]
+            let t = args[1]
+            (c != 0 ? t : 0)
+          else
+                0
+            if opcode == QQ_HEBBIAN
+              let a = args[0]
+              let b = args[1]
+              a + b
+            else
+              0
+
+let my_qq_interp(qqbc) =
+    let stack = []
+    let pc = 0
+    let result = 0
+    let done = false
+    for !done
+      let op = qqbc[pc]
+      pc = pc + 1
+      if op == QQ_TOKEN
+        let v = qqbc[pc]
+        pc = pc + 1
+        stack = stack.push(v)
+      else
+        0
+      if op <= 5
+        let n = len(stack)
+        if n >= 2
+          let b = stack[n - 1]
+          let a = stack[n - 2]
+          stack = stack.slice(0, n - 2)
+          stack = stack.push(my_qq_eval(op, [a, b]))
+        else
+            0
+      else
+        0
+      if op == QQ_EMIT
+        let n = len(stack)
+        if n >= 1
+          result = stack[n - 1]
+        else
+            0
+      else
+        0
+      if op == QQ_END
+        done = true
+      else
+        0
+      if pc >= len(qqbc)
+        done = true
+      else
+          0
+    result
+
+let my_qqbc_to_dag(qqbc) =
+    let nodes = []
+    let edges = []
+    let stack = []
+    let pc = 0
+    let done = false
+    let root = -1
+    for !done
+      let op = qqbc[pc]
+      pc = pc + 1
+      if op == QQ_TOKEN
+        pc = pc + 1
+        let node = {node_id: len(nodes), opcode: op, pe_type: op, in_ports: [], out_ports: []}
+        nodes = nodes.push(node)
+        stack = stack.push(len(nodes) - 1)
+      else
+        0
+      if op <= 5
+        let node = {node_id: len(nodes), opcode: op, pe_type: op, in_ports: [], out_ports: []}
+        nodes = nodes.push(node)
+        let new_id = len(nodes) - 1
+        let n = len(stack)
+        if n >= 2
+          let b_id = stack[n - 1]
+          let a_id = stack[n - 2]
+          let e1 = {src_node: a_id, src_port: 0, dst_node: new_id, dst_port: 0}
+          let e2 = {src_node: b_id, src_port: 0, dst_node: new_id, dst_port: 1}
+          edges = edges.push(e1)
+          edges = edges.push(e2)
+          stack = stack.slice(0, n - 2)
+          stack = stack.push(new_id)
+        else
+            0
+      else
+        0
+      if op == QQ_EMIT
+        let node = {node_id: len(nodes), opcode: op, pe_type: op, in_ports: [], out_ports: []}
+        nodes = nodes.push(node)
+        let new_id = len(nodes) - 1
+        let n = len(stack)
+        if n >= 1
+          let src_id = stack[n - 1]
+          let e1 = {src_node: src_id, src_port: 0, dst_node: new_id, dst_port: 0}
+          edges = edges.push(e1)
+          stack = stack.slice(0, n - 1)
+          stack = stack.push(new_id)
+          root = new_id
+        else
+            0
+      else
+        0
+      if op == QQ_END
+        done = true
+      else
+        0
+      if pc >= len(qqbc)
+        done = true
+      else
+          0
+    {nodes: nodes, edges: edges, node_count: len(nodes), edge_count: len(edges), root: root}
+
+let my_dag_to_cgra(dag) =
+    let pe_array = []
+    let interconnect = []
+    let fifo_count = 0
+    let i = 0
+    let n_done = false
+    for !n_done
+      if i < dag.node_count
+        let node = dag.nodes[i]
+        let role = (node.opcode == QQ_TOKEN ? "source" : (node.opcode == QQ_EMIT ? "sink" : "compute"))
+        let pe = {pe_id: node.node_id, pe_type: node.pe_type, opcode: node.opcode, in_fifos: [], out_fifos: [], role: role}
+        pe_array = pe_array.push(pe)
+        i = i + 1
+      else
+        n_done = true
+    let j = 0
+    let e_done = false
+    for !e_done
+      if j < dag.edge_count
+        let e = dag.edges[j]
+        let src_pe = pe_array[e.src_node]
+        let new_out = src_pe.out_fifos
+        new_out = new_out.push(j)
+        let src_pe2 = {pe_id: src_pe.pe_id, pe_type: src_pe.pe_type, opcode: src_pe.opcode, in_fifos: src_pe.in_fifos, out_fifos: new_out, role: src_pe.role}
+        pe_array = [pe_array.slice(0, e.src_node), [src_pe2], pe_array.slice(e.src_node + 1, len(pe_array))].flat()
+        let dst_pe = pe_array[e.dst_node]
+        let new_in = dst_pe.in_fifos
+        new_in = new_in.push(j)
+        let dst_pe2 = {pe_id: dst_pe.pe_id, pe_type: dst_pe.pe_type, opcode: dst_pe.opcode, in_fifos: new_in, out_fifos: dst_pe.out_fifos, role: dst_pe.role}
+        pe_array = [pe_array.slice(0, e.dst_node), [dst_pe2], pe_array.slice(e.dst_node + 1, len(pe_array))].flat()
+        let fifo = {fifo_id: j, src_pe: e.src_node, src_port: e.src_port, dst_pe: e.dst_node, dst_port: e.dst_port, depth: 4}
+        interconnect = interconnect.push(fifo)
+        fifo_count = fifo_count + 1
+        j = j + 1
+      else
+        e_done = true
+    {pe_array: pe_array, interconnect: interconnect, pe_count: dag.node_count, fifo_count: fifo_count, grid_w: dag.node_count, grid_h: 1}
+
+let my_cgra_simulate(config, qqbc) =
+    let token_values = []
+    let pc = 0
+    let t_done = false
+    for !t_done
+      if pc < len(qqbc)
+        let op = qqbc[pc]
+        pc = pc + 1
+        if op == QQ_TOKEN
+          let v = qqbc[pc]
+          pc = pc + 1
+          token_values = token_values.push(v)
+        else
+            0
+      else
+        t_done = true
+    let pe_outputs = []
+    let k = 0
+    let init_done = false
+    for !init_done
+      if k < config.pe_count
+        pe_outputs = pe_outputs.push(0)
+        k = k + 1
+      else
+        init_done = true
+    let token_idx = 0
+    let i = 0
+    let result = 0
+    for i < config.pe_count
+      let pe = config.pe_array[i]
+      if pe.role == "source" && token_idx < len(token_values)
+        let v = token_values[token_idx]
+        pe_outputs = [pe_outputs.slice(0, pe.pe_id), [v], pe_outputs.slice(pe.pe_id + 1, len(pe_outputs))].flat()
+        token_idx = token_idx + 1
+      else
+        0
+      if pe.role == "compute"
+        let fifo_id_0 = pe.in_fifos[0]
+        let fifo_0 = config.interconnect[fifo_id_0]
+        let src_val_0 = pe_outputs[fifo_0.src_pe]
+        let fifo_id_1 = pe.in_fifos[1]
+        let fifo_1 = config.interconnect[fifo_id_1]
+        let src_val_1 = pe_outputs[fifo_1.src_pe]
+        let args = [src_val_0, src_val_1]
+        let res = my_qq_eval(pe.opcode, args)
+        pe_outputs = [pe_outputs.slice(0, pe.pe_id), [res], pe_outputs.slice(pe.pe_id + 1, len(pe_outputs))].flat()
+      else
+        0
+      if pe.role == "sink" && pe.len(in_fifos) >= 1
+        let fifo_id = pe.in_fifos[0]
+        let fifo = config.interconnect[fifo_id]
+        result = pe_outputs[fifo.src_pe]
+      else
+        0
+      i = i + 1
+    result
+
+let src_gfmul    = [112, 114, 105, 110, 116, 40, 49, 32, 226, 138, 153, 32, 50, 41]
+let src_clifford = [112, 114, 105, 110, 116, 40, 51, 32, 226, 151, 166, 32, 53, 41]
+let src_ntt      = [112, 114, 105, 110, 116, 40, 56, 32, 226, 137, 139, 32, 51, 41]
+let src_born     = [112, 114, 105, 110, 116, 40, 49, 32, 226, 134, 161, 32, 55, 41]
+let src_hebbian  = [112, 114, 105, 110, 116, 40, 50, 32, 226, 136, 134, 32, 51, 41]
+
+let expect_qqbc_gfmul    = [QQ_TOKEN, 1, QQ_TOKEN, 2, QQ_GFMUL,    QQ_EMIT, QQ_END]
+let expect_qqbc_clifford = [QQ_TOKEN, 3, QQ_TOKEN, 5, QQ_CLIFFORD, QQ_EMIT, QQ_END]
+let expect_qqbc_ntt      = [QQ_TOKEN, 8, QQ_TOKEN, 3, QQ_NTT,      QQ_EMIT, QQ_END]
+let expect_qqbc_born     = [QQ_TOKEN, 1, QQ_TOKEN, 7, QQ_BORN,     QQ_EMIT, QQ_END]
+let expect_qqbc_hebbian  = [QQ_TOKEN, 2, QQ_TOKEN, 3, QQ_HEBBIAN,  QQ_EMIT, QQ_END]
+
+let expect_exit_gfmul    = 2
+let expect_exit_clifford = 6
+let expect_exit_ntt      = 15
+let expect_exit_born     = 7
+let expect_exit_hebbian  = 5
+
+let qqbc_gfmul    = my_qq_lexer(src_gfmul)
+let qqbc_clifford = my_qq_lexer(src_clifford)
+let qqbc_ntt      = my_qq_lexer(src_ntt)
+let qqbc_born     = my_qq_lexer(src_born)
+let qqbc_hebbian  = my_qq_lexer(src_hebbian)
+
+let exit_gfmul    = my_qq_interp(qqbc_gfmul)
+let exit_clifford = my_qq_interp(qqbc_clifford)
+let exit_ntt      = my_qq_interp(qqbc_ntt)
+let exit_born     = my_qq_interp(qqbc_born)
+let exit_hebbian  = my_qq_interp(qqbc_hebbian)
+
+let dag_gfmul    = my_qqbc_to_dag(qqbc_gfmul)
+let dag_clifford = my_qqbc_to_dag(qqbc_clifford)
+let dag_ntt      = my_qqbc_to_dag(qqbc_ntt)
+let dag_born     = my_qqbc_to_dag(qqbc_born)
+let dag_hebbian  = my_qqbc_to_dag(qqbc_hebbian)
+
+let cgra_gfmul    = my_dag_to_cgra(dag_gfmul)
+let cgra_clifford = my_dag_to_cgra(dag_clifford)
+let cgra_ntt      = my_dag_to_cgra(dag_ntt)
+let cgra_born     = my_dag_to_cgra(dag_born)
+let cgra_hebbian  = my_dag_to_cgra(dag_hebbian)
+
+let cgra_exit_gfmul    = my_cgra_simulate(cgra_gfmul, qqbc_gfmul)
+let cgra_exit_clifford = my_cgra_simulate(cgra_clifford, qqbc_clifford)
+let cgra_exit_ntt      = my_cgra_simulate(cgra_ntt, qqbc_ntt)
+let cgra_exit_born     = my_cgra_simulate(cgra_born, qqbc_born)
+let cgra_exit_hebbian  = my_cgra_simulate(cgra_hebbian, qqbc_hebbian)
+
+let dfl_qqbc_gfmul    = qqbc_gfmul == expect_qqbc_gfmul
+let dfl_qqbc_clifford = qqbc_clifford == expect_qqbc_clifford
+let dfl_qqbc_ntt      = qqbc_ntt == expect_qqbc_ntt
+let dfl_qqbc_born     = qqbc_born == expect_qqbc_born
+let dfl_qqbc_hebbian  = qqbc_hebbian == expect_qqbc_hebbian
+
+let dfl_exit_gfmul    = exit_gfmul == expect_exit_gfmul
+let dfl_exit_clifford = exit_clifford == expect_exit_clifford
+let dfl_exit_ntt      = exit_ntt == expect_exit_ntt
+let dfl_exit_born     = exit_born == expect_exit_born
+let dfl_exit_hebbian  = exit_hebbian == expect_exit_hebbian
+
+let dfl_cgra_gfmul    = cgra_exit_gfmul == exit_gfmul
+let dfl_cgra_clifford = cgra_exit_clifford == exit_clifford
+let dfl_cgra_ntt      = cgra_exit_ntt == exit_ntt
+let dfl_cgra_born     = cgra_exit_born == exit_born
+let dfl_cgra_hebbian  = cgra_exit_hebbian == exit_hebbian
+
+let dfl_dag_gfmul    = dag_gfmul.node_count == 4 && dag_gfmul.edge_count == 3
+let dfl_dag_clifford = dag_clifford.node_count == 4 && dag_clifford.edge_count == 3
+let dfl_dag_ntt      = dag_ntt.node_count == 4 && dag_ntt.edge_count == 3
+let dfl_dag_born     = dag_born.node_count == 4 && dag_born.edge_count == 3
+let dfl_dag_hebbian  = dag_hebbian.node_count == 4 && dag_hebbian.edge_count == 3
+
+print([len(src_gfmul), len(qqbc_gfmul), dag_gfmul.node_count, dag_gfmul.edge_count, cgra_gfmul.pe_count, cgra_gfmul.fifo_count, exit_gfmul, cgra_exit_gfmul])
+print([len(src_clifford), len(qqbc_clifford), dag_clifford.node_count, dag_clifford.edge_count, cgra_clifford.pe_count, cgra_clifford.fifo_count, exit_clifford, cgra_exit_clifford])
+print([len(src_ntt), len(qqbc_ntt), dag_ntt.node_count, dag_ntt.edge_count, cgra_ntt.pe_count, cgra_ntt.fifo_count, exit_ntt, cgra_exit_ntt])
+print([len(src_born), len(qqbc_born), dag_born.node_count, dag_born.edge_count, cgra_born.pe_count, cgra_born.fifo_count, exit_born, cgra_exit_born])
+print([len(src_hebbian), len(qqbc_hebbian), dag_hebbian.node_count, dag_hebbian.edge_count, cgra_hebbian.pe_count, cgra_hebbian.fifo_count, exit_hebbian, cgra_exit_hebbian])
+print([dfl_qqbc_gfmul, dfl_qqbc_clifford, dfl_qqbc_ntt, dfl_qqbc_born, dfl_qqbc_hebbian])
+print([dfl_exit_gfmul, dfl_exit_clifford, dfl_exit_ntt, dfl_exit_born, dfl_exit_hebbian])
+print([dfl_cgra_gfmul, dfl_cgra_clifford, dfl_cgra_ntt, dfl_cgra_born, dfl_cgra_hebbian])
+print([dfl_dag_gfmul, dfl_dag_clifford, dfl_dag_ntt, dfl_dag_born, dfl_dag_hebbian])

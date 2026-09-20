@@ -1,0 +1,33 @@
+import "ck.ψ"
+let bad = [0]
+
+let isun = 1361
+bad[0] = bad[0] + ck(isun, 1350, 1370)
+
+let pabs = isun / 30
+bad[0] = bad[0] + ck(pabs, 40, 50)
+
+let pref = 90
+let did = pref - 2 * pabs
+bad[0] = bad[0] + ck(did, 0, 0)
+
+let fpn = 10 / 3
+bad[0] = bad[0] + ck(fpn, 2, 4)
+
+let away = 1
+bad[0] = bad[0] + ck_lo(away, 1)
+
+if 1873 < 1871
+    bad[0] = bad[0] + 1
+if 1873 > 1875
+    bad[0] = bad[0] + 1
+if 1901 < 1899
+    bad[0] = bad[0] + 1
+if 1901 > 1903
+    bad[0] = bad[0] + 1
+if 2018 < 2016
+    bad[0] = bad[0] + 1
+if 2018 > 2020
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

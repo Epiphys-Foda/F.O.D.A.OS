@@ -1,0 +1,24 @@
+import "ck.ψ"
+let bad = [0]
+
+let vOrb = 1018
+bad[0] = bad[0] + ck(vOrb, 1000, 1050)
+
+let kE = 380
+bad[0] = bad[0] + ck(kE, 370, 390)
+
+let uMag = 761
+bad[0] = bad[0] + ck(uMag, 750, 770)
+
+if 2 * kE - uMag > 5
+    bad[0] = bad[0] + 1
+if uMag - 2 * kE > 5
+    bad[0] = bad[0] + 1
+
+let totalE = kE - uMag
+bad[0] = bad[0] + ck_hi(totalE, 0)
+
+let escE = 380
+bad[0] = bad[0] + ck(escE, 370, 390)
+
+arr_get(arr_new_n(1), bad[0])

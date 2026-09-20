@@ -1,0 +1,231 @@
+import "quantum_info.ψ"
+
+import "../stdlib/gf65537.ψ"
+
+let free_field_action(phi, n, mass_sq) =
+    _s_free_loop(phi, n, mass_sq, 0, 0)
+let _s_free_loop(phi, n, mass_sq, x, acc) =
+        if x >= n
+            gf_mul(gf_inv(2), acc)
+        else
+            let phi_x = phi[x]
+            let phi_x1 = phi[(x + 1) % n]
+            let mass_term = gf_mul(mass_sq, gf_mul(phi_x, phi_x))
+            let grad = gf_sub(phi_x1, phi_x)
+            let grad_term = gf_mul(grad, grad)
+            _s_free_loop(phi, n, mass_sq, x + 1, gf_add(acc, gf_add(mass_term, grad_term)))
+
+let phi4_interaction_action(phi, n, lambda) =
+    _s_int_loop(phi, n, lambda, 0, 0)
+let _s_int_loop(phi, n, lambda, x, acc) =
+        if x >= n
+            gf_mul(gf_div(lambda, 24), acc)
+        else
+            let phi_x = phi[x]
+            let phi4 = gf_mul(gf_mul(phi_x, phi_x), gf_mul(phi_x, phi_x))
+            _s_int_loop(phi, n, lambda, x + 1, gf_add(acc, phi4))
+
+let total_action(phi, n, mass_sq, lambda) =
+    let s_free = free_field_action(phi, n, mass_sq)
+    let s_int = phi4_interaction_action(phi, n, lambda)
+    gf_add(s_free, s_int)
+
+let single_site_partition(mass_sq, lambda, r) =
+    _single_site_loop(mass_sq, lambda, r, 0, 0)
+let _single_site_loop(mass_sq, lambda, r, phi, acc) =
+        if phi >= 65537
+            acc
+        else
+            let phi_sq = gf_mul(phi, phi)
+            let phi4 = gf_mul(phi_sq, phi_sq)
+            let s = gf_add(gf_mul(gf_mul(gf_inv(2), mass_sq), phi_sq),
+                           gf_mul(gf_div(lambda, 24), phi4))
+            let weight = gf_pow(r, s)
+            _single_site_loop(mass_sq, lambda, r, phi + 1, gf_add(acc, weight))
+
+let two_site_partition(mass_sq, lambda, r) =
+    _two_site_outer(mass_sq, lambda, r, 0, 0)
+let _two_site_outer(mass_sq, lambda, r, phi1, acc) =
+        if phi1 >= 65537
+            acc
+        else
+            let inner = _two_site_inner(mass_sq, lambda, r, phi1, 0, 0)
+            _two_site_outer(mass_sq, lambda, r, phi1 + 1, gf_add(acc, inner))
+let _two_site_inner(mass_sq, lambda, r, phi1, phi2, acc) =
+        if phi2 >= 65537
+            acc
+        else
+            let phi = [phi1, phi2]
+            let s = total_action(phi, 2, mass_sq, lambda)
+            let weight = gf_pow(r, s)
+            _two_site_inner(mass_sq, lambda, r, phi1, phi2 + 1, gf_add(acc, weight))
+
+let free_field_matrix(n, mass_sq) =
+    _ffm_loop(n, mass_sq, 0, [])
+let _ffm_loop(n, mass_sq, i, rows) =
+        if i >= n
+            rows
+        else
+            let row = _ffm_row(n, mass_sq, i, 0, [])
+            _ffm_loop(n, mass_sq, i + 1, arr_concat(rows, [row]))
+let _ffm_row(n, mass_sq, i, j, row) =
+        if j >= n
+            row
+        else
+            let val = if i == j
+                gf_add(2, mass_sq)
+            else
+                0
+            if (i + 1) % n == j || (j + 1) % n == i
+                65536
+            else
+                0
+            _ffm_row(n, mass_sq, i, j + 1, arr_concat(row, [val]))
+
+let mat2_inv(m) =
+    let det = mat2_det(m)
+    let inv_det = gf_inv(det)
+    [[gf_mul(m[1][1], inv_det), gf_neg(gf_mul(m[0][1], inv_det))],
+     [gf_neg(gf_mul(m[1][0], inv_det)), gf_mul(m[0][0], inv_det)]]
+
+let free_propagator_2site(mass_sq) =
+    let a = [[gf_add(2, mass_sq), 65536], [65536, gf_add(2, mass_sq)]]
+    mat2_inv(a)
+
+let two_point_correlation(mass_sq, x, y) =
+    let g = free_propagator_2site(mass_sq)
+    g[x][y]
+
+let four_point_correlation_wick(g12, g13, g14, g23, g24, g34) =
+    let term1 = gf_mul(g12, g34)
+    let term2 = gf_mul(g13, g24)
+    let term3 = gf_mul(g14, g23)
+    gf_add(gf_add(term1, term2), term3)
+
+let one_loop_self_energy(lambda, mass_sq, n_momenta) =
+    _self_energy_loop(lambda, mass_sq, n_momenta, 0, 0)
+let _self_energy_loop(lambda, mass_sq, n, k, acc) =
+        if k >= n
+            gf_mul(lambda, acc)
+        else
+            let k_sq = gf_mul(k, k)
+            let denom = gf_add(k_sq, mass_sq)
+            let propagator = gf_inv(denom)
+            _self_energy_loop(lambda, mass_sq, n, k + 1, gf_add(acc, propagator))
+
+let tree_4point(lambda) =
+    gf_neg(lambda)
+
+let one_loop_4point(lambda, g_s, g_t, g_u) =
+    let tree = gf_neg(lambda)
+    let lambda_sq = gf_mul(lambda, lambda)
+    let s_channel = gf_mul(lambda_sq, g_s)
+    let t_channel = gf_mul(lambda_sq, g_t)
+    let u_channel = gf_mul(lambda_sq, g_u)
+    gf_add(gf_add(gf_add(tree, s_channel), t_channel), u_channel)
+
+let scattering_amplitude_22(lambda, mass_sq, s) =
+    let tree = gf_neg(lambda)
+    let lambda_sq = gf_mul(lambda, lambda)
+    let propagator = gf_inv(gf_sub(s, mass_sq))
+    let one_loop = gf_mul(lambda_sq, propagator)
+    gf_add(tree, one_loop)
+
+let scattering_cross_section(amplitude) =
+    gf_mul(amplitude, amplitude)
+
+let s_matrix_unitarity(s_matrix) =
+        let s_dag = mat2_dagger(s_matrix)
+        let ss = mat2_mul(s_dag, s_matrix)
+        if ss[0][0] == 1 && ss[0][1] == 0 && ss[1][0] == 0 && ss[1][1] == 1
+            1
+        else
+            0
+
+let fermion_bilinear(psi_bar, gamma, psi) =
+    let term00 = gf_mul(gf_mul(psi_bar[0], gamma[0][0]), psi[0])
+    let term01 = gf_mul(gf_mul(psi_bar[0], gamma[0][1]), psi[1])
+    let term10 = gf_mul(gf_mul(psi_bar[1], gamma[1][0]), psi[0])
+    let term11 = gf_mul(gf_mul(psi_bar[1], gamma[1][1]), psi[1])
+    gf_add(gf_add(term00, term01), gf_add(term10, term11))
+
+let dirac_gamma_0() =
+    [[1, 0], [0, 65536]]
+
+let dirac_gamma_1() =
+    [[0, 1], [1, 0]]
+
+let clifford_verification() =
+        let g0 = dirac_gamma_0()
+        let g1 = dirac_gamma_1()
+        let g0g1 = mat2_mul(g0, g1)
+        let g1g0 = mat2_mul(g1, g0)
+        let anticom = [[gf_add(g0g1[0][0], g1g0[0][0]), gf_add(g0g1[0][1], g1g0[0][1])],
+                       [gf_add(g0g1[1][0], g1g0[1][0]), gf_add(g0g1[1][1], g1g0[1][1])]]
+        if anticom[0][0] == 0 && anticom[0][1] == 0 && anticom[1][0] == 0 && anticom[1][1] == 0
+            1
+        else
+            0
+
+let u1_gauge_transform(phi, alpha, g_primitive) =
+    let phase = gf_pow(g_primitive, alpha)
+    gf_mul(phase, phi)
+
+let gauge_invariant_norm_sq(phi) =
+    gf_mul(phi, phi)
+
+let field_strength(a_mu, a_nu, a_mu_nu, a_nu_mu) =
+    let d_mu_a_nu = gf_sub(a_mu_nu, a_nu)
+    let d_nu_a_mu = gf_sub(a_nu_mu, a_mu)
+    gf_sub(d_mu_a_nu, d_nu_a_mu)
+
+let yang_mills_action(f_mu_nu_sq_sum) =
+    gf_mul(gf_inv(4), f_mu_nu_sq_sum)
+
+let mass_renormalization(m_bare_sq, self_energy) =
+    gf_sub(m_bare_sq, self_energy)
+
+let beta_function(g_mu, g_mu_plus_1) =
+    gf_sub(g_mu_plus_1, g_mu)
+
+let effective_potential(phi, mass_sq, lambda) =
+    let phi_sq = gf_mul(phi, phi)
+    let phi4 = gf_mul(phi_sq, phi_sq)
+    let mass_term = gf_mul(gf_mul(gf_inv(2), mass_sq), phi_sq)
+    let int_term = gf_mul(gf_div(lambda, 24), phi4)
+    gf_add(mass_term, int_term)
+
+let is_symmetry_broken(mass_sq) =
+        if mass_sq > 32768
+            1
+        else
+            0
+
+let vev(mass_sq, lambda) =
+    let neg_6m_sq = gf_neg(gf_mul(6, mass_sq))
+    let ratio = gf_div(neg_6m_sq, lambda)
+    let leg = gf_legendre(ratio)
+    if leg == 1
+        gf_sqrt(ratio)
+    else
+        0
+    if leg == 0
+        0
+    else
+        65536
+
+let goldstone_mass() =
+    0
+
+let truncated_path_integral(n_sites, v_max, mass_sq, lambda, r) =
+        if n_sites == 1
+            _trunc_pi_1(v_max, mass_sq, lambda, r, 0, 0)
+        else
+            _trunc_pi_1(v_max, mass_sq, lambda, r, 0, 0)
+let _trunc_pi_1(v_max, mass_sq, lambda, r, phi, acc) =
+        if phi >= v_max
+            acc
+        else
+            let s = effective_potential(phi, mass_sq, lambda)
+            let weight = gf_pow(r, s)
+            _trunc_pi_1(v_max, mass_sq, lambda, r, phi + 1, gf_add(acc, weight))

@@ -1,0 +1,298 @@
+import "../domain_field.ψ"
+let DL_EXCLUSIVE = 0
+let DL_SHARED = 1
+
+let DL_STATUS_FREE = 0
+let DL_STATUS_HELD = 1
+let DL_STATUS_PENDING = 2
+let DL_STATUS_EXPIRED = 3
+
+let dl_new(name, kind) = [name, kind, [], [], {}, 0, 0, DL_STATUS_FREE]
+
+let dl_name(l) = l[0]
+let dl_kind(l) = l[1]
+let dl_holders(l) = l[2]
+let dl_wait(l) = l[3]
+let dl_reent(l) = l[4]
+let dl_ttl(l) = l[5]
+let dl_acq(l) = l[6]
+let dl_status(l) = l[7]
+
+let dl_set_holders(l, v) = [l[0], l[1], v, l[3], l[4], l[5], l[6], l[7]]
+let dl_set_wait(l, v) = [l[0], l[1], l[2], v, l[4], l[5], l[6], l[7]]
+let dl_set_reent(l, v) = [l[0], l[1], l[2], l[3], v, l[5], l[6], l[7]]
+let dl_set_ttl(l, v) = [l[0], l[1], l[2], l[3], l[4], v, l[6], l[7]]
+let dl_set_acq(l, v) = [l[0], l[1], l[2], l[3], l[4], l[5], v, l[7]]
+let dl_set_status(l, v) = [l[0], l[1], l[2], l[3], l[4], l[5], l[6], v]
+
+let dl_service_new() = [{}, {}, 0, 0, 0, 0]
+
+let ls_locks(s) = s[0]
+let ls_graph(s) = s[1]
+let ls_acq(s) = s[2]
+let ls_rel(s) = s[3]
+let ls_exp(s) = s[4]
+let ls_dl(s) = s[5]
+
+let ls_set_locks(s, v) = [v, s[1], s[2], s[3], s[4], s[5]]
+let ls_set_graph(s, v) = [s[0], v, s[2], s[3], s[4], s[5]]
+let ls_set_acq(s, v) = [s[0], s[1], v, s[3], s[4], s[5]]
+let ls_set_rel(s, v) = [s[0], s[1], s[2], v, s[4], s[5]]
+let ls_set_exp(s, v) = [s[0], s[1], s[2], s[3], v, s[5]]
+let ls_set_dl(s, v) = [s[0], s[1], s[2], s[3], s[4], v]
+
+let ls_get_or_create(s, name, kind) =
+    let locks = ls_locks(s)
+    let lock = locks[name]
+    if lock == 0
+        lock = dl_new(name, kind)
+        locks[name] = lock
+        s = ls_set_locks(s, locks)
+    [s, lock]
+
+let dl_try_acquire(s, name, kind, client, ttl_ts, now) =
+    let got = ls_get_or_create(s, name, kind)
+    s = got[0]
+    let lock = got[1]
+    let ttl = dl_ttl(lock)
+    if ttl != 0 && ttl <= now
+        lock = dl_set_holders(lock, [])
+        lock = dl_set_status(lock, DL_STATUS_FREE)
+        lock = dl_set_ttl(lock, 0)
+        s = ls_set_exp(s, ls_exp(s) + 1)
+    let holders = dl_holders(lock)
+    let i = 0
+    let n = len(holders)
+    let reentrant = 0
+    for i < n
+        if holders[i] == client
+            reentrant = 1
+            i = n
+        i = i + 1
+    if reentrant == 1
+        let reent = dl_reent(lock)
+        let cnt = reent[client]
+        if cnt == 0
+            cnt = 0
+        reent[client] = cnt + 1
+        lock = dl_set_reent(lock, reent)
+        s = ls_set_acq(s, ls_acq(s) + 1)
+        let locks = ls_locks(s)
+        locks[name] = lock
+        s = ls_set_locks(s, locks)
+        [s, 1]
+    else
+        let status = dl_status(lock)
+        let can_acquire = 0
+        if status == DL_STATUS_FREE
+            can_acquire = 1
+        else
+            0
+        if kind == DL_SHARED && dl_kind(lock) == DL_SHARED
+            can_acquire = 1
+        if can_acquire == 1
+            holders.push(client)
+            lock = dl_set_holders(lock, holders)
+            lock = dl_set_status(lock, DL_STATUS_HELD)
+            lock = dl_set_ttl(lock, ttl_ts)
+            lock = dl_set_acq(lock, now)
+            let reent = dl_reent(lock)
+            reent[client] = 1
+            lock = dl_set_reent(lock, reent)
+            let locks = ls_locks(s)
+            locks[name] = lock
+            s = ls_set_locks(s, locks)
+            s = ls_set_acq(s, ls_acq(s) + 1)
+            [s, 1]
+        else
+            let wait = dl_wait(lock)
+            wait.push([client, kind, now])
+            lock = dl_set_wait(lock, wait)
+            let locks = ls_locks(s)
+            locks[name] = lock
+            s = ls_set_locks(s, locks)
+            let graph = ls_graph(s)
+            let deps = graph[client]
+            if deps == 0
+                deps = []
+            deps.push(name)
+            graph[client] = deps
+            s = ls_set_graph(s, graph)
+            [s, 2]
+
+let dl_release(s, name, client) =
+    let locks = ls_locks(s)
+    let lock = locks[name]
+    if lock == 0
+        [s, 0]
+    else
+        let reent = dl_reent(lock)
+        let cnt = reent[client]
+        if cnt == 0
+            cnt = 0
+        if cnt > 1
+            reent[client] = cnt - 1
+            lock = dl_set_reent(lock, reent)
+            locks[name] = lock
+            s = ls_set_locks(s, locks)
+            [s, 1]
+        else
+            reent[client] = 0
+            lock = dl_set_reent(lock, reent)
+            let holders = dl_holders(lock)
+            let new_holders = []
+            let i = 0
+            let n = len(holders)
+            for i < n
+                if holders[i] != client
+                    new_holders.push(holders[i])
+                i = i + 1
+            lock = dl_set_holders(lock, new_holders)
+            s = ls_set_rel(s, ls_rel(s) + 1)
+            let graph = ls_graph(s)
+            graph[client] = 0
+            s = ls_set_graph(s, graph)
+            let wait = dl_wait(lock)
+            if len(wait) > 0
+                let next = wait[0]
+                let new_wait = []
+                i = 1
+                n = len(wait)
+                for i < n
+                    new_wait.push(wait[i])
+                    i = i + 1
+                lock = dl_set_wait(lock, new_wait)
+                let new_holder = next[0]
+                let new_kind = next[1]
+                new_holders.push(new_holder)
+                lock = dl_set_holders(lock, new_holders)
+                lock = dl_set_status(lock, DL_STATUS_HELD)
+                lock = dl_set_ttl(lock, 0)
+                let reent2 = dl_reent(lock)
+                reent2[new_holder] = 1
+                lock = dl_set_reent(lock, reent2)
+                s = ls_set_acq(s, ls_acq(s) + 1)
+            else
+                if len(new_holders) == 0
+                    lock = dl_set_status(lock, DL_STATUS_FREE)
+            locks[name] = lock
+            s = ls_set_locks(s, locks)
+            [s, 1]
+
+let dl_detect_deadlock(s) =
+    let graph = ls_graph(s)
+    let keys = keys_of(graph)
+    let i = 0
+    let n = len(keys)
+    let found_deadlock = 0
+    for i < n && found_deadlock == 0
+        let start = keys[i]
+        let visited = {}
+        let stack = [start]
+        for len(stack) > 0 && found_deadlock == 0
+            let cur = stack[len(stack) - 1]
+            stack = arr_take(stack, len(stack) - 1)
+            if visited[cur] == 1
+                if cur == start
+                    found_deadlock = 1
+                else
+                    0
+                visited[cur] = 1
+                let deps = graph[cur]
+                if deps != 0
+                    let j = 0
+                    let m = len(deps)
+                    for j < m
+                        stack.push(deps[j])
+                        j = j + 1
+        i = i + 1
+    if found_deadlock == 1
+        s = ls_set_dl(s, ls_dl(s) + 1)
+    found_deadlock
+
+let dl_bragg_check(s) =
+    let acq = ls_acq(s)
+    let rel = ls_rel(s)
+    let exp = ls_exp(s)
+    let locks = ls_locks(s)
+    let keys = keys_of(locks)
+    let held = 0
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let l = locks[keys[i]]
+        if l != 0
+            held = held + len(dl_holders(l))
+        i = i + 1
+    if acq >= rel && acq >= held && acq >= 0
+        1
+    else
+        0
+
+let dl_test_basic() =
+    let s = dl_service_new()
+    let ok1 = 1
+    if ls_acq(s) != 0
+        ok1 = 0
+
+    let r1 = dl_try_acquire(s, "resource1", DL_EXCLUSIVE, "client1", 0, 100)
+    s = r1[0]
+    let ok2 = 1
+    if r1[1] != 1
+        ok2 = 0
+    if ls_acq(s) != 1
+        ok2 = 0
+
+    let r2 = dl_try_acquire(s, "resource1", DL_EXCLUSIVE, "client2", 0, 200)
+    s = r2[0]
+    let ok3 = 1
+    if r2[1] != 2
+        ok3 = 0
+
+    let r3 = dl_release(s, "resource1", "client1")
+    s = r3[0]
+    let ok4 = 1
+    if r3[1] != 1
+        ok4 = 0
+    if ls_rel(s) != 1
+        ok4 = 0
+    let l = ls_locks(s)["resource1"]
+    let ok5 = 1
+    if len(dl_holders(l)) != 1
+        ok5 = 0
+    else
+        0
+    if dl_holders(l)[0] != "client2"
+        ok5 = 0
+    if ls_acq(s) != 2
+        ok5 = 0
+
+    let r4 = dl_try_acquire(s, "shared1", DL_SHARED, "c1", 0, 300)
+    s = r4[0]
+    let r5 = dl_try_acquire(s, "shared1", DL_SHARED, "c2", 0, 300)
+    s = r5[0]
+    let ok6 = 1
+    if r4[1] != 1 || r5[1] != 1
+        ok6 = 0
+
+    let r6 = dl_try_acquire(s, "shared1", DL_SHARED, "c1", 0, 300)
+    s = r6[0]
+    let ok7 = 1
+    if r6[1] != 1
+        ok7 = 0
+
+    let ok8 = 1
+    if dl_bragg_check(s) != 1
+        ok8 = 0
+
+    ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7 * ok8
+
+let dl_test_self() =
+        let ok = dl_test_basic()
+        if ok == 1
+            print("distributed_lock: ALL PASS")
+        else
+            print("distributed_lock: FAIL")
+        ok
+
+    dl_test_self()

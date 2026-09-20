@@ -1,0 +1,32 @@
+import "ck.ψ"
+let bad = [0]
+
+let ladder = 10 - 9
+let dz1 = ladder - 1
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let abs_ratio = 1600 / 400
+let dz2 = abs_ratio - 4
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let c_ratio = 400 / 100
+let dz3 = c_ratio - 4
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let t_ratio = 200 / 100
+let dz4 = t_ratio - 2
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+if 9 > 10
+    bad[0] = bad[0] + 1
+
+let margin = 35 - 30
+let dz6 = margin - 5
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+if 1812 < 1810
+    bad[0] = bad[0] + 1
+if 1812 > 1814
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

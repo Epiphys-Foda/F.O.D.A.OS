@@ -1,0 +1,232 @@
+import "../stdlib/gf65537.ψ"
+
+let fmo_hamiltonian() =
+    [
+        [100, 5, 2, 0, 0, 0, 0],
+        [5, 110, 3, 1, 0, 0, 0],
+        [2, 3, 120, 4, 2, 0, 0],
+        [0, 1, 4, 130, 5, 3, 0],
+        [0, 0, 2, 5, 140, 6, 2],
+        [0, 0, 0, 3, 6, 150, 4],
+        [0, 0, 0, 0, 2, 4, 160]
+    ]
+
+let mat_vec_mul(mat, vec) =
+    let n = len(vec)
+    let result = [0] * n
+    for i in 0..n
+        let s = 0
+        for j in 0..n
+            s = gf_add(s, gf_mul(mat[i][j], vec[j]))
+        result[i] = s
+    result
+
+let exciton_step(hamiltonian, psi) =
+    mat_vec_mul(hamiltonian, psi)
+
+let exciton_evolve(hamiltonian, psi0, t) =
+        if t <= 0
+            psi0
+        else
+            exciton_evolve(hamiltonian, exciton_step(hamiltonian, psi0), t - 1)
+
+let transfer_efficiency(hamiltonian, psi0, t_max) =
+    let eta = 0
+    let psi = psi0
+    for t in 0..t_max
+        let amp = psi[6]
+        let prob = gf_mul(amp, amp)
+        eta = gf_add(eta, prob)
+        psi = exciton_step(hamiltonian, psi)
+    eta
+
+let radical_pair_hamiltonian(j_coupling, a_hyperfine, b_hyperfine, b_field) =
+    let inv4 = 49153
+    let three_inv4 = gf_mul(3, inv4)
+
+    let inv2 = 32769
+    let j4 = gf_mul(j_coupling, inv4)
+    let neg_j4 = gf_neg(j4)
+    let gb2 = gf_mul(b_field, inv2)
+    let neg_gb2 = gf_neg(gb2)
+    let ab2 = gf_mul(gf_add(a_hyperfine, b_hyperfine), inv2)
+    let neg_ab2 = gf_neg(ab2)
+    let amb2 = gf_mul(gf_sub(a_hyperfine, b_hyperfine), inv2)
+    let bma2 = gf_mul(gf_sub(b_hyperfine, a_hyperfine), inv2)
+
+    [
+        [gf_add(gf_add(j4, gb2), ab2), 0, 0, 0],
+        [0, gf_add(gf_add(neg_j4, gb2), amb2), 0, 0],
+        [0, 0, gf_add(gf_add(neg_j4, neg_gb2), bma2), 0],
+        [0, 0, 0, gf_add(gf_add(j4, neg_gb2), neg_ab2)]
+    ]
+
+let singlet_yield(hamiltonian, rho_ss_0, k_s, t_max) =
+    let phi_s = 0
+    let rho_ss = rho_ss_0
+    for t in 0..t_max
+        phi_s = gf_add(phi_s, gf_mul(k_s, rho_ss))
+        rho_ss = gf_mul(hamiltonian[1][1], rho_ss)
+    phi_s
+
+let compass_response(b_field, j_coupling, a_hyperfine, b_hyperfine, k_s, t_max) =
+    let h = radical_pair_hamiltonian(j_coupling, a_hyperfine, b_hyperfine, b_field)
+    singlet_yield(h, 1, k_s, t_max)
+
+let tunneling_rate(r_base, barrier_width) =
+    gf_inv(gf_pow(r_base, barrier_width))
+
+let frequency_mismatch(omega_receptor, omega_molecule) =
+    gf_sub(omega_receptor, omega_molecule)
+
+let olfactory_response(omega_receptor, omega_molecule, r_base, barrier_width, threshold) =
+    let gamma = tunneling_rate(r_base, barrier_width)
+    let delta = frequency_mismatch(omega_receptor, omega_molecule)
+    let delta_abs = (delta > 32768 ? gf_neg(delta) : delta)
+    let is_match = (delta_abs < threshold ? 1 : 0)
+    gf_mul(gamma, is_match)
+
+let odor_identification(odor_freqs, receptor_freqs, r_base, barrier_width, threshold) =
+    let n_receptors = len(receptor_freqs)
+    let response = [0] * n_receptors
+    for i in 0..n_receptors
+        let max_resp = 0
+        for j in 0..len(odor_freqs)
+            let resp = olfactory_response(receptor_freqs[i], odor_freqs[j], r_base, barrier_width, threshold)
+            if resp > max_resp
+                max_resp = resp
+        response[i] = max_resp
+    response
+
+let enzyme_tunneling_rate(r_base, distance, mass_factor) =
+    let exponent = gf_mul(distance, mass_factor)
+    gf_inv(gf_pow(r_base, exponent))
+
+let kinetic_isotope_effect(r_base, distance, mass_h, mass_d) =
+    let k_h = enzyme_tunneling_rate(r_base, distance, mass_h)
+    let k_d = enzyme_tunneling_rate(r_base, distance, mass_d)
+    gf_div(k_h, k_d)
+
+let enzyme_rate(arrhenius_a, activation_energy, temperature, r_base) =
+    let exp_arg = gf_div(activation_energy, temperature)
+    gf_mul(arrhenius_a, gf_inv(gf_pow(r_base, exp_arg)))
+
+let dna_base_pair() =
+    [[0, 1], [2, 3], [4, 5], [6, 7]]
+
+let proton_tunneling_probability(r_base, barrier) =
+    gf_inv(gf_pow(r_base, barrier))
+
+let tautomerize(base) =
+    gf_add(base, 4)
+
+let dna_mutation_probability(r_base, barrier) =
+    proton_tunneling_probability(r_base, barrier)
+
+let dna_replication_error_rate(r_base, barrier, n_bases) =
+    let p_single = dna_mutation_probability(r_base, barrier)
+    gf_pow(p_single, n_bases)
+
+let tubulin_state(vertical_amp, tilted_amp) =
+    [vertical_amp, tilted_amp]
+
+let microtubule(n_dimers) =
+    [1] * n_dimers
+
+let microtubule_evolve(hamiltonian, tubulin_states) =
+    mat_vec_mul(hamiltonian, tubulin_states)
+
+let orch_or_collapse_time(graviton_energy) =
+    gf_inv(graviton_energy)
+
+let consciousness_event(microtubule_state, graviton_energy, t_step) =
+    let tau = orch_or_collapse_time(graviton_energy)
+    (t_step >= tau ? 1 : 0)
+
+let coin_operator() =
+    let inv_sqrt2 = gf_inv(4080)
+    [
+        [inv_sqrt2, inv_sqrt2],
+        [inv_sqrt2, gf_neg(inv_sqrt2)]
+    ]
+
+let shift_operator(position, direction) =
+        if direction == 0
+            gf_sub(position, 1)
+        else
+            gf_add(position, 1)
+
+let quantum_walk_step(coin_op, positions, amplitudes) =
+    let n = len(positions)
+    let new_pos = [0] * n
+    let new_amp = [0] * n
+    for i in 0..n
+        let amp_l = gf_add(gf_mul(coin_op[0][0], amplitudes[i]), gf_mul(coin_op[0][1], amplitudes[i]))
+        let amp_r = gf_add(gf_mul(coin_op[1][0], amplitudes[i]), gf_mul(coin_op[1][1], amplitudes[i]))
+        new_pos[2*i] = shift_operator(positions[i], 0)
+        new_pos[2*i + 1] = shift_operator(positions[i], 1)
+        new_amp[2*i] = amp_l
+        new_amp[2*i + 1] = amp_r
+    [new_pos, new_amp]
+
+let quantum_walk_search_probability(target_position, positions, amplitudes) =
+    let n = len(positions)
+    let prob = 0
+    for i in 0..n
+        if positions[i] == target_position
+            prob = gf_add(prob, gf_mul(amplitudes[i], amplitudes[i]))
+    prob
+
+let kraus_channel(kraus_ops, rho) =
+    let n = len(kraus_ops)
+    let result = 0
+    for k in 0..n
+        let k_op = kraus_ops[k]
+        let k_dag = k_op
+        result = gf_add(result, gf_mul(gf_mul(k_op, rho), k_dag))
+    result
+
+let decoherence_factor(r_base, gamma, t) =
+    let exponent = gf_mul(gamma, t)
+    gf_inv(gf_pow(r_base, exponent))
+
+let quantum_zeno_survival(r_base, gamma, tau, n_measurements) =
+    let exponent = gf_mul(gf_mul(gamma, tau), n_measurements)
+    gf_inv(gf_pow(r_base, exponent))
+
+let optimal_noise_level(hamiltonian, psi0, t_max, r_base) =
+    let best_gamma = 0
+    let best_efficiency = 0
+    for gamma in 1..100
+        let eta = transfer_efficiency(hamiltonian, psi0, t_max)
+        let decoh = decoherence_factor(r_base, gamma, t_max)
+        let eta_noisy = gf_mul(eta, decoh)
+        if eta_noisy > best_efficiency
+            best_efficiency = eta_noisy
+            best_gamma = gamma
+    best_gamma
+
+let photosynthetic_antenna() =
+    [
+        [100, 10, 0],
+        [10, 110, 10],
+        [0, 10, 120]
+    ]
+
+let photosynthesis_efficiency(psi0, t_max) =
+    let h = photosynthetic_antenna()
+    transfer_efficiency(h, psi0, t_max)
+
+let quantum_advantage(hamiltonian, psi0, t_max, classical_efficiency) =
+    let eta_q = transfer_efficiency(hamiltonian, psi0, t_max)
+    gf_div(eta_q, classical_efficiency)
+
+let circadian_period() =
+    1440
+
+let cryptochrome_response(blue_light_freq, j_coupling, k_s, t_max) =
+    let b_field = blue_light_freq
+    compass_response(b_field, j_coupling, 0, 0, k_s, t_max)
+
+let circadian_coherence(r_base, gamma, period) =
+    decoherence_factor(r_base, gamma, period)

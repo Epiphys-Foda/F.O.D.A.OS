@@ -1,0 +1,4665 @@
+let is_digit(c) = (c >= 48 && c <= 57 ? 1 : 0)
+let is_alpha(c) = (c == 95 ? 1 : ((c >= 65 && c <= 90 ? 1 : ((c >= 97 && c <= 122 ? 1 : 0)))))
+let is_space(c) = (c == 32 ? 1 : ((c == 9 ? 1 : ((c == 13 ? 1 : 0)))))
+let make_tok(t, v) =
+    let tok = arr_new_n(2)
+    tok[0] = t
+    tok[1] = v
+    return tok
+let sct(c) = (c == 40 ? 4 : ((c == 41 ? 5 : ((c == 123 ? 6 : ((c == 125 ? 7 : ((c == 61 ? 8 : ((c == 44 ? 9 : ((c == 36 ? 18 : ((c == 91 ? 20 : ((c == 93 ? 21 : 999)))))))))))))))))
+let is_op_char(c) = (c == 43 ? 1 : ((c == 45 ? 1 : ((c == 42 ? 1 : ((c == 47 ? 1 : ((c == 60 ? 1 : ((c == 62 ? 1 : ((c == 33 ? 1 : ((c == 37 ? 1 : ((c == 94 ? 1 : ((c == 38 ? 1 : ((c == 124 ? 1 : ((c == 63 ? 1 : ((c == 58 ? 1 : ((c == 126 ? 1 : 0)))))))))))))))))))))))))))
+let lex_fstring_parts(src, start_i) =
+    let n = src.len()
+    let i = start_i
+    let parts = arr_new()
+    let lit = arr_new()
+    let pdone = 0
+    for pdone == 0
+        if i < n
+            let ch = src[i]
+            if ch == 34
+                pdone = 1
+                i = i + 1
+            else
+            if ch == 123
+                if i + 1 < n
+                    if src[i + 1] == 123
+                        lit = arr_push(lit, 123)
+                        i = i + 2
+                    else
+                        if lit.len() > 0
+                            let p0 = arr_new_n(2)
+                            p0[0] = 0
+                            p0[1] = lit
+                            parts = arr_push(parts, p0)
+                            lit = arr_new()
+                        i = i + 1
+                        let vname = arr_new()
+                        let vdone = 0
+                        for vdone == 0
+                            if i < n
+                                if src[i] == 125
+                                    vdone = 1
+                                else
+                                    vname = arr_push(vname, src[i])
+                                    i = i + 1
+                            else
+                                vdone = 1
+                        let p1 = arr_new_n(2)
+                        p1[0] = 1
+                        p1[1] = vname
+                        parts = arr_push(parts, p1)
+                        if i < n
+                            i = i + 1
+                else
+                    lit = arr_push(lit, ch)
+                    i = i + 1
+            else
+            if ch == 125
+                if i + 1 < n
+                    if src[i + 1] == 125
+                        lit = arr_push(lit, 125)
+                        i = i + 2
+                    else
+                        lit = arr_push(lit, ch)
+                        i = i + 1
+                else
+                    lit = arr_push(lit, ch)
+                    i = i + 1
+            else
+            if ch == 92
+                if i + 1 < n
+                    let nc = src[i + 1]
+                    lit = arr_push(lit, (nc == 110 ? 10 : ((nc == 116 ? 9 : ((nc == 92 ? 92 : ((nc == 34 ? 34 : nc))))))))
+                    i = i + 2
+                else
+                    lit = arr_push(lit, ch)
+                    i = i + 1
+            else
+                lit = arr_push(lit, ch)
+                i = i + 1
+        else
+            pdone = 1
+    if lit.len() > 0
+        let p2 = arr_new_n(2)
+        p2[0] = 0
+        p2[1] = lit
+        parts = arr_push(parts, p2)
+    let r = arr_new_n(2)
+    r[0] = parts
+    r[1] = i
+    return r
+let lex(src) =
+    let n = src.len()
+    let toks = arr_new()
+    let i = 0
+    for i < n
+        let c = src[i]
+        if is_space(c) == 1
+            i = i + 1
+        else
+        if c == 10
+            let next_col = 1
+            let j = i + 1
+            for j < n
+                if src[j] == 32
+                    next_col = next_col + 1
+                    j = j + 1
+                else
+                    j = n
+            toks = arr_push(toks, make_tok(11, next_col))
+            i = i + 1
+        else
+        if is_digit(c) == 1
+            let is_hex = 0
+            let is_bin = 0
+            let is_oct = 0
+            if c == 48
+                if i + 1 < n
+                    if src[i + 1] == 120
+                        is_hex = 1
+            if c == 48
+                if i + 1 < n
+                    if src[i + 1] == 98
+                        is_bin = 1
+            if c == 48
+                if i + 1 < n
+                    if src[i + 1] == 111
+                        is_oct = 1
+            if is_hex == 1
+                i = i + 2
+                let num = 0
+                let hdone = 0
+                for hdone == 0
+                    if i < n
+                        let d = src[i]
+                        if is_digit(d) == 1
+                            num = (num << 4) + (d - 48)
+                            i = i + 1
+                        else
+                        if d >= 97 && d <= 102
+                            num = (num << 4) + (d - 87)
+                            i = i + 1
+                        else
+                        if d >= 65 && d <= 70
+                            num = (num << 4) + (d - 55)
+                            i = i + 1
+                        else
+                        if d == 95
+                            i = i + 1
+                        else
+                            hdone = 1
+                    else
+                        hdone = 1
+                toks = arr_push(toks, make_tok(0, num))
+            else
+            if is_bin == 1
+                i = i + 2
+                let num = 0
+                let bdone = 0
+                for bdone == 0
+                    if i < n
+                        let d = src[i]
+                        if d == 48
+                            num = (num << 1)
+                            i = i + 1
+                        else
+                        if d == 49
+                            num = (num << 1) + 1
+                            i = i + 1
+                        else
+                        if d == 95
+                            i = i + 1
+                        else
+                            bdone = 1
+                    else
+                        bdone = 1
+                toks = arr_push(toks, make_tok(0, num))
+            else
+            if is_oct == 1
+                i = i + 2
+                let num = 0
+                let odone = 0
+                for odone == 0
+                    if i < n
+                        let d = src[i]
+                        if is_digit(d) == 1 && d <= 55
+                            num = (num << 3) + (d - 48)
+                            i = i + 1
+                        else
+                        if d == 95
+                            i = i + 1
+                        else
+                            odone = 1
+                    else
+                        odone = 1
+                toks = arr_push(toks, make_tok(0, num))
+            else
+                let num = 0
+                let done = 0
+                for done == 0
+                    if i < n
+                        let d = src[i]
+                        if is_digit(d) == 1
+                            num = (num << 3) + (num << 1) + (d - 48)
+                            i = i + 1
+                        else
+                        if d == 95
+                            i = i + 1
+                        else
+                            done = 1
+                    else
+                        done = 1
+                if i < n
+                    if src[i] == 101
+                        i = i + 1
+                        let exp = 0
+                        let edone = 0
+                        for edone == 0
+                            if i < n
+                                let ed = src[i]
+                                if is_digit(ed) == 1
+                                    exp = (exp << 3) + (exp << 1) + (ed - 48)
+                                    i = i + 1
+                                else
+                                    edone = 1
+                            else
+                                edone = 1
+                        let ep = 0
+                        for ep < exp
+                            num = (num << 3) + (num << 1)
+                            ep = ep + 1
+                if i < n
+                    if src[i] == 69
+                        i = i + 1
+                        let exp = 0
+                        let edone = 0
+                        for edone == 0
+                            if i < n
+                                let ed = src[i]
+                                if is_digit(ed) == 1
+                                    exp = (exp << 3) + (exp << 1) + (ed - 48)
+                                    i = i + 1
+                                else
+                                    edone = 1
+                            else
+                                edone = 1
+                        let ep = 0
+                        for ep < exp
+                            num = (num << 3) + (num << 1)
+                            ep = ep + 1
+                toks = arr_push(toks, make_tok(0, num))
+        else
+        if is_alpha(c) == 1
+            let fstr = 0
+            if c == 102
+                if i + 1 < n
+                    if src[i + 1] == 34
+                        fstr = 1
+            if fstr == 1
+                let fr = lex_fstring_parts(src, i + 2)
+                toks = arr_push(toks, make_tok(19, fr[0]))
+                i = fr[1]
+            else
+                let s = str_from_char(c)
+                i = i + 1
+                let done = 0
+                for done == 0
+                    if i < n
+                        let d = src[i]
+                        if is_alpha(d) == 1
+                            s = str_concat(s, str_from_char(d))
+                            i = i + 1
+                        else
+                        if is_digit(d) == 1
+                            s = str_concat(s, str_from_char(d))
+                            i = i + 1
+                        else
+                            done = 1
+                    else
+                        done = 1
+                if str_eq(s, "mod") == 1
+                    toks = arr_push(toks, make_tok(3, 37))
+                else
+                if str_eq(s, "div") == 1
+                    toks = arr_push(toks, make_tok(3, 47))
+                else
+                if str_eq(s, "in") == 1
+                    toks = arr_push(toks, make_tok(35, 0))
+                else
+                if str_eq(s, "and") == 1
+                    toks = arr_push(toks, make_tok(23, 0))
+                else
+                if str_eq(s, "or") == 1
+                    toks = arr_push(toks, make_tok(24, 0))
+                else
+                if str_eq(s, "xor") == 1
+                    toks = arr_push(toks, make_tok(3, 94))
+                else
+                if str_eq(s, "shl") == 1
+                    toks = arr_push(toks, make_tok(25, 0))
+                else
+                if str_eq(s, "shr") == 1
+                    toks = arr_push(toks, make_tok(26, 0))
+                else
+                if str_eq(s, "band") == 1
+                    toks = arr_push(toks, make_tok(3, 38))
+                else
+                if str_eq(s, "bor") == 1
+                    toks = arr_push(toks, make_tok(3, 124))
+                else
+                    toks = arr_push(toks, make_tok(1, s))
+        else
+        if c == 34
+            i = i + 1
+            let s = arr_new()
+            let sdone = 0
+            for sdone == 0
+                if i < n
+                    let ch = src[i]
+                    if ch == 34
+                        sdone = 1
+                        i = i + 1
+                    else
+                    if ch == 92
+                        if i + 1 < n
+                            let nc = src[i + 1]
+                            s = arr_push(s, (nc == 110 ? 10 : ((nc == 116 ? 9 : ((nc == 92 ? 92 : ((nc == 34 ? 34 : nc))))))))
+                            i = i + 2
+                        else
+                            s = arr_push(s, ch)
+                            i = i + 1
+                    else
+                        s = arr_push(s, ch)
+                        i = i + 1
+                else
+                    sdone = 1
+            toks = arr_push(toks, make_tok(2, s))
+        else
+        if c == 39
+            i = i + 1
+            let ch = src[i]
+            let chval = ch
+            if ch == 92
+                i = i + 1
+                let nc = src[i]
+                chval = (nc == 110 ? 10 : ((nc == 116 ? 9 : ((nc == 92 ? 92 : ((nc == 39 ? 39 : nc)))))))
+            i = i + 1
+            toks = arr_push(toks, make_tok(0, chval))
+        else
+        if c == 46
+            toks = arr_push(toks, make_tok(17, 0))
+            i = i + 1
+        else
+            let t = sct(c)
+            let advanced = 0
+            if c == 35
+                let hcdone = 0
+                for hcdone == 0
+                    if i < n
+                        if src[i] == 10
+                            hcdone = 1
+                        else
+                            i = i + 1
+                    else
+                        hcdone = 1
+                advanced = 2
+            if t < 999 && advanced == 0
+                if c == 61
+                    if i + 1 < n
+                        if src[i + 1] == 61
+                            toks = arr_push(toks, make_tok(13, 0))
+                            i = i + 1
+                            advanced = 1
+                if advanced == 0
+                    toks = arr_push(toks, make_tok(t, 0))
+                else
+                    let _noop = 0
+            else
+                if is_op_char(c) == 1
+                    if c == 47
+                        if i + 1 < n
+                            if src[i + 1] == 47
+                                let cdone = 0
+                                for cdone == 0
+                                    if i < n
+                                        if src[i] == 10
+                                            cdone = 1
+                                        else
+                                            i = i + 1
+                                    else
+                                        cdone = 1
+                                advanced = 2
+                    if advanced == 0
+                        if c == 47
+                            if i + 1 < n
+                                if src[i + 1] == 42
+                                    i = i + 2
+                                    let bcdone = 0
+                                    for bcdone == 0
+                                        if i + 1 < n
+                                            if src[i] == 42
+                                                if src[i + 1] == 47
+                                                    bcdone = 1
+                                                    i = i + 2
+                                            if bcdone == 0
+                                                i = i + 1
+                                        else
+                                            bcdone = 1
+                                    advanced = 2
+                    if advanced == 0
+                        if c == 33
+                            if i + 1 < n
+                                if src[i + 1] == 61
+                                    toks = arr_push(toks, make_tok(14, 0))
+                                    i = i + 1
+                                    advanced = 1
+                    if advanced == 0
+                        if c == 60
+                            if i + 1 < n
+                                if src[i + 1] == 61
+                                    toks = arr_push(toks, make_tok(15, 0))
+                                    i = i + 1
+                                    advanced = 1
+                    if advanced == 0
+                        if c == 62
+                            if i + 1 < n
+                                if src[i + 1] == 61
+                                    toks = arr_push(toks, make_tok(16, 0))
+                                    i = i + 1
+                                    advanced = 1
+                    if advanced == 0
+                        if c == 38
+                            if i + 1 < n
+                                if src[i + 1] == 38
+                                    toks = arr_push(toks, make_tok(23, 0))
+                                    i = i + 1
+                                    advanced = 1
+                    if advanced == 0
+                        if c == 124
+                            if i + 1 < n
+                                if src[i + 1] == 124
+                                    toks = arr_push(toks, make_tok(24, 0))
+                                    i = i + 1
+                                    advanced = 1
+                    if advanced == 0
+                        if c == 124
+                            if i + 1 < n
+                                if src[i + 1] == 62
+                                    toks = arr_push(toks, make_tok(32, 0))
+                                    i = i + 1
+                                    advanced = 1
+                    if advanced == 0
+                        if c == 60
+                            if i + 1 < n
+                                if src[i + 1] == 60
+                                    toks = arr_push(toks, make_tok(25, 0))
+                                    i = i + 1
+                                    advanced = 1
+                    if advanced == 0
+                        if c == 62
+                            if i + 1 < n
+                                if src[i + 1] == 62
+                                    toks = arr_push(toks, make_tok(26, 0))
+                                    i = i + 1
+                                    advanced = 1
+                    if advanced == 0
+                        if c == 43
+                            if i + 1 < n
+                                if src[i + 1] == 61
+                                    toks = arr_push(toks, make_tok(27, 0))
+                                    i = i + 1
+                                    advanced = 1
+                    if advanced == 0
+                        if c == 43
+                            if i + 1 < n
+                                if src[i + 1] == 43
+                                    toks = arr_push(toks, make_tok(33, 0))
+                                    i = i + 1
+                                    advanced = 1
+                    if advanced == 0
+                        if c == 45
+                            if i + 1 < n
+                                if src[i + 1] == 61
+                                    toks = arr_push(toks, make_tok(28, 0))
+                                    i = i + 1
+                                    advanced = 1
+                    if advanced == 0
+                        if c == 42
+                            if i + 1 < n
+                                if src[i + 1] == 61
+                                    toks = arr_push(toks, make_tok(29, 0))
+                                    i = i + 1
+                                    advanced = 1
+                    if advanced == 0
+                        if c == 42
+                            if i + 1 < n
+                                if src[i + 1] == 42
+                                    toks = arr_push(toks, make_tok(34, 0))
+                                    i = i + 1
+                                    advanced = 1
+                    if advanced == 0
+                        if c == 47
+                            if i + 1 < n
+                                if src[i + 1] == 61
+                                    toks = arr_push(toks, make_tok(30, 0))
+                                    i = i + 1
+                                    advanced = 1
+                    if advanced == 0
+                        if c == 37
+                            if i + 1 < n
+                                if src[i + 1] == 61
+                                    toks = arr_push(toks, make_tok(31, 0))
+                                    i = i + 1
+                                    advanced = 1
+                    if advanced == 0
+                        toks = arr_push(toks, make_tok(3, c))
+            if advanced < 2
+                i = i + 1
+    toks = arr_push(toks, make_tok(12, 0))
+    return toks
+let skip_nl(toks, pos) =
+    for pos < toks.len()
+        let tok = toks[pos]
+        if tok[0] == 11
+            pos = pos + 1
+        else
+            return pos
+    return pos
+let get_col(toks, pos) =
+    let p = pos - 1
+    for p >= 0
+        if toks[p][0] == 11
+            return toks[p][1]
+        p = p - 1
+    return 0
+let str_eq(s1, s2) =
+    let n1 = s1.len()
+    let n2 = s2.len()
+    if n1 != n2
+        return 0
+    let i = 0
+    for i < n1
+        if s1[i] != s2[i]
+            return 0
+        i = i + 1
+    return 1
+let mk_int(n) =
+    let node = arr_new_n(2)
+    node[0] = 0
+    node[1] = n
+    return node
+let mk_var(name) =
+    let node = arr_new_n(2)
+    node[0] = 2
+    node[1] = name
+    return node
+let mk_binop(op, l, r) =
+    let node = arr_new_n(4)
+    node[0] = 3
+    node[1] = op
+    node[2] = l
+    node[3] = r
+    return node
+let mk_call(name, args) =
+    let node = arr_new_n(3)
+    node[0] = 1
+    node[1] = name
+    node[2] = args
+    return node
+let mk_let(name, expr) =
+    let node = arr_new_n(4)
+    node[0] = 10
+    node[1] = name
+    node[2] = expr
+    node[3] = 0
+    return node
+let mk_let_bare(name, expr) =
+    let node = arr_new_n(4)
+    node[0] = 10
+    node[1] = name
+    node[2] = expr
+    node[3] = 1
+    return node
+let mk_destructure(names, expr) =
+    let node = arr_new_n(3)
+    node[0] = 21
+    node[1] = names
+    node[2] = expr
+    return node
+let mk_print(arg) =
+    let node = arr_new_n(2)
+    node[0] = 11
+    node[1] = arg
+    return node
+let mk_fndef(name, params, body, ret) =
+    let node = arr_new_n(5)
+    node[0] = 20
+    node[1] = name
+    node[2] = params
+    node[3] = body
+    node[4] = ret
+    return node
+let mk_if(cond, then, els) =
+    let node = arr_new_n(4)
+    node[0] = 12
+    node[1] = cond
+    node[2] = then
+    node[3] = els
+    return node
+let mk_while(cond, body) =
+    let node = arr_new_n(3)
+    node[0] = 13
+    node[1] = cond
+    node[2] = body
+    return node
+let mk_return(expr) =
+    let node = arr_new_n(2)
+    node[0] = 14
+    node[1] = expr
+    return node
+let mk_ifstmt(cond, then, els) =
+    let node = arr_new_n(4)
+    node[0] = 16
+    node[1] = cond
+    node[2] = then
+    node[3] = els
+    return node
+let mk_str(s) =
+    let node = arr_new_n(2)
+    node[0] = 5
+    node[1] = s
+    return node
+let mk_method(obj, mid, args) =
+    let node = arr_new_n(4)
+    node[0] = 6
+    node[1] = obj
+    node[2] = mid
+    node[3] = args
+    return node
+let mk_exprstmt(expr) =
+    let node = arr_new_n(2)
+    node[0] = 17
+    node[1] = expr
+    return node
+let mk_domain(modulus, body) =
+    let node = arr_new_n(3)
+    node[0] = 22
+    node[1] = modulus
+    node[2] = body
+    return node
+let mk_where(inner, bindings) =
+    let node = arr_new_n(3)
+    node[0] = 4
+    node[1] = inner
+    node[2] = bindings
+    return node
+let mk_arr(elems) =
+    let node = arr_new_n(2)
+    node[0] = 7
+    node[1] = elems
+    return node
+let mk_for(var_name, start, end, body) =
+    let node = arr_new_n(5)
+    node[0] = 23
+    node[1] = var_name
+    node[2] = start
+    node[3] = end
+    node[4] = body
+    return node
+let mk_break() =
+    let node = arr_new_n(2)
+    node[0] = 24
+    node[1] = 0
+    return node
+let mk_continue() =
+    let node = arr_new_n(2)
+    node[0] = 25
+    node[1] = 0
+    return node
+let mk_enum_block(stmts) =
+    let node = arr_new_n(2)
+    node[0] = 26
+    node[1] = stmts
+    return node
+let mk_try(expr) =
+    let node = arr_new_n(2)
+    node[0] = 27
+    node[1] = expr
+    return node
+let mk_dowhile(cond, body) =
+    let node = arr_new_n(3)
+    node[0] = 28
+    node[1] = cond
+    node[2] = body
+    return node
+let mk_assert(cond) =
+    let node = arr_new_n(2)
+    node[0] = 29
+    node[1] = cond
+    return node
+let is_pure_expr(node, fnames) =
+    let t = node[0]
+    if t == 0
+        return 1
+    if t == 2
+        return 1
+    if t == 5
+        return 1
+    if t == 3
+        if is_pure_expr(node[2], fnames) == 1
+            if is_pure_expr(node[3], fnames) == 1
+                return 1
+            else
+                return 0
+        else
+            return 0
+    if t == 7
+        let elems = node[1]
+        let ei = 0
+        let all_pure = 1
+        for ei < elems.len()
+            if is_pure_expr(elems[ei], fnames) == 0
+                all_pure = 0
+            ei = ei + 1
+        return all_pure
+    if t == 12
+        if is_pure_expr(node[1], fnames) == 1
+            if is_pure_expr(node[2], fnames) == 1
+                if is_pure_expr(node[3], fnames) == 1
+                    return 1
+                else
+                    return 0
+            else
+                return 0
+        else
+            return 0
+    if t == 1
+        let name = node[1]
+        if str_eq(name, "print") == 1
+            return 0
+        if str_eq(name, "write_file") == 1
+            return 0
+        if str_eq(name, "time_ms") == 1
+            return 0
+        if str_eq(name, "read_file") == 1
+            return 0
+        if str_eq(name, "arr_push") == 1
+            return 0
+        if str_eq(name, "host_call") == 1
+            return 0
+        let fi = 0
+        let is_user = 0
+        for fi < fnames.len()
+            if str_eq(fnames[fi], name) == 1
+                is_user = 1
+            fi = fi + 1
+        if is_user == 1
+            return 0
+        let args = node[2]
+        let ai = 0
+        let all_pure = 1
+        for ai < args.len()
+            if is_pure_expr(args[ai], fnames) == 0
+                all_pure = 0
+            ai = ai + 1
+        return all_pure
+    if t == 6
+        let mid = node[2]
+        if str_eq(mid, "set") == 1
+            return 0
+        if is_pure_expr(node[1], fnames) == 0
+            return 0
+        let args = node[3]
+        let ai = 0
+        let all_pure = 1
+        for ai < args.len()
+            if is_pure_expr(args[ai], fnames) == 0
+                all_pure = 0
+            ai = ai + 1
+        return all_pure
+    if t == 4
+        if is_pure_expr(node[1], fnames) == 0
+            return 0
+        let bindings = node[2]
+        let bi = 0
+        for bi < bindings.len()
+            if is_pure_expr(bindings[bi][1], fnames) == 0
+                return 0
+            bi = bi + 1
+        return 1
+    return 0
+let parse_method_chain(toks, node, pos) =
+    let mdone = 0
+    for mdone == 0
+        if pos < toks.len()
+            let nt = toks[pos]
+            if nt[0] == 17
+                pos = pos + 1
+                let mtok = toks[pos]
+                let mname = mtok[1]
+                pos = pos + 1
+                let args = arr_new()
+                let atok = toks[pos]
+                if atok[0] == 4
+                    pos = pos + 1
+                    let adone = 0
+                    for adone == 0
+                        let rt = toks[pos]
+                        if rt[0] == 5
+                            adone = 1
+                            pos = pos + 1
+                        else
+                            let arg_r = parse_eq(toks, pos)
+                            args = arr_push(args, arg_r[0])
+                            pos = arg_r[1]
+                            let ct = toks[pos]
+                            if ct[0] == 9
+                                pos = pos + 1
+                let mid = (is_kw3(mname, 108, 101, 110) == 1 ? 0 : ((is_kw3(mname, 103, 101, 116) == 1 ? 1 : 2)))
+                node = mk_method(node, mid, args)
+            else
+            if nt[0] == 20
+                pos = pos + 1
+                let idx_r = parse_eq(toks, pos)
+                pos = idx_r[1]
+                let rbt = toks[pos]
+                if rbt[0] == 21
+                    pos = pos + 1
+                let iargs = arr_new()
+                iargs = arr_push(iargs, idx_r[0])
+                node = mk_method(node, 1, iargs)
+            else
+                mdone = 1
+        else
+            mdone = 1
+    let result = arr_new_n(2)
+    result[0] = node
+    result[1] = pos
+    return result
+let parse_atom(toks, pos) =
+    pos = skip_nl(toks, pos)
+    let tok = toks[pos]
+    let t = tok[0]
+    let v = tok[1]
+    if t == 3
+        if v == 45
+            let inner_r = parse_atom(toks, pos + 1)
+            return parse_method_chain(toks, mk_binop(45, mk_int(0), inner_r[0]), inner_r[1])
+        if v == 126
+            let inner_r = parse_atom(toks, pos + 1)
+            let neg = mk_binop(45, mk_int(0), inner_r[0])
+            return parse_method_chain(toks, mk_binop(45, neg, mk_int(1)), inner_r[1])
+        if v == 43
+            let inner_r = parse_atom(toks, pos + 1)
+            return parse_method_chain(toks, inner_r[0], inner_r[1])
+    if t == 18
+        let inner_r = parse_eq(toks, pos + 1)
+        let after_dollar = inner_r[1] + 1
+        let wpos = skip_nl(toks, after_dollar)
+        let wtok = toks[wpos]
+        if wtok[0] == 1
+            if is_kw5(wtok[1], 119, 104, 101, 114, 101) == 1
+                let bindings = arr_new()
+                let bpos = wpos + 1
+                let bdone = 0
+                for bdone == 0
+                    let bpos2 = skip_nl(toks, bpos)
+                    let ntok = toks[bpos2]
+                    if ntok[0] == 1
+                        let bname = ntok[1]
+                        let bexpr_r = parse_eq(toks, bpos2 + 2)
+                        let pair = arr_new_n(2)
+                        pair[0] = bname
+                        pair[1] = bexpr_r[0]
+                        bindings = arr_push(bindings, pair)
+                        let after = bexpr_r[1]
+                        let ctok = toks[after]
+                        if ctok[0] == 9
+                            bpos = after + 1
+                        else
+                            bdone = 1
+                            bpos = after
+                    else
+                        bdone = 1
+                        bpos = bpos2
+                return parse_method_chain(toks, mk_where(inner_r[0], bindings), bpos)
+        return parse_method_chain(toks, inner_r[0], after_dollar)
+    if t == 0
+        return parse_method_chain(toks, mk_int(v), pos + 1)
+    if t == 2
+        return parse_method_chain(toks, mk_str(v), pos + 1)
+    if t == 19
+        let parts = v
+        let nparts = parts.len()
+        let result = mk_str(arr_new())
+        let has_result = 0
+        let pi = 0
+        for pi < nparts
+            let part = parts[pi]
+            let pt = part[0]
+            let pv = part[1]
+            let skip = 0
+            if pt == 0
+                if pv.len() == 0
+                    skip = 1
+            if skip == 0
+                if pt == 0
+                    if has_result == 0
+                        result = mk_str(pv)
+                        has_result = 1
+                    else
+                        let args = arr_new_n(2)
+                        args[0] = result
+                        args[1] = mk_str(pv)
+                        result = mk_call("str_concat", args)
+                else
+                    if has_result == 0
+                        result = mk_var(pv)
+                        has_result = 1
+                    else
+                        let args = arr_new_n(2)
+                        args[0] = result
+                        args[1] = mk_var(pv)
+                        result = mk_call("str_concat", args)
+            pi = pi + 1
+        return parse_method_chain(toks, result, pos + 1)
+    if t == 1
+        if is_kw(v, 105, 102) == 1
+            let r = parse_if_expr_rest(toks, pos + 1)
+            return parse_method_chain(toks, r[0], r[1])
+        if is_kw4(v, 116, 114, 117, 101) == 1
+            return parse_method_chain(toks, mk_int(1), pos + 1)
+        if is_kw5(v, 102, 97, 108, 115, 101) == 1
+            return parse_method_chain(toks, mk_int(0), pos + 1)
+        if is_kw3(v, 110, 105, 108) == 1
+            return parse_method_chain(toks, mk_int(0), pos + 1)
+        if is_kw4(v, 110, 117, 108, 108) == 1
+            return parse_method_chain(toks, mk_int(0), pos + 1)
+        let next = toks[pos + 1]
+        if next[0] == 4
+            let args = arr_new()
+            let apos = pos + 2
+            let done = 0
+            for done == 0
+                let rp = toks[apos]
+                if rp[0] == 5
+                    done = 1
+                else
+                    let arg_r = parse_eq(toks, apos)
+                    args = arr_push(args, arg_r[0])
+                    apos = arg_r[1]
+                    let comma = toks[apos]
+                    if comma[0] == 9
+                        apos = apos + 1
+            return parse_method_chain(toks, mk_call(v, args), apos + 1)
+        return parse_method_chain(toks, mk_var(v), pos + 1)
+    if t == 4
+        let first_r = parse_eq(toks, pos + 1)
+        let after_first = skip_nl(toks, first_r[1])
+        let next_tok = toks[after_first]
+        if next_tok[0] == 9
+            let elems = arr_new()
+            elems = arr_push(elems, first_r[0])
+            let epos = after_first
+            let edone = 0
+            for edone == 0
+                let npos = skip_nl(toks, epos)
+                let ntok = toks[npos]
+                if ntok[0] == 5
+                    edone = 1
+                    epos = npos + 1
+                else
+                    let arg_r = parse_eq(toks, npos)
+                    elems = arr_push(elems, arg_r[0])
+                    epos = arg_r[1]
+                    let ctok = toks[epos]
+                    if ctok[0] == 9
+                        epos = epos + 1
+            return parse_method_chain(toks, mk_arr(elems), epos)
+        return parse_method_chain(toks, first_r[0], first_r[1] + 1)
+    if t == 20
+        let elems = arr_new()
+        let epos = pos + 1
+        let edone = 0
+        for edone == 0
+            let npos = skip_nl(toks, epos)
+            let et = toks[npos]
+            if et[0] == 21
+                edone = 1
+                epos = npos + 1
+            else
+                let arg_r = parse_eq(toks, npos)
+                elems = arr_push(elems, arg_r[0])
+                epos = arg_r[1]
+                let ctok = toks[epos]
+                if ctok[0] == 9
+                    epos = epos + 1
+        return parse_method_chain(toks, mk_arr(elems), epos)
+    return parse_method_chain(toks, mk_int(0), pos + 1)
+let pratt_op_prec(t, v) =
+    if t == 3
+        if v == 94
+            let r = arr_new_n(2)
+            r[0] = 94
+            r[1] = 11
+            return r
+        if v == 42
+            let r = arr_new_n(2)
+            r[0] = 42
+            r[1] = 10
+            return r
+        if v == 47
+            let r = arr_new_n(2)
+            r[0] = 47
+            r[1] = 10
+            return r
+        if v == 37
+            let r = arr_new_n(2)
+            r[0] = 37
+            r[1] = 10
+            return r
+        if v == 43
+            let r = arr_new_n(2)
+            r[0] = 43
+            r[1] = 9
+            return r
+        if v == 45
+            let r = arr_new_n(2)
+            r[0] = 45
+            r[1] = 9
+            return r
+        if v == 60
+            let r = arr_new_n(2)
+            r[0] = 60
+            r[1] = 8
+            return r
+        if v == 62
+            let r = arr_new_n(2)
+            r[0] = 62
+            r[1] = 8
+            return r
+        if v == 38
+            let r = arr_new_n(2)
+            r[0] = 38
+            r[1] = 5
+            return r
+        if v == 124
+            let r = arr_new_n(2)
+            r[0] = 124
+            r[1] = 4
+            return r
+        if v == 63
+            let r = arr_new_n(2)
+            r[0] = 63
+            r[1] = 1
+            return r
+    if t == 15
+        let r = arr_new_n(2)
+        r[0] = 15
+        r[1] = 8
+        return r
+    if t == 16
+        let r = arr_new_n(2)
+        r[0] = 16
+        r[1] = 8
+        return r
+    if t == 25
+        let r = arr_new_n(2)
+        r[0] = 25
+        r[1] = 7
+        return r
+    if t == 26
+        let r = arr_new_n(2)
+        r[0] = 26
+        r[1] = 7
+        return r
+    if t == 13
+        let r = arr_new_n(2)
+        r[0] = 13
+        r[1] = 6
+        return r
+    if t == 14
+        let r = arr_new_n(2)
+        r[0] = 14
+        r[1] = 6
+        return r
+    if t == 23
+        let r = arr_new_n(2)
+        r[0] = 23
+        r[1] = 3
+        return r
+    if t == 24
+        let r = arr_new_n(2)
+        r[0] = 24
+        r[1] = 2
+        return r
+    if t == 32
+        let r = arr_new_n(2)
+        r[0] = 32
+        r[1] = 1
+        return r
+    if t == 33
+        let r = arr_new_n(2)
+        r[0] = 33
+        r[1] = 9
+        return r
+    if t == 34
+        let r = arr_new_n(2)
+        r[0] = 34
+        r[1] = 12
+        return r
+    if t == 35
+        let r = arr_new_n(2)
+        r[0] = 35
+        r[1] = 8
+        return r
+    let r = arr_new_n(2)
+    r[0] = 0
+    r[1] = 0
+    return r
+let pratt_parse(toks, pos, min_prec) =
+    let left_r = parse_atom(toks, pos)
+    let left = left_r[0]
+    let p = left_r[1]
+    let done = 0
+    let piter = 0
+    for done == 0
+        piter = piter + 1
+        if piter == 1000
+            print("PLOOP1K")
+        if piter == 5000
+            print("PLOOP5K")
+        if piter == 10000
+            print("PLOOP10K")
+            done = 1
+        if p < toks.len()
+            let tok = toks[p]
+            let op_prec = pratt_op_prec(tok[0], tok[1])
+            let op = op_prec[0]
+            let prec = op_prec[1]
+            if op == 0
+                done = 1
+            else
+                if prec < min_prec
+                    done = 1
+                else
+                    p = p + 1
+                    let next_min = prec + 1
+                    if op == 94
+                        next_min = prec
+                    if op == 34
+                        next_min = prec
+                    if op == 63
+                        let then_r = pratt_parse(toks, p, 1)
+                        let p2 = then_r[1]
+                        let else_node = mk_int(0)
+                        let next_p = p2
+                        if p2 < toks.len()
+                            let ctok = toks[p2]
+                            if ctok[0] == 3
+                                if ctok[1] == 58
+                                    let else_r = pratt_parse(toks, p2 + 1, 1)
+                                    else_node = else_r[0]
+                                    next_p = else_r[1]
+                        left = mk_if(left, then_r[0], else_node)
+                        p = next_p
+                    else
+                    if op == 32
+                        let ftok = toks[p]
+                        let fname = ftok[1]
+                        let pargs = arr_new_n(1)
+                        pargs[0] = left
+                        left = mk_call(fname, pargs)
+                        p = p + 1
+                    else
+                    if op == 33
+                        let right_r = pratt_parse(toks, p, next_min)
+                        let sargs = arr_new_n(2)
+                        sargs[0] = left
+                        sargs[1] = right_r[0]
+                        left = mk_call("str_concat", sargs)
+                        p = right_r[1]
+                    else
+                    if op == 34
+                        let right_r = pratt_parse(toks, p, next_min)
+                        let pargs = arr_new_n(2)
+                        pargs[0] = left
+                        pargs[1] = right_r[0]
+                        left = mk_call("int_pow", pargs)
+                        p = right_r[1]
+                    else
+                    if op == 35
+                        let right_r = pratt_parse(toks, p, next_min)
+                        let cargs = arr_new_n(2)
+                        cargs[0] = right_r[0]
+                        cargs[1] = left
+                        left = mk_call("arr_contains", cargs)
+                        p = right_r[1]
+                    else
+                    if op == 23
+                        let right_r = pratt_parse(toks, p, next_min)
+                        left = mk_binop(23, left, right_r[0])
+                        p = right_r[1]
+                    else
+                    if op == 24
+                        let right_r = pratt_parse(toks, p, next_min)
+                        left = mk_binop(24, left, right_r[0])
+                        p = right_r[1]
+                    else
+                        let right_r = pratt_parse(toks, p, next_min)
+                        left = mk_binop(op, left, right_r[0])
+                        p = right_r[1]
+        else
+            done = 1
+    let result = arr_new_n(2)
+    result[0] = left
+    result[1] = p
+    return result
+let parse_eq(toks, pos) =
+    return pratt_parse(toks, pos, 1)
+let is_kw(v, a, b) = (v.len() == 2 && v[0] == a && v[1] == b ? 1 : 0)
+let is_kw3(v, a, b, c) = (v.len() == 3 && v[0] == a && v[1] == b && v[2] == c ? 1 : 0)
+let is_kw4(v, a, b, c, d) = (v.len() == 4 && v[0] == a && v[1] == b && v[2] == c && v[3] == d ? 1 : 0)
+let is_kw5(v, a, b, c, d, e) = (v.len() == 5 && v[0] == a && v[1] == b && v[2] == c && v[3] == d && v[4] == e ? 1 : 0)
+let is_kw6(v, a, b, c, d, e, f) = (v.len() == 6 && v[0] == a && v[1] == b && v[2] == c && v[3] == d && v[4] == e && v[5] == f ? 1 : 0)
+let is_kw8(v, a, b, c, d, e, f, g, h) = (v.len() == 8 && v[0] == a && v[1] == b && v[2] == c && v[3] == d && v[4] == e && v[5] == f && v[6] == g && v[7] == h ? 1 : 0)
+let has_return_in_stmts(stmts) =
+    let n = stmts.len()
+    let i = 0
+    for i < n
+        let s = stmts[i]
+        let st = s[0]
+        if st == 14
+            return 1
+        if st == 16
+            if has_return_in_stmts(s[2]) == 1
+                return 1
+            if has_return_in_stmts(s[3]) == 1
+                return 1
+        if st == 13
+            if has_return_in_stmts(s[2]) == 1
+                return 1
+        if st == 23
+            if has_return_in_stmts(s[4]) == 1
+                return 1
+        if st == 26
+            if has_return_in_stmts(s[1]) == 1
+                return 1
+        if st == 27
+            return 1
+        if st == 28
+            if has_return_in_stmts(s[2]) == 1
+                return 1
+        i = i + 1
+    return 0
+let stmts_to_block_expr(stmts) =
+    let n = stmts.len()
+    if n == 0
+        return mk_int(0)
+    if n == 1
+        let s = stmts[0]
+        let st = s[0]
+        if st == 17
+            return s[1]
+        if st == 10
+            let pair = arr_new_n(2)
+            pair[0] = s[1]
+            pair[1] = s[2]
+            let bindings = arr_new()
+            bindings = arr_push(bindings, pair)
+            return mk_where(mk_int(0), bindings)
+        if st == 16
+            let then_expr = stmts_to_block_expr(s[2])
+            let else_expr = stmts_to_block_expr(s[3])
+            return mk_if(s[1], then_expr, else_expr)
+        return mk_int(0)
+    let bindings = arr_new()
+    let inner = mk_int(0)
+    let counter = 0
+    let last_idx = n - 1
+    let i = 0
+    for i < n
+        let s = stmts[i]
+        let st = s[0]
+        if st == 10
+            let pair = arr_new_n(2)
+            pair[0] = s[1]
+            pair[1] = s[2]
+            bindings = arr_push(bindings, pair)
+        else
+        if st == 17
+            if i == last_idx
+                inner = s[1]
+            else
+                let nm = str_concat("__if_expr_", str_from_char(counter + 48))
+                counter = counter + 1
+                let pair = arr_new_n(2)
+                pair[0] = nm
+                pair[1] = s[1]
+                bindings = arr_push(bindings, pair)
+        else
+        if st == 16
+            let then_expr = stmts_to_block_expr(s[2])
+            let else_expr = stmts_to_block_expr(s[3])
+            let if_expr = mk_if(s[1], then_expr, else_expr)
+            if i == last_idx
+                inner = if_expr
+            else
+                let nm = str_concat("__if_expr_", str_from_char(counter + 48))
+                counter = counter + 1
+                let pair = arr_new_n(2)
+                pair[0] = nm
+                pair[1] = if_expr
+                bindings = arr_push(bindings, pair)
+        i = i + 1
+    return mk_where(inner, bindings)
+let parse_stmt(toks, pos) =
+    pos = skip_nl(toks, pos)
+    let tok = toks[pos]
+    let t = tok[0]
+    let v = tok[1]
+    if t == 1
+        if is_kw3(v, 108, 101, 116) == 1
+            let next_tok = toks[pos + 1]
+            if next_tok[0] == 4
+                let names = arr_new()
+                let npos = pos + 2
+                let ndone = 0
+                for ndone == 0
+                    let nt = toks[npos]
+                    if nt[0] == 5
+                        ndone = 1
+                    else
+                        names = arr_push(names, nt[1])
+                        npos = npos + 1
+                        let comma = toks[npos]
+                        if comma[0] == 9
+                            npos = npos + 1
+                npos = npos + 1
+                npos = npos + 1
+                let expr_r = parse_eq(toks, npos)
+                let result = arr_new_n(2)
+                result[0] = mk_destructure(names, expr_r[0])
+                result[1] = expr_r[1]
+                return result
+            if next_tok[0] == 1 && toks[pos + 2][0] == 4
+                let name = next_tok[1]
+                let params = arr_new()
+                let ppos = pos + 3
+                let pdone = 0
+                for pdone == 0
+                    let rp = toks[ppos]
+                    if rp[0] == 5
+                        pdone = 1
+                    else
+                        params = arr_push(params, rp[1])
+                        ppos = ppos + 1
+                        let comma = toks[ppos]
+                        if comma[0] == 9
+                            ppos = ppos + 1
+                ppos = ppos + 1
+                ppos = ppos + 1
+                let cur_col = get_col(toks, pos)
+                let peek = skip_nl(toks, ppos)
+                let is_block = 0
+                if peek < toks.len()
+                    if get_col(toks, peek) > cur_col
+                        is_block = 1
+                if is_block == 1
+                    ppos = peek
+                    let body_col = get_col(toks, ppos)
+                    let body_stmts = arr_new()
+                    let ret_expr = mk_int(0)
+                    let has_return = 0
+                    let bdone = 0
+                    let biter = 0
+                    for bdone == 0
+                        biter = biter + 1
+                        if biter == 100
+                            print("BLOOP100")
+                        if biter == 500
+                            print("BLOOP500")
+                        if biter == 1000
+                            print("BLOOP1K")
+                            bdone = 1
+                        let ppos_before = ppos
+                        let stmt_r = parse_stmt(toks, ppos)
+                        let stmt = stmt_r[0]
+                        ppos = stmt_r[1]
+                        if ppos == ppos_before
+                            bdone = 1
+                        if stmt[0] == 14
+                            ret_expr = stmt[1]
+                            has_return = 1
+                        else
+                            body_stmts = arr_push(body_stmts, stmt)
+                        ppos = skip_nl(toks, ppos)
+                        if ppos >= toks.len()
+                            bdone = 1
+                        else
+                            let next_col = get_col(toks, ppos)
+                            if next_col < body_col
+                                bdone = 1
+                    if has_return == 0
+                        let bn = body_stmts.len()
+                        if bn > 0
+                            let last = body_stmts[bn - 1]
+                            let lt = last[0]
+                            if lt == 17
+                                ret_expr = last[1]
+                                let nb2 = arr_new()
+                                let bi2 = 0
+                                for bi2 < bn - 1
+                                    nb2 = arr_push(nb2, body_stmts[bi2])
+                                    bi2 = bi2 + 1
+                                body_stmts = nb2
+                            else
+                            if lt == 16
+                                let then_has_ret = has_return_in_stmts(last[2])
+                                let else_has_ret = has_return_in_stmts(last[3])
+                                if then_has_ret == 0
+                                    if else_has_ret == 0
+                                        let then_expr = stmts_to_block_expr(last[2])
+                                        let else_expr = stmts_to_block_expr(last[3])
+                                        ret_expr = mk_if(last[1], then_expr, else_expr)
+                                        let nb2 = arr_new()
+                                        let bi2 = 0
+                                        for bi2 < bn - 1
+                                            nb2 = arr_push(nb2, body_stmts[bi2])
+                                            bi2 = bi2 + 1
+                                        body_stmts = nb2
+                    let result = arr_new_n(2)
+                    result[0] = mk_fndef(name, params, body_stmts, ret_expr)
+                    result[1] = ppos
+                    return result
+                let body_r = parse_eq(toks, ppos)
+                let empty = arr_new()
+                let result = arr_new_n(2)
+                result[0] = mk_fndef(name, params, empty, body_r[0])
+                result[1] = body_r[1]
+                return result
+            let name = toks[pos + 1][1]
+            let expr_r = parse_eq(toks, pos + 3)
+            let result = arr_new_n(2)
+            result[0] = mk_let(name, expr_r[0])
+            result[1] = expr_r[1]
+            return result
+        if is_kw(v, 102, 110) == 1
+            let name = toks[pos + 1][1]
+            let params = arr_new()
+            let ppos = pos + 3
+            let pdone = 0
+            for pdone == 0
+                let rp = toks[ppos]
+                if rp[0] == 5
+                    pdone = 1
+                else
+                    params = arr_push(params, rp[1])
+                    ppos = ppos + 1
+                    let colon_tok = toks[ppos]
+                    if colon_tok[0] == 3
+                        if colon_tok[1] == 58
+                            ppos = ppos + 2
+                    let comma = toks[ppos]
+                    if comma[0] == 9
+                        ppos = ppos + 1
+            ppos = ppos + 1
+            let arrow_tok = toks[ppos]
+            if arrow_tok[0] == 3
+                if arrow_tok[1] == 45
+                    if toks[ppos + 1][0] == 3
+                        if toks[ppos + 1][1] == 62
+                            ppos = ppos + 3
+            ppos = ppos + 1
+            let ftok = toks[ppos]
+            if ftok[0] == 6
+                ppos = ppos + 1
+                let body_stmts = arr_new()
+                let ret_expr = mk_int(0)
+                let has_return = 0
+                let bdone = 0
+                for bdone == 0
+                    ppos = skip_nl(toks, ppos)
+                    let btok = toks[ppos]
+                    if btok[0] == 7
+                        bdone = 1
+                    else
+                        let stmt_r = parse_stmt(toks, ppos)
+                        let stmt = stmt_r[0]
+                        ppos = stmt_r[1]
+                        if stmt[0] == 14
+                            ret_expr = stmt[1]
+                            has_return = 1
+                        else
+                            body_stmts = arr_push(body_stmts, stmt)
+                ppos = ppos + 1
+                if has_return == 0
+                    let bn = body_stmts.len()
+                    if bn > 0
+                        let last = body_stmts[bn - 1]
+                        let lt = last[0]
+                        if lt == 17
+                            ret_expr = last[1]
+                            let nb2 = arr_new()
+                            let bi2 = 0
+                            for bi2 < bn - 1
+                                nb2 = arr_push(nb2, body_stmts[bi2])
+                                bi2 = bi2 + 1
+                            body_stmts = nb2
+                        else
+                        if lt == 16
+                            let then_has_ret = has_return_in_stmts(last[2])
+                            let else_has_ret = has_return_in_stmts(last[3])
+                            if then_has_ret == 0
+                                if else_has_ret == 0
+                                    let then_expr = stmts_to_block_expr(last[2])
+                                    let else_expr = stmts_to_block_expr(last[3])
+                                    ret_expr = mk_if(last[1], then_expr, else_expr)
+                                    let nb2 = arr_new()
+                                    let bi2 = 0
+                                    for bi2 < bn - 1
+                                        nb2 = arr_push(nb2, body_stmts[bi2])
+                                        bi2 = bi2 + 1
+                                    body_stmts = nb2
+                let result = arr_new_n(2)
+                result[0] = mk_fndef(name, params, body_stmts, ret_expr)
+                result[1] = ppos
+                return result
+            else
+                let body_r = parse_eq(toks, ppos)
+                let empty = arr_new()
+                let result = arr_new_n(2)
+                result[0] = mk_fndef(name, params, empty, body_r[0])
+                result[1] = body_r[1]
+                return result
+        if is_kw5(v, 112, 114, 105, 110, 116) == 1
+            let arg_r = parse_eq(toks, pos + 2)
+            let result = arr_new_n(2)
+            result[0] = mk_print(arg_r[0])
+            result[1] = arg_r[1] + 1
+            return result
+        if is_kw5(v, 119, 104, 105, 108, 101) == 1
+            let cond_r = parse_eq(toks, pos + 1)
+            let p = skip_nl(toks, cond_r[1])
+            p = p + 1
+            let body_stmts = arr_new()
+            let wdone = 0
+            for wdone == 0
+                p = skip_nl(toks, p)
+                let btok = toks[p]
+                if btok[0] == 7
+                    wdone = 1
+                else
+                    let stmt_r = parse_stmt(toks, p)
+                    body_stmts = arr_push(body_stmts, stmt_r[0])
+                    p = stmt_r[1]
+            p = p + 1
+            let result = arr_new_n(2)
+            result[0] = mk_while(cond_r[0], body_stmts)
+            result[1] = p
+            return result
+        if is_kw5(v, 117, 110, 116, 105, 108) == 1
+            let cond_r = parse_eq(toks, pos + 1)
+            let neg_cond = mk_binop(13, cond_r[0], mk_int(0))
+            let p = skip_nl(toks, cond_r[1])
+            p = p + 1
+            let body_stmts = arr_new()
+            let udone = 0
+            for udone == 0
+                p = skip_nl(toks, p)
+                let btok = toks[p]
+                if btok[0] == 7
+                    udone = 1
+                else
+                    let stmt_r = parse_stmt(toks, p)
+                    body_stmts = arr_push(body_stmts, stmt_r[0])
+                    p = stmt_r[1]
+            p = p + 1
+            let result = arr_new_n(2)
+            result[0] = mk_while(neg_cond, body_stmts)
+            result[1] = p
+            return result
+        if is_kw6(v, 114, 101, 116, 117, 114, 110) == 1
+            let expr_r = parse_eq(toks, pos + 1)
+            let result = arr_new_n(2)
+            result[0] = mk_return(expr_r[0])
+            result[1] = expr_r[1]
+            return result
+        if is_kw(v, 105, 102) == 1
+            return parse_if_stmt_rest(toks, pos + 1)
+        if is_kw6(v, 117, 110, 108, 101, 115, 115) == 1
+            let cond_r = parse_eq(toks, pos + 1)
+            let neg_cond = mk_binop(13, cond_r[0], mk_int(0))
+            let p = skip_nl(toks, cond_r[1])
+            p = p + 1
+            let then_stmts = arr_new()
+            let udone = 0
+            for udone == 0
+                p = skip_nl(toks, p)
+                let btok = toks[p]
+                if btok[0] == 7
+                    udone = 1
+                else
+                    let stmt_r = parse_stmt(toks, p)
+                    then_stmts = arr_push(then_stmts, stmt_r[0])
+                    p = stmt_r[1]
+            p = p + 1
+            p = skip_nl(toks, p)
+            let els_stmts = arr_new()
+            let etok = toks[p]
+            if etok[0] == 1
+                if is_kw4(etok[1], 101, 108, 115, 101) == 1
+                    p = p + 1
+                    p = skip_nl(toks, p)
+                    p = p + 1
+                    let edone = 0
+                    for edone == 0
+                        p = skip_nl(toks, p)
+                        let btok = toks[p]
+                        if btok[0] == 7
+                            edone = 1
+                        else
+                            let stmt_r = parse_stmt(toks, p)
+                            els_stmts = arr_push(els_stmts, stmt_r[0])
+                            p = stmt_r[1]
+                    p = p + 1
+            let result = arr_new_n(2)
+            result[0] = mk_ifstmt(neg_cond, then_stmts, els_stmts)
+            result[1] = p
+            return result
+        if is_kw6(v, 100, 111, 109, 97, 105, 110) == 1
+            return parse_domain_block(toks, pos)
+        if is_kw3(v, 102, 111, 114) == 1
+            let for_col = get_col(toks, pos)
+            let eq_tok = toks[pos + 2]
+            if eq_tok[0] == 8
+                let fvar = toks[pos + 1][1]
+                let start_r = parse_eq(toks, pos + 3)
+                let to_pos = start_r[1]
+                let end_r = parse_eq(toks, to_pos + 1)
+                let p = skip_nl(toks, end_r[1])
+                p = p + 1
+                let body_stmts = arr_new()
+                let fdone = 0
+                for fdone == 0
+                    p = skip_nl(toks, p)
+                    let btok = toks[p]
+                    if btok[0] == 7
+                        fdone = 1
+                    else
+                        let stmt_r = parse_stmt(toks, p)
+                        body_stmts = arr_push(body_stmts, stmt_r[0])
+                        p = stmt_r[1]
+                p = p + 1
+                let result = arr_new_n(2)
+                result[0] = mk_for(fvar, start_r[0], end_r[0], body_stmts)
+                result[1] = p
+                return result
+            else
+                let cond_r = parse_eq(toks, pos + 1)
+                let p = skip_nl(toks, cond_r[1])
+                let body_stmts = arr_new()
+                let body_col = get_col(toks, p)
+                if body_col > for_col
+                    let fdone = 0
+                    for fdone == 0
+                        let p_before = p
+                        let stmt_r = parse_stmt(toks, p)
+                        body_stmts = arr_push(body_stmts, stmt_r[0])
+                        p = stmt_r[1]
+                        if p == p_before
+                            fdone = 1
+                        p = skip_nl(toks, p)
+                        if p >= toks.len()
+                            fdone = 1
+                        else
+                            let next_col = get_col(toks, p)
+                            if next_col < body_col
+                                fdone = 1
+                let result = arr_new_n(2)
+                result[0] = mk_while(cond_r[0], body_stmts)
+                result[1] = p
+                return result
+        if is_kw5(v, 98, 114, 101, 97, 107) == 1
+            let result = arr_new_n(2)
+            result[0] = mk_break()
+            result[1] = pos + 1
+            return result
+        if is_kw8(v, 99, 111, 110, 116, 105, 110, 117, 101) == 1
+            let result = arr_new_n(2)
+            result[0] = mk_continue()
+            result[1] = pos + 1
+            return result
+        if is_kw5(v, 109, 97, 116, 99, 104) == 1
+            let match_r = parse_eq(toks, pos + 1)
+            let mexpr = match_r[0]
+            let p = skip_nl(toks, match_r[1])
+            p = p + 1
+            let arms = arr_new()
+            let mdone = 0
+            for mdone == 0
+                p = skip_nl(toks, p)
+                let atok = toks[p]
+                if atok[0] == 7
+                    mdone = 1
+                else
+                    let is_wild = 0
+                    let pat_expr = mk_int(0)
+                    let pt = atok[0]
+                    if pt == 0
+                        pat_expr = mk_int(atok[1])
+                    else
+                    if pt == 1
+                        let av = atok[1]
+                        if av.len() == 1 && av[0] == 95
+                            is_wild = 1
+                    p = p + 1
+                    p = p + 1
+                    let res_r = parse_eq(toks, p)
+                    p = res_r[1]
+                    let arm = arr_new_n(3)
+                    arm[0] = is_wild
+                    arm[1] = pat_expr
+                    arm[2] = res_r[0]
+                    arms = arr_push(arms, arm)
+                    let comma_tok = toks[p]
+                    if comma_tok[0] == 9
+                        p = p + 1
+            p = p + 1
+            let result_expr = mk_int(0)
+            if arms.len() > 0
+                let ai = arms.len() - 1
+                let bdone = 0
+                for bdone == 0
+                    let arm = arms[ai]
+                    if arm[0] == 1
+                        result_expr = arm[2]
+                    else
+                        result_expr = mk_if(mk_binop(13, mexpr, arm[1]), arm[2], result_expr)
+                    if ai == 0
+                        bdone = 1
+                    else
+                        ai = ai - 1
+            let result = arr_new_n(2)
+            result[0] = mk_exprstmt(result_expr)
+            result[1] = p
+            return result
+        if is_kw4(v, 101, 110, 117, 109) == 1
+            let p = pos + 3
+            let stmts = arr_new()
+            let vi = 0
+            let edone = 0
+            for edone == 0
+                p = skip_nl(toks, p)
+                let vt = toks[p]
+                if vt[0] == 7
+                    edone = 1
+                else
+                    stmts = arr_push(stmts, mk_let(vt[1], mk_int(vi)))
+                    vi = vi + 1
+                    p = p + 1
+                    let comma = toks[p]
+                    if comma[0] == 9
+                        p = p + 1
+            p = p + 1
+            let result = arr_new_n(2)
+            result[0] = mk_enum_block(stmts)
+            result[1] = p
+            return result
+        if is_kw3(v, 116, 114, 121) == 1
+            let expr_r = parse_eq(toks, pos + 1)
+            let result = arr_new_n(2)
+            result[0] = mk_try(expr_r[0])
+            result[1] = expr_r[1]
+            return result
+        if is_kw(v, 100, 111) == 1
+            let p = skip_nl(toks, pos + 1)
+            p = p + 1
+            let body_stmts = arr_new()
+            let ddone = 0
+            for ddone == 0
+                p = skip_nl(toks, p)
+                let btok = toks[p]
+                if btok[0] == 7
+                    ddone = 1
+                else
+                    let stmt_r = parse_stmt(toks, p)
+                    body_stmts = arr_push(body_stmts, stmt_r[0])
+                    p = stmt_r[1]
+            p = p + 1
+            p = skip_nl(toks, p)
+            p = p + 2
+            let cond_r = parse_eq(toks, p)
+            p = cond_r[1]
+            p = p + 1
+            let result = arr_new_n(2)
+            result[0] = mk_dowhile(cond_r[0], body_stmts)
+            result[1] = p
+            return result
+        if is_kw6(v, 97, 115, 115, 101, 114, 116) == 1
+            let expr_r = parse_eq(toks, pos + 1)
+            let result = arr_new_n(2)
+            result[0] = mk_assert(expr_r[0])
+            result[1] = expr_r[1]
+            return result
+        let next = toks[pos + 1]
+        if next[0] == 20
+            let ipos = pos + 2
+            let idepth = 1
+            let idone = 0
+            for idone == 0
+                let it = toks[ipos]
+                if it[0] == 20
+                    idepth = idepth + 1
+                else
+                if it[0] == 21
+                    idepth = idepth - 1
+                    if idepth == 0
+                        idone = 1
+                if idone == 0
+                    ipos = ipos + 1
+            let after_rb = ipos + 1
+            if after_rb < toks.len()
+                let eqt = toks[after_rb]
+                if eqt[0] == 8
+                    let idx_r = parse_eq(toks, pos + 2)
+                    let val_r = parse_eq(toks, idx_r[1] + 2)
+                    let margs = arr_new_n(2)
+                    margs[0] = idx_r[0]
+                    margs[1] = val_r[0]
+                    let result = arr_new_n(2)
+                    result[0] = mk_exprstmt(mk_method(mk_var(v), 2, margs))
+                    result[1] = val_r[1]
+                    return result
+        if next[0] == 3
+            if next[1] == 58
+                let eq_tok = toks[pos + 3]
+                if eq_tok[0] == 8
+                    let expr_r = parse_eq(toks, pos + 4)
+                    let result = arr_new_n(2)
+                    result[0] = mk_let(v, expr_r[0])
+                    result[1] = expr_r[1]
+                    return result
+        if next[0] == 8
+            let expr_r = parse_eq(toks, pos + 2)
+            let result = arr_new_n(2)
+            result[0] = mk_let_bare(v, expr_r[0])
+            result[1] = expr_r[1]
+            return result
+        if next[0] == 27
+            let expr_r = parse_eq(toks, pos + 2)
+            let result = arr_new_n(2)
+            result[0] = mk_let_bare(v, mk_binop(43, mk_var(v), expr_r[0]))
+            result[1] = expr_r[1]
+            return result
+        if next[0] == 28
+            let expr_r = parse_eq(toks, pos + 2)
+            let result = arr_new_n(2)
+            result[0] = mk_let_bare(v, mk_binop(45, mk_var(v), expr_r[0]))
+            result[1] = expr_r[1]
+            return result
+        if next[0] == 29
+            let expr_r = parse_eq(toks, pos + 2)
+            let result = arr_new_n(2)
+            result[0] = mk_let_bare(v, mk_binop(42, mk_var(v), expr_r[0]))
+            result[1] = expr_r[1]
+            return result
+        if next[0] == 30
+            let expr_r = parse_eq(toks, pos + 2)
+            let result = arr_new_n(2)
+            result[0] = mk_let_bare(v, mk_binop(47, mk_var(v), expr_r[0]))
+            result[1] = expr_r[1]
+            return result
+        if next[0] == 31
+            let expr_r = parse_eq(toks, pos + 2)
+            let result = arr_new_n(2)
+            result[0] = mk_let_bare(v, mk_binop(37, mk_var(v), expr_r[0]))
+            result[1] = expr_r[1]
+            return result
+    let expr_r = parse_eq(toks, pos)
+    let result = arr_new_n(2)
+    result[0] = mk_exprstmt(expr_r[0])
+    result[1] = expr_r[1]
+    return result
+let parse_if_stmt_rest(toks, pos) =
+    let cond_r = parse_eq(toks, pos)
+    let p = skip_nl(toks, cond_r[1])
+    let then_stmts = arr_new()
+    let btok = toks[p]
+    let if_col = get_col(toks, pos)
+    if btok[0] == 3 && btok[1] == 58
+        p = skip_nl(toks, p + 1)
+        let nt = toks[p]
+        if nt[0] == 6
+            p = p + 1
+            let idone = 0
+            for idone == 0
+                p = skip_nl(toks, p)
+                let bt2 = toks[p]
+                if bt2[0] == 7
+                    idone = 1
+                else
+                    let stmt_r = parse_stmt(toks, p)
+                    then_stmts = arr_push(then_stmts, stmt_r[0])
+                    p = stmt_r[1]
+            p = p + 1
+        else
+            let stmt_r = parse_stmt(toks, p)
+            then_stmts = arr_push(then_stmts, stmt_r[0])
+            p = stmt_r[1]
+    else
+    if btok[0] == 6
+        p = p + 1
+        let idone = 0
+        for idone == 0
+            p = skip_nl(toks, p)
+            let bt2 = toks[p]
+            if bt2[0] == 7
+                idone = 1
+            else
+                let stmt_r = parse_stmt(toks, p)
+                then_stmts = arr_push(then_stmts, stmt_r[0])
+                p = stmt_r[1]
+        p = p + 1
+    else
+        let then_col = get_col(toks, p)
+        if then_col > if_col
+            let idone = 0
+            for idone == 0
+                let p_before = p
+                let stmt_r = parse_stmt(toks, p)
+                then_stmts = arr_push(then_stmts, stmt_r[0])
+                p = stmt_r[1]
+                if p == p_before
+                    idone = 1
+                p = skip_nl(toks, p)
+                if p >= toks.len()
+                    idone = 1
+                else
+                    let next_col = get_col(toks, p)
+                    if next_col < then_col
+                        idone = 1
+    p = skip_nl(toks, p)
+    let els_stmts = arr_new()
+    let etok = toks[p]
+    if etok[0] == 1
+        if is_kw4(etok[1], 101, 108, 115, 101) == 1 && get_col(toks, p) == if_col
+            let else_col = get_col(toks, p)
+            p = skip_nl(toks, p + 1)
+            let et2 = toks[p]
+            if et2[0] == 3 && et2[1] == 58
+                p = skip_nl(toks, p + 1)
+                let et3 = toks[p]
+                if et3[0] == 6
+                    p = p + 1
+                    let edone = 0
+                    for edone == 0
+                        p = skip_nl(toks, p)
+                        let bt2 = toks[p]
+                        if bt2[0] == 7
+                            edone = 1
+                        else
+                            let stmt_r = parse_stmt(toks, p)
+                            els_stmts = arr_push(els_stmts, stmt_r[0])
+                            p = stmt_r[1]
+                    p = p + 1
+                else
+                    let stmt_r = parse_stmt(toks, p)
+                    els_stmts = arr_push(els_stmts, stmt_r[0])
+                    p = stmt_r[1]
+            else
+            if et2[0] == 6
+                p = p + 1
+                let edone = 0
+                for edone == 0
+                    p = skip_nl(toks, p)
+                    let bt2 = toks[p]
+                    if bt2[0] == 7
+                        edone = 1
+                    else
+                        let stmt_r = parse_stmt(toks, p)
+                        els_stmts = arr_push(els_stmts, stmt_r[0])
+                        p = stmt_r[1]
+                p = p + 1
+            else
+                let ehand = 0
+                if et2[0] == 1
+                    if is_kw(et2[1], 105, 102) == 1
+                        let eif_col = get_col(toks, p)
+                        if eif_col == else_col
+                            let eif_r = parse_stmt(toks, p)
+                            els_stmts = arr_push(els_stmts, eif_r[0])
+                            p = eif_r[1]
+                            ehand = 1
+                if ehand == 0
+                    let else_body_col = get_col(toks, p)
+                    if else_body_col > else_col
+                        let edone = 0
+                        for edone == 0
+                            let p_before = p
+                            let stmt_r = parse_stmt(toks, p)
+                            els_stmts = arr_push(els_stmts, stmt_r[0])
+                            p = stmt_r[1]
+                            if p == p_before
+                                edone = 1
+                            p = skip_nl(toks, p)
+                            if p >= toks.len()
+                                edone = 1
+                            else
+                                let next_col = get_col(toks, p)
+                                if next_col < else_body_col
+                                    edone = 1
+    let result = arr_new_n(2)
+    result[0] = mk_ifstmt(cond_r[0], then_stmts, els_stmts)
+    result[1] = p
+    return result
+let parse_domain_block(toks, pos) =
+    let gf_tok = toks[pos + 1]
+    let lp = toks[pos + 2]
+    let int_tok = toks[pos + 3]
+    let modulus = int_tok[1]
+    let p = pos + 6
+    p = skip_nl(toks, p)
+    let body = arr_new()
+    let ddone = 0
+    for ddone == 0
+        p = skip_nl(toks, p)
+        let btok = toks[p]
+        if btok[0] == 7
+            ddone = 1
+        else
+            let stmt_r = parse_stmt(toks, p)
+            body = arr_push(body, stmt_r[0])
+            p = stmt_r[1]
+    p = p + 1
+    let result = arr_new_n(2)
+    result[0] = mk_domain(modulus, body)
+    result[1] = p
+    return result
+let parse(toks) =
+    let stmts = arr_new()
+    let pos = 0
+    let done = 0
+    let iter = 0
+    for done == 0
+        iter = iter + 1
+        if iter == 3
+            print("ITER3")
+        if iter == 10
+            print("ITER10")
+        if iter == 30
+            print("ITER30")
+        if iter == 50
+            print("ITER50")
+        if iter == 51
+            print("ITER51")
+        if iter == 55
+            print("ITER55")
+        if iter == 60
+            print("ITER60")
+        if iter == 100
+            print("ITER100")
+            done = 1
+        if iter == 200
+            done = 1
+        pos = skip_nl(toks, pos)
+        if stmts.len() == 0
+            print("ITER0")
+        if stmts.len() == 1
+            print("ITER1")
+        if stmts.len() == 1
+            if pos >= toks.len()
+                print("I2 OOB")
+            else
+                let itok = toks[pos]
+                if itok[0] == 12
+                    print("I2 EOF")
+                else
+                if itok[0] == 1
+                    print("I2 IDENT")
+                else
+                if itok[0] == 11
+                    print("I2 NL")
+                else
+                    print("I2 OTHER")
+        if pos < toks.len()
+            let tok = toks[pos]
+            if tok[0] == 12
+                done = 1
+            else
+                let r = parse_stmt(toks, pos)
+                stmts = arr_push(stmts, r[0])
+                pos = r[1]
+                if stmts.len() == 1
+                    if pos < 10
+                        print("P1 LT10")
+                    else
+                    if pos < 20
+                        print("P1 10-19")
+                    else
+                    if pos < 50
+                        print("P1 20-49")
+                    else
+                    if pos < 100
+                        print("P1 50-99")
+                    else
+                        print("P1 100+")
+                if stmts.len() == 2
+                    if pos < toks.len()
+                        let tok2 = toks[pos]
+                        if tok2[0] == 12
+                            print("P2 EOF")
+                        else
+                            print("P2 OK")
+                    else
+                        print("P2 OOB")
+                if pos > 999999999
+                    done = 1
+                else
+                    let _noop = 0
+        else
+            done = 1
+    return stmts
+let resolve_imports_impl(toks, visited) =
+    let result = arr_new()
+    let i = 0
+    let n = toks.len()
+    let limit = n
+    if n > 0
+        if toks[n - 1][0] == 12
+            limit = n - 1
+    let done = 0
+    for done == 0
+        if i >= limit
+            done = 1
+        else
+            let tok = toks[i]
+            let t = tok[0]
+            let is_import = 0
+            if t == 1
+                if is_kw6(tok[1], 105, 109, 112, 111, 114, 116) == 1
+                    is_import = 1
+            if is_import == 1
+                if i + 1 >= limit
+                    result = arr_push(result, tok)
+                    i = i + 1
+                else
+                    let path_tok = toks[i + 1]
+                    if path_tok[0] != 2
+                        result = arr_push(result, tok)
+                        i = i + 1
+                    else
+                        let path_chars = path_tok[1]
+                        let already = 0
+                        let vi = 0
+                        let vn = visited.len()
+                        for vi < vn
+                            if str_eq(path_chars, visited[vi]) == 1
+                                already = 1
+                            vi = vi + 1
+                        if already == 0
+                            visited = arr_push(visited, path_chars)
+                            let imp_src = read_file(path_chars)
+                            if imp_src != 0
+                                let imp_toks = lex(imp_src)
+                                let resolved = resolve_imports_impl(imp_toks, visited)
+                                let rlimit = resolved.len()
+                                if rlimit > 0
+                                    if resolved[rlimit - 1][0] == 12
+                                        rlimit = rlimit - 1
+                                    else
+                                        rlimit = rlimit
+                                else
+                                    rlimit = rlimit
+                                let j = 0
+                                for j < rlimit
+                                    result = arr_push(result, resolved[j])
+                                    j = j + 1
+                            else
+                                i = i
+                        else
+                            i = i
+                        i = i + 2
+                        if i < limit
+                            if toks[i][0] == 11
+                                i = i + 1
+                            else
+                                i = i
+                        else
+                            i = i
+            else
+                result = arr_push(result, tok)
+                i = i + 1
+    result = arr_push(result, make_tok(12, 0))
+    return result
+let resolve_imports(toks) =
+    let visited = arr_new()
+    return resolve_imports_impl(toks, visited)
+let parse_if_expr_rest(toks, pos) =
+    let cond_r = parse_eq(toks, pos)
+    let p = skip_nl(toks, cond_r[1])
+    let btok = toks[p]
+    let then_expr = mk_int(0)
+    if btok[0] == 6
+        p = skip_nl(toks, p + 1)
+        let inner_r = parse_eq(toks, p)
+        then_expr = inner_r[0]
+        p = skip_nl(toks, inner_r[1])
+        let close = toks[p]
+        if close[0] == 7
+            p = p + 1
+    else
+        if btok[0] == 3
+            if btok[1] == 58
+                p = skip_nl(toks, p + 1)
+        let inner_r = parse_eq(toks, p)
+        then_expr = inner_r[0]
+        p = inner_r[1]
+    p = skip_nl(toks, p)
+    let etok = toks[p]
+    let els_expr = mk_int(0)
+    if etok[0] == 1
+        if is_kw4(etok[1], 101, 108, 105, 102) == 1
+            let nested_r = parse_if_expr_rest(toks, p + 1)
+            els_expr = nested_r[0]
+            p = nested_r[1]
+        else
+        if is_kw4(etok[1], 101, 108, 115, 101) == 1
+            p = skip_nl(toks, p + 1)
+            let et2 = toks[p]
+            if et2[0] == 3
+                if et2[1] == 58
+                    p = skip_nl(toks, p + 1)
+            let et2b = toks[p]
+            if et2b[0] == 6
+                p = skip_nl(toks, p + 1)
+                let inner_r = parse_eq(toks, p)
+                els_expr = inner_r[0]
+                p = skip_nl(toks, inner_r[1])
+                let close = toks[p]
+                if close[0] == 7
+                    p = p + 1
+            else
+                let inner_r = parse_eq(toks, p)
+                els_expr = inner_r[0]
+                p = inner_r[1]
+    let result = arr_new_n(2)
+    result[0] = mk_if(cond_r[0], then_expr, els_expr)
+    result[1] = p
+    return result
+let sleb128(n) =
+    let bytes = arr_new()
+    let val = n
+    let done = 0
+    for done == 0
+        let byte = val % 128
+        let pos_byte = (byte < 0 ? byte + 128 : byte)
+        let new_val = (val < 0 ? (val - 127) / 128 : val / 128)
+        if new_val == 0 && pos_byte < 64
+            bytes = arr_push(bytes, pos_byte)
+            done = 1
+        else
+        if new_val == 0 && pos_byte >= 64
+            bytes = arr_push(bytes, pos_byte + 128)
+            val = 0
+        else
+        if new_val == 0 - 1 && pos_byte >= 64
+            bytes = arr_push(bytes, pos_byte)
+            done = 1
+        else
+        if new_val == 0 - 1 && pos_byte < 64
+            bytes = arr_push(bytes, pos_byte + 128)
+            val = new_val
+        else
+            bytes = arr_push(bytes, pos_byte + 128)
+            val = new_val
+    return bytes
+let uleb128(n) =
+    let bytes = arr_new()
+    let val = n
+    let done = 0
+    for done == 0
+        let byte = val % 128
+        let high = val / 128
+        if high == 0
+            bytes = arr_push(bytes, byte)
+            done = 1
+        else
+            bytes = arr_push(bytes, byte + 128)
+            val = high
+    return bytes
+let push_uleb(wasm, n) =
+    let nb = uleb128(n)
+    let ni = 0
+    for ni < nb.len()
+        wasm = arr_push(wasm, nb[ni])
+        ni = ni + 1
+    return wasm
+let emit_expr(node, wasm, locals, nlocals, fnames, captures) =
+    let t = node[0]
+    if t == 0
+        wasm = arr_push(wasm, 65)
+        let nb = sleb128(node[1])
+        let ni = 0
+        for ni < nb.len()
+            wasm = arr_push(wasm, nb[ni])
+            ni = ni + 1
+        let r = arr_new_n(4)
+        r[0] = wasm
+        r[1] = locals
+        r[2] = nlocals
+        r[3] = 0
+        return r
+    if t == 2
+        wasm = arr_push(wasm, 32)
+        let idx = 0
+        let i = 0
+        let found = 0
+        for i < locals.len()
+            if str_eq(locals[i], node[1]) == 1
+                idx = i
+                found = 1
+            i = i + 1
+        let nb = uleb128(idx)
+        let ni = 0
+        for ni < nb.len()
+            wasm = arr_push(wasm, nb[ni])
+            ni = ni + 1
+        let r = arr_new_n(4)
+        r[0] = wasm
+        r[1] = locals
+        r[2] = nlocals
+        r[3] = 0
+        return r
+    if t == 3
+        let op = node[1]
+        if op != 94
+            let lc = node[2]
+            let rc = node[3]
+            if lc[0] == 0
+                if rc[0] == 0
+                    let a = lc[1]
+                    let b = rc[1]
+                    let folded = 0
+                    let ok = 1
+                    let matched = 0
+                    if op == 43
+                        folded = (a + b)
+                        matched = 1
+                    if op == 45
+                        folded = (a - b)
+                        matched = 1
+                    if op == 42
+                        folded = (a * b)
+                        matched = 1
+                    if op == 47
+                        if b == 0
+                            ok = 0
+                        else
+                            folded = (a / b)
+                            matched = 1
+                    if op == 37
+                        if b == 0
+                            ok = 0
+                        else
+                            folded = (a % b)
+                            matched = 1
+                    if op == 60
+                        folded = (a < b)
+                        matched = 1
+                    if op == 62
+                        folded = (a > b)
+                        matched = 1
+                    if op == 13
+                        folded = (a == b)
+                        matched = 1
+                    if op == 14
+                        folded = (a != b)
+                        matched = 1
+                    if op == 15
+                        folded = (a <= b)
+                        matched = 1
+                    if op == 16
+                        folded = (a >= b)
+                        matched = 1
+                    if op == 38
+                        folded = (a & b)
+                        matched = 1
+                    if op == 124
+                        folded = (a | b)
+                        matched = 1
+                    if op == 25
+                        folded = (a << b)
+                        matched = 1
+                    if op == 26
+                        folded = (a >> b)
+                        matched = 1
+                    if matched == 0
+                        ok = 0
+                    if ok == 1
+                        wasm = arr_push(wasm, 65)
+                        let nb = sleb128(folded)
+                        let ni = 0
+                        for ni < nb.len()
+                            wasm = arr_push(wasm, nb[ni])
+                            ni = ni + 1
+                        let res = arr_new_n(4)
+                        res[0] = wasm
+                        res[1] = locals
+                        res[2] = nlocals
+                        res[3] = 0
+                        return res
+        if op == 94
+            wasm = arr_push(wasm, 65)
+            wasm = arr_push(wasm, 14)
+            let r1 = emit_expr(node[2], wasm, locals, nlocals, fnames, captures)
+            wasm = r1[0]
+            let r2 = emit_expr(node[3], r1[0], r1[1], r1[2], fnames, captures)
+            wasm = r2[0]
+            wasm = arr_push(wasm, 16)
+            wasm = arr_push(wasm, 0)
+            let r = arr_new_n(4)
+            r[0] = wasm
+            r[1] = r2[1]
+            r[2] = r2[2]
+            r[3] = 0
+            return r
+        if op == 23 || op == 24
+            let r1 = emit_expr(node[2], wasm, locals, nlocals, fnames, captures)
+            wasm = r1[0]
+            let r2 = emit_expr(node[3], wasm, r1[1], r1[2], fnames, captures)
+            wasm = r2[0]
+            wasm = arr_push(wasm, (op == 23 ? 113 : 114))
+            let r = arr_new_n(4)
+            r[0] = wasm
+            r[1] = r2[1]
+            r[2] = r2[2]
+            r[3] = 0
+            return r
+        let r1 = emit_expr(node[2], wasm, locals, nlocals, fnames, captures)
+        let r2 = emit_expr(node[3], r1[0], r1[1], r1[2], fnames, captures)
+        wasm = r2[0]
+        wasm = arr_push(wasm, (op == 43 ? 106 : ((op == 45 ? 107 : ((op == 42 ? 108 : ((op == 47 ? 109 : ((op == 60 ? 72 : ((op == 62 ? 74 : ((op == 13 ? 70 : ((op == 14 ? 71 : ((op == 15 ? 76 : ((op == 37 ? 111 : ((op == 38 ? 113 : ((op == 124 ? 114 : ((op == 25 ? 116 : ((op == 26 ? 118 : 78))))))))))))))))))))))))))))
+        let r = arr_new_n(4)
+        r[0] = wasm
+        r[1] = locals
+        r[2] = nlocals
+        r[3] = 0
+        return r
+    if t == 1
+        let name = node[1]
+        let args = node[2]
+        if name.len() == 5
+            if name[0] == 112
+                if name[1] == 114
+                    if name[2] == 105
+                        if name[3] == 110
+                            if name[4] == 116
+                                let pid = 1
+                                let arg0 = args[0]
+                                if arg0[0] == 5
+                                    pid = 25
+                                wasm = arr_push(wasm, 65)
+                                wasm = arr_push(wasm, pid)
+                                let arg = args[0]
+                                let r1 = emit_expr(arg, wasm, locals, nlocals, fnames, captures)
+                                wasm = r1[0]
+                                wasm = arr_push(wasm, 65)
+                                wasm = arr_push(wasm, 0)
+                                wasm = arr_push(wasm, 16)
+                                wasm = arr_push(wasm, 0)
+                                wasm = arr_push(wasm, 26)
+                                wasm = arr_push(wasm, 65)
+                                wasm = arr_push(wasm, 0)
+                                wasm = arr_push(wasm, 26)
+                                let r = arr_new_n(4)
+                                r[0] = wasm
+                                r[1] = locals
+                                r[2] = nlocals
+                                r[3] = 0
+                                return r
+        if name.len() == 9
+            if name[0] == 114
+                wasm = arr_push(wasm, 65)
+                wasm = arr_push(wasm, 3)
+                let r1 = emit_expr(args[0], wasm, locals, nlocals, fnames, captures)
+                wasm = r1[0]
+                wasm = arr_push(wasm, 65)
+                wasm = arr_push(wasm, 0)
+                wasm = arr_push(wasm, 16)
+                wasm = arr_push(wasm, 0)
+                let r = arr_new_n(4)
+                r[0] = wasm
+                r[1] = r1[1]
+                r[2] = r1[2]
+                r[3] = 0
+                return r
+        if name.len() == 9
+            if name[0] == 97
+                if name[2] == 114
+                    wasm = arr_push(wasm, 65)
+                    wasm = arr_push(wasm, 9)
+                    let r1 = emit_expr(args[0], wasm, locals, nlocals, fnames, captures)
+                    wasm = r1[0]
+                    wasm = arr_push(wasm, 65)
+                    wasm = arr_push(wasm, 0)
+                    wasm = arr_push(wasm, 16)
+                    wasm = arr_push(wasm, 0)
+                    let r = arr_new_n(4)
+                    r[0] = wasm
+                    r[1] = r1[1]
+                    r[2] = r1[2]
+                    r[3] = 0
+                    return r
+        if name.len() == 10
+            if name[0] == 119
+                wasm = arr_push(wasm, 65)
+                wasm = arr_push(wasm, 4)
+                let r1 = emit_expr(args[0], wasm, locals, nlocals, fnames, captures)
+                wasm = r1[0]
+                let r2 = emit_expr(args[1], wasm, r1[1], r1[2], fnames, captures)
+                wasm = r2[0]
+                wasm = arr_push(wasm, 16)
+                wasm = arr_push(wasm, 0)
+                let r = arr_new_n(4)
+                r[0] = wasm
+                r[1] = r2[1]
+                r[2] = r2[2]
+                r[3] = 0
+                return r
+        if name.len() == 10
+            if name[0] == 115
+                wasm = arr_push(wasm, 65)
+                wasm = arr_push(wasm, 5)
+                let r1 = emit_expr(args[0], wasm, locals, nlocals, fnames, captures)
+                wasm = r1[0]
+                let r2 = emit_expr(args[1], wasm, r1[1], r1[2], fnames, captures)
+                wasm = r2[0]
+                wasm = arr_push(wasm, 16)
+                wasm = arr_push(wasm, 0)
+                let r = arr_new_n(4)
+                r[0] = wasm
+                r[1] = r2[1]
+                r[2] = r2[2]
+                r[3] = 0
+                return r
+        if name.len() == 13
+            if name[0] == 115
+                if name[1] == 116
+                    wasm = arr_push(wasm, 65)
+                    wasm = arr_push(wasm, 8)
+                    let r1 = emit_expr(args[0], wasm, locals, nlocals, fnames, captures)
+                    wasm = r1[0]
+                    wasm = arr_push(wasm, 65)
+                    wasm = arr_push(wasm, 0)
+                    wasm = arr_push(wasm, 16)
+                    wasm = arr_push(wasm, 0)
+                    let r = arr_new_n(4)
+                    r[0] = wasm
+                    r[1] = r1[1]
+                    r[2] = r1[2]
+                    r[3] = 0
+                    return r
+        if name.len() == 8
+            if name[0] == 97
+                wasm = arr_push(wasm, 65)
+                wasm = arr_push(wasm, 6)
+                let r1 = emit_expr(args[0], wasm, locals, nlocals, fnames, captures)
+                wasm = r1[0]
+                let r2 = emit_expr(args[1], wasm, r1[1], r1[2], fnames, captures)
+                wasm = r2[0]
+                wasm = arr_push(wasm, 16)
+                wasm = arr_push(wasm, 0)
+                let r = arr_new_n(4)
+                r[0] = wasm
+                r[1] = r2[1]
+                r[2] = r2[2]
+                r[3] = 0
+                return r
+        if name.len() == 7
+            if name[0] == 97
+                if name[4] == 110
+                    wasm = arr_push(wasm, 65)
+                    wasm = arr_push(wasm, 7)
+                    wasm = arr_push(wasm, 65)
+                    wasm = arr_push(wasm, 0)
+                    wasm = arr_push(wasm, 65)
+                    wasm = arr_push(wasm, 0)
+                    wasm = arr_push(wasm, 16)
+                    wasm = arr_push(wasm, 0)
+                    let r = arr_new_n(4)
+                    r[0] = wasm
+                    r[1] = locals
+                    r[2] = nlocals
+                    r[3] = 0
+                    return r
+                if name[4] == 108
+                    let r1 = emit_expr(args[0], wasm, locals, nlocals, fnames, captures)
+                    wasm = r1[0]
+                    wasm = arr_push(wasm, 40)
+                    wasm = arr_push(wasm, 2)
+                    wasm = arr_push(wasm, 0)
+                    let r = arr_new_n(4)
+                    r[0] = wasm
+                    r[1] = r1[1]
+                    r[2] = r1[2]
+                    r[3] = 0
+                    return r
+                if name[4] == 103
+                    let r1 = emit_expr(args[0], wasm, locals, nlocals, fnames, captures)
+                    wasm = r1[0]
+                    let r2 = emit_expr(args[1], wasm, r1[1], r1[2], fnames, captures)
+                    wasm = r2[0]
+                    wasm = arr_push(wasm, 65)
+                    wasm = arr_push(wasm, 1)
+                    wasm = arr_push(wasm, 106)
+                    wasm = arr_push(wasm, 65)
+                    wasm = arr_push(wasm, 4)
+                    wasm = arr_push(wasm, 108)
+                    wasm = arr_push(wasm, 106)
+                    wasm = arr_push(wasm, 40)
+                    wasm = arr_push(wasm, 2)
+                    wasm = arr_push(wasm, 0)
+                    let r = arr_new_n(4)
+                    r[0] = wasm
+                    r[1] = r2[1]
+                    r[2] = r2[2]
+                    r[3] = 0
+                    return r
+                if name[4] == 115
+                    let r1 = emit_expr(args[0], wasm, locals, nlocals, fnames, captures)
+                    wasm = r1[0]
+                    wasm = arr_push(wasm, 36)
+                    wasm = arr_push(wasm, 1)
+                    wasm = arr_push(wasm, 35)
+                    wasm = arr_push(wasm, 1)
+                    let r2 = emit_expr(args[1], wasm, r1[1], r1[2], fnames, captures)
+                    wasm = r2[0]
+                    wasm = arr_push(wasm, 65)
+                    wasm = arr_push(wasm, 1)
+                    wasm = arr_push(wasm, 106)
+                    wasm = arr_push(wasm, 65)
+                    wasm = arr_push(wasm, 4)
+                    wasm = arr_push(wasm, 108)
+                    wasm = arr_push(wasm, 106)
+                    let r3 = emit_expr(args[2], wasm, r2[1], r2[2], fnames, captures)
+                    wasm = r3[0]
+                    wasm = arr_push(wasm, 54)
+                    wasm = arr_push(wasm, 2)
+                    wasm = arr_push(wasm, 0)
+                    wasm = arr_push(wasm, 35)
+                    wasm = arr_push(wasm, 1)
+                    let r = arr_new_n(4)
+                    r[0] = wasm
+                    r[1] = r3[1]
+                    r[2] = r3[2]
+                    r[3] = 0
+                    return r
+        if name.len() == 9
+            if name[0] == 104
+                let r1 = emit_expr(args[0], wasm, locals, nlocals, fnames, captures)
+                wasm = r1[0]
+                let r2 = emit_expr(args[1], wasm, r1[1], r1[2], fnames, captures)
+                wasm = r2[0]
+                let r3 = emit_expr(args[2], wasm, r2[1], r2[2], fnames, captures)
+                wasm = r3[0]
+                wasm = arr_push(wasm, 16)
+                wasm = arr_push(wasm, 0)
+                let r = arr_new_n(4)
+                r[0] = wasm
+                r[1] = r3[1]
+                r[2] = r3[2]
+                r[3] = 0
+                return r
+        if name.len() == 4
+            if name[0] == 98
+                let r1 = emit_expr(args[1], wasm, locals, nlocals, fnames, captures)
+                wasm = r1[0]
+                let r2 = emit_expr(args[2], wasm, r1[1], r1[2], fnames, captures)
+                wasm = r2[0]
+                let r3 = emit_expr(args[0], wasm, r2[1], r2[2], fnames, captures)
+                wasm = r3[0]
+                wasm = arr_push(wasm, 27)
+                let r = arr_new_n(4)
+                r[0] = wasm
+                r[1] = r3[1]
+                r[2] = r3[2]
+                r[3] = 0
+                return r
+        if name.len() == 8
+            if name[0] == 99
+                if name[1] == 108
+                    if name[2] == 105
+                        let r1 = emit_expr(args[0], wasm, locals, nlocals, fnames, captures)
+                        wasm = r1[0]
+                        let r2 = emit_expr(args[1], wasm, r1[1], r1[2], fnames, captures)
+                        wasm = r2[0]
+                        wasm = arr_push(wasm, 115)
+                        let r3 = emit_expr(args[0], wasm, r2[1], r2[2], fnames, captures)
+                        wasm = r3[0]
+                        let r4 = emit_expr(args[1], wasm, r3[1], r3[2], fnames, captures)
+                        wasm = r4[0]
+                        wasm = arr_push(wasm, 113)
+                        wasm = arr_push(wasm, 114)
+                        let r = arr_new_n(4)
+                        r[0] = wasm
+                        r[1] = r4[1]
+                        r[2] = r4[2]
+                        r[3] = 0
+                        return r
+        if name.len() == 8
+            if name[0] == 109
+                if name[1] == 101
+                    let r1 = emit_expr(args[0], wasm, locals, nlocals, fnames, captures)
+                    wasm = r1[0]
+                    wasm = arr_push(wasm, 40)
+                    wasm = arr_push(wasm, 2)
+                    wasm = arr_push(wasm, 0)
+                    let r = arr_new_n(4)
+                    r[0] = wasm
+                    r[1] = r1[1]
+                    r[2] = r1[2]
+                    r[3] = 0
+                    return r
+        if name.len() == 5
+            if name[0] == 103
+                if name[1] == 102
+                    let id = 0
+                    if name[2] == 97
+                        id = 10
+                    if name[2] == 115
+                        id = 11
+                    if name[2] == 109
+                        id = 12
+                    if name[2] == 105
+                        id = 13
+                    if name[2] == 112
+                        id = 14
+                    wasm = arr_push(wasm, 65)
+                    wasm = arr_push(wasm, id)
+                    let r1 = emit_expr(args[0], wasm, locals, nlocals, fnames, captures)
+                    wasm = r1[0]
+                    let r2 = emit_expr(args[1], wasm, r1[1], r1[2], fnames, captures)
+                    wasm = r2[0]
+                    wasm = arr_push(wasm, 16)
+                    wasm = arr_push(wasm, 0)
+                    let r = arr_new_n(4)
+                    r[0] = wasm
+                    r[1] = r2[1]
+                    r[2] = r2[2]
+                    r[3] = 0
+                    return r
+        if name.len() == 7
+            if name[0] == 104
+                let r1 = emit_expr(args[0], wasm, locals, nlocals, fnames, captures)
+                wasm = r1[0]
+                wasm = arr_push(wasm, 36)
+                wasm = arr_push(wasm, 1)
+                wasm = arr_push(wasm, 35)
+                wasm = arr_push(wasm, 1)
+                let r2 = emit_expr(args[1], wasm, r1[1], r1[2], fnames, captures)
+                wasm = r2[0]
+                wasm = arr_push(wasm, 54)
+                wasm = arr_push(wasm, 2)
+                wasm = arr_push(wasm, 0)
+                wasm = arr_push(wasm, 35)
+                wasm = arr_push(wasm, 1)
+                let r = arr_new_n(4)
+                r[0] = wasm
+                r[1] = r2[1]
+                r[2] = r2[2]
+                r[3] = 0
+                return r
+        let opcode_unary = 0
+        if name.len() == 3
+            if name[0] == 99
+                if name[1] == 108
+                    if name[2] == 122
+                        opcode_unary = 103
+        if name.len() == 3
+            if name[0] == 99
+                if name[1] == 116
+                    if name[2] == 122
+                        opcode_unary = 104
+        if name.len() == 3
+            if name[0] == 101
+                if name[1] == 113
+                    if name[2] == 122
+                        opcode_unary = 69
+        if name.len() == 3
+            if name[0] == 97
+                if name[1] == 98
+                    if name[2] == 115
+                        opcode_unary = 152
+        if name.len() == 6
+            if name[0] == 112
+                if name[1] == 111
+                    if name[2] == 112
+                        if name[3] == 99
+                            if name[4] == 110
+                                if name[5] == 116
+                                    opcode_unary = 105
+        if name.len() == 9
+            if name[0] == 101
+                if name[1] == 120
+                    if name[2] == 116
+                        if name[3] == 101
+                            if name[4] == 110
+                                if name[5] == 100
+                                    if name[6] == 56
+                                        if name[7] == 95
+                                            if name[8] == 115
+                                                opcode_unary = 192
+        if name.len() == 10
+            if name[0] == 101
+                if name[1] == 120
+                    if name[2] == 116
+                        if name[3] == 101
+                            if name[4] == 110
+                                if name[5] == 100
+                                    if name[6] == 49
+                                        if name[7] == 54
+                                            if name[8] == 95
+                                                if name[9] == 115
+                                                    opcode_unary = 193
+        if opcode_unary != 0
+            let r1 = emit_expr(args[0], wasm, locals, nlocals, fnames, captures)
+            wasm = r1[0]
+            wasm = arr_push(wasm, opcode_unary)
+            let r = arr_new_n(4)
+            r[0] = wasm
+            r[1] = r1[1]
+            r[2] = r1[2]
+            r[3] = 0
+            return r
+        let opcode_binary = 0
+        if name.len() == 4
+            if name[0] == 114
+                if name[1] == 111
+                    if name[2] == 116
+                        if name[3] == 108
+                            opcode_binary = 119
+        if name.len() == 4
+            if name[0] == 114
+                if name[1] == 111
+                    if name[2] == 116
+                        if name[3] == 114
+                            opcode_binary = 120
+        if name.len() == 5
+            if name[0] == 100
+                if name[1] == 105
+                    if name[2] == 118
+                        if name[3] == 95
+                            if name[4] == 117
+                                opcode_binary = 110
+        if name.len() == 5
+            if name[0] == 114
+                if name[1] == 101
+                    if name[2] == 109
+                        if name[3] == 95
+                            if name[4] == 117
+                                opcode_binary = 112
+        if name.len() == 5
+            if name[0] == 115
+                if name[1] == 104
+                    if name[2] == 114
+                        if name[3] == 95
+                            if name[4] == 115
+                                opcode_binary = 117
+        if name.len() == 3
+            if name[0] == 109
+                if name[1] == 97
+                    if name[2] == 120
+                        opcode_binary = 154
+        if name.len() == 3
+            if name[0] == 109
+                if name[1] == 105
+                    if name[2] == 110
+                        opcode_binary = 155
+        if opcode_binary != 0
+            let r1 = emit_expr(args[0], wasm, locals, nlocals, fnames, captures)
+            wasm = r1[0]
+            let r2 = emit_expr(args[1], wasm, r1[1], r1[2], fnames, captures)
+            wasm = r2[0]
+            wasm = arr_push(wasm, opcode_binary)
+            let r = arr_new_n(4)
+            r[0] = wasm
+            r[1] = r2[1]
+            r[2] = r2[2]
+            r[3] = 0
+            return r
+        if name.len() == 3
+            if name[0] == 112
+                if name[1] == 111
+                    if name[2] == 119
+                        wasm = arr_push(wasm, 65)
+                        wasm = arr_push(wasm, 14)
+                        let r1 = emit_expr(args[0], wasm, locals, nlocals, fnames, captures)
+                        wasm = r1[0]
+                        let r2 = emit_expr(args[1], wasm, r1[1], r1[2], fnames, captures)
+                        wasm = r2[0]
+                        wasm = arr_push(wasm, 16)
+                        wasm = arr_push(wasm, 0)
+                        let r = arr_new_n(4)
+                        r[0] = wasm
+                        r[1] = r2[1]
+                        r[2] = r2[2]
+                        r[3] = 0
+                        return r
+        if name.len() == 4
+            if name[0] == 102
+                if name[1] == 114
+                    wasm = arr_push(wasm, 65)
+                    wasm = arr_push(wasm, 12)
+                    let r1 = emit_expr(args[0], wasm, locals, nlocals, fnames, captures)
+                    wasm = r1[0]
+                    wasm = arr_push(wasm, 65)
+                    wasm = arr_push(wasm, 13)
+                    let r2 = emit_expr(args[1], wasm, r1[1], r1[2], fnames, captures)
+                    wasm = r2[0]
+                    wasm = arr_push(wasm, 65)
+                    wasm = arr_push(wasm, 0)
+                    wasm = arr_push(wasm, 16)
+                    wasm = arr_push(wasm, 0)
+                    wasm = arr_push(wasm, 16)
+                    wasm = arr_push(wasm, 0)
+                    let r = arr_new_n(4)
+                    r[0] = wasm
+                    r[1] = r2[1]
+                    r[2] = r2[2]
+                    r[3] = 0
+                    return r
+        if name.len() == 5
+            if name[0] == 105
+                if name[1] == 110
+                    wasm = arr_push(wasm, 65)
+                    wasm = arr_push(wasm, 23)
+                    wasm = arr_push(wasm, 65)
+                    wasm = arr_push(wasm, 0)
+                    wasm = arr_push(wasm, 65)
+                    wasm = arr_push(wasm, 0)
+                    wasm = arr_push(wasm, 16)
+                    wasm = arr_push(wasm, 0)
+                    let r = arr_new_n(4)
+                    r[0] = wasm
+                    r[1] = locals
+                    r[2] = nlocals
+                    r[3] = 0
+                    return r
+        if name.len() == 10
+            if name[0] == 105
+                if name[1] == 110
+                    wasm = arr_push(wasm, 65)
+                    wasm = arr_push(wasm, 24)
+                    let r1 = emit_expr(args[0], wasm, locals, nlocals, fnames, captures)
+                    wasm = r1[0]
+                    wasm = arr_push(wasm, 65)
+                    wasm = arr_push(wasm, 0)
+                    wasm = arr_push(wasm, 16)
+                    wasm = arr_push(wasm, 0)
+                    let r = arr_new_n(4)
+                    r[0] = wasm
+                    r[1] = r1[1]
+                    r[2] = r1[2]
+                    r[3] = 0
+                    return r
+        if name.len() == 9
+            if name[0] == 112
+                if name[1] == 114
+                    if name[2] == 105
+                        if name[3] == 110
+                            if name[4] == 116
+                                if name[5] == 95
+                                    if name[6] == 115
+                                        if name[7] == 116
+                                            if name[8] == 114
+                                                wasm = arr_push(wasm, 65)
+                                                wasm = arr_push(wasm, 25)
+                                                let r1 = emit_expr(args[0], wasm, locals, nlocals, fnames, captures)
+                                                wasm = r1[0]
+                                                wasm = arr_push(wasm, 65)
+                                                wasm = arr_push(wasm, 0)
+                                                wasm = arr_push(wasm, 16)
+                                                wasm = arr_push(wasm, 0)
+                                                let r = arr_new_n(4)
+                                                r[0] = wasm
+                                                r[1] = r1[1]
+                                                r[2] = r1[2]
+                                                r[3] = 0
+                                                return r
+        if name.len() == 9
+            if name[0] == 97
+                if name[1] == 115
+                    wasm = arr_push(wasm, 65)
+                    wasm = arr_push(wasm, 26)
+                    let r1 = emit_expr(args[0], wasm, locals, nlocals, fnames, captures)
+                    wasm = r1[0]
+                    let r2 = emit_expr(args[1], wasm, r1[1], r1[2], fnames, captures)
+                    wasm = r2[0]
+                    wasm = arr_push(wasm, 16)
+                    wasm = arr_push(wasm, 0)
+                    let r = arr_new_n(4)
+                    r[0] = wasm
+                    r[1] = r2[1]
+                    r[2] = r2[2]
+                    r[3] = 0
+                    return r
+        if name.len() == 7
+            if name[0] == 115
+                if name[1] == 116
+                    let sid = 0
+                    if name[4] == 108
+                        sid = 27
+                    if name[4] == 103
+                        sid = 28
+                    if sid != 0
+                        wasm = arr_push(wasm, 65)
+                        wasm = arr_push(wasm, sid)
+                        let r1 = emit_expr(args[0], wasm, locals, nlocals, fnames, captures)
+                        wasm = r1[0]
+                        if sid == 28
+                            let r2 = emit_expr(args[1], wasm, r1[1], r1[2], fnames, captures)
+                            wasm = r2[0]
+                            wasm = arr_push(wasm, 16)
+                            wasm = arr_push(wasm, 0)
+                            let r = arr_new_n(4)
+                            r[0] = wasm
+                            r[1] = r2[1]
+                            r[2] = r2[2]
+                            r[3] = 0
+                            return r
+                        wasm = arr_push(wasm, 65)
+                        wasm = arr_push(wasm, 0)
+                        wasm = arr_push(wasm, 16)
+                        wasm = arr_push(wasm, 0)
+                        let r = arr_new_n(4)
+                        r[0] = wasm
+                        r[1] = r1[1]
+                        r[2] = r1[2]
+                        r[3] = 0
+                        return r
+        let ai = 0
+        for ai < args.len()
+            let r1 = emit_expr(args[ai], wasm, locals, nlocals, fnames, captures)
+            wasm = r1[0]
+            ai = ai + 1
+        let cap = caps_lookup(captures, name)
+        let ci = 0
+        for ci < cap.len()
+            let var_node = arr_new_n(2)
+            var_node[0] = 2
+            var_node[1] = cap[ci]
+            let r1 = emit_expr(var_node, wasm, locals, nlocals, fnames, captures)
+            wasm = r1[0]
+            ci = ci + 1
+        wasm = arr_push(wasm, 16)
+        let fidx = 0
+        let ffi = 0
+        for ffi < fnames.len()
+            if str_eq(fnames[ffi], name) == 1
+                fidx = ffi
+            ffi = ffi + 1
+        wasm = arr_push(wasm, fidx + 1)
+        let r = arr_new_n(4)
+        r[0] = wasm
+        r[1] = locals
+        r[2] = nlocals
+        r[3] = 0
+        return r
+    if t == 12
+        if is_pure_expr(node[2], fnames) == 1
+            if is_pure_expr(node[3], fnames) == 1
+                let r2 = emit_expr(node[2], wasm, locals, nlocals, fnames, captures)
+                wasm = r2[0]
+                let r3 = emit_expr(node[3], wasm, r2[1], r2[2], fnames, captures)
+                wasm = r3[0]
+                let r1 = emit_expr(node[1], wasm, r3[1], r3[2], fnames, captures)
+                wasm = r1[0]
+                wasm = arr_push(wasm, 27)
+                let r = arr_new_n(4)
+                r[0] = wasm
+                r[1] = r1[1]
+                r[2] = r1[2]
+                r[3] = 0
+                return r
+        let r1 = emit_expr(node[1], wasm, locals, nlocals, fnames, captures)
+        wasm = r1[0]
+        wasm = arr_push(wasm, 4)
+        wasm = arr_push(wasm, 127)
+        let r2 = emit_expr(node[2], wasm, r1[1], r1[2], fnames, captures)
+        wasm = r2[0]
+        wasm = arr_push(wasm, 5)
+        let r3 = emit_expr(node[3], wasm, r2[1], r2[2], fnames, captures)
+        wasm = r3[0]
+        wasm = arr_push(wasm, 11)
+        let r = arr_new_n(4)
+        r[0] = wasm
+        r[1] = r3[1]
+        r[2] = r3[2]
+        r[3] = 0
+        return r
+    if t == 5
+        let s = node[1]
+        let slen = s.len()
+        let size = (slen + 1) << 2
+        wasm = arr_push(wasm, 35)
+        wasm = arr_push(wasm, 0)
+        wasm = arr_push(wasm, 36)
+        wasm = arr_push(wasm, 3)
+        wasm = arr_push(wasm, 35)
+        wasm = arr_push(wasm, 0)
+        wasm = arr_push(wasm, 65)
+        let sb = sleb128(size)
+        let si = 0
+        for si < sb.len()
+            wasm = arr_push(wasm, sb[si])
+            si = si + 1
+        wasm = arr_push(wasm, 106)
+        wasm = arr_push(wasm, 36)
+        wasm = arr_push(wasm, 0)
+        wasm = arr_push(wasm, 35)
+        wasm = arr_push(wasm, 3)
+        wasm = arr_push(wasm, 65)
+        let lb = sleb128(slen)
+        let li = 0
+        for li < lb.len()
+            wasm = arr_push(wasm, lb[li])
+            li = li + 1
+        wasm = arr_push(wasm, 54)
+        wasm = arr_push(wasm, 2)
+        wasm = arr_push(wasm, 0)
+        let ci = 0
+        for ci < slen
+            wasm = arr_push(wasm, 35)
+            wasm = arr_push(wasm, 3)
+            wasm = arr_push(wasm, 65)
+            let cb = sleb128(s[ci])
+            let cii = 0
+            for cii < cb.len()
+                wasm = arr_push(wasm, cb[cii])
+                cii = cii + 1
+            wasm = arr_push(wasm, 54)
+            wasm = arr_push(wasm, 2)
+            let off = (ci + 1) * 4
+            let ob = uleb128(off)
+            let oi = 0
+            for oi < ob.len()
+                wasm = arr_push(wasm, ob[oi])
+                oi = oi + 1
+            ci = ci + 1
+        wasm = arr_push(wasm, 35)
+        wasm = arr_push(wasm, 3)
+        let r = arr_new_n(4)
+        r[0] = wasm
+        r[1] = locals
+        r[2] = nlocals
+        r[3] = 0
+        return r
+    if t == 7
+        let elems = node[1]
+        let elen = elems.len()
+        let size = (elen + 1) * 4
+        wasm = arr_push(wasm, 35)
+        wasm = arr_push(wasm, 0)
+        wasm = arr_push(wasm, 36)
+        wasm = arr_push(wasm, 1)
+        wasm = arr_push(wasm, 35)
+        wasm = arr_push(wasm, 0)
+        wasm = arr_push(wasm, 65)
+        let sb = sleb128(size)
+        let si = 0
+        for si < sb.len()
+            wasm = arr_push(wasm, sb[si])
+            si = si + 1
+        wasm = arr_push(wasm, 106)
+        wasm = arr_push(wasm, 36)
+        wasm = arr_push(wasm, 0)
+        wasm = arr_push(wasm, 35)
+        wasm = arr_push(wasm, 1)
+        wasm = arr_push(wasm, 65)
+        let lb = sleb128(elen)
+        let li = 0
+        for li < lb.len()
+            wasm = arr_push(wasm, lb[li])
+            li = li + 1
+        wasm = arr_push(wasm, 54)
+        wasm = arr_push(wasm, 2)
+        wasm = arr_push(wasm, 0)
+        let ei = 0
+        for ei < elen
+            wasm = arr_push(wasm, 35)
+            wasm = arr_push(wasm, 1)
+            let r1 = emit_expr(elems[ei], wasm, locals, nlocals, fnames, captures)
+            wasm = r1[0]
+            wasm = arr_push(wasm, 54)
+            wasm = arr_push(wasm, 2)
+            let off = (ei + 1) * 4
+            let ob = uleb128(off)
+            let oi = 0
+            for oi < ob.len()
+                wasm = arr_push(wasm, ob[oi])
+                oi = oi + 1
+            ei = ei + 1
+        wasm = arr_push(wasm, 35)
+        wasm = arr_push(wasm, 1)
+        let r = arr_new_n(4)
+        r[0] = wasm
+        r[1] = locals
+        r[2] = nlocals
+        r[3] = 0
+        return r
+    if t == 6
+        let obj = node[1]
+        let mid = node[2]
+        let margs = node[3]
+        if mid == 0
+            let r1 = emit_expr(obj, wasm, locals, nlocals, fnames, captures)
+            wasm = r1[0]
+            wasm = arr_push(wasm, 40)
+            wasm = arr_push(wasm, 2)
+            wasm = arr_push(wasm, 0)
+            let r = arr_new_n(4)
+            r[0] = wasm
+            r[1] = r1[1]
+            r[2] = r1[2]
+            r[3] = 0
+            return r
+        if mid == 1
+            let r1 = emit_expr(obj, wasm, locals, nlocals, fnames, captures)
+            wasm = r1[0]
+            let r2 = emit_expr(margs[0], wasm, r1[1], r1[2], fnames, captures)
+            wasm = r2[0]
+            wasm = arr_push(wasm, 65)
+            wasm = arr_push(wasm, 1)
+            wasm = arr_push(wasm, 106)
+            wasm = arr_push(wasm, 65)
+            wasm = arr_push(wasm, 4)
+            wasm = arr_push(wasm, 108)
+            wasm = arr_push(wasm, 106)
+            wasm = arr_push(wasm, 40)
+            wasm = arr_push(wasm, 2)
+            wasm = arr_push(wasm, 0)
+            let r = arr_new_n(4)
+            r[0] = wasm
+            r[1] = r2[1]
+            r[2] = r2[2]
+            r[3] = 0
+            return r
+        if mid == 2
+            let r1 = emit_expr(obj, wasm, locals, nlocals, fnames, captures)
+            wasm = r1[0]
+            wasm = arr_push(wasm, 36)
+            wasm = arr_push(wasm, 1)
+            wasm = arr_push(wasm, 35)
+            wasm = arr_push(wasm, 1)
+            let r2 = emit_expr(margs[0], wasm, r1[1], r1[2], fnames, captures)
+            wasm = r2[0]
+            wasm = arr_push(wasm, 65)
+            wasm = arr_push(wasm, 1)
+            wasm = arr_push(wasm, 106)
+            wasm = arr_push(wasm, 65)
+            wasm = arr_push(wasm, 4)
+            wasm = arr_push(wasm, 108)
+            wasm = arr_push(wasm, 106)
+            let r3 = emit_expr(margs[1], wasm, r2[1], r2[2], fnames, captures)
+            wasm = r3[0]
+            wasm = arr_push(wasm, 54)
+            wasm = arr_push(wasm, 2)
+            wasm = arr_push(wasm, 0)
+            wasm = arr_push(wasm, 35)
+            wasm = arr_push(wasm, 1)
+            let r = arr_new_n(4)
+            r[0] = wasm
+            r[1] = r3[1]
+            r[2] = r3[2]
+            r[3] = 0
+            return r
+        let r = arr_new_n(4)
+        r[0] = wasm
+        r[1] = locals
+        r[2] = nlocals
+        r[3] = 0
+        return r
+    if t == 4
+        let inner = node[1]
+        let bindings = node[2]
+        let bi = 0
+        for bi < bindings.len()
+            let pair = bindings[bi]
+            let bname = pair[0]
+            let bexpr = pair[1]
+            let br = emit_expr(bexpr, wasm, locals, nlocals, fnames, captures)
+            wasm = br[0]
+            let locals2 = br[1]
+            let bidx = 0
+            let bi2 = 0
+            let bfound = 0
+            for bi2 < locals2.len()
+                if str_eq(locals2[bi2], bname) == 1
+                    bidx = bi2
+                    bfound = 1
+                bi2 = bi2 + 1
+            if bfound == 0
+                locals2 = arr_push(locals2, bname)
+                bidx = locals2.len() - 1
+            wasm = arr_push(wasm, 33)
+            let nb = uleb128(bidx)
+            let ni = 0
+            for ni < nb.len()
+                wasm = arr_push(wasm, nb[ni])
+                ni = ni + 1
+            locals = locals2
+            nlocals = locals2.len()
+            bi = bi + 1
+        let r1 = emit_expr(inner, wasm, locals, nlocals, fnames, captures)
+        return r1
+    let r = arr_new_n(4)
+    r[0] = wasm
+    r[1] = locals
+    r[2] = nlocals
+    r[3] = 0
+    return r
+let emit_stmt(node, wasm, locals, nlocals, fnames, captures) =
+    let t = node[0]
+    if t == 10
+        let expr = node[2]
+        if expr[0] == 4
+            let inner = expr[1]
+            let bindings = expr[2]
+            let bi = 0
+            for bi < bindings.len()
+                let pair = bindings[bi]
+                let bname = pair[0]
+                let bexpr = pair[1]
+                let br = emit_expr(bexpr, wasm, locals, nlocals, fnames, captures)
+                wasm = br[0]
+                let locals2 = br[1]
+                let bidx = 0
+                let bi2 = 0
+                let bfound = 0
+                for bi2 < locals2.len()
+                    if str_eq(locals2[bi2], bname) == 1
+                        bidx = bi2
+                        bfound = 1
+                    bi2 = bi2 + 1
+                if bfound == 0
+                    locals2 = arr_push(locals2, bname)
+                    bidx = locals2.len() - 1
+                wasm = arr_push(wasm, 33)
+                let nb = uleb128(bidx)
+                let ni = 0
+                for ni < nb.len()
+                    wasm = arr_push(wasm, nb[ni])
+                    ni = ni + 1
+                locals = locals2
+                nlocals = locals2.len()
+                bi = bi + 1
+            let r1 = emit_expr(inner, wasm, locals, nlocals, fnames, captures)
+            wasm = r1[0]
+            let locals2 = r1[1]
+            let idx = 0
+            let i = 0
+            let found = 0
+            for i < locals2.len()
+                if str_eq(locals2[i], node[1]) == 1
+                    idx = i
+                    found = 1
+                i = i + 1
+            if found == 0
+                locals2 = arr_push(locals2, node[1])
+                idx = locals2.len() - 1
+            wasm = arr_push(wasm, 33)
+            let nb = uleb128(idx)
+            let ni = 0
+            for ni < nb.len()
+                wasm = arr_push(wasm, nb[ni])
+                ni = ni + 1
+            let r = arr_new_n(4)
+            r[0] = wasm
+            r[1] = locals2
+            r[2] = locals2.len()
+            r[3] = 0
+            return r
+        let r1 = emit_expr(expr, wasm, locals, nlocals, fnames, captures)
+        wasm = r1[0]
+        let locals2 = r1[1]
+        let idx = 0
+        let i = 0
+        let found = 0
+        for i < locals2.len()
+            if str_eq(locals2[i], node[1]) == 1
+                idx = i
+                found = 1
+            i = i + 1
+        if found == 0
+            locals2 = arr_push(locals2, node[1])
+            idx = locals2.len() - 1
+        wasm = arr_push(wasm, 33)
+        let nb = uleb128(idx)
+        let ni = 0
+        for ni < nb.len()
+            wasm = arr_push(wasm, nb[ni])
+            ni = ni + 1
+        let r = arr_new_n(4)
+        r[0] = wasm
+        r[1] = locals2
+        r[2] = locals2.len()
+        r[3] = 0
+        return r
+    if t == 11
+        let arg = node[1]
+        let pid2 = 1
+        if arg[0] == 5
+            pid2 = 25
+        wasm = arr_push(wasm, 65)
+        wasm = arr_push(wasm, pid2)
+        let r1 = emit_expr(arg, wasm, locals, nlocals, fnames, captures)
+        wasm = r1[0]
+        wasm = arr_push(wasm, 65)
+        wasm = arr_push(wasm, 0)
+        wasm = arr_push(wasm, 16)
+        wasm = arr_push(wasm, 0)
+        wasm = arr_push(wasm, 26)
+        wasm = arr_push(wasm, 65)
+        wasm = arr_push(wasm, 0)
+        wasm = arr_push(wasm, 26)
+        let r = arr_new_n(4)
+        r[0] = wasm
+        r[1] = r1[1]
+        r[2] = r1[2]
+        r[3] = 0
+        return r
+    if t == 13
+        let cond = node[1]
+        let body = node[2]
+        wasm = arr_push(wasm, 2)
+        wasm = arr_push(wasm, 64)
+        wasm = arr_push(wasm, 3)
+        wasm = arr_push(wasm, 64)
+        let r1 = emit_expr(cond, wasm, locals, nlocals, fnames, captures)
+        wasm = r1[0]
+        wasm = arr_push(wasm, 69)
+        wasm = arr_push(wasm, 13)
+        wasm = arr_push(wasm, 1)
+        wasm = arr_push(wasm, 2)
+        wasm = arr_push(wasm, 64)
+        let r2 = emit_stmts(body, wasm, r1[1], r1[2], fnames, captures)
+        wasm = r2[0]
+        wasm = arr_push(wasm, 11)
+        wasm = arr_push(wasm, 12)
+        wasm = arr_push(wasm, 0)
+        wasm = arr_push(wasm, 11)
+        wasm = arr_push(wasm, 11)
+        let r = arr_new_n(4)
+        r[0] = wasm
+        r[1] = r2[1]
+        r[2] = r2[2]
+        r[3] = 0
+        return r
+    if t == 14
+        let expr = node[1]
+        let r1 = emit_expr(expr, wasm, locals, nlocals, fnames, captures)
+        wasm = r1[0]
+        wasm = arr_push(wasm, 15)
+        let r = arr_new_n(4)
+        r[0] = wasm
+        r[1] = r1[1]
+        r[2] = r1[2]
+        r[3] = 0
+        return r
+    if t == 16
+        let cond = node[1]
+        let then = node[2]
+        let els = node[3]
+        let r1 = emit_expr(cond, wasm, locals, nlocals, fnames, captures)
+        wasm = r1[0]
+        wasm = arr_push(wasm, 4)
+        wasm = arr_push(wasm, 64)
+        let r2 = emit_stmts(then, wasm, r1[1], r1[2], fnames, captures)
+        wasm = r2[0]
+        if els.len() == 0
+            wasm = arr_push(wasm, 11)
+        else
+            wasm = arr_push(wasm, 5)
+            let r3 = emit_stmts(els, wasm, r2[1], r2[2], fnames, captures)
+            wasm = r3[0]
+            wasm = arr_push(wasm, 11)
+            let r = arr_new_n(4)
+            r[0] = wasm
+            r[1] = r3[1]
+            r[2] = r3[2]
+            r[3] = 0
+            return r
+        let r = arr_new_n(4)
+        r[0] = wasm
+        r[1] = r2[1]
+        r[2] = r2[2]
+        r[3] = 0
+        return r
+    if t == 17
+        let expr = node[1]
+        let r1 = emit_expr(expr, wasm, locals, nlocals, fnames, captures)
+        wasm = r1[0]
+        wasm = arr_push(wasm, 26)
+        let r = arr_new_n(4)
+        r[0] = wasm
+        r[1] = r1[1]
+        r[2] = r1[2]
+        r[3] = 0
+        return r
+    if t == 21
+        let names = node[1]
+        let expr = node[2]
+        let r1 = emit_expr(expr, wasm, locals, nlocals, fnames, captures)
+        wasm = r1[0]
+        let locals2 = r1[1]
+        let tmp_idx = locals2.len()
+        let tmp_name = str_concat("__destr", str_from_char(tmp_idx + 1))
+        locals2 = arr_push(locals2, tmp_name)
+        wasm = arr_push(wasm, 33)
+        let nb = uleb128(tmp_idx)
+        let ni = 0
+        for ni < nb.len()
+            wasm = arr_push(wasm, nb[ni])
+            ni = ni + 1
+        let i = 0
+        for i < names.len()
+            wasm = arr_push(wasm, 32)
+            let nb2 = uleb128(tmp_idx)
+            let ni2 = 0
+            for ni2 < nb2.len()
+                wasm = arr_push(wasm, nb2[ni2])
+                ni2 = ni2 + 1
+            wasm = arr_push(wasm, 65)
+            let offset = (i + 1) * 4
+            let sb = sleb128(offset)
+            let si = 0
+            for si < sb.len()
+                wasm = arr_push(wasm, sb[si])
+                si = si + 1
+            wasm = arr_push(wasm, 106)
+            wasm = arr_push(wasm, 40)
+            wasm = arr_push(wasm, 2)
+            wasm = arr_push(wasm, 0)
+            let name = names[i]
+            let idx = 0
+            let found = 0
+            let bi = 0
+            for bi < locals2.len()
+                if str_eq(locals2[bi], name) == 1
+                    idx = bi
+                    found = 1
+                bi = bi + 1
+            if found == 0
+                locals2 = arr_push(locals2, name)
+                idx = locals2.len() - 1
+            wasm = arr_push(wasm, 33)
+            let nb3 = uleb128(idx)
+            let ni3 = 0
+            for ni3 < nb3.len()
+                wasm = arr_push(wasm, nb3[ni3])
+                ni3 = ni3 + 1
+            i = i + 1
+        let r = arr_new_n(4)
+        r[0] = wasm
+        r[1] = locals2
+        r[2] = locals2.len()
+        r[3] = 0
+        return r
+    if t == 22
+        let body = node[2]
+        let r2 = emit_stmts(body, wasm, locals, nlocals, fnames, captures)
+        let r = arr_new_n(4)
+        r[0] = r2[0]
+        r[1] = r2[1]
+        r[2] = r2[2]
+        r[3] = 0
+        return r
+    if t == 23
+        let fvar = node[1]
+        let fstart = node[2]
+        let fend = node[3]
+        let fbody = node[4]
+        let r1 = emit_expr(fstart, wasm, locals, nlocals, fnames, captures)
+        wasm = r1[0]
+        let locals2 = r1[1]
+        let var_idx = 0
+        let vi = 0
+        let vfound = 0
+        for vi < locals2.len()
+            if str_eq(locals2[vi], fvar) == 1
+                var_idx = vi
+                vfound = 1
+            vi = vi + 1
+        if vfound == 0
+            locals2 = arr_push(locals2, fvar)
+            var_idx = locals2.len() - 1
+        wasm = arr_push(wasm, 33)
+        let nb0 = uleb128(var_idx)
+        let ni0 = 0
+        for ni0 < nb0.len()
+            wasm = arr_push(wasm, nb0[ni0])
+            ni0 = ni0 + 1
+        wasm = arr_push(wasm, 2)
+        wasm = arr_push(wasm, 64)
+        wasm = arr_push(wasm, 3)
+        wasm = arr_push(wasm, 64)
+        wasm = arr_push(wasm, 32)
+        let nb1 = uleb128(var_idx)
+        let ni1 = 0
+        for ni1 < nb1.len()
+            wasm = arr_push(wasm, nb1[ni1])
+            ni1 = ni1 + 1
+        let r2 = emit_expr(fend, wasm, locals2, locals2.len(), fnames, captures)
+        wasm = r2[0]
+        wasm = arr_push(wasm, 72)
+        wasm = arr_push(wasm, 69)
+        wasm = arr_push(wasm, 13)
+        wasm = arr_push(wasm, 1)
+        wasm = arr_push(wasm, 2)
+        wasm = arr_push(wasm, 64)
+        let r3 = emit_stmts(fbody, wasm, r2[1], r2[2], fnames, captures)
+        wasm = r3[0]
+        wasm = arr_push(wasm, 11)
+        wasm = arr_push(wasm, 32)
+        let nb2 = uleb128(var_idx)
+        let ni2 = 0
+        for ni2 < nb2.len()
+            wasm = arr_push(wasm, nb2[ni2])
+            ni2 = ni2 + 1
+        wasm = arr_push(wasm, 65)
+        wasm = arr_push(wasm, 1)
+        wasm = arr_push(wasm, 106)
+        wasm = arr_push(wasm, 33)
+        let nb3 = uleb128(var_idx)
+        let ni3 = 0
+        for ni3 < nb3.len()
+            wasm = arr_push(wasm, nb3[ni3])
+            ni3 = ni3 + 1
+        wasm = arr_push(wasm, 12)
+        wasm = arr_push(wasm, 0)
+        wasm = arr_push(wasm, 11)
+        wasm = arr_push(wasm, 11)
+        let r = arr_new_n(4)
+        r[0] = wasm
+        r[1] = r3[1]
+        r[2] = r3[2]
+        r[3] = 0
+        return r
+    if t == 24
+        wasm = arr_push(wasm, 12)
+        wasm = arr_push(wasm, 2)
+        let r = arr_new_n(4)
+        r[0] = wasm
+        r[1] = locals
+        r[2] = nlocals
+        r[3] = 0
+        return r
+    if t == 25
+        wasm = arr_push(wasm, 12)
+        wasm = arr_push(wasm, 1)
+        let r = arr_new_n(4)
+        r[0] = wasm
+        r[1] = locals
+        r[2] = nlocals
+        r[3] = 0
+        return r
+    if t == 26
+        let r1 = emit_stmts(node[1], wasm, locals, nlocals, fnames, captures)
+        let r = arr_new_n(4)
+        r[0] = r1[0]
+        r[1] = r1[1]
+        r[2] = r1[2]
+        r[3] = 0
+        return r
+    if t == 27
+        let expr = node[1]
+        let r1 = emit_expr(expr, wasm, locals, nlocals, fnames, captures)
+        wasm = r1[0]
+        let locals2 = r1[1]
+        let nlocals2 = r1[2]
+        let tmp_idx = nlocals2
+        let locals3 = arr_push(locals2, 0)
+        let nlocals3 = nlocals2 + 1
+        wasm = arr_push(wasm, 33)
+        let nb0 = uleb128(tmp_idx)
+        let ni0 = 0
+        for ni0 < nb0.len()
+            wasm = arr_push(wasm, nb0[ni0])
+            ni0 = ni0 + 1
+        wasm = arr_push(wasm, 32)
+        let nb1 = uleb128(tmp_idx)
+        let ni1 = 0
+        for ni1 < nb1.len()
+            wasm = arr_push(wasm, nb1[ni1])
+            ni1 = ni1 + 1
+        wasm = arr_push(wasm, 65)
+        wasm = arr_push(wasm, 4)
+        wasm = arr_push(wasm, 106)
+        wasm = arr_push(wasm, 40)
+        wasm = arr_push(wasm, 2)
+        wasm = arr_push(wasm, 0)
+        wasm = arr_push(wasm, 65)
+        wasm = arr_push(wasm, 1)
+        wasm = arr_push(wasm, 70)
+        wasm = arr_push(wasm, 4)
+        wasm = arr_push(wasm, 64)
+        wasm = arr_push(wasm, 32)
+        let nb2 = uleb128(tmp_idx)
+        let ni2 = 0
+        for ni2 < nb2.len()
+            wasm = arr_push(wasm, nb2[ni2])
+            ni2 = ni2 + 1
+        wasm = arr_push(wasm, 15)
+        wasm = arr_push(wasm, 11)
+        let r = arr_new_n(4)
+        r[0] = wasm
+        r[1] = locals3
+        r[2] = nlocals3
+        r[3] = 0
+        return r
+    if t == 28
+        let cond = node[1]
+        let body = node[2]
+        wasm = arr_push(wasm, 2)
+        wasm = arr_push(wasm, 64)
+        wasm = arr_push(wasm, 3)
+        wasm = arr_push(wasm, 64)
+        wasm = arr_push(wasm, 2)
+        wasm = arr_push(wasm, 64)
+        let r1 = emit_stmts(body, wasm, locals, nlocals, fnames, captures)
+        wasm = r1[0]
+        wasm = arr_push(wasm, 11)
+        let r2 = emit_expr(cond, wasm, r1[1], r1[2], fnames, captures)
+        wasm = r2[0]
+        wasm = arr_push(wasm, 69)
+        wasm = arr_push(wasm, 13)
+        wasm = arr_push(wasm, 1)
+        wasm = arr_push(wasm, 12)
+        wasm = arr_push(wasm, 0)
+        wasm = arr_push(wasm, 11)
+        wasm = arr_push(wasm, 11)
+        let r = arr_new_n(4)
+        r[0] = wasm
+        r[1] = r2[1]
+        r[2] = r2[2]
+        r[3] = 0
+        return r
+    if t == 29
+        let cond = node[1]
+        let r1 = emit_expr(cond, wasm, locals, nlocals, fnames, captures)
+        wasm = r1[0]
+        wasm = arr_push(wasm, 69)
+        wasm = arr_push(wasm, 4)
+        wasm = arr_push(wasm, 64)
+        wasm = arr_push(wasm, 0)
+        wasm = arr_push(wasm, 11)
+        let r = arr_new_n(4)
+        r[0] = wasm
+        r[1] = r1[1]
+        r[2] = r1[2]
+        r[3] = 0
+        return r
+    let r = arr_new_n(4)
+    r[0] = wasm
+    r[1] = locals
+    r[2] = nlocals
+    r[3] = 0
+    return r
+let emit_stmts(stmts, wasm, locals, nlocals, fnames, captures) =
+    let i = 0
+    for i < stmts.len()
+        let r = emit_stmt(stmts[i], wasm, locals, nlocals, fnames, captures)
+        wasm = r[0]
+        locals = r[1]
+        nlocals = r[2]
+        i = i + 1
+    let r = arr_new_n(4)
+    r[0] = wasm
+    r[1] = locals
+    r[2] = nlocals
+    r[3] = 0
+    return r
+let scan_lets_reg(locals2, name) =
+    let found = 0
+    let i2 = 0
+    for i2 < locals2.len()
+        if str_eq(locals2[i2], name) == 1
+            found = 1
+        i2 = i2 + 1
+    if found == 0
+        locals2 = arr_push(locals2, name)
+    return locals2
+let scan_lets_expr(node, locals2) =
+    let t = node[0]
+    if t == 4
+        let bs = node[2]
+        let bi = 0
+        for bi < bs.len()
+            locals2 = scan_lets_reg(locals2, bs[bi][0])
+            locals2 = scan_lets_expr(bs[bi][1], locals2)
+            bi = bi + 1
+        locals2 = scan_lets_expr(node[1], locals2)
+        return locals2
+    if t == 12
+        locals2 = scan_lets_expr(node[1], locals2)
+        locals2 = scan_lets_expr(node[2], locals2)
+        locals2 = scan_lets_expr(node[3], locals2)
+        return locals2
+    if t == 3
+        locals2 = scan_lets_expr(node[2], locals2)
+        locals2 = scan_lets_expr(node[3], locals2)
+        return locals2
+    if t == 7
+        let es = node[1]
+        let ei = 0
+        for ei < es.len()
+            locals2 = scan_lets_expr(es[ei], locals2)
+            ei = ei + 1
+        return locals2
+    if t == 1
+        let as2 = node[2]
+        let ai = 0
+        for ai < as2.len()
+            locals2 = scan_lets_expr(as2[ai], locals2)
+            ai = ai + 1
+        return locals2
+    if t == 6
+        locals2 = scan_lets_expr(node[1], locals2)
+        let ma = node[3]
+        let mi = 0
+        for mi < ma.len()
+            locals2 = scan_lets_expr(ma[mi], locals2)
+            mi = mi + 1
+        return locals2
+    return locals2
+let scan_lets_stmt(s, locals2) =
+    let t = s[0]
+    if t == 10
+        if s[3] == 0
+            locals2 = scan_lets_reg(locals2, s[1])
+        return scan_lets_expr(s[2], locals2)
+    if t == 17
+        return scan_lets_expr(s[1], locals2)
+    if t == 14
+        return scan_lets_expr(s[1], locals2)
+    if t == 11
+        return scan_lets_expr(s[1], locals2)
+    if t == 16
+        locals2 = scan_lets_expr(s[1], locals2)
+        let tsi = 0
+        for tsi < s[2].len()
+            locals2 = scan_lets_stmt(s[2][tsi], locals2)
+            tsi = tsi + 1
+        let esi = 0
+        for esi < s[3].len()
+            locals2 = scan_lets_stmt(s[3][esi], locals2)
+            esi = esi + 1
+        return locals2
+    if t == 13
+        locals2 = scan_lets_expr(s[1], locals2)
+        let wi = 0
+        for wi < s[2].len()
+            locals2 = scan_lets_stmt(s[2][wi], locals2)
+            wi = wi + 1
+        return locals2
+    if t == 23
+        locals2 = scan_lets_expr(s[2], locals2)
+        locals2 = scan_lets_expr(s[3], locals2)
+        let fi2 = 0
+        for fi2 < s[4].len()
+            locals2 = scan_lets_stmt(s[4][fi2], locals2)
+            fi2 = fi2 + 1
+        return locals2
+    if t == 20
+        let ni = 0
+        for ni < s[3].len()
+            locals2 = scan_lets_stmt(s[3][ni], locals2)
+            ni = ni + 1
+        return scan_lets_expr(s[4], locals2)
+    return locals2
+let scan_lets_stmts(stmts, locals2) =
+    let i3 = 0
+    for i3 < stmts.len()
+        locals2 = scan_lets_stmt(stmts[i3], locals2)
+        i3 = i3 + 1
+    return locals2
+let emit_func_body(body, ret, locals, nparams, fnames, captures) =
+    locals = scan_lets_stmts(body, locals)
+    locals = scan_lets_expr(ret, locals)
+    let code = arr_new()
+    let r1 = emit_stmts(body, code, locals, nparams, fnames, captures)
+    let r2 = emit_expr(ret, r1[0], r1[1], r1[2], fnames, captures)
+    let code = r2[0]
+    code = arr_push(code, 11)
+    let r3 = arr_new_n(3)
+    r3[0] = code
+    r3[1] = r2[2]
+    r3[2] = 0
+    return r3
+let free_vars_expr(node, bound) =
+    let t = node[0]
+    let result = arr_new()
+    if t == 2
+        let name = node[1]
+        let found = 0
+        let bi = 0
+        for bi < bound.len()
+            if str_eq(bound[bi], name) == 1
+                found = 1
+            bi = bi + 1
+        if found == 0
+            result = arr_push(result, name)
+    else
+    if t == 3
+        let fl = free_vars_expr(node[2], bound)
+        let fr = free_vars_expr(node[3], bound)
+        let i = 0
+        for i < fl.len()
+            result = arr_push(result, fl[i])
+            i = i + 1
+        let i = 0
+        for i < fr.len()
+            result = arr_push(result, fr[i])
+            i = i + 1
+    else
+    if t == 1
+        let args = node[2]
+        let ai = 0
+        for ai < args.len()
+            let fa = free_vars_expr(args[ai], bound)
+            let i = 0
+            for i < fa.len()
+                result = arr_push(result, fa[i])
+                i = i + 1
+            ai = ai + 1
+    else
+    if t == 12
+        let fc = free_vars_expr(node[1], bound)
+        let ft = free_vars_expr(node[2], bound)
+        let fe = free_vars_expr(node[3], bound)
+        let i = 0
+        for i < fc.len()
+            result = arr_push(result, fc[i])
+            i = i + 1
+        let i = 0
+        for i < ft.len()
+            result = arr_push(result, ft[i])
+            i = i + 1
+        let i = 0
+        for i < fe.len()
+            result = arr_push(result, fe[i])
+            i = i + 1
+    else
+    if t == 6
+        let fo = free_vars_expr(node[1], bound)
+        let i = 0
+        for i < fo.len()
+            result = arr_push(result, fo[i])
+            i = i + 1
+        let args = node[3]
+        let ai = 0
+        for ai < args.len()
+            let fa = free_vars_expr(args[ai], bound)
+            let i = 0
+            for i < fa.len()
+                result = arr_push(result, fa[i])
+                i = i + 1
+            ai = ai + 1
+    else
+    if t == 7
+        let elems = node[1]
+        let ei = 0
+        for ei < elems.len()
+            let fe = free_vars_expr(elems[ei], bound)
+            let i = 0
+            for i < fe.len()
+                result = arr_push(result, fe[i])
+                i = i + 1
+            ei = ei + 1
+    return result
+let free_vars_stmt(stmt, bound) =
+    let t = stmt[0]
+    let result = arr_new()
+    if t == 10
+        let fe = free_vars_expr(stmt[2], bound)
+        let i = 0
+        for i < fe.len()
+            result = arr_push(result, fe[i])
+            i = i + 1
+    else
+    if t == 20
+        let params = stmt[2]
+        let inner_bound = arr_new()
+        let bi = 0
+        for bi < bound.len()
+            inner_bound = arr_push(inner_bound, bound[bi])
+            bi = bi + 1
+        let pi = 0
+        for pi < params.len()
+            inner_bound = arr_push(inner_bound, params[pi])
+            pi = pi + 1
+        let body = stmt[3]
+        let bi = 0
+        for bi < body.len()
+            let fb = free_vars_stmt(body[bi], inner_bound)
+            let i = 0
+            for i < fb.len()
+                result = arr_push(result, fb[i])
+                i = i + 1
+            bi = bi + 1
+        let ret = stmt[4]
+        if ret.len() != 0
+            let fr = free_vars_expr(ret, inner_bound)
+            let i = 0
+            for i < fr.len()
+                result = arr_push(result, fr[i])
+                i = i + 1
+    else
+    if t == 17
+        let fe = free_vars_expr(stmt[1], bound)
+        let i = 0
+        for i < fe.len()
+            result = arr_push(result, fe[i])
+            i = i + 1
+    else
+    if t == 14
+        let fe = free_vars_expr(stmt[1], bound)
+        let i = 0
+        for i < fe.len()
+            result = arr_push(result, fe[i])
+            i = i + 1
+    else
+    if t == 13
+        let fc = free_vars_expr(stmt[1], bound)
+        let i = 0
+        for i < fc.len()
+            result = arr_push(result, fc[i])
+            i = i + 1
+        let body = stmt[2]
+        let bi = 0
+        for bi < body.len()
+            let fb = free_vars_stmt(body[bi], bound)
+            let i = 0
+            for i < fb.len()
+                result = arr_push(result, fb[i])
+                i = i + 1
+            bi = bi + 1
+    else
+    if t == 16
+        let fc = free_vars_expr(stmt[1], bound)
+        let i = 0
+        for i < fc.len()
+            result = arr_push(result, fc[i])
+            i = i + 1
+        let then = stmt[2]
+        let bi = 0
+        for bi < then.len()
+            let fb = free_vars_stmt(then[bi], bound)
+            let i = 0
+            for i < fb.len()
+                result = arr_push(result, fb[i])
+                i = i + 1
+            bi = bi + 1
+        let els = stmt[3]
+        let bi = 0
+        for bi < els.len()
+            let fb = free_vars_stmt(els[bi], bound)
+            let i = 0
+            for i < fb.len()
+                result = arr_push(result, fb[i])
+                i = i + 1
+            bi = bi + 1
+    else
+    if t == 21
+        let fe = free_vars_expr(stmt[2], bound)
+        let i = 0
+        for i < fe.len()
+            result = arr_push(result, fe[i])
+            i = i + 1
+    else
+        if t == 22
+            let body = stmt[2]
+            let bi = 0
+            for bi < body.len()
+                let fb = free_vars_stmt(body[bi], bound)
+                let i = 0
+                for i < fb.len()
+                    result = arr_push(result, fb[i])
+                    i = i + 1
+                bi = bi + 1
+        if t == 23
+            let fs = free_vars_expr(stmt[2], bound)
+            let i = 0
+            for i < fs.len()
+                result = arr_push(result, fs[i])
+                i = i + 1
+            let fe = free_vars_expr(stmt[3], bound)
+            let i = 0
+            for i < fe.len()
+                result = arr_push(result, fe[i])
+                i = i + 1
+            let inner_bound = arr_new()
+            let bi2 = 0
+            for bi2 < bound.len()
+                inner_bound = arr_push(inner_bound, bound[bi2])
+                bi2 = bi2 + 1
+            inner_bound = arr_push(inner_bound, stmt[1])
+            let fbody = stmt[4]
+            let bi3 = 0
+            for bi3 < fbody.len()
+                let fb = free_vars_stmt(fbody[bi3], inner_bound)
+                let i = 0
+                for i < fb.len()
+                    result = arr_push(result, fb[i])
+                    i = i + 1
+                bi3 = bi3 + 1
+        if t == 26
+            let ebody = stmt[1]
+            let ebi = 0
+            for ebi < ebody.len()
+                let fb = free_vars_stmt(ebody[ebi], bound)
+                let i = 0
+                for i < fb.len()
+                    result = arr_push(result, fb[i])
+                    i = i + 1
+                ebi = ebi + 1
+        if t == 27
+            let fs = free_vars_expr(stmt[1], bound)
+            let i = 0
+            for i < fs.len()
+                result = arr_push(result, fs[i])
+                i = i + 1
+        if t == 28
+            let fs = free_vars_expr(stmt[1], bound)
+            let i = 0
+            for i < fs.len()
+                result = arr_push(result, fs[i])
+                i = i + 1
+            let dbody = stmt[2]
+            let dbi = 0
+            for dbi < dbody.len()
+                let fb = free_vars_stmt(dbody[dbi], bound)
+                let i = 0
+                for i < fb.len()
+                    result = arr_push(result, fb[i])
+                    i = i + 1
+                dbi = dbi + 1
+        if t == 29
+            let fs = free_vars_expr(stmt[1], bound)
+            let i = 0
+            for i < fs.len()
+                result = arr_push(result, fs[i])
+                i = i + 1
+    return result
+let caps_lookup(caps, name) =
+    let result = arr_new()
+    let i = 0
+    for i < caps.len()
+        let entry = caps[i]
+        if str_eq(entry[0], name) == 1
+            result = entry[1]
+            i = caps.len()
+        i = i + 1
+    return result
+let collect_funcs(stmts, fns, fnames, caps, visible) =
+    let si = 0
+    for si < stmts.len()
+        let stmt = stmts[si]
+        let t = stmt[0]
+        if t == 20
+            let name = stmt[1]
+            let found = 0
+            let fi = 0
+            for fi < fnames.len()
+                if str_eq(fnames[fi], name) == 1
+                    found = 1
+                fi = fi + 1
+            if found == 0
+                fns = arr_push(fns, stmt)
+                fnames = arr_push(fnames, name)
+                let params = stmt[2]
+                let bound = arr_new()
+                let pi = 0
+                for pi < params.len()
+                    bound = arr_push(bound, params[pi])
+                    pi = pi + 1
+                let free = arr_new()
+                let body = stmt[3]
+                let bi = 0
+                for bi < body.len()
+                    let fb = free_vars_stmt(body[bi], bound)
+                    let i = 0
+                    for i < fb.len()
+                        free = arr_push(free, fb[i])
+                        i = i + 1
+                    bi = bi + 1
+                let ret = stmt[4]
+                if ret.len() != 0
+                    let fr = free_vars_expr(ret, bound)
+                    let i = 0
+                    for i < fr.len()
+                        free = arr_push(free, fr[i])
+                        i = i + 1
+                let cap = arr_new()
+                let fi2 = 0
+                for fi2 < free.len()
+                    let v = free[fi2]
+                    let vi = 0
+                    let vfound = 0
+                    for vi < visible.len()
+                        if str_eq(visible[vi], v) == 1
+                            vfound = 1
+                        vi = vi + 1
+                    if vfound == 1
+                        cap = arr_push(cap, v)
+                    fi2 = fi2 + 1
+                let cap_entry = arr_new_n(2)
+                cap_entry[0] = name
+                cap_entry[1] = cap
+                caps = arr_push(caps, cap_entry)
+                let inner_visible = arr_new()
+                let vi = 0
+                for vi < visible.len()
+                    inner_visible = arr_push(inner_visible, visible[vi])
+                    vi = vi + 1
+                let pi = 0
+                for pi < params.len()
+                    inner_visible = arr_push(inner_visible, params[pi])
+                    pi = pi + 1
+                let r = collect_funcs(body, fns, fnames, caps, inner_visible)
+                fns = r[0]
+                fnames = r[1]
+                caps = r[2]
+        else
+        if t == 13
+            let body = stmt[2]
+            let r = collect_funcs(body, fns, fnames, caps, visible)
+            fns = r[0]
+            fnames = r[1]
+            caps = r[2]
+        else
+        if t == 16
+            let then_body = stmt[2]
+            let els_body = stmt[3]
+            let r1 = collect_funcs(then_body, fns, fnames, caps, visible)
+            fns = r1[0]
+            fnames = r1[1]
+            caps = r1[2]
+            let r2 = collect_funcs(els_body, fns, fnames, caps, visible)
+            fns = r2[0]
+            fnames = r2[1]
+            caps = r2[2]
+        else
+        if t == 22
+            let body = stmt[2]
+            let r3 = collect_funcs(body, fns, fnames, caps, visible)
+            fns = r3[0]
+            fnames = r3[1]
+            caps = r3[2]
+        si = si + 1
+    let r = arr_new_n(3)
+    r[0] = fns
+    r[1] = fnames
+    r[2] = caps
+    return r
+let codegen(stmts) =
+    let fns = arr_new()
+    let fnames0 = arr_new()
+    let cf_r = collect_funcs(stmts, fns, fnames0, arr_new(), arr_new())
+    fns = cf_r[0]
+    let fnames = cf_r[1]
+    let caps = cf_r[2]
+    let has_main = 0
+    let user_main_idx = 0
+    let fi_hm = 0
+    for fi_hm < fnames.len()
+        if str_eq(fnames[fi_hm], "main") == 1
+            has_main = 1
+            user_main_idx = fi_hm
+            fi_hm = fnames.len()
+        fi_hm = fi_hm + 1
+    let main_stmts = arr_new()
+    let si = 0
+    for si < stmts.len()
+        let stmt = stmts[si]
+        if stmt[0] != 20
+            main_stmts = arr_push(main_stmts, stmt)
+        si = si + 1
+    let nfns = fns.len()
+    let nfns_emit = nfns + (1 - has_main)
+    let wasm = arr_new()
+    wasm = arr_push(wasm, 0)
+    wasm = arr_push(wasm, 97)
+    wasm = arr_push(wasm, 115)
+    wasm = arr_push(wasm, 109)
+    wasm = arr_push(wasm, 1)
+    wasm = arr_push(wasm, 0)
+    wasm = arr_push(wasm, 0)
+    wasm = arr_push(wasm, 0)
+    let type_params = arr_new()
+    type_params = arr_push(type_params, 3)
+    let func_type_idx = arr_new()
+    fi = 0
+    for fi < nfns
+        let fdef = fns[fi]
+        let params = fdef[2]
+        let fname = fdef[1]
+        let cap = caps_lookup(caps, fname)
+        let np = params.len() + cap.len()
+        let found = 0 - 1
+        let ti = 0
+        for ti < type_params.len()
+            if type_params[ti] == np
+                found = ti
+                ti = type_params.len()
+            ti = ti + 1
+        if found == 0 - 1
+            type_params = arr_push(type_params, np)
+            func_type_idx = arr_push(func_type_idx, type_params.len() - 1)
+        else
+            func_type_idx = arr_push(func_type_idx, found)
+        fi = fi + 1
+    let main_type_idx = 0 - 1
+    let ti = 0
+    for ti < type_params.len()
+        if type_params[ti] == 0
+            main_type_idx = ti
+            ti = type_params.len()
+        ti = ti + 1
+    if main_type_idx == 0 - 1
+        type_params = arr_push(type_params, 0)
+        main_type_idx = type_params.len() - 1
+    let type_data = arr_new()
+    type_data = push_uleb(type_data, type_params.len())
+    let ti = 0
+    for ti < type_params.len()
+        let tp = type_params[ti]
+        type_data = arr_push(type_data, 96)
+        type_data = push_uleb(type_data, tp)
+        let pi = 0
+        for pi < tp
+            type_data = arr_push(type_data, 127)
+            pi = pi + 1
+        type_data = push_uleb(type_data, 1)
+        type_data = arr_push(type_data, 127)
+        ti = ti + 1
+    wasm = arr_push(wasm, 1)
+    wasm = push_uleb(wasm, type_data.len())
+    let ti = 0
+    for ti < type_data.len()
+        wasm = arr_push(wasm, type_data[ti])
+        ti = ti + 1
+    wasm = arr_push(wasm, 2)
+    wasm = arr_push(wasm, 17)
+    wasm = arr_push(wasm, 1)
+    wasm = arr_push(wasm, 3)
+    wasm = arr_push(wasm, 112)
+    wasm = arr_push(wasm, 115)
+    wasm = arr_push(wasm, 105)
+    wasm = arr_push(wasm, 9)
+    wasm = arr_push(wasm, 104)
+    wasm = arr_push(wasm, 111)
+    wasm = arr_push(wasm, 115)
+    wasm = arr_push(wasm, 116)
+    wasm = arr_push(wasm, 95)
+    wasm = arr_push(wasm, 99)
+    wasm = arr_push(wasm, 97)
+    wasm = arr_push(wasm, 108)
+    wasm = arr_push(wasm, 108)
+    wasm = arr_push(wasm, 0)
+    wasm = arr_push(wasm, 0)
+    let func_data = arr_new()
+    func_data = push_uleb(func_data, nfns_emit)
+    fi = 0
+    for fi < nfns
+        func_data = push_uleb(func_data, func_type_idx[fi])
+        fi = fi + 1
+    if has_main == 0
+        func_data = push_uleb(func_data, main_type_idx)
+    wasm = arr_push(wasm, 3)
+    wasm = push_uleb(wasm, func_data.len())
+    let ti = 0
+    for ti < func_data.len()
+        wasm = arr_push(wasm, func_data[ti])
+        ti = ti + 1
+    wasm = arr_push(wasm, 5)
+    wasm = arr_push(wasm, 5)
+    wasm = arr_push(wasm, 1)
+    wasm = arr_push(wasm, 0)
+    wasm = arr_push(wasm, 128)
+    wasm = arr_push(wasm, 128)
+    wasm = arr_push(wasm, 4)
+    wasm = arr_push(wasm, 6)
+    wasm = arr_push(wasm, 22)
+    wasm = arr_push(wasm, 4)
+    wasm = arr_push(wasm, 127)
+    wasm = arr_push(wasm, 1)
+    wasm = arr_push(wasm, 65)
+    wasm = arr_push(wasm, 128)
+    wasm = arr_push(wasm, 8)
+    wasm = arr_push(wasm, 11)
+    wasm = arr_push(wasm, 127)
+    wasm = arr_push(wasm, 1)
+    wasm = arr_push(wasm, 65)
+    wasm = arr_push(wasm, 0)
+    wasm = arr_push(wasm, 11)
+    wasm = arr_push(wasm, 127)
+    wasm = arr_push(wasm, 1)
+    wasm = arr_push(wasm, 65)
+    wasm = arr_push(wasm, 0)
+    wasm = arr_push(wasm, 11)
+    wasm = arr_push(wasm, 127)
+    wasm = arr_push(wasm, 1)
+    wasm = arr_push(wasm, 65)
+    wasm = arr_push(wasm, 0)
+    wasm = arr_push(wasm, 11)
+    let n_user_exports = 0
+    let export_data = arr_new()
+    export_data = push_uleb(export_data, 3 + n_user_exports)
+    let main_export_idx = if has_main == 1
+        user_main_idx + 1
+    else
+        nfns_emit
+    export_data = push_uleb(export_data, 4)
+    export_data = arr_push(export_data, 109)
+    export_data = arr_push(export_data, 97)
+    export_data = arr_push(export_data, 105)
+    export_data = arr_push(export_data, 110)
+    export_data = arr_push(export_data, 0)
+    export_data = push_uleb(export_data, main_export_idx)
+    export_data = push_uleb(export_data, 6)
+    export_data = arr_push(export_data, 109)
+    export_data = arr_push(export_data, 101)
+    export_data = arr_push(export_data, 109)
+    export_data = arr_push(export_data, 111)
+    export_data = arr_push(export_data, 114)
+    export_data = arr_push(export_data, 121)
+    export_data = arr_push(export_data, 2)
+    export_data = push_uleb(export_data, 0)
+    export_data = push_uleb(export_data, 9)
+    export_data = arr_push(export_data, 95)
+    export_data = arr_push(export_data, 95)
+    export_data = arr_push(export_data, 109)
+    export_data = arr_push(export_data, 101)
+    export_data = arr_push(export_data, 109)
+    export_data = arr_push(export_data, 95)
+    export_data = arr_push(export_data, 112)
+    export_data = arr_push(export_data, 116)
+    export_data = arr_push(export_data, 114)
+    export_data = arr_push(export_data, 3)
+    export_data = push_uleb(export_data, 0)
+    wasm = arr_push(wasm, 7)
+    wasm = push_uleb(wasm, export_data.len())
+    let ti = 0
+    for ti < export_data.len()
+        wasm = arr_push(wasm, export_data[ti])
+        ti = ti + 1
+    let code_section = arr_new()
+    fi = 0
+    for fi < nfns
+        let fdef = fns[fi]
+        let params = fdef[2]
+        let body = fdef[3]
+        let ret = fdef[4]
+        let fname = fdef[1]
+        let cap = caps_lookup(caps, fname)
+        let np = params.len() + cap.len()
+        let locals = arr_new()
+        let pi = 0
+        for pi < params.len()
+            locals = arr_push(locals, params[pi])
+            pi = pi + 1
+        let ci = 0
+        for ci < cap.len()
+            locals = arr_push(locals, cap[ci])
+            ci = ci + 1
+        let r = emit_func_body(body, ret, locals, np, fnames, caps)
+        let code = r[0]
+        let maxl = np - 1
+        let sj = 0
+        for sj < code.len()
+            let cb2 = code[sj]
+            if cb2 == 32 || cb2 == 33 || cb2 == 34
+                let uv = 0
+                let ushift = 0
+                let uk = sj + 1
+                let udone = 0
+                for udone == 0
+                    if uk < code.len()
+                        if ushift <= 42
+                            let bb2 = code[uk]
+                            uv = (uv | ((bb2 & 127) << ushift))
+                            ushift = ushift + 7
+                            if (bb2 & 128) == 0
+                                udone = 1
+                            else
+                                uk = uk + 1
+                        else
+                            udone = 1
+                    else
+                        udone = 1
+                if uv > 1024
+                    uv = 1024
+                else
+                if uv < 0
+                    uv = 1024
+                if uv > maxl
+                    maxl = uv
+            sj = sj + 1
+        let nvars = maxl + 1 - np
+        if nvars < 0
+            nvars = 0
+        let local_decl = arr_new()
+        if nvars == 0
+            local_decl = push_uleb(local_decl, 0)
+        else
+            local_decl = push_uleb(local_decl, 1)
+            local_decl = push_uleb(local_decl, nvars)
+            local_decl = arr_push(local_decl, 127)
+        let full_len = local_decl.len() + code.len()
+        code_section = push_uleb(code_section, full_len)
+        let ci = 0
+        for ci < local_decl.len()
+            code_section = arr_push(code_section, local_decl[ci])
+            ci = ci + 1
+        let ci = 0
+        for ci < code.len()
+            code_section = arr_push(code_section, code[ci])
+            ci = ci + 1
+        fi = fi + 1
+    let main_code = arr_new()
+    let main_locals = arr_new()
+    let nvars = 0
+    let mclen = 0
+    let main_local_decl = arr_new()
+    let mfull_len = 0
+    if has_main == 0
+        main_locals = scan_lets_stmts(main_stmts, main_locals)
+        let mr = emit_stmts(main_stmts, main_code, main_locals, nvars, fnames, caps)
+        main_code = mr[0]
+        main_locals = mr[1]
+        nvars = mr[2]
+        main_code = arr_push(main_code, 65)
+        main_code = arr_push(main_code, 0)
+        main_code = arr_push(main_code, 11)
+        mclen = main_code.len()
+        let mmaxl = -1
+        let msj = 0
+        for msj < main_code.len()
+            let mcb = main_code[msj]
+            if mcb == 32 || mcb == 33 || mcb == 34
+                let muv = 0
+                let mushift = 0
+                let muk = msj + 1
+                let mudone = 0
+                for mudone == 0
+                    if muk < main_code.len()
+                        if mushift <= 42
+                            let mbb = main_code[muk]
+                            muv = (muv | ((mbb & 127) << mushift))
+                            mushift = mushift + 7
+                            if (mbb & 128) == 0
+                                mudone = 1
+                            else
+                                muk = muk + 1
+                        else
+                            mudone = 1
+                    else
+                        mudone = 1
+                if muv > 1024
+                    muv = 1024
+                else
+                if muv < 0
+                    muv = 1024
+                if muv > mmaxl
+                    mmaxl = muv
+            msj = msj + 1
+        nvars = mmaxl + 1
+        if nvars < 0
+            nvars = 0
+        if nvars == 0
+            main_local_decl = push_uleb(main_local_decl, 0)
+        else
+            main_local_decl = push_uleb(main_local_decl, 1)
+            main_local_decl = push_uleb(main_local_decl, nvars)
+            main_local_decl = arr_push(main_local_decl, 127)
+        mfull_len = main_local_decl.len() + mclen
+    let code_data = arr_new()
+    code_data = push_uleb(code_data, nfns_emit)
+    let ci = 0
+    for ci < code_section.len()
+        code_data = arr_push(code_data, code_section[ci])
+        ci = ci + 1
+    if has_main == 0
+        code_data = push_uleb(code_data, mfull_len)
+        let ci2 = 0
+        for ci2 < main_local_decl.len()
+            code_data = arr_push(code_data, main_local_decl[ci2])
+            ci2 = ci2 + 1
+        let ci3 = 0
+        for ci3 < mclen
+            code_data = arr_push(code_data, main_code[ci3])
+            ci3 = ci3 + 1
+    wasm = arr_push(wasm, 10)
+    wasm = push_uleb(wasm, code_data.len())
+    let ci = 0
+    for ci < code_data.len()
+        wasm = arr_push(wasm, code_data[ci])
+        ci = ci + 1
+    return wasm
+let src = read_file("self_compile.ψ")
+print("LEX START")
+let toks = lex(src)
+print("LEX DONE")
+print("RESOLVE START")
+let toks2 = resolve_imports(toks)
+print("RESOLVE DONE")
+if toks2.len() < 20
+    print("T2 LT20")
+else
+if toks2.len() < 100
+    print("T2 20-99")
+else
+if toks2.len() < 1000
+    print("T2 100-999")
+else
+if toks2.len() < 10000
+    print("T2 1K-9K")
+else
+    print("T2 10K+")
+print("PARSE START")
+if toks.len() > 8
+    let t8 = toks[8]
+    if t8[0] == 16
+        print("T8 GE OK")
+    else
+    if t8[0] == 8
+        print("T8 EQ BAD")
+    else
+        print("T8 OTHER")
+let stmts = parse(toks2)
+print("PARSE DONE")
+if stmts.len() == 0
+    print("STMTS 0")
+else
+if stmts.len() == 1
+    print("STMTS 1")
+else
+if stmts.len() < 10
+    print("STMTS 2-9")
+else
+if stmts.len() < 50
+    print("STMTS 10-49")
+else
+    print("STMTS 50+")
+print("CODEGEN START")
+let wasm_bytes = codegen(stmts)
+print("CODEGEN DONE")
+if wasm_bytes.len() < 1000
+    print("WASM SMALL")
+else
+    print("WASM OK")
+write_file("self_compile_G2.wasm", wasm_bytes)
+print("WROTE G2")

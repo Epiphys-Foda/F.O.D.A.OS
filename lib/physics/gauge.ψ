@@ -1,0 +1,89 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let GAUGE_DIM = 4
+let GAUGE_GROUP_SU2 = 1
+let GAUGE_GROUP_SU3 = 2
+let GAUGE_GROUP_U1 = 3
+
+let gauge_field_create(group, dim) =
+    let comps = []
+    let n = (group == GAUGE_GROUP_SU2 ? 3 : (group == GAUGE_GROUP_SU3 ? 8 : 1))
+    let i = 0
+    for i < n * dim
+        comps.push(0)
+        i = i + 1
+    [comps, group, dim]
+let gauge_transform(field, transformation) =
+    let comps = field[0]
+    let params = transformation[1]
+    let n = len(comps)
+    let new_comps = []
+    let i = 0
+    for i < n
+        new_comps.push(gf_add(comps[i], params[i % params.len()]))
+        i = i + 1
+    [new_comps, field[1], field[2]]
+let gauge_field_strength(field, mu, nu) =
+    let comps = field[0]
+    let dim = field[2]
+    let A_mu = comps[mu]
+    let A_nu = comps[nu]
+    let A_mu_nu = comps[mu * dim + nu]
+    let A_nu_mu = comps[nu * dim + mu]
+    gf_sub(gf_sub(A_mu_nu, A_nu_mu), gf_mul(A_mu, A_nu))
+let gauge_covariant_derivative(field, partial, mu) =
+    let comps = field[0]
+    let A_mu = comps[mu]
+    gf_add(partial, gf_mul(A_mu, partial))
+let yang_mills_action(field) =
+    let dim = field[2]
+    let action = 0
+    let mu = 0
+    for mu < dim
+        let nu = 0
+        for nu < dim
+            let F = gauge_field_strength(field, mu, nu)
+            action = gf_add(action, gf_mul(F, F))
+            nu = nu + 1
+        mu = mu + 1
+    gf_div(action, 4)
+let gauge_fix_lorentz(field) =
+    let comps = field[0]
+    let dim = field[2]
+    let divergence = 0
+    let i = 0
+    for i < dim
+        divergence = gf_add(divergence, comps[i])
+        i = i + 1
+    divergence
+let brst_transform(field, ghost) =
+    let comps = field[0]
+    let new_comps = []
+    let i = 0
+    let n = len(comps)
+    for i < n
+        new_comps.push(gf_mul(ghost, comps[i]))
+        i = i + 1
+    [new_comps, field[1], field[2]]
+let field_gauge(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = gf_sub(z, pole)
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let gauge_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_gauge(test_data, 3, 500)
+    let ok = 0
+    if result != 0
+        ok = 1
+    else
+        ok = 0
+    ok

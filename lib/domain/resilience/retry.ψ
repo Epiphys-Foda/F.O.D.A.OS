@@ -1,0 +1,204 @@
+let RT_STRATEGY_CONSTANT = 0
+let RT_STRATEGY_LINEAR = 1
+let RT_STRATEGY_EXPONENTIAL = 2
+let RT_STRATEGY_DECORRELATED = 3
+
+let RT_DEFAULT_MAX_ATTEMPTS = 3
+let RT_DEFAULT_BASE_MS = 1000
+let RT_DEFAULT_MAX_MS = 30000
+
+let rt_new(strategy, max_attempts, base_ms, max_ms) =
+    [strategy, max_attempts, base_ms, max_ms, []]
+
+let rt_default() = rt_new(RT_STRATEGY_EXPONENTIAL, RT_DEFAULT_MAX_ATTEMPTS, RT_DEFAULT_BASE_MS, RT_DEFAULT_MAX_MS)
+
+let rt_strategy(r) = r[0]
+let rt_max_attempts(r) = r[1]
+let rt_base_ms(r) = r[2]
+let rt_max_ms(r) = r[3]
+let rt_retryable_errors(r) = r[4]
+
+let rt_set_strategy(r, s) = [s, r[1], r[2], r[3], r[4]]
+let rt_set_retryable_errors(r, e) = [r[0], r[1], r[2], r[3], e]
+
+let rt_compute_backoff(strategy, attempt, base_ms, max_ms, last_backoff) =
+    let wait = 0
+    if strategy == RT_STRATEGY_CONSTANT
+        wait = base_ms
+    else
+        if strategy == RT_STRATEGY_LINEAR
+            wait = base_ms * attempt
+        else
+            if strategy == RT_STRATEGY_EXPONENTIAL
+                let exp = 1
+                let k = 1
+                for k < attempt
+                    exp = exp * 2
+                    k = k + 1
+                wait = base_ms * exp
+            else
+                if last_backoff == 0
+                    wait = base_ms
+                else
+                    let hash_val = (attempt * 2654435761) % 1024
+                    wait = (last_backoff * 3) / 2 + (hash_val * base_ms) / 1024
+    if wait > max_ms
+        max_ms
+    else
+        wait
+
+let rt_state_new() = [1, 0, 0, 0, 0]
+
+let rt_state_attempt(s) = s[0]
+let rt_state_last_backoff(s) = s[1]
+let rt_state_last_error(s) = s[2]
+let rt_state_total_attempts(s) = s[3]
+let rt_state_total_wait(s) = s[4]
+
+let rt_state_set_attempt(s, a) = [a, s[1], s[2], s[3], s[4]]
+let rt_state_set_last_backoff(s, b) = [s[0], b, s[2], s[3], s[4]]
+let rt_state_set_last_error(s, e) = [s[0], s[1], e, s[3], s[4]]
+let rt_state_inc_total_attempts(s) = [s[0], s[1], s[2], s[3] + 1, s[4]]
+let rt_state_add_wait(s, w) = [s[0], s[1], s[2], s[3], s[4] + w]
+
+let rt_should_retry(policy, state, error_code) =
+    let attempt = rt_state_attempt(state)
+    if attempt >= rt_max_attempts(policy)
+        [state, 0, 0]
+    else
+        let retryable = rt_retryable_errors(policy)
+        let is_retryable = 0
+        if len(retryable) == 0
+            is_retryable = 1
+        else
+            let i = 0
+            let n = len(retryable)
+            for i < n
+                if retryable[i] == error_code
+                    is_retryable = 1
+                    i = n
+                i = i + 1
+        if is_retryable == 1
+            let next_attempt = attempt + 1
+            let backoff = rt_compute_backoff(rt_strategy(policy), next_attempt, rt_base_ms(policy), rt_max_ms(policy), rt_state_last_backoff(state))
+            let s2 = rt_state_set_attempt(state, next_attempt)
+            s2 = rt_state_set_last_backoff(s2, backoff)
+            s2 = rt_state_set_last_error(s2, error_code)
+            s2 = rt_state_inc_total_attempts(s2)
+            s2 = rt_state_add_wait(s2, backoff)
+            [s2, 1, backoff]
+        else
+            let s2 = rt_state_set_last_error(state, error_code)
+            [s2, 0, 0]
+
+let rt_execute_sim(policy, state, error_sequence) =
+    let cur_state = state
+    let result = 0
+    let error = 0
+    let success = 0
+    let attempt = rt_state_attempt(cur_state)
+    let idx = attempt - 1
+    if idx < len(error_sequence)
+        error = error_sequence[idx]
+    else
+        if len(error_sequence) > 0
+            error = error_sequence[len(error_sequence) - 1]
+    cur_state = rt_state_inc_total_attempts(cur_state)
+    cur_state = rt_state_set_last_error(cur_state, error)
+    if error == 0
+        success = 1
+    else
+        let retry_res = rt_should_retry(policy, cur_state, error)
+        cur_state = retry_res[0]
+        if retry_res[1] == 1
+            let next_attempt = rt_state_attempt(cur_state)
+            let next_idx = next_attempt - 1
+            let next_error = error
+            if next_idx < len(error_sequence)
+                next_error = error_sequence[next_idx]
+            cur_state = rt_state_inc_total_attempts(cur_state)
+            cur_state = rt_state_set_last_error(cur_state, next_error)
+            if next_error == 0
+                success = 1
+                error = 0
+            else
+                let retry_res2 = rt_should_retry(policy, cur_state, next_error)
+                cur_state = retry_res2[0]
+                if retry_res2[1] == 1
+                    let attempt3 = rt_state_attempt(cur_state)
+                    let idx3 = attempt3 - 1
+                    let error3 = error
+                    if idx3 < len(error_sequence)
+                        error3 = error_sequence[idx3]
+                    cur_state = rt_state_inc_total_attempts(cur_state)
+                    cur_state = rt_state_set_last_error(cur_state, error3)
+                    if error3 == 0
+                        success = 1
+                        error = 0
+                    else
+                        error = error3
+                else
+                    error = next_error
+        else
+            error = error
+    [cur_state, result, error, success]
+
+let rt_bragg_verify_attempts(policy, state, expected_attempts) =
+    if rt_state_total_attempts(state) == expected_attempts
+        1
+    else
+        0
+
+let rt_bragg_verify_backoff_monotonic(strategy, max_attempts, base_ms, max_ms) =
+    if strategy != RT_STRATEGY_EXPONENTIAL
+        1
+    else
+        let prev = 0
+        let i = 1
+        let pass = 1
+        for i <= max_attempts
+            let b = rt_compute_backoff(strategy, i, base_ms, max_ms, prev)
+            if b < prev
+                pass = 0
+                i = max_attempts + 1
+            prev = b
+            i = i + 1
+        pass
+
+let rt_self_test() =
+    let results = []
+
+    let policy = rt_default()
+    results.push(rt_bragg_verify_backoff_monotonic(RT_STRATEGY_EXPONENTIAL, 5, 1000, 30000))
+
+    let state = rt_state_new()
+    let exec_res = rt_execute_sim(policy, state, [0])
+    results.push(exec_res[3] == 1)
+    results.push(rt_state_total_attempts(exec_res[0]) == 1)
+
+    state = rt_state_new()
+    exec_res = rt_execute_sim(policy, state, [500, 0])
+    results.push(exec_res[3] == 1)
+    results.push(rt_state_total_attempts(exec_res[0]) == 2)
+
+    state = rt_state_new()
+    exec_res = rt_execute_sim(policy, state, [500, 500, 500])
+    results.push(exec_res[3] == 0)
+    results.push(rt_state_total_attempts(exec_res[0]) == 3)
+
+    results.push(rt_bragg_verify_attempts(policy, exec_res[0], 3))
+
+    let linear_policy = rt_new(RT_STRATEGY_LINEAR, 3, 1000, 30000)
+    let b1 = rt_compute_backoff(RT_STRATEGY_LINEAR, 1, 1000, 30000, 0)
+    let b2 = rt_compute_backoff(RT_STRATEGY_LINEAR, 2, 1000, 30000, 0)
+    let b3 = rt_compute_backoff(RT_STRATEGY_LINEAR, 3, 1000, 30000, 0)
+    results.push(b1 == 1000)
+    results.push(b2 == 2000)
+    results.push(b3 == 3000)
+
+    let b_max = rt_compute_backoff(RT_STRATEGY_EXPONENTIAL, 20, 1000, 30000, 0)
+    results.push(b_max == 30000)
+
+    results
+
+let rt_default_retry() = rt_default()

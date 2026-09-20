@@ -1,0 +1,27 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+let e6 = 1000000
+let e10 = 10000000000
+
+let dR = 215
+bad[0] = bad[0] + ck(dR, 214, 216)
+
+let Q = small_div(1361 * 46225, 567)
+bad[0] = bad[0] + ck(Q, 110000, 112000)
+
+let s1 = isqrt(Q * e10)
+let s2 = isqrt(s1)
+bad[0] = bad[0] + ck(s2, 5760, 5790)
+
+let t4lo = 5760 * 5760 * 5760 * 5760 * 567
+let t4hi = 5790 * 5790 * 5790 * 5790 * 567
+let NUM = 1361 * 46225 * e10
+bad[0] = bad[0] + ck_hi(t4lo, NUM)
+bad[0] = bad[0] + ck_hi(NUM, t4hi)
+
+let ratioT = 2117
+bad[0] = bad[0] + ck(ratioT, 2000, 2200)
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,96 @@
+import "qcrypto.ψ"
+import "hybrid_dag.ψ"
+let qsp_signal(seed, n) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < n
+        let main = if i % 4 == 0
+          100
+        else
+          if i % 4 == 1
+            20
+          else
+            if i % 4 == 2
+              60
+            else
+              30
+        let perturb = qcr_bit(seed, i % 4) * 5
+        out = out.push(main + perturb)
+        i = i + 1
+      else
+        done = true
+    out
+
+let qsp_spectrum(sig) =
+    let wt = opt_omega_pows(64, 16, 65537)
+    opt_ntt_fast(sig, wt, 16, 65537)
+
+let qsp_peak(spectrum) =
+    let best = 0
+    let best_v = 0
+    let i = 0
+    let done = false
+    for !done
+      if i < 16
+        let v = spectrum[i]
+        let amp = v > 32768 ? 65537 - v : v
+        if amp > best_v
+          best_v = amp
+          best = i
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    [best, spectrum[best]]
+
+let qsp_quantum_confirm(peak_pos) =
+    let st = opt_grover_step(1, 1, 3)
+    let a2 = (st[0] * st[0]) % 65537
+    let b2 = (st[1] * st[1]) % 65537
+    a2 > b2
+
+let qsp_pipeline(seed) =
+    let sig = qsp_signal(seed, 16)
+    let spec = qsp_spectrum(sig)
+    let pk = qsp_peak(spec)
+    let qc = qsp_quantum_confirm(pk[0])
+    [pk[0], pk[1], qc]
+
+let qsp_hybrid_dag() = hd_build_pipeline()
+
+let qsp_verify() =
+    let results = []
+    let sig = qsp_signal(7, 16)
+    results = results.push(len(sig) == 16)
+    results = results.push(sig[0] >= 100 && sig[4] >= 100)
+    let spec = qsp_spectrum(sig)
+    results = results.push(len(spec) == 16)
+    let pk = qsp_peak(spec)
+    results = results.push(pk[0] == 4)
+    results = results.push(qsp_quantum_confirm(4))
+    let pipe = qsp_pipeline(7)
+    results = results.push(pipe[0] == 4 && pipe[2] == true)
+    let pipe2 = qsp_pipeline(3)
+    results = results.push(pipe2[0] == 4)
+    let dag = qsp_hybrid_dag()
+    let qn = hd_quantum_nodes(dag)
+    results = results.push(qn > 0)
+    results = results.push(spec[0] > 0)
+    let total = true
+    let i = 0
+    let done = false
+    for !done
+      if i < len(results)
+        let v = results[i]
+        if v == false
+          total = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(total)
+    results

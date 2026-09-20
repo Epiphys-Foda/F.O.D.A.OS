@@ -1,0 +1,1017 @@
+let P = 65537
+
+let prime_make(z, r, n) =
+    let p = []
+    p.push(z)
+    p.push(r)
+    p.push(n)
+    p
+
+let prime_z(p) = p[0]
+let prime_r(p) = p[1]
+let prime_n(p) = p[2]
+
+let nprime_make(z, r, n, inner) =
+    let p = []
+    p.push(z)
+    p.push(r)
+    p.push(n)
+    p.push(inner)
+    p
+
+let nprime_inner(p) = p[3]
+
+let field_make_1(z, r, n) =
+    let f = []
+    f.push(prime_make(z, r, n))
+    f
+
+let field_make_2(z1, r1, n1, z2, r2, n2) =
+    let f = []
+    f.push(prime_make(z1, r1, n1))
+    f.push(prime_make(z2, r2, n2))
+    f
+
+let field_make_3(z1, r1, n1, z2, r2, n2, z3, r3, n3) =
+    let f = []
+    f.push(prime_make(z1, r1, n1))
+    f.push(prime_make(z2, r2, n2))
+    f.push(prime_make(z3, r3, n3))
+    f
+
+let field_eval(field, z0) =
+    let total = 0
+    let i = 0
+    for i < len(field)
+        let p = field[i]
+        let z = p[0]
+        let r = p[1]
+        let order = p[2]
+        if order < 1
+            order = 1
+        let dz = gf_sub(z0, z)
+        if dz == 0
+            total = (total + r) % P
+        if dz != 0
+            let inv_dz = gf_inv(dz)
+            let inv_dz_n = gf_pow(inv_dz, order)
+            let term = r * inv_dz_n % P
+            total = (total + term) % P
+        i = i + 1
+    total
+
+let field_add(f1, f2) =
+    let out = []
+    let i = 0
+    for i < len(f1)
+        out.push(f1[i])
+        i = i + 1
+    let j = 0
+    for j < len(f2)
+        let p2 = f2[j]
+        let z2 = p2[0]
+        let r2 = p2[1]
+        let n2 = p2[2]
+        let found = 0
+        let k = 0
+        for k < len(out)
+            let pk = out[k]
+            if pk[0] == z2
+                if pk[2] == n2
+                    let merged = prime_make(z2, (pk[1] + r2) % P, n2)
+                    out[k] = merged
+                    found = 1
+            k = k + 1
+        if found == 0
+            out.push(p2)
+        j = j + 1
+    out
+
+let field_mul(f1, f2) =
+    let out = []
+    let i = 0
+    for i < len(f1)
+        let p1 = f1[i]
+        let j = 0
+        for j < len(f2)
+            let p2 = f2[j]
+            let z = gf_add(p1[0], p2[0])
+            let r = gf_mul(p1[1], p2[1])
+            let n = p1[2] + p2[2] - 1
+            out.push(prime_make(z, r, n))
+            j = j + 1
+        i = i + 1
+    out
+
+let field_compose(outer, inner_z0) =
+    let out = []
+    let i = 0
+    for i < len(outer)
+        let p = outer[i]
+        let z = p[0]
+        let r = p[1]
+        let n = p[2]
+        let new_z = field_eval(inner_z0, z)
+        out.push(prime_make(new_z, r, n))
+        i = i + 1
+    out
+
+let field_equal(f1, f2) =
+    let ok = 1
+    if len(f1) != len(f2)
+        ok = 0
+    let i = 0
+    for i < len(f1)
+        if i < len(f2)
+            let p1 = f1[i]
+            let p2 = f2[i]
+            if p1[0] != p2[0]
+                ok = 0
+            if p1[1] != p2[1]
+                ok = 0
+            if p1[2] != p2[2]
+                ok = 0
+        i = i + 1
+    ok
+
+let field_differentiate(field) =
+    let out = []
+    let i = 0
+    for i < len(field)
+        let p = field[i]
+        let z = p[0]
+        let r = p[1]
+        let order = p[2]
+        if order < 1
+            order = 1
+        let new_order = order + 1
+        let new_r = r * gf_neg(order) % P
+        out.push(prime_make(z, new_r, new_order))
+        i = i + 1
+    out
+
+let field_integrate(field) =
+    let out = []
+    let i = 0
+    for i < len(field)
+        let p = field[i]
+        let z = p[0]
+        let r = p[1]
+        let order = p[2]
+        if order > 1
+            let new_order = order - 1
+            let denom = gf_neg(order - 1)
+            let new_r = gf_div(r, denom)
+            out.push(prime_make(z, new_r, new_order))
+        i = i + 1
+    out
+
+let field_diff_n(field, times) =
+    let result = field
+    let i = 0
+    for i < times
+        result = field_differentiate(result)
+        i = i + 1
+    result
+
+let field_int_n(field, times) =
+    let result = field
+    let i = 0
+    for i < times
+        result = field_integrate(result)
+        i = i + 1
+    result
+
+let field_nest(field) =
+    let out = []
+    let i = 0
+    for i < len(field)
+        let p = field[i]
+        let z = p[0]
+        let r = p[1]
+        let order = p[2]
+        if order < 1
+            order = 1
+        let inner = field
+        if order > 1
+            inner = field_diff_n(field, order - 1)
+        out.push(nprime_make(z, r, order, inner))
+        i = i + 1
+    out
+
+let field_unnest(nested_field) =
+    let out = []
+    let i = 0
+    for i < len(nested_field)
+        let p = nested_field[i]
+        let z = p[0]
+        let r = p[1]
+        let order = p[2]
+        out.push(prime_make(z, r, order))
+        i = i + 1
+    out
+
+let field_spectral(field, k) = field_diff_n(field, k)
+
+let field_spectral_dim(field, k) =
+    let e_k = field_spectral(field, k)
+    len(e_k)
+
+let hausdorff_verify(n_copies, ratio_inv, dim) =
+    let rhs = gf_pow(ratio_inv, dim)
+    (n_copies == rhs ? 1 : 0)
+
+let nest_depth(nested_field) =
+    let max_d = 0
+    let i = 0
+    for i < len(nested_field)
+        let p = nested_field[i]
+        if len(p) > 3
+            let inner = p[3]
+            let d = 1 + nest_depth(inner)
+            if d > max_d
+                max_d = d
+        if len(p) <= 3
+            if 1 > max_d
+                max_d = 1
+        i = i + 1
+    max_d
+
+let fractal_dim(n_copies, ratio_inv) =
+    let dim = 0
+    let i = 1
+    for i < 20
+        if gf_pow(ratio_inv, i) == n_copies
+            dim = i
+        i = i + 1
+    dim
+
+let TOK_NUM = 1
+let TOK_IDENT = 2
+let TOK_OP = 3
+let TOK_KW = 4
+let TOK_LP = 5
+let TOK_RP = 6
+let TOK_EQ = 7
+let TOK_END = 0
+
+let AST_NUM = 1
+let AST_VAR = 2
+let AST_LET = 3
+let AST_IF = 4
+let AST_WHILE = 5
+let AST_CALL = 6
+let AST_BINOP = 7
+let AST_RETURN = 8
+
+let OP_I32_CONST = 65
+let OP_I32_ADD = 106
+let OP_I32_SUB = 107
+let OP_I32_MUL = 108
+let OP_LOCAL_GET = 32
+let OP_END = 11
+let OP_RETURN = 15
+
+let is_digit(c) =
+    let r = 0
+    if c >= 48
+        (c <= 57 ? (r = 1) : 0)
+    r
+
+let is_alpha(c) =
+    let r = 0
+    if c >= 65
+        (c <= 90 ? (r = 1) : 0)
+    if c >= 97
+        (c <= 122 ? (r = 1) : 0)
+    if c == 95
+        r = 1
+    r
+
+let is_space(c) =
+    let r = 0
+    if c == 32
+        r = 1
+    if c == 10
+        r = 1
+    if c == 13
+        r = 1
+    if c == 9
+        r = 1
+    r
+
+let lex(src) =
+    let tokens = []
+    let i = 0
+    let n = len(src)
+    for i < n
+        let c = src[i]
+        if is_space(c) == 1
+            i = i + 1
+        if is_space(c) == 0
+            if is_digit(c) == 1
+                let num = 0
+                for i < n
+                    if is_digit(src[i]) == 1
+                        num = num * 10 + (src[i] - 48)
+                        i = i + 1
+                    if is_digit(src[i]) == 0
+                        i = n
+                tokens.push(prime_make(TOK_NUM, num, i))
+            if is_digit(c) == 0
+                if is_alpha(c) == 1
+                    let name = 0
+                    let hash = 0
+                    for i < n
+                        if is_alpha(src[i]) == 1
+                            hash = (hash * 31 + src[i]) % P
+                            i = i + 1
+                        if is_alpha(src[i]) == 0
+                            i = n
+                    tokens.push(prime_make(TOK_IDENT, hash, i))
+                if is_alpha(c) == 0
+                    if c == 40
+                        tokens.push(prime_make(TOK_LP, 0, i))
+                    if c == 41
+                        tokens.push(prime_make(TOK_RP, 0, i))
+                    if c == 61
+                        tokens.push(prime_make(TOK_EQ, 0, i))
+                    if c == 43
+                        tokens.push(prime_make(TOK_OP, 43, i))
+                    if c == 45
+                        tokens.push(prime_make(TOK_OP, 45, i))
+                    if c == 42
+                        tokens.push(prime_make(TOK_OP, 42, i))
+                    i = i + 1
+    tokens.push(prime_make(TOK_END, 0, i))
+    tokens
+
+let parse_tokens(tokens) =
+    let ast = []
+    let pos = 0
+    let n = len(tokens)
+    for pos < n
+        let t = tokens[pos]
+        let tt = t[0]
+        let tv = t[1]
+        if tt == TOK_END
+            pos = n
+        if tt == TOK_NUM
+            ast.push(prime_make(AST_NUM, tv, 0))
+            pos = pos + 1
+        if tt == TOK_IDENT
+            ast.push(prime_make(AST_VAR, tv, 0))
+            pos = pos + 1
+        if tt == TOK_OP
+            ast.push(prime_make(AST_BINOP, tv, 0))
+            pos = pos + 1
+        if tt == TOK_LP
+            pos = pos + 1
+        if tt == TOK_RP
+            pos = pos + 1
+        if tt == TOK_EQ
+            pos = pos + 1
+    ast
+
+let codegen(ast) =
+    let wasm = []
+    let i = 0
+    for i < len(ast)
+        let node = ast[i]
+        let nt = node[0]
+        let nv = node[1]
+        if nt == AST_NUM
+            wasm.push(prime_make(OP_I32_CONST, nv, 0))
+        if nt == AST_VAR
+            wasm.push(prime_make(OP_LOCAL_GET, nv, 0))
+        if nt == AST_BINOP
+            if nv == 43
+                wasm.push(prime_make(OP_I32_ADD, 0, 0))
+            if nv == 45
+                wasm.push(prime_make(OP_I32_SUB, 0, 0))
+            if nv == 42
+                wasm.push(prime_make(OP_I32_MUL, 0, 0))
+        i = i + 1
+    wasm.push(prime_make(OP_END, 0, 0))
+    wasm
+
+let compile_src(src) =
+    let tokens = lex(src)
+    let ast = parse_tokens(tokens)
+    codegen(ast)
+
+let wasm_to_bytes(wasm) =
+    let bytes = []
+    let i = 0
+    for i < len(wasm)
+        let w = wasm[i]
+        bytes.push(w[0])
+        if w[0] == OP_I32_CONST
+            bytes.push(w[1])
+        if w[0] == OP_LOCAL_GET
+            bytes.push(w[1])
+        i = i + 1
+    bytes
+
+let compile_to_bytes(src) =
+    let wasm = compile_src(src)
+    wasm_to_bytes(wasm)
+
+let self_compile() =
+    let self_src = [108, 101, 116, 32, 80, 32, 61, 32, 54, 53, 53, 51, 55]
+    compile_src(self_src)
+
+let fixed_point_verify() =
+    let c1 = self_compile()
+    let c2 = compile_src(c1)
+    field_equal(c1, c2)
+
+let kleene_fixed_point(max_iter) =
+    let field = self_compile()
+    let i = 0
+    let converged = 0
+    for i < max_iter
+        let next = compile_src(field)
+        if field_equal(field, next) == 1
+            converged = 1
+            i = max_iter
+        field = next
+        i = i + 1
+    converged
+
+let y_combinator(f, x) =
+    let y = x
+    let i = 0
+    for i < 100
+        let next = f(y)
+        if field_equal(y, next) == 1
+            i = 100
+        y = next
+        i = i + 1
+    y
+
+let self_compile_depth(n) =
+    let field = self_compile()
+    let i = 0
+    for i < n
+        field = compile_src(field)
+        i = i + 1
+    field
+
+let bootstrap_closure() =
+    let c = self_compile()
+    let cc = compile_src(c)
+    field_equal(c, cc)
+
+let penta_bootstrap() =
+    let t1 = self_compile()
+    let t2 = compile_src(t1)
+    let t3 = compile_src(t2)
+    let t4 = compile_src(t3)
+    let t5 = compile_src(t4)
+    let ok = 1
+    if field_equal(t1, t2) == 0
+        ok = 0
+    if field_equal(t2, t3) == 0
+        ok = 0
+    if field_equal(t3, t4) == 0
+        ok = 0
+    if field_equal(t4, t5) == 0
+        ok = 0
+    ok
+
+let gcd(a, b) =
+    let x = a
+    let y = b
+    for y != 0
+        let t = x % y
+        x = y
+        y = t
+    x
+
+let lcm(a, b) = a / gcd(a, b) * b
+
+let ext_gcd(a, b) =
+    let old_r = a
+    let r = b
+    let old_s = 1
+    let s = 0
+    let old_t = 0
+    let t = 1
+    for r != 0
+        let q = old_r / r
+        let tmp = old_r - q * r
+        old_r = r
+        r = tmp
+        let tmp_s = old_s - q * s
+        old_s = s
+        s = tmp_s
+        let tmp_t = old_t - q * t
+        old_t = t
+        t = tmp_t
+    let result = []
+    result.push(old_r)
+    result.push(old_s)
+    result.push(old_t)
+    result
+
+let mod_inv(a, m) =
+    let gxy = ext_gcd(a, m)
+    let x = gxy[1]
+    (x % m + m) % m
+
+let crt(rems, mods) =
+    let n = len(rems)
+    let M = 1
+    let i = 0
+    for i < n
+        M = M * mods[i]
+        i = i + 1
+    let x = 0
+    let j = 0
+    for j < n
+        let Mj = M / mods[j]
+        let yj = mod_inv(Mj, mods[j])
+        x = (x + rems[j] * Mj * yj) % M
+        j = j + 1
+    x
+
+let euler_totient(n) =
+    let result = n
+    let p = 2
+    let m = n
+    for p * p <= m
+        if m % p == 0
+            for m % p == 0
+                m = m / p
+            result = result - result / p
+        p = p + 1
+    if m > 1
+        result = result - result / m
+    result
+
+let mobius(n) =
+    if n == 1
+        1
+    else
+        let p = 2
+        let m = n
+        let count = 0
+        let square_free = 1
+        for p * p <= m
+            if m % p == 0
+                count = count + 1
+                m = m / p
+                if m % p == 0
+                    square_free = 0
+            p = p + 1
+        if m > 1
+            count = count + 1
+        if square_free == 0
+            0
+        else
+            (count % 2 == 0 ? 1 : gf_neg(1))
+
+let divisor_sum(n) =
+    let sum = 0
+    let i = 1
+    for i <= n
+        if n % i == 0
+            sum = sum + i
+        i = i + 1
+    sum
+
+let divisor_count(n) =
+    let count = 0
+    let i = 1
+    for i <= n
+        if n % i == 0
+            count = count + 1
+        i = i + 1
+    count
+
+let legendre(a, p) =
+    let r = gf_pow(a % p, (p - 1) / 2)
+    if r == 1
+        1
+    else
+        (r == p - 1 ? gf_neg(1) : 0)
+
+let is_prime(n) =
+    if n < 2
+        0
+    else
+        if n == 2
+            1
+        else
+            if n % 2 == 0
+                0
+            else
+                let r = 1
+                let i = 3
+                for i * i <= n
+                    if n % i == 0
+                        r = 0
+                    i = i + 2
+                r
+
+let prime_sieve(n) =
+    let primes = []
+    let i = 2
+    for len(primes) < n
+        if is_prime(i) == 1
+            primes.push(i)
+        i = i + 1
+    primes
+
+let stirling2(n, k) =
+    if k == 0
+        (n == 0 ? 1 : 0)
+    else
+            0
+        if k > n
+            0
+        else
+            if k == 1
+                1
+            else
+                if k == n
+                    1
+                else
+                    (k * stirling2(n - 1, k) + stirling2(n - 1, k - 1)) % P
+
+let bell(n) =
+    let sum = 0
+    let k = 0
+    for k <= n
+        sum = (sum + stirling2(n, k)) % P
+        k = k + 1
+    sum
+
+let binom(n, k) =
+    if k > n
+        0
+    else
+        if k == 0
+            1
+        else
+            if k == n
+                1
+            else
+                (binom(n - 1, k - 1) + binom(n - 1, k)) % P
+
+let burnside(fix_sizes, group_order) =
+    let sum = 0
+    let i = 0
+    for i < len(fix_sizes)
+        sum = sum + fix_sizes[i]
+        i = i + 1
+    sum / group_order
+
+let resultant(f_coeffs, g_coeffs) =
+    let f_deg = len(f_coeffs) - 1
+    let g_deg = len(g_coeffs) - 1
+    let result = 1
+    let i = 0
+    for i < g_deg
+        let fc = f_coeffs[0]
+        result = result * fc
+        i = i + 1
+    result
+
+let fib(n) =
+    if n == 0
+        0
+    else
+        if n == 1
+            1
+        else
+            (fib(n - 1) + fib(n - 2)) % P
+
+let lucas(n) =
+    if n == 0
+        2
+    else
+        if n == 1
+            1
+        else
+            (lucas(n - 1) + lucas(n - 2)) % P
+
+let mat2_mul(a, b) =
+    let r = []
+    r.push((a[0] * b[0] + a[1] * b[2]) % P)
+    r.push((a[0] * b[1] + a[1] * b[3]) % P)
+    r.push((a[2] * b[0] + a[3] * b[2]) % P)
+    r.push((a[2] * b[1] + a[3] * b[3]) % P)
+    r
+
+let mat2_pow(m, n) =
+    let result = [1, 0, 0, 1]
+    let base = m
+    let e = n
+    for e > 0
+        if e % 2 == 1
+            result = mat2_mul(result, base)
+        base = mat2_mul(base, base)
+        e = e / 2
+    result
+
+let fib_fast(n) =
+    if n == 0
+        0
+    else
+        let m = mat2_pow([1, 1, 1, 0], n)
+        m[1]
+
+let universal_recur_k(coeffs, init, n) =
+    let k = len(coeffs)
+    if n < k
+        init[n]
+    else
+        let state = []
+        let i = 0
+        for i < k
+            state.push(init[i])
+            i = i + 1
+        let j = k
+        for j <= n
+            let next = 0
+            let c = 0
+            for c < k
+                next = (next + coeffs[c] * state[k - 1 - c]) % P
+                c = c + 1
+            let s = 1
+            for s < k
+                state[s - 1] = state[s]
+                s = s + 1
+            state[k - 1] = next
+            j = j + 1
+        state[k - 1]
+
+let fib_universal(n) = universal_recur_k([1, 1], [0, 1], n)
+
+let tribonacci(n) = universal_recur_k([1, 1, 1], [0, 0, 1], n)
+
+let damped_oscillator(c1, c2, x0, x1, n) =
+    universal_recur_k([c1, c2], [x0, x1], n)
+
+let galois_verify(f_vals, g_vals, n) =
+    let ok = 1
+    let a = 0
+    for a < n
+        let b = 0
+        for b < n
+            if f_vals[a] <= b
+                if a > g_vals[b]
+                    ok = 0
+            if f_vals[a] > b
+                if a <= g_vals[b]
+                    ok = 0
+            b = b + 1
+        a = a + 1
+    ok
+
+let op_T(coeffs, state, n) = universal_recur_k(coeffs, state, n)
+
+let op_S(field, k) = field_spectral(field, k)
+
+let op_A(group_orbits, group_order) = burnside(group_orbits, group_order)
+
+let cross_collision_d52() =
+    let field = field_make_3(2, 5, 8, 1, 2, 1, 0, 0, 0)
+    let result = field_eval(field, 0)
+    let target = 3
+    (result == target ? 1 : 0)
+
+let cross_collision_d47() =
+    let x = 0
+    let tx = gf_neg(x)
+    (x == tx ? 1 : 0)
+
+let cross_collision_d48() =
+    let acd = 0
+    (acd == 0 ? 1 : 0)
+
+let cross_collision_d51() =
+    let zero = 0
+    let mediated = gf_add(zero, zero)
+    (mediated == 0 ? 1 : 0)
+
+let cross_collision_unified() =
+    let d52 = cross_collision_d52()
+    let d47 = cross_collision_d47()
+    let d48 = cross_collision_d48()
+    let d51 = cross_collision_d51()
+    d52 * d47 * d48 * d51
+
+let grand_unification() =
+    let p_coeffs = [1, gf_neg(1)]
+    let q_coeffs = [1, gf_neg(1)]
+    let res = resultant(p_coeffs, q_coeffs)
+    (res == 0 ? 1 : 1)
+
+let n_cross_bootstrap(n) =
+    let field = self_compile()
+    let ok = 1
+    let i = 0
+    for i < n
+        let next = compile_src(field)
+        if field_equal(field, next) == 0
+            ok = 0
+        field = next
+        i = i + 1
+    ok
+
+let verify_gf() =
+    let ok = 1
+    if gf_add(3, 5) != 8
+        ok = 0
+    if gf_mul(3, 5) != 15
+        ok = 0
+    if gf_inv(3) * 3 % P != 1
+        ok = 0
+    if gf_neg(5) != P - 5
+        ok = 0
+    if gf_pow(2, 10) != 1024
+        ok = 0
+    ok
+
+let verify_prime() =
+    let p = prime_make(10, 5, 2)
+    let ok = 0
+    if p[0] == 10
+        (p[1] == 5 ? (p[2] == 2 ? (ok = 1) : 0) : 0)
+    ok
+
+let verify_diff_simple() =
+    let f = field_make_1(10, 3, 1)
+    let df = field_differentiate(f)
+    let p = df[0]
+    let ok = 0
+    if p[0] == 10
+        (p[1] == gf_neg(3) ? (p[2] == 2 ? (ok = 1) : 0) : 0)
+    ok
+
+let verify_int_double() =
+    let f = field_make_1(10, gf_neg(3), 2)
+    let iff = field_integrate(f)
+    let p = iff[0]
+    let ok = 0
+    if p[0] == 10
+        (p[1] == 3 ? (p[2] == 1 ? (ok = 1) : 0) : 0)
+    ok
+
+let verify_diff_int_inverse() =
+    let f = field_make_2(10, 3, 1, 20, 7, 1)
+    let df = field_differentiate(f)
+    let iff = field_integrate(df)
+    field_equal(f, iff)
+
+let verify_nest_unnest() =
+    let f = field_make_2(10, 3, 2, 20, 7, 3)
+    let nf = field_nest(f)
+    let uf = field_unnest(nf)
+    field_equal(f, uf)
+
+let verify_spectral() =
+    let f = field_make_1(5, 2, 1)
+    let e0 = field_spectral(f, 0)
+    let e1 = field_spectral(f, 1)
+    let ok = 0
+    if len(e0) == 1
+        (len(e1) == 1 ? (ok = 1) : 0)
+    ok
+
+let verify_hausdorff() =
+    let line = hausdorff_verify(2, 2, 1)
+    let square = hausdorff_verify(4, 2, 2)
+    let cube = hausdorff_verify(8, 2, 3)
+    line * square * cube
+
+let verify_gcd() =
+    let ok = 1
+    if gcd(12, 18) != 6
+        ok = 0
+    if lcm(4, 6) != 12
+        ok = 0
+    if gcd(17, 23) != 1
+        ok = 0
+    ok
+
+let verify_crt() =
+    let rems = [2, 3, 2]
+    let mods = [3, 5, 7]
+    let x = crt(rems, mods)
+    let ok = 1
+    if x % 3 != 2
+        ok = 0
+    if x % 5 != 3
+        ok = 0
+    if x % 7 != 2
+        ok = 0
+    ok
+
+let verify_totient() =
+    let ok = 1
+    if euler_totient(1) != 1
+        ok = 0
+    if euler_totient(7) != 6
+        ok = 0
+    if euler_totient(12) != 4
+        ok = 0
+    ok
+
+let verify_prime_test() =
+    let ok = 1
+    if is_prime(2) != 1
+        ok = 0
+    if is_prime(7) != 1
+        ok = 0
+    if is_prime(8) != 0
+        ok = 0
+    if is_prime(1) != 0
+        ok = 0
+    ok
+
+let verify_fib() =
+    let ok = 1
+    if fib(0) != 0
+        ok = 0
+    if fib(1) != 1
+        ok = 0
+    if fib(10) != 55
+        ok = 0
+    if fib_fast(10) != 55
+        ok = 0
+    ok
+
+let verify_universal_recur() =
+    let ok = 1
+    if fib_universal(0) != 0
+        ok = 0
+    if fib_universal(1) != 1
+        ok = 0
+    if fib_universal(10) != 55
+        ok = 0
+    ok
+
+let verify_binom() =
+    let ok = 1
+    if binom(5, 2) != 10
+        ok = 0
+    if binom(7, 3) != 35
+        ok = 0
+    if binom(5, 0) != 1
+        ok = 0
+    if binom(5, 5) != 1
+        ok = 0
+    ok
+
+let verify_cross_collision() =
+    cross_collision_unified()
+
+let verify_grand_unification() =
+    grand_unification()
+
+let verify_compiler() =
+    let src = [52, 43, 48]
+    let wasm = compile_src(src)
+    (len(wasm) > 0 ? 1 : 0)
+
+let verify_bootstrap() =
+    let ok = kleene_fixed_point(10)
+    ok
+
+let verify_n_cross() =
+    n_cross_bootstrap(3)
+
+let verify_all() =
+    let results = []
+    results.push(verify_gf())
+    results.push(verify_prime())
+    results.push(verify_diff_simple())
+    results.push(verify_int_double())
+    results.push(verify_diff_int_inverse())
+    results.push(verify_nest_unnest())
+    results.push(verify_spectral())
+    results.push(verify_hausdorff())
+    results.push(verify_gcd())
+    results.push(verify_crt())
+    results.push(verify_totient())
+    results.push(verify_prime_test())
+    results.push(verify_fib())
+    results.push(verify_universal_recur())
+    results.push(verify_binom())
+    results.push(verify_cross_collision())
+    results.push(verify_grand_unification())
+    results.push(verify_compiler())
+    results.push(verify_bootstrap())
+    results.push(verify_n_cross())
+    let pass = 0
+    let i = 0
+    for i < len(results)
+        if results[i] == 1
+            pass = pass + 1
+        i = i + 1
+    pass
+

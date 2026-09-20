@@ -1,0 +1,58 @@
+import "ck.ψ"
+let bad = [0]
+
+let c12 = 12 * 12 * 12
+let dz1 = c12 - 1728
+bad[0] = bad[0] + ck(dz1, 0, 0)
+let rep1 = 1 + c12
+let dz2 = rep1 - 1729
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let c9 = 9 * 9 * 9
+let dz3 = c9 - 729
+bad[0] = bad[0] + ck(dz3, 0, 0)
+let c10 = 10 * 10 * 10
+let dz4 = c10 - 1000
+bad[0] = bad[0] + ck(dz4, 0, 0)
+let rep2 = c9 + c10
+let dz5 = rep2 - 1729
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let dz6 = rep1 - rep2
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+let skel = 91 * 19
+let dz7 = skel - 1729
+bad[0] = bad[0] + ck(dz7, 0, 0)
+
+let cab2a = 8 + 16 * 16 * 16
+let cab2b = 729 + 3375
+let dz8 = cab2a - 4104
+bad[0] = bad[0] + ck(dz8, 0, 0)
+let dz9 = cab2b - cab2a
+bad[0] = bad[0] + ck(dz9, 0, 0)
+
+let cab3a = 8 + 24 * 24 * 24
+let cab3b = 5832 + 8000
+let dz10 = cab3a - 13832
+bad[0] = bad[0] + ck(dz10, 0, 0)
+let dz11 = cab3b - cab3a
+bad[0] = bad[0] + ck(dz11, 0, 0)
+
+bad[0] = bad[0] + ck_lo(cab2a, 4104)
+bad[0] = bad[0] + ck_lo(cab3a, rep1)
+
+if 1887 < 1885
+    bad[0] = bad[0] + 1
+if 1887 > 1889
+    bad[0] = bad[0] + 1
+if 1910 < 1908
+    bad[0] = bad[0] + 1
+if 1910 > 1912
+    bad[0] = bad[0] + 1
+if 1937 < 1935
+    bad[0] = bad[0] + 1
+if 1937 > 1939
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,93 @@
+import "gfx.ψ"
+
+let font_extend(arr, chunk) =
+    let a = arr
+    let i = 0
+    let n = len(chunk)
+    for i < n
+      a = a.push(chunk[i])
+      i = i + 1
+    a
+
+let font_digits_table() =
+    let chunk0 = [14, 17, 19, 21, 25, 17, 14, 4, 12, 4, 4, 4, 4, 14]
+    let chunk1 = [14, 17, 1, 2, 4, 8, 31, 31, 2, 4, 2, 1, 17, 14]
+    let chunk2 = [2, 6, 10, 18, 31, 2, 2, 31, 16, 30, 1, 1, 17, 14]
+    let chunk3 = [6, 8, 16, 30, 17, 17, 14, 31, 1, 2, 4, 8, 8, 8]
+    let chunk4 = [14, 17, 17, 14, 17, 17, 14, 14, 17, 17, 15, 1, 2, 12]
+    let a0 = font_extend([], chunk0)
+    let a1 = font_extend(a0, chunk1)
+    let a2 = font_extend(a1, chunk2)
+    let a3 = font_extend(a2, chunk3)
+    font_extend(a3, chunk4)
+
+let font_digit_row(d, r) =
+    let tbl = font_digits_table()
+    if (d < 0) || (d > 9)
+    else
+      0
+    if (r < 0) || (r > 6)
+    else
+      0
+    let idx = d * 7 + r
+    if (idx >= 0) && (idx < 70)
+    else
+      0
+    tbl[idx]
+
+let font_bit(val, pos) =
+    let power_list = [16, 8, 4, 2, 1]
+    let power = power_list[pos]
+    let hi = val / power
+    let lo = val / (2 * power)
+    hi - 2 * lo
+
+let font_is_supported(code) =
+    if code == 32
+      true
+    else
+      if (code >= 48) && (code <= 57)
+        true
+      else
+        false
+
+let gfx_draw_char(fb, w, h, x, y, code, color) =
+    let fb2 = fb
+    let col_off = 1
+    let row_off = 4
+    if (code >= 48) && (code <= 57)
+      let d = code - 48
+      let r = 0
+      for r < 7
+        let rv = font_digit_row(d, r)
+        let c = 0
+        for c < 5
+          let bit = font_bit(rv, c)
+          if bit == 1
+            fb2 = gfx_set_pixel(fb2, w, x + col_off + c, y + row_off + r, color)
+          else
+            0
+          c = c + 1
+        r = r + 1
+    else
+      0
+    fb2
+
+let gfx_draw_text(fb, w, h, x, y, codes, color) =
+    let fb2 = fb
+    let i = 0
+    let n = len(codes)
+    for i < n
+      fb2 = gfx_draw_char(fb2, w, h, x + i * 8, y, codes[i], color)
+      i = i + 1
+    fb2
+
+let font_scene_demo(w, h) =
+    let bg = gfx_pack_rgb(20, 24, 32)
+    let fg = gfx_pack_rgb(220, 220, 220)
+    let accent = gfx_pack_rgb(80, 220, 120)
+    let fb0 = gfx_create(w, h)
+    let fb1 = gfx_fill_rect(fb0, w, h, 0, 0, w, h, bg)
+    let fb2 = gfx_draw_text(fb1, w, h, 2, 2, [52, 50], fg)
+    let fb3 = gfx_draw_text(fb2, w, h, 2, 20, [49, 50, 51], accent)
+    fb3

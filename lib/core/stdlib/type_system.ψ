@@ -1,0 +1,227 @@
+import "gf65537.ψ"
+import "arr.ψ"
+
+let dep_type_make(type_id, dim) =
+    let v = arr_new_n(2)
+    arr_set(v, 0, type_id)
+    arr_set(v, 1, dim)
+    v
+
+let dep_type_id(t) = arr_get(t, 0)
+
+let dep_type_dim(t) = arr_get(t, 1)
+
+let DEP_TYPE_INT  = 0
+let DEP_TYPE_ARR  = 1
+let DEP_TYPE_VEC  = 2
+let DEP_TYPE_MAT  = 3
+let DEP_TYPE_FN   = 4
+
+let dep_type_check(t, value) =
+    let tid = dep_type_id(t)
+    let dim = dep_type_dim(t)
+    if tid == DEP_TYPE_INT
+      1
+    if tid == DEP_TYPE_ARR
+      ((arr_len(value) == dim) ? (1) : (0))
+    if tid == DEP_TYPE_VEC
+      ((arr_len(value) == dim) ? (1) : (0))
+    if tid == DEP_TYPE_MAT
+      let rows = arr_len(value)
+      ((rows > 0) ? (1) : (0))
+    if tid == DEP_TYPE_FN
+      1
+    0
+
+let sigma_make(value, proof) =
+    let v = arr_new_n(2)
+    arr_set(v, 0, value)
+    arr_set(v, 1, proof)
+    v
+
+let sigma_value(s) = arr_get(s, 0)
+
+let sigma_proof(s) = arr_get(s, 1)
+
+let pi_make(domain_type, codomain_fn_id) =
+    let v = arr_new_n(2)
+    arr_set(v, 0, domain_type)
+    arr_set(v, 1, codomain_fn_id)
+    v
+
+let pi_apply(p, x) = host_call(arr_get(p, 1), x, 0)
+
+let pi_check(p, x) = dep_type_check(arr_get(p, 0), x)
+
+let lin_make(value) =
+    let v = arr_new_n(2)
+    arr_set(v, 0, value)
+    arr_set(v, 1, 0)
+    v
+
+let lin_use(lv) =
+    let count = arr_get(lv, 1)
+    if count != 0
+      0 - 1
+    let value = arr_get(lv, 0)
+    arr_set(lv, 1, 1)
+    value
+
+let lin_check_consumed(lv) = ((arr_get(lv, 1) != 0) ? (1) : (0))
+
+let lin_dup_check(lvs) = _lin_dup_acc(lvs, 0, arr_len(lvs), 0)
+let _lin_dup_acc(lvs, i, n, state) =
+      if i >= n
+          state
+      let lv = arr_get(lvs, i)
+      let consumed = lin_check_consumed(lv)
+      if consumed == 0
+        _lin_dup_acc(lvs, i + 1, n, ((state == 2) ? (2) : (1)))
+      else
+        _lin_dup_acc(lvs, i + 1, n, state)
+
+let LIN_TYPE_FILE   = 100
+let LIN_TYPE_SOCKET = 101
+let LIN_TYPE_MUTEX  = 102
+let LIN_TYPE_STREAM = 103
+
+let lin_resource_make(type_id, value) =
+    let v = arr_new_n(3)
+    arr_set(v, 0, type_id)
+    arr_set(v, 1, value)
+    arr_set(v, 2, 0)
+    v
+
+let lin_resource_type(r) = arr_get(r, 0)
+
+let lin_resource_consume(r) =
+    let count = arr_get(r, 2)
+    if count != 0
+        0 - 1
+    let value = arr_get(r, 1)
+    arr_set(r, 2, 1)
+    value
+
+let EFFECT_PURE    = 0
+let EFFECT_READ    = 1
+let EFFECT_WRITE   = 2
+let EFFECT_IO      = 3
+let EFFECT_QUANTUM = 4
+let EFFECT_MEASURE = 5
+
+let effect_make(effects) = effects
+
+let effect_pure() = arr_new()
+
+let effect_read() =
+    let v = arr_new()
+    arr_push(v, EFFECT_READ)
+    v
+
+let effect_write() =
+    let v = arr_new()
+    arr_push(v, EFFECT_WRITE)
+    v
+
+let effect_io() =
+    let v = arr_new()
+    arr_push(v, EFFECT_READ)
+    arr_push(v, EFFECT_WRITE)
+    v
+
+let effect_quantum() =
+    let v = arr_new()
+    arr_push(v, EFFECT_QUANTUM)
+    v
+
+let effect_measure() =
+    let v = arr_new()
+    arr_push(v, EFFECT_MEASURE)
+    v
+
+let effect_contains(eff_set, eff) = _ec_acc(eff_set, eff, 0, arr_len(eff_set))
+let _ec_acc(eff_set, eff, i, n) =
+    if i >= n
+        0
+    if arr_get(eff_set, i) == eff
+        1
+    _ec_acc(eff_set, eff, i + 1, n)
+
+let effect_union(e1, e2) =
+    let n1 = arr_len(e1)
+    let n2 = arr_len(e2)
+    let result = arr_new()
+    _eu_copy_acc(e1, result, 0, n1)
+    _eu_merge_acc(e2, result, 0, n2)
+    result
+let _eu_copy_acc(src, dst, i, n) =
+    if i >= n
+        dst
+    arr_push(dst, arr_get(src, i))
+    _eu_copy_acc(src, dst, i + 1, n)
+let _eu_merge_acc(src, dst, i, n) =
+    if i >= n
+        dst
+    let v = arr_get(src, i)
+    if effect_contains(dst, v) == 0
+      arr_push(dst, v)
+    _eu_merge_acc(src, dst, i + 1, n)
+
+let effect_is_pure(eff) = ((arr_len(eff) == 0) ? (1) : (0))
+
+let effect_can_run_pure(eff) =
+      effect_is_pure(eff) == 1 || effect_contains(eff, EFFECT_QUANTUM) == 1 ? 1 : 0
+
+let effect_check_program(stmts_effs) = _ecp_acc(stmts_effs, 0, arr_len(stmts_effs), effect_pure())
+let _ecp_acc(stmts_effs, i, n, acc) =
+    if i >= n
+        acc
+    let eff = arr_get(stmts_effs, i)
+    let next = effect_union(acc, eff)
+    _ecp_acc(stmts_effs, i + 1, n, next)
+
+let tvar_new(id) =
+    let v = arr_new_n(2)
+    arr_set(v, 0, id)
+    arr_set(v, 1, 0)
+    v
+
+let tvar_id(tv) = arr_get(tv, 0)
+
+let tvar_solved(tv) = arr_get(tv, 1)
+
+let tvar_solve(tv, type_id) =
+    arr_set(tv, 1, type_id)
+    tv
+
+let unify(t1, t2) =
+    let s1 = tvar_solved(t1)
+    let s2 = tvar_solved(t2)
+    if s1 == 0 && s2 == 0
+      tvar_solve(t1, tvar_id(t2))
+      1
+    if s1 == 0
+      tvar_solve(t1, s2)
+      1
+    if s2 == 0
+      tvar_solve(t2, s1)
+      1
+    ((s1 == s2) ? (1) : (0))
+
+let COMPTIME_FLAG = 65535
+
+let comptime_eval(fn_id, arg) = host_call(fn_id, arg, 0)
+
+let comptime_check_const(x) = ((x >= 0 && x < 65537) ? (1) : (0))
+
+let type_safe_check(value, type_spec) =
+    let kind = arr_get(type_spec, 0)
+    if kind == DEP_TYPE_INT || kind == DEP_TYPE_ARR || kind == DEP_TYPE_VEC
+      dep_type_check(type_spec, value)
+    if kind == LIN_TYPE_FILE || kind == LIN_TYPE_SOCKET || kind == LIN_TYPE_MUTEX
+      lin_check_consumed(value)
+    if kind == EFFECT_PURE
+      effect_is_pure(type_spec)
+    0
+
+let type_proof_check(proof, value) = host_call(arr_get(proof, 0), value, 0)

@@ -1,0 +1,193 @@
+import "../../core/stdlib/gf65537.ψ"
+import "../../core/base/rt.ψ"
+
+let P = 65537
+
+let QQ_GFMUL = 1
+let QQ_CLIFFORD = 2
+let QQ_NTT = 3
+let QQ_BORN = 4
+let QQ_HEBBIAN = 5
+let QQ_TOKEN = 16
+let QQ_EMIT = 17
+let QQ_END = 255
+
+let PE_SRC = 20
+let PE_MAC = 21
+let PE_ALU = 22
+let PE_NTT = 23
+let PE_CMP = 24
+let PE_LAP = 25
+
+let op_to_pe(op_type) =
+    if op_type == 0
+        PE_SRC
+    else
+        0
+    if op_type == 1
+        PE_MAC
+    else
+        0
+    if op_type == 2
+        PE_ALU
+    else
+        0
+    if op_type == 3
+        PE_NTT
+    else
+        0
+    if op_type == 4
+        PE_CMP
+    else
+        0
+    if op_type == 5
+        PE_LAP
+    else
+        PE_SRC
+
+let op_to_qqbc(op_type) =
+    if op_type == 0
+        QQ_TOKEN
+    else
+        0
+    if op_type == 1
+        QQ_GFMUL
+    else
+        0
+    if op_type == 2
+        QQ_CLIFFORD
+    else
+        0
+    if op_type == 3
+        QQ_NTT
+    else
+        0
+    if op_type == 4
+        QQ_BORN
+    else
+        0
+    if op_type == 5
+        QQ_HEBBIAN
+    else
+        QQ_END
+
+let field_to_pe(ops_type, ops_data, n, pe_op, pe_in, pe_out) =
+    let i = 0
+    for i < n
+        pe_op[i] = op_to_pe(ops_type[i])
+        pe_in[i] = ops_data[i]
+        pe_out[i] = 0
+        i = i + 1
+
+let field_to_qqbc(ops_type, ops_data, n, qq_op, qq_data) =
+    let i = 0
+    for i < n
+        qq_op[i] = op_to_qqbc(ops_type[i])
+        qq_data[i] = ops_data[i]
+        i = i + 1
+
+let pe_execute(pe_op, pe_in, n) =
+    let stack = arr_new_n(n)
+    let sp = 0
+    let i = 0
+    for i < n
+        let op = pe_op[i]
+        if op == PE_SRC
+            stack[sp] = pe_in[i]
+            sp = sp + 1
+        if op == PE_MAC
+            if sp >= 2
+                let b = stack[sp - 1]
+                let a = stack[sp - 2]
+                sp = sp - 2
+                stack[sp] = (a * b) % P
+                sp = sp + 1
+        if op == PE_ALU
+            if sp >= 2
+                let b = stack[sp - 1]
+                let a = stack[sp - 2]
+                sp = sp - 2
+                stack[sp] = (a + b) % P
+                sp = sp + 1
+        if op == PE_NTT
+            if sp >= 1
+                stack[sp - 1] = (stack[sp - 1] * 3) % P
+        if op == PE_CMP
+            if sp >= 1
+                let a = stack[sp - 1]
+                if a > 32768
+                    stack[sp - 1] = 0
+        if op == PE_LAP
+            if sp >= 1
+                stack[sp - 1] = (65535 * stack[sp - 1] + 2) % P
+        i = i + 1
+    (sp > 0 ? stack[sp - 1] : 0)
+
+import "../../core/stdlib_lang2/gf_pre_123_14.ψ"
+                stack[sp] = (a * b) % P
+                sp = sp + 1
+        if t == 2
+            if sp >= 2
+                let b = stack[sp - 1]
+                let a = stack[sp - 2]
+                sp = sp - 2
+                stack[sp] = (a + b) % P
+                sp = sp + 1
+        if t == 3
+            if sp >= 1
+                stack[sp - 1] = (stack[sp - 1] * 3) % P
+        if t == 4
+            if sp >= 1
+                let a = stack[sp - 1]
+                if a > 32768
+                    stack[sp - 1] = 0
+        if t == 5
+            if sp >= 1
+                stack[sp - 1] = (65535 * stack[sp - 1] + 2) % P
+        i = i + 1
+    (sp > 0 ? stack[sp - 1] : 0)
+
+let q2c_convert(quantum_data) =
+    let classical = []
+    let i = 0
+    let n = len(quantum_data)
+    for i < n
+        classical.push(quantum_data[i] % 2)
+        i = i + 1
+    classical
+let c2q_embed(classical_data) =
+    let quantum = []
+    let i = 0
+    let n = len(classical_data)
+    for i < n
+        quantum.push(classical_data[i])
+        i = i + 1
+    quantum
+
+let teleport_send(state) = [state, gf_mul(state, state), gf_pow(state, 3)]
+let teleport_receive(classical_info) = gf_add(gf_add(classical_info[0], classical_info[1]), classical_info[2])
+
+let qqbc_verify() =
+    let n = 5
+    let ops_type = arr_new_n(n)
+    ops_type[0] = 0
+    ops_type[1] = 5
+    ops_type[2] = 4
+    ops_type[3] = 0
+    ops_type[4] = 1
+    let ops_data = arr_new_n(n)
+    ops_data[0] = 42
+    ops_data[1] = 0
+    ops_data[2] = 0
+    ops_data[3] = 2
+    ops_data[4] = 0
+    let pe_op = arr_new_n(n)
+    let pe_in = arr_new_n(n)
+    let pe_out = arr_new_n(n)
+    field_to_pe(ops_type, ops_data, n, pe_op, pe_in, pe_out)
+    let field_r = field_execute(ops_type, ops_data, n)
+    let pe_r = pe_execute(pe_op, pe_in, n)
+    let ok = 0
+    if field_r == pe_r
+        ok = 1
+    ok

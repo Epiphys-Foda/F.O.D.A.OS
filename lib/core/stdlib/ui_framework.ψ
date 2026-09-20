@@ -1,0 +1,118 @@
+import "psi_dataflow.ψ"
+import "dag_scheduler.ψ"
+
+let ui_layout(children) =
+    let result = []
+    let x = 0
+    let i = 0
+    let n = len(children)
+    let done = false
+    for !done
+      if i < n
+        let w = children[i]
+        result = result.push({ x: x, y: 0, w: w, h: 10 })
+        x = x + w
+        i = i + 1
+      else
+        done = true
+    result
+
+let ui_cond(visible, then_v, else_v) =
+    (visible != 0 ? then_v : else_v)
+
+let ui_animate(theta0, delta, frame) = theta0 + delta * frame
+
+let ui_component_dag() =
+    let d = dag_create()
+    d = dag_add_node_v13_1(d, 16, 16, -1, 0)
+    d = dag_add_node_v13_1(d, 1, 1, 0, 0)
+    d = dag_add_node_v13_1(d, 8, 6, -1, 1)
+    d = dag_add_node_v13_1(d, 6, 6, -1, 2)
+    d = dag_add_node_v13_1(d, 17, 17, -1, 3)
+    d = dag_add_edge_v13_1(d, 0, 0, 1, 0, 0, 4)
+    d = dag_add_edge_v13_1(d, 1, 0, 2, 0, 0, 4)
+    d = dag_add_edge_v13_1(d, 2, 0, 3, 0, 0, 4)
+    d = dag_add_edge_v13_1(d, 3, 0, 4, 0, 0, 4)
+    d
+
+let ui_node_comment(opcode) =
+    if opcode == 1
+        "  // ⊙ component: value x2"
+    else
+      if opcode == 8
+          "  // ↡ component: parity projection"
+      else
+        if opcode == 16
+            "  // TOKEN component: state source"
+        else
+          if opcode == 17
+              "  // EMIT component: output to screen"
+          else
+              "  // component"
+
+let ui_render_kernel(dag) =
+    let lines = ["// Psi-UI render kernel (component DAG → WGSL)"]
+    let i = 0
+    let n = dag.node_count
+    let done = false
+    for !done
+      if i < n
+        let node = dag.nodes[i]
+        lines = lines.push(ui_node_comment(node.opcode))
+        i = i + 1
+      else
+        done = true
+    lines
+
+let ui_incremental_cost(dag, changed) =
+    let affected = [changed]
+    let queue = [changed]
+    let qi = 0
+    let done = false
+    for !done
+      if qi < len(queue)
+        let cur = queue[qi]
+        let ei = 0
+        let en = len(dag.edges)
+        let ed = false
+        for !ed
+          if ei < en
+            let e = dag.edges[ei]
+            if e.src_node == cur
+              let in_aff = false
+              let ai = 0
+              let an = len(affected)
+              let ad = false
+              for !ad
+                if ai < an
+                  if affected[ai] == e.dst_node
+                    in_aff = true
+                  else
+                    0
+                  ai = ai + 1
+                else
+                  ad = true
+              if in_aff == false
+                affected = affected.push(e.dst_node)
+                queue = queue.push(e.dst_node)
+              else
+                  0
+            else
+              0
+            ei = ei + 1
+          else
+            ed = true
+        qi = qi + 1
+      else
+        done = true
+    len(affected)
+
+let ui_incremental_render(dag, changed) =
+    let affected = ui_incremental_cost(dag, changed)
+    { affected: affected, total: dag.node_count, ratio: (dag.node_count == 0 ? 0 : affected / dag.node_count) }
+
+let true UI_FRAME_COUNT = [0]
+let ui_frame(dag, count, eval_fn) =
+    UI_FRAME_COUNT[0] = count
+    let r = sched_run(dag, eval_fn)
+    r.results

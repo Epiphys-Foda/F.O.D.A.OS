@@ -1,0 +1,95 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let QA_MAX_SPINS = 1024
+let QA_MAX_STEPS = 65536
+
+let ising_energy(model, spins) =
+    let energy = 0
+    let n = model[0]
+    let couplings = model[1]
+    let fields = model[2]
+    let i = 0
+    for i < n
+        energy = gf_add(energy, gf_mul(fields[i], spins[i]))
+        let j = i + 1
+        for j < n
+            let c = couplings[i * n + j]
+            energy = gf_add(energy, gf_mul(c, gf_mul(spins[i], spins[j])))
+            j = j + 1
+        i = i + 1
+    gf_neg(energy)
+let ising_flip(spins, idx) =
+    let new_spins = []
+    let i = 0
+    let n = len(spins)
+    for i < n
+        if i == idx
+            new_spins.push(gf_neg(spins[i]))
+        else
+            new_spins.push(spins[i])
+        i = i + 1
+    new_spins
+let ising_flip_delta(model, spins, idx) =
+    let n = model[0]
+    let couplings = model[1]
+    let fields = model[2]
+    let delta = gf_mul(2, gf_mul(fields[idx], spins[idx]))
+    let j = 0
+    for j < n
+        if j != idx
+            let c = couplings[idx * n + j]
+            delta = gf_add(delta, gf_mul(2, gf_mul(c, gf_mul(spins[idx], spins[j]))))
+        j = j + 1
+    delta
+let anneal_step(model, state, beta) =
+        let spins = state[0]
+        let n = model[0]
+        let idx = state[2] % n
+        let delta = ising_flip_delta(model, spins, idx)
+        if delta < 0
+            let new_spins = ising_flip(spins, idx)
+            [new_spins, gf_add(state[1], delta), state[2] + 1]
+        else
+            [spins, state[1], state[2] + 1]
+let anneal_run(model, initial_state, n_steps) =
+    let state = initial_state
+    let i = 0
+    for i < n_steps
+        let beta = gf_div(i + 1, n_steps)
+        state = anneal_step(model, state, beta)
+        i = i + 1
+    state
+let qubo_to_ising(Q, n) =
+    let couplings = []
+    let fields = []
+    let i = 0
+    for i < n
+        fields.push(gf_div(Q[i * n + i], 2))
+        let j = 0
+        for j < n
+            couplings.push(gf_div(Q[i * n + j], 4))
+            j = j + 1
+        i = i + 1
+    [n, couplings, fields]
+let qanneal_field_search(energies, n) =
+    let best = 0
+    let best_energy = energies[0]
+    let i = 1
+    for i < n
+        if energies[i] < best_energy
+            best_energy = energies[i]
+            best = i
+        i = i + 1
+    best
+
+let qanneal_verify() =
+    let energies = arr_new_n(4)
+    energies[0] = 400
+    energies[1] = 100
+    energies[2] = 300
+    energies[3] = 200
+    let best = qanneal_field_search(energies, 4)
+    let ok = 0
+    (best == 1 ? (ok = 1) : (ok = 0))
+    ok
+

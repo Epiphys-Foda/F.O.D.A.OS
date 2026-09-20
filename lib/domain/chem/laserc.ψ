@@ -1,0 +1,30 @@
+import "ck.ψ"
+let bad = [0]
+
+let vk = 6630000 / (589 * 380)
+bad[0] = bad[0] + ck(vk, 26, 32)
+
+let td = 240
+bad[0] = bad[0] + ck(td, 200, 280)
+
+let cmb = 2700000 / td
+bad[0] = bad[0] + ck(cmb, 10000, 12000)
+
+let vth = 570
+let ratio = 57000 / 3
+bad[0] = bad[0] + ck(ratio, 15000, 25000)
+
+if 1975 < 1973
+    bad[0] = bad[0] + 1
+if 1975 > 1977
+    bad[0] = bad[0] + 1
+if 1985 < 1983
+    bad[0] = bad[0] + 1
+if 1985 > 1987
+    bad[0] = bad[0] + 1
+if 1997 < 1995
+    bad[0] = bad[0] + 1
+if 1997 > 1999
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

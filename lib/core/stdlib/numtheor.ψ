@@ -1,0 +1,438 @@
+import "gf65537.ψ"
+import "arr.ψ"
+import "predicates.ψ"
+
+let _euler_phi_loop(n, p, result) =
+    if p * p > n
+      if n > 1
+        result / n * (n - 1)
+      else
+        result
+    else
+        0
+    if n % p == 0
+      let nr = n
+      let nred = _euler_phi_strip(nr, p)
+      _euler_phi_loop(nred, p + 1, result / p * (p - 1))
+    else
+      _euler_phi_loop(n, p + 1, result)
+let _euler_phi_strip(n, p) =
+      if n % p == 0
+        _euler_phi_strip(n / p, p)
+      else
+        n
+let euler_phi(n) =
+    if n <= 0
+      0
+    else
+        0
+    if n == 1
+      1
+    else
+      _euler_phi_loop(n, 2, n)
+
+let _mobius_loop(n, p, factor_count) =
+    if p * p > n
+      if n > 1
+        let k = factor_count + 1
+        ((k & 1) == 0 ? 1 : 65536)
+      else
+            0
+        ((factor_count & 1) == 0 ? 1 : 65536)
+    else
+            0
+    if n % (p * p) == 0
+      0
+    else
+        0
+    if n % p == 0
+      _mobius_loop(n / p, p + 1, factor_count + 1)
+    else
+      _mobius_loop(n, p + 1, factor_count)
+let mobius(n) =
+    if n <= 0
+      0
+    else
+        0
+    if n == 1
+      1
+    else
+      _mobius_loop(n, 2, 0)
+
+let _div_count_loop(n, p, count) =
+    if p * p > n
+      if n > 1
+        count * 2
+      else
+        count
+    else
+        0
+    if n % p == 0
+      let a = _div_count_exp(n, p, 0)
+      let nred = _div_count_strip(n, p)
+      _div_count_loop(nred, p + 1, count * (a + 1))
+    else
+      _div_count_loop(n, p + 1, count)
+let _div_count_exp(n, p, a) =
+      if n % p == 0
+        _div_count_exp(n / p, p, a + 1)
+      else
+        a
+let _div_count_strip(n, p) =
+      if n % p == 0
+        _div_count_strip(n / p, p)
+      else
+        n
+let divisor_count(n) =
+    if n <= 0
+      0
+    else
+        0
+    if n == 1
+      1
+    else
+      _div_count_loop(n, 2, 1)
+
+let _div_sum_loop(n, d, sum) =
+    if d > n
+      sum
+    else
+        0
+    if n % d == 0
+      _div_sum_loop(n, d + 1, sum + d)
+    else
+      _div_sum_loop(n, d + 1, sum)
+let divisor_sum(n) =
+      if n <= 0
+        0
+      else
+        _div_sum_loop(n, 1, 0)
+
+let _factorial_loop(n, i, acc) =
+    if i > n
+      acc
+    else
+      _factorial_loop(n, i + 1, gf_mul(acc, i))
+let factorial(n) =
+    if n <= 1
+      1
+    else
+      _factorial_loop(n, 2, 1)
+
+let gf_factorial(n) = factorial(n)
+
+let _prime_count_loop(x, n, acc) =
+    if n > x
+      acc
+    else
+      let new_acc = (is_prime(n) == 1) ? acc + 1 : acc
+      _prime_count_loop(x, n + 1, new_acc)
+let prime_count(x) =
+    if x < 2
+      0
+    else
+      _prime_count_loop(x, 2, 0)
+
+let _fib_loop(n, i, a, b) =
+    if i > n
+      b
+    else
+      _fib_loop(n, i + 1, b, gf_add(a, b))
+let fib(n) =
+    if n <= 0
+      0
+    else
+        0
+    if n == 1
+      1
+    else
+      _fib_loop(n, 2, 0, 1)
+
+let _next_prime_loop(candidate) =
+    if is_prime(candidate) == 1
+      candidate
+    else
+      _next_prime_loop(candidate + 1)
+let next_prime(n) =
+    if n < 2
+      2
+    else
+      _next_prime_loop(n + 1)
+
+let _isqrt_newton(x, n) =
+    let y = (x + n / x) / 2
+    if y < x
+      _isqrt_newton(y, n)
+    else
+      x
+let isqrt(n) =
+    if n <= 0
+      0
+    else
+      _isqrt_newton(n, n)
+
+let icbrt(n) =
+    let lo = 0
+    let hi = n + 1
+    for lo < hi - 1
+        let mid = (lo + hi) / 2
+        if mid * mid * mid <= n
+            lo = mid
+        else
+            hi = mid
+    lo
+
+let small_div(x, m) =
+    let neg = 0
+    if m < 0
+        neg = 1 - neg
+        m = 0 - m
+    if x < 0
+        neg = 1 - neg
+        x = 0 - x
+    let q = 0
+    for x >= m
+        x = x - m
+        q = q + 1
+    if neg == 1
+        0 - q
+    else
+        q
+let smod(x, m) =
+    let neg = 0
+    if m < 0
+        m = 0 - m
+    if x < 0
+        neg = 1
+        x = 0 - x
+    for x >= m
+        x = x - m
+    if neg == 1
+        0 - x
+    else
+        x
+
+let _lpf_loop(n, p, best) =
+    if p * p > n
+      if n > best
+        n
+      else
+        best
+    else
+        0
+    if n % p == 0
+      let nred = _lpf_strip(n, p)
+      _lpf_loop(nred, p + 1, p)
+    else
+      _lpf_loop(n, p + 1, best)
+let _lpf_strip(n, p) =
+      if n % p == 0
+        _lpf_strip(n / p, p)
+      else
+        n
+let largest_prime_factor(n) =
+      if n <= 1
+        0
+      else
+        _lpf_loop(n, 2, 1)
+
+let _prime_pi_loop(n, k, count) =
+      if k > n
+        count
+      else
+        let nc = count + is_prime(k)
+        _prime_pi_loop(n, k + 1, nc)
+let prime_pi(n) = _prime_pi_loop(n, 2, 0)
+
+let _goldbach_find_loop(n, p) =
+    if p > n / 2
+      [0, 0]
+    else
+        0
+    if (is_prime(p) == 1) && (is_prime(n - p) == 1)
+      [p, n - p]
+    else
+      _goldbach_find_loop(n, p + 1)
+let goldbach_find_pair(n) = _goldbach_find_loop(n, 2)
+
+let _goldbach_verify_acc(N, n, count) =
+      if n > N
+        count
+      else
+        let pair = goldbach_find_pair(n)
+        let p = arr_get(pair, 0)
+        let q = arr_get(pair, 1)
+        let ok = (p > 0) && (p + q == n)
+        let new_count = (ok ? count + 1 : count)
+        _goldbach_verify_acc(N, n + 2, new_count)
+let goldbach_verify_range(N) = _goldbach_verify_acc(N, 4, 0)
+
+let _goldbach_count_loop(n, p, count) =
+      if p > n / 2
+        count
+      else
+        let new_count = ((is_prime(p) == 1) && (is_prime(n - p) == 1) ? count + 1 : count)
+        _goldbach_count_loop(n, p + 1, new_count)
+let goldbach_count_repr(n) = _goldbach_count_loop(n, 2, 0)
+
+let goldbach_verify_strong(N) =
+    let count = goldbach_verify_range(N)
+    let expected = (N - 2) / 2
+    (count == expected ? 1 : 0)
+
+let goldbach_summary(N) =
+    let verified = goldbach_verify_range(N)
+    let expected = (N - 2) / 2
+    let r4 = goldbach_count_repr(4)
+    let r10 = goldbach_count_repr(10)
+    let v = arr_new_n(4)
+    arr_set(v, 0, verified)
+    arr_set(v, 1, expected)
+    arr_set(v, 2, r4)
+    arr_set(v, 3, r10)
+    v
+
+let _burnside_apply_acc(perm, x, n, i, acc) =
+      if i >= n
+        acc
+      else
+        let src = arr_get(perm, i)
+        let val = arr_get(x, src)
+        let new_acc = arr_push(acc, val)
+        _burnside_apply_acc(perm, x, n, i + 1, new_acc)
+let burnside_apply_perm(perm, x) =
+    let n = arr_len(perm)
+    let acc = arr_new_n(0)
+    _burnside_apply_acc(perm, x, n, 0, acc)
+
+let _burnside_eq_acc(x, y, n, i) =
+    if i >= n
+      1
+    else
+        0
+    if arr_get(x, i) == arr_get(y, i)
+        _burnside_eq_acc(x, y, n, i + 1)
+    else
+        0
+let burnside_eq_perm(x, y) =
+    let n = arr_len(x)
+    _burnside_eq_acc(x, y, n, 0)
+
+let _burnside_fixed_acc(perm, k, n, total, idx, fixed) =
+      if idx >= total
+        fixed
+      else
+        let x = arr_new_n(n)
+        _burnside_decode_kary(idx, k, n, 0, x)
+        let gx = burnside_apply_perm(perm, x)
+        let is_fixed = burnside_eq_perm(x, gx)
+        let new_fixed = (is_fixed == 1 ? fixed + 1 : fixed)
+        _burnside_fixed_acc(perm, k, n, total, idx + 1, new_fixed)
+let _burnside_decode_kary(idx, k, n, i, arr) =
+      if i >= n
+        0
+      else
+        arr_set(arr, i, idx % k)
+        _burnside_decode_kary(idx / k, k, n, i + 1, arr)
+let burnside_fixed_points(perm, k) =
+    let n = arr_len(perm)
+    let total = _burnside_kpow(k, n)
+    _burnside_fixed_acc(perm, k, n, total, 0, 0)
+
+let _burnside_kpow_loop(k, n, acc) =
+      if n == 0
+        acc
+      else
+        _burnside_kpow_loop(k, n - 1, acc * k)
+let _burnside_kpow(k, n) = _burnside_kpow_loop(k, n, 1)
+
+let _burnside_orbit_acc(group, k, n_g, i, sum_fixed) =
+      if i >= n_g
+        sum_fixed
+      else
+        let perm = arr_get(group, i)
+        let fp = burnside_fixed_points(perm, k)
+        _burnside_orbit_acc(group, k, n_g, i + 1, sum_fixed + fp)
+let burnside_orbit_count(group, k) =
+    let n_g = arr_len(group)
+    let sum = _burnside_orbit_acc(group, k, n_g, 0, 0)
+    sum / n_g
+
+let _burnside_cycle_acc(perm, n, visited, i, count) =
+      if i >= n
+        count
+      else
+        let vis = arr_get(visited, i)
+        if vis == 1
+          _burnside_cycle_acc(perm, n, visited, i + 1, count)
+        else
+          _burnside_mark_cycle(perm, visited, i, i)
+          _burnside_cycle_acc(perm, n, visited, i + 1, count + 1)
+let _burnside_mark_cycle(perm, visited, start, current) =
+      arr_set(visited, current, 1)
+      let next = arr_get(perm, current)
+      if next == start
+        0
+      else
+        _burnside_mark_cycle(perm, visited, start, next)
+let burnside_cycle_count(perm) =
+    let n = arr_len(perm)
+    let visited = arr_new_n(n)
+    _burnside_init_zero(visited, n, 0)
+    _burnside_cycle_acc(perm, n, visited, 0, 0)
+let _burnside_init_zero(arr, n, i) =
+      if i >= n
+        0
+      else
+        arr_set(arr, i, 0)
+        _burnside_init_zero(arr, n, i + 1)
+
+let _burnside_orbit_fast_acc(group, k, n_g, i, sum_fixed) =
+      if i >= n_g
+        sum_fixed
+      else
+        let perm = arr_get(group, i)
+        let c = burnside_cycle_count(perm)
+        let fp = _burnside_kpow(k, c)
+        _burnside_orbit_fast_acc(group, k, n_g, i + 1, sum_fixed + fp)
+let burnside_orbit_count_fast(group, k) =
+    let n_g = arr_len(group)
+    let sum = _burnside_orbit_fast_acc(group, k, n_g, 0, 0)
+    sum / n_g
+
+let burnside_verify() =
+    let e = arr_new_n(3)
+    arr_set(e, 0, 0)
+    arr_set(e, 1, 1)
+    arr_set(e, 2, 2)
+    let r = arr_new_n(3)
+    arr_set(r, 0, 1)
+    arr_set(r, 1, 2)
+    arr_set(r, 2, 0)
+    let r2 = arr_new_n(3)
+    arr_set(r2, 0, 2)
+    arr_set(r2, 1, 0)
+    arr_set(r2, 2, 1)
+    let G = arr_new_n(3)
+    arr_set(G, 0, e)
+    arr_set(G, 1, r)
+    arr_set(G, 2, r2)
+    let orbits = burnside_orbit_count_fast(G, 2)
+    (orbits == 4 ? 1 : 0)
+
+let test_numtheor() =
+    assert_eq(is_prime(2), 1)
+    assert_eq(is_prime(7), 1)
+    assert_eq(is_prime(8), 0)
+    assert_eq(is_prime(65537), 1)
+    assert_eq(euler_phi(1), 1)
+    assert_eq(euler_phi(6), 2)
+    assert_eq(euler_phi(12), 4)
+    assert_eq(mobius(1), 1)
+    assert_eq(mobius(6), 1)
+    assert_eq(mobius(4), 0)
+    assert_eq(divisor_count(12), 6)
+    assert_eq(divisor_sum(12), 28)
+    assert_eq(largest_prime_factor(12), 3)
+    assert_eq(prime_pi(10), 4)
+    0

@@ -1,0 +1,128 @@
+import "../stdlib/gf65537.ψ"
+
+let coin_operator_gf() =
+    [[1, 1], [1, gf_neg(1)]]
+
+let shift_operator_gf(position, coin) =
+        if coin == 0
+            gf_add(position, 1)
+        else
+            gf_sub(position, 1)
+
+let walk_operator_gf(coin_op, shift_op) =
+    gf_mul(shift_op, coin_op)
+
+let discrete_quantum_walk_gf(walk_op, initial_state, steps) =
+    let state = initial_state
+    for t in 0..steps
+        state = gf_mul(walk_op, state)
+    state
+
+let continuous_quantum_walk_gf(H, initial_state, time) =
+    let exponent = gf_mul(H, time)
+    let evolution = gf_pow(3, exponent)
+    gf_mul(evolution, initial_state)
+
+let spectral_gap_gf(lambda_2) =
+    gf_sub(1, lambda_2)
+
+let mixing_time_gf(spectral_gap) =
+    gf_inv(spectral_gap)
+
+let mixing_speedup_gf(spectral_gap) =
+    gf_sqrt(gf_inv(spectral_gap))
+
+let hitting_time_gf(walk_op, start, target) =
+    let position = start
+    let steps = 0
+    for position != target && steps <= 65537
+        position = gf_mul(walk_op, position)
+        steps = steps + 1
+    steps
+
+let average_hitting_time_gf(walk_op, n_positions, target) =
+    let total = 0
+    for start in 0..n_positions
+        total = gf_add(total, hitting_time_gf(walk_op, start, target))
+    gf_div(total, n_positions)
+
+let diffusion_coefficient_gf(variance, time) =
+    gf_div(variance, time)
+
+let quantum_vs_classical_diffusion_gf(time) =
+    let quantum_diff = time
+    let classical_diff = gf_sqrt(time)
+    gf_div(quantum_diff, classical_diff)
+
+let uniform_distribution_gf(n) =
+    gf_inv(n)
+
+let distance_to_uniform_gf(distribution, n) =
+    let uniform = uniform_distribution_gf(n)
+    let dist = 0
+    for x in 0..n
+        let diff = gf_sub(distribution, uniform)
+        dist = gf_add(dist, gf_abs(diff))
+    dist
+
+let markov_step_gf(state, transition) =
+    gf_mul(state, transition)
+
+let markov_chain_gf(initial_state, transition, steps) =
+    let state = initial_state
+    for t in 0..steps
+        state = markov_step_gf(state, transition)
+    state
+
+let detailed_balance_gf(pi_i, P_ij, pi_j, P_ji) =
+    let lhs = gf_mul(pi_i, P_ij)
+    let rhs = gf_mul(pi_j, P_ji)
+    (lhs == rhs ? 1 : 0)
+
+let grover_walk_search_gf(n, oracle) =
+    let steps = gf_sqrt(n)
+    let position = 0
+    for t in 0..steps
+        if oracle(position) != 0
+            position
+        position = gf_add(position, 1)
+    position
+
+let grover_walk_speedup_gf(n) =
+    gf_div(n, gf_sqrt(n))
+
+let element_distinctness_gf(arr, n) =
+    for i in 0..n
+        for j in gf_add(i, 1)..n
+            if arr[i] == arr[j]
+                0
+    1
+
+let triangle_detection_gf(adjacency, n) =
+    for i in 0..n
+        for j in gf_add(i, 1)..n
+            for k in gf_add(j, 1)..n
+                if adjacency[i][j] != 0 && adjacency[j][k] != 0 && adjacency[k][i] != 0
+                    [i, j, k]
+    []
+
+let recurrence_check_gf(n_states) =
+    1
+
+let return_time_gf(walk_op, origin) =
+    let position = gf_mul(walk_op, origin)
+    let steps = 1
+    for position != origin && steps <= 65537
+        position = gf_mul(walk_op, position)
+        steps = steps + 1
+    steps
+
+let walk_eigenvalue_gf(k, n) =
+    gf_pow(3, k)
+
+let walk_spectrum_gf(n) =
+    let spectrum = []
+    for k in 0..n
+        spectrum = arr_concat(spectrum, [walk_eigenvalue_gf(k, n)])
+    spectrum
+

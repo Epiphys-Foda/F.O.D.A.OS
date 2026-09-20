@@ -1,0 +1,35 @@
+import "ck.ψ"
+let bad = [0]
+
+let f111 = 0
+if f111 != 0
+    bad[0] = bad[0] + 1
+
+let f110 = 1
+if f110 != 1
+    bad[0] = bad[0] + 1
+
+let f011 = 1
+if f011 != 1
+    bad[0] = bad[0] + 1
+
+let f000 = 0
+if f000 != 0
+    bad[0] = bad[0] + 1
+
+let encoding = 64 + 32 + 8 + 4 + 2
+if encoding != 110
+    bad[0] = bad[0] + 1
+
+let totalLive = 7
+bad[0] = bad[0] + ck_lo(totalLive, 5)
+
+let turingComplete = 1
+if turingComplete != 1
+    bad[0] = bad[0] + 1
+
+let glider = 1
+if glider != 1
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

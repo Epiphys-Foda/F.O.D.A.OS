@@ -1,0 +1,142 @@
+let GAUGE_P = 65537
+
+let gauge_link(a, b) =
+    let r = a * b
+    r - r / GAUGE_P * GAUGE_P
+
+let gauge_mod_mul(a, b) =
+    let r = a * b
+    r - r / GAUGE_P * GAUGE_P
+
+let gauge_mod_pow(base, exp) =
+    let result = 1
+    let b = base
+    let e = exp
+    let done = false
+    for !done
+      if e > 0
+        if e - (e / 2) * 2 == 1
+          result = gauge_mod_mul(result, b)
+        else
+          0
+        b = gauge_mod_mul(b, b)
+        e = e / 2
+      else
+        done = true
+    result
+
+let gauge_inv(a) =
+    (a == 0 ? 0 : gauge_mod_pow(a, GAUGE_P - 2))
+
+let gauge_pow(a, n) = gauge_mod_pow(a, n)
+
+let gauge_wilson_product_impl(vals, idx, acc) =
+    let n = len(vals)
+    let r = if idx < n
+      gauge_wilson_product_impl(vals, idx + 1, gauge_link(acc, vals[idx]))
+    else
+      acc
+    r
+
+let gauge_wilson_product(vals) = gauge_wilson_product_impl(vals, 0, 1)
+
+let gauge_flux_free(vals) = gauge_wilson_product(vals) == 1
+
+let gauge_flux(vals) = gauge_wilson_product(vals)
+
+let gauge_rescale_impl(vals, s, idx, acc) =
+    let n = len(vals)
+    let r = if idx < n
+      gauge_rescale_impl(vals, s, idx + 1, acc.push(gauge_link(vals[idx], s[idx])))
+    else
+      acc
+    r
+
+let gauge_rescale(vals, s) = gauge_rescale_impl(vals, s, 0, [])
+
+let gauge_rescale_ok(s) = gauge_wilson_product(s) == 1
+
+let gauge_invariant_under(vals, s) = gauge_wilson_product(gauge_rescale(vals, s)) == gauge_wilson_product(vals)
+
+let gauge_downstreams_impl(edges, node_id, idx, acc) =
+    let n = len(edges)
+    let r = if idx < n
+      let e = edges[idx]
+      if e.src_node == node_id
+        gauge_downstreams_impl(edges, node_id, idx + 1, acc.push(e.dst_node))
+      else
+        gauge_downstreams_impl(edges, node_id, idx + 1, acc)
+    else
+      acc
+    r
+
+let gauge_downstreams(dag, node_id) = gauge_downstreams_impl(dag.edges, node_id, 0, [])
+
+let gauge_in_frontier_impl(frontier, node_id, idx) =
+    let n = len(frontier)
+    let r = if idx < n
+      if frontier[idx] == node_id
+        true
+      else
+        gauge_in_frontier_impl(frontier, node_id, idx + 1)
+    else
+      false
+    r
+
+let gauge_in_frontier(frontier, node_id) = gauge_in_frontier_impl(frontier, node_id, 0)
+
+let gauge_union_impl(frontier, next, idx, acc) =
+    let n = len(next)
+    let r = if idx < n
+      let v = next[idx]
+      if gauge_in_frontier(acc, v)
+        gauge_union_impl(frontier, next, idx + 1, acc)
+      else
+        gauge_union_impl(frontier, next, idx + 1, acc.push(v))
+    else
+      acc
+    r
+
+let gauge_union(frontier, next) = gauge_union_impl(frontier, next, 0, frontier)
+
+let gauge_propagate_impl(dag, frontier, idx, acc) =
+    let n = len(frontier)
+    let r = if idx < n
+      let ds = gauge_downstreams(dag, frontier[idx])
+      let acc2 = gauge_union(acc, ds)
+      gauge_propagate_impl(dag, frontier, idx + 1, acc2)
+    else
+      acc
+    r
+
+let gauge_propagate(dag, frontier) = gauge_propagate_impl(dag, frontier, 0, [])
+
+let gauge_reachable_in_impl(dag, start, target, hops, frontier) =
+    let r = if hops > 0
+      let next = gauge_propagate(dag, frontier)
+      if gauge_in_frontier(next, target)
+        true
+      else
+        gauge_reachable_in_impl(dag, start, target, hops - 1, next)
+    else
+      false
+    r
+
+let gauge_reachable_in(dag, start, target, hops) =
+    gauge_reachable_in_impl(dag, start, target, hops, gauge_downstreams(dag, start))
+
+let gauge_has_cycle_impl(dag, node_id, idx) =
+    let n = dag.node_count
+    let r = if idx < n
+      if gauge_reachable_in(dag, idx, idx, n)
+        true
+      else
+        gauge_has_cycle_impl(dag, node_id, idx + 1)
+    else
+      false
+    r
+
+let gauge_has_cycle(dag) = gauge_has_cycle_impl(dag, 0, 0)
+
+let gauge_summary() =
+    { field: "GF(65537) operator gauge field", group: "⊙ = group element multiplication (closure/associativity/identity/inverse)", wilson: "prod(U) = 1 ⇔ no flux (gauge conservation) / != 1 ⇔ flux = contradiction", transform: "zero-divergence rescale prod(S) = 1 → loop product invariant (gauge invariant)", cycle: "gauge_has_cycle — propagation along edges (order-sensitive structure detection)" }

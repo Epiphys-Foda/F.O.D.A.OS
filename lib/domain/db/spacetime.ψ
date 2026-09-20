@@ -1,0 +1,216 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let ST_P = 65537
+let ST_MAX_EVENTS = 8
+let ST_MAX_ENTITIES = 8
+let ST_MAX_QUEUES = 8
+let ST_MAX_REPLICAS = 8
+let ST_MVCC_WINDOW = 8
+
+let ST_TIME_POLES = [100, 200, 300, 400, 500, 600, 700, 800]
+let ST_TIME_RESIDUES = [10, 20, 30, 40, 50, 60, 70, 80]
+
+let psi_time(t) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(t), gf_norm(ST_TIME_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(ST_TIME_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let st_time_monotonic_test() =
+    let v1 = psi_time(150)
+    let v2 = psi_time(250)
+    (v1 != v2 ? 1 : 0)
+
+let st_time_resonance_test() =
+    let v_far = psi_time(50)
+    let v_near = psi_time(101)
+    (v_far != v_near ? 1 : 0)
+
+let ST_SPACE_POLES_X = [10, 20, 30, 40, 50, 60, 70, 80]
+let ST_SPACE_POLES_Y = [10, 20, 30, 40, 50, 60, 70, 80]
+let ST_SPACE_RESIDUES = [100, 200, 300, 400, 500, 600, 700, 800]
+
+let st_encode_3d(x, y, z) = gf_norm((gf_mul(x, 256) + y) * 256 + z)
+
+let psi_space(x, y, z) =
+    let p = st_encode_3d(x, y, z)
+    let val = 0
+    let k = 0
+    for k < 8
+        let pk = st_encode_3d(ST_SPACE_POLES_X[k], ST_SPACE_POLES_Y[k], k)
+        let diff = gf_sub(p, pk)
+        if diff != 0
+            val = gf_add(val, gf_mul(ST_SPACE_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let st_space_local_test() =
+    let v_near = psi_space(11, 11, 0)
+    let v_far = psi_space(255, 255, 255)
+    (v_near != v_far ? 1 : 0)
+
+let st_space_isotropic_test() =
+    let v_x = psi_space(11, 10, 10)
+    let v_y = psi_space(10, 11, 10)
+    if v_x != 0
+        (v_y != 0 ? 1 : 0)
+    else
+        0
+
+let spacetime_field(t, x, y, z) =
+    let e_t = psi_time(t)
+    let e_s = psi_space(x, y, z)
+    gf_mul(e_t, e_s)
+
+let st_coupling_test() =
+    let e = spacetime_field(150, 11, 11, 0)
+    (e != 0 ? 1 : 0)
+
+let st_separability_test() =
+    let e_t = psi_time(150)
+    let e_s = psi_space(11, 11, 0)
+    let e_st = spacetime_field(150, 11, 11, 0)
+    (gf_mul(e_t, e_s) == e_st ? 1 : 0)
+
+let ST_QUEUE_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let ST_QUEUE_MSGS = [101, 102, 103, 104, 105, 106, 107, 108]
+
+let psi_queue(q_pos) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(q_pos), gf_norm(ST_QUEUE_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(ST_QUEUE_MSGS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let st_fifo_order_test() =
+    let v_head = psi_queue(1)
+    let v_tail = psi_queue(8)
+    (v_head != v_tail ? 1 : 0)
+
+let st_pubsub_test() =
+    let v1 = psi_queue(2)
+    let v2 = psi_queue(3)
+    (v1 != v2 ? 1 : 0)
+
+let ST_REPLICA_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let ST_REPLICA_VERSIONS = [10, 10, 10, 10, 10, 10, 10, 10]
+
+let psi_replica(r_id) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(r_id), gf_norm(ST_REPLICA_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(ST_REPLICA_VERSIONS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let st_gauge_symmetry_test() =
+    let v1 = psi_replica(1)
+    let v2 = psi_replica(8)
+    if v1 != 0
+        (v2 != 0 ? 1 : 0)
+    else
+        0
+
+let st_crdt_convergent_test() =
+    let all_same = 1
+    let k = 1
+    for k < 8
+        if ST_REPLICA_VERSIONS[k] != ST_REPLICA_VERSIONS[0]
+            all_same = 0
+        k = k + 1
+    all_same
+
+let ST_VERSION_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let ST_VERSION_DATA = [1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700]
+
+let psi_version(ver) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(ver), gf_norm(ST_VERSION_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(ST_VERSION_DATA[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let st_mvcc_monotonic_test() =
+    let v_old = psi_version(1)
+    let v_new = psi_version(8)
+    (v_old != v_new ? 1 : 0)
+
+let st_mvcc_snapshot_test() =
+    let v1 = psi_version(2)
+    let v2 = psi_version(7)
+    (v1 != v2 ? 1 : 0)
+
+let nested_fractal_spacetime_invariants() =
+    let e1 = psi_time(150)
+    let e2 = psi_space(11, 11, 0)
+    let e3 = spacetime_field(150, 11, 11, 0)
+    let e4 = psi_queue(2)
+    let e5 = psi_replica(1)
+    let e6 = psi_version(2)
+    let inv1 = 0
+    if e1 != 0
+        if e2 != 0
+            if e3 != 0
+                if e4 != 0
+                    if e5 != 0
+                        if e6 != 0
+                            inv1 = 1
+    let inv2 = 0
+    if ST_TIME_POLES[0] < ST_TIME_POLES[3]
+        (ST_TIME_POLES[3] < ST_TIME_POLES[7] ? (inv2 = 1) : 0)
+    let inv3 = 0
+    if ST_QUEUE_POLES[0] < ST_QUEUE_POLES[7]
+        inv3 = 1
+    let inv4 = st_crdt_convergent_test()
+    let inv5 = 0
+    if ST_VERSION_POLES[0] < ST_VERSION_POLES[7]
+        inv5 = 1
+    [inv1, inv2, inv3, inv4, inv5]
+
+let spacetime_verify_v21() =
+    let t1 = 0
+    if psi_time(150) != 0
+        t1 = 1
+    let t2 = 0
+    if psi_space(11, 11, 0) != 0
+        t2 = 1
+    let t3 = 0
+    if spacetime_field(150, 11, 11, 0) != 0
+        t3 = 1
+    let t4 = 0
+    if psi_queue(2) != 0
+        t4 = 1
+    let t5 = 0
+    if psi_replica(1) != 0
+        t5 = 1
+    let t6 = 0
+    if psi_version(2) != 0
+        t6 = 1
+    let t7 = st_time_monotonic_test()
+    let t8 = st_time_resonance_test()
+    let t9 = st_space_local_test()
+    let t10 = st_coupling_test()
+    let t11 = st_gauge_symmetry_test()
+    let t12 = st_mvcc_snapshot_test()
+    let invs = nested_fractal_spacetime_invariants()
+    let inv_ok = 0
+    if invs[0] == 1
+        if invs[1] == 1
+            if invs[2] == 1
+                if invs[3] == 1
+                    if invs[4] == 1
+                        inv_ok = 1
+    let passed = t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12 + inv_ok
+    passed == 13

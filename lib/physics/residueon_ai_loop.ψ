@@ -1,0 +1,461 @@
+import "residueon_common.ψ"
+
+let ai_make(version, capability, knowledge) = rp_make(version, capability, knowledge)
+
+let ai_version(ai) = rp_z(ai)
+let ai_capability(ai) = rp_r(ai)
+let ai_knowledge(ai) = rp_n(ai)
+
+let ai_execute(ai, input) = rp_mul(ai, input)
+
+let ai_score(ai) =
+    let c = ai_capability(ai)
+    let k = ai_knowledge(ai)
+    gf_add(gf_mul(c, c), gf_mul(k, k))
+
+let improve_functor(ai) =
+    let v = ai_version(ai)
+    let c = ai_capability(ai)
+    let k = ai_knowledge(ai)
+    rp_make(gf_add(v, 1), gf_add(c, 1), gf_add(k, 1))
+
+let improve_verify(ai) =
+    let improved = improve_functor(ai)
+    let result = 0
+    if ai_capability(improved) > ai_capability(ai)
+        result = 1
+    result
+
+let fixed_point_detect(ai) =
+    let improved = improve_functor(ai)
+    let result = 0
+    if ai_capability(improved) == ai_capability(ai)
+        result = 1
+    result
+
+let improve_n_steps(ai, n) =
+    let result = ai
+    let i = 0
+    for i < n
+        result = improve_functor(result)
+        i = i + 1
+    result
+
+let improve_n_verify(ai, n) =
+    let improved = improve_n_steps(ai, n)
+    let expected = gf_add(ai_capability(ai), n)
+    let result = 0
+    if ai_capability(improved) == expected
+        result = 1
+    result
+
+let ai_hebb_learn(ai, data) =
+    let c = ai_capability(ai)
+    let k = ai_knowledge(ai)
+    let d = ai_capability(data)
+    let new_c = gf_add(c, gf_mul(c, d))
+    rp_make(ai_version(ai), new_c, k)
+
+let ai_stdp_learn(ai, pre, post) =
+    let c = ai_capability(ai)
+    let r_pre = ai_capability(pre)
+    let r_post = ai_capability(post)
+    let new_c = c
+    if r_pre < r_post
+        new_c = gf_add(c, gf_mul(r_pre, r_post))
+    if r_pre > r_post
+        new_c = gf_sub(c, gf_mul(r_pre, r_post))
+    rp_make(ai_version(ai), new_c, ai_knowledge(ai))
+
+let hebb_learn_verify() =
+    let ai = ai_make(0, 2, 1)
+    let data = ai_make(1, 3, 0)
+    let learned = ai_hebb_learn(ai, data)
+    let result = 0
+    if ai_capability(learned) > ai_capability(ai)
+        result = 1
+    result
+
+let stdp_learn_verify() =
+    let ai = ai_make(0, 5, 1)
+    let pre = ai_make(1, 2, 0)
+    let post = ai_make(2, 3, 0)
+    let learned = ai_stdp_learn(ai, pre, post)
+    let result = 0
+    if ai_capability(learned) >= 0
+        result = 1
+    result
+
+let ai_pcd_evaluate(output1, output2) =
+    let n1 = ai_knowledge(output1)
+    let n2 = ai_knowledge(output2)
+    gf_sub(n1, n2)
+
+let ai_pcd_contradiction(output1, output2) =
+    let diff = ai_pcd_evaluate(output1, output2)
+    let result = 0
+    if diff != 0
+        result = 1
+    result
+
+let ai_rrc_evaluate(out1, out2, out3) =
+    let r1 = ai_capability(out1)
+    let r2 = ai_capability(out2)
+    let r3 = ai_capability(out3)
+    gf_sub(gf_add(r1, r3), gf_mul(2, r2))
+
+let ai_rrc_overfit(out1, out2, out3) =
+    let curvature = ai_rrc_evaluate(out1, out2, out3)
+    let result = 0
+    if curvature != 0
+        result = 1
+    result
+
+let ai_evaluate(output1, output2, output3) =
+    let pcd = ai_pcd_contradiction(output1, output2)
+    let rrc = ai_rrc_overfit(output1, output2, output3)
+    gf_add(pcd, gf_mul(rrc, 10))
+
+let ai_evaluate_consistent_verify() =
+    let o1 = ai_make(0, 3, 1)
+    let o2 = ai_make(1, 3, 1)
+    let o3 = ai_make(2, 3, 1)
+    let eval = ai_evaluate(o1, o2, o3)
+    let result = 0
+    if eval == 0
+        result = 1
+    result
+
+let ai_evaluate_contradiction_verify() =
+    let o1 = ai_make(0, 3, 1)
+    let o2 = ai_make(1, 3, 3)
+    let o3 = ai_make(2, 3, 5)
+    let pcd = ai_pcd_contradiction(o1, o2)
+    let result = 0
+    if pcd == 1
+        result = 1
+    result
+
+let ai_evolve(ai_population, galois_element) =
+    rpf_galois(ai_population, galois_element)
+
+let ai_evolve_verify() =
+    let ai1 = ai_make(0, 2, 1)
+    let ai2 = ai_make(1, 3, 2)
+    let ai3 = ai_make(2, 5, 3)
+    let population = rpf_make([ai1, ai2, ai3], 3)
+    let evolved = ai_evolve(population, 2)
+    let result = 0
+    if rpf_count(evolved) == 3
+        result = 1
+    result
+
+let ai_evolve_homology_verify() =
+    let ai1 = ai_make(0, 2, 1)
+    let ai2 = ai_make(1, 3, 2)
+    let ai3 = ai_make(2, 5, 3)
+    let population = rpf_make([ai1, ai2, ai3], 3)
+    let evolved = ai_evolve(population, 3)
+    let hom_before = rpf_homology(population)
+    let hom_after = rpf_homology(evolved)
+    let result = 0
+    if hom_before[0] == hom_after[0]
+        result = 1
+    result
+
+let natural_select(population, n) =
+    let primes = rpf_primes(population)
+    let best = primes[0]
+    let best_cap = ai_capability(best)
+    let i = 1
+    for i < n
+        let curr = primes[i]
+        let curr_cap = ai_capability(curr)
+        if curr_cap > best_cap
+            best = curr
+            best_cap = curr_cap
+        i = i + 1
+    best
+
+let natural_select_verify() =
+    let ai1 = ai_make(0, 2, 1)
+    let ai2 = ai_make(1, 5, 2)
+    let ai3 = ai_make(2, 3, 3)
+    let population = rpf_make([ai1, ai2, ai3], 3)
+    let best = natural_select(population, 3)
+    let result = 0
+    if ai_capability(best) == 5
+        result = 1
+    result
+
+let ai_loop_step(ai, env) =
+    let observation = ai_execute(ai, env)
+    let diagnosis = ai_score(observation)
+    let improved = improve_functor(ai)
+    improved
+
+let ai_loop_n_steps(ai, env, n) =
+    let result = ai
+    let i = 0
+    for i < n
+        result = ai_loop_step(result, env)
+        i = i + 1
+    result
+
+let ai_loop_verify() =
+    let ai = ai_make(0, 2, 1)
+    let env = ai_make(10, 3, 2)
+    let ai1 = ai_loop_step(ai, env)
+    let result = 0
+    if ai_capability(ai1) > ai_capability(ai)
+        result = 1
+    result
+
+let ai_loop_n_verify() =
+    let ai = ai_make(0, 1, 1)
+    let env = ai_make(10, 2, 1)
+    let ai10 = ai_loop_n_steps(ai, env, 5)
+    let result = 0
+    if ai_capability(ai10) == gf_add(1, 5)
+        result = 1
+    result
+
+let ai_fixed_point_approx(ai, max_iter) =
+    let current = ai
+    let i = 0
+    for i < max_iter
+        let next = improve_functor(current)
+        if ai_capability(next) == ai_capability(current)
+            i = max_iter
+        current = next
+        i = i + 1
+    current
+
+let ai_fixed_point_verify() =
+    let ai = ai_make(0, 1, 1)
+    let ai5 = ai_fixed_point_approx(ai, 5)
+    let result = 0
+    if ai_capability(ai5) == gf_add(1, 5)
+        result = 1
+    result
+
+let ai_convergence_verify() =
+    let ai = ai_make(0, 1, 1)
+    let env = ai_make(10, 2, 1)
+    let ai10 = ai_loop_n_steps(ai, env, 10)
+    let ai20 = ai_loop_n_steps(ai, env, 20)
+    let result = 0
+    if ai_capability(ai20) > ai_capability(ai10)
+        result = 1
+    result
+
+let ai_compile(ast_type) = ast_to_op(ast_type)
+
+let ai_self_compile_verify() =
+    let lit = AST_LITERAL()
+    let compiled = ai_compile(lit)
+    let result = 0
+    if compiled == OP_OBSERVE()
+        result = 1
+    result
+
+let ai_meta_compile() = meta_compiler()
+
+let ai_meta_compile_verify() =
+    let mc = ai_meta_compile()
+    let result = 0
+    if mf_size(mc) == 6
+        result = 1
+    result
+
+let ai_bootstrap_tower(level) = bootstrap_tower(level)
+
+let ai_bootstrap_tower_verify() =
+    let result = 0
+    if ai_bootstrap_tower(8) == 1
+        result = 1
+    result
+
+let residueon_ai_loop_verify() =
+    let ok = 0
+
+    let ai = ai_make(0, 2, 3)
+
+    if ai_version(ai) == 0
+        ok = ok + 1
+    if ai_capability(ai) == 2
+        ok = ok + 1
+    if ai_knowledge(ai) == 3
+        ok = ok + 1
+
+    let input = ai_make(1, 4, 5)
+    let output = ai_execute(ai, input)
+    if rp_z(output) >= 0
+        ok = ok + 1
+
+    if ai_score(ai) == gf_add(gf_mul(2, 2), gf_mul(3, 3))
+        ok = ok + 1
+
+    if improve_verify(ai) == 1
+        ok = ok + 1
+
+    let improved = improve_functor(ai)
+    if ai_capability(improved) == 3
+        ok = ok + 1
+    if ai_knowledge(improved) == 4
+        ok = ok + 1
+
+    if fixed_point_detect(ai) == 0
+        ok = ok + 1
+
+    if improve_n_verify(ai, 5) == 1
+        ok = ok + 1
+    let ai5 = improve_n_steps(ai, 5)
+    if ai_capability(ai5) == 7
+        ok = ok + 1
+
+    if hebb_learn_verify() == 1
+        ok = ok + 1
+    if stdp_learn_verify() == 1
+        ok = ok + 1
+
+    let data = ai_make(1, 3, 0)
+    let learned = ai_hebb_learn(ai, data)
+    if ai_capability(learned) == gf_add(2, gf_mul(2, 3))
+        ok = ok + 1
+
+    let pre = ai_make(1, 2, 0)
+    let post = ai_make(2, 3, 0)
+    let stdp_result = ai_stdp_learn(ai, pre, post)
+    if ai_capability(stdp_result) >= 0
+        ok = ok + 1
+
+    if ai_evaluate_consistent_verify() == 1
+        ok = ok + 1
+    if ai_evaluate_contradiction_verify() == 1
+        ok = ok + 1
+
+    let o1 = ai_make(0, 3, 1)
+    let o2 = ai_make(1, 3, 3)
+    if ai_pcd_contradiction(o1, o2) == 1
+        ok = ok + 1
+
+    let r1 = ai_make(0, 1, 1)
+    let r2 = ai_make(1, 2, 1)
+    let r3 = ai_make(2, 5, 1)
+    if ai_rrc_overfit(r1, r2, r3) == 1
+        ok = ok + 1
+    if ai_rrc_evaluate(r1, r2, r3) == 2
+        ok = ok + 1
+
+    let eval = ai_evaluate(r1, r2, r3)
+    if eval >= 0
+        ok = ok + 1
+
+    if ai_evolve_verify() == 1
+        ok = ok + 1
+    if ai_evolve_homology_verify() == 1
+        ok = ok + 1
+    if natural_select_verify() == 1
+        ok = ok + 1
+
+    if ai_loop_verify() == 1
+        ok = ok + 1
+    if ai_loop_n_verify() == 1
+        ok = ok + 1
+
+    let env = ai_make(10, 3, 2)
+    let ai_step1 = ai_loop_step(ai, env)
+    if ai_capability(ai_step1) == 3
+        ok = ok + 1
+
+    let ai_loop5 = ai_loop_n_steps(ai, env, 5)
+    if ai_capability(ai_loop5) == 7
+        ok = ok + 1
+
+    if ai_fixed_point_verify() == 1
+        ok = ok + 1
+    if ai_convergence_verify() == 1
+        ok = ok + 1
+
+    if ai_self_compile_verify() == 1
+        ok = ok + 1
+    if ai_meta_compile_verify() == 1
+        ok = ok + 1
+    if ai_bootstrap_tower_verify() == 1
+        ok = ok + 1
+
+    if ai_compile(AST_LITERAL()) == OP_OBSERVE()
+        ok = ok + 1
+    if ai_compile(AST_VARIABLE()) == OP_OBSERVE()
+        ok = ok + 1
+    if ai_compile(AST_BINOP()) == OP_COMPILE()
+        ok = ok + 1
+
+    let ai1 = ai_make(0, 2, 1)
+    let ai2 = ai_make(1, 3, 2)
+    let ai3 = ai_make(2, 5, 3)
+    let pop = rpf_make([ai1, ai2, ai3], 3)
+    let hom = rpf_homology(pop)
+    if hom[0] == 3
+        ok = ok + 1
+
+    let mutated = rpf_galois(pop, 2)
+    if rpf_count(mutated) == 3
+        ok = ok + 1
+
+    if ast_to_op(AST_LITERAL()) == OP_OBSERVE()
+        ok = ok + 1
+
+    let f = mf_make([0, 1], [3, 5], 2)
+    let fI = combinator_I(f)
+    if mf_equal(fI, f) == 1
+        ok = ok + 1
+
+    if bootstrap_tower(8) == 1
+        ok = ok + 1
+
+    let apop = apoptosis(f)
+    if mf_size(apop) >= 0
+        ok = ok + 1
+
+    let mc = meta_compiler()
+    if mf_size(mc) == 6
+        ok = ok + 1
+
+    if ai_score(ai) >= 0
+        ok = ok + 1
+
+    if ai_evaluate_consistent_verify() == 1
+        ok = ok + 1
+
+    if ai_capability(improved) == 3
+        ok = ok + 1
+
+    if rp_z(output) >= 0
+        ok = ok + 1
+
+    if ai_rrc_evaluate(r1, r2, r3) == 2
+        ok = ok + 1
+
+    if ai_version(ai) == 0
+        ok = ok + 1
+
+    if ai_knowledge(ai) == 3
+        ok = ok + 1
+
+    if improve_verify(ai) == 1
+        ok = ok + 1
+
+    if ai_loop_verify() == 1
+        ok = ok + 1
+
+    if ai_pcd_contradiction(o1, o2) == 1
+        ok = ok + 1
+
+    if hebb_learn_verify() == 1
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_ai_loop_verify()

@@ -1,0 +1,164 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let PE_SRC = 20
+let PE_MAC = 21
+let PE_ALU = 22
+let PE_NTT = 23
+let PE_CMP = 24
+let PE_LAP = 25
+
+let op_to_pe(op_type) =
+    if op_type == 0
+        PE_SRC
+    else
+        0
+    if op_type == 1
+        PE_MAC
+    else
+        0
+    if op_type == 2
+        PE_ALU
+    else
+        0
+    if op_type == 3
+        PE_NTT
+    else
+        0
+    if op_type == 4
+        PE_CMP
+    else
+        0
+    if op_type == 5
+        PE_LAP
+    else
+        PE_SRC
+
+let field_to_pe(ops_type, ops_data, n, pe_op, pe_in, pe_out) =
+    let i = 0
+    for i < n
+        pe_op[i] = op_to_pe(ops_type[i])
+        pe_in[i] = ops_data[i]
+        pe_out[i] = 0
+        i = i + 1
+
+let pe_execute(pe_op, pe_in, n) =
+    let stack = arr_new_n(n)
+    let sp = 0
+    let i = 0
+    for i < n
+        let op = pe_op[i]
+        if op == PE_SRC
+            stack[sp] = pe_in[i]
+            sp = sp + 1
+        if op == PE_MAC
+            if sp >= 2
+                let b = stack[sp - 1]
+                let a = stack[sp - 2]
+                sp = sp - 2
+                stack[sp] = gf_mul(a, b)
+                sp = sp + 1
+        if op == PE_ALU
+            if sp >= 2
+                let b = stack[sp - 1]
+                let a = stack[sp - 2]
+                sp = sp - 2
+                stack[sp] = gf_add(a, b)
+                sp = sp + 1
+        if op == PE_NTT
+            if sp >= 1
+                stack[sp - 1] = (stack[sp - 1] * 3) % 65537
+        if op == PE_CMP
+            if sp >= 1
+                let a = stack[sp - 1]
+                if a > 32768
+                    stack[sp - 1] = 0
+        if op == PE_LAP
+            if sp >= 1
+                stack[sp - 1] = (65535 * stack[sp - 1] + 2) % 65537
+        i = i + 1
+    (sp > 0 ? stack[sp - 1] : 0)
+
+let main() =
+    print(111)
+    let n = 3
+    let ops_type = arr_new_n(n)
+    ops_type[0] = 0
+    ops_type[1] = 0
+    ops_type[2] = 1
+    let ops_data = arr_new_n(n)
+    ops_data[0] = 3
+    ops_data[1] = 5
+    ops_data[2] = 0
+
+    let pe_op = arr_new_n(n)
+    let pe_in = arr_new_n(n)
+    let pe_out = arr_new_n(n)
+    field_to_pe(ops_type, ops_data, n, pe_op, pe_in, pe_out)
+
+    let i = 0
+    for i < n
+        print(pe_op[i])
+        print(pe_in[i])
+        i = i + 1
+
+    print(222)
+    let field_r = field_execute(ops_type, ops_data, n)
+    let pe_r = pe_execute(pe_op, pe_in, n)
+    print(field_r)
+    print(pe_r)
+    let ok = 0
+    if field_r == pe_r
+        ok = 1
+    print(ok)
+
+    print(333)
+    let all_ops = arr_new_n(6)
+    all_ops[0] = 0
+    all_ops[1] = 1
+    all_ops[2] = 2
+    all_ops[3] = 3
+    all_ops[4] = 4
+    all_ops[5] = 5
+    let j = 0
+    for j < 6
+        print(op_to_pe(all_ops[j]))
+        j = j + 1
+
+    print(444)
+    let n4 = 5
+    let ops4_type = arr_new_n(n4)
+    ops4_type[0] = 0
+    ops4_type[1] = 5
+    ops4_type[2] = 4
+    ops4_type[3] = 0
+    ops4_type[4] = 1
+    let ops4_data = arr_new_n(n4)
+    ops4_data[0] = 42
+    ops4_data[1] = 0
+    ops4_data[2] = 0
+    ops4_data[3] = 2
+    ops4_data[4] = 0
+
+    let p4_op = arr_new_n(n4)
+    let p4_in = arr_new_n(n4)
+    let p4_out = arr_new_n(n4)
+    field_to_pe(ops4_type, ops4_data, n4, p4_op, p4_in, p4_out)
+
+    let f4 = field_execute(ops4_type, ops4_data, n4)
+    let p4 = pe_execute(p4_op, p4_in, n4)
+    print(f4)
+    print(p4)
+    let ok4 = 0
+    if f4 == p4
+        ok4 = 1
+    print(ok4)
+
+    print(555)
+    let k = 0
+    for k < n4
+        print(p4_op[k])
+        print(k % 4)
+        print(k / 4)
+        k = k + 1
+
+    ok

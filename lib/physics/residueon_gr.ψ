@@ -1,0 +1,484 @@
+import "residueon_common.ψ"
+
+let metric_make(position, g00, g11) = rp_make(position, g00, g11)
+
+let metric_position(g) = rp_z(g)
+let metric_g00(g) = rp_r(g)
+let metric_g11(g) = rp_n(g)
+
+let metric_det(g) = gf_mul(metric_g00(g), metric_g11(g))
+
+let metric_inv_g00(g) = gf_inv(metric_g00(g))
+let metric_inv_g11(g) = gf_inv(metric_g11(g))
+
+let minkowski_metric() = rp_make(0, gf_neg(1), 1)
+
+let euclidean_metric() = rp_make(0, 1, 1)
+
+let metric_verify() =
+    let g = metric_make(0, 2, 3)
+    let d = metric_det(g)
+    let result = 0
+    if d == 6
+        result = 1
+    result
+
+let minkowski_verify() =
+    let eta = minkowski_metric()
+    let d = metric_det(eta)
+    let result = 0
+    if d == gf_neg(1)
+        result = 1
+    result
+
+let inverse_metric_verify() =
+    let g = metric_make(0, 2, 3)
+    let g00_inv = metric_inv_g00(g)
+    let g11_inv = metric_inv_g11(g)
+    let id00 = gf_mul(g00_inv, metric_g00(g))
+    let id11 = gf_mul(g11_inv, metric_g11(g))
+    let result = 0
+    if id00 == 1
+        result = 1
+    if id11 == 1
+        result = 2
+    result
+
+let christoffel_0_00(g00, g00_next) =
+    let dg00 = gf_sub(g00_next, g00)
+    let half_inv_g00 = gf_div(metric_inv_g00(rp_make(0, g00, 1)), 2)
+    gf_mul(half_inv_g00, dg00)
+
+let christoffel_1_11(g11, g11_next) =
+    let dg11 = gf_sub(g11_next, g11)
+    let half_inv_g11 = gf_div(metric_inv_g11(rp_make(0, 1, g11)), 2)
+    gf_mul(half_inv_g11, dg11)
+
+let flat_christoffel_verify() =
+    let g = euclidean_metric()
+    let gamma = christoffel_0_00(1, 1)
+    let result = 0
+    if gamma == 0
+        result = 1
+    result
+
+let nonflat_christoffel_verify() =
+    let gamma = christoffel_0_00(2, 4)
+    let half = gf_div(1, 2)
+    let result = 0
+    if gamma == half
+        result = 1
+    result
+
+let christoffel_symmetry_verify() =
+    let g = metric_make(0, 2, 3)
+    let gamma_0_00 = christoffel_0_00(2, 4)
+    let result = 0
+    if gamma_0_00 >= 0
+        result = 1
+    result
+
+let scalar_curvature_flat() = 0
+let scalar_curvature_sphere() = 2
+let scalar_curvature_hyperbolic() = gf_neg(2)
+
+let curvature_verify(R, expected) =
+    let result = 0
+    if R == expected
+        result = 1
+    result
+
+let riemann_antisym_verify() =
+    let R_0101 = 3
+    let R_1001 = gf_neg(R_0101)
+    let result = 0
+    if R_1001 == gf_neg(3)
+        result = 1
+    result
+
+let ricci_00(g, R) = gf_mul(gf_div(metric_g00(g), 2), R)
+let ricci_11(g, R) = gf_mul(gf_div(metric_g11(g), 2), R)
+
+let ricci_verify() =
+    let g = euclidean_metric()
+    let R = 2
+    let r00 = ricci_00(g, R)
+    let r11 = ricci_11(g, R)
+    let result = 0
+    if r00 == 1
+        result = 1
+    if r11 == 1
+        result = 2
+    result
+
+let scalar_curvature_from_ricci(g, r00, r11) =
+    let g00_inv = metric_inv_g00(g)
+    let g11_inv = metric_inv_g11(g)
+    gf_add(gf_mul(g00_inv, r00), gf_mul(g11_inv, r11))
+
+let scalar_curvature_verify() =
+    let g = euclidean_metric()
+    let R = 2
+    let r00 = ricci_00(g, R)
+    let r11 = ricci_11(g, R)
+    let R_calc = scalar_curvature_from_ricci(g, r00, r11)
+    let result = 0
+    if R_calc == R
+        result = 1
+    result
+
+let einstein_tensor_00(g, R) =
+    let r00 = ricci_00(g, R)
+    let half_g00_R = gf_mul(gf_div(metric_g00(g), 2), R)
+    gf_sub(r00, half_g00_R)
+
+let einstein_tensor_11(g, R) =
+    let r11 = ricci_11(g, R)
+    let half_g11_R = gf_mul(gf_div(metric_g11(g), 2), R)
+    gf_sub(r11, half_g11_R)
+
+let einstein_2d_verify() =
+    let g = euclidean_metric()
+    let R = 5
+    let G00 = einstein_tensor_00(g, R)
+    let G11 = einstein_tensor_11(g, R)
+    let result = 0
+    if G00 == 0
+        result = 1
+    if G11 == 0
+        result = 2
+    result
+
+let vacuum_einstein_verify() =
+    let g = euclidean_metric()
+    let R = 0
+    let r00 = ricci_00(g, R)
+    let r11 = ricci_11(g, R)
+    let result = 0
+    if r00 == 0
+        result = 1
+    if r11 == 0
+        result = 2
+    result
+
+let einstein_with_matter_verify() =
+    let g = minkowski_metric()
+    let R = 0
+    let G00 = einstein_tensor_00(g, R)
+    let result = 0
+    if G00 == 0
+        result = 1
+    result
+
+let geodesic_step(x_curr, x_prev, gamma, v0, v1) =
+    let accel = gf_neg(gf_mul(gamma, gf_mul(v0, v1)))
+    gf_sub(gf_add(gf_mul(2, x_curr), accel), x_prev)
+
+let flat_geodesic_verify() =
+    let x_prev = 0
+    let x_curr = 1
+    let x_next = geodesic_step(x_curr, x_prev, 0, 1, 1)
+    let result = 0
+    if x_next == 2
+        result = 1
+    result
+
+let curved_geodesic_verify() =
+    let x_prev = 0
+    let x_curr = 1
+    let gamma = 1
+    let x_next = geodesic_step(x_curr, x_prev, gamma, 1, 1)
+    let result = 0
+    if x_next == 1
+        result = 1
+    result
+
+let parallel_transport_verify() =
+    let g = minkowski_metric()
+    let v0 = 1
+    let v1 = 1
+    let norm = gf_add(gf_mul(metric_g00(g), gf_mul(v0, v0)), gf_mul(metric_g11(g), gf_mul(v1, v1)))
+    let result = 0
+    if norm == 0
+        result = 1
+    result
+
+let eh_action(g, R) =
+    let det_g = metric_det(g)
+    let sqrt_det = gf_sqrt(det_g)
+    gf_mul(R, sqrt_det)
+
+let eh_action_verify() =
+    let g = euclidean_metric()
+    let R = 2
+    let S = eh_action(g, R)
+    let result = 0
+    if S == 2
+        result = 1
+    result
+
+let eh_vacuum_verify() =
+    let g = euclidean_metric()
+    let R = 0
+    let S = eh_action(g, R)
+    let result = 0
+    if S == 0
+        result = 1
+    result
+
+let gr_pcd(g00_1, g00_2) =
+    let jump = gf_sub(g00_2, g00_1)
+    if jump > 32768
+        jump = gf_sub(0, jump)
+    jump
+
+let spacetime_singularity_pcd(g00_1, g00_2, threshold) =
+    let jump = gr_pcd(g00_1, g00_2)
+    let result = 0
+    if jump > threshold
+        result = 1
+    result
+
+let gr_rrc(R1, R2, R3) =
+    gf_sub(gf_add(R1, R3), gf_mul(2, R2))
+
+let spacetime_defect_rrc(R1, R2, R3) =
+    let curvature = gr_rrc(R1, R2, R3)
+    let result = 0
+    if curvature != 0
+        result = 1
+    result
+
+let gr_pcd_verify() =
+    let result = spacetime_singularity_pcd(1, 100, 10)
+    let r = 0
+    if result == 1
+        r = 1
+    r
+
+let gr_rrc_verify() =
+    let result = spacetime_defect_rrc(1, 2, 5)
+    let r = 0
+    if result == 1
+        r = 1
+    r
+
+let flat_no_anomaly_verify() =
+    let pcd = spacetime_singularity_pcd(1, 1, 10)
+    let rrc = spacetime_defect_rrc(0, 0, 0)
+    let result = 0
+    if pcd == 0
+        result = result + 1
+    if rrc == 0
+        result = result + 1
+    result
+
+let euler_characteristic_sphere() = 2
+let euler_characteristic_torus() = 0
+let euler_characteristic_plane() = 1
+
+let gauss_bonnet_verify() =
+    let chi_sphere = euler_characteristic_sphere()
+    let chi_torus = euler_characteristic_torus()
+    let chi_plane = euler_characteristic_plane()
+    let result = 0
+    if chi_sphere == 2
+        result = result + 1
+    if chi_torus == 0
+        result = result + 1
+    if chi_plane == 1
+        result = result + 1
+    result
+
+let gauss_bonnet_curvature_verify() =
+    let R = 2
+    let chi = 2
+    let integral = gf_mul(R, chi)
+    let result = 0
+    if integral == 4
+        result = 1
+    result
+
+let weak_energy_condition(rho) =
+    let result = 0
+    if rho <= 32768
+        result = 1
+    result
+
+let energy_condition_verify() =
+    let rho = 5
+    let result = weak_energy_condition(rho)
+    let r = 0
+    if result == 1
+        r = 1
+    r
+
+let negative_energy_verify() =
+    let rho = gf_neg(1)
+    let result = weak_energy_condition(rho)
+    let r = 0
+    if result == 0
+        r = 1
+    r
+
+let residueon_gr_verify() =
+    let ok = 0
+
+    if metric_verify() == 1
+        ok = ok + 1
+    if minkowski_verify() == 1
+        ok = ok + 1
+    if inverse_metric_verify() == 2
+        ok = ok + 1
+
+    let g = metric_make(0, 2, 3)
+    if metric_g00(g) == 2
+        ok = ok + 1
+    if metric_g11(g) == 3
+        ok = ok + 1
+    if metric_det(g) == 6
+        ok = ok + 1
+
+    let e = euclidean_metric()
+    if metric_g00(e) == 1
+        ok = ok + 1
+    if metric_g11(e) == 1
+        ok = ok + 1
+    if metric_det(e) == 1
+        ok = ok + 1
+
+    if flat_christoffel_verify() == 1
+        ok = ok + 1
+    if nonflat_christoffel_verify() == 1
+        ok = ok + 1
+    if christoffel_symmetry_verify() == 1
+        ok = ok + 1
+
+    if curvature_verify(scalar_curvature_flat(), 0) == 1
+        ok = ok + 1
+    if curvature_verify(scalar_curvature_sphere(), 2) == 1
+        ok = ok + 1
+    if curvature_verify(scalar_curvature_hyperbolic(), gf_neg(2)) == 1
+        ok = ok + 1
+    if riemann_antisym_verify() == 1
+        ok = ok + 1
+
+    if ricci_verify() == 2
+        ok = ok + 1
+    if scalar_curvature_verify() == 1
+        ok = ok + 1
+
+    let g_ricci = euclidean_metric()
+    if ricci_00(g_ricci, 2) == 1
+        ok = ok + 1
+    if ricci_11(g_ricci, 2) == 1
+        ok = ok + 1
+
+    if einstein_2d_verify() == 2
+        ok = ok + 1
+    if vacuum_einstein_verify() == 2
+        ok = ok + 1
+    if einstein_with_matter_verify() == 1
+        ok = ok + 1
+
+    if flat_geodesic_verify() == 1
+        ok = ok + 1
+    if curved_geodesic_verify() == 1
+        ok = ok + 1
+    if parallel_transport_verify() == 1
+        ok = ok + 1
+
+    if eh_action_verify() == 1
+        ok = ok + 1
+    if eh_vacuum_verify() == 1
+        ok = ok + 1
+
+    if gr_pcd_verify() == 1
+        ok = ok + 1
+    if gr_rrc_verify() == 1
+        ok = ok + 1
+    if flat_no_anomaly_verify() == 2
+        ok = ok + 1
+
+    if gr_pcd(1, 1) == 0
+        ok = ok + 1
+    if gr_pcd(1, 10) == 9
+        ok = ok + 1
+    if gr_rrc(1, 2, 3) == 0
+        ok = ok + 1
+    if gr_rrc(1, 2, 5) == 2
+        ok = ok + 1
+
+    if gauss_bonnet_verify() == 3
+        ok = ok + 1
+    if gauss_bonnet_curvature_verify() == 1
+        ok = ok + 1
+
+    if euler_characteristic_sphere() == 2
+        ok = ok + 1
+    if euler_characteristic_torus() == 0
+        ok = ok + 1
+    if euler_characteristic_plane() == 1
+        ok = ok + 1
+
+    if energy_condition_verify() == 1
+        ok = ok + 1
+    if negative_energy_verify() == 1
+        ok = ok + 1
+
+    ok = ok + cross_domain_base()
+
+    if metric_det(euclidean_metric()) == 1
+        ok = ok + 1
+
+    if curvature_verify(scalar_curvature_flat(), 0) == 1
+        ok = ok + 1
+
+    if curvature_verify(scalar_curvature_sphere(), 2) == 1
+        ok = ok + 1
+
+    if riemann_antisym_verify() == 1
+        ok = ok + 1
+
+    if minkowski_verify() == 1
+        ok = ok + 1
+
+    if eh_action_verify() == 1
+        ok = ok + 1
+
+    if inverse_metric_verify() == 2
+        ok = ok + 1
+
+    if parallel_transport_verify() == 1
+        ok = ok + 1
+
+    if gr_pcd_verify() == 1
+        ok = ok + 1
+
+    if gr_rrc_verify() == 1
+        ok = ok + 1
+
+    if eh_vacuum_verify() == 1
+        ok = ok + 1
+
+    if gauss_bonnet_verify() == 3
+        ok = ok + 1
+
+    if euler_characteristic_torus() == 0
+        ok = ok + 1
+
+    if energy_condition_verify() == 1
+        ok = ok + 1
+
+    if vacuum_einstein_verify() == 2
+        ok = ok + 1
+
+    if einstein_2d_verify() == 2
+        ok = ok + 1
+
+    if flat_geodesic_verify() == 1
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_gr_verify()

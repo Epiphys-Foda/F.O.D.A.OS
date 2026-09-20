@@ -1,0 +1,267 @@
+import "../domain_field.ψ"
+
+let KB_P = 65537
+let KB_INDEX_SPO = 1
+let KB_INDEX_POS = 2
+let KB_INDEX_OSP = 3
+let KB_CONFIDENCE_FULL = 1000
+let KB_CONFIDENCE_INFER = 800
+let KB_CONFIDENCE_HALF = 500
+let KB_MAX_TRIPLES = 65536
+let KB_WILDCARD = 0
+
+let kb_entity_new(entity_id, name, kind, attrs_map) =
+    [entity_id, name, kind, attrs_map]
+
+let kb_e_id(e) = e[0]
+let kb_e_name(e) = e[1]
+let kb_e_type(e) = e[2]
+let kb_e_attrs(e) = e[3]
+
+let kb_relation_new(relation_id, name, domain_type, range_type, attrs_map) =
+    [relation_id, name, domain_type, range_type, attrs_map]
+
+let kb_r_id(r) = r[0]
+let kb_r_name(r) = r[1]
+let kb_r_domain(r) = r[2]
+let kb_r_range(r) = r[3]
+let kb_r_attrs(r) = r[4]
+
+let kb_triple_new(subject_id, predicate_id, object_id, confidence, ts) =
+    [subject_id, predicate_id, object_id, confidence, ts]
+
+let kb_t_subj(t) = t[0]
+let kb_t_pred(t) = t[1]
+let kb_t_obj(t) = t[2]
+let kb_t_conf(t) = t[3]
+let kb_t_ts(t) = t[4]
+
+let kb_rule_new(id, premise_triples_buf, conclusion_triple, confidence) =
+    [id, premise_triples_buf, conclusion_triple, confidence]
+
+let kb_rule_id(r) = r[0]
+let kb_rule_premise(r) = r[1]
+let kb_rule_concl(r) = r[2]
+let kb_rule_conf(r) = r[3]
+
+let kb_default_graph() =
+    [{}, {}, [], [], {}, []]
+
+let kb_g_entities(g) = g[0]
+let kb_g_relations(g) = g[1]
+let kb_g_triples(g) = g[2]
+let kb_g_rules(g) = g[3]
+let kb_g_index(g) = g[4]
+let kb_g_log(g) = g[5]
+
+let kb_add_entity(graph, entity) =
+    let entities = kb_g_entities(graph)
+    let eid = kb_e_id(entity)
+    if entities[eid] == 0
+        entities[eid] = entity
+        kb_g_log(graph).push(["add_entity", eid, kb_e_type(entity)])
+    graph
+
+let kb_add_relation(graph, relation) =
+    let relations = kb_g_relations(graph)
+    let rid = kb_r_id(relation)
+    if relations[rid] == 0
+        relations[rid] = relation
+        kb_g_log(graph).push(["add_relation", rid, kb_r_name(relation)])
+    graph
+
+let kb_index_key_spo(s, p, o) =
+    ((s * KB_P + p) * KB_P + o) % (KB_P * KB_P)
+
+let kb_index_key_pos(p, o, s) =
+    ((p * KB_P + o) * KB_P + s) % (KB_P * KB_P)
+
+let kb_index_key_osp(o, s, p) =
+    ((o * KB_P + s) * KB_P + p) % (KB_P * KB_P)
+
+let kb_add_triple(graph, triple, ts) =
+    let triples = kb_g_triples(graph)
+    if len(triples) >= KB_MAX_TRIPLES
+        graph
+    else
+        let t = [kb_t_subj(triple), kb_t_pred(triple), kb_t_obj(triple), kb_t_conf(triple), ts]
+        triples.push(t)
+        let idx = kb_g_index(graph)
+        let tidx = len(triples) - 1
+        let s = t[0]
+        let p = t[1]
+        let o = t[2]
+        let k1 = kb_index_key_spo(s, p, o)
+        if idx[k1] == 0
+            idx[k1] = []
+        idx[k1].push(tidx)
+        let k2 = kb_index_key_pos(p, o, s)
+        if idx[k2] == 0
+            idx[k2] = []
+        idx[k2].push(tidx)
+        let k3 = kb_index_key_osp(o, s, p)
+        if idx[k3] == 0
+            idx[k3] = []
+        idx[k3].push(tidx)
+        kb_g_log(graph).push(["add_triple", s, p, o])
+        graph
+
+let kb_triple_match(triple, s, p, o) =
+    let ok = 1
+    if s != KB_WILDCARD
+        if s != triple[0]
+            ok = 0
+    if p != KB_WILDCARD
+        if p != triple[1]
+            ok = 0
+    if o != KB_WILDCARD
+        if o != triple[2]
+            ok = 0
+    ok
+
+let kb_query_spo(graph, subject, predicate, object) =
+    let triples = kb_g_triples(graph)
+    let result = []
+    let i = 0
+    let n = len(triples)
+    for i < n
+        let t = triples[i]
+        if kb_triple_match(t, subject, predicate, object) == 1
+            result.push(t)
+        i = i + 1
+    result
+
+let kb_query_join(graph, query_a, query_b, join_var) =
+    let a_results = kb_query_spo(graph, query_a[0], query_a[1], query_a[2])
+    let b_results = kb_query_spo(graph, query_b[0], query_b[1], query_b[2])
+    let join_idx = join_var - 1
+    let result = []
+    let i = 0
+    let na = len(a_results)
+    for i < na
+        let ta = a_results[i]
+        let jv_a = ta[join_idx]
+        let j = 0
+        let nb = len(b_results)
+        for j < nb
+            let tb = b_results[j]
+            let jv_b = tb[join_idx]
+            if jv_a == jv_b
+                result.push([ta, tb, jv_a])
+            j = j + 1
+        i = i + 1
+    result
+
+let kb_rule_match_premise(graph, premise_buf) =
+    let all_match = 1
+    let i = 0
+    let n = len(premise_buf)
+    for i < n
+        let pat = premise_buf[i]
+        let hits = kb_query_spo(graph, pat[0], pat[1], pat[2])
+        if len(hits) == 0
+            all_match = 0
+        i = i + 1
+    all_match
+
+let kb_infer(graph, rule, ts) =
+    let premise = kb_rule_premise(rule)
+    if kb_rule_match_premise(graph, premise) == 1
+        let concl = kb_rule_concl(rule)
+        let conf = kb_rule_conf(rule)
+        let new_conf = conf * KB_CONFIDENCE_INFER / KB_CONFIDENCE_FULL
+        let new_triple = [concl[0], concl[1], concl[2], new_conf, ts]
+        kb_add_triple(graph, new_triple, ts)
+        kb_g_log(graph).push(["infer", kb_rule_id(rule), new_conf])
+    graph
+
+let kb_check_consistency(graph) =
+    let triples = kb_g_triples(graph)
+    let conflicts = []
+    let seen = {}
+    let i = 0
+    let n = len(triples)
+    for i < n
+        let t = triples[i]
+        let s = t[0]
+        let p = t[1]
+        let o = t[2]
+        let key = (s * KB_P + p) % (KB_P * KB_P)
+        if seen[key] == 0
+            seen[key] = o
+        else
+            if seen[key] != o
+                conflicts.push([s, p, seen[key], o])
+        i = i + 1
+    conflicts
+
+let kb_apply_op(graph, op) =
+    let op_name = op[0]
+    if op_name == "add_triple"
+        kb_add_triple(graph, op[1], op[2])
+    else
+        0
+    if op_name == "add_entity"
+        kb_add_entity(graph, op[1])
+    else
+        0
+    if op_name == "add_relation"
+        kb_add_relation(graph, op[1])
+    else
+        0
+    if op_name == "infer"
+        kb_infer(graph, op[1], op[2])
+    graph
+
+let kb_state_signature(graph) =
+    let tcount = len(kb_g_triples(graph))
+    let idx = kb_g_index(graph)
+    let idx_keys = keys_of(idx)
+    let kcount = len(idx_keys)
+    let total = 0
+    let i = 0
+    for i < kcount
+        let k = idx_keys[i]
+        total = total + len(idx[k])
+        i = i + 1
+    let lcount = len(kb_g_log(graph))
+    [tcount, kcount, total, lcount]
+
+let kb_bragg_verify(graph, ops_seq) =
+    let g1 = kb_default_graph()
+    let g2 = kb_default_graph()
+    let i = 0
+    let n = len(ops_seq)
+    for i < n
+        let op = ops_seq[i]
+        kb_apply_op(g1, op)
+        kb_apply_op(g2, op)
+        i = i + 1
+    let d1 = kb_state_signature(g1)
+    let r1 = kb_state_signature(g2)
+    if d1[0] == r1[0]
+        if d1[1] == r1[1]
+            if d1[2] == r1[2]
+                if d1[3] == r1[3]
+                    1
+                else
+                    0
+            else
+                0
+        else
+            0
+    else
+        0
+
+let kb_gf_mod(x) = domain_gf_mod(x)
+let kb_gf_inv(a) = domain_gf_inv(a)
+let kb_field_encode(items, n) =
+    let records = []
+    let _i = 0
+    for _i < n
+        records.push([items[_i], items[_i]])
+        _i = _i + 1
+    domain_field_encode(records, n, 256, 1)
+
+let kb_field_eval(poles, residues, z) = domain_field_eval(poles, residues, z)
+let kb_field_bragg_verify(current, replay) = domain_bragg_verify(current[0], current[1], replay[0], replay[1])

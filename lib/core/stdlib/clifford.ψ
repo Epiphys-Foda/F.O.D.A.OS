@@ -1,0 +1,58 @@
+let bit_xor(a, b) = (a | b) - (a & b)
+
+let popcount(x) =
+    let n1 = x - ((x >> 1) & 1431655765)
+    let n2 = (n1 & 858993459) + ((n1 >> 2) & 858993459)
+    let n3 = (n2 + (n2 >> 4)) & 252645135
+    let n4 = n3 + (n3 >> 8)
+    let n5 = n4 + (n4 >> 16)
+    n5 & 63
+
+let clifford_sign(a, b) =
+    let b0 = b & 1
+    let b1 = (b >> 1) & 1
+    let b2 = (b >> 2) & 1
+    let b3 = (b >> 3) & 1
+    let a1 = (a >> 1) & 1
+    let a2 = (a >> 2) & 1
+    let a3 = (a >> 3) & 1
+    let a4 = (a >> 4) & 1
+    let p1 = b0
+    let p2 = p1 + b1
+    let p3 = p2 + b2
+    let p4 = p3 + b3
+    let swaps = a1 * p1 + a2 * p2 + a3 * p3 + a4 * p4
+    let common = a & b
+    let e5_common = (common >> 4) & 1
+    let parity = (swaps + e5_common) & 1
+    (parity == 0) ? 1 : 65536
+
+let clifford_geo_mul(a, b) =
+    let s = clifford_sign(a, b)
+    let blade = bit_xor(a, b)
+    (s == 1) ? blade : (65537 - blade)
+
+let clifford_mul(a, b) = a | b
+
+let clifford_reflect(v, n) = bit_xor(v, n)
+
+let clifford_project(v, n) = v & n
+
+let clifford_rotate(v, n1, n2) = bit_xor(bit_xor(v, n1), n2)
+
+let clifford_inner(a, b) = popcount(a & b)
+
+let clifford_outer(a, b) = bit_xor(a, b)
+
+let clifford_grade(v) = popcount(v)
+
+let clifford_reverse(v) = ~v
+
+let clifford_dual(v) = ~v
+
+let clifford_norm(v) = popcount(v)
+
+let clifford_inv(a) =
+    let s = clifford_sign(a, a)
+    (s == 1) ? a : (65537 - a)
+

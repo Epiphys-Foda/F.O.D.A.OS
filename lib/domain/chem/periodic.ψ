@@ -1,0 +1,871 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let CHEM_MAX_Z = 172
+let CHEM_POLES = [2, 10, 18, 36, 54, 86, 118, 168]
+let CHEM_RESIDUES = [2, 8, 8, 18, 18, 32, 32, 50]
+
+let IE_MEV = [
+    13598, 24587, 5391, 9322, 8298, 11260, 14534, 13618, 17422, 21564,
+    5139, 7646, 5985, 8151, 10486, 10360, 12967, 15759, 4340, 6113,
+    6561, 6828, 6746, 6766, 7434, 7902, 7881, 7639, 7726, 9394,
+    5999, 7899, 9788, 9752, 11813, 13999, 4177, 5694, 6217, 6633,
+    6758, 7092, 7119, 7360, 7458, 8336, 7576, 8993, 5786, 7343,
+    8608, 9009, 10451, 12129, 3893, 5211, 5576, 5538, 5473, 5525,
+    5582, 5643, 5670, 6150, 5863, 5938, 6021, 6107, 6184, 6254,
+    5425, 6825, 7549, 7864, 7833, 8438, 8967, 8958, 9225, 10437,
+    6108, 7416, 7285, 8417, 9317, 10748, 4072, 5278, 5170, 6306,
+    5890, 6194, 6265, 6026, 5973, 5991, 6197, 6281, 6420, 6500,
+    6580, 6650, 4960, 6000, 6900, 8200, 7700, 7600, 7900, 9900,
+    10600, 11970, 7300, 8500, 5600, 8400, 7700, 8900,
+]
+let PROV_IE = [
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 1, 2, 2, 2, 2, 2, 2,
+    2, 2, 2, 2, 2, 2, 2, 2,
+]
+
+let NIST_EN = [
+    220, 0, 98, 157, 204, 255, 304, 344, 398, 0,
+    93, 131, 161, 190, 219, 258, 316, 0, 82, 100,
+    136, 154, 163, 166, 155, 183, 188, 191, 190, 165,
+    181, 201, 218, 255, 296, 300, 82, 95, 122, 133,
+    160, 216, 190, 220, 228, 220, 193, 169, 178, 196,
+    205, 210, 266, 260, 79, 89, 110, 112, 113, 114,
+    113, 117, 120, 120, 120, 122, 123, 124, 125, 115,
+    127, 130, 150, 236, 190, 220, 220, 228, 254, 200,
+    162, 233, 202, 200, 220, 220, 70, 90, 110, 130,
+    150, 138, 136, 128, 113, 128, 130, 130, 130, 130,
+    130, 130, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+]
+
+let NIST_EN_ALLEN = [
+    230, 416, 126, 176, 234, 306, 357, 393, 419, 479,
+    121, 164, 189, 230, 275, 322, 373, 324, 109, 152,
+    178, 194, 208, 222, 237, 229, 254, 268, 258, 242,
+    232, 253, 274, 297, 323, 297, 109, 148, 174, 191,
+    208, 219, 230, 229, 249, 257, 258, 247, 228, 245,
+    262, 281, 301, 258, 103, 146, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 166, 195, 235, 205, 239, 240, 248, 259, 231,
+    205, 243, 234, 251, 262, 260, 107, 143, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+]
+
+let NIST_EA = [
+    75, -50, 61, -50, 27, 126, -7, 146, 340, -120,
+    54, -40, 44, 138, 74, 207, 361, -100, 50, 2,
+    16, 7, 51, 61, -50, 15, 66, 115, 123, -60,
+    30, 123, 80, 202, 336, -100, 48, 5, 30, 43,
+    89, 74, 53, 104, 113, 56, 130, -70, 30, 111,
+    104, 197, 305, -80, 47, 14, 50, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 32, 81, 5, 107, 156, 212, 230, -50,
+    37, 36, 94, 189, 280, -70, 48, 10, 35, 112,
+    53, 111, 45, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+]
+
+let NIST_RADIUS = [
+    31, 28, 128, 96, 84, 76, 71, 66, 57, 58,
+    166, 141, 121, 111, 107, 105, 102, 106, 203, 176,
+    170, 160, 153, 139, 139, 132, 126, 124, 132, 122,
+    122, 120, 119, 120, 120, 116, 220, 195, 190, 175,
+    164, 154, 147, 146, 142, 139, 145, 144, 142, 139,
+    139, 138, 139, 140, 244, 215, 207, 204, 203, 201,
+    199, 198, 198, 196, 194, 192, 192, 189, 190, 187,
+    187, 175, 170, 162, 151, 144, 141, 136, 136, 132,
+    145, 146, 148, 140, 150, 150, 260, 221, 215, 206,
+    200, 196, 190, 187, 180, 169, 0, 0, 0, 0,
+    0, 0, 0, 223, 224, 223, 223, 222, 220, 219,
+    220, 223, 136, 143, 162, 175, 165, 157,
+]
+let PROV_RADIUS = [
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 3, 3, 3, 3,
+    3, 3, 3, 2, 2, 2, 2, 2, 2, 2,
+    2, 2, 2, 2, 2, 2, 2, 2,
+]
+
+let EXC_Z = [
+    24, 29, 41, 42, 44, 45, 46, 47, 57, 58,
+    64, 78, 79, 89, 90, 91, 92, 93, 96, 103,
+]
+let EXC_FROM = [
+    5, 5, 8, 8, 8, 8, 8, 8, 12, 12,
+    12, 11, 11, 16, 16, 16, 16, 16, 16, 17,
+]
+let EXC_CNT = [
+    1, 1, 1, 1, 1, 1, 2, 1, 1, 1,
+    1, 1, 1, 1, 2, 1, 1, 1, 1, 1,
+]
+let EXC_TO = [
+    6, 6, 9, 9, 9, 9, 9, 9, 13, 13,
+    13, 13, 13, 17, 17, 17, 17, 17, 17, 18,
+]
+
+let CHK_IE_MEV = 25395
+let CHK_PROV_IE = 63072
+let CHK_EN = 34529
+let CHK_EN_ALLEN = 20832
+let CHK_EA = 19866
+let CHK_RADIUS = 43016
+let CHK_PROV_RADIUS = 1464
+let CHK_EXC_Z = 40883
+let CHK_EXC_FROM = 39770
+let CHK_EXC_CNT = 64141
+let CHK_EXC_TO = 25444
+
+let NUCLEON_MAGIC = [2, 8, 20, 28, 50, 82, 126, 184]
+let NUCLEON_RESIDUES = [2, 6, 12, 8, 22, 32, 44, 58]
+let CHK_MAGIC = 19984
+let CHK_NRES = 13384
+
+let residue_field_psi(Z) =
+    let sum = 0
+    let k = 0
+    for k < 8
+        let pole = CHEM_POLES[k]
+        let res = CHEM_RESIDUES[k]
+        let diff = Z - pole
+        if diff == 0
+            sum = sum + res * 100
+        else
+            sum = sum + gf_mul(res, gf_inv(gf_norm(diff)))
+        k = k + 1
+    sum
+
+let residue_field_norm_sq(Z) = gf_mul(residue_field_psi(Z), residue_field_psi(Z))
+
+let residue_field_deriv(Z) =
+    let sum = 0
+    let k = 0
+    for k < 8
+        let pole = CHEM_POLES[k]
+        let res = CHEM_RESIDUES[k]
+        let diff = Z - pole
+        if diff != 0
+            let inv_diff = gf_inv(gf_norm(diff))
+            let term = gf_mul(gf_mul(res, inv_diff), inv_diff)
+            sum = sum - term
+        k = k + 1
+    sum
+
+let pmul_abs(x) =
+    if x < 0
+        0 - x
+    else
+        x
+
+let pmul(a0, b0) =
+    let a = pmul_abs(a0)
+    let b = pmul_abs(b0)
+    let r = 0
+    for b > 0
+        if b % 2 == 1
+            r = r + a
+        a = a + a
+        b = b / 2
+    r
+
+let element_ie_mev(Z) =
+    if Z <= 118
+        IE_MEV[Z - 1]
+    else
+        let q = valence_electrons(Z)
+        let n = period_from_Z(Z)
+        pmul(13600, pmul(q, q)) / pmul(n, n)
+
+let ie_provenance(Z) =
+    if Z >= 1 && Z <= 118
+        PROV_IE[Z - 1]
+    else
+        2
+
+let element_ie(Z) =
+    element_ie_mev(Z) / 10
+
+let element_en(Z) =
+    if Z <= 118
+        NIST_EN[Z - 1]
+    else
+        0
+
+let element_en_al(Z) =
+    if Z <= 118
+        NIST_EN_ALLEN[Z - 1]
+    else
+        0
+
+let element_radius(Z) =
+    if Z <= 118
+        NIST_RADIUS[Z - 1]
+    else
+        180 + (period_from_Z(Z) - 7) * 15 + 20
+
+let element_ea(Z) =
+    if Z <= 118
+        NIST_EA[Z - 1]
+    else
+        0
+
+let radius_provenance(Z) =
+    if Z >= 1 && Z <= 118
+        PROV_RADIUS[Z - 1]
+    else
+        2
+
+let period_from_Z(Z) =
+    if Z <= 2
+        1
+    else
+        0
+    if Z <= 10
+        2
+    else
+        0
+    if Z <= 18
+        3
+    else
+        0
+    if Z <= 36
+        4
+    else
+        0
+    if Z <= 54
+        5
+    else
+        0
+    if Z <= 86
+        6
+    else
+        0
+    if Z <= 118
+        7
+    else
+        8
+
+let valence_p4(Z) =
+    if Z <= 20
+        Z - 18
+    else
+        0
+    if Z <= 30
+        Z - 18
+    else
+        Z - 28
+
+let valence_p5(Z) =
+    if Z <= 38
+        Z - 36
+    else
+        0
+    if Z <= 48
+        Z - 36
+    else
+        Z - 46
+
+let valence_p6(Z) =
+    if Z <= 56
+        Z - 54
+    else
+        0
+    if Z == 71
+        3
+    else
+        0
+    if Z <= 80
+        Z - 68
+    else
+        Z - 78
+
+let valence_p7(Z) =
+    if Z <= 88
+        Z - 86
+    else
+        0
+    if Z == 103
+        3
+    else
+        0
+    if Z <= 112
+        Z - 100
+    else
+        Z - 110
+
+let valence_p1to7(p, Z) =
+    if p == 1
+        Z
+    else
+        0
+    if p == 2
+        Z - 2
+    else
+        0
+    if p == 3
+        Z - 10
+    else
+        0
+    if p == 4
+        valence_p4(Z)
+    else
+        0
+    if p == 5
+        valence_p5(Z)
+    else
+        0
+    if p == 6
+        valence_p6(Z)
+    else
+        valence_p7(Z)
+
+let valence_p8(Z) =
+    if Z <= 120
+        Z - 118
+    else
+        0
+    if Z <= 138
+        Z - 118
+    else
+        0
+    if Z <= 152
+        Z - 138
+    else
+        0
+    if Z <= 162
+        Z - 152
+    else
+        0
+    if Z <= 168
+        Z - 162
+    else
+        Z - 168
+
+let valence_electrons(Z) =
+    let p = period_from_Z(Z)
+    (p <= 7 ? valence_p1to7(p, Z) : valence_p8(Z))
+
+let block_superheavy(Z) =
+    if Z >= 121 && Z <= 138
+        4
+    else
+        0
+    if Z >= 139 && Z <= 152
+        3
+    else
+        0
+    if Z >= 153 && Z <= 162
+        2
+    else
+        0
+    if Z >= 163 && Z <= 168
+        1
+    else
+        0
+    if Z >= 169 && Z <= 170
+        0
+    else
+        4
+
+let block_known(Z) =
+    if Z >= 57 && Z <= 71
+        3
+    else
+        0
+    if Z >= 89 && Z <= 103
+        3
+    else
+        let val = valence_electrons(Z)
+        if val <= 2
+            0
+        else
+            0
+        if Z >= 21 && Z <= 30
+            2
+        else
+            0
+        if Z >= 39 && Z <= 48
+            2
+        else
+            0
+        if Z >= 72 && Z <= 80
+            2
+        else
+            0
+        if Z >= 104 && Z <= 112
+            2
+        else
+            1
+
+let block_from_Z(Z) =
+    (Z >= 121 ? block_superheavy(Z) : block_known(Z))
+
+let AUFBAU_ORBITALS = [
+    [1, 0], [2, 0], [2, 1], [3, 0], [3, 1], [4, 0], [3, 2], [4, 1],
+    [5, 0], [4, 2], [5, 1], [6, 0], [4, 3], [5, 2], [6, 1], [7, 0],
+    [5, 3], [6, 2], [7, 1], [8, 0], [5, 4], [6, 3], [7, 2], [8, 1],
+    [9, 0], [9, 1]
+]
+
+let orbital_capacity(l) = 4 * l + 2
+
+let aufbau_config(Z) =
+    let fills = []
+    let remaining = Z
+    let i = 0
+    let n_orb = len(AUFBAU_ORBITALS)
+    for i < n_orb
+        let cap = orbital_capacity(AUFBAU_ORBITALS[i][1])
+        let fill = cap
+        if remaining < cap
+            fill = remaining
+        if remaining <= 0
+            fill = 0
+        fills.push(fill)
+        remaining = remaining - fill
+        i = i + 1
+    fills
+
+let aufbau_shells(Z) =
+    let fills = aufbau_config(Z)
+    let shells = []
+    let j = 0
+    for j < 10
+        shells.push(0)
+        j = j + 1
+    let i = 0
+    let n_orb = len(AUFBAU_ORBITALS)
+    for i < n_orb
+        let n_idx = AUFBAU_ORBITALS[i][0] - 1
+        shells[n_idx] = shells[n_idx] + fills[i]
+        i = i + 1
+    let result = []
+    let k = 0
+    for k < 10
+        if shells[k] > 0
+            result.push(shells[k])
+        k = k + 1
+    result
+
+let predict_shells(Z) = aufbau_shells(Z)
+
+let ground_state_config(Z) =
+    let fills = aufbau_config(Z)
+    let i = 0
+    for i < 20
+        if EXC_Z[i] == Z
+            fills[EXC_FROM[i]] = fills[EXC_FROM[i]] - EXC_CNT[i]
+            fills[EXC_TO[i]] = fills[EXC_TO[i]] + EXC_CNT[i]
+        i = i + 1
+    fills
+
+let subshell_fill(Z, n, l) =
+    let fills = ground_state_config(Z)
+    let v = 0
+    let i = 0
+    let n_orb = len(AUFBAU_ORBITALS)
+    for i < n_orb
+        if AUFBAU_ORBITALS[i][0] == n && AUFBAU_ORBITALS[i][1] == l
+            v = fills[i]
+        i = i + 1
+    v
+
+let table_checksum(T) =
+    let s = 0
+    let i = 0
+    let n = len(T)
+    for i < n
+        s = gf_norm(gf_mul(gf_norm(s), 3) + gf_norm(T[i]))
+        i = i + 1
+    s
+
+let verify_tables_integrity() =
+    let c1 = table_checksum(IE_MEV) == CHK_IE_MEV
+    let c2 = table_checksum(PROV_IE) == CHK_PROV_IE
+    let c3 = table_checksum(NIST_EN) == CHK_EN
+    let c4 = table_checksum(NIST_EN_ALLEN) == CHK_EN_ALLEN
+    let c5 = table_checksum(NIST_EA) == CHK_EA
+    let c6 = table_checksum(NIST_RADIUS) == CHK_RADIUS
+    let c7 = table_checksum(PROV_RADIUS) == CHK_PROV_RADIUS
+    let c8 = table_checksum(EXC_Z) == CHK_EXC_Z
+    let c9 = table_checksum(EXC_FROM) == CHK_EXC_FROM
+    let c10 = table_checksum(EXC_CNT) == CHK_EXC_CNT
+    let c11 = table_checksum(EXC_TO) == CHK_EXC_TO
+    let c12 = table_checksum(NUCLEON_MAGIC) == CHK_MAGIC
+    let c13 = table_checksum(NUCLEON_RESIDUES) == CHK_NRES
+    c1 && c2 && c3 && c4 && c5 && c6 && c7 && c8 && c9 && c10 && c11 && c12 && c13
+
+let last_orbital_l(Z) =
+    let fills = aufbau_config(Z)
+    let l = 0
+    let i = 0
+    let n_orb = len(AUFBAU_ORBITALS)
+    for i < n_orb
+        if fills[i] > 0
+            l = AUFBAU_ORBITALS[i][1]
+        i = i + 1
+    l
+
+let is_noble_gas(Z) =
+    Z == 2 || Z == 10 || Z == 18 || Z == 36 || Z == 54 || Z == 86 || Z == 118
+
+let category_main_group(val, p, Z) =
+    if is_noble_gas(Z)
+        8
+    else
+        0
+    if Z == 2
+        8
+    else
+        0
+    if val == 7 && block_from_Z(Z) != 2
+        7
+    else
+        0
+    if val == 1 && p > 1
+        1
+    else
+        0
+    if val == 2 && p > 1
+        2
+    else
+        0
+
+let category_sub(val, p, Z) =
+    let blk = block_from_Z(Z)
+    if blk == 2
+        3
+    else
+        0
+    if blk == 1 && val >= 4
+        4
+    else
+        0
+    if val == 6 && p <= 3
+        6
+    else
+        0
+    if val >= 4 && val <= 6
+        5
+    else
+        6
+
+let element_category(Z) =
+    if Z > 118
+        11
+    else
+        0
+    if Z >= 57 && Z <= 71
+        9
+    else
+        0
+    if Z >= 89 && Z <= 103
+        10
+    else
+        let val = valence_electrons(Z)
+        let p = period_from_Z(Z)
+        let cat = category_main_group(val, p, Z)
+        (cat != 0 ? cat : category_sub(val, p, Z))
+
+let category_name(cat) =
+    let names = ["Unknown", "Alkali", "Alkaline", "Transition", "PostTrans", "Metalloid", "Nonmetal", "Halogen", "Noble", "Lanthanide", "Actinide", "Superheavy"]
+    (cat < 12 ? names[cat] : "Unknown")
+
+let is_magic_number(N) =
+    let hit = 0
+    let i = 0
+    for i < 8
+        if NUCLEON_MAGIC[i] == N
+            hit = 1
+        i = i + 1
+    hit
+
+let nuclear_stability(Z, N) =
+    let score = 5
+    let i = 0
+    for i < 8
+        let magic = NUCLEON_MAGIC[i]
+        let diff_Z = Z - magic
+        let diff_N = N - magic
+        if diff_Z == 0
+            score = score + 3
+        if diff_N == 0
+            score = score + 3
+        if diff_Z > 0 && diff_Z <= 5
+            score = score + 1
+        if diff_N > 0 && diff_N <= 5
+            score = score + 1
+        i = i + 1
+    if score > 10
+        score = 10
+    score
+
+let is_doubly_magic(Z, N) =
+    (is_magic_number(Z) == 1 && is_magic_number(N) == 1 ? 1 : 0)
+
+let superheavy_stability(Z) =
+    let N_pred = 2 * Z - 1
+    if Z <= 118
+        nuclear_stability(Z, N_pred)
+    else
+        let score = 3
+        if Z == 126
+            score = 10
+        else
+            0
+        if Z > 120 && Z < 132
+            score = 7
+        if N_pred == 184
+            score = score + 3
+        else
+            0
+        if N_pred > 178 && N_pred < 190
+            score = score + 2
+        if score > 10
+            score = 10
+        score
+
+let d_orbital_correction(Z) =
+    let blk = block_from_Z(Z)
+    if blk != 2
+        0
+    else
+        let val = valence_electrons(Z)
+        let d_electrons = (val > 2 ? val - 2 : 0)
+        if d_electrons > 10
+            d_electrons = 10
+        if d_electrons == 5 || d_electrons == 10
+            50
+        else
+            d_electrons * 3
+
+let f_orbital_correction(Z) =
+    let blk = block_from_Z(Z)
+    if blk != 3
+        0
+    else
+        let f_electrons = (Z >= 57 && Z <= 71 ? Z - 54 - 3 : 0)
+        if f_electrons > 14
+            f_electrons = 14
+        if f_electrons < 0
+            f_electrons = 0
+        if f_electrons == 7 || f_electrons == 14
+            100
+        else
+            f_electrons * 5
+
+let refined_ie(Z) =
+    let base = element_ie(Z)
+    let d_corr = d_orbital_correction(Z)
+    let f_corr = f_orbital_correction(Z)
+    base + d_corr + f_corr
+
+let chemical_activity(Z) = refined_ie(Z) * element_en(Z)
+
+let element_tags(Z) =
+    let cat = element_category(Z)
+    let blk = block_from_Z(Z)
+    (cat * 16) + blk
+
+let element_full(Z) =
+    let p = period_from_Z(Z)
+    let val = valence_electrons(Z)
+    let blk = block_from_Z(Z)
+    let cat = element_category(Z)
+    let ie = refined_ie(Z)
+    let en = element_en(Z)
+    let r = element_radius(Z)
+    let ea = element_ea(Z)
+    let act = chemical_activity(Z)
+    let nuc = superheavy_stability(Z)
+    [Z, p, val, blk, cat, ie, en, r, ea, act, nuc]
+
+let predict_element(Z) =
+    if Z <= 118
+        element_full(Z)
+    else
+        element_full(Z)
+
+let predict_5g_orbital() =
+    let result = []
+    let Z = 121
+    for Z <= 138
+        result.push(predict_element(Z))
+        Z = Z + 1
+    result
+
+let periodic_resonance(Z) =
+    let strength = 0
+    let k = 0
+    for k < 8
+        let pole = CHEM_POLES[k]
+        let diff = Z - pole
+        if diff != 0
+            let d = gf_norm(diff)
+            strength = strength + gf_div(100, d)
+        k = k + 1
+    strength
+
+let same_group_elements(val, max_Z) =
+    let result = []
+    let Z = 1
+    for Z <= max_Z
+        if valence_electrons(Z) == val
+            result.push(Z)
+        Z = Z + 1
+    result
+
+let group_trend(val) =
+    let elements = same_group_elements(val, 172)
+    let trends = []
+    let i = 0
+    for i < len(elements)
+        let Z = elements[i]
+        trends.push([Z, refined_ie(Z), element_en(Z), element_radius(Z)])
+        i = i + 1
+    trends
+
+let next_in_group(Z) =
+    let val = valence_electrons(Z)
+    let next = Z + 1
+    for next <= 172 && valence_electrons(next) != val
+        next = next + 1
+    (next > 172 ? 0 : next)
+
+let query_by_category(target_cat) =
+    let result = []
+    let Z = 1
+    for Z <= 172
+        if element_category(Z) == target_cat
+            result.push(Z)
+        Z = Z + 1
+    result
+
+let periodic_verify() =
+    let h = element_full(1)
+    let t1 = h[1] == 1 && h[2] == 1 && h[5] == 1359
+    let t2 = element_category(2) == 8 && element_en(2) == 0 && element_ie(2) == 2458
+    let t3 = period_from_Z(11) == 3 && element_category(11) == 1 && element_ie(11) == 513
+    let t4 = element_category(26) == 3 && block_from_Z(26) == 2 && element_ie(26) == 790
+    let t5 = element_category(92) == 10 && period_from_Z(92) == 7 && element_ie(92) == 619
+    let t6 = element_category(118) == 8 && period_from_Z(118) == 7
+    let t7 = period_from_Z(119) == 8 && valence_electrons(119) == 1
+    let t8 = block_from_Z(121) == 4 && block_from_Z(138) == 4
+    let t9 = residue_field_psi(1) != 0
+    let sh = predict_shells(26)
+    let shell_sum = sh[0] + sh[1] + sh[2] + sh[3]
+    let t10 = shell_sum == 26
+    let t11 = element_en(9) == 398
+    let t12 = element_en(55) == 79
+    let t13 = is_magic_number(82) == 1
+    let t14 = is_doubly_magic(2, 2) == 1
+    let t15 = block_from_Z(121) == 4 && valence_electrons(121) == 3
+    let t16 = verify_tables_integrity()
+    let t17 = element_ie_mev(1) == 13598 && element_ie_mev(92) == 6194
+    let t18 = element_ie_mev(43) == 7119 && element_ie_mev(85) == 9317
+    let t19 = element_ie_mev(87) > element_ie_mev(55)
+    let t20 = element_ie_mev(103) == 4960 && element_ie_mev(103) < element_ie_mev(102)
+    let cons = 1
+    let i21 = 0
+    for i21 < 20
+        let Zc = EXC_Z[i21]
+        let fills = ground_state_config(Zc)
+        let ssum = 0
+        let j21 = 0
+        for j21 < 26
+            ssum = ssum + fills[j21]
+            j21 = j21 + 1
+        if ssum != Zc
+            cons = 0
+        i21 = i21 + 1
+    let t21 = cons == 1
+    let t22 = subshell_fill(24, 3, 2) == 5 && subshell_fill(24, 4, 0) == 1
+    let t23 = subshell_fill(29, 3, 2) == 10 && subshell_fill(29, 4, 0) == 1
+    let t24 = subshell_fill(46, 5, 0) == 0 && subshell_fill(46, 4, 2) == 10
+    let t25 = subshell_fill(57, 4, 3) == 0 && subshell_fill(57, 5, 2) == 1
+    let t26 = subshell_fill(64, 4, 3) == 7 && subshell_fill(64, 5, 2) == 1
+    let t27 = subshell_fill(78, 5, 2) == 9 && subshell_fill(78, 6, 0) == 1
+    let t28 = subshell_fill(79, 5, 2) == 10 && subshell_fill(79, 6, 0) == 1
+    let t29 = subshell_fill(103, 6, 2) == 0 && subshell_fill(103, 7, 1) == 1 && subshell_fill(103, 5, 3) == 14
+    let ndiff = 0
+    let i30 = 0
+    for i30 < 20
+        let Zd = EXC_Z[i30]
+        let f1 = aufbau_config(Zd)
+        let f2 = ground_state_config(Zd)
+        let dif = 0
+        let j30 = 0
+        for j30 < 26
+            if f1[j30] != f2[j30]
+                dif = 1
+            j30 = j30 + 1
+        if dif == 1
+            ndiff = ndiff + 1
+        i30 = i30 + 1
+    let t30 = ndiff == 20
+    let t31 = element_en_al(10) == 479 && element_en_al(2) == 416 && element_en_al(54) == 258
+    let t32 = element_en(9) == 398 && element_en(36) == 300 && element_en(54) == 260
+    let t33 = element_ea(17) == 361 && element_ea(10) == 0 - 120 && element_ea(8) == 146
+    let t34 = element_radius(9) == 57 && element_radius(36) == 116 && element_radius(55) == 244
+    let t35 = element_radius(113) == 136 && element_radius(113) < element_radius(104)
+    let mism = 0
+    let i36 = 1
+    for i36 <= 118
+        if element_ie(i36) != element_ie_mev(i36) / 10
+            mism = mism + 1
+        i36 = i36 + 1
+    let t36 = mism == 0
+    let ie_min = 99999
+    let ie_max = 0
+    let i37 = 1
+    for i37 <= 118
+        let v = element_ie_mev(i37)
+        if v < ie_min
+            ie_min = v
+        if v > ie_max
+            ie_max = v
+        i37 = i37 + 1
+    let t37 = ie_max == 24587 && ie_min == 3893
+    let n_meas = 0
+    let n_pred = 0
+    let i38 = 0
+    for i38 < 118
+        if PROV_IE[i38] == 0
+            n_meas = n_meas + 1
+        if PROV_IE[i38] == 2
+            n_pred = n_pred + 1
+        i38 = i38 + 1
+    let t38 = n_meas == 103 && n_pred == 14
+    let p1 = t1 && t2 && t3 && t4 && t5 && t6 && t7 && t8 && t9 && t10
+    let p2 = t11 && t12 && t13 && t14 && t15 && t16 && t17 && t18 && t19 && t20
+    let p3 = t21 && t22 && t23 && t24 && t25 && t26 && t27 && t28 && t29 && t30
+    let p4 = t31 && t32 && t33 && t34 && t35 && t36 && t37 && t38
+    p1 && p2 && p3 && p4
+
+let periodic_stats() =
+    let known = 118
+    let predicted = 54
+    let total = known + predicted
+    let poles = 8
+    let nuclear_magic = 8
+    [total, known, predicted, poles, nuclear_magic]

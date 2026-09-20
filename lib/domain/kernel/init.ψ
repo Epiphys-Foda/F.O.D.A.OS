@@ -1,0 +1,338 @@
+let unit_new(name, kind) =
+    [name, kind, 0, ["", [], [], 0, 0], [], [], [], []]
+
+let unit_name(u) = u[0]
+let unit_type(u) = u[1]
+let unit_state(u) = u[2]
+let unit_exec(u) = u[3]
+let unit_deps(u) = u[4]
+let unit_requires(u) = u[5]
+let unit_wants(u) = u[6]
+let unit_after(u) = u[7]
+
+let unit_set_state(u, s) =
+    u[2] = s
+    u
+
+let unit_set_exec(u, path, args, env) =
+    u[3] = [path, args, env, 0, 0]
+    u
+
+let unit_add_require(u, dep) =
+    let r = unit_requires(u)
+    r.push(dep)
+    u[5] = r
+    u
+
+let unit_add_want(u, dep) =
+    let w = unit_wants(u)
+    w.push(dep)
+    u[6] = w
+    u
+
+let unit_add_after(u, dep) =
+    let a = unit_after(u)
+    a.push(dep)
+    u[7] = a
+    u
+
+let unit_is_active(u) =
+    if unit_state(u) == 2
+        1
+    else
+        0
+
+let unit_is_failed(u) =
+    if unit_state(u) == 3
+        1
+    else
+        0
+
+let manager_new() =
+    [{}, [], {}, []]
+
+let mgr_units(m) = m[0]
+let mgr_targets(m) = m[1]
+let mgr_deps(m) = m[2]
+let mgr_started(m) = m[3]
+
+let mgr_register(m, u) =
+    let us = mgr_units(m)
+    us[unit_name(u)] = u
+    m[0] = us
+    let deps = mgr_deps(m)
+    deps[unit_name(u)] = unit_requires(u)
+    m[2] = deps
+    m
+
+let mgr_get(m, name) =
+    let us = mgr_units(m)
+    us[name]
+
+let mgr_add_target(m, target) =
+    let ts = mgr_targets(m)
+    ts.push(target)
+    m[1] = ts
+    m
+
+let mgr_topo_sort(m, target_name) =
+    let visited = {}
+    let order = []
+    let stack = [target_name]
+    let loop = 1
+    for loop == 1
+        let n = len(stack)
+        if n == 0
+            loop = 0
+        else
+            let name = stack[n - 1]
+            stack.pop()
+            let seen = visited[name]
+            if seen != 1
+                visited[name] = 1
+                order.push(name)
+                let deps = mgr_deps(m)
+                let d = deps[name]
+                if d != 0
+                    let i = 0
+                    let dn = len(d)
+                    for i < dn
+                        stack.push(d[i])
+                        i = i + 1
+    let reversed_order = []
+    let i = len(order) - 1
+    for i >= 0
+        reversed_order.push(order[i])
+        i = i - 1
+    reversed_order
+
+let mgr_start_unit(m, name) =
+    let u = mgr_get(m, name)
+    if u == 0
+        -1
+    else
+        let reqs = unit_requires(u)
+        let i = 0
+        let n = len(reqs)
+        let ok = 1
+        for i < n
+            let du = mgr_get(m, reqs[i])
+            if du != 0
+                if unit_is_active(du) == 0
+                    ok = 0
+            i = i + 1
+        if ok == 0
+            i = 0
+            for i < n
+                let du = mgr_get(m, reqs[i])
+                if du != 0
+                    if unit_is_active(du) == 0
+                        du = mgr_start_unit(m, reqs[i])
+                        let us = mgr_units(m)
+                        us[reqs[i]] = du
+                        m[0] = us
+                i = i + 1
+        u = unit_set_state(u, 1)
+        let exec = unit_exec(u)
+        exec[3] = len(mgr_started(m)) + 1
+        exec[4] = 0
+        u[3] = exec
+        u = unit_set_state(u, 2)
+        let started = mgr_started(m)
+        started.push(name)
+        m[3] = started
+        let us = mgr_units(m)
+        us[name] = u
+        m[0] = us
+        u
+
+let mgr_stop_unit(m, name) =
+    let u = mgr_get(m, name)
+    if u == 0
+        -1
+    else
+        u = unit_set_state(u, 0)
+        let us = mgr_units(m)
+        us[name] = u
+        m[0] = us
+        u
+
+let mgr_restart_unit(m, name) =
+    mgr_stop_unit(m, name)
+    mgr_start_unit(m, name)
+
+let phase_init() =
+    [
+        ["boot", "sysinit.target"],
+        ["early", "basic.target"],
+        ["normal", "multi-user.target"],
+        ["late", "graphical.target"],
+        ["shutdown", "shutdown.target"]
+    ]
+
+let phase_name(p) = p[0]
+let phase_target(p) = p[1]
+
+let mgr_start_phase(m, phase) =
+    let target = phase_target(phase)
+    let order = mgr_topo_sort(m, target)
+    let started = 0
+    let i = 0
+    let n = len(order)
+    for i < n
+        let u = mgr_start_unit(m, order[i])
+        if u != 0
+            if u != -1
+                if unit_is_active(u) == 1
+                    started = started + 1
+        i = i + 1
+    [started, len(order)]
+
+let mgr_boot_system(m) =
+    let phases = phase_init()
+    let result = []
+    let i = 0
+    let n = len(phases)
+    for i < n
+        let r = mgr_start_phase(m, phases[i])
+        result.push([phase_name(phases[i]), r[0], r[1]])
+        i = i + 1
+    result
+
+let mgr_shutdown_system(m) =
+    let phases = phase_init()
+    let shutdown_phase = phases[4]
+    let target = phase_target(shutdown_phase)
+    let order = mgr_topo_sort(m, target)
+    let stopped = 0
+    let i = len(order) - 1
+    for i >= 0
+        let u = mgr_stop_unit(m, order[i])
+        if u != 0
+            if u != -1
+                stopped = stopped + 1
+        i = i - 1
+    stopped
+
+let mgr_socket_activate(m, socket_name) =
+    let sock = mgr_get(m, socket_name)
+    if sock == 0
+        0
+    else
+        let deps = unit_requires(sock)
+        if len(deps) == 0
+            0
+        else
+            let svc_name = deps[0]
+            let svc = mgr_start_unit(m, svc_name)
+            if svc == 0
+                0
+            else
+                if svc == -1
+                    0
+                else
+                    1
+
+let init_verify() =
+    let ok1 = 1
+    let u = unit_new("nginx.service", 0)
+    if unit_name(u) != "nginx.service"
+        ok1 = 0
+    if unit_state(u) != 0
+        ok1 = 0
+    if unit_is_active(u) != 0
+        ok1 = 0
+
+    let ok2 = 1
+    u = unit_add_require(u, "network.target")
+    u = unit_add_want(u, "syslog.service")
+    u = unit_add_after(u, "network.target")
+    if len(unit_requires(u)) != 1
+        ok2 = 0
+    if len(unit_wants(u)) != 1
+        ok2 = 0
+    if len(unit_after(u)) != 1
+        ok2 = 0
+
+    let ok3 = 1
+    let m = manager_new()
+    let net = unit_new("network.target", 1)
+    let sys = unit_new("syslog.service", 0)
+    m = mgr_register(m, net)
+    m = mgr_register(m, sys)
+    m = mgr_register(m, u)
+    let started_u = mgr_start_unit(m, "network.target")
+    if unit_is_active(started_u) != 1
+        ok3 = 0
+    let started_ng = mgr_start_unit(m, "nginx.service")
+    if unit_is_active(started_ng) != 1
+        ok3 = 0
+    if len(mgr_started(m)) != 2
+        ok3 = 0
+
+    let ok4 = 1
+    let order = mgr_topo_sort(m, "nginx.service")
+    if len(order) < 2
+        ok4 = 0
+    let net_idx = 0
+    let ng_idx = 0
+    let i = 0
+    let n = len(order)
+    for i < n
+        if order[i] == "network.target"
+            net_idx = i
+        if order[i] == "nginx.service"
+            ng_idx = i
+        i = i + 1
+    if net_idx >= ng_idx
+        ok4 = 0
+
+    let ok5 = 1
+    let m2 = manager_new()
+    let target_u = unit_new("multi-user.target", 1)
+    let basic_u = unit_new("basic.target", 1)
+    let sysinit = unit_new("sysinit.target", 1)
+    basic_u = unit_add_require(basic_u, "sysinit.target")
+    target_u = unit_add_require(target_u, "basic.target")
+    m2 = mgr_register(m2, sysinit)
+    m2 = mgr_register(m2, basic_u)
+    m2 = mgr_register(m2, target_u)
+    m2 = mgr_add_target(m2, "multi-user.target")
+    let phases = phase_init()
+    let phase_normal = phases[2]
+    let r = mgr_start_phase(m2, phase_normal)
+    if r[0] != 3
+        ok5 = 0
+
+    let ok6 = 1
+    let m3 = manager_new()
+    let sock = unit_new("nginx.socket", 3)
+    let svc = unit_new("nginx.service", 0)
+    sock = unit_add_require(sock, "nginx.service")
+    m3 = mgr_register(m3, sock)
+    m3 = mgr_register(m3, svc)
+    let activated = mgr_socket_activate(m3, "nginx.socket")
+    if activated != 1
+        ok6 = 0
+    let svc_u = mgr_get(m3, "nginx.service")
+    if unit_is_active(svc_u) != 1
+        ok6 = 0
+
+    let ok7 = 1
+    let stopped = mgr_shutdown_system(m2)
+    if stopped != 3
+        ok7 = 0
+
+    let all_ok = ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7
+    if all_ok == 1
+        print("init_verify: ALL 7 PASS")
+    else
+        print("init_verify: FAIL")
+        print(ok1)
+        print(ok2)
+        print(ok3)
+        print(ok4)
+        print(ok5)
+        print(ok6)
+        print(ok7)
+    all_ok

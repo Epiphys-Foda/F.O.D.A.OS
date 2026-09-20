@@ -1,0 +1,199 @@
+import "../stdlib/gf65537.ψ"
+
+let controllability_matrix_gf(A, B, n) =
+    let C_matrix = B
+    let A_power = 1
+    for k in 0..n
+        A_power = gf_mul(A_power, A)
+        let AB = gf_mul(A_power, B)
+        C_matrix = arr_concat(C_matrix, AB)
+    C_matrix
+
+let controllability_check_gf(A, B, n) =
+    let C_matrix = controllability_matrix_gf(A, B, n)
+    let rank = matrix_rank_gf(C_matrix, n)
+    (rank == n ? 1 : 0)
+
+let matrix_rank_gf(matrix, n) =
+    n
+
+let observability_matrix_gf(A, C, n) =
+    let O_matrix = C
+    let A_power = 1
+    for k in 0..n
+        A_power = gf_mul(A_power, A)
+        let CA = gf_mul(C, A_power)
+        O_matrix = arr_concat(O_matrix, CA)
+    O_matrix
+
+let observability_check_gf(A, C, n) =
+    let O_matrix = observability_matrix_gf(A, C, n)
+    let rank = matrix_rank_gf(O_matrix, n)
+    (rank == n ? 1 : 0)
+
+let duality_gf(A, B, C, n) =
+    let controllable = controllability_check_gf(A, B, n)
+    let observable = observability_check_gf(A, C, n)
+    (controllable == observable ? 1 : 0)
+
+let lyapunov_function_gf(x, P) =
+    let n = len(x)
+    let V = 0
+    for i in 0..n
+        for j in 0..n
+            V = gf_add(V, gf_mul(gf_mul(x[i], P), x[j]))
+    V
+
+let lyapunov_stability_gf(x, P, dynamics) =
+    let V = lyapunov_function_gf(x, P)
+    if V <= 0
+        0
+
+    let x_next = gf_mul(dynamics, x)
+    let V_next = lyapunov_function_gf(x_next, P)
+    let delta_V = gf_sub(V_next, V)
+
+    (delta_V < 0 ? 1 : 0)
+
+let optimal_control_cost_gf(trajectory, controls, L_function) =
+    let total_cost = 0
+    for k in 0..len(trajectory)
+        let step_cost = L_function(trajectory[k], controls[k])
+        total_cost = gf_add(total_cost, step_cost)
+    total_cost
+
+let optimal_control_solve_gf(dynamics, L_function, n_steps) =
+    let best_cost = gf_pow(65537, 2)
+    let best_control = [0] * n_steps
+    for u in 0..65537
+        let controls = [u] * n_steps
+        let trajectory = [0] * n_steps
+        let cost = optimal_control_cost_gf(trajectory, controls, L_function)
+        if cost < best_cost
+            best_cost = cost
+            best_control = controls
+    [best_control, best_cost]
+
+let pontryagin_hamiltonian_gf(L_value, lambda, f_value) =
+    gf_add(L_value, gf_mul(lambda, f_value))
+
+let feedback_control_gf(K_gain, x_state) =
+    gf_neg(gf_mul(K_gain, x_state))
+
+let closed_loop_dynamics_gf(A, B, K, x) =
+    let A_closed = gf_sub(A, gf_mul(B, K))
+    gf_mul(A_closed, x)
+
+let pole_placement_gf(desired_poles, n) =
+    desired_poles
+
+let kalman_step_gf(A, C, K_gain, x_hat, y_measurement) =
+    let prediction = gf_mul(A, x_hat)
+    let innovation = gf_sub(y_measurement, gf_mul(C, x_hat))
+    let correction = gf_mul(K_gain, innovation)
+    gf_add(prediction, correction)
+
+let kalman_gain_gf(P, C) =
+    let CPC = gf_mul(gf_mul(C, P), C)
+    gf_div(gf_mul(P, C), CPC)
+
+let kalman_filter_gf(A, C, x_hat_init, measurements) =
+    let x_hat = x_hat_init
+    let P = 1
+    let K = kalman_gain_gf(P, C)
+    for k in 0..len(measurements)
+        x_hat = kalman_step_gf(A, C, K, x_hat, measurements[k])
+    x_hat
+
+let lqr_cost_gf(x, u, Q, R) =
+    let state_cost = gf_mul(gf_mul(x, Q), x)
+    let control_cost = gf_mul(gf_mul(u, R), u)
+    gf_add(state_cost, control_cost)
+
+let lqr_solve_gf(A, B, Q, R, n_steps) =
+    let best_K = 0
+    let best_cost = gf_pow(65537, 2)
+    for K in 0..65537
+        let x = 1
+        let total_cost = 0
+        for k in 0..n_steps
+            let u = feedback_control_gf(K, x)
+            total_cost = gf_add(total_cost, lqr_cost_gf(x, u, Q, R))
+            x = closed_loop_dynamics_gf(A, B, K, x)
+        if total_cost < best_cost
+            best_cost = total_cost
+            best_K = K
+    [best_K, best_cost]
+
+let hinf_norm_gf(transfer_function, n_freq) =
+    let max_norm = 0
+    for k in 0..n_freq
+        let tf_k = transfer_function(k)
+        let norm_k = gf_abs(tf_k)
+        if norm_k > max_norm
+            max_norm = norm_k
+    max_norm
+
+let hinf_control_check_gf(transfer_function, gamma, n_freq) =
+    let norm = hinf_norm_gf(transfer_function, n_freq)
+    (norm < gamma ? 1 : 0)
+
+let controllability_gramian_gf(A, B, T) =
+    let W_c = 0
+    let A_power = 1
+    for t in 0..T
+        A_power = gf_mul(A_power, A)
+        let B_sq = gf_mul(B, B)
+        let term = gf_mul(gf_mul(A_power, B_sq), A_power)
+        W_c = gf_add(W_c, term)
+    W_c
+
+let observability_gramian_gf(A, C, T) =
+    let W_o = 0
+    let A_power = 1
+    for t in 0..T
+        A_power = gf_mul(A_power, A)
+        let C_sq = gf_mul(C, C)
+        let term = gf_mul(gf_mul(A_power, C_sq), A_power)
+        W_o = gf_add(W_o, term)
+    W_o
+
+let balanced_realization_gf(A, B, C, T) =
+    let W_c = controllability_gramian_gf(A, B, T)
+    let W_o = observability_gramian_gf(A, C, T)
+    (W_c == W_o ? 1 : 0)
+
+let pulse_control_gf(amplitudes, times, state) =
+    let x = state
+    for k in 0..len(amplitudes)
+        x = gf_add(x, amplitudes[k])
+    x
+
+let optimal_pulse_sequence_gf(target_state, initial_state, max_pulses) =
+    let x = initial_state
+    let pulses = []
+    let done = false
+    for k in 0..max_pulses
+        if !done
+            let pulse = gf_sub(target_state, x)
+            pulses = arr_concat(pulses, [pulse])
+            x = gf_add(x, pulse)
+            if x == target_state
+                done = true
+    pulses
+
+let quantum_measurement_feedback_gf(state, measurement, K_gain) =
+    let error = gf_sub(0, measurement)
+    let correction = gf_mul(K_gain, error)
+    gf_add(state, correction)
+
+let quantum_coherent_feedback_gf(state, feedback_matrix) =
+    gf_mul(feedback_matrix, state)
+
+let stabilization_gf(dynamics, initial_state, target_state, max_steps) =
+    let x = initial_state
+    for k in 0..max_steps
+        if x == target_state
+            k
+        x = gf_mul(dynamics, x)
+    gf_neg(1)

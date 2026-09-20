@@ -1,0 +1,57 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let B_earth = 470
+bad[0] = bad[0] + ck(B_earth, 420, 520)
+
+let gamma = 28025
+bad[0] = bad[0] + ck(gamma, 28000, 28030)
+
+let f_kHz = small_div(gamma * 47, 1000)
+bad[0] = bad[0] + ck(f_kHz, 1300, 1330)
+
+let per_ns = small_div(1000000000, gamma * 47)
+bad[0] = bad[0] + ck(per_ns, 740, 780)
+
+if f_kHz - 1315 > 50
+    bad[0] = bad[0] + 1
+if 1315 - f_kHz > 50
+    bad[0] = bad[0] + 1
+
+let B_rf = 15
+let B_nT = 47000
+let ppm = small_div(B_rf * 1000000, B_nT)
+bad[0] = bad[0] + ck(ppm, 250, 400)
+bad[0] = bad[0] + ck_hi(ppm, 1000)
+
+let dE = 873
+let kT = 4281100000
+let ratio = small_div(dE * 1000000000, kT)
+bad[0] = bad[0] + ck(ratio, 190, 220)
+bad[0] = bad[0] + ck_hi(ratio, 1000)
+
+let E_ph = 442
+let eV = small_div(E_ph * 100, 1602)
+bad[0] = bad[0] + ck(eV, 25, 30)
+
+let cycles = small_div(100000, per_ns)
+bad[0] = bad[0] + ck(cycles, 100, 200)
+
+bad[0] = bad[0] + ck_hi(ratio, ppm)
+
+if 1966 < 1960
+    bad[0] = bad[0] + 1
+if 1966 > 1970
+    bad[0] = bad[0] + 1
+if 1978 < 1975
+    bad[0] = bad[0] + 1
+if 1978 > 1980
+    bad[0] = bad[0] + 1
+if 2021 < 2020
+    bad[0] = bad[0] + 1
+if 2021 > 2022
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

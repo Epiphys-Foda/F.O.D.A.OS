@@ -1,0 +1,66 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let AUTH_MAX_USERS = 4096
+let AUTH_SESSION_TIMEOUT = 3600
+let AUTH_SALT = 12345
+
+let auth_hash(password, salt) =
+    let h = salt
+    let i = 0
+    let n = len(password)
+    for i < n
+        h = gf_add(gf_mul(h, 31), password[i])
+        i = i + 1
+    gf_pow(h, 2)
+let auth_verify(password, salt, stored_hash) =
+    let h = auth_hash(password, salt)
+    (h == stored_hash ? 1 : 0)
+let user_create(id, name_hash, cred_hash, role) = [id, name_hash, cred_hash, role, 1]
+let user_authenticate(user, password) =
+    if user[4] == 0
+        0
+    let stored = user[2]
+    let computed = auth_hash(password, AUTH_SALT)
+    (computed == stored ? 1 : 0)
+let user_deactivate(user) = [user[0], user[1], user[2], user[3], 0]
+let user_change_role(user, new_role) = [user[0], user[1], user[2], new_role, user[4]]
+let session_create(id, user_id, token, current_time) = [id, user_id, token, current_time + AUTH_SESSION_TIMEOUT]
+let session_valid(session, current_time) =
+    (current_time < session[3] ? 1 : 0)
+let session_renew(session, current_time) = [session[0], session[1], session[2], current_time + AUTH_SESSION_TIMEOUT]
+let session_token_generate(user_id, timestamp) = gf_add(gf_mul(user_id, 65521), timestamp)
+let auth_check_role(user_role, required_role) =
+    (user_role >= required_role ? 1 : 0)
+let auth_check_permission(user_role, permission) =
+    let mask = gf_pow(2, permission)
+    ((user_role / mask) % 2 == 1 ? 1 : 0)
+let auth_field_hash(password, salt, n) =
+    let poles = arr_new_n(n)
+    let residues = arr_new_n(n)
+    let i = 0
+    for i < n
+        poles[i] = 127 + i * 1000
+        residues[i] = password[i]
+        i = i + 1
+    let z = salt
+    let val = 0
+    let j = 0
+    for j < n
+        let diff = (z + 65537 - poles[j]) % 65537
+        let inv_diff = gf_inv(diff)
+        val = gf_add(val, gf_mul(residues[j], inv_diff))
+        j = j + 1
+    val
+
+let auth_verify() =
+    let pwd = arr_new_n(3)
+    pwd[0] = 65
+    pwd[1] = 66
+    pwd[2] = 67
+    let h1 = auth_hash(pwd, AUTH_SALT)
+    let h2 = auth_hash(pwd, AUTH_SALT)
+    let fh = auth_field_hash(pwd, AUTH_SALT, 3)
+    let ok = 0
+    (h1 == h2 ? (ok = 1) : (ok = 0))
+    ok
+

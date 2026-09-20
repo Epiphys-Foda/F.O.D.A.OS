@@ -1,0 +1,85 @@
+let P = 65537
+let P2 = 131071
+
+import "../core/stdlib_lang2/gf_canon_shared.ψ"
+import "sh_d39d441e28.ψ"
+import "wf_brain.ψ"
+import "../core/stdlib_lang2/bm_canon.ψ"
+import "sh_ee308d734f.ψ"
+import "sh_bffc56f968.ψ"
+import "sh_0fe08dee05.ψ"
+let is_quadratic(x, q) =
+    let e = (q - 1) / 2
+    let r = 1
+    let base = x % q
+    let ex = e
+    for ex > 0
+        if ex % 2 == 1
+            r = r * base % q
+        base = base * base % q
+        ex = ex / 2
+    if r == 1
+        1
+    else
+        0
+
+let kb_merge(local, nl, remote, nr, merged, max_merge) =
+    let i = 0
+    for i < nl
+        merged[i] = local[i]
+        i = i + 1
+    let new_count = nl
+    let j = 0
+    for j < nr
+        let r_entry = remote[j]
+        let found = 0
+        let k = 0
+        for k < new_count
+            if merged[k] == r_entry
+                found = 1
+            k = k + 1
+        if found == 0
+            if new_count < max_merge
+                merged[new_count] = r_entry
+                new_count = new_count + 1
+        j = j + 1
+    new_count
+
+let gossip_tick(kbA, nA, kbB, nB, max_merge) =
+    let i = 0
+    let new_entries = 0
+    for i < nB
+        let entry = kbB[i]
+        let found = 0
+        let k = 0
+        for k < nA
+            if kbA[k] == entry
+                found = 1
+            k = k + 1
+        if found == 0
+            if nA < max_merge
+                kbA[nA] = entry
+                nA = nA + 1
+                new_entries = new_entries + 1
+        i = i + 1
+    new_entries
+
+let rrns_verify(arr, n, expected_a, expected_b) =
+    let a1 = 1
+    let a2 = 1
+    let w1 = 1
+    let w2 = 1
+    let i = 0
+    for i < n
+        a1 = (a1 + arr[i] * w1) % P
+        a2 = (a2 + (arr[i] % P2) * w2) % P2
+        w1 = w1 * 3 % P
+        w2 = w2 * 3 % P2
+        i = i + 1
+    let ok1 = 0
+    if a1 == expected_a
+        ok1 = 1
+    let ok2 = 0
+    if a2 == expected_b
+        ok2 = 1
+    ok1 * ok2

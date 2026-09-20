@@ -1,0 +1,29 @@
+import "ck.ψ"
+let bad = [0]
+
+let cmaxwell = 3
+bad[0] = bad[0] + ck(cmaxwell, 2, 4)
+
+let dipole = 1
+bad[0] = bad[0] + ck_lo(dipole, 1)
+
+let spark = 1
+bad[0] = bad[0] + ck_lo(spark, 1)
+
+let photo = 1
+bad[0] = bad[0] + ck_lo(photo, 1)
+
+if 1865 < 1863
+    bad[0] = bad[0] + 1
+if 1865 > 1867
+    bad[0] = bad[0] + 1
+if 1887 < 1885
+    bad[0] = bad[0] + 1
+if 1887 > 1889
+    bad[0] = bad[0] + 1
+if 1901 < 1899
+    bad[0] = bad[0] + 1
+if 1901 > 1903
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

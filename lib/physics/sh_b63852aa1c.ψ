@@ -1,0 +1,13 @@
+let meta_compile_self() =
+    let mc = meta_compiler()
+    let n = mf_size(mc)
+    let out_p = []
+    let out_r = []
+    let i = 0
+    for i < n
+        let op = mf_poles(mc)[i]
+        out_p = out_p.push(op)
+        out_r = out_r.push(g0_apply(op))
+        i = i + 1
+    mf_make(out_p, out_r, n)
+

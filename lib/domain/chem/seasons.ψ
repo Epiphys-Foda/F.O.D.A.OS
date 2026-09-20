@@ -1,0 +1,78 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let dp = 1471
+let da = 1521
+bad[0] = bad[0] + ck(dp, 1460, 1480)
+bad[0] = bad[0] + ck(da, 1510, 1530)
+
+let e1000 = small_div((da - dp) * 1000, da + dp)
+bad[0] = bad[0] + ck(e1000, 14, 19)
+
+let fr = small_div(da * da * 1000, dp * dp)
+bad[0] = bad[0] + ck(fr, 1050, 1085)
+
+let pd = 1000000 - 930 * 930 - 367 * 367
+bad[0] = bad[0] + ck_hi(pd, 5000)
+if pd < 0 - 5000
+    bad[0] = bad[0] + 1
+
+let tr = small_div(930 * 100, 367)
+bad[0] = bad[0] + ck(tr, 245, 260)
+
+if tr < fr / 100
+    bad[0] = bad[0] + 1
+
+let vp = 3029
+let va = 2929
+bad[0] = bad[0] + ck(vp, 2980, 3080)
+bad[0] = bad[0] + ck(va, 2880, 2980)
+let k2 = vp * dp
+let k1 = va * da
+if k2 - k1 > 10000
+    bad[0] = bad[0] + 1
+if k1 - k2 > 10000
+    bad[0] = bad[0] + 1
+
+let tanpd = 434
+bad[0] = bad[0] + ck(tanpd, 420, 445)
+
+let h0s = 1157
+let h0w = 643
+let days = small_div(2 * h0s, 15)
+let dayw = small_div(2 * h0w, 15)
+bad[0] = bad[0] + ck(days, 150, 158)
+bad[0] = bad[0] + ck(dayw, 82, 90)
+
+let es = 930 * days
+let ew = 367 * dayw
+let er = small_div(es * 10, ew)
+bad[0] = bad[0] + ck(er, 38, 55)
+
+let lag = 30
+bad[0] = bad[0] + ck(lag, 20, 40)
+
+let tE = 2344
+bad[0] = bad[0] + ck(tE, 2300, 2400)
+
+let tU = 9777
+bad[0] = bad[0] + ck(tU, 9700, 9850)
+
+let tV = 17736
+bad[0] = bad[0] + ck(tV, 17600, 17900)
+
+let tM = 3
+bad[0] = bad[0] + ck_hi(tM, 100)
+
+if 1543 < 1540
+    bad[0] = bad[0] + 1
+if 1543 > 1546
+    bad[0] = bad[0] + 1
+if 1609 < 1605
+    bad[0] = bad[0] + 1
+if 1609 > 1612
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

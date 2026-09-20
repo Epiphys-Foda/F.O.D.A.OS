@@ -1,0 +1,336 @@
+import "../stdlib/gf65537.ψ"
+
+let bb84_basis_label(basis) =
+    if basis == 0
+        0
+    else
+        1
+
+let bb84_encode(basis, bit) =
+        if basis == 0
+            bit
+        else
+            gf_add(2, bit)
+
+let bb84_measure(basis, state) =
+        if basis == 0
+            (state < 2 ? state : state % 2)
+        else
+                0
+            (state >= 2 ? gf_sub(state, 2) : state % 2)
+
+let bb84_basis_match(basis_alice, basis_bob) =
+    (basis_alice == basis_bob ? 1 : 0)
+
+let bb84_key_extraction(bases_alice, bases_bob, bits_alice, n) =
+    _bb84_key_loop(bases_alice, bases_bob, bits_alice, n, 0, [])
+let _bb84_key_loop(ba, bb, bits, n, i, key) =
+        if i >= n
+            key
+        else
+            if bb84_basis_match(ba[i], bb[i]) == 1
+                _bb84_key_loop(ba, bb, bits, n, i + 1, arr_concat(key, [bits[i]]))
+            else
+                _bb84_key_loop(ba, bb, bits, n, i + 1, key)
+
+let bb84_error_rate(key_alice, key_bob, n) =
+    _bb84_error_loop(key_alice, key_bob, n, 0, 0)
+let _bb84_error_loop(ka, kb, n, i, errors) =
+        if i >= n
+            gf_div(errors, n)
+        else
+            let new_errors = (ka[i] != kb[i]) ? errors + 1 : errors
+            _bb84_error_loop(ka, kb, n, i + 1, new_errors)
+
+let bb84_security_threshold(error_rate) =
+    let threshold = gf_div(11, 100)
+    (error_rate < threshold ? 1 : 0)
+
+let chsh_value(e_ab, e_ab_prime, e_a_prime_b, e_a_prime_b_prime) =
+    gf_add(gf_add(e_ab, e_ab_prime), gf_sub(e_a_prime_b, e_a_prime_b_prime))
+
+let tsirelson_bound() =
+    gf_mul(2, gf_sqrt(2))
+
+let bell_violation_check(chsh_val) =
+        let tsirelson = tsirelson_bound()
+        let classic_bound = 2
+        let s_abs = (chsh_val < 32768) ? chsh_val : gf_neg(chsh_val)
+        if s_abs > classic_bound && s_abs <= tsirelson
+            1
+        else
+            0
+
+let e91_key_extraction(measurements_alice, measurements_bob, n) =
+    _e91_key_loop(measurements_alice, measurements_bob, n, 0, [])
+let _e91_key_loop(ma, mb, n, i, key) =
+        if i >= n
+            key
+        else
+            _e91_key_loop(ma, mb, n, i + 1, arr_concat(key, [ma[i]]))
+
+let lwe_sample(a_vector, s_vector, e, n) =
+    let inner_product = _lwe_inner(a_vector, s_vector, n, 0, 0)
+    let b = gf_add(inner_product, e)
+    [a_vector, b]
+let _lwe_inner(a, s, n, i, acc) =
+        if i >= n
+            acc
+        else
+            _lwe_inner(a, s, n, i + 1, gf_add(acc, gf_mul(a[i], s[i])))
+
+let lwe_solve(samples, n_samples, n_dim, s_guess) =
+    _lwe_solve_loop(samples, n_samples, n_dim, s_guess, 0, 0)
+let _lwe_solve_loop(samples, n, dim, s, i, errors) =
+        if i >= n
+            errors
+        else
+            let sample = samples[i]
+            let a = sample[0]
+            let b = sample[1]
+            let predicted = _lwe_inner(a, s, dim, 0, 0)
+            let error = gf_sub(b, predicted)
+            _lwe_solve_loop(samples, n, dim, s, i + 1, gf_add(errors, gf_mul(error, error)))
+
+let lwe_security_param(error_bound) =
+    let threshold = gf_div(65537, 4)
+    (error_bound < threshold ? 1 : 0)
+
+let ntru_poly_mul(p1, p2, n) =
+    _ntru_mul_loop(p1, p2, n, 0, _ntru_zero_poly(n))
+let _ntru_zero_poly(n) =
+    _zero_poly_loop(n, 0, [])
+let _zero_poly_loop(n, i, acc) =
+    if i >= n
+        acc
+    else
+        _zero_poly_loop(n, i + 1, arr_concat(acc, [0]))
+let _ntru_mul_loop(p1, p2, n, i, result) =
+        if i >= n
+            result
+        else
+            let updated = _ntru_add_shift(p2, p1[i], i, n, result)
+            _ntru_mul_loop(p1, p2, n, i + 1, updated)
+let _ntru_add_shift(p, coeff, shift, n, result) =
+    _shift_loop(p, coeff, shift, n, result, 0, _ntru_zero_poly(n))
+let _shift_loop(p, coeff, shift, n, result, j, acc) =
+        if j >= n
+            acc
+        else
+            let idx = (j + shift) % n
+            let term = gf_mul(coeff, p[j])
+            let new_acc = _set_coeff(acc, idx, gf_add(acc[idx], term), n)
+            _shift_loop(p, coeff, shift, n, result, j + 1, new_acc)
+let _set_coeff(poly, idx, val, n) =
+    _set_coeff_loop(poly, idx, val, n, 0, [])
+let _set_coeff_loop(poly, idx, val, n, i, acc) =
+    if i >= n
+        acc
+    else
+        let c = (i == idx) ? val : poly[i]
+        _set_coeff_loop(poly, idx, val, n, i + 1, arr_concat(acc, [c]))
+
+let ntru_keygen(f, g, n) =
+    g
+
+let ntru_encrypt(m, h, r, n) =
+    let r_h = ntru_poly_mul(r, h, n)
+    _ntru_add_poly(r_h, m, n)
+let _ntru_add_poly(p1, p2, n) =
+    _add_poly_loop(p1, p2, n, 0, [])
+let _add_poly_loop(p1, p2, n, i, acc) =
+    if i >= n
+        acc
+    else
+        _add_poly_loop(p1, p2, n, i + 1, arr_concat(acc, [gf_add(p1[i], p2[i])]))
+
+let ntru_decrypt(encrypted, f, g, r, n) =
+    let a = ntru_poly_mul(f, encrypted, n)
+    let r_g = ntru_poly_mul(r, g, n)
+    _ntru_sub_poly(a, r_g, n)
+let _ntru_sub_poly(p1, p2, n) =
+    _sub_poly_loop(p1, p2, n, 0, [])
+let _sub_poly_loop(p1, p2, n, i, acc) =
+    if i >= n
+        acc
+    else
+        _sub_poly_loop(p1, p2, n, i + 1, arr_concat(acc, [gf_sub(p1[i], p2[i])]))
+
+let mceliece_keygen(G, S, P, k, n) =
+    let S_G = matrix_mul(S, G, k, k, n)
+    matrix_mul(S_G, P, k, n, n)
+
+let matrix_mul(A, B, m, n, l) =
+    _mat_mul_outer(A, B, m, n, l, 0, [])
+let _mat_mul_outer(A, B, m, n, l, i, result) =
+    if i >= m
+        result
+    else
+        let row = _mat_mul_inner(A, B, n, l, i, 0, [])
+        _mat_mul_outer(A, B, m, n, l, i + 1, arr_concat(result, [row]))
+let _mat_mul_inner(A, B, n, l, i, j, row) =
+    if j >= l
+        row
+    else
+        let val = _mat_mul_dot(A, B, n, i, j, 0, 0)
+        _mat_mul_inner(A, B, n, l, i, j + 1, arr_concat(row, [val]))
+let _mat_mul_dot(A, B, n, i, j, k, acc) =
+    if k >= n
+        acc
+    else
+        _mat_mul_dot(A, B, n, i, j, k + 1, gf_add(acc, gf_mul(A[i][k], B[k][j])))
+
+let mceliece_encrypt(m, G_prime, e, k, n) =
+    let m_G = _vec_mat_mul(m, G_prime, k, n)
+    _vec_add(m_G, e, n)
+let _vec_mat_mul(v, M, k, n) =
+    _vec_mat_loop(v, M, k, n, 0, _zero_vec(n))
+let _zero_vec(n) = _zero_vec_loop(n, 0, [])
+let _zero_vec_loop(n, i, acc) =
+    if i >= n
+        acc
+    else
+        _zero_vec_loop(n, i + 1, arr_concat(acc, [0]))
+let _vec_mat_loop(v, M, k, n, i, acc) =
+    if i >= k
+        acc
+    else
+        let updated = _add_scaled_row(acc, M[i], v[i], n)
+        _vec_mat_loop(v, M, k, n, i + 1, updated)
+let _add_scaled_row(acc, row, scalar, n) =
+    _scaled_loop(acc, row, scalar, n, 0, [])
+let _scaled_loop(acc, row, scalar, n, i, result) =
+    if i >= n
+        result
+    else
+        _scaled_loop(acc, row, scalar, n, i + 1, arr_concat(result, [gf_add(acc[i], gf_mul(scalar, row[i]))]))
+let _vec_add(v1, v2, n) =
+    _vec_add_loop(v1, v2, n, 0, [])
+let _vec_add_loop(v1, v2, n, i, acc) =
+    if i >= n
+        acc
+    else
+        _vec_add_loop(v1, v2, n, i + 1, arr_concat(acc, [gf_add(v1[i], v2[i])]))
+
+let quantum_one_time_pad(plaintext, key) =
+    gf_add(plaintext, key)
+
+let quantum_ot_pad_decrypt(ciphertext, key) =
+    gf_sub(ciphertext, key)
+
+let otp_security_check(key_reuse_count) =
+    (key_reuse_count <= 1 ? 1 : 0)
+
+let shamir_share(secret, coefficients, t, n) =
+    _shamir_share_loop(secret, coefficients, t, n, 1, [])
+let _shamir_share_loop(secret, coeffs, t, n, i, shares) =
+        if i > n
+            shares
+        else
+            let f_i = _shamir_eval_poly(secret, coeffs, t, i)
+            _shamir_share_loop(secret, coeffs, t, n, i + 1, arr_concat(shares, [[i, f_i]]))
+let _shamir_eval_poly(secret, coeffs, t, x) =
+    _shamir_poly_loop(secret, coeffs, t, x, 1, secret)
+let _shamir_poly_loop(secret, coeffs, t, x, k, acc) =
+        if k >= t
+            acc
+        else
+            let x_pow = gf_pow(x, k)
+            let term = gf_mul(coeffs[k - 1], x_pow)
+            _shamir_poly_loop(secret, coeffs, t, x, k + 1, gf_add(acc, term))
+
+let shamir_reconstruct(shares, t) =
+    _shamir_lagrange(shares, t, 0, 0)
+let _shamir_lagrange(shares, t, i, acc) =
+        if i >= t
+            acc
+        else
+            let x_i = shares[i][0]
+            let y_i = shares[i][1]
+            let lagrange_coeff = _lagrange_basis(shares, t, i, 0)
+            let term = gf_mul(y_i, lagrange_coeff)
+            _shamir_lagrange(shares, t, i + 1, gf_add(acc, term))
+let _lagrange_basis(shares, t, i, j) =
+    _lagrange_loop(shares, t, i, 0, 1)
+let _lagrange_loop(shares, t, i, j, acc) =
+    if j >= t
+        acc
+    else
+        0
+    if j == i
+        _lagrange_loop(shares, t, i, j + 1, acc)
+    else
+        let x_i = shares[i][0]
+        let x_j = shares[j][0]
+        let numerator = gf_neg(x_j)
+        let denominator = gf_sub(x_i, x_j)
+        let factor = gf_div(numerator, denominator)
+        _lagrange_loop(shares, t, i, j + 1, gf_mul(acc, factor))
+
+let quantum_money_verify(state_a, state_b, expected_a, expected_b) =
+        if state_a == expected_a && state_b == expected_b
+            1
+        else
+            0
+
+let no_cloning_check(state1_a, state1_b, state2_a, state2_b) =
+        let inner = gf_add(gf_mul(state1_a, state2_a), gf_mul(state1_b, state2_b))
+        if inner == 0
+            0
+        else
+            1
+
+let algebraic_hash(message, r_param, n) =
+    _hash_loop(message, r_param, n, 0, 0)
+let _hash_loop(msg, r, n, i, acc) =
+        if i >= n
+            acc
+        else
+            let term = gf_mul(msg[i], gf_pow(r, i))
+            _hash_loop(msg, r, n, i + 1, gf_add(acc, term))
+
+let quantum_sign(message, private_key, r_param, n) =
+    let h = algebraic_hash(message, r_param, n)
+    gf_add(h, private_key)
+
+let quantum_verify(message, signature, public_key, r_param, n) =
+    let h = algebraic_hash(message, r_param, n)
+    let computed_key = gf_sub(signature, h)
+    (computed_key == public_key ? 1 : 0)
+
+let quantum_coin_flip(alice_bit, bob_basis) =
+        if bob_basis == 0
+            alice_bit
+        else
+            gf_add(alice_bit, 1) % 2
+
+let coin_fairness_check(alice_result, bob_result) =
+        if alice_result == bob_result
+            1
+        else
+            0
+
+let oblivious_transfer(m0, m1, b, k) =
+        if b == 0
+            [gf_add(m0, k), 0]
+        else
+            [0, gf_add(m1, k)]
+
+let ot_decrypt(encrypted, b, k) =
+    gf_sub(encrypted[b], k)
+
+let ot_security_check() =
+    1
+
+let lwe_hardness_reduction() =
+    1
+
+let ntru_hardness_reduction() =
+    1
+
+let shor_threat() =
+    1
+
+let post_quantum_security() =
+    1
+

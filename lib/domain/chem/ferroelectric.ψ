@@ -1,0 +1,32 @@
+import "ck.ψ"
+let bad = [0]
+
+let tc = 120
+bad[0] = bad[0] + ck(tc, 110, 130)
+
+let p_hot = 0
+bad[0] = bad[0] + ck(p_hot, 0, 0)
+
+let p_unpoled = 0
+bad[0] = bad[0] + ck(p_unpoled, 0, 0)
+
+let p_poled = 1
+bad[0] = bad[0] + ck_lo(p_poled, 1)
+
+let ec = 50
+bad[0] = bad[0] + ck(ec, 10, 100)
+
+if 1920 < 1918
+    bad[0] = bad[0] + 1
+if 1920 > 1922
+    bad[0] = bad[0] + 1
+if 1940 < 1938
+    bad[0] = bad[0] + 1
+if 1940 > 1942
+    bad[0] = bad[0] + 1
+if 1990 < 1988
+    bad[0] = bad[0] + 1
+if 1990 > 1992
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

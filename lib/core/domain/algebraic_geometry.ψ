@@ -1,0 +1,173 @@
+import "../stdlib/gf65537.ψ"
+
+let poly_eval(coeffs, x, n_vars) =
+    let result = 0
+    for i in 0..len(coeffs)
+        result = gf_add(result, gf_mul(coeffs[i], gf_pow(x, i)))
+    result
+
+let affine_variety_point_count(coeffs) =
+    let count = 0
+    for x in 0..65537
+        if poly_eval(coeffs, x, 1) == 0
+            count = count + 1
+    count
+
+let affine_variety_points(coeffs) =
+    let points = [0] * 65537
+    let count = 0
+    for x in 0..65537
+        if poly_eval(coeffs, x, 1) == 0
+            points[count] = x
+            count = count + 1
+    points[0..count]
+
+let projective_space_size(n) =
+    let p_n_plus_1 = gf_pow(65537, n + 1)
+    let numerator = gf_sub(p_n_plus_1, 1)
+    gf_div(numerator, 65536)
+
+let projective_variety_point_count(coeffs_homogeneous, n_proj) =
+    let count = 0
+    for x in 0..65537
+        if poly_eval(coeffs_homogeneous, x, 1) == 0
+            count = count + 1
+    count
+
+let elliptic_discriminant(a, b) =
+    let four_a3 = gf_mul(4, gf_pow(a, 3))
+    let twenty_seven_b2 = gf_mul(27, gf_mul(b, b))
+    gf_neg(gf_mul(16, gf_add(four_a3, twenty_seven_b2)))
+
+let elliptic_curve_point_count(a, b) =
+    let count = 1
+    for x in 0..65537
+        let rhs = gf_add(gf_add(gf_pow(x, 3), gf_mul(a, x)), b)
+        if rhs == 0
+            count = count + 1
+        else
+            if gf_is_square(rhs) == 1
+                count = count + 2
+    count
+
+let hasse_bound() =
+    let sqrt_p = gf_sqrt(65537)
+    let two_sqrt_p = gf_mul(2, sqrt_p)
+    let lower = gf_sub(gf_add(65537, 1), two_sqrt_p)
+    let upper = gf_add(gf_add(65537, 1), two_sqrt_p)
+    [lower, upper]
+
+let hasse_bound_check(point_count) =
+        let bounds = hasse_bound()
+        if point_count >= bounds[0] && point_count <= bounds[1]
+            1
+        else
+            0
+
+let elliptic_add(px, py, qx, qy, a) =
+        if px == qx
+            let lambda = gf_div(gf_add(gf_mul(3, gf_mul(px, px)), a), gf_mul(2, py))
+            let xr = gf_sub(gf_mul(lambda, lambda), gf_mul(2, px))
+            let yr = gf_sub(gf_mul(lambda, gf_sub(px, xr)), py)
+            [xr, yr]
+        else
+            let lambda = gf_div(gf_sub(qy, py), gf_sub(qx, px))
+            let xr = gf_sub(gf_sub(gf_mul(lambda, lambda), px), qx)
+            let yr = gf_sub(gf_mul(lambda, gf_sub(px, xr)), py)
+            [xr, yr]
+
+let elliptic_point_order(px, py, a, b) =
+    let qx = px
+    let qy = py
+    for n in 1..65537
+        if qx == 0 && qy == 0
+            n
+        let next = elliptic_add(qx, qy, px, py, a)
+        qx = next[0]
+        qy = next[1]
+    0
+
+let divisor_degree(divisor_coeffs) =
+    let degree = 0
+    for i in 0..len(divisor_coeffs)
+        degree = gf_add(degree, divisor_coeffs[i])
+    degree
+
+let riemann_roch(l_d, l_k_minus_d, degree, genus) =
+    let lhs = gf_sub(l_d, l_k_minus_d)
+    let rhs = gf_sub(gf_add(degree, 1), genus)
+    (lhs == rhs ? 1 : 0)
+
+let riemann_roch_compute_l(degree, genus, l_k_minus_d) =
+    gf_add(gf_sub(gf_add(degree, 1), genus), l_k_minus_d)
+
+let arithmetic_genus(degree) =
+    let d_minus_1 = gf_sub(degree, 1)
+    let d_minus_2 = gf_sub(degree, 2)
+    gf_div(gf_mul(d_minus_1, d_minus_2), 2)
+
+let zeta_function_coefficient(point_counts, n) =
+    gf_div(point_counts[n], n)
+
+let frobenius_trace(point_count, n_cohomology) =
+    point_count
+
+let weil_polynomial(frob_eigenvalues, i, n) =
+    let poly = 1
+    for j in 0..n
+        poly = gf_mul(poly, gf_sub(1, frob_eigenvalues[j]))
+    poly
+
+let function_field(poly_coeffs) =
+    poly_coeffs
+
+let function_field_degree(poly_coeffs) =
+    len(poly_coeffs) - 1
+
+let sheaf_sections(variety_points, sheaf_data) =
+    let sections = [0] * len(variety_points)
+    for i in 0..len(variety_points)
+        sections[i] = sheaf_data
+    sections
+
+let cohomology_group(dim_cohomology) =
+    dim_cohomology
+
+let euler_characteristic(cohomology_dims, n) =
+    let chi = 0
+    for i in 0..n
+        if i % 2 == 0
+            chi = gf_add(chi, cohomology_dims[i])
+        else
+            chi = gf_sub(chi, cohomology_dims[i])
+    chi
+
+let birational_equivalent(variety1_points, variety2_points) =
+        if len(variety1_points) == len(variety2_points)
+            1
+        else
+            0
+
+let singular_points(f_coeffs, df_coeffs) =
+    let singulars = [0] * 65537
+    let count = 0
+    for x in 0..65537
+        if poly_eval(f_coeffs, x, 1) == 0 && poly_eval(df_coeffs, x, 1) == 0
+            singulars[count] = x
+            count = count + 1
+    singulars[0..count]
+
+let is_smooth(f_coeffs, df_coeffs) =
+        if singular_points(f_coeffs, df_coeffs).len() == 0
+            1
+        else
+            0
+
+let jacobi_variety_point_count(genus) =
+    gf_pow(65537, genus)
+
+let fiber_product_point_count(v_fibers, w_fibers, s_points) =
+    let count = 0
+    for s in 0..len(s_points)
+        count = gf_add(count, gf_mul(v_fibers[s], w_fibers[s]))
+    count

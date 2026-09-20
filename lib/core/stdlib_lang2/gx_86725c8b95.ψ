@@ -1,0 +1,23 @@
+let frozen4_exp(YY, n, K) =
+    let D = arr_new_n(n + K)
+    let i = 0
+    for i < n - 1
+        D[i] = gf_sub(YY[i + 1], YY[i])
+        i = i + 1
+    let T = arr_new_n(n + 1)
+    let C = arr_new_n(n + 1)
+    let L = bm_discover(D, n - 1, T, C)
+    let ypred = YY[n - 1]
+    let ok = 1
+    let k = 0
+    for k < K
+        let dpred = bm_predict(C, L, D, n - 1 + k)
+        D[n - 1 + k] = dpred
+        ypred = ypred + dpred
+        let bad = 0
+        if rel_permille(ypred, 1, YY[n + k]) > QTOL
+            bad = 1
+        ok = ok * (1 - bad)
+        k = k + 1
+    ok
+

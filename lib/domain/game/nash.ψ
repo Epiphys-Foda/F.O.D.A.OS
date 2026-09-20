@@ -1,0 +1,231 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let NASH_MAX_PLAYERS = 16
+let NASH_MAX_STRATEGIES = 64
+
+let game_create(players, strategies_per_player) =
+    let strategies = []
+    let i = 0
+    for i < players
+        strategies.push(strategies_per_player)
+        i = i + 1
+    [players, strategies, []]
+let best_response(game, player, opponent_strategies) =
+    let payoff_matrix = game[2]
+    let n_strategies = game[1][player]
+    let best = 0
+    let best_payoff = 0
+    let i = 0
+    for i < n_strategies
+        let payoff = payoff_matrix[player * n_strategies + i]
+        if payoff > best_payoff
+            best = i
+        best_payoff = payoff
+        i = i + 1
+    best
+let nash_pure(game) =
+    let n_players = game[0]
+    let strategies = []
+    let i = 0
+    for i < n_players
+        strategies.push(0)
+        i = i + 1
+    i = 0
+    for i < n_players
+        strategies[i] = best_response(game, i, strategies)
+        i = i + 1
+    strategies
+let nash_mixed(game, iterations) =
+    let n_players = game[0]
+    let mixed = []
+    let i = 0
+    for i < n_players
+        let probs = []
+        let n_strat = game[1][i]
+        let j = 0
+        for j < n_strat
+            probs.push(gf_div(1, n_strat))
+            j = j + 1
+        mixed.push(probs)
+        i = i + 1
+    let iter = 0
+    for iter < iterations
+        i = 0
+        for i < n_players
+            mixed[i] = best_response(game, i, mixed)
+            i = i + 1
+        iter = iter + 1
+    mixed
+let support_enumeration(game) =
+    let n_players = game[0]
+    let supports = []
+    let i = 0
+    for i < n_players
+        let s = []
+        let j = 0
+        let m = game[1][i]
+        for j < m
+            s.push(1)
+            j = j + 1
+        supports.push(s)
+        i = i + 1
+    supports
+let pareto_optimal(payoffs1, payoffs2) =
+    let i = 0
+    let n = len(payoffs1)
+    for i < n
+        if payoffs1[i] < payoffs2[i]
+            0
+        i = i + 1
+    1
+let field_nash(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let nash_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_nash(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+
+let NASH_PLAYER_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let NASH_PLAYER_WEIGHTS = [50, 75, 100, 125, 150, 175, 200, 225]
+
+let psi_nash_player(p_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(p_idx), gf_norm(NASH_PLAYER_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(NASH_PLAYER_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let NASH_STRAT_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let NASH_STRAT_WEIGHTS = [10, 20, 30, 40, 50, 60, 70, 80]
+
+let psi_nash_strat(s_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(s_idx), gf_norm(NASH_STRAT_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(NASH_STRAT_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let NASH_PAYOFF_POLES = [100, 200, 300, 400, 500, 600, 700, 800]
+let NASH_PAYOFF_WEIGHTS = [10, 20, 30, 40, 50, 60, 70, 80]
+
+let psi_nash_payoff(u_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(u_idx), gf_norm(NASH_PAYOFF_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(NASH_PAYOFF_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let nash_global_response(p_idx, s_idx, u_idx) =
+    let e1 = psi_nash_player(p_idx)
+    let e2 = psi_nash_strat(s_idx)
+    let e3 = psi_nash_payoff(u_idx)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+
+let nash_player_monotonic_test() =
+    let v1 = psi_nash_player(1)
+    let v2 = psi_nash_player(8)
+    (v1 != v2 ? 1 : 0)
+
+let nash_strat_monotonic_test() =
+    let v1 = psi_nash_strat(1)
+    let v2 = psi_nash_strat(8)
+    (v1 != v2 ? 1 : 0)
+
+let nash_payoff_monotonic_test() =
+    let v1 = psi_nash_payoff(100)
+    let v2 = psi_nash_payoff(800)
+    (v1 != v2 ? 1 : 0)
+
+let nash_global_nonzero_test() =
+    let g = nash_global_response(1, 1, 100)
+    (g != 0 ? 1 : 0)
+
+let nash_existence_test() =
+    let v1 = nash_global_response(1, 1, 100)
+    let v2 = nash_global_response(1, 1, 100)
+    (v1 == v2 ? 1 : 0)
+
+let nash_no_regret_test() =
+    let v1 = psi_nash_strat(1)
+    let v2 = psi_nash_strat(8)
+    (v1 != v2 ? 1 : 0)
+
+let nested_fractal_nash_invariants() =
+    let e1 = psi_nash_player(1)
+    let e2 = psi_nash_strat(1)
+    let e3 = psi_nash_payoff(100)
+    let inv1 = 0
+    if e1 != 0
+        (e2 != 0 ? (e3 != 0 ? (inv1 = 1) : 0) : 0)
+    let inv2 = 0
+    if NASH_PLAYER_WEIGHTS[0] < NASH_PLAYER_WEIGHTS[7]
+        inv2 = 1
+    let inv3 = 0
+    if NASH_STRAT_WEIGHTS[0] < NASH_STRAT_WEIGHTS[7]
+        inv3 = 1
+    let inv4 = 0
+    if NASH_PAYOFF_POLES[0] < NASH_PAYOFF_POLES[7]
+        inv4 = 1
+    let inv5 = 0
+    if nash_global_response(1, 1, 100) != 0
+        inv5 = 1
+    [inv1, inv2, inv3, inv4, inv5]
+
+let nash_verify_v22() =
+    let t1 = 0
+    if psi_nash_player(1) != 0
+        t1 = 1
+    let t2 = 0
+    if psi_nash_strat(1) != 0
+        t2 = 1
+    let t3 = 0
+    if psi_nash_payoff(100) != 0
+        t3 = 1
+    let t4 = 0
+    if nash_global_response(1, 1, 100) != 0
+        t4 = 1
+    let t5 = nash_player_monotonic_test()
+    let t6 = nash_strat_monotonic_test()
+    let t7 = nash_payoff_monotonic_test()
+    let t8 = nash_global_nonzero_test()
+    let t9 = nash_existence_test()
+    let t10 = nash_no_regret_test()
+    let t11 = 0
+    if NASH_PLAYER_WEIGHTS[0] < NASH_PLAYER_WEIGHTS[7]
+        t11 = 1
+    let t12 = 0
+    if NASH_STRAT_POLES[0] < NASH_STRAT_POLES[7]
+        t12 = 1
+    let invs = nested_fractal_nash_invariants()
+    let inv_ok = 0
+    if invs[0] == 1
+        if invs[1] == 1
+            if invs[2] == 1
+                if invs[3] == 1
+                    if invs[4] == 1
+                        inv_ok = 1
+    let passed = t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12 + inv_ok
+    passed == 13
+

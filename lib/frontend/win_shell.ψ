@@ -1,0 +1,40 @@
+import "wblit.ψ"
+import "wui.ψ"
+
+let shell_step(st, ev) =
+    let t = ev[0]
+    if t == 1
+      let k = ev[1]
+      let kk = k
+      if k > 64
+        if k < 91
+          kk = k + 32
+        else
+          kk = k
+      else
+        kk = k
+      key_push(st, kk)
+    if t == 2
+      let x = ev[2]
+      let y = ev[3]
+      let b = ev[1]
+      arr_set(st, 0, x)
+      arr_set(st, 1, y)
+      arr_set(st, 2, b)
+    if t == 3
+      let x = ev[2]
+      let y = ev[3]
+      arr_set(st, 0, x)
+      arr_set(st, 1, y)
+      arr_set(st, 2, 1)
+    if t == 4
+      let x = ev[2]
+      let y = ev[3]
+      arr_set(st, 0, x)
+      arr_set(st, 1, y)
+      arr_set(st, 2, 0)
+    if t == 5
+      key_push(st, 38)
+    if t == 6
+      key_push(st, 40)
+    t

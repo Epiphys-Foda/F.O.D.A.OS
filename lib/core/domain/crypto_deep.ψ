@@ -1,0 +1,371 @@
+import "../stdlib/gf65537.ψ"
+import "domain_list.ψ"
+
+let lwe_encrypt_gf(s, a, e, m) =
+    let as_prod = gf_mul(a, s)
+    let as_e = gf_add(as_prod, e)
+    gf_add(as_e, m)
+
+let lwe_decrypt_gf(s, a, b) =
+    let as_prod = gf_mul(a, s)
+    gf_sub(b, as_prod)
+
+let lwe_keygen_gf() =
+    [12345, 7]
+
+let lwe_hardness_gf(n) =
+    gf_pow(65537, n)
+
+let lattice_element_gf(basis, coeffs) =
+    lattice_element_rec_gf(basis, coeffs, 0, 0)
+
+let lattice_element_rec_gf(basis, coeffs, i, acc) =
+        if i >= len(basis)
+            acc
+        else
+            let term = gf_mul(coeffs[i], basis[i])
+            lattice_element_rec_gf(basis, coeffs, i + 1, gf_add(acc, term))
+
+let svp_gf(basis) =
+    svp_search_gf(basis, 1, 65537, 0)
+
+let svp_search_gf(basis, c, best_norm, best_vec) =
+        if c >= 65537
+            best_vec
+        else
+            let v = lattice_element_gf(basis, [c])
+            let norm = gf_norm_gf(v)
+            if norm > 0 && norm < best_norm
+                svp_search_gf(basis, c + 1, norm, v)
+            else
+                svp_search_gf(basis, c + 1, best_norm, best_vec)
+
+let bdd_gf(basis, target) =
+    bdd_search_gf(basis, target, 0, 65537, 0)
+
+let bdd_search_gf(basis, target, c, best_dist, best_vec) =
+        if c >= 65537
+            best_vec
+        else
+            let v = lattice_element_gf(basis, [c])
+            let dist = gf_norm_gf(gf_sub(v, target))
+            if dist < best_dist
+                bdd_search_gf(basis, target, c + 1, dist, v)
+            else
+                bdd_search_gf(basis, target, c + 1, best_dist, best_vec)
+
+let gf_norm_gf(v) =
+    gf_mul(v, v)
+
+let lattice_det_gf(basis) =
+    det_gf(basis)
+
+let gram_schmidt_gf(basis) =
+    gram_schmidt_rec_gf(basis, 0, [])
+
+let gram_schmidt_rec_gf(basis, i, orthogonal) =
+        if i >= len(basis)
+            orthogonal
+        else
+            let b_i = basis[i]
+            let projected = project_onto_all_gf(b_i, orthogonal, 0, b_i)
+            gram_schmidt_rec_gf(basis, i + 1, append(orthogonal, projected))
+
+let project_onto_all_gf(v, orthogonal, i, result) =
+        if i >= len(orthogonal)
+            result
+        else
+            let o = orthogonal[i]
+            let proj_coeff = gf_div(gf_mul(v, o), gf_mul(o, o))
+            let proj = gf_mul(proj_coeff, o)
+            project_onto_all_gf(v, orthogonal, i + 1, gf_sub(result, proj))
+
+let ntru_encrypt_gf(h, r, m, n) =
+    let rh = poly_mul_mod_gf(r, h, n)
+    poly_add_mod_gf(rh, m, n)
+
+let ntru_decrypt_gf(f, fp, e, n) =
+    let a = poly_mul_mod_gf(f, e, n)
+    poly_mul_mod_gf(fp, a, n)
+
+let poly_mul_mod_gf(a, b, n) =
+    poly_mul_mod_rec_gf(a, b, n, 0, poly_zero_gf(n))
+
+let poly_mul_mod_rec_gf(a, b, n, i, result) =
+        if i >= len(a)
+            result
+        else
+            let updated = poly_mul_shift_gf(result, b, a[i], i, n)
+            poly_mul_mod_rec_gf(a, b, n, i + 1, updated)
+
+let poly_mul_shift_gf(result, b, coeff, shift, n) =
+    poly_mul_shift_rec_gf(result, b, coeff, shift, n, 0, result)
+
+let poly_mul_shift_rec_gf(result, b, coeff, shift, n, j, acc) =
+        if j >= len(b)
+            acc
+        else
+            let idx = (shift + j) % n
+            let term = gf_mul(coeff, b[j])
+            let new_acc = acc
+            new_acc[idx] = gf_add(new_acc[idx], term)
+            poly_mul_shift_rec_gf(result, b, coeff, shift, n, j + 1, new_acc)
+
+let poly_add_mod_gf(a, b, n) =
+    poly_add_mod_rec_gf(a, b, n, 0, poly_zero_gf(n))
+
+let poly_add_mod_rec_gf(a, b, n, i, result) =
+        if i >= n
+            result
+        else
+            let ai = (i < len(a)) ? a[i] : 0
+            let bi = (i < len(b)) ? b[i] : 0
+            result[i] = gf_add(ai, bi)
+            poly_add_mod_rec_gf(a, b, n, i + 1, result)
+
+let poly_zero_gf(n) =
+    poly_zero_rec_gf(n, 0, [])
+
+let poly_zero_rec_gf(n, i, result) =
+        if i >= n
+            result
+        else
+            poly_zero_rec_gf(n, i + 1, append(result, 0))
+
+let mceliece_encrypt_gf(G_pub, m, e) =
+    let mG = matrix_vec_mul_gf(G_pub, m)
+    vec_add_gf(mG, e)
+
+let mceliece_decrypt_gf(S, P, G, c) =
+    let c_prime = apply_perm_inv_gf(c, P)
+    let mG = goppa_decode_gf(c_prime, G)
+    let m_prime = solve_gf(G, mG)
+    apply_matrix_inv_gf(m_prime, S)
+
+let goppa_decode_gf(c, G) =
+    c
+
+let mq_system_gf(coeffs, vars) =
+    let quadratic = mq_quadratic_gf(coeffs[0], vars)
+    let linear = mq_linear_gf(coeffs[1], vars)
+    gf_add(gf_add(quadratic, linear), coeffs[2])
+
+let mq_quadratic_gf(A, vars) =
+    mq_quadratic_rec_gf(A, vars, 0, 0, 0)
+
+let mq_quadratic_rec_gf(A, vars, i, j, acc) =
+        if i >= len(vars)
+            acc
+        else
+            if j >= len(vars)
+                mq_quadratic_rec_gf(A, vars, i + 1, 0, acc)
+            else
+                let term = gf_mul(A[i][j], gf_mul(vars[i], vars[j]))
+                mq_quadratic_rec_gf(A, vars, i, j + 1, gf_add(acc, term))
+
+let mq_linear_gf(b, vars) =
+    mq_linear_rec_gf(b, vars, 0, 0)
+
+let mq_linear_rec_gf(b, vars, i, acc) =
+        if i >= len(vars)
+            acc
+        else
+            mq_linear_rec_gf(b, vars, i + 1, gf_add(acc, gf_mul(b[i], vars[i])))
+
+let mq_hardness_gf(n) =
+    gf_pow(65537, n)
+
+let fhe_encrypt_gf(pk, m) =
+    gf_add(m, pk)
+
+let fhe_add_gf(c1, c2) =
+    gf_add(c1, c2)
+
+let fhe_mul_gf(c1, c2) =
+    gf_mul(c1, c2)
+
+let fhe_decrypt_gf(sk, c) =
+    gf_sub(c, sk)
+
+let fhe_eval_gf(circuit, enc_inputs) =
+    fhe_eval_rec_gf(circuit, enc_inputs, 0, [])
+
+let fhe_eval_rec_gf(circuit, inputs, i, eval_stack) =
+        if i >= len(circuit)
+            eval_stack[0]
+        else
+            let gate = circuit[i]
+            let result = fhe_eval_gate_gf(gate, eval_stack, inputs)
+            fhe_eval_rec_gf(circuit, inputs, i + 1, push_gf(eval_stack, result))
+
+let fhe_eval_gate_gf(gate, stack, inputs) =
+        if gate == 1
+            let a = stack[len(stack) - 1]
+            let b = stack[len(stack) - 2]
+            fhe_add_gf(a, b)
+        else
+            if gate == 2
+                let a = stack[len(stack) - 1]
+                let b = stack[len(stack) - 2]
+                fhe_mul_gf(a, b)
+            else
+                inputs[gate - 3]
+
+let zk_commit_gf(witness, statement) =
+    gf_pow(3, witness)
+
+let zk_challenge_gf() =
+    42
+
+let zk_response_gf(witness, challenge, statement) =
+    gf_add(witness, gf_mul(challenge, statement))
+
+let zk_verify_gf(commitment, challenge, response, statement) =
+    let lhs = gf_pow(3, response)
+    let rhs = gf_mul(commitment, gf_pow(statement, challenge))
+    (lhs == rhs) ? 1 : 0
+
+let zk_snark_prove_gf(witness, circuit) =
+    let h_poly = compute_h_gf(witness, circuit)
+    let commitment = poly_commit_gf(h_poly)
+    commitment
+
+let zk_snark_verify_gf(proof, statement) =
+    (proof == statement) ? 1 : 0
+
+let compute_h_gf(witness, circuit) =
+    witness
+
+let poly_commit_gf(poly) =
+    poly[0]
+
+let shamir_share_gf(secret, n, t) =
+    let poly = shamir_poly_gf(secret, t)
+    shamir_shares_rec_gf(poly, n, 1, [])
+
+let shamir_poly_gf(secret, t) =
+    shamir_poly_rec_gf(secret, t, 1, [secret])
+
+let shamir_poly_rec_gf(secret, t, i, poly) =
+        if i >= t
+            poly
+        else
+            let coeff = gf_add(secret, i)
+            shamir_poly_rec_gf(secret, t, i + 1, append(poly, coeff))
+
+let shamir_shares_rec_gf(poly, n, i, shares) =
+        if i > n
+            shares
+        else
+            let s_i = poly_eval_gf(poly, i)
+            shamir_shares_rec_gf(poly, n, i + 1, append(shares, s_i))
+
+let shamir_reconstruct_gf(shares, indices) =
+    shamir_reconstruct_rec_gf(shares, indices, 0, 0)
+
+let shamir_reconstruct_rec_gf(shares, indices, i, secret) =
+        if i >= len(shares)
+            secret
+        else
+            let lagrange = lagrange_basis_gf(indices, i, 0)
+            let term = gf_mul(shares[i], lagrange)
+            shamir_reconstruct_rec_gf(shares, indices, i + 1, gf_add(secret, term))
+
+let lagrange_basis_gf(indices, i, j) =
+    lagrange_basis_rec_gf(indices, i, j, 0, 1, 1)
+
+let lagrange_basis_rec_gf(indices, i, j, num, num_acc, den_acc) =
+        if j >= len(indices)
+            gf_div(num_acc, den_acc)
+        else
+            if j == i
+                lagrange_basis_rec_gf(indices, i, j + 1, num, num_acc, den_acc)
+            else
+                let new_num = gf_mul(num_acc, gf_sub(0, indices[j]))
+                let new_den = gf_mul(den_acc, gf_sub(indices[i], indices[j]))
+                lagrange_basis_rec_gf(indices, i, j + 1, num, new_num, new_den)
+
+let mpc_add_gf(shares1, shares2) =
+    mpc_add_rec_gf(shares1, shares2, 0, [])
+
+let mpc_add_rec_gf(shares1, shares2, i, result) =
+        if i >= len(shares1)
+            result
+        else
+            let sum = gf_add(shares1[i], shares2[i])
+            mpc_add_rec_gf(shares1, shares2, i + 1, append(result, sum))
+
+let mpc_mul_gf(shares1, shares2, beaver_triple) =
+    let a = beaver_triple[0]
+    let b = beaver_triple[1]
+    let c = beaver_triple[2]
+    let d = gf_sub(shares1[0], a)
+    let e = gf_sub(shares2[0], b)
+    gf_add(gf_add(gf_add(c, gf_mul(d, b)), gf_mul(e, a)), gf_mul(d, e))
+
+let lamport_keygen_gf() =
+    [11111, 22222]
+
+let lamport_sign_gf(key, message) =
+    let bit = message % 2
+    (bit == 0) ? key[0] : key[1]
+
+let lamport_verify_gf(key, message, signature) =
+    let bit = message % 2
+    let expected = (bit == 0) ? key[0] : key[1]
+    (signature == expected) ? 1 : 0
+
+let wots_sign_gf(key, message, w) =
+    let m_chunks = wots_chunk_gf(message, w)
+    wots_sign_rec_gf(key, m_chunks, w, 0, [])
+
+let wots_sign_rec_gf(key, chunks, w, i, signature) =
+        if i >= len(chunks)
+            signature
+        else
+            let sig_i = gf_pow(key[i], chunks[i])
+            wots_sign_rec_gf(key, chunks, w, i + 1, append(signature, sig_i))
+
+let wots_chunk_gf(message, w) =
+    [message % 4, (message / 4) % 4]
+
+let csidh_action_gf(key, point) =
+    gf_mul(key, point)
+
+let csidh_keygen_gf() =
+    12345
+
+let csidh_shared_secret_gf(private, public) =
+    csidh_action_gf(private, public)
+
+let brute_force_gf(ciphertext, encrypt_fn) =
+    brute_force_rec_gf(ciphertext, encrypt_fn, 0, 0)
+
+let brute_force_rec_gf(ciphertext, encrypt_fn, key, found) =
+        if key >= 65537 || found != 0
+            found
+        else
+            let test = encrypt_fn(key)
+            if test == ciphertext
+                key
+            else
+                brute_force_rec_gf(ciphertext, encrypt_fn, key + 1, found)
+
+let security_param_gf(n) =
+    n
+
+let apply_perm_inv_gf(v, P) =
+    apply_perm_inv_rec_gf(v, P, 0, [])
+
+let apply_perm_inv_rec_gf(v, P, i, result) =
+        if i >= len(v)
+            result
+        else
+            apply_perm_inv_rec_gf(v, P, i + 1, append(result, v[P[i]]))
+
+let apply_matrix_inv_gf(v, S) =
+    v
+
+let solve_gf(M, b) =
+    b
+

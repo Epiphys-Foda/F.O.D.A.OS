@@ -1,0 +1,295 @@
+import "gf65537.ψ"
+import "arr.ψ"
+import "linalg_gf.ψ"
+
+let CGRA_OP_NOP   = 0
+let CGRA_OP_ADD   = 1
+let CGRA_OP_SUB   = 2
+let CGRA_OP_MUL   = 3
+let CGRA_OP_DIV   = 4
+let CGRA_OP_LOAD  = 5
+let CGRA_OP_STORE = 6
+let CGRA_OP_GFMUL = 7
+let CGRA_OP_GFADD = 8
+let CGRA_OP_NTT   = 9
+let CGRA_OP_BORN  = 10
+
+let cgra_pe_make(op, in_a, in_b, out) =
+    let v = arr_new_n(4)
+    arr_set(v, 0, op)
+    arr_set(v, 1, in_a)
+    arr_set(v, 2, in_b)
+    arr_set(v, 3, out)
+    v
+
+let cgra_pe_op(pe) = arr_get(pe, 0)
+
+let cgra_pe_in_a(pe) = arr_get(pe, 1)
+
+let cgra_pe_in_b(pe) = arr_get(pe, 2)
+
+let cgra_pe_out(pe) = arr_get(pe, 3)
+
+let cgra_grid_new(rows, cols) = mat_new(rows, cols)
+
+let cgra_grid_set(grid, i, j, pe) = mat_set(grid, i, j, pe)
+
+let cgra_grid_get(grid, i, j) = mat_get(grid, i, j)
+
+let cgra_emit_arith(op, a, b, out_row, out_col) =
+    let pe = cgra_pe_make(op, a, b, 0)
+    let v = arr_new_n(3)
+    arr_set(v, 0, out_row)
+    arr_set(v, 1, out_col)
+    arr_set(v, 2, pe)
+    v
+
+let cgra_emit_gf_mul(a, b, out_row, out_col) = cgra_emit_arith(CGRA_OP_GFMUL, a, b, out_row, out_col)
+
+let cgra_emit_gf_add(a, b, out_row, out_col) = cgra_emit_arith(CGRA_OP_GFADD, a, b, out_row, out_col)
+
+let cgra_emit_ntt(a, b, out_row, out_col) = cgra_emit_arith(CGRA_OP_NTT, a, b, out_row, out_col)
+
+let cgra_emit_born(cond, a, b, out_row, out_col) = cgra_emit_arith(CGRA_OP_BORN, cond, a, out_row, out_col)
+
+let cgra_emit_load(addr, out_row, out_col) = cgra_emit_arith(CGRA_OP_LOAD, addr, 0, out_row, out_col)
+
+let cgra_emit_store(addr, value, out_row, out_col) = cgra_emit_arith(CGRA_OP_STORE, addr, value, out_row, out_col)
+
+let cgra_compile_matmul(A, B, n) =
+    let result = arr_new()
+    _cgra_mm_acc(A, B, n, result, 0, 0, 0)
+    result
+let _cgra_mm_acc(A, B, n, result, i, j, k) =
+      if i >= n
+          result
+      if j >= n
+        _cgra_mm_acc(A, B, n, result, i + 1, 0, 0)
+      else
+          0
+    if k >= n
+        _cgra_mm_acc(A, B, n, result, i, j + 1, 0)
+    else
+        let a = mat_get(A, i, k)
+        let b = mat_get(B, k, j)
+        let pe = cgra_emit_gf_mul(a, b, i, j)
+        arr_push(result, pe)
+        _cgra_mm_acc(A, B, n, result, i, j, k + 1)
+
+let cgra_compile_ntt(vec, n) =
+    let result = arr_new()
+    _cgra_ntt_acc(vec, n, result, 0)
+    result
+let _cgra_ntt_acc(vec, n, result, i) =
+    if i >= n / 2
+        result
+    let a = arr_get(vec, i)
+    let b = arr_get(vec, i + n / 2)
+    let pe = cgra_emit_ntt(a, b, 0, i)
+    arr_push(result, pe)
+    _cgra_ntt_acc(vec, n, result, i + 1)
+
+let cgra_schedule_pe(pe_array, cycle) =
+    let v = arr_new_n(2)
+    arr_set(v, 0, cycle)
+    arr_set(v, 1, pe_array)
+    v
+
+let cgra_pipeline_compile(pe_array, stages) =
+    let n = arr_len(pe_array)
+    let per_stage = n / stages
+    let result = arr_new()
+    _cgra_pipe_acc(pe_array, stages, per_stage, result, 0, 0)
+    result
+let _cgra_pipe_acc(pe_array, stages, per_stage, result, stage_idx, pe_idx) =
+    if stage_idx >= stages
+        result
+    let stage_pes = arr_new()
+    _cgra_pipe_stage(pe_array, per_stage, stage_pes, pe_idx, 0)
+    let sched = cgra_schedule_pe(stage_pes, stage_idx)
+    arr_push(result, sched)
+    _cgra_pipe_acc(pe_array, stages, per_stage, result, stage_idx + 1, pe_idx + per_stage)
+let _cgra_pipe_stage(pe_array, per_stage, stage_pes, pe_idx, k) =
+    if k >= per_stage
+        stage_pes
+    if pe_idx + k < arr_len(pe_array)
+      arr_push(stage_pes, arr_get(pe_array, pe_idx + k))
+    _cgra_pipe_stage(pe_array, per_stage, stage_pes, pe_idx, k + 1)
+
+let cgra_route_data(src_pe, dst_pe, cycle) =
+    let v = arr_new_n(4)
+    arr_set(v, 0, cgra_pe_out(src_pe))
+    arr_set(v, 1, cycle)
+    arr_set(v, 2, cgra_pe_in_a(dst_pe))
+    arr_set(v, 3, cgra_pe_in_b(dst_pe))
+    v
+
+let cgra_estimate_cycles(pe_array) = arr_len(pe_array) / 4 + 1
+
+let cgra_estimate_area(pe_array) = arr_len(pe_array) * 100
+
+let cgra_estimate_power(pe_array, cycles) = arr_len(pe_array) * cycles * 10
+
+let WGSL_TYPE_I32  = 0
+let WGSL_TYPE_U32  = 1
+let WGSL_TYPE_VEC4 = 2
+let WGSL_TYPE_MAT4 = 3
+
+let WGSL_FN_MUL    = 0
+let WGSL_FN_ADD    = 1
+let WGSL_FN_SUB    = 2
+let WGSL_FN_DOT    = 3
+let WGSL_FN_CROSS  = 4
+let WGSL_FN_MIX    = 5
+let WGSL_FN_SELECT = 6
+let WGSL_FN_CLZ    = 7
+
+let gpu_wgsl_template(fn_id) =
+    if fn_id == WGSL_FN_MUL
+        1
+    if fn_id == WGSL_FN_ADD
+        2
+    if fn_id == WGSL_FN_SUB
+        3
+    if fn_id == WGSL_FN_DOT
+        4
+    if fn_id == WGSL_FN_CROSS
+        5
+    if fn_id == WGSL_FN_MIX
+        6
+    if fn_id == WGSL_FN_SELECT
+        7
+    if fn_id == WGSL_FN_CLZ
+        8
+    0
+
+let gpu_kernel_make(name_id, wx, wy, wz) =
+    let v = arr_new_n(4)
+    arr_set(v, 0, name_id)
+    arr_set(v, 1, wx)
+    arr_set(v, 2, wy)
+    arr_set(v, 3, wz)
+    v
+
+let gpu_kernel_name(k) = arr_get(k, 0)
+
+let gpu_kernel_workgroup(k) =
+    let wx = arr_get(k, 1)
+    let wy = arr_get(k, 2)
+    let wz = arr_get(k, 3)
+    wx * wy * wz
+
+let gpu_emit_matmul_kernel(n) =
+    let kernel = gpu_kernel_make(1, n / 16 + 1, n / 16 + 1, 1)
+    let ops = arr_new()
+    _gpu_mm_kernel_acc(n, ops, 0, 0)
+    let v = arr_new_n(2)
+    arr_set(v, 0, kernel)
+    arr_set(v, 1, ops)
+    v
+let _gpu_mm_kernel_acc(n, ops, i, j) =
+      if i >= n
+          ops
+      if j >= n
+        _gpu_mm_kernel_acc(n, ops, i + 1, 0)
+      else
+        let op = gpu_wgsl_template(WGSL_FN_MUL)
+        arr_push(ops, op)
+        _gpu_mm_kernel_acc(n, ops, i, j + 1)
+
+let gpu_emit_ntt_kernel(n) =
+    let stages = 16
+    let kernel = gpu_kernel_make(2, n / 2, 1, 1)
+    let ops = arr_new()
+    _gpu_ntt_acc(ops, stages, 0)
+    let v = arr_new_n(2)
+    arr_set(v, 0, kernel)
+    arr_set(v, 1, ops)
+    v
+let _gpu_ntt_acc(ops, stages, s) =
+    if s >= stages
+        ops
+    arr_push(ops, gpu_wgsl_template(WGSL_FN_MUL))
+    arr_push(ops, gpu_wgsl_template(WGSL_FN_ADD))
+    arr_push(ops, gpu_wgsl_template(WGSL_FN_SUB))
+    _gpu_ntt_acc(ops, stages, s + 1)
+
+let gpu_emit_gf_arith_kernel(op_count) =
+    let kernel = gpu_kernel_make(3, op_count, 1, 1)
+    let ops = arr_new()
+    _gpu_gf_acc(ops, op_count, 0)
+    let v = arr_new_n(2)
+    arr_set(v, 0, kernel)
+    arr_set(v, 1, ops)
+    v
+let _gpu_gf_acc(ops, count, i) =
+    if i >= count
+        ops
+    arr_push(ops, gpu_wgsl_template(WGSL_FN_MUL))
+    arr_push(ops, gpu_wgsl_template(WGSL_FN_ADD))
+    _gpu_gf_acc(ops, count, i + 1)
+
+let gpu_estimate_throughput(kernel, ops) =
+    let wg = gpu_kernel_workgroup(kernel)
+    wg * 4 / 5
+
+let gpu_estimate_memory_bw(kernel, bytes_per_op) =
+    let wg = gpu_kernel_workgroup(kernel)
+    wg * bytes_per_op
+
+let BACKEND_SIMD  = 0
+let BACKEND_GPU   = 1
+let BACKEND_CGRA  = 2
+let BACKEND_QPU   = 3
+let BACKEND_IO    = 4
+
+let backend_select_for_op(op_type) =
+    if op_type == CGRA_OP_GFMUL
+        BACKEND_SIMD
+    if op_type == CGRA_OP_GFADD
+        BACKEND_SIMD
+    if op_type == CGRA_OP_NTT
+        BACKEND_GPU
+    if op_type == CGRA_OP_BORN
+        BACKEND_SIMD
+    if op_type == CGRA_OP_LOAD
+        BACKEND_IO
+    if op_type == CGRA_OP_STORE
+        BACKEND_IO
+    BACKEND_SIMD
+
+let backend_estimate_speedup(op_type, backend) =
+    if op_type == CGRA_OP_NTT && backend == BACKEND_GPU
+        16
+    if op_type == CGRA_OP_GFMUL && backend == BACKEND_CGRA
+        8
+    if op_type == CGRA_OP_GFADD && backend == BACKEND_SIMD
+        4
+    1
+
+let backend_optimize_dispatch(op_array) =
+    let simd_ops = arr_new()
+    let gpu_ops = arr_new()
+    let cgra_ops = arr_new()
+    _backend_dispatch_acc(op_array, simd_ops, gpu_ops, cgra_ops, 0)
+    let result = arr_new()
+    arr_push(result, simd_ops)
+    arr_push(result, gpu_ops)
+    arr_push(result, cgra_ops)
+    result
+let _backend_dispatch_acc(op_array, simd_ops, gpu_ops, cgra_ops, i) =
+      if i >= arr_len(op_array)
+          0
+      let op = arr_get(op_array, i)
+      let backend = backend_select_for_op(op)
+      if backend == BACKEND_SIMD
+        arr_push(simd_ops, op)
+      else
+          0
+    if backend == BACKEND_GPU
+        arr_push(gpu_ops, op)
+    else
+        0
+    if backend == BACKEND_CGRA
+        arr_push(cgra_ops, op)
+      _backend_dispatch_acc(op_array, simd_ops, gpu_ops, cgra_ops, i + 1)

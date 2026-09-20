@@ -1,0 +1,107 @@
+let bad = [0]
+
+let m0 = 1
+let d0 = m0 - 1
+bad[0] = bad[0] + d0 * d0
+
+let m1 = 1
+let d1 = m1 - 1
+bad[0] = bad[0] + d1 * d1
+
+let m2 = 2
+let d2 = m2 - 2
+bad[0] = bad[0] + d2 * d2
+
+let m3 = 1
+let d3 = m3 - 1
+bad[0] = bad[0] + d3 * d3
+
+let m4 = 1
+let d4 = m4 - 1
+bad[0] = bad[0] + d4 * d4
+
+let m5 = 1
+let d5 = m5 - 1
+bad[0] = bad[0] + d5 * d5
+
+let m6 = 1
+let d6 = m6 - 1
+bad[0] = bad[0] + d6 * d6
+
+let m7 = 1
+let d7 = m7 - 1
+bad[0] = bad[0] + d7 * d7
+
+let m8 = 1
+let d8 = m8 - 1
+bad[0] = bad[0] + d8 * d8
+
+let m9 = 2
+let d9 = m9 - 2
+bad[0] = bad[0] + d9 * d9
+
+let m10 = 2
+let d10 = m10 - 2
+bad[0] = bad[0] + d10 * d10
+
+let m11 = 2
+let d11 = m11 - 2
+bad[0] = bad[0] + d11 * d11
+
+let m12 = 1
+let d12 = m12 - 1
+bad[0] = bad[0] + d12 * d12
+
+let m13 = 1
+let d13 = m13 - 1
+bad[0] = bad[0] + d13 * d13
+
+let m14 = 2
+let d14 = m14 - 2
+bad[0] = bad[0] + d14 * d14
+
+let m15 = 2
+let d15 = m15 - 2
+bad[0] = bad[0] + d15 * d15
+
+let m16 = 2
+let d16 = m16 - 2
+bad[0] = bad[0] + d16 * d16
+
+let m17 = 1
+let d17 = m17 - 1
+bad[0] = bad[0] + d17 * d17
+
+let m18 = 2
+let d18 = m18 - 2
+bad[0] = bad[0] + d18 * d18
+
+let m19 = 1
+let d19 = m19 - 1
+bad[0] = bad[0] + d19 * d19
+
+let m20 = 1
+let d20 = m20 - 1
+bad[0] = bad[0] + d20 * d20
+
+let m21 = 1
+let d21 = m21 - 1
+bad[0] = bad[0] + d21 * d21
+
+let m22 = 1
+let d22 = m22 - 1
+bad[0] = bad[0] + d22 * d22
+
+let total = m0 + m1 + m2 + m3 + m4 + m5 + m6 + m7 + m8 + m9 + m10 + m11 + m12 + m13 + m14 + m15 + m16 + m17 + m18 + m19 + m20 + m21 + m22
+let dtot = total - 31
+bad[0] = bad[0] + dtot * dtot
+
+let wu = 2
+let wc = 1
+let wg = 2
+let wa = 1
+let wi = 3
+let dw = wu + wc + wg + wa + wi - 9
+bad[0] = bad[0] + dw * dw
+
+arr_get(arr_new_n(1), bad[0])

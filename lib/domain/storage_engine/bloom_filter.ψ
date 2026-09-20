@@ -1,0 +1,253 @@
+import "../domain_field.ψ"
+
+let BF_P = 65537
+let BF_HASH_BASE = 31
+let BF_FIXED_K = 1000
+
+let BF_BITS       = 0
+let BF_NUM_BITS   = 1
+let BF_NUM_HASHES = 2
+let BF_SEEDS      = 3
+let BF_COUNT      = 4
+let BF_LOG        = 5
+
+let bf_make_bits(n) =
+    let bits = []
+    let i = 0
+    for i < n
+        bits.push(0)
+        i = i + 1
+    bits
+
+let bf_make_seeds(k) =
+    let seeds = []
+    let i = 0
+    for i < k
+        seeds.push(31 + i * 37)
+        i = i + 1
+    seeds
+
+let bf_hashes_for_rate(rate) =
+    let k = 7
+    if rate >= 200
+        k = 3
+    else
+        0
+    if rate >= 100
+        k = 4
+    else
+        0
+    if rate >= 50
+        k = 5
+    else
+        0
+    if rate >= 20
+        k = 6
+    else
+        0
+    if rate >= 10
+        k = 7
+    else
+        0
+    if rate >= 5
+        k = 8
+    else
+        0
+    if rate >= 1
+        k = 10
+    else
+        k = 20
+    k
+
+let bf_default_filter(expected_items, false_positive_rate) =
+    let k = bf_hashes_for_rate(false_positive_rate)
+    let num_bits = expected_items * k * 2 + 64
+    let bits = bf_make_bits(num_bits)
+    let seeds = bf_make_seeds(k)
+    [bits, num_bits, k, seeds, 0, []]
+
+let bf_bits(f) = f[BF_BITS]
+let bf_num_bits(f) = f[BF_NUM_BITS]
+let bf_num_hashes(f) = f[BF_NUM_HASHES]
+let bf_seeds(f) = f[BF_SEEDS]
+let bf_count(f) = f[BF_COUNT]
+let bf_log(f) = f[BF_LOG]
+
+let bf_set_count(f, c) =
+    f[BF_COUNT] = c
+    f
+
+let bf_append_log(f, entry) =
+    let log = bf_log(f)
+    log.push(entry)
+    f[BF_LOG] = log
+    f
+
+let bf_clone_empty(f) =
+    let num_bits = bf_num_bits(f)
+    let bits = bf_make_bits(num_bits)
+    [bits, num_bits, bf_num_hashes(f), bf_seeds(f), 0, []]
+
+let bf_hash(filter, key, seed) =
+    let h = seed
+    let i = 0
+    let n = len(key)
+    for i < n
+        h = (h * BF_HASH_BASE + key[i]) % BF_P
+        i = i + 1
+    h = (h + seed * seed * 7) % BF_P
+    let num_bits = bf_num_bits(filter)
+    h % num_bits
+
+let bf_add(filter, key) =
+    let seeds = bf_seeds(filter)
+    let bits = bf_bits(filter)
+    let i = 0
+    let k = len(seeds)
+    for i < k
+        let idx = bf_hash(filter, key, seeds[i])
+        bits[idx] = 1
+        i = i + 1
+    filter = bf_set_count(filter, bf_count(filter) + 1)
+    filter = bf_append_log(filter, ["add", key])
+    filter
+
+let bf_might_contain(filter, key) =
+    let seeds = bf_seeds(filter)
+    let bits = bf_bits(filter)
+    let i = 0
+    let k = len(seeds)
+    let result = 1
+    for i < k
+        let idx = bf_hash(filter, key, seeds[i])
+        if bits[idx] == 0
+            result = 0
+            i = k
+        i = i + 1
+    result
+
+let bf_bit_count(filter) =
+    let m = bf_num_bits(filter)
+    let bits = bf_bits(filter)
+    let x = 0
+    let i = 0
+    for i < m
+        if bits[i] == 1
+            x = x + 1
+        i = i + 1
+    x
+
+let bf_count_estimate(filter) =
+    let m = bf_num_bits(filter)
+    let k = bf_num_hashes(filter)
+    let x = bf_bit_count(filter)
+    if x == 0
+        0
+    else
+        if x >= m
+            -1
+        else
+            x * (2 * m - x) / (2 * k * (m - x))
+
+let bf_false_positive_rate(filter) =
+    let m = bf_num_bits(filter)
+    let k = bf_num_hashes(filter)
+    let x = bf_bit_count(filter)
+    let ratio = x * BF_FIXED_K / m
+    let p_rate = BF_FIXED_K
+    let j = 0
+    for j < k
+        p_rate = p_rate * ratio / BF_FIXED_K
+        j = j + 1
+    p_rate
+
+let bf_merge(filter_a, filter_b) =
+    if bf_num_bits(filter_a) != bf_num_bits(filter_b)
+        filter_a
+    else
+        if bf_num_hashes(filter_a) != bf_num_hashes(filter_b)
+            filter_a
+        else
+            let bits_a = bf_bits(filter_a)
+            let bits_b = bf_bits(filter_b)
+            let i = 0
+            let n = len(bits_a)
+            for i < n
+                if bits_b[i] == 1
+                    bits_a[i] = 1
+                i = i + 1
+            filter_a = bf_set_count(filter_a, bf_count(filter_a) + bf_count(filter_b))
+            filter_a = bf_append_log(filter_a, ["merge", bf_count(filter_b)])
+            filter_a
+
+let bf_bragg_verify(filter, ops_seq) =
+    let d1 = bf_clone_empty(filter)
+    let r1 = bf_clone_empty(filter)
+    let i = 0
+    let n = len(ops_seq)
+    for i < n
+        d1 = bf_add(d1, ops_seq[i])
+        r1 = bf_add(r1, ops_seq[i])
+        i = i + 1
+    let ok = 1
+    let bits_d = bf_bits(d1)
+    let bits_r = bf_bits(r1)
+    if len(bits_d) != len(bits_r)
+        ok = 0
+    else
+        let j = 0
+        let m = len(bits_d)
+        for j < m
+            if bits_d[j] != bits_r[j]
+                ok = 0
+                j = m
+            j = j + 1
+    [ok, bf_count(d1)]
+
+let bf_test_basic() =
+    let ok = 1
+    let filter = bf_default_filter(50, 10)
+    let key1 = [104, 101, 108, 108, 111]
+    let key2 = [119, 111, 114, 108, 100]
+    let key3 = [102, 111, 100, 97]
+    filter = bf_add(filter, key1)
+    filter = bf_add(filter, key2)
+    if bf_might_contain(filter, key1) != 1
+        ok = 0
+    if bf_might_contain(filter, key2) != 1
+        ok = 0
+    if bf_might_contain(filter, key3) == 1
+        ok = 0
+    let est = bf_count_estimate(filter)
+    if est < 1
+        ok = 0
+    let ops = [key1, key2, key1]
+    let br = bf_bragg_verify(filter, ops)
+    if br[0] != 1
+        ok = 0
+    ok
+
+let bf_test_self() =
+    let ok = bf_test_basic()
+    if ok == 1
+        print("bloom_filter: ALL PASS")
+    else
+        print("bloom_filter: FAIL")
+    ok
+
+let bf_gf_mod(x) = domain_gf_mod(x)
+
+let bf_gf_inv(a) = domain_gf_inv(a)
+
+let bf_field_encode(items, n) =
+    let records = []
+    let _i = 0
+    for _i < n
+        records.push([items[_i], items[_i]])
+        _i = _i + 1
+    domain_field_encode(records, n, 256, 1)
+
+let bf_field_eval(poles, residues, z) = domain_field_eval(poles, residues, z)
+
+let bf_field_bragg_verify(current, replay) = domain_bragg_verify(current[0], current[1], replay[0], replay[1])
+

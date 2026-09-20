@@ -1,0 +1,73 @@
+import "ck.ψ"
+let bad = [0]
+
+let comp = arr_new_n(101)
+
+for k in 49
+    comp[2 * (k + 2)] = 1
+for k in 32
+    comp[3 * (k + 2)] = 1
+for k in 19
+    comp[5 * (k + 2)] = 1
+for k in 13
+    comp[7 * (k + 2)] = 1
+comp[0] = 1
+comp[1] = 1
+
+let count = [0]
+for i in 101
+    if comp[i] < 1
+        if i > 1
+            count[0] = count[0] + 1
+let dz1 = count[0] - 25
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let c30 = [0]
+for i in 31
+    if comp[i] < 1
+        if i > 1
+            c30[0] = c30[0] + 1
+let dz2 = c30[0] - 10
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let dz3 = comp[2]
+bad[0] = bad[0] + ck(dz3, 0, 0)
+let dz4 = comp[3]
+bad[0] = bad[0] + ck(dz4, 0, 0)
+let dz5 = comp[5]
+bad[0] = bad[0] + ck(dz5, 0, 0)
+let dz6 = comp[7]
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+let dz7 = 5 + 23 - 28
+bad[0] = bad[0] + ck(dz7, 0, 0)
+bad[0] = bad[0] + ck_hi(comp[5], 0)
+bad[0] = bad[0] + ck_hi(comp[23], 0)
+let dz8 = 7 + 23 - 30
+bad[0] = bad[0] + ck(dz8, 0, 0)
+bad[0] = bad[0] + ck_hi(comp[7], 0)
+
+let tw = [0]
+if comp[3] + comp[5] < 1
+    tw[0] = tw[0] + 1
+if comp[5] + comp[7] < 1
+    tw[0] = tw[0] + 1
+if comp[11] + comp[13] < 1
+    tw[0] = tw[0] + 1
+if comp[17] + comp[19] < 1
+    tw[0] = tw[0] + 1
+if comp[29] + comp[31] < 1
+    tw[0] = tw[0] + 1
+let dz9 = tw[0] - 5
+bad[0] = bad[0] + ck(dz9, 0, 0)
+
+if 240 < 235
+    bad[0] = bad[0] + 1
+if 240 > 245
+    bad[0] = bad[0] + 1
+if 1742 < 1740
+    bad[0] = bad[0] + 1
+if 1742 > 1744
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

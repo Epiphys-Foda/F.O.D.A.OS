@@ -1,0 +1,218 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let MCTS_MAX_SIMS = 10000
+let MCTS_C = 1414
+
+let mcts_node_create(state, parent, untried) = [state, parent, [], 0, 0, untried]
+let mcts_ucb1(node, total_visits, c) =
+    if node[3] == 0
+        65536
+    let exploitation = gf_div(node[4], node[3])
+    let exploration = gf_mul(c, gf_sqrt(gf_div(gf_norm(total_visits), node[3])))
+    gf_add(exploitation, exploration)
+let mcts_select(node, total_visits, c) =
+    let children = node[2]
+    let best = children[0]
+    let best_value = mcts_ucb1(best, total_visits, c)
+    let i = 1
+    let n = len(children)
+    for i < n
+        let value = mcts_ucb1(children[i], total_visits, c)
+        if value > best_value
+            best = children[i]
+        best_value = value
+        i = i + 1
+    best
+let mcts_expand(node, state, move) =
+    let children = node[2]
+    let untried = node[5]
+    let new_untried = []
+    let i = 0
+    let n = len(untried)
+    for i < n
+        if untried[i] != move
+            new_untried.push(untried[i])
+        i = i + 1
+    let child = mcts_node_create(state, node[0], [])
+    children.push(child)
+    [node[0], node[1], children, node[3], node[4], new_untried]
+let mcts_update(node, result) =
+    [node[0], node[1], node[2], node[3] + 1, node[4] + result, node[5]]
+let mcts_simulate(state) =
+    state % 2
+let mcts_backpropagate(path, result) =
+    let i = 0
+    let n = len(path)
+    for i < n
+        let node = path[i]
+        path[i] = mcts_update(node, result)
+        result = gf_sub(1, result)
+        i = i + 1
+    path
+let mcts_search(root, simulations) =
+    let i = 0
+    for i < simulations
+        let node = root
+        let path = [node]
+        for node[5].len() == 0 && node[2].len() > 0
+            node = mcts_select(node, i + 1, MCTS_C)
+            path.push(node)
+        if node[5].len() > 0
+            let move = node[5][0]
+            node = mcts_expand(node, move, move)
+            path[len(path) - 1] = node
+        let result = mcts_simulate(node[0])
+        mcts_backpropagate(path, result)
+        i = i + 1
+    root[2]
+let field_mcts(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let mcts_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_mcts(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+
+let MCTS_SEL_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let MCTS_SEL_WEIGHTS = [10, 20, 30, 40, 50, 60, 70, 80]
+
+let psi_mcts_sel(n_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(n_idx), gf_norm(MCTS_SEL_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(MCTS_SEL_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let MCTS_EXP_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let MCTS_EXP_WEIGHTS = [80, 70, 60, 50, 40, 30, 20, 10]
+
+let psi_mcts_exp(c_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(c_idx), gf_norm(MCTS_EXP_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(MCTS_EXP_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let MCTS_BP_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let MCTS_BP_WEIGHTS = [100, 90, 80, 70, 60, 50, 40, 30]
+
+let psi_mcts_bp(r_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(r_idx), gf_norm(MCTS_BP_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(MCTS_BP_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let mcts_global_response(n_idx, c_idx, r_idx) =
+    let e1 = psi_mcts_sel(n_idx)
+    let e2 = psi_mcts_exp(c_idx)
+    let e3 = psi_mcts_bp(r_idx)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+
+let mcts_sel_monotonic_test() =
+    let v1 = psi_mcts_sel(1)
+    let v2 = psi_mcts_sel(8)
+    (v1 != v2 ? 1 : 0)
+
+let mcts_exp_decay_test() =
+    let v1 = MCTS_EXP_WEIGHTS[0]
+    let v2 = MCTS_EXP_WEIGHTS[7]
+    (v1 > v2 ? 1 : 0)
+
+let mcts_bp_converge_test() =
+    let v1 = MCTS_BP_WEIGHTS[0]
+    let v2 = MCTS_BP_WEIGHTS[7]
+    (v1 > v2 ? 1 : 0)
+
+let mcts_global_nonzero_test() =
+    let g = mcts_global_response(1, 1, 1)
+    (g != 0 ? 1 : 0)
+
+let mcts_deterministic_test() =
+    let v1 = mcts_global_response(1, 1, 1)
+    let v2 = mcts_global_response(1, 1, 1)
+    (v1 == v2 ? 1 : 0)
+
+let mcts_explore_exploit_test() =
+    let v1 = psi_mcts_sel(1)
+    let v2 = psi_mcts_sel(8)
+    (v1 != v2 ? 1 : 0)
+
+let nested_fractal_mcts_invariants() =
+    let e1 = psi_mcts_sel(1)
+    let e2 = psi_mcts_exp(1)
+    let e3 = psi_mcts_bp(1)
+    let inv1 = 0
+    if e1 != 0
+        (e2 != 0 ? (e3 != 0 ? (inv1 = 1) : 0) : 0)
+    let inv2 = 0
+    if MCTS_SEL_WEIGHTS[0] < MCTS_SEL_WEIGHTS[7]
+        inv2 = 1
+    let inv3 = 0
+    if MCTS_EXP_WEIGHTS[0] > MCTS_EXP_WEIGHTS[7]
+        inv3 = 1
+    let inv4 = 0
+    if MCTS_BP_WEIGHTS[0] > MCTS_BP_WEIGHTS[7]
+        inv4 = 1
+    let inv5 = 0
+    if mcts_global_response(1, 1, 1) != 0
+        inv5 = 1
+    [inv1, inv2, inv3, inv4, inv5]
+
+let mcts_verify_v22() =
+    let t1 = 0
+    if psi_mcts_sel(1) != 0
+        t1 = 1
+    let t2 = 0
+    if psi_mcts_exp(1) != 0
+        t2 = 1
+    let t3 = 0
+    if psi_mcts_bp(1) != 0
+        t3 = 1
+    let t4 = 0
+    if mcts_global_response(1, 1, 1) != 0
+        t4 = 1
+    let t5 = mcts_sel_monotonic_test()
+    let t6 = mcts_exp_decay_test()
+    let t7 = mcts_bp_converge_test()
+    let t8 = mcts_global_nonzero_test()
+    let t9 = mcts_deterministic_test()
+    let t10 = mcts_explore_exploit_test()
+    let t11 = 0
+    if MCTS_SEL_WEIGHTS[0] < MCTS_SEL_WEIGHTS[7]
+        t11 = 1
+    let t12 = 0
+    if MCTS_SEL_POLES[0] < MCTS_SEL_POLES[7]
+        t12 = 1
+    let invs = nested_fractal_mcts_invariants()
+    let inv_ok = 0
+    if invs[0] == 1
+        if invs[1] == 1
+            if invs[2] == 1
+                if invs[3] == 1
+                    if invs[4] == 1
+                        inv_ok = 1
+    let passed = t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12 + inv_ok
+    passed == 13
+

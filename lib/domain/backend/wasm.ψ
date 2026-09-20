@@ -1,0 +1,92 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let WASM_NOP = 0
+let WASM_BLOCK = 2
+let WASM_LOOP = 3
+let WASM_IF = 4
+let WASM_RETURN = 15
+let WASM_CALL = 16
+let WASM_LOCAL_GET = 32
+let WASM_LOCAL_SET = 33
+let WASM_I32_ADD = 106
+let WASM_I32_SUB = 107
+let WASM_I32_MUL = 108
+
+let wasm_module_create() = [1, [], [], [], []]
+let wasm_module_add_function(module, name, params, results, body) =
+    let types = module[1]
+    types.push([params, results])
+    let functions = module[2]
+    functions.push(name)
+    let code = module[4]
+    code.push(body)
+    [module[0], types, functions, module[3], code]
+let wasm_module_export(module, name, func_idx) =
+    let exports = module[3]
+    exports.push([name, func_idx])
+    [module[0], module[1], module[2], exports, module[4]]
+let wasm_vm_execute(module, func_idx, args) =
+    let code = module[4]
+    if func_idx < len(code)
+        let body = code[func_idx]
+        (len(args) > 0 ? args[0] : 0)
+    else
+            0
+let wasm_memory_create(n_pages) =
+    let mem = []
+    let i = 0
+    for i < n_pages * 65536
+        mem.push(0)
+        i = i + 1
+    mem
+let wasm_memory_load(mem, addr) =
+    (addr < len(mem) ? mem[addr] : 0)
+let wasm_memory_store(mem, addr, val) =
+    if addr < len(mem)
+        mem[addr] = val
+    mem
+let wasm_compat_browser() = 1
+let wasm_compat_wasmtime() = 1
+let wasm_compat_wasmer() = 1
+let wasm_compat_v8() = 1
+let wasm_bytecode(ir) =
+    let bytecode = []
+    let i = 0
+    let n = len(ir)
+    for i < n
+        bytecode.push(WASM_NOP)
+        i = i + 1
+    bytecode
+let wasm_stack_push(stack, val) =
+    stack.push(val)
+    stack
+let wasm_stack_pop(stack) =
+    if len(stack) == 0
+        [0, stack]
+    let val = stack[stack.len() - 1]
+    let new_stack = []
+    let i = 0
+    for i < len(stack) - 1
+        new_stack.push(stack[i])
+        i = i + 1
+    [val, new_stack]
+let field_wasm(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let wasm_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_wasm(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+

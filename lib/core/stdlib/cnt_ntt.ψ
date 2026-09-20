@@ -1,0 +1,134 @@
+let cnt_ntt8(sig, w, p) =
+    let out = []
+    let k = 0
+    let kdone = false
+    for !kdone
+      if k < 8
+        let acc = 0
+        let i = 0
+        let idone = false
+        for !idone
+          if i < 8
+            let m = (k * i) % 8
+            let wk = 1
+            let t = 0
+            let tdone = false
+            for !tdone
+              if t < m
+                wk = (wk * w) % p
+                t = t + 1
+              else
+                tdone = true
+            acc = (acc + sig[i] * wk) % p
+            i = i + 1
+          else
+            idone = true
+        out.push(acc)
+        k = k + 1
+      else
+        kdone = true
+    out
+
+let cnt_dual_conv(x, y) =
+    let out = []
+    let k = 0
+    let kdone = false
+    for !kdone
+      if k < 8
+        let acc = 0
+        let i = 0
+        let idone = false
+        for !idone
+          if i < 8
+            let j = (k - i + 8) % 8
+            acc = acc + x[i] * y[j]
+            i = i + 1
+          else
+            idone = true
+        out.push(acc)
+        k = k + 1
+      else
+        kdone = true
+    out
+
+let cnt_triple_conv(x, y) = cnt_dual_conv(x, y)
+
+let cnt_mod_pow(base, e, m) =
+    let r = 1
+    let b = base
+    let k = e
+    let done = false
+    for !done
+      if k > 0
+        if k % 2 == 1
+            r = (r * b) % m
+        else
+            0
+        b = (b * b) % m
+        k = k / 2
+      else
+        done = true
+    r
+
+let cnt_circ_conv_mod(x, y, p) =
+    let out = []
+    let k = 0
+    let kdone = false
+    for !kdone
+      if k < 8
+        let acc = 0
+        let i = 0
+        let idone = false
+        for !idone
+          if i < 8
+            let j = (k - i + 8) % 8
+            acc = (acc + x[i] * y[j]) % p
+            i = i + 1
+          else
+            idone = true
+        out.push(acc)
+        k = k + 1
+      else
+        kdone = true
+    out
+
+let cnt_crt(r1, p1, r2, p2) =
+    let d = (r2 - r1) % p2
+    let d2 = if d < 0
+        d + p2
+    else
+        d
+    let t = (d2 * cnt_mod_pow(p1, p2 - 2, p2)) % p2
+    r1 + p1 * t
+
+let cnt_verify() =
+    let x = [10000, 9000, 8000, 7000, 6000, 5000, 4000, 3000]
+    let y = [3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000]
+    let truth = cnt_dual_conv(x, y)
+    let m1 = cnt_circ_conv_mod(x, y, 65537)
+    let c1 = m1[0] != 352000000
+    let m2 = cnt_circ_conv_mod(x, y, 786433)
+    let r0 = cnt_crt(m1[0], 65537, m2[0], 786433)
+    let r1c = cnt_crt(m1[1], 65537, m2[1], 786433)
+    let r3 = cnt_crt(m1[3], 65537, m2[3], 786433)
+    let r7 = cnt_crt(m1[7], 65537, m2[7], 786433)
+    let c2 = r0 == 352000000
+    let c3 = r1c == 332000000
+    let c4 = r3 == 316000000
+    let c5 = r7 == 380000000
+    [c1, c2, c3, c4, c5]
+
+let cnt_verify3() =
+    let x = [1000000, 900000, 800000, 700000, 600000, 500000, 400000, 300000]
+    let y = [300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000]
+    let truth = cnt_dual_conv(x, y)
+    let m1 = cnt_circ_conv_mod(x, y, 65537)
+    let m2 = cnt_circ_conv_mod(x, y, 786433)
+    let m3 = cnt_circ_conv_mod(x, y, 1376257)
+    let c1 = m1[0] != truth[0]
+    let d0 = cnt_crt(m1[0], 65537, m2[0], 786433)
+    let c2 = d0 != truth[0]
+    let r0 = cnt_crt(cnt_crt(m1[0], 65537, m2[0], 786433), 51540594689, m3[0], 1376257)
+    let r7 = cnt_crt(cnt_crt(m1[7], 65537, m2[7], 786433), 51540594689, m3[7], 1376257)
+    let c3 = r0 == truth[0] && r7 == truth[7]
+    [c1, c2, c3]

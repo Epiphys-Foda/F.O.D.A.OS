@@ -1,0 +1,280 @@
+import "../domain_field.ψ"
+
+let GQL_OP_QUERY        = 1
+let GQL_OP_MUTATION     = 2
+let GQL_OP_SUBSCRIPTION = 3
+
+let GQL_P = 65537
+let GQL_NIL = 0
+
+let gq_field(name) =
+    [name, 0, {}, [], 0]
+
+let gq_f_name(f)   = f[0]
+let gq_f_alias(f)  = f[1]
+let gq_f_args(f)   = f[2]
+let gq_f_sub(f)    = f[3]
+let gq_f_type(f)   = f[4]
+
+let gq_field_set_alias(f, alias) =
+    f[1] = alias
+    f
+
+let gq_field_set_arg(f, key, val) =
+    let args = gq_f_args(f)
+    args[key] = val
+    f[2] = args
+    f
+
+let gq_field_add_sub(f, sub) =
+    let subs = gq_f_sub(f)
+    subs.push(sub)
+    f[3] = subs
+    f
+
+let gq_field_set_type(f, t) =
+    f[4] = t
+    f
+
+let gq_operation(op_type, name) =
+    [op_type, name, [], {}, []]
+
+let gq_op_type(op)   = op[0]
+let gq_op_name(op)    = op[1]
+let gq_op_fields(op)  = op[2]
+let gq_op_vars(op)    = op[3]
+let gq_op_dirs(op)    = op[4]
+
+let gq_op_add_field(op, f) =
+    let fields = gq_op_fields(op)
+    fields.push(f)
+    op[2] = fields
+    op
+
+let gq_op_set_var(op, key, val) =
+    let vars = gq_op_vars(op)
+    vars[key] = val
+    op[3] = vars
+    op
+
+let gq_schema_new() =
+    [{}, {}, {}, {}]
+
+let gq_s_types(s)     = s[0]
+let gq_s_queries(s)    = s[1]
+let gq_s_mutations(s)  = s[2]
+let gq_s_subs(s)       = s[3]
+
+let gq_schema_add_query(s, name, type_info) =
+    let q = gq_s_queries(s)
+    q[name] = type_info
+    s[1] = q
+    s
+
+let gq_schema_add_mutation(s, name, type_info) =
+    let m = gq_s_mutations(s)
+    m[name] = type_info
+    s[2] = m
+    s
+
+let gq_schema_add_type(s, name, fields_buf) =
+    let t = gq_s_types(s)
+    t[name] = fields_buf
+    s[0] = t
+    s
+
+let gq_schema_has_query(s, name) =
+    let q = gq_s_queries(s)
+    if q[name] == GQL_NIL
+        0
+    else
+        1
+
+let gq_schema_has_mutation(s, name) =
+    let m = gq_s_mutations(s)
+    if m[name] == GQL_NIL
+        0
+    else
+        1
+
+let gq_resolver(field_path, fn_id) =
+    [field_path, fn_id, {}]
+
+let gq_r_path(r)  = r[0]
+let gq_r_fn(r)    = r[1]
+let gq_r_args(r)  = r[2]
+
+let gq_resolver_set_arg(r, key, val) =
+    let args = gq_r_args(r)
+    args[key] = val
+    r[2] = args
+    r
+
+let gq_default_executor() =
+    [gq_schema_new(), {}, {}, {}, []]
+
+let gq_e_schema(e)      = e[0]
+let gq_e_resolvers(e)   = e[1]
+let gq_e_root(e)        = e[2]
+let gq_e_vars(e)        = e[3]
+let gq_e_log(e)         = e[4]
+
+let gq_e_set_schema(e, s) =
+    e[0] = s
+    e
+
+let gq_e_set_root(e, r) =
+    e[2] = r
+    e
+
+let gq_e_set_var(e, key, val) =
+    let vars = gq_e_vars(e)
+    vars[key] = val
+    e[3] = vars
+    e
+
+let gq_e_register_resolver(e, field_path, resolver) =
+    let resolvers = gq_e_resolvers(e)
+    resolvers[field_path] = resolver
+    e[1] = resolvers
+    e
+
+let gq_e_log_append(e, msg) =
+    let log = e[4]
+    log.push(msg)
+    e[4] = log
+    e
+
+let gq_parse_query(query_str) =
+    let op_type = query_str[0]
+    let name = query_str[1]
+    let fields_buf = query_str[2]
+    let args_map = query_str[3]
+    let op = gq_operation(op_type, name)
+    let keys = keys_of(args_map)
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let k = keys[i]
+        op = gq_op_set_var(op, k, args_map[k])
+        i = i + 1
+    let j = 0
+    let m = len(fields_buf)
+    for j < m
+        let f = gq_field(fields_buf[j])
+        op = gq_op_add_field(op, f)
+        j = j + 1
+    op
+
+let gq_validate_operation(exec, op) =
+    let schema = gq_e_schema(exec)
+    let ok = 1
+    let op_type = gq_op_type(op)
+    let fields = gq_op_fields(op)
+    let i = 0
+    let n = len(fields)
+    for i < n
+        let f = fields[i]
+        let fname = gq_f_name(f)
+        let found = 0
+        if op_type == GQL_OP_QUERY
+            found = gq_schema_has_query(schema, fname)
+        else
+            if op_type == GQL_OP_MUTATION
+                found = gq_schema_has_mutation(schema, fname)
+            else
+                found = gq_schema_has_query(schema, fname)
+        if found == 0
+            ok = 0
+            i = n
+        i = i + 1
+    [ok, n]
+
+let gq_resolve_field(exec, parent_type, field, args, ts) =
+    let resolvers = gq_e_resolvers(exec)
+    let fname = gq_f_name(field)
+    let field_path = [parent_type, fname]
+    let resolver = resolvers[field_path]
+    if resolver == GQL_NIL
+        let root = gq_e_root(exec)
+        let v = root[fname]
+        if v == GQL_NIL
+            0
+        else
+            v
+    else
+        let fn_id = gq_r_fn(resolver)
+        [fn_id, ts, args]
+
+let gq_execute_query(exec, op, ts) =
+    let parent_type = 0
+    let fields = gq_op_fields(op)
+    let result = {}
+    let i = 0
+    let n = len(fields)
+    for i < n
+        let f = fields[i]
+        let fname = gq_f_name(f)
+        let args = gq_f_args(f)
+        let v = gq_resolve_field(exec, parent_type, f, args, ts)
+        let subs = gq_f_sub(f)
+        if len(subs) > 0
+            let sub_result = {}
+            let j = 0
+            let m = len(subs)
+            for j < m
+                let sub_f = subs[j]
+                let sub_name = gq_f_name(sub_f)
+                if v == 0
+                    sub_result[sub_name] = 0
+                else
+                    sub_result[sub_name] = v
+                j = j + 1
+            result[fname] = sub_result
+        else
+            result[fname] = v
+        i = i + 1
+    exec = gq_e_log_append(exec, [GQL_P, n, ts])
+    result
+
+let gq_serialize_response(exec, data) =
+    let keys = keys_of(data)
+    let out = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let k = keys[i]
+        let v = data[k]
+        out.push([k, v])
+        i = i + 1
+    [out, n]
+
+let gq_bragg_verify(exec, ops_seq) =
+    let ok = 1
+    let n_ops = len(ops_seq)
+    let i = 0
+    for i < n_ops
+        let op = ops_seq[i]
+        let ts = i + 1
+        let r1 = gq_execute_query(exec, op, ts)
+        let r2 = gq_execute_query(exec, op, ts)
+        let keys1 = keys_of(r1)
+        let keys2 = keys_of(r2)
+        if len(keys1) != len(keys2)
+            ok = 0
+            i = n_ops
+        else
+            let j = 0
+            let m = len(keys1)
+            let same = 1
+            for j < m
+                let k = keys1[j]
+                if r1[k] != r2[k]
+                    same = 0
+                j = j + 1
+            if same != 1
+                ok = 0
+                i = n_ops
+        i = i + 1
+    [ok, n_ops]
+

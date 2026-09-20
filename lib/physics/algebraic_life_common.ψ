@@ -1,0 +1,52 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let homology_check(genes, n) =
+    let total = 0
+    let i = 0
+    for i < n
+        total = gf_add(total, gene_residue(genes[i]))
+        i = i + 1
+    (total == 0 ? 0 : 1)
+
+let apoptosis(genes, n) =
+    let healthy = []
+    let i = 0
+    for i < n
+        let g = genes[i]
+        if gene_residue(g) != 0
+            healthy = healthy.push(g)
+        i = i + 1
+    healthy
+
+let count_healthy(genes, n) =
+    let count = 0
+    let i = 0
+    for i < n
+        if gene_residue(genes[i]) != 0
+            count = count + 1
+        i = i + 1
+    count
+
+let cell_divide(genes, n) =
+    let children = []
+    let i = 0
+    for i < n
+        let g = genes[i]
+        let sigma = gf_add(i, 1)
+        let child = galois_mutate(g, sigma)
+        children = children.push(child)
+        i = i + 1
+    children
+
+let metabolize(genes, n, nutrient) =
+    let fed = []
+    let i = 0
+    for i < n
+        let g = genes[i]
+        let p = gene_pole(g)
+        let r = gene_residue(g)
+        let op = gene_op(g)
+        let new_r = gf_add(r, gf_mul(nutrient, p))
+        fed = fed.push([p, new_r, op])
+        i = i + 1
+    fed

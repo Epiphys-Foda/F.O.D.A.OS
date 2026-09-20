@@ -1,0 +1,264 @@
+import "../domain_field.ψ"
+
+let CI_P = 65537
+let CI_ATE_SCALE = 1000
+
+let CI_QUERY_ATE            = 1
+let CI_QUERY_ATT            = 2
+let CI_QUERY_CATE           = 3
+let CI_QUERY_COUNTERFACTUAL = 4
+
+let CI_INTERVENTION_NONE = 0
+let CI_FIELD_SCALE  = 256
+let CI_FIELD_OFFSET = 1
+let CI_BRAGG_Z      = 256
+
+let ci_var_new(var_id, name) =
+    [var_id, name, 0, CI_INTERVENTION_NONE]
+
+let ci_var_id(v)   = v[0]
+let ci_var_name(v) = v[1]
+let ci_var_obs(v)  = v[2]
+let ci_var_intv(v) = v[3]
+
+let ci_edge_new(from_var, to_var, weight, confounded) =
+    [from_var, to_var, weight, confounded]
+
+let ci_edge_from(v) = v[0]
+let ci_edge_to(v)   = v[1]
+let ci_edge_w(v)    = v[2]
+let ci_edge_conf(v) = v[3]
+
+let ci_graph_new() =
+    [{}, [], [], []]
+
+let ci_graph_nodes(g)   = g[0]
+let ci_graph_edges(g)   = g[1]
+let ci_graph_latents(g) = g[2]
+let ci_graph_log(g)     = g[3]
+
+let ci_query_new(query_type, treatment, outcome, conditioning_set) =
+    [query_type, treatment, outcome, conditioning_set]
+
+let ci_q_type(q)  = q[0]
+let ci_q_treat(q) = q[1]
+let ci_q_out(q)   = q[2]
+let ci_q_cond(q)  = q[3]
+
+let ci_default_inferencer() =
+    [ci_graph_new(), [], {}, []]
+
+let ci_inf_graph(inf)   = inf[0]
+let ci_inf_queries(inf) = inf[1]
+let ci_inf_obs(inf)     = inf[2]
+let ci_inf_log(inf)     = inf[3]
+
+let ci_add_var(inf, var_id, name) =
+    let graph = ci_inf_graph(inf)
+    let nodes = ci_graph_nodes(graph)
+    nodes[var_id] = ci_var_new(var_id, name)
+    inf
+
+let ci_add_edge(inf, from_var, to_var, weight, confounded) =
+    let graph = ci_inf_graph(inf)
+    let edges = ci_graph_edges(graph)
+    edges.push(ci_edge_new(from_var, to_var, weight, confounded))
+    inf
+
+let ci_add_latent(inf, var_id) =
+    let graph = ci_inf_graph(inf)
+    let latents = ci_graph_latents(graph)
+    latents.push(var_id)
+    inf
+
+let ci_obs_key(var_id, ts) =
+    var_id * 65536 + ts
+
+let ci_observe(inf, var_id, value, ts) =
+    let obs_map = ci_inf_obs(inf)
+    let key = ci_obs_key(var_id, ts)
+    obs_map[key] = value
+    let graph = ci_inf_graph(inf)
+    let nodes = ci_graph_nodes(graph)
+    let v = nodes[var_id]
+    if v != 0
+        v[2] = value
+    inf
+
+let ci_do(inf, var_id, value) =
+    let graph = ci_inf_graph(inf)
+    let nodes = ci_graph_nodes(graph)
+    let v = nodes[var_id]
+    if v != 0
+        v[3] = value
+    let edges = ci_graph_edges(graph)
+    let new_edges = []
+    let n = len(edges)
+    let i = 0
+    for i < n
+        let e = edges[i]
+        if ci_edge_to(e) != var_id
+            new_edges.push(e)
+        i = i + 1
+    graph[1] = new_edges
+    inf
+
+let ci_path_enum(graph, from_var, to_var, visited_set, current_path, paths_out) =
+    if from_var == to_var
+        let path_copy = []
+        let pn = len(current_path)
+        let k = 0
+        for k < pn
+            path_copy.push(current_path[k])
+            k = k + 1
+        paths_out.push(path_copy)
+    else
+        let edges = ci_graph_edges(graph)
+        let n = len(edges)
+        let i = 0
+        for i < n
+            let e = edges[i]
+            if ci_edge_from(e) == from_var
+                let next = ci_edge_to(e)
+                if visited_set[next] == 0
+                    visited_set[next] = 1
+                    let new_path = []
+                    let pn2 = len(current_path)
+                    let k2 = 0
+                    for k2 < pn2
+                        new_path.push(current_path[k2])
+                        k2 = k2 + 1
+                    new_path.push(e)
+                    ci_path_enum(graph, next, to_var, visited_set, new_path, paths_out)
+                    visited_set[next] = 0
+            i = i + 1
+
+let ci_compute_ate(inf, treatment, outcome, ts) =
+    let graph = ci_inf_graph(inf)
+    let visited = {}
+    visited[treatment] = 1
+    let paths = []
+    ci_path_enum(graph, treatment, outcome, visited, [], paths)
+    let total = 0
+    let n = len(paths)
+    let i = 0
+    for i < n
+        let path = paths[i]
+        let plen = len(path)
+        let prod = CI_ATE_SCALE
+        let j = 0
+        for j < plen
+            let e = path[j]
+            prod = prod * ci_edge_w(e) / CI_ATE_SCALE
+            j = j + 1
+        total = total + prod
+        i = i + 1
+    let log = ci_inf_log(inf)
+    log.push("ate_computed treat=" + treatment + " out=" + outcome + " ts=" + ts)
+    inf[3] = log
+    total
+
+let ci_compute_counterfactual(inf, observed, intervention, ts) =
+    let treat_var = observed[0]
+    let out_var = observed[1]
+    let x_obs = observed[2]
+    let y_obs = observed[3]
+    let x_int = intervention[1]
+    let ate = ci_compute_ate(inf, treat_var, out_var, ts)
+    let delta_x = x_int - x_obs
+    let y_cf = y_obs + ate * delta_x / CI_ATE_SCALE
+    let log = ci_inf_log(inf)
+    log.push("counterfactual treat=" + treat_var + " out=" + out_var + " x_int=" + x_int + " y_cf=" + y_cf + " ts=" + ts)
+    inf[3] = log
+    y_cf
+
+let ci_parents_of(graph, var_id) =
+    let edges = ci_graph_edges(graph)
+    let n = len(edges)
+    let parents = []
+    let i = 0
+    for i < n
+        let e = edges[i]
+        if ci_edge_to(e) == var_id
+            parents.push(ci_edge_from(e))
+        i = i + 1
+    parents
+
+let ci_check_backdoor(inf, treatment, outcome) =
+    let graph = ci_inf_graph(inf)
+    let parents = ci_parents_of(graph, treatment)
+    let adj = []
+    let n = len(parents)
+    let i = 0
+    for i < n
+        let p = parents[i]
+        if p != outcome
+            adj.push(p)
+        i = i + 1
+    let sufficient = 0
+    if len(parents) == 0
+        sufficient = 1
+    if len(adj) > 0
+        sufficient = 1
+    [adj, sufficient]
+
+let ci_inf_sig(inf) =
+    let obs_map = ci_inf_obs(inf)
+    let keys = keys_of(obs_map)
+    let n = len(keys)
+    let sig = 0
+    let i = 0
+    for i < n
+        let k = keys[i]
+        let v = obs_map[k]
+        sig = (sig * 31 + k + v) % CI_P
+        i = i + 1
+    sig * 65536 + n
+
+let ci_bragg_verify(inf, ops_seq) =
+    let inf1 = ci_default_inferencer()
+    let inf2 = ci_default_inferencer()
+    let graph = ci_inf_graph(inf)
+    let nodes = ci_graph_nodes(graph)
+    let node_keys = keys_of(nodes)
+    let n_nodes = len(node_keys)
+    let i = 0
+    for i < n_nodes
+        let vid = node_keys[i]
+        let v = nodes[vid]
+        ci_add_var(inf1, vid, ci_var_name(v))
+        ci_add_var(inf2, vid, ci_var_name(v))
+        i = i + 1
+    let edges = ci_graph_edges(graph)
+    let n_edges = len(edges)
+    i = 0
+    for i < n_edges
+        let e = edges[i]
+        ci_add_edge(inf1, ci_edge_from(e), ci_edge_to(e), ci_edge_w(e), ci_edge_conf(e))
+        ci_add_edge(inf2, ci_edge_from(e), ci_edge_to(e), ci_edge_w(e), ci_edge_conf(e))
+        i = i + 1
+    let n = len(ops_seq)
+    i = 0
+    for i < n
+        let op = ops_seq[i]
+        ci_observe(inf1, op[0], op[1], op[2])
+        ci_observe(inf2, op[0], op[1], op[2])
+        i = i + 1
+    let sig1 = ci_inf_sig(inf1)
+    let sig2 = ci_inf_sig(inf2)
+    let ok = 0
+    if sig1 == sig2
+        ok = 1
+    ok
+
+let ci_gf_mod(x) = domain_gf_mod(x)
+let ci_gf_inv(a) = domain_gf_inv(a)
+let ci_field_encode(items, n) =
+    let records = []
+    let _i = 0
+    for _i < n
+        records.push([items[_i], items[_i]])
+        _i = _i + 1
+    domain_field_encode(records, n, 1, 0)
+let ci_field_eval(poles, residues, z) = domain_field_eval(poles, residues, z)
+let ci_field_bragg_verify(current, replay) = domain_bragg_verify(current[0], current[1], replay[0], replay[1])

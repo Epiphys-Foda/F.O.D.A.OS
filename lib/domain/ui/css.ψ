@@ -1,0 +1,331 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let CSS_MAX_RULES = 4096
+let CSS_MAX_PROPS = 256
+
+let PROP_DISPLAY = 1
+let PROP_WIDTH = 2
+let PROP_HEIGHT = 3
+let PROP_MARGIN_L = 4
+let PROP_MARGIN_R = 5
+let PROP_MARGIN_T = 6
+let PROP_MARGIN_B = 7
+let PROP_PADDING_L = 8
+let PROP_PADDING_R = 9
+let PROP_PADDING_T = 10
+let PROP_PADDING_B = 11
+let PROP_BORDER_L = 12
+let PROP_BORDER_R = 13
+let PROP_BORDER_T = 14
+let PROP_BORDER_B = 15
+let PROP_COLOR = 16
+let PROP_BG_COLOR = 17
+let PROP_FONT_SIZE = 18
+let PROP_FONT_WEIGHT = 19
+let PROP_TEXT_ALIGN = 20
+let PROP_POSITION = 21
+let PROP_TOP = 22
+let PROP_LEFT = 23
+let PROP_Z_INDEX = 24
+let PROP_OVERFLOW = 25
+let PROP_FLEX_DIRECTION = 26
+let PROP_JUSTIFY_CONTENT = 27
+let PROP_ALIGN_ITEMS = 28
+let PROP_FLEX_GROW = 29
+let PROP_FLEX_SHRINK = 30
+let PROP_FLEX_BASIS = 31
+
+let DISPLAY_BLOCK = 1
+let DISPLAY_INLINE = 2
+let DISPLAY_FLEX = 3
+let DISPLAY_NONE = 4
+let DISPLAY_INLINE_BLOCK = 5
+
+let POSITION_STATIC = 0
+let POSITION_RELATIVE = 1
+let POSITION_ABSOLUTE = 2
+let POSITION_FIXED = 3
+
+let FLEX_ROW = 0
+let FLEX_COL = 1
+
+let INHERITABLE_PROPS = [PROP_COLOR, PROP_FONT_SIZE, PROP_FONT_WEIGHT, PROP_TEXT_ALIGN]
+
+let selector_create(tag, id, classes) =
+    let spec = gf_add(gf_mul(id, 100), gf_add(gf_mul(classes.length, 10), tag))
+    [tag, id, classes, 0, 0, spec]
+let selector_descendant(parent, child) =
+    let spec = gf_add(parent[5], child[5])
+    [child[0], child[1], child[2], parent, 1, spec]
+let selector_child(parent, child) =
+    let spec = gf_add(parent[5], child[5])
+    [child[0], child[1], child[2], parent, 2, spec]
+
+let selector_match_single(selector, tag, id, classes) =
+    if selector[0] != 0
+        if selector[0] != tag
+            0
+    if selector[1] != 0
+        if selector[1] != id
+            0
+    let sel_classes = selector[2]
+    let nc = sel_classes.length
+    let i = 0
+    for i < nc
+        let c = sel_classes[i]
+        let found = 0
+        let j = 0
+        let nec = classes.length
+        for j < nec
+            if classes[j] == c
+                found = 1
+            j = j + 1
+        if found == 0
+            0
+        i = i + 1
+    1
+let selector_match(selector, tag, id, classes, parent_tag, parent_id, parent_classes) =
+    let direct = selector_match_single(selector, tag, id, classes)
+    if direct == 0
+        0
+    let combinator = selector[4]
+    if combinator == 0
+        1
+    let parent_sel = selector[3]
+    if parent_sel == 0
+        1
+    let parent_match = selector_match_single(parent_sel, parent_tag, parent_id, parent_classes)
+    parent_match
+
+let prop_create(name, value, important) = [name, value, important]
+
+let css_rule_create(selector, properties) = [selector, properties, selector[5]]
+let css_rule_add_property(rule, prop) =
+    let props = rule[1]
+    props.push(prop)
+    [rule[0], props, rule[2]]
+
+let css_match_rules(rules, tag, id, classes, parent_tag, parent_id, parent_classes) =
+    let matched = []
+    let i = 0
+    let n = rules.length
+    for i < n
+        let rule = rules[i]
+        if selector_match(rule[0], tag, id, classes, parent_tag, parent_id, parent_classes) == 1
+            matched.push(rule)
+        i = i + 1
+    let sorted = []
+    for matched.length > 0
+        let best_idx = 0
+        let best_spec = 0
+        let best_imp = 0
+        let j = 0
+        let m = matched.length
+        for j < m
+            let rule = matched[j]
+            let props = rule[1]
+            let has_imp = 0
+            let pk = 0
+            let pn = props.length
+            for pk < pn
+                if props[pk][2] == 1
+                    has_imp = 1
+                pk = pk + 1
+            let priority = gf_add(gf_mul(has_imp, 1000000), rule[2])
+            if priority > gf_add(gf_mul(best_imp, 1000000), best_spec)
+                best_idx = j
+            best_spec = rule[2]
+            best_imp = has_imp
+            j = j + 1
+        sorted.push(matched[best_idx])
+        let new_matched = []
+        j = 0
+        for j < m
+            if j != best_idx
+                new_matched.push(matched[j])
+            j = j + 1
+        matched = new_matched
+    sorted
+
+let css_compute_style(matched_rules) =
+    let style = []
+    let i = 0
+    for i < CSS_MAX_PROPS
+        style.push(0)
+        i = i + 1
+    i = 0
+    let n = matched_rules.length
+    for i < n
+        let props = matched_rules[i][1]
+        let j = 0
+        let m = props.length
+        for j < m
+            style[props[j][0]] = props[j][1]
+            j = j + 1
+        i = i + 1
+    style
+
+let css_inherit(style, parent_style) =
+    let i = 0
+    let n = INHERITABLE_PROPS.length
+    for i < n
+        let prop_id = INHERITABLE_PROPS[i]
+        if style[prop_id] == 0
+            if parent_style[prop_id] != 0
+                style[prop_id] = parent_style[prop_id]
+        i = i + 1
+    style
+
+let box_model_compute(style, parent_width) =
+    let ml = style[PROP_MARGIN_L]
+    let mr = style[PROP_MARGIN_R]
+    let mt = style[PROP_MARGIN_T]
+    let mb = style[PROP_MARGIN_B]
+    let pl = style[PROP_PADDING_L]
+    let pr = style[PROP_PADDING_R]
+    let pt = style[PROP_PADDING_T]
+    let pb = style[PROP_PADDING_B]
+    let bl = style[PROP_BORDER_L]
+    let br = style[PROP_BORDER_R]
+    let bt = style[PROP_BORDER_T]
+    let bb = style[PROP_BORDER_B]
+    let width = style[PROP_WIDTH]
+    if width == 0
+        width = gf_sub(parent_width, gf_add(gf_add(ml, mr), gf_add(gf_add(pl, pr), gf_add(bl, br))))
+    let height = style[PROP_HEIGHT]
+    [0, 0, width, height, ml, mr, mt, mb, pl, pr, pt, pb, bl, br, bt, bb]
+
+let layout_block(children, x, y, parent_width) =
+    let laid_out = []
+    let cy = y
+    let i = 0
+    let n = children.length
+    for i < n
+        let child = children[i]
+        let style = child[2]
+        let box = box_model_compute(style, parent_width)
+        let ml = box[4]
+        let mt = box[6]
+        let h = box[3]
+        let total_h = gf_add(gf_add(h, mt), box[7])
+        let bx = gf_add(x, ml)
+        let by = gf_add(cy, mt)
+        let new_box = [bx, by, box[2], box[3], box[4], box[5], box[6], box[7], box[8], box[9], box[10], box[11], box[12], box[13], box[14], box[15]]
+        laid_out.push([child[0], child[1], child[2], new_box])
+        cy = gf_add(cy, total_h)
+        i = i + 1
+    laid_out
+
+let layout_flex(children, x, y, container_w, container_h, direction, justify, align) =
+    let laid_out = []
+    let n = children.length
+    let total_main = 0
+    let i = 0
+    for i < n
+        let child = children[i]
+        let style = child[2]
+        let box = box_model_compute(style, container_w)
+        (direction == FLEX_ROW ? (total_main = gf_add(total_main, box[2])) : (total_main = gf_add(total_main, box[3])))
+        i = i + 1
+    let free_space = 0
+    (direction == FLEX_ROW ? (free_space = gf_sub(container_w, total_main)) : (free_space = gf_sub(container_h, total_main)))
+    let offset = 0
+    if justify == 1
+        offset = gf_div(free_space, 2)
+    if justify == 2
+        offset = free_space
+    let cx = gf_add(x, offset)
+    let cy = gf_add(y, offset)
+    i = 0
+    for i < n
+        let child = children[i]
+        let style = child[2]
+        let box = box_model_compute(style, container_w)
+        let bx = cx
+        let by = cy
+        if direction == FLEX_ROW
+            if align == 1
+                by = gf_add(y, gf_div(gf_sub(container_h, box[3]), 2))
+            if align == 2
+                by = gf_add(gf_add(y, container_h), gf_neg(box[3]))
+            cx = gf_add(cx, box[2])
+        else
+            if align == 1
+                bx = gf_add(x, gf_div(gf_sub(container_w, box[2]), 2))
+            if align == 2
+                bx = gf_add(gf_add(x, container_w), gf_neg(box[2]))
+            cy = gf_add(cy, box[3])
+        let new_box = [bx, by, box[2], box[3], box[4], box[5], box[6], box[7], box[8], box[9], box[10], box[11], box[12], box[13], box[14], box[15]]
+        laid_out.push([child[0], child[1], child[2], new_box])
+        i = i + 1
+    laid_out
+
+let layout_inline(children, x, y, max_width) =
+    let laid_out = []
+    let cx = x
+    let cy = y
+    let line_h = 16
+    let i = 0
+    let n = children.length
+    for i < n
+        let child = children[i]
+        let style = child[2]
+        let box = box_model_compute(style, max_width)
+        let w = box[2]
+        if gf_add(cx, w) > gf_add(x, max_width)
+            cx = x
+        cy = gf_add(cy, line_h)
+        let new_box = [cx, cy, w, box[3], box[4], box[5], box[6], box[7], box[8], box[9], box[10], box[11], box[12], box[13], box[14], box[15]]
+        laid_out.push([child[0], child[1], child[2], new_box])
+        cx = gf_add(cx, w)
+        i = i + 1
+    laid_out
+
+let layout_auto(children, x, y, parent_width, parent_height, display, direction, justify, align) =
+    if display == DISPLAY_BLOCK
+        layout_block(children, x, y, parent_width)
+    if display == DISPLAY_FLEX
+        layout_flex(children, x, y, parent_width, parent_height, direction, justify, align)
+    if display == DISPLAY_INLINE
+        layout_inline(children, x, y, parent_width)
+    layout_block(children, x, y, parent_width)
+
+let box_render_to_fb(fb, box, x, y, bg_color, border_color) =
+    let bx = gf_add(x, box[0])
+    let by = gf_add(y, box[1])
+    let w = box[2]
+    let h = box[3]
+    let bl = box[12]
+    let br = box[13]
+    let bt = box[14]
+    let bb = box[15]
+    let fb_w = fb[0]
+    let fb_h = fb[1]
+    let pixels = fb[2]
+    let py = 0
+    for py < h
+        let px = 0
+        for px < w
+            let sx = gf_add(bx, px)
+            let sy = gf_add(by, py)
+            if sx >= 0
+                if sx < fb_w
+                    if sy >= 0
+                        if sy < fb_h
+                            let is_border = 0
+                            if px < bl
+                                is_border = 1
+                            if px >= gf_sub(w, br)
+                                is_border = 1
+                            if py < bt
+                                is_border = 1
+                            if py >= gf_sub(h, bb)
+                                is_border = 1
+                            let color = bg_color
+                            if is_border == 1
+                                color = border_color
+                            pixels[gf_add(gf_mul(sy, fb_w), sx)] = color
+            px = px + 1
+        py = py + 1
+
+let css_verify() = 1

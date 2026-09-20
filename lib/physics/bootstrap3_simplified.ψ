@@ -1,0 +1,274 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+import "bootstrap3_domain.ψ"
+import "bootstrap3_ml_quantum.ψ"
+
+import "sh_e39bb00202.ψ"
+import "sh_af95b2b028.ψ"
+import "sh_7c6dfc404d.ψ"
+import "sh_cb68026814.ψ"
+
+import "sh_0ce8ba5325.ψ"
+
+import "sh_0473596775.ψ"
+import "sh_34708e8229.ψ"
+
+import "sh_e06a4e4200.ψ"
+
+import "sh_1b5ec76ed2.ψ"
+
+import "../core/stdlib_lang2/gx_33aab46c3d.ψ"
+import "sh_e0d12bd923.ψ"
+import "sh_b63852aa1c.ψ"
+import "sh_beb5173b91.ψ"
+
+    let f1 = mf_make([0, 1, 2], [10, 20, 30], 3)
+    if mf_size(f1) == 3
+        ok = ok + 1
+    if mf_poles(f1)[0] == 0
+        ok = ok + 1
+    if mf_residues(f1)[1] == 20
+        ok = ok + 1
+
+    let f2 = mf_make([0, 1, 2], [5, 5, 5], 3)
+    let fadd = mf_add(f1, f2)
+    if mf_residues(fadd)[0] == 15
+        ok = ok + 1
+
+    let fmul = mf_mul(f1, f2)
+    if mf_residues(fmul)[0] == 50
+        ok = ok + 1
+
+    let fscale = mf_scale(f1, 2)
+    if mf_residues(fscale)[0] == 20
+        ok = ok + 1
+
+    let fcomp = mf_compose(f1, f2)
+    if mf_size(fcomp) == 3
+        ok = ok + 1
+
+    let fp1 = mf_fingerprint(f1)
+    if fp1 >= 0
+        ok = ok + 1
+
+    if mf_equal(f1, f1) == 1
+        ok = ok + 1
+    if mf_equal(f1, f2) == 0
+        ok = ok + 1
+
+    if ast_to_op(AST_LITERAL()) == OP_OBSERVE()
+        ok = ok + 1
+    if ast_to_op(AST_BINOP()) == OP_COMPILE()
+        ok = ok + 1
+    if ast_to_op(AST_IF()) == OP_SELF_VERIFY()
+        ok = ok + 1
+    if ast_to_op(AST_WHILE()) == OP_GALOIS()
+        ok = ok + 1
+    if ast_to_op(AST_CALL()) == OP_META_OBSERVE()
+        ok = ok + 1
+    if ast_to_op(AST_LET()) == OP_HOMOLOGY()
+        ok = ok + 1
+
+    let ast_t = [AST_LITERAL(), AST_BINOP(), AST_IF()]
+    let ast_v = [42, 7, 1]
+    let ast_field = ast_to_meta_field(ast_t, ast_v, 3)
+    if mf_size(ast_field) == 3
+        ok = ok + 1
+    if mf_poles(ast_field)[0] == gf_add(gf_mul(OP_OBSERVE(), 1000), 42)
+        ok = ok + 1
+
+    let fI = combinator_I(f1)
+    if mf_equal(fI, f1) == 1
+        ok = ok + 1
+
+    let fK = combinator_K([0], [99], 1)
+    if mf_residues(fK)[0] == 99
+        ok = ok + 1
+
+    let fB = combinator_B(f1, f2, f1)
+    if mf_size(fB) == 3
+        ok = ok + 1
+
+    let fS = combinator_S(f1, f2, f1)
+    if mf_size(fS) == 3
+        ok = ok + 1
+
+    let fY = combinator_Y(f1, 3)
+    if mf_size(fY) == 3
+        ok = ok + 1
+
+    let fp_result = kleene_fp(1, 2, 100)
+    if fp_result[2] >= 0
+        ok = ok + 1
+
+    let mf_fp = kleene_mf_fp(f1, 5)
+    if mf_fp[2] >= 0
+        ok = ok + 1
+
+    let hom = homology_compute(f1)
+    if hom[0] == 3
+        ok = ok + 1
+
+    let cancer = homology_cancer_check(f1)
+    if cancer == 0 || cancer == 1
+        ok = ok + 1
+
+    let apop = apoptosis(f1)
+    if mf_size(apop) >= 0
+        ok = ok + 1
+
+    let mutv = galois_mutate(f1, 2)
+    if mf_size(mutv) == 3
+        ok = ok + 1
+
+    let orbit = galois_orbit(f1, 2, 5)
+    if orbit[0] == mf_fingerprint(f1)
+        ok = ok + 1
+
+    let order = galois_order(f1, 2, 100)
+    if order >= 1
+        ok = ok + 1
+
+    let mc = meta_compiler()
+    if mf_size(mc) == 6
+        ok = ok + 1
+
+    let mcs = meta_compile_self()
+    if mf_equal(mc, mcs) == 1
+        ok = ok + 1
+
+    let proj = project(mc)
+    if mf_size(proj) >= 1
+        ok = ok + 1
+
+    let lifted = lift(G0_POLES(), G0_RESIDUES(), G0_N())
+    if mf_size(lifted) == 3
+        ok = ok + 1
+
+    if bootstrap_tower(4) == 1
+        ok = ok + 1
+    if bootstrap_tower(8) == 1
+        ok = ok + 1
+
+    ok
+
+let simp_verify_t6() =
+    let mc = meta_compiler()
+    let mcs = meta_compile_self()
+    mf_equal(mc, mcs)
+
+let simp_verify_t7() =
+    let mc = meta_compiler()
+    let mc_poles = mf_poles(mc)
+    let mc_res = mf_residues(mc)
+    let n = mf_size(mc)
+    let has_observe = 0
+    let has_g0_fp = 0
+    let g0_fp = g0_fingerprint()
+    let i = 0
+    for i < n
+        if mc_poles[i] == OP_OBSERVE()
+            has_observe = 1
+        if mc_poles[i] == OP_OBSERVE()
+            if mc_res[i] == g0_fp
+                has_g0_fp = 1
+        i = i + 1
+    gf_mul(has_observe, has_g0_fp)
+
+let simp_verify_t8() =
+    let mc = meta_compiler()
+    let mc_poles = mf_poles(mc)
+    let n = mf_size(mc)
+    let has_meta = 0
+    let has_self = 0
+    let i = 0
+    for i < n
+        if mc_poles[i] == OP_META_OBSERVE()
+            has_meta = 1
+        if mc_poles[i] == OP_SELF_VERIFY()
+            has_self = 1
+        i = i + 1
+    gf_mul(has_meta, has_self)
+
+let simp_meta_galois_t6(sigma) =
+    let mc = meta_compiler()
+    let mutated = galois_mutate(mc, sigma)
+    let n1 = mf_size(mc)
+    let n2 = mf_size(mutated)
+    let result = 0
+    if n1 == n2
+        result = 1
+    result
+
+let simp_meta_homology() =
+    let mc = meta_compiler()
+    homology_compute(mc)
+
+let simp_kleene_uniqueness() =
+    let mc1 = meta_compiler()
+    let mc2 = meta_compile_self()
+    let fp1 = mf_fingerprint(mc1)
+    let fp2 = mf_fingerprint(mc2)
+    let result = 0
+    if fp1 == fp2
+        result = 1
+    result
+
+let bootstrap3_simplified_verify() =
+    let ok = 0
+
+    let mc = meta_compiler()
+    if mf_size(mc) == 6
+        ok = ok + 1
+
+    let t6 = simp_verify_t6()
+    let t7 = simp_verify_t7()
+    let t8 = simp_verify_t8()
+    if t6 == 1
+        ok = ok + 1
+    if t7 == 1
+        ok = ok + 1
+    if t8 == 1
+        ok = ok + 1
+    if t6 == 1
+        if t7 == 1
+            if t8 == 1
+                ok = ok + 1
+
+    if simp_meta_galois_t6(1) == 1
+        ok = ok + 1
+    if simp_meta_galois_t6(2) == 1
+        ok = ok + 1
+
+    let hom = simp_meta_homology()
+    if hom[0] == 6
+        ok = ok + 1
+
+    if simp_kleene_uniqueness() == 1
+        ok = ok + 1
+
+    let proj = project(mc)
+    if mf_size(proj) >= 1
+        ok = ok + 1
+    let lifted = lift(G0_POLES(), G0_RESIDUES(), G0_N())
+    if mf_size(lifted) == 3
+        ok = ok + 1
+
+    if bootstrap_tower(4) == 1
+        ok = ok + 1
+    if bootstrap_tower(8) == 1
+        ok = ok + 1
+    if bootstrap_tower(16) == 1
+        ok = ok + 1
+
+    if ast_to_op(AST_LITERAL()) == OP_OBSERVE()
+        ok = ok + 1
+    if ast_to_op(AST_CALL()) == OP_META_OBSERVE()
+        ok = ok + 1
+
+    let fI = combinator_I(mc)
+    if mf_equal(fI, mc) == 1
+        ok = ok + 1
+
+    ok
+
+let main() = bootstrap3_simplified_verify()

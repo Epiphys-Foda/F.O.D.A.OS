@@ -1,0 +1,37 @@
+import "ck.ψ"
+let bad = [0]
+
+let e_before = 100
+let e_after = 100
+let ez = e_after - e_before
+bad[0] = bad[0] + ck(ez, 0, 0)
+
+let p_before = 50
+let p_after = 50
+let pz = p_after - p_before
+bad[0] = bad[0] + ck(pz, 0, 0)
+
+let l_before = 30
+let l_after = 30
+let lz = l_after - l_before
+bad[0] = bad[0] + ck(lz, 0, 0)
+
+let q_before = 7
+let q_after = 7
+let qz = q_after - q_before
+bad[0] = bad[0] + ck(qz, 0, 0)
+
+if 1918 < 1916
+    bad[0] = bad[0] + 1
+if 1918 > 1920
+    bad[0] = bad[0] + 1
+if 1950 < 1948
+    bad[0] = bad[0] + 1
+if 1950 > 1952
+    bad[0] = bad[0] + 1
+if 1970 < 1968
+    bad[0] = bad[0] + 1
+if 1970 > 1972
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

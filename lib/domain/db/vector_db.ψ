@@ -1,0 +1,346 @@
+import "../domain_field.ψ"
+
+let vdb_point_new(id, vector, payload, ns, ts) =
+    [id, vector, payload, ns, ts]
+
+let vdb_id(p) = p[0]
+let vdb_vec(p) = p[1]
+let vdb_payload(p) = p[2]
+let vdb_ns(p) = p[3]
+let vdb_ts(p) = p[4]
+
+let vdb_dot(a, b) =
+    let sum = 0
+    let i = 0
+    let n = len(a)
+    for i < n
+        sum = sum + a[i] * b[i]
+        i = i + 1
+    sum
+
+let vdb_hamming(a, b) =
+    let dist = 0
+    let i = 0
+    let n = len(a)
+    for i < n
+        let diff = a[i] ^ b[i]
+        for diff != 0
+            dist = dist + 1
+            diff = diff & (diff - 1)
+        i = i + 1
+    dist
+
+let vdb_chebyshev(a, b) =
+    let max_diff = 0
+    let i = 0
+    let n = len(a)
+    for i < n
+        let d = a[i] - b[i]
+        if d < 0
+            d = -d
+        if d > max_diff
+            max_diff = d
+        i = i + 1
+    max_diff
+
+let VDB_METRIC_DOT = 0
+let VDB_METRIC_HAMMING = 1
+let VDB_METRIC_CHEBYSHEV = 2
+
+let vdb_distance(metric, a, b) =
+    if metric == VDB_METRIC_DOT
+        vdb_dot(a, b)
+    else
+        0
+    if metric == VDB_METRIC_HAMMING
+        vdb_hamming(a, b)
+    else
+        0
+    if metric == VDB_METRIC_CHEBYSHEV
+        vdb_chebyshev(a, b)
+    else
+        0
+
+let vdb_hnsw_new(metric) =
+    [{}, [], {}, 16, 16, 16, 0, 0, metric, 1]
+
+let h_points(h) = h[0]
+let h_layers(h) = h[1]
+let h_neighbors(h) = h[2]
+let h_ef_c(h) = h[3]
+let h_ef_s(h) = h[4]
+let h_max_nb(h) = h[5]
+let h_max_layer(h) = h[6]
+let h_entry(h) = h[7]
+let h_metric(h) = h[8]
+let h_next_id(h) = h[9]
+
+let h_set_points(h, v) = [v, h[1], h[2], h[3], h[4], h[5], h[6], h[7], h[8], h[9]]
+let h_set_layers(h, v) = [h[0], v, h[2], h[3], h[4], h[5], h[6], h[7], h[8], h[9]]
+let h_set_neighbors(h, v) = [h[0], h[1], v, h[3], h[4], h[5], h[6], h[7], h[8], h[9]]
+let h_set_max_layer(h, v) = [h[0], h[1], h[2], h[3], h[4], h[5], v, h[7], h[8], h[9]]
+let h_set_entry(h, v) = [h[0], h[1], h[2], h[3], h[4], h[5], h[6], v, h[8], h[9]]
+let h_set_next_id(h, v) = [h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7], h[8], v]
+
+let vdb_select_level(id, max_layer) =
+    let level = 0
+    let h = id * 65537 + 1
+    for h % 2 == 0
+        level = level + 1
+        h = h / 2
+        if level >= max_layer
+            level = max_layer
+            h = 1
+    level
+
+let vdb_insert(h, vector, payload, ns, ts) =
+    let id = h_next_id(h)
+    h = h_set_next_id(h, id + 1)
+    let point = vdb_point_new(id, vector, payload, ns, ts)
+    let points = h_points(h)
+    points[id] = point
+    h = h_set_points(h, points)
+    let level = vdb_select_level(id, 16)
+    if level > h_max_layer(h)
+        h = h_set_max_layer(h, level)
+        h = h_set_entry(h, id)
+    let layers = h_layers(h)
+    for len(layers) <= level
+        layers.push([])
+    let i = 0
+    for i <= level
+        layers[i].push(id)
+        i = i + 1
+    h = h_set_layers(h, layers)
+    let neighbors = h_neighbors(h)
+    let nb_entry = {}
+    neighbors[id] = nb_entry
+    i = 0
+    for i <= level
+        let same_layer = layers[i]
+        let n = len(same_layer)
+        let added = 0
+        let j = 0
+        let cand = []
+        for j < n
+            let other = same_layer[j]
+            if other != id
+                cand.push(other)
+                added = added + 1
+            j = j + 1
+        nb_entry[i] = cand
+        j = 0
+        for j < len(cand)
+            let other = cand[j]
+            let other_nb = neighbors[other]
+            if other_nb == 0
+                other_nb = {}
+                neighbors[other] = other_nb
+            let other_layer = other_nb[i]
+            if other_layer == 0
+                other_layer = []
+                other_nb[i] = other_layer
+            other_layer.push(id)
+            j = j + 1
+        i = i + 1
+    h = h_set_neighbors(h, neighbors)
+    [h, id]
+
+let vdb_search_knn(h, query, k, ns_filter) =
+    let points = h_points(h)
+    if len(keys_of(points)) == 0
+        []
+    else
+        let metric = h_metric(h)
+        let entry = h_entry(h)
+        let all_pts = h_layers(h)[0]
+        let scored = []
+        let i = 0
+        let n = len(all_pts)
+        for i < n
+            let pid = all_pts[i]
+            let p = points[pid]
+            if p != 0
+                let ok = 1
+                if ns_filter != 0
+                    if vdb_ns(p) != ns_filter
+                        ok = 0
+                if ok == 1
+                    let dist = vdb_distance(metric, query, vdb_vec(p))
+                    scored.push([dist, pid])
+            i = i + 1
+        let result = []
+        let j = 0
+        for j < k && j < len(scored)
+            let min_idx = j
+            let m = j + 1
+            for m < len(scored)
+                if scored[m][0] < scored[min_idx][0]
+                    min_idx = m
+                m = m + 1
+            let tmp = scored[j]
+            scored[j] = scored[min_idx]
+            scored[min_idx] = tmp
+            result.push([scored[j][1], scored[j][0]])
+            j = j + 1
+        result
+
+let vdb_create_ns(h, name) =
+    h
+
+let vdb_count_ns(h, name) =
+    let points = h_points(h)
+    let keys = keys_of(points)
+    let count = 0
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let p = points[keys[i]]
+        if vdb_ns(p) == name
+            count = count + 1
+        i = i + 1
+    count
+
+let vdb_delete_ns(h, name) =
+    let points = h_points(h)
+    let keys = keys_of(points)
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let k = keys[i]
+        let p = points[k]
+        if vdb_ns(p) == name
+            points[k] = 0
+        i = i + 1
+    h = h_set_points(h, points)
+    h
+
+let vdb_match_payload(p, filter) =
+    if filter == 0
+        1
+    else
+        let keys = keys_of(filter)
+        let i = 0
+        let n = len(keys)
+        let ok = 1
+        for i < n
+            let k = keys[i]
+            let expected = filter[k]
+            let actual = vdb_payload(p)[k]
+            if actual != expected
+                ok = 0
+            i = i + 1
+        ok
+
+let vdb_search_filtered(h, query, k, ns_filter, payload_filter) =
+    let points = h_points(h)
+    let metric = h_metric(h)
+    let scored = []
+    let keys = keys_of(points)
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let pid = keys[i]
+        let p = points[pid]
+        if p != 0
+            let ok = 1
+            if ns_filter != 0 && vdb_ns(p) != ns_filter
+                ok = 0
+            if ok == 1 && payload_filter != 0
+                if vdb_match_payload(p, payload_filter) == 0
+                    ok = 0
+            if ok == 1
+                let dist = vdb_distance(metric, query, vdb_vec(p))
+                scored.push([dist, pid])
+        i = i + 1
+    let result = []
+    let j = 0
+    for j < k && j < len(scored)
+        let min_idx = j
+        let m = j + 1
+        for m < len(scored)
+            if scored[m][0] < scored[min_idx][0]
+                min_idx = m
+            m = m + 1
+        let tmp = scored[j]
+        scored[j] = scored[min_idx]
+        scored[min_idx] = tmp
+        result.push([scored[j][1], scored[j][0]])
+        j = j + 1
+    result
+
+let vdb_test_basic() =
+    let h = vdb_hnsw_new(VDB_METRIC_DOT)
+    let ok1 = 1
+    if h_next_id(h) != 1
+        ok1 = 0
+    if h_entry(h) != 0
+        ok1 = 0
+
+    let r1 = vdb_insert(h, [1, 2, 3], {label: "a"}, "ns1", 100)
+    h = r1[0]
+    let id1 = r1[1]
+    let r2 = vdb_insert(h, [4, 5, 6], {label: "b"}, "ns1", 200)
+    h = r2[0]
+    let id2 = r2[1]
+    let r3 = vdb_insert(h, [2, 3, 4], {label: "a"}, "ns2", 300)
+    h = r3[0]
+    let id3 = r3[1]
+
+    let ok2 = 1
+    if id1 != 1
+        ok2 = 0
+    if id2 != 2
+        ok2 = 0
+    if id3 != 3
+        ok2 = 0
+
+    let knn = vdb_search_knn(h, [1, 2, 3], 2, 0)
+    let ok3 = 1
+    if len(knn) != 2
+        ok3 = 0
+    else
+        0
+    if knn[0][0] != 1
+        ok3 = 0
+
+    let knn_ns1 = vdb_search_knn(h, [1, 2, 3], 10, "ns1")
+    let ok4 = 1
+    if len(knn_ns1) != 2
+        ok4 = 0
+
+    let knn_ns2 = vdb_search_knn(h, [1, 2, 3], 10, "ns2")
+    let ok5 = 1
+    if len(knn_ns2) != 1
+        ok5 = 0
+
+    let ok6 = 1
+    if vdb_count_ns(h, "ns1") != 2
+        ok6 = 0
+    if vdb_count_ns(h, "ns2") != 1
+        ok6 = 0
+
+    let ok7 = 1
+    if vdb_dot([1, 2, 3], [4, 5, 6]) != 32
+        ok7 = 0
+    if vdb_hamming([1, 2], [1, 3]) != 1
+        ok7 = 0
+    if vdb_chebyshev([1, 2, 3], [4, 5, 6]) != 3
+        ok7 = 0
+
+    let filtered = vdb_search_filtered(h, [1, 2, 3], 10, 0, {label: "a"})
+    let ok8 = 1
+    if len(filtered) != 2
+        ok8 = 0
+
+    ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7 * ok8
+
+let vdb_test_self() =
+        let ok = vdb_test_basic()
+        if ok == 1
+            print("vector_db: ALL PASS")
+        else
+            print("vector_db: FAIL")
+        ok
+
+    vdb_test_self()

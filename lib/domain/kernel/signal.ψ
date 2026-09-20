@@ -1,0 +1,418 @@
+let SIG_HUP    = 1
+let SIG_INT    = 2
+let SIG_QUIT   = 3
+let SIG_KILL   = 9
+let SIG_ALRM   = 14
+let SIG_TERM   = 15
+let SIG_CHLD   = 17
+let SIG_USR1   = 10
+let SIG_USR2   = 12
+let SIG_STOP   = 19
+let SIG_RTMIN  = 32
+let SIG_RTMAX  = 63
+
+let sig_default_action(num) =
+    if num == SIG_HUP
+        0
+    else
+        0
+    if num == SIG_INT
+        0
+    else
+        0
+    if num == SIG_QUIT
+        2
+    else
+        0
+    if num == SIG_KILL
+        0
+    else
+        0
+    if num == SIG_ALRM
+        0
+    else
+        0
+    if num == SIG_TERM
+        0
+    else
+        0
+    if num == SIG_CHLD
+        1
+    else
+        0
+    if num == SIG_USR1
+        0
+    else
+        0
+    if num == SIG_USR2
+        0
+    else
+        0
+    if num == SIG_STOP
+        3
+    else
+        0
+
+let sig_catchable(num) =
+    if num == SIG_KILL
+        0
+    else
+        0
+    if num == SIG_STOP
+        0
+    else
+        1
+
+let sig_name(num) =
+    if num == SIG_HUP
+        "HUP"
+    else
+        0
+    if num == SIG_INT
+        "INT"
+    else
+        0
+    if num == SIG_QUIT
+        "QUIT"
+    else
+        0
+    if num == SIG_KILL
+        "KILL"
+    else
+        0
+    if num == SIG_ALRM
+        "ALRM"
+    else
+        0
+    if num == SIG_TERM
+        "TERM"
+    else
+        0
+    if num == SIG_CHLD
+        "CHLD"
+    else
+        0
+    if num == SIG_USR1
+        "USR1"
+    else
+        0
+    if num == SIG_USR2
+        "USR2"
+    else
+        0
+    if num == SIG_STOP
+        "STOP"
+    else
+        "RT"
+
+let sig_handler_new(num) =
+    [num, "default", {restart: 0, nodefer: 0}, 0]
+
+let sh_num(h) = h[0]
+let sh_action(h) = h[1]
+let sh_flags(h) = h[2]
+
+let sh_set_action(h, action) =
+    h[1] = action
+    h[3] = 1
+    h
+
+let sh_set_restart(h, v) =
+    let f = sh_flags(h)
+    f["restart"] = v
+    h[2] = f
+    h
+
+let sigset_new() =
+    [0, 0]
+
+let sigset_add(set, num) =
+    let word = num / 64
+    let bit = num - word * 64
+    if word == 0
+        let v = set[0]
+        let mask = 1
+        let i = 0
+        for i < bit
+            mask = mask * 2
+            i = i + 1
+        set[0] = v + mask
+    else
+        if word == 1
+            let v = set[1]
+            let mask = 1
+            let i = 0
+            for i < bit
+                mask = mask * 2
+                i = i + 1
+            set[1] = v + mask
+    set
+
+let sigset_remove(set, num) =
+    let word = num / 64
+    let bit = num - word * 64
+    if word == 0
+        let v = set[0]
+        let mask = 1
+        let i = 0
+        for i < bit
+            mask = mask * 2
+            i = i + 1
+        let not_mask = 0 - 1 - mask
+        set[0] = v - (v / mask - (v / mask / 2) * 2) * mask
+    else
+        if word == 1
+            let v = set[1]
+            let mask = 1
+            let i = 0
+            for i < bit
+                mask = mask * 2
+                i = i + 1
+            set[1] = v - (v / mask - (v / mask / 2) * 2) * mask
+    set
+
+let sigset_member(set, num) =
+    let word = num / 64
+    let bit = num - word * 64
+    let v = 0
+    if word == 0
+        v = set[0]
+    else
+        if word == 1
+            v = set[1]
+    let mask = 1
+    let i = 0
+    for i < bit
+        mask = mask * 2
+        i = i + 1
+    if v / mask - (v / mask / 2) * 2 == 1
+        1
+    else
+        0
+
+let sigset_isempty(set) =
+    if set[0] == 0
+        if set[1] == 0
+            1
+        else
+            0
+    else
+        0
+
+let sig_pending_new() =
+    [[], {}, sigset_new()]
+
+let spq_queue(p) = p[0]
+let spq_handlers(p) = p[1]
+let spq_mask(p) = p[2]
+
+let spq_register(p, num, action) =
+    if sig_catchable(num) == 1
+        let h = sig_handler_new(num)
+        h = sh_set_action(h, action)
+        let hs = spq_handlers(p)
+        hs[num] = h
+        p[1] = hs
+    p
+
+let spq_block(p, num) =
+    if sig_catchable(num) == 1
+        let mask = spq_mask(p)
+        mask = sigset_add(mask, num)
+        p[2] = mask
+    p
+
+let spq_unblock(p, num) =
+    let mask = spq_mask(p)
+    mask = sigset_remove(mask, num)
+    p[2] = mask
+    p
+
+let spq_send(p, num) =
+    let mask = spq_mask(p)
+    if sigset_member(mask, num) == 1
+        if num == SIG_KILL
+            let q = spq_queue(p)
+            q.push(num)
+            p[0] = q
+        else
+            let q = spq_queue(p)
+            q.push(num)
+            p[0] = q
+    else
+        let q = spq_queue(p)
+        q.push(num)
+        p[0] = q
+    p
+
+let spq_deliver_one(p) =
+    let q = spq_queue(p)
+    let n = len(q)
+    let i = 0
+    let delivered = 0
+    let leftover = []
+    for i < n
+        let num = q[i]
+        let mask = spq_mask(p)
+        if delivered == 0
+            if sigset_member(mask, num) == 0
+                delivered = num
+            else
+                leftover.push(num)
+        else
+            leftover.push(num)
+        i = i + 1
+    p[0] = leftover
+    if delivered == 0
+        0
+    else
+        let hs = spq_handlers(p)
+        let h = hs[delivered]
+        let action = "default"
+        if h != 0
+            action = sh_action(h)
+        [delivered, action]
+
+let spq_deliver_all(p) =
+    let deliveries = []
+    let loop = 1
+    for loop == 1
+        let d = spq_deliver_one(p)
+        if d == 0
+            loop = 0
+        else
+            deliveries.push(d)
+    deliveries
+
+let alarm_new(pid, deadline) =
+    [pid, deadline, "default", 1]
+
+let alarm_pid(a) = a[0]
+let alarm_deadline(a) = a[1]
+let alarm_active(a) = a[3]
+
+let alarm_set_callback(a, cb) =
+    a[2] = cb
+    a
+
+let alarm_cancel(a) =
+    a[3] = 0
+    a
+
+let alarm_fire(p, a, current_tick) =
+    if alarm_active(a) == 1
+        if current_tick >= alarm_deadline(a)
+            spq_send(p, SIG_ALRM)
+            a[3] = 0
+    a
+
+let signal_verify() =
+    let ok1 = 1
+    if sig_default_action(SIG_HUP) != 0
+        ok1 = 0
+    if sig_default_action(SIG_CHLD) != 1
+        ok1 = 0
+    if sig_default_action(SIG_QUIT) != 2
+        ok1 = 0
+    if sig_default_action(SIG_STOP) != 3
+        ok1 = 0
+    if sig_catchable(SIG_KILL) != 0
+        ok1 = 0
+    if sig_catchable(SIG_INT) != 1
+        ok1 = 0
+
+    let ok2 = 1
+    if sig_name(SIG_TERM) != "TERM"
+        ok2 = 0
+    if sig_name(SIG_USR1) != "USR1"
+        ok2 = 0
+
+    let ok3 = 1
+    let s = sigset_new()
+    if sigset_isempty(s) != 1
+        ok3 = 0
+    s = sigset_add(s, SIG_INT)
+    s = sigset_add(s, SIG_TERM)
+    if sigset_member(s, SIG_INT) != 1
+        ok3 = 0
+    if sigset_member(s, SIG_TERM) != 1
+        ok3 = 0
+    if sigset_member(s, SIG_USR1) != 0
+        ok3 = 0
+    s = sigset_remove(s, SIG_INT)
+    if sigset_member(s, SIG_INT) != 0
+        ok3 = 0
+    if sigset_member(s, SIG_TERM) != 1
+        ok3 = 0
+
+    let ok4 = 1
+    let p = sig_pending_new()
+    p = spq_register(p, SIG_USR1, "my_handler")
+    p = spq_send(p, SIG_USR1)
+    let d = spq_deliver_one(p)
+    if d == 0
+        ok4 = 0
+    if d[0] != SIG_USR1
+        ok4 = 0
+    if d[1] != "my_handler"
+        ok4 = 0
+
+    let ok5 = 1
+    let p2 = sig_pending_new()
+    p2 = spq_block(p2, SIG_USR1)
+    p2 = spq_send(p2, SIG_USR1)
+    let d2 = spq_deliver_one(p2)
+    if d2 != 0
+        ok5 = 0
+    p2 = spq_unblock(p2, SIG_USR1)
+    let d3 = spq_deliver_one(p2)
+    if d3 == 0
+        ok5 = 0
+    if d3[0] != SIG_USR1
+        ok5 = 0
+
+    let ok6 = 1
+    let p3 = sig_pending_new()
+    p3 = spq_block(p3, SIG_KILL)
+    p3 = spq_send(p3, SIG_KILL)
+    let d4 = spq_deliver_one(p3)
+    if d4 == 0
+        ok6 = 0
+    if d4[0] != SIG_KILL
+        ok6 = 0
+
+    let ok7 = 1
+    let p4 = sig_pending_new()
+    p4 = spq_send(p4, SIG_USR1)
+    p4 = spq_send(p4, SIG_USR2)
+    let all = spq_deliver_all(p4)
+    if len(all) != 2
+        ok7 = 0
+
+    let ok8 = 1
+    let p5 = sig_pending_new()
+    let al = alarm_new(1, 100)
+    al = alarm_set_callback(al, "alarm_cb")
+    if alarm_active(al) != 1
+        ok8 = 0
+    let fired = alarm_fire(p5, al, 50)
+    if alarm_active(fired) != 1
+        ok8 = 0
+    let fired2 = alarm_fire(p5, al, 200)
+    if alarm_active(fired2) != 0
+        ok8 = 0
+
+    let all_ok = ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7 * ok8
+    if all_ok == 1
+        print("signal_verify: ALL 8 PASS")
+    else
+        print("signal_verify: FAIL")
+        print(ok1)
+        print(ok2)
+        print(ok3)
+        print(ok4)
+        print(ok5)
+        print(ok6)
+        print(ok7)
+        print(ok8)
+    all_ok

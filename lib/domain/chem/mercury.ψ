@@ -1,0 +1,32 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+let e8 = 100000000
+let e11 = e8 * 1000
+
+let NUM1 = 1884956 * 132712
+let DENM = 299792 * 299792 * 5791 * 9577
+
+let per10 = small_div(NUM1 * e11, DENM)
+bad[0] = bad[0] + ck(per10, 4900, 5150)
+
+let N4 = small_div(36525 * 1000, 87969)
+bad[0] = bad[0] + ck(N4, 410, 420)
+
+let NUM2 = NUM1 * N4 * 206265
+let tot = small_div(NUM2 * 10, DENM)
+if 40 * DENM > NUM2 * 10
+    bad[0] = bad[0] + 1
+if NUM2 * 10 > 46 * DENM
+    bad[0] = bad[0] + 1
+
+if 520 > 531
+    bad[0] = bad[0] + 1
+if 531 > 540
+    bad[0] = bad[0] + 1
+
+let sumAS = 531 + tot
+bad[0] = bad[0] + ck(sumAS, 570, 578)
+
+arr_get(arr_new_n(1), bad[0])

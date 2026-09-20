@@ -1,0 +1,6 @@
+import "../../core/stdlib/gf65537.ψ"
+
+let my_test() =
+    let a = gf_add(3, 5)
+    let b = gf_mul(3, 5)
+    gf_add(a, b)

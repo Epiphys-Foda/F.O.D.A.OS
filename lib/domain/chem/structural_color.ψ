@@ -1,0 +1,31 @@
+import "ck.ψ"
+let bad = [0]
+
+let n14 = 14
+let d16 = 16
+let lam2 = 2 * n14 * d16 / 10
+bad[0] = bad[0] + ck(lam2, 42, 48)
+
+let irid = 1
+bad[0] = bad[0] + ck_lo(irid, 1)
+
+let angfix = 0
+bad[0] = bad[0] + ck(angfix, 0, 0)
+
+let fossil = 1
+bad[0] = bad[0] + ck_lo(fossil, 1)
+
+if 1665 < 1663
+    bad[0] = bad[0] + 1
+if 1665 > 1667
+    bad[0] = bad[0] + 1
+if 2000 < 1998
+    bad[0] = bad[0] + 1
+if 2000 > 2002
+    bad[0] = bad[0] + 1
+if 2010 < 2008
+    bad[0] = bad[0] + 1
+if 2010 > 2012
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

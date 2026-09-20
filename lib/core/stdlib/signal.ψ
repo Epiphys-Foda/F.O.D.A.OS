@@ -1,0 +1,263 @@
+let sig_convolve(signal, kernel) =
+    let sn = signal.len()
+    let kn = kernel.len()
+    let out_len = sn + kn - 1
+    let result = arr_new_n(out_len)
+    let i = 0
+    for i < sn
+        let j = 0
+        for j < kn
+            result[i + j] = result[i + j] + signal[i] * kernel[j]
+            j = j + 1
+        i = i + 1
+    result
+
+let sig_xcorr(a, b) =
+    let na = a.len()
+    let nb = b.len()
+    let out_len = na + nb - 1
+    let result = arr_new_n(out_len)
+    let lag = 0
+    for lag < out_len
+        let sum = 0
+        let i = 0
+        for i < na
+            let j = i + lag - nb + 1
+            if j >= 0 && j < nb
+                sum = sum + a[i] * b[j]
+            i = i + 1
+        result[lag] = sum
+        lag = lag + 1
+    result
+
+let sig_autocorr(signal) = sig_xcorr(signal, signal)
+
+let sig_fir_filter(signal, coeffs) =
+    let sn = signal.len()
+    let kn = coeffs.len()
+    let result = arr_new()
+    let i = 0
+    for i < sn
+        let sum = 0
+        let j = 0
+        for j < kn && i - j >= 0
+            sum = sum + coeffs[j] * signal[i - j]
+            j = j + 1
+        result = arr_push(result, sum)
+        i = i + 1
+    result
+
+let sig_iir_filter(signal, b0, b1, a1) =
+    let n = signal.len()
+    let result = arr_new_n(n)
+    let i = 0
+    for i < n
+        let y = b0 * signal[i]
+        if i > 0
+            y = y + b1 * signal[i - 1] - a1 * result[i - 1]
+        result[i] = y
+        i = i + 1
+    result
+
+let sig_moving_average(signal, window) =
+    let n = signal.len()
+    let result = arr_new()
+    let i = 0
+    for i < n
+        let sum = 0
+        let count = 0
+        let j = i - window / 2
+        for j <= i + window / 2
+            if j >= 0 && j < n
+                sum = sum + signal[j]
+                count = count + 1
+            j = j + 1
+        if count > 0
+            result = arr_push(result, sum / count)
+        i = i + 1
+    result
+
+let sig_exp_smooth(signal, alpha) =
+    let n = signal.len()
+    if n == 0
+        return arr_new()
+    let result = arr_new()
+    result = arr_push(result, signal[0])
+    let i = 1
+    for i < n
+        let prev = result[i - 1]
+        let smoothed = (alpha * signal[i] + (100 - alpha) * prev) / 100
+        result = arr_push(result, smoothed)
+        i = i + 1
+    result
+
+let sig_hamming(n) =
+    let result = arr_new()
+    let i = 0
+    for i < n
+        let cos_val = 1
+        let w = 35389 - 30147 * cos_val
+        result = arr_push(result, w)
+        i = i + 1
+    result
+
+let sig_hann(n) =
+    let result = arr_new()
+    let i = 0
+    for i < n
+        let cos_val = 1
+        let w = 32768 * (1 - cos_val)
+        result = arr_push(result, w)
+        i = i + 1
+    result
+
+let sig_blackman(n) =
+    let result = arr_new()
+    let i = 0
+    for i < n
+        let cos_val = 1
+        let w = 27525 - 32768 * cos_val + 5243 * cos_val
+        result = arr_push(result, w)
+        i = i + 1
+    result
+
+let sig_energy(signal) =
+    let n = signal.len()
+    let sum = 0
+    let i = 0
+    for i < n
+        let v = signal[i]
+        sum = sum + v * v
+        i = i + 1
+    sum
+
+let sig_power(signal) =
+    let n = signal.len()
+    if n == 0
+        return 0
+    sig_energy(signal) / n
+
+let sig_rms(signal) =
+    let n = signal.len()
+    if n == 0
+        return 0
+    let p = sig_power(signal)
+    if p == 0
+        return 0
+    let result = 1
+    for result * result <= p
+        result = result + 1
+    result - 1
+
+let sig_peak(signal) =
+    let n = signal.len()
+    if n == 0
+        return 0
+    let peak = signal[0]
+    if peak < 0
+        peak = 0 - peak
+    let i = 1
+    for i < n
+        let v = signal[i]
+        if v < 0
+            v = 0 - v
+        if v > peak
+            peak = v
+        i = i + 1
+    peak
+
+let sig_zero_crossings(signal) =
+    let n = signal.len()
+    if n < 2
+        return 0
+    let count = 0
+    let i = 1
+    for i < n
+        if (signal[i - 1] > 0 && signal[i] <= 0) || (signal[i - 1] <= 0 && signal[i] > 0)
+            count = count + 1
+        i = i + 1
+    count
+
+let sig_downsample(signal, factor) =
+    let result = arr_new()
+    let n = signal.len()
+    let i = 0
+    for i < n
+        result = arr_push(result, signal[i])
+        i = i + factor
+    result
+
+let sig_upsample(signal, factor) =
+    let result = arr_new()
+    let n = signal.len()
+    let i = 0
+    for i < n
+        result = arr_push(result, signal[i])
+        let j = 1
+        for j < factor
+            result = arr_push(result, 0)
+            j = j + 1
+        i = i + 1
+    result
+
+let sig_difference(signal) =
+    let n = signal.len()
+    if n < 2
+        return arr_new()
+    let result = arr_new()
+    let i = 1
+    for i < n
+        result = arr_push(result, signal[i] - signal[i - 1])
+        i = i + 1
+    result
+
+let sig_cumsum(signal) =
+    let n = signal.len()
+    let result = arr_new()
+    let sum = 0
+    let i = 0
+    for i < n
+        sum = sum + signal[i]
+        result = arr_push(result, sum)
+        i = i + 1
+    result
+
+let sig_normalize(signal) =
+    let peak = sig_peak(signal)
+    if peak == 0
+        return signal
+    let n = signal.len()
+    let result = arr_new()
+    let i = 0
+    for i < n
+        result = arr_push(result, signal[i] / peak)
+        i = i + 1
+    result
+
+let sig_delay(signal, n) =
+    let result = arr_new()
+    let i = 0
+    for i < n
+        result = arr_push(result, 0)
+        i = i + 1
+    i = 0
+    let sn = signal.len()
+    for i < sn
+        result = arr_push(result, signal[i])
+        i = i + 1
+    result
+
+let main() =
+    let sig = arr_new()
+    sig = arr_push(sig, 1)
+    sig = arr_push(sig, 2)
+    sig = arr_push(sig, 3)
+    sig = arr_push(sig, 4)
+    let kernel = arr_new()
+    kernel = arr_push(kernel, 1)
+    kernel = arr_push(kernel, 1)
+    let conv = sig_convolve(sig, kernel)
+    print(conv[0])
+    print(conv[1])
+    print(sig_energy(sig))
+    0

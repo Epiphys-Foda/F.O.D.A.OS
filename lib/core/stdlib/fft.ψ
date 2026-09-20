@@ -1,0 +1,173 @@
+import "gf65537.ψ"
+
+let _fft_pow(base, exp, acc) =
+    if exp == 0
+      acc
+    else
+        0
+    if (exp & 1) == 1
+      _fft_pow(gfmul(base, base), exp >> 1, gfmul(acc, base))
+    else
+      _fft_pow(gfmul(base, base), exp >> 1, acc)
+let fft_root(n) = _fft_pow(3, 65536 / n, 1)
+
+let _ntt_inner(x, n, w, k, j, acc) =
+      if j >= n
+        acc
+      else
+        let wjk = _fft_pow(w, j * k, 1)
+        let term = gfmul(x[j], wjk)
+        _ntt_inner(x, n, w, k, j + 1, (acc + term) % 65537)
+let _ntt_outer(x, n, w, k, X) =
+      if k >= n
+        X
+      else
+        X[k] = _ntt_inner(x, n, w, k, 0, 0)
+        _ntt_outer(x, n, w, k + 1, X)
+let ntt(x, n) =
+    let w = fft_root(n)
+    let X = arr_new_n(n)
+    _ntt_outer(x, n, w, 0, X)
+    X
+
+let ntt_into(x, n, out) =
+    let X = ntt(x, n)
+    let _cp = _fft_copy_to(X, out, n, 0)
+let _fft_copy_to(src, dst, n, i) =
+    if i >= n
+      dst
+    else
+      dst[i] = src[i]
+      _fft_copy_to(src, dst, n, i + 1)
+let intt_into(X, n, out) =
+    let x = intt(X, n)
+    let _cp = _fft_copy_to(x, out, n, 0)
+
+let _intt_inner(X, n, w_inv, j, k, acc) =
+      if k >= n
+        acc
+      else
+        let wjk = _fft_pow(w_inv, j * k, 1)
+        let term = gfmul(X[k], wjk)
+        _intt_inner(X, n, w_inv, j, k + 1, (acc + term) % 65537)
+let _intt_outer(X, n, w_inv, n_inv, j, x) =
+      if j >= n
+        x
+      else
+        x[j] = gfmul(n_inv, _intt_inner(X, n, w_inv, j, 0, 0))
+        _intt_outer(X, n, w_inv, n_inv, j + 1, x)
+let intt(X, n) =
+    let w = fft_root(n)
+    let w_inv = gfinv(w)
+    let n_inv = gfinv(n)
+    let x = arr_new_n(n)
+    _intt_outer(X, n, w_inv, n_inv, 0, x)
+    x
+
+let cyclic_convolve(a, b, n) =
+    let A = ntt(a, n)
+    let B = ntt(b, n)
+    let C = arr_new_n(n)
+    _convolve_pointwise(A, B, C, n, 0)
+    intt(C, n)
+let _convolve_pointwise(A, B, C, n, i) =
+      if i >= n
+        C
+      else
+        C[i] = gfmul(A[i], B[i])
+        _convolve_pointwise(A, B, C, n, i + 1)
+
+let _ntt_with_w_inner(x, n, w, k, j, acc) =
+    if j >= n
+      acc
+    else
+      let wjk = _fft_pow(w, j * k, 1)
+      let term = gfmul(x[j], wjk)
+      _ntt_with_w_inner(x, n, w, k, j + 1, (acc + term) % 65537)
+let _ntt_with_w_outer(x, n, w, k, X) =
+    if k >= n
+      X
+    else
+      X[k] = _ntt_with_w_inner(x, n, w, k, 0, 0)
+      _ntt_with_w_outer(x, n, w, k + 1, X)
+let ntt_with_w(x, n, w) =
+    let X = arr_new_n(n)
+    _ntt_with_w_outer(x, n, w, 0, X)
+    X
+
+let ntt_transform(x) = ntt(x, arr_len(x))
+let intt_transform(X) = intt(X, arr_len(X))
+
+let _bit_reverse(x, n) =
+    let result = arr_new_n(n)
+    _bit_rev_copy(x, result, n, 0)
+    result
+let _bit_rev_copy(src, dst, n, i) =
+    if i >= n
+      dst
+    else
+      dst[i] = src[_rev_bits(i, n)]
+      _bit_rev_copy(src, dst, n, i + 1)
+let _rev_bits(i, n) = _rev_acc(i, n >> 1, 0, n >> 1)
+let _rev_acc(i, n, rev, bits) =
+    if bits == 0
+      rev
+    else
+      let new_rev = (rev << 1) | (i & 1)
+      _rev_acc(i >> 1, n >> 1, new_rev, bits >> 1)
+let ntt_butterfly(a, invert) =
+    let n = arr_len(a)
+    let x = _bit_reverse(a, n)
+    _ntt_butterfly_stages(x, n, 1, invert)
+    if invert == 1
+      _ntt_butterfly_scale_inv(x, n, 0)
+      x
+    else
+      x
+let _ntt_butterfly_stages(x, n, len, invert) =
+    if len > n
+      x
+    else
+      let wlen = _fft_pow(3, 65536 / len, 1)
+      let wlen_final = (invert == 1 ? gfinv(wlen) : wlen)
+      _ntt_butterfly_one_stage(x, n, len, wlen_final, 0)
+      _ntt_butterfly_stages(x, n, len * 2, invert)
+let _ntt_butterfly_one_stage(x, n, len, wlen, i2) =
+    if i2 >= n
+      x
+    else
+      _ntt_butterfly_inner(x, n, len, wlen, i2, 1, 0)
+      _ntt_butterfly_one_stage(x, n, len, wlen, i2 + len * 2)
+let _ntt_butterfly_inner(x, n, len, wlen, i2, w, j2) =
+    if j2 >= len / 2
+      x
+    else
+      let u = x[i2 + j2]
+      let v = gfmul(w, x[i2 + j2 + len / 2])
+      x[i2 + j2] = gfadd(u, v)
+      x[i2 + j2 + len / 2] = gfsub(u, v)
+      let new_w = gfmul(w, wlen)
+      _ntt_butterfly_inner(x, n, len, wlen, i2, new_w, j2 + 1)
+let _ntt_butterfly_scale_inv(x, n, i) =
+    if i >= n
+      x
+    else
+      let n_inv = gfinv(n)
+      x[i] = gfmul(x[i], n_inv)
+      _ntt_butterfly_scale_inv(x, n, i + 1)
+
+let test_fft() =
+    let w = fft_root(4)
+    assert_eq(_fft_pow(w, 4, 1), 1)
+    let x = arr_new_n(4)
+    x[0] = 1
+    x[1] = 2
+    x[2] = 3
+    x[3] = 4
+    let X = ntt(x, 4)
+    let x_rec = intt(X, 4)
+    assert_eq(x_rec[0], 1)
+    assert_eq(x_rec[1], 2)
+    assert_eq(x_rec[2], 3)
+    assert_eq(x_rec[3], 4)
+    0

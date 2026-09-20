@@ -1,0 +1,81 @@
+let kalman_predict(state, cov, F, Q) =
+    let new_state = F * state / 1000
+    let new_cov = F * cov * F / 1000000 + Q
+    [new_state, new_cov]
+
+let kalman_update(state, cov, measurement, H, R) =
+    let S = H * cov * H / 1000000 + R
+    let K = cov * H / S
+    let innovation = measurement - H * state / 1000
+    let new_state = state + K * innovation / 1000
+    let new_cov = (1000 - K * H / 1000) * cov / 1000
+    [new_state, new_cov]
+
+let kalman_step(state, cov, measurement, F, H, Q, R) =
+    let predicted = kalman_predict(state, cov, F, Q)
+    kalman_update(predicted[0], predicted[1], measurement, H, R)
+
+let kalman_filter(measurements, initial_state, initial_cov, F, H, Q, R) =
+    let state = initial_state
+    let cov = initial_cov
+    let estimates = []
+    let i = 0
+    for i < measurements.len()
+        let result = kalman_step(state, cov, measurements[i], F, H, Q, R)
+        state = result[0]
+        cov = result[1]
+        estimates = arr_concat(estimates, [state])
+        i = i + 1
+    estimates
+
+let kalman_multivariate_step(state, cov, measurement, F, H, Q, R, n) =
+
+    let pred_state = []
+    let i = 0
+    for i < n
+        let sum = 0
+        let j = 0
+        for j < n
+            sum = sum + F[i * n + j] * state[j] / 1000
+            j = j + 1
+        pred_state = arr_concat(pred_state, [sum])
+        i = i + 1
+
+    if n == 1
+        kalman_step(state[0], cov[0], measurement[0], F[0], H[0], Q[0], R[0])
+    else
+        [pred_state, cov]
+
+let information_filter_step(info_state, info_cov, measurement, H, R) =
+    let new_info_cov = info_cov + H * H * 1000000 / R
+    let new_info_state = info_state + H * measurement * 1000 / R
+    [new_info_state, new_info_cov]
+
+let extended_kalman_step(state, cov, measurement, f, h, F_jacobian, H_jacobian, Q, R) =
+    let pred_state = f(state)
+    let pred_cov = F_jacobian * cov * F_jacobian / 1000000 + Q
+    let innovation = measurement - h(pred_state)
+    let S = H_jacobian * pred_cov * H_jacobian / 1000000 + R
+    let K = pred_cov * H_jacobian / S
+    let new_state = pred_state + K * innovation / 1000
+    let new_cov = (1000 - K * H_jacobian / 1000) * pred_cov / 1000
+    [new_state, new_cov]
+
+let smooth(estimates, covariances) =
+    let n = estimates.len()
+    let smoothed = []
+    let i = 0
+    for i < n
+        smoothed = arr_concat(smoothed, [estimates[i]])
+        i = i + 1
+    let i = n - 2
+    for i >= 0
+        smoothed[i] = (estimates[i] + smoothed[i + 1]) / 2
+        i = i - 1
+    smoothed
+
+let main() =
+    let measurements = [1005, 998, 1003, 1010, 995, 1002, 1007, 999, 1001, 1004]
+    let estimates = kalman_filter(measurements, 1000, 10000, 1000, 1000, 100, 1000)
+    print(estimates)
+    0

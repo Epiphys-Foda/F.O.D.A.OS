@@ -1,0 +1,253 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let APP_MAX_WINDOWS = 64
+let APP_MAX_TIMERS = 256
+let APP_MAX_ANIMATIONS = 128
+let APP_MAX_CALLBACKS = 512
+
+let INPUT_MOUSE_X = 0
+let INPUT_MOUSE_Y = 0
+let INPUT_MOUSE_BUTTON = 0
+let INPUT_KEY_CODE = 0
+let INPUT_KEY_MODS = 0
+
+let KEY_ENTER = 13
+let KEY_ESCAPE = 27
+let KEY_SPACE = 32
+let KEY_TAB = 9
+let KEY_BACKSPACE = 8
+let KEY_LEFT = 37
+let KEY_UP = 38
+let KEY_RIGHT = 39
+let KEY_DOWN = 40
+
+let MOUSE_LEFT = 1
+let MOUSE_RIGHT = 2
+let MOUSE_MIDDLE = 3
+
+let app_window_create(id, title, x, y, w, h) =
+    let fb_data = []
+    let i = 0
+    for i < gf_mul(w, h)
+        fb_data.push(0)
+        i = i + 1
+    let fb = [w, h, fb_data]
+    [id, title, x, y, w, h, fb, 0, 1, 0, id]
+let app_window_close(window) = [window[0], window[1], window[2], window[3], window[4], window[5], window[6], window[7], 0, window[9], window[10]]
+let app_window_focus(windows, id) =
+    let i = 0
+    let n = windows.length
+    for i < n
+        let w = windows[i]
+        if w[0] == id
+            windows[i] = [w[0], w[1], w[2], w[3], w[4], w[5], w[6], w[7], w[8], 1, w[10]]
+        else
+            let w2 = windows[i]
+            windows[i] = [w2[0], w2[1], w2[2], w2[3], w2[4], w2[5], w2[6], w2[7], w2[8], 0, w2[10]]
+        i = i + 1
+    windows
+let app_window_set_scene(window, scene_id) = [window[0], window[1], window[2], window[3], window[4], window[5], window[6], scene_id, window[8], window[9], window[10]]
+
+let EASING_LINEAR = 0
+let EASING_EASE_IN = 1
+let EASING_EASE_OUT = 2
+let EASING_EASE_IN_OUT = 3
+
+let anim_create(target_id, property, start_val, end_val, start_time, duration, easing) = [target_id, property, start_val, end_val, start_time, duration, easing, 1]
+let anim_evaluate(anim, current_time) =
+    if anim[7] == 0
+        anim[2]
+    let elapsed = gf_sub(current_time, anim[4])
+    if elapsed < 0
+        anim[2]
+    if elapsed >= anim[5]
+        anim[3]
+    let t = gf_div(elapsed, anim[5])
+    let easing = anim[6]
+    if easing == EASING_LINEAR
+        gf_add(anim[2], gf_mul(gf_sub(anim[3], anim[2]), t))
+    if easing == EASING_EASE_IN
+        gf_add(anim[2], gf_mul(gf_sub(anim[3], anim[2]), gf_mul(t, t)))
+    if easing == EASING_EASE_OUT
+        let inv_t = gf_sub(1, t)
+        gf_add(anim[2], gf_mul(gf_sub(anim[3], anim[2]), gf_sub(1, gf_mul(inv_t, inv_t))))
+    if easing == EASING_EASE_IN_OUT
+        let t2 = gf_mul(t, 2)
+        if t < 32769
+            gf_add(anim[2], gf_mul(gf_sub(anim[3], anim[2]), gf_div(gf_mul(t2, t2), 4)))
+        let inv_t2 = gf_sub(2, t2)
+        gf_add(anim[2], gf_mul(gf_sub(anim[3], anim[2]), gf_sub(1, gf_div(gf_mul(inv_t2, inv_t2), 4))))
+    gf_add(anim[2], gf_mul(gf_sub(anim[3], anim[2]), t))
+let anim_is_complete(anim, current_time) =
+    if anim[7] == 0
+        1
+    gf_sub(current_time, anim[4]) >= anim[5]
+let anim_stop(anim) = [anim[0], anim[1], anim[2], anim[3], anim[4], anim[5], anim[6], 0]
+
+let anim_manager_create() = []
+let anim_manager_add(manager, anim) =
+    manager.push(anim)
+    manager
+let anim_manager_update(manager, current_time) =
+    let active = []
+    let i = 0
+    let n = manager.length
+    for i < n
+        let anim = manager[i]
+        if anim_is_complete(anim, current_time) == 0
+            active.push(anim)
+        i = i + 1
+    active
+let anim_manager_eval_all(manager, current_time) =
+    let values = []
+    let i = 0
+    let n = manager.length
+    for i < n
+        let anim = manager[i]
+        values.push([anim[0], anim[1], anim_evaluate(anim, current_time)])
+        i = i + 1
+    values
+
+let timer_create(id, interval, callback_id, repeat) = [id, interval, 0, callback_id, 1, repeat]
+let timer_check(timer, current_time) =
+    if timer[4] == 0
+        0
+    let elapsed = gf_sub(current_time, timer[2])
+    if elapsed >= timer[1]
+        1
+    0
+let timer_fire(timer, current_time) =
+    if timer[5] == 1
+        [timer[0], timer[1], current_time, timer[3], 1, 1]
+    [timer[0], timer[1], current_time, timer[3], 0, timer[5]]
+let timer_stop(timer) = [timer[0], timer[1], timer[2], timer[3], 0, timer[5]]
+
+let timer_manager_create() = []
+let timer_manager_add(manager, timer) =
+    manager.push(timer)
+    manager
+let timer_manager_update(manager, current_time) =
+    let callbacks = []
+    let i = 0
+    let n = manager.length
+    for i < n
+        let timer = manager[i]
+        if timer_check(timer, current_time) == 1
+            callbacks.push(timer[3])
+            manager[i] = timer_fire(timer, current_time)
+        i = i + 1
+    [manager, callbacks]
+
+let input_create() = [0, 0, 0, 0, 0, 0, 0, 0]
+let input_set_mouse(input, x, y) =
+    let dx = gf_sub(x, input[0])
+    let dy = gf_sub(y, input[1])
+    [x, y, input[2], dx, dy, input[5], input[6], input[7]]
+let input_set_mouse_button(input, button) = [input[0], input[1], button, input[3], input[4], input[5], input[6], input[7]]
+let input_set_key(input, key, mods, pressed) = [input[0], input[1], input[2], input[3], input[4], key, mods, pressed]
+
+let scene_manager_create() = [[], 0, 0]
+let scene_manager_add(sm, scene_id) =
+    let scenes = sm[0]
+    scenes.push(scene_id)
+    [scenes, sm[1], sm[2]]
+let scene_manager_switch(sm, scene_id) = [sm[0], sm[1], scene_id]
+let scene_manager_update(sm) =
+    if sm[2] != 0
+        [sm[0], sm[2], 0]
+    sm
+
+let CALLBACK_EVENT = 1
+let CALLBACK_TIMER = 2
+let CALLBACK_ANIM = 3
+
+let callback_create(id, kind, target_id, handler_id) = [id, kind, target_id, handler_id]
+let callback_registry_create() = []
+let callback_register(registry, callback) =
+    registry.push(callback)
+    registry
+let callback_find(registry, kind, target_id) =
+    let i = 0
+    let n = registry.length
+    for i < n
+        let cb = registry[i]
+        if cb[1] == kind
+            if cb[2] == target_id
+                cb[3]
+        i = i + 1
+    0
+
+let app_create() = [[], input_create(), anim_manager_create(), timer_manager_create(), scene_manager_create(), callback_registry_create(), 1, 0]
+let app_add_window(app, window) =
+    let windows = app[0]
+    windows.push(window)
+    [windows, app[1], app[2], app[3], app[4], app[5], app[6], app[7]]
+let app_add_animation(app, anim) =
+    let am = app[2]
+    am = anim_manager_add(am, anim)
+    [app[0], app[1], am, app[3], app[4], app[5], app[6], app[7]]
+let app_add_timer(app, timer) =
+    let tm = app[3]
+    tm = timer_manager_add(tm, timer)
+    [app[0], app[1], app[2], tm, app[4], app[5], app[6], app[7]]
+let app_register_callback(app, callback) =
+    let cbs = app[5]
+    cbs = callback_register(cbs, callback)
+    [app[0], app[1], app[2], app[3], app[4], cbs, app[6], app[7]]
+let app_stop(app) = [app[0], app[1], app[2], app[3], app[4], app[5], 0, app[7]]
+let app_is_running(app) = app[6]
+
+let app_step(app, delta_time) =
+    let current_time = gf_add(app[7], delta_time)
+    let am = app[2]
+    am = anim_manager_update(am, current_time)
+    let tm_result = timer_manager_update(app[3], current_time)
+    let tm = tm_result[0]
+    let timer_callbacks = tm_result[1]
+    let sm = scene_manager_update(app[4])
+    [app[0], app[1], am, tm, sm, app[5], app[6], current_time]
+
+let app_handle_mouse_move(app, x, y) =
+    let input = input_set_mouse(app[1], x, y)
+    [app[0], input, app[2], app[3], app[4], app[5], app[6], app[7]]
+let app_handle_mouse_button(app, button) =
+    let input = input_set_mouse_button(app[1], button)
+    [app[0], input, app[2], app[3], app[4], app[5], app[6], app[7]]
+let app_handle_key(app, key, mods, pressed) =
+    let input = input_set_key(app[1], key, mods, pressed)
+    let running = app[6]
+    if key == KEY_ESCAPE
+        if pressed == 1
+            running = 0
+    [app[0], input, app[2], app[3], app[4], app[5], running, app[7]]
+
+let app_render(app) =
+    let windows = app[0]
+    let i = 0
+    let n = windows.length
+    for i < n
+        let w = windows[i]
+        if w[8] == 1
+            let fb = w[6]
+            let pixels = fb[2]
+            let j = 0
+            let npix = pixels.length
+            for j < npix
+                pixels[j] = 0
+                j = j + 1
+        i = i + 1
+    1
+
+let app_run(app) =
+    let max_frames = 65536
+    let frame = 0
+    for app_is_running(app) == 1
+        if frame >= max_frames
+            (app = app_stop(app))
+        else
+            app = app_step(app, 1)
+            app = app_render(app)
+            frame = frame + 1
+    app
+
+let app_verify() = 1

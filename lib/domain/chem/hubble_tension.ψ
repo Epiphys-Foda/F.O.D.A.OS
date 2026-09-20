@@ -1,0 +1,20 @@
+import "ck.ψ"
+let bad = [0]
+
+let delta = 730 - 674
+bad[0] = bad[0] + ck(delta, 40, 60)
+
+let s2 = 54 * 54 + 104 * 104
+let ds2 = s2 - 13732
+bad[0] = bad[0] + ds2 * ds2
+let flo = 13689
+let fhi = 13924
+bad[0] = bad[0] + ck_hi(flo, s2)
+bad[0] = bad[0] + ck_hi(s2, fhi)
+
+if 351 > delta * 10
+    bad[0] = bad[0] + 1
+if delta * 10 > 702
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

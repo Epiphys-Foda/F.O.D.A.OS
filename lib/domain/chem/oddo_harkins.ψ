@@ -1,0 +1,26 @@
+import "ck.ψ"
+let bad = [0]
+
+let e1 = 270 - 839
+bad[0] = bad[0] + ck_hi(e1, 0)
+let e2 = 786 - 869
+bad[0] = bad[0] + ck_hi(e2, 0)
+let e3 = 456 - 787
+bad[0] = bad[0] + ck_hi(e3, 0)
+let e4 = 630 - 758
+bad[0] = bad[0] + ck_hi(e4, 0)
+let e5 = 647 - 755
+bad[0] = bad[0] + ck_hi(e5, 0)
+let e6 = 541 - 712
+bad[0] = bad[0] + ck_hi(e6, 0)
+let e7 = 550 - 640
+bad[0] = bad[0] + ck_hi(e7, 0)
+let e8 = 503 - 636
+bad[0] = bad[0] + ck_hi(e8, 0)
+
+let dc6 = 839 - 839
+bad[0] = bad[0] + dc6 * dc6
+let do8 = 869 - 869
+bad[0] = bad[0] + do8 * do8
+
+arr_get(arr_new_n(1), bad[0])

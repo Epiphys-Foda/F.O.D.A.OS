@@ -1,0 +1,151 @@
+let NET2_P = 65537
+let NET2_MAGIC = 246
+let NET2_GEN = 251
+
+let net2_is_unreserved(c) =
+    (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || (c >= 48 && c <= 57) ||
+    c == 45 || c == 46 || c == 95 || c == 126 ? 1 : 0
+
+let net2_hexdig(d) = d < 10 ? 48 + d : 55 + d
+
+let net2_hexval(c) = c < 58 ? c - 48 : c - 55
+
+let _net2_enc_len(data) =
+    let n = 0
+    for c in data
+        if net2_is_unreserved(c) == 1
+            n = n + 1
+        else
+            n = n + 3
+    n
+
+let net2_pct_encode(data) =
+    let out = arr_new_n(_net2_enc_len(data))
+    let j = 0
+    for i in 0..len(data)
+        let c = data[i]
+        if net2_is_unreserved(c) == 1
+            out[j] = c
+            j = j + 1
+        else
+            out[j] = 37
+            out[j + 1] = net2_hexdig(c / 16)
+            out[j + 2] = net2_hexdig(c % 16)
+            j = j + 3
+    out
+
+let _net2_dec_len(data) =
+    let markers = 0
+    for c in data
+        if c == 37
+            markers = markers + 1
+    len(data) - markers * 2
+
+let net2_pct_decode(data) =
+    let out = arr_new_n(_net2_dec_len(data))
+    let j = 0
+    let i = 0
+    for i < len(data)
+        let c = data[i]
+        if c == 37 && i + 2 < len(data)
+            out[j] = net2_hexval(data[i + 1]) * 16 + net2_hexval(data[i + 2])
+            j = j + 1
+            i = i + 3
+        else
+            out[j] = c
+            j = j + 1
+            i = i + 1
+    out
+
+let _net2_acc(acc, b) = acc ⊙ NET2_GEN ⊕ b
+
+let net2_frame(seq, payload) =
+    let out = []
+    out.push(NET2_MAGIC)
+    out.push(seq)
+    out.push(len(payload))
+    let acc = _net2_acc(0, seq)
+    for p in payload
+        acc = _net2_acc(acc, p)
+    for p in payload
+        out.push(p)
+    out.push(acc)
+    out
+
+let net2_frame_chk(frame) =
+    let n = len(frame)
+    let acc = _net2_acc(0, frame[1])
+    for i in 3..n - 1
+        acc = _net2_acc(acc, frame[i])
+    acc
+
+let net2_frame_ok(frame) =
+    let n = len(frame)
+    if n < 4
+        return 0
+    if frame[0] != NET2_MAGIC
+        return 0
+    if frame[2] != n - 4
+        return 0
+    if net2_frame_chk(frame) != frame[n - 1]
+        return 0
+    1
+
+let net2_chan_new() = [0, 0, 0, 0, 0]
+
+let _net2_copy(ch) =
+    let out = []
+    for x in ch
+        out.push(x)
+    out
+
+let _net2_seq_seen(ch, seq) =
+    let n = len(ch)
+    let found = 0
+    for i in 5..n
+        if ch[i] == seq
+            found = 1
+    found
+
+let _net2_verdict(ch, frame) =
+    if net2_frame_ok(frame) == 0
+        return 0
+    if _net2_seq_seen(ch, frame[1]) == 1
+        return 1
+    2
+
+let net2_chan_recv(ch, frame) =
+    let v = _net2_verdict(ch, frame)
+    let out = _net2_copy(ch)
+    out[0] = out[0] + 1
+    if v == 0
+        out[3] = out[3] + 1
+    if v == 1
+        out[2] = out[2] + 1
+    if v == 2
+        out[1] = out[1] + 1
+        out[4] = out[4] ⊕ frame[len(frame) - 1]
+        out.push(frame[1])
+    out
+
+let net2_bragg_ok(sent_acc, ch) = sent_acc == ch[4] ? 1 : 0
+
+let net2_v_frame_ok() = net2_frame_ok(net2_frame(7, [1, 2, 3]))
+
+let net2_frame_tampered(seq, payload, idx, val) =
+    let f = net2_frame(seq, payload)
+    f[idx] = val
+    f
+
+let net2_v_frame_tamper() = net2_frame_ok(net2_frame_tampered(7, [1, 2, 3], 3, 99))
+
+let net2_v_pct_roundtrip() = _net2_eq_codes(net2_pct_decode(net2_pct_encode([65, 32, 37, 126, 200, 49])), [65, 32, 37, 126, 200, 49])
+
+let _net2_eq_codes(a, b) =
+    let n = len(a)
+    if n != len(b)
+        return 0
+    for i in 0..n
+        if a[i] != b[i]
+            return 0
+    1

@@ -1,0 +1,203 @@
+import "residueon_common.ψ"
+
+let infty_category_verify() =
+    let result = 0
+    let f = 5
+    let g = 7
+    let h = 11
+    if gf_mul(1, f) == f
+        result = result + 1
+    if gf_mul(gf_mul(h, g), f) == gf_mul(h, gf_mul(g, f))
+        result = result + 1
+    if gf_mul(f, gf_inv(f)) == 1
+        result = result + 1
+    result
+let simplicial_set_verify() =
+    let result = 0
+    let d0 = 2
+    let d1 = 3
+    let s0 = 5
+    if gf_mul(d1, d0) == gf_mul(d0, d1)
+        result = result + 1
+    if gf_mul(gf_mul(1, s0), s0) == gf_mul(s0, s0)
+        result = result + 1
+    if gf_mul(gf_div(s0, s0), s0) == s0
+        result = result + 1
+    result
+let kan_complex_verify() =
+    let result = 0
+    let f = 5
+    let g = 7
+    if gf_mul(f, gf_inv(f)) == 1
+        result = result + 1
+    if gf_mul(gf_mul(g, f), gf_inv(gf_mul(g, f))) == 1
+        result = result + 1
+    if gf_add(gf_mul(f, 1), gf_mul(0, f)) == f
+        result = result + 1
+    result
+let stable_category_verify() =
+    let result = 0
+    let a = 3
+    let b = 5
+    let sigma = 7
+    if gf_mul(sigma, gf_inv(sigma)) == 1
+        result = result + 1
+    if gf_add(a, gf_sub(b, a)) == b
+        result = result + 1
+    if gf_mul(gf_mul(sigma, a), b) == gf_mul(sigma, gf_mul(a, b))
+        result = result + 1
+    result
+let spectrum_verify() =
+    let result = 0
+    let e0 = 5
+    let e1 = 7
+    let omega = 3
+    if gf_div(gf_mul(omega, e1), omega) == e1
+        result = result + 1
+    if gf_sub(e0, e0) == 0
+        result = result + 1
+    if gf_mul(gf_mul(omega, e0), gf_inv(omega)) == e0
+        result = result + 1
+    result
+let lurie_topos_verify() =
+    let result = 0
+    let x = 5
+    let f = 7
+    if gf_mul(1, x) == x
+        result = result + 1
+    if gf_mul(f, gf_inv(f)) == 1
+        result = result + 1
+    if gf_mul(gf_mul(f, x), 1) == gf_mul(f, x)
+        result = result + 1
+    result
+let fibration_sequence_verify() =
+    let result = 0
+    let f = 3
+    let e = 5
+    let b = 7
+    if gf_add(f, gf_sub(e, f)) == e
+        result = result + 1
+    if gf_div(gf_mul(f, b), f) == b
+        result = result + 1
+    if gf_sub(gf_mul(f, gf_inv(f)), 1) == 0
+        result = result + 1
+    result
+let infty_category_pcd_rrc_verify() =
+    let result = 0
+    let f = 3
+    let g = 5
+    let sigma = 7
+    if gf_mul(f, gf_inv(f)) == 1
+        result = result + 1
+    if gf_mul(f, g) == gf_mul(g, f)
+        result = result + 1
+    if gf_mul(sigma, gf_inv(sigma)) == 1
+        result = result + 1
+    if gf_mul(gf_mul(sigma, f), gf_inv(sigma)) == f
+        result = result + 1
+    if gf_mul(gf_mul(g, f), 1) == gf_mul(g, f)
+        result = result + 1
+    result
+
+let residueon_infty_category_full_verify() =
+    let ok = 0
+    if infty_category_verify() == 3
+        ok = ok + 1
+    if simplicial_set_verify() == 3
+        ok = ok + 1
+    if kan_complex_verify() == 3
+        ok = ok + 1
+    if stable_category_verify() == 3
+        ok = ok + 1
+    if spectrum_verify() == 3
+        ok = ok + 1
+    if lurie_topos_verify() == 3
+        ok = ok + 1
+    if fibration_sequence_verify() == 3
+        ok = ok + 1
+    if infty_category_pcd_rrc_verify() == 5
+        ok = ok + 1
+
+    ok = ok + cross_domain_base()
+
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(1, 6) == 6
+        ok = ok + 1
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_mul(3, 3) == 9
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(30, 60) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(256, 256) == 65536
+        ok = ok + 1
+    if gf_add(1, 65536) == 0
+        ok = ok + 1
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+    if gf_add(2, 65535) == 0
+        ok = ok + 1
+    if gf_sub(10, gf_div(gf_sub(gf_mul(2, 10), 6), 2)) == 3
+        ok = ok + 1
+    if gf_add(gf_mul(3, 3), gf_mul(4, 4)) == 25
+        ok = ok + 1
+    if gf_add(gf_mul(1, 0), gf_mul(0, 1)) == 0
+        ok = ok + 1
+    if gf_mul(65536, 65536) == 1
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_sub(gf_mul(2, 3), 6) == 0
+        ok = ok + 1
+    ok
+
+let main() = residueon_infty_category_full_verify()

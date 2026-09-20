@@ -1,0 +1,80 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let s5_mul(ar, as_, br, bs) =
+    let rr = ar * br + 5 * as_ * bs
+    let rs = ar * bs + as_ * br
+    let r = arr_new_n(2)
+    r[0] = rr
+    r[1] = rs
+    r
+
+let s5_pow(zr, zs, e) =
+    let rr = 1
+    let rs = 0
+    let br = zr
+    let bs = zs
+    let ee = e
+    for ee > 0
+        if ee % 2 == 1
+            let t = s5_mul(rr, rs, br, bs)
+            rr = t[0]
+            rs = t[1]
+        let t2 = s5_mul(br, bs, br, bs)
+        br = t2[0]
+        bs = t2[1]
+        ee = ee / 2
+    let r = arr_new_n(2)
+    r[0] = rr
+    r[1] = rs
+    r
+
+let main() =
+    let inv2 = 32769
+    let lpr = inv2
+    let lps = inv2
+    let lmr = inv2
+    let lms = 65537 - inv2
+
+    print(111)
+    let np1 = s5_pow(lpr, lps, 65538)
+    print(np1[0])
+    print(np1[1])
+    let n2p1 = s5_pow(lpr, lps, 131076)
+    print(n2p1[0])
+    print(n2p1[1])
+    let a = 0
+    let b = 1
+    let i = 0
+    for i < 14564
+        let nb = a + b
+        a = b
+        b = nb
+        i = i + 1
+    print(a)
+    print(b)
+    print(131076 % 14564)
+
+    print(222)
+    let lam_s = 4081
+    print(4080 * 4080)
+    print(lam_s)
+    print(gf_pow(lam_s, 65536))
+    let c = 0
+    let d = 1
+    let j = 0
+    for j < 8192
+        let nd = 2 * d + c
+        c = d
+        d = nd
+        j = j + 1
+    print(c)
+    print(d)
+    print(65536 % 8192)
+
+    print(333)
+    print(65537)
+    print(65536)
+    print(131076)
+    print(3)
+
+    3

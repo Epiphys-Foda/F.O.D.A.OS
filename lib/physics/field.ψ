@@ -1,0 +1,90 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let FIELD_MAX_POINTS = 65536
+let FIELD_DIM = 4
+
+let field_create(dim) = [[], 0, dim]
+let field_point_create(coords, value) = [coords, value, []]
+let field_add_point(field, point) =
+    let points = field[0]
+    points.push(point)
+    [points, field[1] + 1, field[2]]
+let field_value_at(field, coords) =
+    let points = field[0]
+    let i = 0
+    let n = field[1]
+    for i < n
+        let p = points[i]
+        if p[0] == coords
+            p[1]
+        i = i + 1
+    0
+let field_gradient(field, coords, h) =
+    let grad = []
+    let dim = field[2]
+    let i = 0
+    for i < dim
+        let coords_plus = coords
+        coords_plus[i] = gf_add(coords[i], h)
+        let coords_minus = coords
+        coords_minus[i] = gf_sub(coords[i], h)
+        let val_plus = field_value_at(field, coords_plus)
+        let val_minus = field_value_at(field, coords_minus)
+        grad.push(gf_div(gf_sub(val_plus, val_minus), gf_mul(2, h)))
+        i = i + 1
+    grad
+let field_laplacian(field, coords, h) =
+    let dim = field[2]
+    let val_center = field_value_at(field, coords)
+    let laplacian = 0
+    let i = 0
+    for i < dim
+        let coords_plus = coords
+        coords_plus[i] = gf_add(coords[i], h)
+        let coords_minus = coords
+        coords_minus[i] = gf_sub(coords[i], h)
+        let val_plus = field_value_at(field, coords_plus)
+        let val_minus = field_value_at(field, coords_minus)
+        laplacian = gf_add(laplacian, gf_add(val_plus, gf_add(val_minus, gf_neg(gf_mul(2, val_center)))))
+        i = i + 1
+    gf_div(laplacian, gf_mul(h, h))
+let field_action(field, lagrangian_id, h) =
+    let points = field[0]
+    let action = 0
+    let i = 0
+    let n = field[1]
+    for i < n
+        let p = points[i]
+        action = gf_add(action, gf_mul(p[1], gf_pow(h, field[2])))
+        i = i + 1
+    action
+let wave_equation(field, coords, h, c) =
+    let lap = field_laplacian(field, coords, h)
+    let val = field_value_at(field, coords)
+    gf_sub(lap, gf_mul(gf_pow(c, 2), val))
+let noether_charge(field, symmetry, coords) =
+    let grad = field_gradient(field, coords, 1)
+    let val = field_value_at(field, coords)
+    gf_mul(grad[0], val)
+let field_physics_field(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = gf_sub(z, pole)
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let physics_field_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_physics_field(test_data, 3, 500)
+    let ok = 0
+    if result != 0
+        ok = 1
+    else
+        ok = 0
+    ok

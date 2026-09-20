@@ -1,0 +1,298 @@
+import "../domain_field.ψ"
+
+let MT_P = 65537
+let MT_FIXED_SCALE = 1000
+let MT_META_LR_DEFAULT = 1
+let MT_INNER_LR_DEFAULT = 10
+let MT_ADAPT_STEPS_DEFAULT = 5
+let MT_MAX_TASKS = 65536
+
+let mt_task_new(task_id) =
+    [task_id, [], [], []]
+
+let mt_task_id(t) = t[0]
+let mt_task_train(t) = t[1]
+let mt_task_val(t) = t[2]
+let mt_task_test(t) = t[3]
+
+let mt_task_add_train(t, features_map, label) =
+    let buf = mt_task_train(t)
+    buf.push([features_map, label])
+    t[1] = buf
+    t
+
+let mt_task_add_val(t, features_map, label) =
+    let buf = mt_task_val(t)
+    buf.push([features_map, label])
+    t[2] = buf
+    t
+
+let mt_task_add_test(t, features_map, label) =
+    let buf = mt_task_test(t)
+    buf.push([features_map, label])
+    t[3] = buf
+    t
+
+let mt_default_model() =
+    [{}, MT_META_LR_DEFAULT, MT_INNER_LR_DEFAULT, MT_ADAPT_STEPS_DEFAULT, 0, []]
+
+let mt_m_weights(m) = m[0]
+let mt_m_meta_lr(m) = m[1]
+let mt_m_inner_lr(m) = m[2]
+let mt_m_adapt_steps(m) = m[3]
+let mt_m_total(m) = m[4]
+let mt_m_log(m) = m[5]
+
+let mt_add_feature(model, feature_id, initial_value) =
+    let weights = mt_m_weights(model)
+    if weights[feature_id] == 0
+        let init_fixed = initial_value * MT_FIXED_SCALE
+        weights[feature_id] = [feature_id, init_fixed, 0]
+        let log = mt_m_log(model)
+        log.push(["add_feature", feature_id, init_fixed])
+        model[5] = log
+    model[0] = weights
+    model
+
+let mt_predict(weights_map, features_map) =
+    let sum_fixed = 0
+    let keys = keys_of(features_map)
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let fid = keys[i]
+        let x_val = features_map[fid]
+        let w = weights_map[fid]
+        if w != 0
+            sum_fixed = sum_fixed + w[1] * x_val
+        i = i + 1
+    sum_fixed
+
+let mt_loss_fixed(pred_fixed, label) =
+    let target = label * MT_FIXED_SCALE
+    let diff = target - pred_fixed
+    if diff < 0
+        diff = 0 - diff
+    diff
+
+let mt_copy_weights(weights_map) =
+    let copy = {}
+    let keys = keys_of(weights_map)
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let fid = keys[i]
+        let w = weights_map[fid]
+        if w != 0
+            copy[fid] = [w[0], w[1], w[2]]
+        i = i + 1
+    copy
+
+let mt_inner_adapt(model, task, ts) =
+    let meta_weights = mt_m_weights(model)
+    let adapted = mt_copy_weights(meta_weights)
+    let inner_lr = mt_m_inner_lr(model)
+    let steps = mt_m_adapt_steps(model)
+    let train_buf = mt_task_train(task)
+    let n_samples = len(train_buf)
+    let s = 0
+    for s < steps
+        let idx = s % n_samples
+        let sample = train_buf[idx]
+        let features_map = sample[0]
+        let label = sample[1]
+        let pred = mt_predict(adapted, features_map)
+        let error = label * MT_FIXED_SCALE - pred
+        let keys = keys_of(features_map)
+        let i = 0
+        let m = len(keys)
+        for i < m
+            let fid = keys[i]
+            let x_val = features_map[fid]
+            let w = adapted[fid]
+            if w != 0
+                let delta = inner_lr * error * x_val / MT_FIXED_SCALE
+                w[1] = w[1] + delta
+                w[2] = w[2] + error
+            i = i + 1
+        s = s + 1
+    [adapted, ts]
+
+let mt_outer_update(model, tasks_buf, ts) =
+    let meta_weights = mt_m_weights(model)
+    let meta_lr = mt_m_meta_lr(model)
+    let i = 0
+    let n = len(tasks_buf)
+    for i < n
+        let task = tasks_buf[i]
+        let adapted = mt_inner_adapt(model, task, ts + i)
+        let adapted_weights = adapted[0]
+        let val_buf = mt_task_val(task)
+        let j = 0
+        let m = len(val_buf)
+        for j < m
+            let sample = val_buf[j]
+            let features_map = sample[0]
+            let label = sample[1]
+            let pred = mt_predict(adapted_weights, features_map)
+            let error = label * MT_FIXED_SCALE - pred
+            let keys = keys_of(features_map)
+            let k = 0
+            let kk = len(keys)
+            for k < kk
+                let fid = keys[k]
+                let x_val = features_map[fid]
+                let w_meta = meta_weights[fid]
+                if w_meta != 0
+                    let delta = meta_lr * error * x_val / MT_FIXED_SCALE
+                    w_meta[1] = w_meta[1] + delta
+                k = k + 1
+            j = j + 1
+        i = i + 1
+    model[4] = mt_m_total(model) + n
+    let log = mt_m_log(model)
+    log.push(["outer_update", n, ts])
+    model[5] = log
+    model
+
+let mt_task_perf_new(task_id, before_loss, after_loss) =
+    [task_id, before_loss, after_loss, before_loss - after_loss]
+
+let mt_perf_id(p) = p[0]
+let mt_perf_before(p) = p[1]
+let mt_perf_after(p) = p[2]
+let mt_perf_improve(p) = p[3]
+
+let mt_evaluate(model, task, ts) =
+    let meta_weights = mt_m_weights(model)
+    let val_buf = mt_task_val(task)
+    let before_sum = 0
+    let i = 0
+    let n = len(val_buf)
+    for i < n
+        let sample = val_buf[i]
+        let pred = mt_predict(meta_weights, sample[0])
+        before_sum = before_sum + mt_loss_fixed(pred, sample[1])
+        i = i + 1
+    let before_avg = 0
+    if n > 0
+        before_avg = before_sum / n
+    let adapted = mt_inner_adapt(model, task, ts)
+    let adapted_weights = adapted[0]
+    let after_sum = 0
+    let j = 0
+    for j < n
+        let sample = val_buf[j]
+        let pred = mt_predict(adapted_weights, sample[0])
+        after_sum = after_sum + mt_loss_fixed(pred, sample[1])
+        j = j + 1
+    let after_avg = 0
+    if n > 0
+        after_avg = after_sum / n
+    mt_task_perf_new(mt_task_id(task), before_avg, after_avg)
+
+let mt_meta_train(model, tasks_buf, epochs, ts) =
+    let e = 0
+    for e < epochs
+        mt_outer_update(model, tasks_buf, ts + e * 1000)
+        e = e + 1
+    let log = mt_m_log(model)
+    log.push(["meta_train", epochs, ts])
+    model[5] = log
+    model
+
+let mt_few_shot_predict(model, support_set, query, ts) =
+    let meta_weights = mt_m_weights(model)
+    let adapted = mt_copy_weights(meta_weights)
+    let inner_lr = mt_m_inner_lr(model)
+    let steps = mt_m_adapt_steps(model)
+    let n_samples = len(support_set)
+    let s = 0
+    for s < steps
+        let idx = s % n_samples
+        let sample = support_set[idx]
+        let features_map = sample[0]
+        let label = sample[1]
+        let pred = mt_predict(adapted, features_map)
+        let error = label * MT_FIXED_SCALE - pred
+        let keys = keys_of(features_map)
+        let i = 0
+        let m = len(keys)
+        for i < m
+            let fid = keys[i]
+            let x_val = features_map[fid]
+            let w = adapted[fid]
+            if w != 0
+                let delta = inner_lr * error * x_val / MT_FIXED_SCALE
+                w[1] = w[1] + delta
+            i = i + 1
+        s = s + 1
+    mt_predict(adapted, query)
+
+let mt_state_signature(model) =
+    let weights = mt_m_weights(model)
+    let keys = keys_of(weights)
+    let wcount = len(keys)
+    let wsum = 0
+    let i = 0
+    for i < wcount
+        let fid = keys[i]
+        let w = weights[fid]
+        if w != 0
+            wsum = wsum + w[1]
+        i = i + 1
+    [wcount, mt_m_total(model), wsum]
+
+let mt_apply_task(model, task, ts) =
+    mt_outer_update(model, [task], ts)
+
+let mt_bragg_verify(model, ops_seq) =
+    let m1 = mt_default_model()
+    let m2 = mt_default_model()
+    let meta_weights = mt_m_weights(model)
+    let keys = keys_of(meta_weights)
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let fid = keys[i]
+        let w = meta_weights[fid]
+        if w != 0
+            mt_add_feature(m1, fid, 0)
+            mt_add_feature(m2, fid, 0)
+        i = i + 1
+    let j = 0
+    let m = len(ops_seq)
+    for j < m
+        let task = ops_seq[j]
+        mt_apply_task(m1, task, j)
+        mt_apply_task(m2, task, j)
+        j = j + 1
+    let d1 = mt_state_signature(m1)
+    let r1 = mt_state_signature(m2)
+    if d1[0] == r1[0]
+        if d1[1] == r1[1]
+            if d1[2] == r1[2]
+                1
+            else
+                0
+        else
+            0
+    else
+        0
+
+let mt_gf_mod(x) = domain_gf_mod(x)
+
+let mt_gf_inv(a) = domain_gf_inv(a)
+
+let mt_field_encode(items, n) =
+    let records = []
+    let _i = 0
+    for _i < n
+        records.push([items[_i], items[_i]])
+        _i = _i + 1
+    domain_field_encode(records, n, 256, 1)
+
+let mt_field_eval(poles, residues, z) = domain_field_eval(poles, residues, z)
+
+let mt_field_bragg_verify(current, replay) = domain_bragg_verify(current[0], current[1], replay[0], replay[1])
+

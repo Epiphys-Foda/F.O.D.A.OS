@@ -1,0 +1,14 @@
+let kleene_mf_fp(initial_field, max_iter) =
+    let current = initial_field
+    let i = 0
+    let converged = 0
+    let prev_fp = 0
+    for i < max_iter
+        let cur_fp = mf_fingerprint(current)
+        if cur_fp == prev_fp
+            converged = 1
+        prev_fp = cur_fp
+        current = mf_compose(current, current)
+        i = i + 1
+    [current, converged, i]
+

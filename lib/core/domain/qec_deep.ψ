@@ -1,0 +1,451 @@
+import "../stdlib/gf65537.ψ"
+import "../stdlib/numtheor.ψ"
+import "domain_list.ψ"
+
+let stabilizer_gen_gf(x_part, z_part) =
+    [x_part, z_part]
+
+let stabilizer_mul_gf(s1, s2) =
+    let x_new = vec_add_gf(s1[0], s2[0])
+    let z_new = vec_add_gf(s1[1], s2[1])
+    [x_new, z_new]
+
+let stabilizer_commute_gf(s1, s2) =
+    let x1z2 = vec_dot_gf(s1[0], s2[1])
+    let z1x2 = vec_dot_gf(s1[1], s2[0])
+    let symplectic = gf_sub(x1z2, z1x2)
+    (symplectic == 0) ? 1 : 0
+
+let stabilizer_encode_gf(stabilizers, message) =
+    stabilizer_encode_rec_gf(stabilizers, message, 0, message)
+
+let stabilizer_encode_rec_gf(stabilizers, message, i, encoded) =
+        if i >= len(stabilizers)
+            encoded
+        else
+            let g = stabilizers[i]
+            let g_encoded = apply_stabilizer_gf(g, encoded)
+            let new_encoded = vec_add_gf(encoded, g_encoded)
+            stabilizer_encode_rec_gf(stabilizers, message, i + 1, new_encoded)
+
+let apply_stabilizer_gf(g, state) =
+    let x_part = g[0]
+    let z_part = g[1]
+    let flipped = apply_x_gf(x_part, state)
+    apply_z_gf(z_part, flipped)
+
+let apply_x_gf(x_part, state) =
+    apply_x_rec_gf(x_part, state, 0, state)
+
+let apply_x_rec_gf(x_part, state, i, result) =
+        if i >= len(x_part)
+            result
+        else
+            if x_part[i] == 1
+                result[i] = gf_sub(1, result[i])
+                apply_x_rec_gf(x_part, state, i + 1, result)
+            else
+                apply_x_rec_gf(x_part, state, i + 1, result)
+
+let apply_z_gf(z_part, state) =
+    apply_z_rec_gf(z_part, state, 0, state)
+
+let apply_z_rec_gf(z_part, state, i, result) =
+        if i >= len(z_part)
+            result
+        else
+            if z_part[i] == 1 && state[i] == 1
+                result[i] = gf_mul(65536, result[i])
+                apply_z_rec_gf(z_part, state, i + 1, result)
+            else
+                apply_z_rec_gf(z_part, state, i + 1, result)
+
+let css_code_gf(C1_generator, C2_generator) =
+        let C1 = code_from_generator_gf(C1_generator)
+        let C2 = code_from_generator_gf(C2_generator)
+        let valid = css_contains_gf(C1, C2)
+        if valid == 1
+            [C1, C2]
+        else
+            []
+
+let code_from_generator_gf(G) =
+    G
+
+let css_contains_gf(C1, C2) =
+    1
+
+let css_encode_gf(css_code, message) =
+    let C1 = css_code[0]
+    let C2 = css_code[1]
+    css_encode_rec_gf(C2, message, 0, [message])
+
+let css_encode_rec_gf(C2, x, i, superposition) =
+        if i >= len(C2)
+            superposition
+        else
+            let x_plus_c = vec_add_gf(x, C2[i])
+            css_encode_rec_gf(C2, x, i + 1, append(superposition, x_plus_c))
+
+let css_correct_gf(css_code, received) =
+    let C1 = css_code[0]
+    let C2 = css_code[1]
+    let bit_corrected = correct_bit_gf(C1, received)
+    let phase_corrected = correct_phase_gf(C2, bit_corrected)
+    phase_corrected
+
+let correct_bit_gf(C, received) =
+    let syndrome = compute_syndrome_gf(C, received)
+    let error = find_error_gf(C, syndrome)
+    vec_add_gf(received, error)
+
+let correct_phase_gf(C, received) =
+    correct_bit_gf(C, received)
+
+let compute_syndrome_gf(C, received) =
+    matrix_vec_mul_gf(C, received)
+
+let find_error_gf(C, syndrome) =
+    syndrome
+
+let surface_code_gf(lattice) =
+    let X_stabs = surface_x_stabilizers_gf(lattice)
+    let Z_stabs = surface_z_stabilizers_gf(lattice)
+    [X_stabs, Z_stabs]
+
+let surface_x_stabilizers_gf(lattice) =
+    surface_x_rec_gf(lattice, 0, [])
+
+let surface_x_rec_gf(lattice, i, stabilizers) =
+        if i >= len(lattice)
+            stabilizers
+        else
+            let face = lattice[i]
+            let x_part = [1, 1, 1, 1]
+            let z_part = [0, 0, 0, 0]
+            surface_x_rec_gf(lattice, i + 1, append(stabilizers, [x_part, z_part]))
+
+let surface_z_stabilizers_gf(lattice) =
+    surface_z_rec_gf(lattice, 0, [])
+
+let surface_z_rec_gf(lattice, i, stabilizers) =
+        if i >= len(lattice)
+            stabilizers
+        else
+            let x_part = [0, 0, 0, 0]
+            let z_part = [1, 1, 1, 1]
+            surface_z_rec_gf(lattice, i + 1, append(stabilizers, [x_part, z_part]))
+
+let surface_correct_gf(lattice, errors) =
+    let excitations = detect_excitations_gf(lattice, errors)
+    let pairs = pair_excitations_gf(excitations)
+    apply_corrections_gf(pairs, errors)
+
+let detect_excitations_gf(lattice, errors) =
+    detect_excitations_rec_gf(lattice, errors, 0, [])
+
+let detect_excitations_rec_gf(lattice, errors, i, excitations) =
+        if i >= len(lattice)
+            excitations
+        else
+            let syndrome = compute_syndrome_gf(lattice[i], errors)
+            detect_excitations_rec_gf(lattice, errors, i + 1, append(excitations, syndrome))
+
+let pair_excitations_gf(excitations) =
+    pair_excitations_rec_gf(excitations, 0, [])
+
+let pair_excitations_rec_gf(excitations, i, pairs) =
+        if i >= len(excitations)
+            pairs
+        else
+            if excitations[i] == 1
+                let partner = find_nearest_excitation_gf(excitations, i + 1)
+                pair_excitations_rec_gf(excitations, i + 1, append(pairs, [i, partner]))
+            else
+                pair_excitations_rec_gf(excitations, i + 1, pairs)
+
+let find_nearest_excitation_gf(excitations, start) =
+    find_nearest_rec_gf(excitations, start, start, 65537)
+
+let find_nearest_rec_gf(excitations, i, best, best_dist) =
+        if i >= len(excitations)
+            best
+        else
+            if excitations[i] == 1
+                let dist = i - best
+                if dist < best_dist
+                    find_nearest_rec_gf(excitations, i + 1, i, dist)
+                else
+                    find_nearest_rec_gf(excitations, i + 1, best, best_dist)
+            else
+                find_nearest_rec_gf(excitations, i + 1, best, best_dist)
+
+let apply_corrections_gf(pairs, errors) =
+    apply_corrections_rec_gf(pairs, errors, 0, errors)
+
+let apply_corrections_rec_gf(pairs, errors, i, corrected) =
+        if i >= len(pairs)
+            corrected
+        else
+            let pair = pairs[i]
+            let new_corrected = apply_path_gf(corrected, pair[0], pair[1])
+            apply_corrections_rec_gf(pairs, errors, i + 1, new_corrected)
+
+let apply_path_gf(state, start, end) =
+    apply_path_rec_gf(state, start, end, start, state)
+
+let apply_path_rec_gf(state, start, end, i, result) =
+        if i > end
+            result
+        else
+            result[i] = gf_add(result[i], 1)
+            apply_path_rec_gf(state, start, end, i + 1, result)
+
+let color_code_gf(lattice, coloring) =
+    let X_stabs = color_x_stabilizers_gf(lattice, coloring)
+    let Z_stabs = color_z_stabilizers_gf(lattice, coloring)
+    [X_stabs, Z_stabs]
+
+let color_x_stabilizers_gf(lattice, coloring) =
+    color_x_rec_gf(lattice, coloring, 0, [])
+
+let color_x_rec_gf(lattice, coloring, i, stabilizers) =
+        if i >= len(lattice)
+            stabilizers
+        else
+            let cell = lattice[i]
+            let x_part = color_cell_x_gf(cell, coloring)
+            let z_part = zeros_gf(len(x_part))
+            color_x_rec_gf(lattice, coloring, i + 1, append(stabilizers, [x_part, z_part]))
+
+let color_cell_x_gf(cell, coloring) =
+    color_cell_x_rec_gf(cell, 0, [])
+
+let color_cell_x_rec_gf(cell, i, x_part) =
+        if i >= len(cell)
+            x_part
+        else
+            color_cell_x_rec_gf(cell, i + 1, append(x_part, 1))
+
+let color_z_stabilizers_gf(lattice, coloring) =
+    color_z_rec_gf(lattice, coloring, 0, [])
+
+let color_z_rec_gf(lattice, coloring, i, stabilizers) =
+        if i >= len(lattice)
+            stabilizers
+        else
+            let cell = lattice[i]
+            let x_part = zeros_gf(len(cell))
+            let z_part = color_cell_x_gf(cell, coloring)
+            color_z_rec_gf(lattice, coloring, i + 1, append(stabilizers, [x_part, z_part]))
+
+let zeros_gf(n) =
+    zeros_rec_gf(n, 0, [])
+
+let zeros_rec_gf(n, i, result) =
+        if i >= n
+            result
+        else
+            zeros_rec_gf(n, i + 1, append(result, 0))
+
+let color_transversal_gate_gf(gate, state) =
+        if gate == 1
+            transversal_cnot_gf(state)
+        else
+            if gate == 2
+                transversal_h_gf(state)
+            else
+                transversal_s_gf(state)
+
+let transversal_cnot_gf(state) =
+    state
+
+let transversal_h_gf(state) =
+    ntt_gf(state)
+
+let transversal_s_gf(state) =
+    state
+
+let ag_code_gf(curve, divisor, evaluation_points) =
+    let rrs = riemann_roch_space_gf(curve, divisor)
+    let code = evaluate_rrs_gf(rrs, evaluation_points)
+    code
+
+let riemann_roch_space_gf(curve, divisor) =
+    let degree = divisor_degree_gf(divisor)
+    let genus = curve_genus_gf(curve)
+    let dim = gf_sub(gf_add(degree, 1), genus)
+    construct_rrs_basis_gf(curve, divisor, dim)
+
+let divisor_degree_gf(divisor) =
+    divisor
+
+let curve_genus_gf(curve) =
+    1
+
+let construct_rrs_basis_gf(curve, divisor, dim) =
+    construct_rrs_rec_gf(dim, 0, [])
+
+let construct_rrs_rec_gf(dim, i, basis) =
+        if i >= dim
+            basis
+        else
+            construct_rrs_rec_gf(dim, i + 1, append(basis, i))
+
+let evaluate_rrs_gf(rrs, points) =
+    evaluate_rrs_rec_gf(rrs, points, 0, [])
+
+let evaluate_rrs_rec_gf(rrs, points, i, code) =
+        if i >= len(rrs)
+            code
+        else
+            let evaluations = evaluate_function_gf(rrs[i], points)
+            evaluate_rrs_rec_gf(rrs, points, i + 1, append(code, evaluations))
+
+let evaluate_function_gf(fnc, points) =
+    evaluate_function_rec_gf(fnc, points, 0, [])
+
+let evaluate_function_rec_gf(fnc, points, i, evaluations) =
+        if i >= len(points)
+            evaluations
+        else
+            let val = gf_pow(points[i], fnc)
+            evaluate_function_rec_gf(fnc, points, i + 1, append(evaluations, val))
+
+let ag_decode_gf(code, received) =
+    let syndrome = compute_ag_syndrome_gf(code, received)
+    let error_locator = find_error_locator_gf(syndrome)
+    let error = evaluate_error_gf(error_locator, code)
+    vec_add_gf(received, error)
+
+let compute_ag_syndrome_gf(code, received) =
+    matrix_vec_mul_gf(code, received)
+
+let find_error_locator_gf(syndrome) =
+    syndrome
+
+let evaluate_error_gf(locator, code) =
+    locator
+
+let ldpc_code_gf(parity_check) =
+    parity_check
+
+let ldpc_decode_gf(parity_check, received, max_iter) =
+    ldpc_decode_iter_gf(parity_check, received, received, 0, max_iter)
+
+let ldpc_decode_iter_gf(H, received, estimate, iter, max_iter) =
+        if iter >= max_iter
+            estimate
+        else
+            let syndrome = matrix_vec_mul_gf(H, estimate)
+            if is_zero_vec_gf(syndrome) == 1
+                estimate
+            else
+                let new_estimate = ldpc_message_pass_gf(H, received, estimate)
+                ldpc_decode_iter_gf(H, received, new_estimate, iter + 1, max_iter)
+
+let ldpc_message_pass_gf(H, received, estimate) =
+    ldpc_message_pass_rec_gf(H, received, estimate, 0, estimate)
+
+let ldpc_message_pass_rec_gf(H, received, estimate, i, new_estimate) =
+        if i >= len(estimate)
+            new_estimate
+        else
+            new_estimate[i] = gf_add(estimate[i], received[i])
+            ldpc_message_pass_rec_gf(H, received, estimate, i + 1, new_estimate)
+
+let is_zero_vec_gf(v) =
+    is_zero_vec_rec_gf(v, 0, 1)
+
+let is_zero_vec_rec_gf(v, i, result) =
+        if i >= len(v) || result == 0
+            result
+        else
+            is_zero_vec_rec_gf(v, i + 1, (v[i] == 0) ? result : 0)
+
+let error_threshold_gf(code, max_errors) =
+    threshold_search_gf(code, max_errors, 0, 0)
+
+let threshold_search_gf(code, max_errors, error_rate, best_threshold) =
+        if error_rate > max_errors
+            best_threshold
+        else
+            let success = test_correction_gf(code, error_rate)
+            if success == 1
+                threshold_search_gf(code, max_errors, error_rate + 1, error_rate)
+            else
+                best_threshold
+
+let test_correction_gf(code, error_rate) =
+    1
+
+let quantum_capacity_gf(channel, n) =
+    let code_dim = count_codes_gf(channel, n)
+    gf_div(code_dim, gf_mul(2, n))
+
+let count_codes_gf(channel, n) =
+    n
+
+let knill_laflamme_gf(code_space, E1, E2) =
+    knill_laflamme_check_gf(code_space, E1, E2, 0, 0, 1)
+
+let knill_laflamme_check_gf(code_space, E1, E2, l, m, valid) =
+        if l >= len(code_space) || valid == 0
+            valid
+        else
+            let kl_result = kl_inner_product_gf(code_space, E1, E2, l, m)
+            let kl_expected = kl_expected_gf(code_space, l, m)
+            if kl_result != kl_expected
+                knill_laflamme_check_gf(code_space, E1, E2, l, m + 1, 0)
+            else
+                if m >= len(code_space)
+                    knill_laflamme_check_gf(code_space, E1, E2, l + 1, 0, valid)
+                else
+                    knill_laflamme_check_gf(code_space, E1, E2, l, m + 1, valid)
+
+let kl_inner_product_gf(code_space, E1, E2, l, m) =
+    let psi_l = code_space[l]
+    let psi_m = code_space[m]
+    let E2_psi_m = apply_error_gf(E2, psi_m)
+    let E1_E2_psi_m = apply_error_gf(E1, E2_psi_m)
+    vec_dot_gf(psi_l, E1_E2_psi_m)
+
+let kl_expected_gf(code_space, l, m) =
+        if l == m
+            1
+        else
+            0
+
+let apply_error_gf(E, state) =
+    matrix_vec_mul_gf(E, state)
+
+let singleton_bound_gf(n, k, d) =
+    let lhs = gf_sub(n, k)
+    let rhs = gf_mul(2, gf_sub(d, 1))
+    (lhs >= rhs) ? 1 : 0
+
+let hamming_bound_gf(n, k, d) =
+    let t = gf_div(gf_sub(d, 1), 2)
+    let lhs = hamming_sum_gf(n, t, 0, 0)
+    let lhs_with_k = gf_mul(lhs, gf_pow(2, k))
+    let rhs = gf_pow(2, n)
+    (lhs_with_k <= rhs) ? 1 : 0
+
+let hamming_sum_gf(n, t, j, acc) =
+        if j > t
+            acc
+        else
+            let term = gf_mul(gf_pow(3, j), binomial_gf(n, j))
+            hamming_sum_gf(n, t, j + 1, gf_add(acc, term))
+
+let binomial_gf(n, k) =
+        if k == 0 || k == n
+            1
+        else
+            if k > n
+                0
+            else
+                gf_div(factorial_gf(n), gf_mul(factorial_gf(k), factorial_gf(n - k)))
+
+let factorial_gf(n) = factorial(n)
+

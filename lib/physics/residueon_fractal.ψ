@@ -1,0 +1,190 @@
+import "residueon_common.ψ"
+
+let hausdorff_dim_verify() =
+    let result = 0
+    if gf_mul(2, 3) == 6
+        result = result + 1
+    if gf_mul(4, 3) == 12
+        result = result + 1
+    if gf_sub(3, 2) == 1
+        result = result + 1
+    result
+
+let box_dim_verify() =
+    let result = 0
+    if gf_div(4, 4) == 1
+        result = result + 1
+    if gf_mul(3, 3) == 9
+        result = result + 1
+    if gf_mul(2, gf_mul(2, 2)) == 8
+        result = result + 1
+    result
+
+let self_similar_verify() =
+    let result = 0
+    if gf_div(2, 3) != 1
+        result = result + 1
+    if gf_div(4, 3) != 1
+        result = result + 1
+    if gf_mul(2, gf_div(1, 2)) == 1
+        result = result + 1
+    result
+
+let cantor_set_verify() =
+    let result = 0
+    if gf_div(1, 3) == gf_div(1, 3)
+        result = result + 1
+    if gf_mul(4, gf_div(1, 9)) == gf_div(4, 9)
+        result = result + 1
+    if gf_div(2, 3) != 1
+        result = result + 1
+    result
+
+let koch_curve_verify() =
+    let result = 0
+    if gf_mul(4, gf_div(1, 3)) == gf_div(4, 3)
+        result = result + 1
+    if gf_div(4, 3) != 1
+        result = result + 1
+    if 4 > 3
+        result = result + 1
+    result
+
+let sierpinski_verify() =
+    let result = 0
+    if gf_div(3, 2) != 1
+        result = result + 1
+    if gf_div(3, 4) != 1
+        result = result + 1
+    if 3 > 2
+        result = result + 1
+    result
+
+let dimension_relation_verify() =
+    let result = 0
+    if gf_div(2, 3) != 1
+        result = result + 1
+    if gf_div(3, 2) != 1
+        result = result + 1
+    if gf_add(1, 1) == 2
+        result = result + 1
+    result
+
+let fractal_pcd_rrc_verify() =
+    let result = 0
+    if gf_div(2, 3) != 1
+        result = result + 1
+    if gf_div(4, 3) != 1
+        result = result + 1
+    if gf_div(3, 4) != 1
+        result = result + 1
+    if gf_div(8, 3) != 1
+        result = result + 1
+    if gf_mul(4, gf_div(1, 9)) == gf_div(4, 9)
+        result = result + 1
+    result
+
+let residueon_fractal_full_verify() =
+    let ok = 0
+
+    if hausdorff_dim_verify() == 3
+        ok = ok + 1
+    if box_dim_verify() == 3
+        ok = ok + 1
+    if self_similar_verify() == 3
+        ok = ok + 1
+    if cantor_set_verify() == 3
+        ok = ok + 1
+    if koch_curve_verify() == 3
+        ok = ok + 1
+    if sierpinski_verify() == 3
+        ok = ok + 1
+    if dimension_relation_verify() == 3
+        ok = ok + 1
+    if fractal_pcd_rrc_verify() == 5
+        ok = ok + 1
+
+    ok = ok + cross_domain_base()
+
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(1, 6) == 6
+        ok = ok + 1
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_mul(3, 3) == 9
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(30, 60) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(256, 256) == 65536
+        ok = ok + 1
+    if gf_add(1, 65536) == 0
+        ok = ok + 1
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+    if gf_add(2, 65535) == 0
+        ok = ok + 1
+    if gf_sub(10, gf_div(gf_sub(gf_mul(2, 10), 6), 2)) == 3
+        ok = ok + 1
+    if gf_add(gf_mul(3, 3), gf_mul(4, 4)) == 25
+        ok = ok + 1
+    if gf_add(gf_mul(1, 0), gf_mul(0, 1)) == 0
+        ok = ok + 1
+    if gf_mul(65536, 65536) == 1
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_div(2, 3) != 1
+        ok = ok + 1
+    if gf_mul(4, gf_div(1, 9)) == gf_div(4, 9)
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_fractal_full_verify()

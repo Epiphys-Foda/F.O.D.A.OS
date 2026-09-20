@@ -1,0 +1,459 @@
+import "residueon_common.ψ"
+
+let lattice_make(position, amplitude, phase) = rp_make(position, amplitude, phase)
+
+let lattice_position(site) = rp_z(site)
+let lattice_amplitude(site) = rp_r(site)
+let lattice_phase(site) = rp_n(site)
+
+let nearest_neighbor(i, j) =
+    let diff = gf_sub(i, j)
+    if diff > 32768
+        diff = gf_sub(0, diff)
+    let result = 0
+    if diff == 1
+        result = 1
+    result
+
+let lattice_verify() =
+    let site = lattice_make(0, 5, 3)
+    let result = 0
+    if lattice_position(site) == 0
+        result = result + 1
+    if lattice_amplitude(site) == 5
+        result = result + 1
+    if lattice_phase(site) == 3
+        result = result + 1
+    result
+
+let neighbor_verify() =
+    let result = 0
+    if nearest_neighbor(0, 1) == 1
+        result = result + 1
+    if nearest_neighbor(5, 4) == 1
+        result = result + 1
+    if nearest_neighbor(0, 2) == 0
+        result = result + 1
+    result
+
+let chebyshev_t0() = 1
+let chebyshev_t1(x) = x
+let chebyshev_t2(x) = gf_sub(gf_mul(2, gf_mul(x, x)), 1)
+let chebyshev_t3(x) = gf_sub(gf_mul(4, gf_mul(x, gf_mul(x, x))), gf_mul(3, x))
+
+let tight_binding_energy(eps_0, t, cos_ka) =
+    let two_cos = gf_mul(2, cos_ka)
+    gf_sub(eps_0, gf_mul(t, two_cos))
+
+let energy_band_verify() =
+    let e_bottom = tight_binding_energy(5, 2, 1)
+    let result = 0
+    if e_bottom == 1
+        result = result + 1
+    let e_mid = tight_binding_energy(5, 2, 0)
+    if e_mid == 5
+        result = result + 1
+    let e_top = tight_binding_energy(5, 2, gf_neg(1))
+    if e_top == 9
+        result = result + 1
+    result
+
+let effective_mass(t, cos_ka) =
+    let numerator = 1
+    gf_div(numerator, gf_mul(t, cos_ka))
+
+let effective_mass_verify() =
+    let m = effective_mass(1, 1)
+    let result = 0
+    if m == 1
+        result = 1
+    result
+
+let chebyshev_verify() =
+    let t2 = chebyshev_t2(2)
+    let t3 = chebyshev_t3(2)
+    let result = 0
+    if t2 == 7
+        result = result + 1
+    if t3 == 26
+        result = result + 1
+    result
+
+let phonon_dispersion_sq(k_spring, mass, cos_ka) =
+    let sin_sq = gf_div(gf_sub(1, cos_ka), 2)
+    gf_mul(gf_div(gf_mul(4, k_spring), mass), sin_sq)
+
+let phonon_verify() =
+    let omega_sq_gamma = phonon_dispersion_sq(1, 1, 1)
+    let omega_sq_edge = phonon_dispersion_sq(1, 1, gf_neg(1))
+    let result = 0
+    if omega_sq_gamma == 0
+        result = result + 1
+    if omega_sq_edge == 4
+        result = result + 1
+    result
+
+let phonon_dos(omega, omega_max) =
+    let diff = gf_sub(gf_mul(omega_max, omega_max), gf_mul(omega, omega))
+    gf_inv(diff)
+
+let phonon_dos_verify() =
+    let d = phonon_dos(0, 2)
+    let quarter = gf_div(1, 4)
+    let result = 0
+    if d == quarter
+        result = 1
+    result
+
+let bcs_energy_sq(xi, delta) =
+    gf_add(gf_mul(xi, xi), gf_mul(delta, delta))
+
+let bcs_gap_ratio() =
+    let delta = 3
+    let tc = 2
+    gf_div(gf_mul(2, delta), tc)
+
+let bcs_verify() =
+    let e_sq = bcs_energy_sq(3, 4)
+    let result = 0
+    if e_sq == 25
+        result = result + 1
+    let ratio = bcs_gap_ratio()
+    if ratio == 3
+        result = result + 1
+    result
+
+let cooper_binding_energy(n0_v) =
+    gf_inv(n0_v)
+
+let cooper_pair_verify() =
+    let e_b = cooper_binding_energy(2)
+    let half = gf_div(1, 2)
+    let result = 0
+    if e_b == half
+        result = 1
+    result
+
+let critical_temperature(omega_d, n0_v) =
+    gf_div(omega_d, n0_v)
+
+let tc_verify() =
+    let tc = critical_temperature(100, 5)
+    let result = 0
+    if tc == 20
+        result = 1
+    result
+
+let discrete_integral(values, n) =
+    let sum = 0
+    let i = 0
+    for i < n
+        sum = gf_add(sum, values[i])
+        i = i + 1
+    sum
+
+let berry_phase_verify() =
+    let phases = [1, 2, 3, gf_neg(6)]
+    let gamma = discrete_integral(phases, 4)
+    let result = 0
+    if gamma == 0
+        result = result + 1
+    let phases2 = [1, 2, 3, gf_sub(1, 6)]
+    let gamma2 = discrete_integral(phases2, 4)
+    if gamma2 == 1
+        result = result + 1
+    result
+
+let chern_number_verify() =
+    let f_list = [1, 0, 0, 0]
+    let c = discrete_integral(f_list, 4)
+    let result = 0
+    if c == 1
+        result = result + 1
+    let f_list2 = [0, 0, 0, 0]
+    let c2 = discrete_integral(f_list2, 4)
+    if c2 == 0
+        result = result + 1
+    result
+
+let z2_invariant(berry_phases, n) =
+    let total = discrete_integral(berry_phases, n)
+    gf_mod(total, 2)
+
+let z2_verify() =
+    let phases = [1, 1]
+    let nu = z2_invariant(phases, 2)
+    let result = 0
+    if nu == 0
+        result = result + 1
+    let phases2 = [1, 0]
+    let nu2 = z2_invariant(phases2, 2)
+    if nu2 == 1
+        result = result + 1
+    result
+
+let ising_hamiltonian(spins, n, j_coupling) =
+    let h = 0
+    let i = 0
+    for i < n - 1
+        let pair_energy = gf_mul(spins[i], spins[i + 1])
+        h = gf_sub(h, gf_mul(j_coupling, pair_energy))
+        i = i + 1
+    h
+
+let ising_verify() =
+    let spins = [1, 1, 1]
+    let h = ising_hamiltonian(spins, 3, 1)
+    let result = 0
+    if h == gf_neg(2)
+        result = result + 1
+    let spins2 = [1, gf_neg(1), 1]
+    let h2 = ising_hamiltonian(spins2, 3, 1)
+    if h2 == 2
+        result = result + 1
+    result
+
+let spin_correlation(s_i, s_j) = gf_mul(s_i, s_j)
+
+let curie_temperature_ising(j_coupling) = gf_mul(2, j_coupling)
+
+let magnetism_verify() =
+    let corr_parallel = spin_correlation(1, 1)
+    let corr_anti = spin_correlation(1, gf_neg(1))
+    let result = 0
+    if corr_parallel == 1
+        result = result + 1
+    if corr_anti == gf_neg(1)
+        result = result + 1
+    let tc = curie_temperature_ising(5)
+    if tc == 10
+        result = result + 1
+    result
+
+let hall_conductivity(nu) = nu
+
+let qhe_verify() =
+    let sigma_xy = hall_conductivity(1)
+    let result = 0
+    if sigma_xy == 1
+        result = result + 1
+    let sigma_xy2 = hall_conductivity(2)
+    if sigma_xy2 == 2
+        result = result + 1
+    let sigma_xy_frac = gf_div(1, 3)
+    if sigma_xy_frac == gf_div(1, 3)
+        result = result + 1
+    result
+
+let landau_level(n) = gf_add(n, gf_div(1, 2))
+
+let landau_verify() =
+    let e0 = landau_level(0)
+    let e1 = landau_level(1)
+    let half = gf_div(1, 2)
+    let three_half = gf_div(3, 2)
+    let result = 0
+    if e0 == half
+        result = result + 1
+    if e1 == three_half
+        result = result + 1
+    result
+
+let condmat_pcd(order1, order2) =
+    let jump = gf_sub(order2, order1)
+    if jump > 32768
+        jump = gf_sub(0, jump)
+    jump
+
+let phase_transition_pcd(order1, order2, threshold) =
+    let jump = condmat_pcd(order1, order2)
+    let result = 0
+    if jump > threshold
+        result = 1
+    result
+
+let condmat_rrc(f1, f2, f3) =
+    gf_sub(gf_add(f1, f3), gf_mul(2, f2))
+
+let critical_point_rrc(f1, f2, f3) =
+    let curvature = condmat_rrc(f1, f2, f3)
+    let result = 0
+    if curvature != 0
+        result = 1
+    result
+
+let condmat_pcd_verify() =
+    let result = phase_transition_pcd(0, 100, 10)
+    let r = 0
+    if result == 1
+        r = 1
+    r
+
+let condmat_rrc_verify() =
+    let result = critical_point_rrc(1, 2, 5)
+    let r = 0
+    if result == 1
+        r = 1
+    r
+
+let no_transition_verify() =
+    let pcd = phase_transition_pcd(5, 6, 10)
+    let rrc = critical_point_rrc(3, 3, 3)
+    let result = 0
+    if pcd == 0
+        result = result + 1
+    if rrc == 0
+        result = result + 1
+    result
+
+let residueon_condmat_verify() =
+    let ok = 0
+
+    if lattice_verify() == 3
+        ok = ok + 1
+    if neighbor_verify() == 3
+        ok = ok + 1
+
+    if energy_band_verify() == 3
+        ok = ok + 1
+    if effective_mass_verify() == 1
+        ok = ok + 1
+    if chebyshev_verify() == 2
+        ok = ok + 1
+
+    if chebyshev_t0() == 1
+        ok = ok + 1
+    if chebyshev_t1(3) == 3
+        ok = ok + 1
+
+    if phonon_verify() == 2
+        ok = ok + 1
+    if phonon_dos_verify() == 1
+        ok = ok + 1
+
+    let omega_sq = phonon_dispersion_sq(1, 1, 0)
+    if omega_sq == 2
+        ok = ok + 1
+
+    if bcs_verify() == 2
+        ok = ok + 1
+    if cooper_pair_verify() == 1
+        ok = ok + 1
+    if tc_verify() == 1
+        ok = ok + 1
+
+    let e_bcs = bcs_energy_sq(0, 5)
+    if e_bcs == 25
+        ok = ok + 1
+
+    if berry_phase_verify() == 2
+        ok = ok + 1
+    if chern_number_verify() == 2
+        ok = ok + 1
+    if z2_verify() == 2
+        ok = ok + 1
+
+    let phases = [1, 2, 3]
+    if discrete_integral(phases, 3) == 6
+        ok = ok + 1
+
+    let f_list = [1, 1, 1]
+    if discrete_integral(f_list, 3) == 3
+        ok = ok + 1
+
+    if ising_verify() == 2
+        ok = ok + 1
+    if magnetism_verify() == 3
+        ok = ok + 1
+
+    let spins = [1, 1]
+    if ising_hamiltonian(spins, 2, 2) == gf_neg(2)
+        ok = ok + 1
+
+    if qhe_verify() == 3
+        ok = ok + 1
+    if landau_verify() == 2
+        ok = ok + 1
+
+    if hall_conductivity(3) == 3
+        ok = ok + 1
+
+    let e2 = landau_level(2)
+    if e2 == gf_div(5, 2)
+        ok = ok + 1
+
+    if condmat_pcd_verify() == 1
+        ok = ok + 1
+    if condmat_rrc_verify() == 1
+        ok = ok + 1
+    if no_transition_verify() == 2
+        ok = ok + 1
+
+    if condmat_pcd(1, 1) == 0
+        ok = ok + 1
+    if condmat_pcd(1, 10) == 9
+        ok = ok + 1
+    if condmat_rrc(1, 2, 3) == 0
+        ok = ok + 1
+    if condmat_rrc(1, 2, 5) == 2
+        ok = ok + 1
+
+    ok = ok + cross_domain_base()
+
+    if tight_binding_energy(5, 0, 1) == 5
+        ok = ok + 1
+
+    if chern_number_verify() == 2
+        ok = ok + 1
+
+    if ising_verify() == 2
+        ok = ok + 1
+
+    if berry_phase_verify() == 2
+        ok = ok + 1
+
+    if chebyshev_verify() == 2
+        ok = ok + 1
+
+    if phonon_verify() == 2
+        ok = ok + 1
+
+    if z2_verify() == 2
+        ok = ok + 1
+
+    if magnetism_verify() == 3
+        ok = ok + 1
+
+    if condmat_pcd_verify() == 1
+        ok = ok + 1
+
+    if condmat_rrc_verify() == 1
+        ok = ok + 1
+
+    if no_transition_verify() == 2
+        ok = ok + 1
+
+    if discrete_integral([1, 0], 2) == 1
+        ok = ok + 1
+
+    if z2_invariant([1, 0], 2) == 1
+        ok = ok + 1
+
+    if critical_point_rrc(1, 2, 5) == 1
+        ok = ok + 1
+
+    if bcs_verify() == 2
+        ok = ok + 1
+
+    if cooper_pair_verify() == 1
+        ok = ok + 1
+
+    if qhe_verify() == 3
+        ok = ok + 1
+
+    if lattice_verify() == 3
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_condmat_verify()

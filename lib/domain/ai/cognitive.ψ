@@ -1,0 +1,209 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let COG_MAX_MEMORY = 65536
+let COG_MAX_RULES = 4096
+
+let memory_create(capacity) = [[], 0, capacity]
+let memory_add(mem, item) =
+        let items = mem[0]
+        if mem[1] < mem[2]
+            items.push(item)
+            [items, mem[1] + 1, mem[2]]
+        else
+            let new_items = []
+            let i = 1
+            let n = len(items)
+            for i < n
+                new_items.push(items[i])
+                i = i + 1
+            new_items.push(item)
+            [new_items, mem[1], mem[2]]
+let memory_recall(mem, pattern) =
+    let items = mem[0]
+    let results = []
+    let i = 0
+    let n = len(items)
+    for i < n
+        if items[i] / 256 == pattern / 256
+            results.push(items[i])
+        i = i + 1
+    results
+let memory_forget(mem, item) =
+    let items = mem[0]
+    let new_items = []
+    let i = 0
+    let n = len(items)
+    for i < n
+        if items[i] != item
+            new_items.push(items[i])
+        i = i + 1
+    [new_items, mem[1] - 1, mem[2]]
+let rule_create(condition, action, priority) = [condition, action, priority]
+let rule_match(rule, state) =
+    (state / 256 == rule[0] / 256 ? 1 : 0)
+let cog_infer(engine, input) =
+    let rules = engine[1]
+    let state = gf_add(engine[2], input)
+    let best_action = 0
+    let best_priority = 0
+    let i = 0
+    let n = len(rules)
+    for i < n
+        let rule = rules[i]
+        if rule_match(rule, state) == 1 && rule[2] > best_priority
+            best_action = rule[1]
+            best_priority = rule[2]
+        i = i + 1
+    best_action
+let cog_learn(engine, experience, reward) =
+    let mem = engine[0]
+    let new_mem = memory_add(mem, [experience, reward])
+    [new_mem, engine[1], engine[2]]
+let cog_step(engine, input) =
+    let action = cog_infer(engine, input)
+    let new_state = gf_add(gf_mul(engine[2], 2), action)
+    [engine[0], engine[1], new_state]
+let cog_field_crystallize(observations, n, z) =
+    let poles = arr_new_n(n)
+    let residues = arr_new_n(n)
+    let i = 0
+    for i < n
+        poles[i] = 127 + i * 1000
+        residues[i] = observations[i]
+        i = i + 1
+    let val = 0
+    let j = 0
+    for j < n
+        let diff = (z + 65537 - poles[j]) % 65537
+        val = gf_add(val, gf_mul(residues[j], gf_inv(diff)))
+        j = j + 1
+    val
+
+let cog_verify() =
+    let obs = arr_new_n(3)
+    obs[0] = 10
+    obs[1] = 20
+    obs[2] = 30
+    let result = cog_field_crystallize(obs, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+
+let COG_ATTN_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let COG_ATTN_WEIGHTS = [40, 60, 80, 100, 70, 50, 30, 20]
+
+let psi_cog_attn(head) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(head), gf_norm(COG_ATTN_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(COG_ATTN_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let COG_WM_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let COG_WM_WEIGHTS = [10, 20, 30, 40, 50, 60, 70, 80]
+
+let psi_cog_wm(slot) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(slot), gf_norm(COG_WM_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(COG_WM_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let COG_DEC_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let COG_DEC_WEIGHTS = [90, 80, 70, 60, 50, 40, 30, 20]
+
+let psi_cog_dec(action) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(action), gf_norm(COG_DEC_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(COG_DEC_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let cognitive_global_response(head, slot, action) =
+    let e1 = psi_cog_attn(head)
+    let e2 = psi_cog_wm(slot)
+    let e3 = psi_cog_dec(action)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+
+let cog_focus_test() =
+    let v1 = psi_cog_attn(4)
+    let v2 = psi_cog_attn(8)
+    (v1 != v2 ? 1 : 0)
+
+let cog_recency_test() =
+    let v_first = psi_cog_wm(1)
+    let v_last = psi_cog_wm(8)
+    (v_first != v_last ? 1 : 0)
+
+let cog_decision_bias_test() =
+    let v_preferred = psi_cog_dec(1)
+    let v_other = psi_cog_dec(8)
+    (v_preferred != v_other ? 1 : 0)
+
+let nested_fractal_cognitive_invariants() =
+    let e1 = psi_cog_attn(4)
+    let e2 = psi_cog_wm(7)
+    let e3 = psi_cog_dec(1)
+    let inv1 = 0
+    if e1 != 0
+        (e2 != 0 ? (e3 != 0 ? (inv1 = 1) : 0) : 0)
+    let inv2 = 0
+    if COG_ATTN_WEIGHTS[3] == 100
+        inv2 = 1
+    let inv3 = 0
+    if COG_WM_WEIGHTS[0] < COG_WM_WEIGHTS[3]
+        (COG_WM_WEIGHTS[3] < COG_WM_WEIGHTS[7] ? (inv3 = 1) : 0)
+    let inv4 = 0
+    if COG_DEC_WEIGHTS[0] > COG_DEC_WEIGHTS[3]
+        (COG_DEC_WEIGHTS[3] > COG_DEC_WEIGHTS[7] ? (inv4 = 1) : 0)
+    let inv5 = cog_focus_test()
+    [inv1, inv2, inv3, inv4, inv5]
+
+let cognitive_verify_v21() =
+    let t1 = 0
+    if psi_cog_attn(4) != 0
+        t1 = 1
+    let t2 = 0
+    if psi_cog_wm(7) != 0
+        t2 = 1
+    let t3 = 0
+    if psi_cog_dec(1) != 0
+        t3 = 1
+    let t4 = cog_focus_test()
+    let t5 = cog_recency_test()
+    let t6 = cog_decision_bias_test()
+    let t7 = 0
+    if COG_ATTN_WEIGHTS[3] == 100
+        t7 = 1
+    let t8 = 0
+    if COG_WM_WEIGHTS[0] == 10
+        t8 = 1
+    let t9 = 0
+    if COG_WM_WEIGHTS[7] == 80
+        t9 = 1
+    let t10 = 0
+    if COG_DEC_WEIGHTS[0] == 90
+        t10 = 1
+    let t11 = 0
+    if COG_DEC_WEIGHTS[7] == 20
+        t11 = 1
+    let invs = nested_fractal_cognitive_invariants()
+    let t12 = 0
+    if invs[0] == 1
+        if invs[1] == 1
+            if invs[2] == 1
+                if invs[3] == 1
+                    if invs[4] == 1
+                        t12 = 1
+    let passed = t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12
+    passed == 12
+

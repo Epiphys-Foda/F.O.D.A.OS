@@ -1,0 +1,114 @@
+import "ck.ψ"
+let aa = [
+    14, 14, 11, 11, 16, 16, 16, 16, 19, 19, 0, 0, 5, 5, 0, 18,
+    11, 11, 11, 11, 15, 15, 15, 15, 9, 9, 6, 6, 2, 2, 2, 2,
+    10, 10, 10, 13, 17, 17, 17, 17, 3, 3, 12, 12, 16, 16, 2, 2,
+    20, 20, 20, 20, 1, 1, 1, 1, 4, 4, 7, 7, 8, 8, 8, 8
+]
+
+let bad = [0]
+let n1 = [0]
+let n2 = [0]
+let n3 = [0]
+let f1 = [0]
+let f2 = [0]
+let f3 = [0]
+
+let c = 0
+for c < 64
+    let cx = c * 1
+    let a = aa[cx]
+    if a > 0
+        f1[0] = 0
+        f2[0] = 0
+        f3[0] = 0
+        let q = cx / 4
+        let r3 = cx - q * 4
+        let q2 = q / 4
+        let r2 = q - q2 * 4
+        let k = 0
+        for k < 4
+            let kx = k * 1
+            let d3 = kx - r3
+            let ad3 =
+                if d3 < 0
+                    0 - d3
+                else
+                    d3
+            if ad3 > 0
+                let c3 = q2 * 16 + r2 * 4 + kx
+                let a3 = aa[c3]
+                if a3 == a
+                    f3[0] = 1
+            let d2 = kx - r2
+            let ad2 =
+                if d2 < 0
+                    0 - d2
+                else
+                    d2
+            if ad2 > 0
+                let c2 = q2 * 16 + kx * 4 + r3
+                let a2 = aa[c2]
+                if a2 == a
+                    f2[0] = 1
+            let d1 = kx - q2
+            let ad1 =
+                if d1 < 0
+                    0 - d1
+                else
+                    d1
+            if ad1 > 0
+                let c1 = kx * 16 + r2 * 4 + r3
+                let a1 = aa[c1]
+                if a1 == a
+                    f1[0] = 1
+            k = k + 1
+        n1[0] = n1[0] + f1[0]
+        n2[0] = n2[0] + f2[0]
+        n3[0] = n3[0] + f3[0]
+    c = c + 1
+
+let d3t = n3[0] - 59
+bad[0] = bad[0] + d3t * d3t
+let d2t = n2[0] - 0
+bad[0] = bad[0] + d2t * d2t
+let d1t = n1[0] - 8
+bad[0] = bad[0] + d1t * d1t
+bad[0] = bad[0] + ck_lo(n3[0], n1[0])
+bad[0] = bad[0] + ck_lo(n1[0], n2[0])
+
+if 555 < 300
+    bad[0] = bad[0] + 1
+if 214 < 208
+    bad[0] = bad[0] + 1
+let pref_ec = 555 - 30
+bad[0] = bad[0] + ck_lo(pref_ec, 1)
+let pref_bor = 52 - 214
+if pref_bor > 0 - 1
+    bad[0] = bad[0] + 1
+if 325 < 242
+    bad[0] = bad[0] + 1
+if 325 > 484
+    bad[0] = bad[0] + 1
+
+let d2gc = 425 - 406
+bad[0] = bad[0] + ck_hi(d2gc, 25)
+if d2gc < 0 - 25
+    bad[0] = bad[0] + 1
+
+if 209 > 379
+    bad[0] = bad[0] + 1
+if 138 > 209
+    bad[0] = bad[0] + 1
+
+if 56 < 23
+    bad[0] = bad[0] + 1
+if 293 < 202
+    bad[0] = bad[0] + 1
+
+if 556 < 523
+    bad[0] = bad[0] + 1
+if 207 > 298
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

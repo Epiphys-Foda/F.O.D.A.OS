@@ -1,0 +1,307 @@
+let topic_new(name, n_partitions) =
+    let parts = []
+    let i = 0
+    for i < n_partitions
+        parts.push([i, [], 0, 0])
+        i = i + 1
+    [name, parts, 65536]
+
+let topic_name(t) = t[0]
+let topic_partitions(t) = t[1]
+let topic_retention(t) = t[2]
+
+let partition_id(p) = p[0]
+let partition_msgs(p) = p[1]
+let partition_offset(p) = p[2]
+let partition_hw(p) = p[3]
+
+let partition_get(t, idx) =
+    let parts = topic_partitions(t)
+    parts[idx]
+
+let hash_key(key) =
+    let h = 0
+    let s = "" + key
+    let n = len(s)
+    let i = 0
+    for i < n
+        h = (h * 31 + s[i]) % 65537
+        i = i + 1
+    h
+
+let topic_produce(topic, key, value, timestamp) =
+    let parts = topic_partitions(topic)
+    let n = len(parts)
+    let p_idx = 0
+    if key == 0
+        let total = 0
+        let i = 0
+        for i < n
+            total = total + partition_offset(parts[i])
+            i = i + 1
+        p_idx = total % n
+    else
+        p_idx = hash_key(key) % n
+    let part = parts[p_idx]
+    let off = partition_offset(part)
+    let msg = [off, key, value, timestamp, {}]
+    let msgs = partition_msgs(part)
+    msgs.push(msg)
+    part[2] = off + 1
+    part[3] = off + 1
+    parts[p_idx] = part
+    topic[1] = parts
+    [p_idx, off]
+
+let consumer_new(id, group, topic_name, partition_id, mode) =
+    [id, group, topic_name, partition_id, 0, mode]
+
+let consumer_id(c) = c[0]
+let consumer_group(c) = c[1]
+let consumer_topic(c) = c[2]
+let consumer_partition(c) = c[3]
+let consumer_offset(c) = c[4]
+let consumer_mode(c) = c[5]
+
+let consumer_set_offset(c, off) =
+    c[4] = off
+    c
+
+let consumer_poll(c, topic) =
+    let p_idx = consumer_partition(c)
+    let part = partition_get(topic, p_idx)
+    let off = consumer_offset(c)
+    let hw = partition_hw(part)
+    let result = 0
+    if off >= hw
+        result = 0
+    else
+        let msgs = partition_msgs(part)
+        result = msgs[off]
+        c[4] = off + 1
+    result
+
+let consumer_poll_batch(c, topic, max_count) =
+    let batch = []
+    let i = 0
+    for i < max_count
+        let msg = consumer_poll(c, topic)
+        if msg == 0
+            i = max_count
+        else
+            batch.push(msg)
+        i = i + 1
+    batch
+
+let subscription_new(name, topic_name, mode) =
+    [name, topic_name, mode, [], 0]
+
+let sub_name(s) = s[0]
+let sub_topic(s) = s[1]
+let sub_mode(s) = s[2]
+let sub_consumers(s) = s[3]
+let sub_leader(s) = s[4]
+
+let sub_add_consumer(s, consumer) =
+    let consumers = sub_consumers(s)
+    consumers.push(consumer)
+    s[3] = consumers
+    s
+
+let sub_active_consumer(s) =
+    let consumers = sub_consumers(s)
+    let n = len(consumers)
+    if n == 0
+        0
+    else
+        let mode = sub_mode(s)
+        if mode == 0
+            consumers[sub_leader(s)]
+        else
+            0
+        if mode == 1
+            let idx = sub_leader(s)
+            s[4] = (idx + 1) % n
+            consumers[idx]
+        else
+            0
+        if mode == 2
+            consumers[0]
+        else
+            consumers[0]
+
+let view_new(name, query_fn) =
+    [name, query_fn, {}, 0]
+
+let view_name(v) = v[0]
+let view_query(v) = v[1]
+let view_state(v) = v[2]
+let view_ts(v) = v[3]
+
+let view_apply(view, key, value) =
+    let state = view_state(view)
+    let cur = state[key]
+    if cur == 0
+        cur = 0
+    state[key] = cur + 1
+    view[2] = state
+    view[3] = view[3] + 1
+    view
+
+let view_lookup(view, key) =
+    let state = view_state(view)
+    let v = state[key]
+    if v == 0
+        0
+    else
+        v
+
+let producer_new(id) =
+    [id, 0]
+
+let producer_id(p) = p[0]
+let producer_seq(p) = p[1]
+
+let producer_next_seq(p) =
+    let s = producer_seq(p)
+    p[1] = s + 1
+    [p[0], s]
+
+let idempotent_produce(topic, producer, key, value, timestamp) =
+    let seq = producer_next_seq(producer)
+    topic_produce(topic, key, value, timestamp)
+
+let transactional_consume(consumer, topic, view, process_fn) =
+    let msg = consumer_poll(consumer, topic)
+    if msg == 0
+        0
+    else
+        let key = msg[1]
+        let value = msg[2]
+        view_apply(view, key, value)
+        1
+
+let topic_snapshot_at(topic, partition_id, target_ts) =
+    let part = partition_get(topic, partition_id)
+    let msgs = partition_msgs(part)
+    let snapshot = []
+    let i = 0
+    let n = len(msgs)
+    for i < n
+        let msg = msgs[i]
+        let ts = msg[3]
+        if ts <= target_ts
+            snapshot.push(msg)
+        i = i + 1
+    snapshot
+
+let streaming_verify() =
+    let ok1 = 1
+    let t = topic_new("events", 4)
+    if topic_name(t) != "events"
+        ok1 = 0
+    if len(topic_partitions(t)) != 4
+        ok1 = 0
+
+    let ok2 = 1
+    let r1 = topic_produce(t, "key1", "value1", 100)
+    let r2 = topic_produce(t, "key1", "value2", 200)
+    let r3 = topic_produce(t, "key2", "value3", 300)
+    if r1[0] != r2[0]
+        ok2 = 0
+    if r1[1] != 0
+        ok2 = 0
+    if r2[1] != 1
+        ok2 = 0
+
+    let ok3 = 1
+    let rr1 = topic_produce(t, 0, "rr1", 400)
+    let rr2 = topic_produce(t, 0, "rr2", 500)
+    let rr3 = topic_produce(t, 0, "rr3", 600)
+
+    let ok4 = 1
+    let c = consumer_new(1, "group1", "events", r1[0], 0)
+    let msg1 = consumer_poll(c, t)
+    if msg1 == 0
+        ok4 = 0
+    if msg1[2] != "value1"
+        ok4 = 0
+    let msg2 = consumer_poll(c, t)
+    if msg2 == 0
+        ok4 = 0
+    if msg2[2] != "value2"
+        ok4 = 0
+    let msg3 = consumer_poll(c, t)
+    if msg3 != 0
+        ok4 = 0
+
+    let ok5 = 1
+    let c2 = consumer_new(2, "group2", "events", r1[0], 0)
+    let batch = consumer_poll_batch(c2, t, 10)
+    if len(batch) != 2
+        ok5 = 0
+
+    let ok6 = 1
+    let sub = subscription_new("sub1", "events", 0)
+    sub = sub_add_consumer(sub, consumer_new(1, "g", "events", 0, 0))
+    sub = sub_add_consumer(sub, consumer_new(2, "g", "events", 0, 0))
+    let active = sub_active_consumer(sub)
+    if active == 0
+        ok6 = 0
+
+    let ok7 = 1
+    let view = view_new("count_by_key", 0)
+    view = view_apply(view, "key1", "value1")
+    view = view_apply(view, "key1", "value2")
+    view = view_apply(view, "key2", "value3")
+    if view_lookup(view, "key1") != 2
+        ok7 = 0
+    if view_lookup(view, "key2") != 1
+        ok7 = 0
+    if view_lookup(view, "key3") != 0
+        ok7 = 0
+
+    let ok8 = 1
+    let producer = producer_new(100)
+    let seq1 = producer_next_seq(producer)
+    if seq1[0] != 100
+        ok8 = 0
+    if seq1[1] != 0
+        ok8 = 0
+    let seq2 = producer_next_seq(producer)
+    if seq2[1] != 1
+        ok8 = 0
+
+    let ok9 = 1
+    let c3 = consumer_new(3, "g3", "events", r1[0], 0)
+    let view2 = view_new("tx_view", 0)
+    let tx_result = transactional_consume(c3, t, view2, 0)
+    if tx_result != 1
+        ok9 = 0
+    if view_lookup(view2, "key1") != 1
+        ok9 = 0
+
+    let ok10 = 1
+    let snap = topic_snapshot_at(t, r1[0], 150)
+    if len(snap) != 1
+        ok10 = 0
+    let snap2 = topic_snapshot_at(t, r1[0], 250)
+    if len(snap2) != 2
+        ok10 = 0
+
+    let all_ok = ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7 * ok8 * ok9 * ok10
+    if all_ok == 1
+        print("streaming_verify: ALL PASS")
+    else
+        print("streaming_verify: FAIL")
+        print(ok1)
+        print(ok2)
+        print(ok3)
+        print(ok4)
+        print(ok5)
+        print(ok6)
+        print(ok7)
+        print(ok8)
+        print(ok9)
+        print(ok10)
+    all_ok

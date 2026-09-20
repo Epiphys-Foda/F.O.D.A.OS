@@ -1,0 +1,449 @@
+let qof_node_gfmul(b) =
+    { op: 1, args: [b], name: "GFMUL" }
+let qof_node_clifford(b) =
+    { op: 2, args: [b], name: "CLIFFORD" }
+let qof_node_ntt(b) =
+    { op: 3, args: [b], name: "NTT" }
+let qof_node_born(then_v) =
+    { op: 4, args: [then_v], name: "BORN" }
+let qof_node_hebbian(delta) =
+    { op: 5, args: [delta], name: "HEBBIAN" }
+let qof_node_const(c) =
+    { op: 0, args: [c], name: "CONST" }
+
+let qof_eval_node(node, input) =
+    let op = node.op
+    let args = node.args
+    if op == 1
+      let b = args[0]
+      let prod = input * b
+      let abs_prod = (prod < 0 ? 0 - prod : prod)
+      abs_prod - (abs_prod / 65537) * 65537
+    else
+      if op == 2
+        let b = args[0]
+        bit_and(bit_xor(input, b), bit_or(input, b))
+      else
+        if op == 3
+          let b = args[0]
+          bit_or(input + b, input - b)
+        else
+          if op == 4
+            let then_v = args[0]
+            (input != 0 ? then_v : 0)
+          else
+                0
+            if op == 5
+              let delta = args[0]
+              input + delta
+            else
+              if op == 0
+                args[0]
+              else
+                0
+
+let qof_chain_impl(seed, nodes, idx) =
+    if idx < len(nodes)
+      let node = nodes[idx]
+      let next_val = qof_eval_node(node, seed)
+      qof_chain_impl(next_val, nodes, idx + 1)
+    else
+      seed
+
+let qof_chain(seed, nodes) = qof_chain_impl(seed, nodes, 0)
+
+let qof_run(seed, nodes) = qof_chain(seed, nodes)
+
+let algebra_gf_mul(a, b) =
+    let prod = a * b
+    let abs_prod = (prod < 0 ? 0 - prod : prod)
+    abs_prod - (abs_prod / 65537) * 65537
+
+let rule_gf_identity(node) =
+    if node.op == 1
+      let b = node.args[0]
+      if b == 1
+          { simplified: true, drop: true, replacement: null }
+      else
+          { simplified: false, drop: false, replacement: null }
+    else
+      { simplified: false, drop: false, replacement: null }
+
+let rule_gf_zero(node) =
+    if node.op == 1
+      let b = node.args[0]
+      if b == 0
+          { simplified: true, drop: false, replacement: { op: 0, args: [0], name: "ZERO" } }
+      else
+          { simplified: false, drop: false, replacement: null }
+    else
+      { simplified: false, drop: false, replacement: null }
+
+let rule_gf_associativity(nodes, idx) =
+    if idx + 1 < len(nodes)
+      let n1 = nodes[idx]
+      let n2 = nodes[idx + 1]
+      if n1.op == 1 && n2.op == 1
+        let a = n1.args[0]
+        let b = n2.args[0]
+        let combined = algebra_gf_mul(a, b)
+        { matched: true, replacement: { op: 1, args: [combined], name: "GFMUL" }, skip_next: true }
+      else
+        { matched: false, replacement: null, skip_next: false }
+    else
+      { matched: false, replacement: null, skip_next: false }
+
+let rule_clifford_self_annihilate(nodes, idx) =
+    { matched: false, replacement: null, skip_next: false }
+
+let rule_ntt_identity(node) =
+    if node.op == 3
+      let b = node.args[0]
+      if b == 0
+          { simplified: true, drop: true, replacement: null }
+      else
+          { simplified: false, drop: false, replacement: null }
+    else
+      { simplified: false, drop: false, replacement: null }
+
+let rule_born_zero_arg(node) =
+    if node.op == 4
+      let then_v = node.args[0]
+      if then_v == 0
+          { simplified: true, drop: false, replacement: { op: 0, args: [0], name: "ZERO" } }
+      else
+          { simplified: false, drop: false, replacement: null }
+    else
+      { simplified: false, drop: false, replacement: null }
+
+let rule_hebbian_identity(node) =
+    if node.op == 5
+      let delta = node.args[0]
+      if delta == 0
+          { simplified: true, drop: true, replacement: null }
+      else
+          { simplified: false, drop: false, replacement: null }
+    else
+      { simplified: false, drop: false, replacement: null }
+
+let rule_hebbian_associativity(nodes, idx) =
+    if idx + 1 < len(nodes)
+      let n1 = nodes[idx]
+      let n2 = nodes[idx + 1]
+      if n1.op == 5 && n2.op == 5
+        let d1 = n1.args[0]
+        let d2 = n2.args[0]
+        { matched: true, replacement: { op: 5, args: [d1 + d2], name: "HEBBIAN" }, skip_next: true }
+      else
+        { matched: false, replacement: null, skip_next: false }
+    else
+      { matched: false, replacement: null, skip_next: false }
+
+let apply_single_node_rules(node) =
+    let r1 = rule_gf_identity(node)
+    if r1.simplified
+      r1
+    else
+      let r2 = rule_gf_zero(node)
+      if r2.simplified
+        r2
+      else
+        let r3 = rule_ntt_identity(node)
+        if r3.simplified
+          r3
+        else
+          let r4 = rule_born_zero_arg(node)
+          if r4.simplified
+            r4
+          else
+            let r5 = rule_hebbian_identity(node)
+            if r5.simplified
+              r5
+            else
+              { simplified: false, drop: false, replacement: null }
+
+let apply_pair_rules(nodes, idx) =
+    let r1 = rule_gf_associativity(nodes, idx)
+    if r1.matched
+      r1
+    else
+      let r2 = rule_hebbian_associativity(nodes, idx)
+      if r2.matched
+        r2
+      else
+        rule_clifford_self_annihilate(nodes, idx)
+
+let pass_algebra_simplify_ext(nodes) =
+    let out = []
+    let i = 0
+    let n = len(nodes)
+    let done = false
+    for !done
+      if i < n
+        let pair_r = apply_pair_rules(nodes, i)
+        if pair_r.matched
+          out = out.push(pair_r.replacement)
+          if pair_r.skip_next
+            i = i + 2
+          else
+            i = i + 1
+        else
+          let node = nodes[i]
+          let single_r = apply_single_node_rules(node)
+          if single_r.simplified
+            if single_r.drop
+              i = i + 1
+            else
+              out = out.push(single_r.replacement)
+              i = i + 1
+          else
+            out = out.push(node)
+            i = i + 1
+      else
+        done = true
+    out
+
+let pass_algebra_fixpoint_impl(nodes, iter) =
+    if iter >= 10
+      nodes
+    else
+      let simplified = pass_algebra_simplify_ext(nodes)
+      if len(simplified) == len(nodes)
+        simplified
+      else
+        pass_algebra_fixpoint_impl(simplified, iter + 1)
+
+let pass_algebra_fixpoint(nodes) = pass_algebra_fixpoint_impl(nodes, 0)
+
+let qof_cost_node(node) =
+    let arg = node.args[0]
+    (arg < 0 ? 0 - arg : arg)
+
+let qof_cost_pipeline_impl(nodes, idx, acc) =
+    if idx < len(nodes)
+      let c = qof_cost_node(nodes[idx])
+      qof_cost_pipeline_impl(nodes, idx + 1, acc + c)
+    else
+      acc
+
+let qof_cost_pipeline(nodes) = qof_cost_pipeline_impl(nodes, 0, 0)
+
+let qof_cost_peak_impl(nodes, idx, peak) =
+    if idx < len(nodes)
+      let c = qof_cost_node(nodes[idx])
+      let new_peak = (c > peak ? c : peak)
+      qof_cost_peak_impl(nodes, idx + 1, new_peak)
+    else
+      peak
+
+let qof_cost_peak(nodes) = qof_cost_peak_impl(nodes, 0, 0)
+
+let is_const_source(node) =
+    let op = node.op
+    if op == 0
+      { is_const: true, value: node.args[0] }
+    else
+      if op == 1
+        if node.args[0] == 0
+            { is_const: true, value: 0 }
+        else
+            { is_const: false, value: 0 }
+      else
+        if op == 4
+          if node.args[0] == 0
+              { is_const: true, value: 0 }
+          else
+              { is_const: false, value: 0 }
+        else
+          { is_const: false, value: 0 }
+
+let pass_const_prop_impl(nodes, idx, val_known, val, out) =
+    if idx < len(nodes)
+      let node = nodes[idx]
+      if val_known
+        let folded = qof_eval_node(node, val)
+        pass_const_prop_impl(nodes, idx + 1, true, folded, out)
+      else
+        let src = is_const_source(node)
+        if src.is_const
+          pass_const_prop_impl(nodes, idx + 1, true, src.value, out)
+        else
+          pass_const_prop_impl(nodes, idx + 1, false, 0, out.push(node))
+    else
+      if val_known
+        out.push({ op: 0, args: [val], name: "CONST" })
+      else
+        out
+
+let pass_const_prop(nodes) = pass_const_prop_impl(nodes, 0, false, 0, [])
+
+let pass_dead_code_elim(nodes) =
+    let n = len(nodes)
+    if n > 0
+      let last = nodes[n - 1]
+      if last.op == 0
+        [last]
+      else
+        nodes
+    else
+      nodes
+
+let pass_contraction_optimize(nodes) =
+    let s1 = pass_algebra_fixpoint(nodes)
+    let s2 = pass_const_prop(s1)
+    let s3 = pass_dead_code_elim(s2)
+    pass_algebra_fixpoint(s3)
+
+let qof_constant_fold(seed, nodes) = qof_chain(seed, nodes)
+
+let qof_optimize_report(nodes) =
+    let orig_cost = qof_cost_pipeline(nodes)
+    let orig_peak = qof_cost_peak(nodes)
+    let opt_nodes = pass_contraction_optimize(nodes)
+    let opt_cost = qof_cost_pipeline(opt_nodes)
+    let opt_peak = qof_cost_peak(opt_nodes)
+    let savings = orig_cost - opt_cost
+    let ratio = (orig_cost > 0 ? (savings * 100) / orig_cost : 0)
+      { original: { node_count: len(nodes), cost: orig_cost, peak: orig_peak }, optimized: { node_count: len(opt_nodes), cost: opt_cost, peak: opt_peak }, savings: savings, savings_ratio: ratio, optimized_nodes: opt_nodes }
+
+let qof_verify_equiv_impl(seed, orig, optimized, test_idx) =
+    if test_idx < 50
+      let s = seed + test_idx
+      let r1 = qof_chain(s, orig)
+      let r2 = qof_chain(s, optimized)
+      if r1 == r2
+        qof_verify_equiv_impl(seed, orig, optimized, test_idx + 1)
+      else
+        false
+    else
+      true
+
+let qof_verify_equiv(seed, orig, optimized) = qof_verify_equiv_impl(seed, orig, optimized, 0)
+
+let qof_optimizer_passes() =
+    [ { name: "pass_algebra_fixpoint",  layer: "V13.2", target: "syntactic",  physics: "ground state" },
+      { name: "pass_const_prop",        layer: "V13.3", target: "semantic",   physics: "tensor collapse" },
+      { name: "pass_dead_code_elim",    layer: "V13.3", target: "semantic",   physics: "redundant edge removal" }
+    ]
+
+let qof_const_sources() =
+    [ { op: 0, name: "CONST",  pattern: "CONST(c) -> c",         physics: "scalar state" },
+      { op: 1, name: "GFMUL",  pattern: "GFMUL(0) -> 0",         physics: "GF zero element" },
+      { op: 4, name: "BORN",   pattern: "BORN(0) -> 0",          physics: "zero projection" }
+    ]
+
+let qof_optimizer_demo() =
+    let nodes = [
+      qof_node_gfmul(3),
+      qof_node_born(0),
+      qof_node_gfmul(5),
+      qof_node_hebbian(3)
+    ]
+    let report = qof_optimize_report(nodes)
+      { original_count: len(nodes), optimized_count: report.optimized.node_count, original_cost: report.original.cost, optimized_cost: report.optimized.cost, savings: report.savings, savings_ratio: report.savings_ratio, final_value: qof_chain(42, nodes), optimized_value: qof_chain(42, report.optimized_nodes) }
+
+let cost_n1 = qof_cost_node(qof_node_gfmul(3))
+let cost_n2 = qof_cost_node(qof_node_gfmul(0))
+let cost_n3 = qof_cost_node(qof_node_hebbian(5 - 0))
+let cost_pipe = qof_cost_pipeline([qof_node_gfmul(3), qof_node_hebbian(5)])
+let cost_pk = qof_cost_peak([qof_node_gfmul(3), qof_node_hebbian(5)])
+
+let a1 = cost_n1 == 3
+let a2 = cost_n2 == 0
+let a3 = cost_pipe == 8
+let a4 = cost_pk == 5
+
+let src_gfmul_zero = is_const_source(qof_node_gfmul(0))
+let src_born_zero = is_const_source(qof_node_born(0))
+let src_gfmul_nonzero = is_const_source(qof_node_gfmul(5))
+let src_hebbian = is_const_source(qof_node_hebbian(3))
+
+let b1 = src_gfmul_zero.is_const == true
+let b2 = src_born_zero.is_const == true
+let b3 = src_gfmul_nonzero.is_const == false
+let b4 = src_hebbian.is_const == false
+
+let cp1 = pass_const_prop([qof_node_gfmul(3), qof_node_born(0), qof_node_gfmul(5), qof_node_hebbian(3)])
+let c1 = len(cp1) == 2 && cp1[0].op == 1 && cp1[1].op == 0 && cp1[1].args[0] == 3
+
+let cp2 = pass_const_prop([qof_node_born(0)])
+let c2 = len(cp2) == 1 && cp2[0].op == 0 && cp2[0].args[0] == 0
+
+let cp3 = pass_const_prop([qof_node_gfmul(3)])
+let c3 = len(cp3) == 1 && cp3[0].op == 1 && cp3[0].args[0] == 3
+
+let cp4 = pass_const_prop([qof_node_born(0), qof_node_hebbian(5)])
+let c4 = len(cp4) == 1 && cp4[0].op == 0 && cp4[0].args[0] == 5
+
+let dce1 = pass_dead_code_elim([qof_node_gfmul(3), qof_node_const(5)])
+let d1 = len(dce1) == 1 && dce1[0].op == 0 && dce1[0].args[0] == 5
+
+let dce2 = pass_dead_code_elim([qof_node_gfmul(3)])
+let d2 = len(dce2) == 1 && dce2[0].op == 1
+
+let dce3 = pass_dead_code_elim([qof_node_const(0)])
+let d3 = len(dce3) == 1 && dce3[0].op == 0 && dce3[0].args[0] == 0
+
+let opt1 = pass_contraction_optimize([qof_node_gfmul(3), qof_node_born(0), qof_node_gfmul(5), qof_node_hebbian(3)])
+let e1 = len(opt1) == 1 && opt1[0].op == 0 && opt1[0].args[0] == 3
+
+let opt2 = pass_contraction_optimize([qof_node_gfmul(1)])
+let e2 = len(opt2) == 0
+
+let opt3 = pass_contraction_optimize([qof_node_gfmul(3), qof_node_gfmul(2)])
+let e3 = len(opt3) == 1 && opt3[0].op == 1 && opt3[0].args[0] == 6
+
+let opt4 = pass_contraction_optimize([qof_node_gfmul(0), qof_node_hebbian(5)])
+let e4 = len(opt4) == 1 && opt4[0].op == 0 && opt4[0].args[0] == 5
+
+let cf1 = qof_constant_fold(10, [qof_node_gfmul(3)])
+let f1 = cf1 == 30
+
+let cf2 = qof_constant_fold(5, [qof_node_gfmul(3), qof_node_hebbian(2)])
+let f2 = cf2 == 17
+
+let rpt1 = qof_optimize_report([qof_node_gfmul(3), qof_node_born(0), qof_node_gfmul(5), qof_node_hebbian(3)])
+let g1 = rpt1.savings == 8
+
+let g2 = rpt1.optimized.node_count == 1
+
+let rpt2 = qof_optimize_report([qof_node_gfmul(1)])
+let g3 = rpt2.savings == 1
+
+let h1 = qof_verify_equiv(0, [qof_node_gfmul(3), qof_node_born(0), qof_node_gfmul(5), qof_node_hebbian(3)], opt1)
+
+let h2 = qof_verify_equiv(0, [qof_node_gfmul(3), qof_node_gfmul(2)], opt3)
+
+let h3 = qof_verify_equiv(0, [qof_node_gfmul(1)], opt2)
+
+let i1 = qof_optimizer_passes().len() == 3
+let i2 = qof_const_sources().len() == 3
+
+let demo = qof_optimizer_demo()
+let j1 = demo.original_count == 4
+let j2 = demo.optimized_count == 1
+let j3 = demo.final_value == 3
+let j4 = demo.optimized_value == 3
+let j5 = demo.savings == 8
+
+print([a1, a2, a3, a4])
+
+print([b1, b2, b3, b4])
+
+print([c1, c2, c3, c4])
+
+print([d1, d2, d3])
+
+print([e1, e2, e3, e4])
+
+print([f1, f2])
+
+print([g1, g2, g3])
+
+print([h1, h2, h3])
+
+print([i1, i2])
+
+print([j1, j2, j3, j4, j5])
+
+print([1])

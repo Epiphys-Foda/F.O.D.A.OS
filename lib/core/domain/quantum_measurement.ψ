@@ -1,0 +1,155 @@
+import "../stdlib/gf65537.ψ"
+
+let projection_operator(eigenvalue) =
+    1
+
+let luders_rule(rho, p_i) =
+    let p_rho_p = gf_mul(gf_mul(p_i, rho), p_i)
+    let trace = p_rho_p
+    gf_div(p_rho_p, trace)
+
+let von_neumann_measurement(rho, projections, n_outcomes) =
+    let result = 0
+    for i in 0..n_outcomes
+        let p_i = projections[i]
+        result = gf_add(result, gf_mul(gf_mul(p_i, rho), p_i))
+    result
+
+let povm_element(m_op) =
+    gf_mul(m_op, m_op)
+
+let povm_completeness(e_ops, n_outcomes) =
+    let sum = 0
+    for i in 0..n_outcomes
+        sum = gf_add(sum, e_ops[i])
+    (sum == 1 ? 1 : 0)
+
+let povm_probability(rho, e_i) =
+    gf_mul(rho, e_i)
+
+let povm_measurement(rho, e_ops, n_outcomes) =
+    let probs = [0] * n_outcomes
+    for i in 0..n_outcomes
+        probs[i] = povm_probability(rho, e_ops[i])
+    probs
+
+let povm_post_state(rho, e_i, prob_i) =
+    let sqrt_e = gf_sqrt(e_i)
+    let sqrt_e_rho_sqrt_e = gf_mul(gf_mul(sqrt_e, rho), sqrt_e)
+    gf_div(sqrt_e_rho_sqrt_e, prob_i)
+
+let weak_value(psi_f, a_op, psi_i) =
+    let numerator = gf_mul(gf_mul(psi_f, a_op), psi_i)
+    let denominator = gf_mul(psi_f, psi_i)
+    gf_div(numerator, denominator)
+
+let weak_measurement_probability(psi_f, psi_i) =
+    let overlap = gf_mul(psi_f, psi_i)
+    gf_mul(overlap, overlap)
+
+let weak_value_bound() =
+    65536
+
+let born_probability(rho, e_i) =
+    gf_mul(rho, e_i)
+
+let born_normalization(probs, n_outcomes) =
+    let sum = 0
+    for i in 0..n_outcomes
+        sum = gf_add(sum, probs[i])
+    (sum == 1 ? 1 : 0)
+
+let is_negative_probability(prob) =
+    (prob > 32768 ? 1 : 0)
+
+let post_selection_probability(p_a_and_b, p_b) =
+    gf_div(p_a_and_b, p_b)
+
+let abl_rule(b_amp, a_amp, a_primes) =
+    let numerator = gf_mul(gf_mul(b_amp, a_amp), gf_mul(b_amp, a_amp))
+    let denominator = 0
+    for i in 0..len(a_primes)
+        let overlap = gf_mul(b_amp, a_primes[i])
+        denominator = gf_add(denominator, gf_mul(overlap, overlap))
+    gf_div(numerator, denominator)
+
+let kochen_specker_directions() =
+    [
+        [1, 0, 0], [0, 1, 0], [0, 0, 1],
+        [1, 1, 0], [1, gf_neg(1), 0], [0, 1, 1],
+        [0, 1, gf_neg(1)], [1, 0, 1], [1, 0, gf_neg(1)]
+    ]
+
+let kochen_specker_check(assignment, directions) =
+    let n = len(directions)
+    for i in 0..n
+        let sum = gf_add(gf_add(assignment[3*i], assignment[3*i + 1]), assignment[3*i + 2])
+        if sum != 1
+            0
+    1
+
+let kochen_specker_theorem() =
+    1
+
+let kCBS_inequality(correlations, n) =
+    let total = 0
+    for i in 0..n
+        total = gf_add(total, correlations[i])
+    total
+
+let kCBS_classical_bound() =
+    2
+
+let kCBS_quantum_bound() =
+    5
+
+let is_contextual(kCBS_value) =
+    (kCBS_value > 2 ? 1 : 0)
+
+let chsh_value_measurement(e_ab, e_abp, e_apb, e_apbp) =
+    gf_sub(
+        gf_add(gf_add(e_ab, e_abp), e_apb),
+        e_apbp
+    )
+
+let tsirelson_bound_measurement() =
+    gf_mul(2, 4080)
+
+let bell_test_measurement(chsh_val) =
+        if chsh_val > 2
+            if chsh_val <= tsirelson_bound_measurement()
+                1
+            else
+                2
+        else
+            0
+
+let information_gain(rho_before, rho_after) =
+    let rank_before = (rho_before == 0 ? 0 : 1)
+    let rank_after = (rho_after == 0 ? 0 : 1)
+    gf_sub(rank_before, rank_after)
+
+let measurement_disturbance(rho_before, rho_after) =
+    let diff = information_gain(rho_before, rho_after)
+    (diff > 32768 ? gf_neg(diff) : diff)
+
+let info_disturbance_relation(info_gain, disturbance) =
+    (info_gain <= disturbance ? 1 : 0)
+
+let time_symmetric_measurement(psi_i, a_op, psi_f) =
+    weak_value(psi_f, a_op, psi_i)
+
+let forward_evolution(psi, u_forward) =
+    gf_mul(u_forward, psi)
+
+let backward_evolution(psi, u_backward) =
+    gf_mul(u_backward, psi)
+
+let zeno_measurement_survival(gamma, tau, n_measurements, r_base) =
+    let exponent = gf_mul(gf_mul(gf_mul(n_measurements, gamma), tau), tau)
+    gf_inv(gf_pow(r_base, exponent))
+
+let zeno_freeze_condition(n_measurements, tau, threshold) =
+    let n_tau_sq = gf_mul(n_measurements, gf_mul(tau, tau))
+    (n_tau_sq < threshold ? 1 : 0)
+

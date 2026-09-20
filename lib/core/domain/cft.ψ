@@ -1,0 +1,312 @@
+import "../stdlib/gf65537.ψ"
+
+let virasoro_commutator(m, n, c) =
+    let coeff_l = gf_sub(m, n)
+    let m_sq_minus_1 = gf_sub(gf_mul(m, m), 1)
+    let central_coeff = gf_mul(gf_div(c, 12), gf_mul(m, m_sq_minus_1))
+    let m_plus_n = gf_add(m, n)
+    let actual_central = (m_plus_n == 0) ? central_coeff : 0
+    [coeff_l, actual_central]
+
+let virasoro_in_range(m) =
+    1
+
+let virasoro_dimension() =
+    65537
+
+let minimal_model_central_charge(p_param, p_prime) =
+    let diff = gf_sub(p_param, p_prime)
+    let diff_sq = gf_mul(diff, diff)
+    let numerator = gf_mul(6, diff_sq)
+    let denominator = gf_mul(p_param, p_prime)
+    gf_sub(1, gf_div(numerator, denominator))
+
+let minimal_model_conformal_weight(p_param, p_prime, r, s) =
+    let pr = gf_mul(p_prime, r)
+    let ps = gf_mul(p_param, s)
+    let diff = gf_sub(pr, ps)
+    let diff_sq = gf_mul(diff, diff)
+    let pp_diff = gf_sub(p_param, p_prime)
+    let pp_diff_sq = gf_mul(pp_diff, pp_diff)
+    let numerator = gf_sub(diff_sq, pp_diff_sq)
+    let denominator = gf_mul(4, gf_mul(p_param, p_prime))
+    gf_div(numerator, denominator)
+
+let ising_central_charge() =
+    minimal_model_central_charge(3, 4)
+
+let ising_conformal_weights() =
+    [0, gf_inv(2), gf_inv(16)]
+
+let potts_central_charge() =
+    minimal_model_central_charge(5, 6)
+
+let primary_field(label, h) = [label, h]
+let field_label(phi) = phi[0]
+let field_weight(phi) = phi[1]
+
+let l0_eigenvalue(phi) = field_weight(phi)
+
+let ising_ope_coeff(i, j, k) =
+    if i == 0
+        (j == k ? 1 : 0)
+    else
+            0
+    if j == 0
+        (i == k ? 1 : 0)
+    else
+            0
+    if i == 1 && j == 1
+        if k == 0
+            1
+        else
+            (k == 2 ? 1 : 0)
+    else
+            0
+    if i == 1 && j == 2
+        (k == 1 ? 1 : 0)
+    else
+            0
+    if i == 2 && j == 1
+        (k == 1 ? 1 : 0)
+    else
+            0
+    if i == 2 && j == 2
+        (k == 0 ? 1 : 0)
+    else
+            0
+        0
+
+let ope_exponent(h_i, h_j, h_k) =
+    gf_sub(gf_sub(h_k, h_i), h_j)
+
+let ope_term(i, j, k, h_i, h_j, h_k) =
+    let coeff = ising_ope_coeff(i, j, k)
+    let exponent = ope_exponent(h_i, h_j, h_k)
+    let power = gf_pow(3, exponent)
+    gf_mul(coeff, power)
+
+let ope_full(i, j, h_table, n_fields) =
+    _ope_sum_loop(i, j, h_table, n_fields, 0, 0)
+let _ope_sum_loop(i, j, h_table, n, k, acc) =
+        if k >= n
+            acc
+        else
+            let h_i = h_table[i]
+            let h_j = h_table[j]
+            let h_k = h_table[k]
+            let term = ope_term(i, j, k, h_i, h_j, h_k)
+            _ope_sum_loop(i, j, h_table, n, k + 1, gf_add(acc, term))
+
+let modular_transform(a, b, c, d, tau) =
+    let numerator = gf_add(gf_mul(a, tau), b)
+    let denominator = gf_add(gf_mul(c, tau), d)
+    gf_div(numerator, denominator)
+
+let modular_s(tau) =
+    gf_neg(gf_inv(tau))
+
+let modular_t(tau) =
+    gf_add(tau, 1)
+
+let modular_st(tau) =
+    modular_s(modular_t(tau))
+
+let modular_s_squared_check(tau) =
+    let s_tau = modular_s(tau)
+    let s_squared_tau = modular_s(s_tau)
+    (s_squared_tau == tau ? 1 : 0)
+
+let modular_st_cubed_check(tau) =
+    let st_tau = modular_st(tau)
+    let st2 = modular_st(st_tau)
+    let st3 = modular_st(st2)
+    (st3 == tau ? 1 : 0)
+
+let psl2_order() =
+    let p_sq = gf_mul(65537, 65537)
+    let p_sq_minus_1 = gf_sub(p_sq, 1)
+    gf_div(gf_mul(65537, p_sq_minus_1), 2)
+
+let modular_form_check(f_values, gamma, tau, k) =
+    let a = gamma[0]
+    let b = gamma[1]
+    let c = gamma[2]
+    let d = gamma[3]
+    let gamma_tau = modular_transform(a, b, c, d, tau)
+    let f_gamma_tau = f_values[gamma_tau]
+    let f_tau = f_values[tau]
+    let c_tau_plus_d = gf_add(gf_mul(c, tau), d)
+    let automorphy = gf_pow(c_tau_plus_d, k)
+    let rhs = gf_mul(automorphy, f_tau)
+    (f_gamma_tau == rhs ? 1 : 0)
+
+let eisenstein_series(k, tau, cutoff) =
+    _eisenstein_sum(k, tau, cutoff, 0, 0, 0)
+let _eisenstein_sum(k, tau, cutoff, m, n, acc) =
+    if m >= cutoff
+        acc
+    else
+        0
+    if n >= cutoff
+        _eisenstein_sum(k, tau, cutoff, m + 1, 0, acc)
+    else
+        let m_tau_plus_n = gf_add(gf_mul(m, tau), n)
+        let term = (m == 0 && n == 0) ? 0 : gf_pow(gf_inv(m_tau_plus_n), k)
+        _eisenstein_sum(k, tau, cutoff, m, n + 1, gf_add(acc, term))
+
+let dedekind_eta(tau, cutoff) =
+    let q = gf_pow(3, tau)
+    let q_power_1_24 = gf_pow(q, gf_inv(24))
+    let product = _eta_product(q, cutoff, 1, 1)
+    gf_mul(q_power_1_24, product)
+let _eta_product(q, cutoff, n, acc) =
+        if n >= cutoff
+            acc
+        else
+            let q_n = gf_pow(q, n)
+            let factor = gf_sub(1, q_n)
+            _eta_product(q, cutoff, n + 1, gf_mul(acc, factor))
+
+let character(conformal_weights, n_fields, c, tau) =
+    let q = gf_pow(3, tau)
+    let c_over_24 = gf_div(c, 24)
+    _character_sum(conformal_weights, n_fields, q, c_over_24, 0, 0)
+let _character_sum(weights, n, q, c_over_24, i, acc) =
+        if i >= n
+            acc
+        else
+            let h = weights[i]
+            let exponent = gf_sub(h, c_over_24)
+            let term = gf_pow(q, exponent)
+            _character_sum(weights, n, q, c_over_24, i + 1, gf_add(acc, term))
+
+let ising_character(tau) =
+    let weights = ising_conformal_weights()
+    let c = ising_central_charge()
+    character(weights, 3, c, tau)
+
+let character_s_invariance_check(weights, n_fields, c, tau) =
+    let chi_tau = character(weights, n_fields, c, tau)
+    let s_tau = modular_s(tau)
+    let chi_s_tau = character(weights, n_fields, c, s_tau)
+    (chi_tau == chi_s_tau ? 1 : 0)
+
+let two_point_function(i, j, h_i, tau) =
+        if i == j
+            let exponent = gf_mul(65536, gf_mul(2, h_i))
+            gf_pow(3, exponent)
+        else
+            0
+
+let three_point_function(i, j, k, h_table) =
+    let h_i = h_table[i]
+    let h_j = h_table[j]
+    let h_k = h_table[k]
+    ising_ope_coeff(i, j, k)
+
+let four_point_function(i, j, k, l, h_table, n_fields) =
+    _four_pt_sum(i, j, k, l, h_table, n_fields, 0, 0)
+let _four_pt_sum(i, j, k, l, h_table, n, p, acc) =
+        if p >= n
+            acc
+        else
+            let c_ijp = ising_ope_coeff(i, j, p)
+            let c_pkl = ising_ope_coeff(p, k, l)
+            let h_p = h_table[p]
+            let h_i = h_table[i]
+            let h_j = h_table[j]
+            let exponent = gf_sub(gf_sub(h_p, h_i), h_j)
+            let block = gf_pow(3, exponent)
+            let term = gf_mul(gf_mul(c_ijp, c_pkl), block)
+            _four_pt_sum(i, j, k, l, h_table, n, p + 1, gf_add(acc, term))
+
+let crossing_symmetry_check(i, j, k, l, h_table, n_fields, z, one_minus_z) =
+    let s_channel = four_point_function(i, j, k, l, h_table, n_fields)
+    let t_channel = four_point_function(i, l, k, j, h_table, n_fields)
+    (s_channel == t_channel ? 1 : 0)
+
+let bootstrap_equation(h_table, n_fields) =
+    _bootstrap_loop(h_table, n_fields, 0, 0, 0, 0, 1)
+let _bootstrap_loop(h_table, n, i, j, k, l, result) =
+    if result == 0
+        0
+    else
+        0
+    if i >= n
+        result
+    else
+        0
+    if j >= n
+        _bootstrap_loop(h_table, n, i + 1, 0, 0, 0, result)
+    else
+        0
+    if k >= n
+        _bootstrap_loop(h_table, n, i, j + 1, 0, 0, result)
+    else
+        0
+    if l >= n
+        _bootstrap_loop(h_table, n, i, j, k + 1, 0, result)
+    else
+        let check = crossing_symmetry_check(i, j, k, l, h_table, n, 0, 0)
+        _bootstrap_loop(h_table, n, i, j, k, l + 1, check)
+
+let wzw_central_charge(k, dim_g, dual_coxeter) =
+    let numerator = gf_mul(k, dim_g)
+    let denominator = gf_add(k, dual_coxeter)
+    gf_div(numerator, denominator)
+
+let su2_k_central_charge(k) =
+    wzw_central_charge(k, 3, 2)
+
+let su2_k_conformal_weight(j, k) =
+    let j_plus_1 = gf_add(j, 1)
+    let numerator = gf_mul(j, j_plus_1)
+    let denominator = gf_add(k, 2)
+    gf_div(numerator, denominator)
+
+let free_boson_central_charge() = 1
+let free_fermion_central_charge() = gf_inv(2)
+
+let free_boson_character(tau, cutoff) =
+    let eta = dedekind_eta(tau, cutoff)
+    gf_inv(eta)
+
+let conformal_anomaly_transform(c, gamma, tau, Z_tau) =
+    let a = gamma[0]
+    let b = gamma[1]
+    let c_coeff = gamma[2]
+    let d = gamma[3]
+    let gamma_tau = modular_transform(a, b, c_coeff, d, tau)
+    let c_tau_plus_d = gf_add(gf_mul(c_coeff, tau), d)
+    let modular_weight = gf_div(c, 2)
+    let automorphy = gf_pow(c_tau_plus_d, modular_weight)
+    gf_mul(automorphy, Z_tau)
+
+let zamolodchikov_c_function(correlators, n) =
+    _c_function_sum(correlators, n, 0, 0)
+let _c_function_sum(correls, n, i, acc) =
+        if i >= n
+            acc
+        else
+            let c = correls[i]
+            let c_sq = gf_mul(c, c)
+            _c_function_sum(correls, n, i + 1, gf_add(acc, c_sq))
+
+let rg_flow_step(g, beta_g) =
+    gf_add(g, beta_g)
+
+let beta_function(g, coefficients, n_coeffs) =
+    _beta_sum(g, coefficients, n_coeffs, 0, 0)
+let _beta_sum(g, coeffs, n, k, acc) =
+        if k >= n
+            acc
+        else
+            let term = gf_mul(coeffs[k], gf_pow(g, k))
+            _beta_sum(g, coeffs, n, k + 1, gf_add(acc, term))
+
+let c_theorem_check(c_t, c_t_plus_1) =
+        if c_t_plus_1 <= c_t
+            1
+        else
+            0

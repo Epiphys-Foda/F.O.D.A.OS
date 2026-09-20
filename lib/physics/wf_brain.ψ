@@ -1,0 +1,118 @@
+let P = 65537
+let P2 = 131071
+
+import "../core/stdlib_lang2/gf_canon_shared.ψ"
+import "sh_d39d441e28.ψ"
+let law_gene(L, c1) = rp_make(L, c1, 1)
+
+import "../core/stdlib_lang2/bm_canon.ψ"
+let bm_scan(s, n, T, C) = bm_discover(s, n, T, C)
+
+let bm_predict(C, L, s, n) =
+    let acc = 0
+    let k = 1
+    for k < L + 1
+        acc = gf_add(acc, gf_mul(C[k], s[n - k]))
+        k = k + 1
+    gf_sub(0, acc)
+
+import "sh_ee308d734f.ψ"
+import "sh_bffc56f968.ψ"
+let harm2_eval(nn, tt, nq, out2) =
+    let q1 = nn[0] * nn[0]
+    let q2 = nn[1] * nn[1]
+    let qq = nq * nq
+    let dq = q1 - q2
+    out2[0] = tt[0] * dq * qq + (tt[1] - tt[0]) * q2 * (q1 - qq)
+    out2[1] = dq * qq
+    0
+
+let hash3(t1, t2, t3) =
+    let h = ((t1 * 257 + t2) % P * 257 + t3) % P
+    let isz = 0
+    if h == 0
+        isz = 1
+    h + isz
+
+let f_known(F, cnt, id) =
+    let found = 0
+    let i = 0
+    for i < cnt
+        let eq = 0
+        if F[i] == id
+            eq = 1
+        found = found + eq
+        i = i + 1
+    found
+
+let chain_commit(arr, n, chk_prev) =
+    let acc = chk_prev
+    let w = 1
+    let i = 0
+    for i < n
+        acc = gf_add(acc, gf_mul(arr[i], w))
+        w = gf_mul(w, 3)
+        i = i + 1
+    acc
+
+let rrns_chain(arr, n, mod_val) =
+    let acc = 1
+    let w = 1
+    let i = 0
+    for i < n
+        acc = (acc + (arr[i] % mod_val) * w) % mod_val
+        w = w * 3 % mod_val
+        i = i + 1
+    acc
+
+import "sh_0fe08dee05.ψ"
+let brain_forward(W, V, E, HID, CTX, ctx_ids, H) =
+    let NE = V * E
+    let NX = CTX * E
+    let B1 = NE + NX * HID
+    let W2B = B1 + HID
+    let B2 = W2B + HID * V
+    let k = 0
+    for k < NX
+        let t = k / E
+        let d = k - t * E
+        H[1000 + k] = W[ctx_ids[t] * E + d]
+        k = k + 1
+    let jj = 0
+    for jj < HID
+        let acc = 0
+        let m = 0
+        for m < NX
+            acc = acc + W[NE + jj * NX + m] * H[1000 + m]
+            m = m + 1
+        acc = acc + W[B1 + jj]
+        let a = 0
+        if acc > 0
+            a = acc
+        H[jj] = a
+        jj = jj + 1
+    let best = 0
+    let bi = 0
+    let kk = 0
+    for kk < V
+        let acc2 = 0
+        let j2 = 0
+        for j2 < HID
+            acc2 = acc2 + W[W2B + kk * HID + j2] * H[j2]
+            j2 = j2 + 1
+        acc2 = acc2 + W[B2 + kk]
+        let upd = 0
+        if kk == 0
+            upd = 1
+        let gt2 = 0
+        if acc2 > best
+            if kk != 0
+                gt2 = 1
+        let any = upd + gt2
+        let usef = 0
+        if any != 0
+            usef = 1
+        best = usef * acc2 + (1 - usef) * best
+        bi = usef * kk + (1 - usef) * bi
+        kk = kk + 1
+    bi

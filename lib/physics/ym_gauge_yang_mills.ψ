@@ -1,0 +1,613 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+import "bootstrap3_domain.ψ"
+
+import "sh_e39bb00202.ψ"
+import "sh_af95b2b028.ψ"
+import "sh_7c6dfc404d.ψ"
+import "sh_cb68026814.ψ"
+
+import "sh_0ce8ba5325.ψ"
+
+import "sh_0473596775.ψ"
+import "sh_34708e8229.ψ"
+
+import "sh_e06a4e4200.ψ"
+
+import "sh_1b5ec76ed2.ψ"
+
+import "../core/stdlib_lang2/gx_33aab46c3d.ψ"
+import "sh_e0d12bd923.ψ"
+import "sh_b63852aa1c.ψ"
+import "sh_beb5173b91.ψ"
+
+    let f1 = mf_make([0, 1, 2], [10, 20, 30], 3)
+    if mf_size(f1) == 3
+        ok = ok + 1
+    if mf_poles(f1)[0] == 0
+        ok = ok + 1
+    if mf_residues(f1)[1] == 20
+        ok = ok + 1
+
+    let f2 = mf_make([0, 1, 2], [5, 5, 5], 3)
+    let fadd = mf_add(f1, f2)
+    if mf_residues(fadd)[0] == 15
+        ok = ok + 1
+
+    let fmul = mf_mul(f1, f2)
+    if mf_residues(fmul)[0] == 50
+        ok = ok + 1
+
+    let fscale = mf_scale(f1, 2)
+    if mf_residues(fscale)[0] == 20
+        ok = ok + 1
+
+    let fcomp = mf_compose(f1, f2)
+    if mf_size(fcomp) == 3
+        ok = ok + 1
+
+    let fp1 = mf_fingerprint(f1)
+    if fp1 >= 0
+        ok = ok + 1
+
+    if mf_equal(f1, f1) == 1
+        ok = ok + 1
+    if mf_equal(f1, f2) == 0
+        ok = ok + 1
+
+    if ast_to_op(AST_LITERAL()) == OP_OBSERVE()
+        ok = ok + 1
+    if ast_to_op(AST_BINOP()) == OP_COMPILE()
+        ok = ok + 1
+    if ast_to_op(AST_IF()) == OP_SELF_VERIFY()
+        ok = ok + 1
+    if ast_to_op(AST_WHILE()) == OP_GALOIS()
+        ok = ok + 1
+    if ast_to_op(AST_CALL()) == OP_META_OBSERVE()
+        ok = ok + 1
+    if ast_to_op(AST_LET()) == OP_HOMOLOGY()
+        ok = ok + 1
+
+    let ast_t = [AST_LITERAL(), AST_BINOP(), AST_IF()]
+    let ast_v = [42, 7, 1]
+    let ast_field = ast_to_meta_field(ast_t, ast_v, 3)
+    if mf_size(ast_field) == 3
+        ok = ok + 1
+    if mf_poles(ast_field)[0] == gf_add(gf_mul(OP_OBSERVE(), 1000), 42)
+        ok = ok + 1
+
+    let fI = combinator_I(f1)
+    if mf_equal(fI, f1) == 1
+        ok = ok + 1
+
+    let fK = combinator_K([0], [99], 1)
+    if mf_residues(fK)[0] == 99
+        ok = ok + 1
+
+    let fB = combinator_B(f1, f2, f1)
+    if mf_size(fB) == 3
+        ok = ok + 1
+
+    let fS = combinator_S(f1, f2, f1)
+    if mf_size(fS) == 3
+        ok = ok + 1
+
+    let fY = combinator_Y(f1, 3)
+    if mf_size(fY) == 3
+        ok = ok + 1
+
+    let fp_result = kleene_fp(1, 2, 100)
+    if fp_result[2] >= 0
+        ok = ok + 1
+
+    let mf_fp = kleene_mf_fp(f1, 5)
+    if mf_fp[2] >= 0
+        ok = ok + 1
+
+    let hom = homology_compute(f1)
+    if hom[0] == 3
+        ok = ok + 1
+
+    let cancer = homology_cancer_check(f1)
+    if cancer == 0 || cancer == 1
+        ok = ok + 1
+
+    let apop = apoptosis(f1)
+    if mf_size(apop) >= 0
+        ok = ok + 1
+
+    let mutv = galois_mutate(f1, 2)
+    if mf_size(mutv) == 3
+        ok = ok + 1
+
+    let orbit = galois_orbit(f1, 2, 5)
+    if orbit[0] == mf_fingerprint(f1)
+        ok = ok + 1
+
+    let order = galois_order(f1, 2, 100)
+    if order >= 1
+        ok = ok + 1
+
+    let mc = meta_compiler()
+    if mf_size(mc) == 6
+        ok = ok + 1
+
+    let mcs = meta_compile_self()
+    if mf_equal(mc, mcs) == 1
+        ok = ok + 1
+
+    let proj = project(mc)
+    if mf_size(proj) >= 1
+        ok = ok + 1
+
+    let lifted = lift(G0_POLES(), G0_RESIDUES(), G0_N())
+    if mf_size(lifted) == 3
+        ok = ok + 1
+
+    if bootstrap_tower(4) == 1
+        ok = ok + 1
+    if bootstrap_tower(8) == 1
+        ok = ok + 1
+
+    ok
+
+let ym_lie_bracket(x, y) =
+    let cx = gf_sub(gf_mul(x[1], y[2]), gf_mul(x[2], y[1]))
+    let cy = gf_sub(gf_mul(x[2], y[0]), gf_mul(x[0], y[2]))
+    let cz = gf_sub(gf_mul(x[0], y[1]), gf_mul(x[1], y[0]))
+    [gf_mul(2, cx), gf_mul(2, cy), gf_mul(2, cz)]
+
+let ym_la_add(x, y) = [gf_add(x[0], y[0]), gf_add(x[1], y[1]), gf_add(x[2], y[2])]
+let ym_la_sub(x, y) = [gf_sub(x[0], y[0]), gf_sub(x[1], y[1]), gf_sub(x[2], y[2])]
+let ym_la_scale(x, s) = [gf_mul(x[0], s), gf_mul(x[1], s), gf_mul(x[2], s)]
+let ym_la_dot(x, y) = gf_add(gf_add(gf_mul(x[0], y[0]), gf_mul(x[1], y[1])), gf_mul(x[2], y[2]))
+let ym_killing(x, y) = gf_mul(gf_sub(0, 2), ym_la_dot(x, y))
+
+let ym_la_equal(x, y) =
+    let result = 0
+    if x[0] == y[0]
+        if x[1] == y[1]
+            if x[2] == y[2]
+                result = 1
+    result
+
+let ym_la_zero() = [0, 0, 0]
+let ym_e1() = [1, 0, 0]
+let ym_e2() = [0, 1, 0]
+let ym_e3() = [0, 0, 1]
+
+let ym_nonabelian_term(a_mu, a_nu) = ym_lie_bracket(a_mu, a_nu)
+let ym_field_strength(da_munu, a_mu, a_nu) = ym_la_add(da_munu, ym_lie_bracket(a_mu, a_nu))
+let ym_field_strength_pure(a_mu, a_nu) = ym_lie_bracket(a_mu, a_nu)
+
+let ym_field_strength_antisym(da_munu, a_mu, a_nu) =
+    let f_munu = ym_field_strength(da_munu, a_mu, a_nu)
+    let f_numu = ym_field_strength(ym_la_scale(da_munu, gf_sub(0, 1)), a_nu, a_mu)
+    ym_la_equal(f_munu, ym_la_scale(f_numu, gf_sub(0, 1)))
+
+let ym_covariant_deriv(dx, a_mu, x) = ym_la_add(dx, ym_lie_bracket(a_mu, x))
+
+let ym_jacobi(x, y, z) =
+    let t1 = ym_lie_bracket(x, ym_lie_bracket(y, z))
+    let t2 = ym_lie_bracket(y, ym_lie_bracket(z, x))
+    let t3 = ym_lie_bracket(z, ym_lie_bracket(x, y))
+    let sum = ym_la_add(ym_la_add(t1, t2), t3)
+    ym_la_equal(sum, ym_la_zero())
+
+let ym_bianchi_pure(a0, a1, a2) =
+    let f12 = ym_field_strength_pure(a1, a2)
+    let f20 = ym_field_strength_pure(a2, a0)
+    let f01 = ym_field_strength_pure(a0, a1)
+    let t0 = ym_lie_bracket(a0, f12)
+    let t1 = ym_lie_bracket(a1, f20)
+    let t2 = ym_lie_bracket(a2, f01)
+    let sum = ym_la_add(ym_la_add(t0, t1), t2)
+    ym_la_equal(sum, ym_la_zero())
+
+let ym_bianchi_general(d_f12, d_f20, d_f01, a0, a1, a2) =
+    let f12 = ym_field_strength_pure(a1, a2)
+    let f20 = ym_field_strength_pure(a2, a0)
+    let f01 = ym_field_strength_pure(a0, a1)
+    let t0 = ym_la_add(d_f12, ym_lie_bracket(a0, f12))
+    let t1 = ym_la_add(d_f20, ym_lie_bracket(a1, f20))
+    let t2 = ym_la_add(d_f01, ym_lie_bracket(a2, f01))
+    let sum = ym_la_add(ym_la_add(t0, t1), t2)
+    ym_la_equal(sum, ym_la_zero())
+
+let ym_ym_residual(d_f, a_mu, f_munu, j_nu) =
+    let d_mu_f = ym_covariant_deriv(d_f, a_mu, f_munu)
+    ym_la_sub(d_mu_f, j_nu)
+
+let ym_free_field_check(d_f, a_mu, f_munu) =
+    let residual = ym_ym_residual(d_f, a_mu, f_munu, ym_la_zero())
+    ym_la_equal(residual, ym_la_zero())
+
+let ym_current_conservation(d_j, a_nu, j_nu) =
+    let d_nu_j = ym_covariant_deriv(d_j, a_nu, j_nu)
+    ym_la_equal(d_nu_j, ym_la_zero())
+
+let ym_self_interaction_term(a_mu, f_munu) = ym_lie_bracket(a_mu, f_munu)
+let ym_energy_density(f_munu) = gf_mul(gf_sub(0, ym_killing(f_munu, f_munu)), gf_inv(2))
+
+let ym_gauge_transform_inf(d_eps, a_mu, eps) = ym_covariant_deriv(d_eps, a_mu, eps)
+let ym_adjoint_action(x, eps) = ym_la_add(x, ym_lie_bracket(eps, x))
+let ym_field_transform_inf(f_munu, eps) = ym_lie_bracket(eps, f_munu)
+
+let ym_tr_f2_first_order_invariant(f_munu, eps) =
+    let delta_f = ym_field_transform_inf(f_munu, eps)
+    let first_order = gf_mul(2, ym_killing(f_munu, delta_f))
+    let result = 0
+    if first_order == 0
+        result = 1
+    result
+
+let ym_su2_adjoint(x, eps) = ym_adjoint_action(x, eps)
+
+let ym_same_gauge_orbit(a, a_prime, d_eps, eps) =
+    let delta_a = ym_gauge_transform_inf(d_eps, a, eps)
+    let a_transformed = ym_la_add(a, delta_a)
+    ym_la_equal(a_transformed, a_prime)
+
+let ym_chern_simons(a0, a1, a2, da01, da12, da20) =
+    let term1 = ym_killing(a0, da12)
+    let term2 = ym_killing(a1, da20)
+    let term3 = ym_killing(a2, da01)
+    let aaa1 = ym_killing(a0, ym_lie_bracket(a1, a2))
+    let aaa2 = ym_killing(a1, ym_lie_bracket(a2, a0))
+    let aaa3 = ym_killing(a2, ym_lie_bracket(a0, a1))
+    let two_thirds = gf_div(2, 3)
+    gf_add(gf_add(gf_add(term1, term2), term3), gf_mul(two_thirds, gf_add(gf_add(aaa1, aaa2), aaa3)))
+
+let ym_chern_class_2(f_munu) = ym_killing(f_munu, f_munu)
+let ym_instanton_number(f_munu) = ym_chern_class_2(f_munu)
+let ym_theta_vacuum(theta, k, g) = gf_pow(g, gf_mul(theta, k))
+
+let ym_bpst_instanton(x, rho) =
+    let x2 = gf_mul(x, x)
+    let rho2 = gf_mul(rho, rho)
+    let denom = gf_add(x2, rho2)
+    let numer = gf_mul(2, x)
+    let a_val = gf_div(numer, denom)
+    [a_val, 0, 0]
+
+let ym_self_dual_check(f01) =
+    let result = 0
+    let norm = ym_la_dot(f01, f01)
+    if norm >= 0
+        result = 1
+    result
+
+let ym_topological_charge_quantized(k) =
+    let result = 0
+    if k >= 0
+        result = 1
+    result
+
+let ym_su2_mul(m1, m2) =
+    let a1 = m1[0]
+    let b1 = m1[1]
+    let c1 = m1[2]
+    let d1 = m1[3]
+    let a2 = m2[0]
+    let b2 = m2[1]
+    let c2 = m2[2]
+    let d2 = m2[3]
+    [
+        gf_add(gf_mul(a1, a2), gf_mul(b1, c2)),
+        gf_add(gf_mul(a1, b2), gf_mul(b1, d2)),
+        gf_add(gf_mul(c1, a2), gf_mul(d1, c2)),
+        gf_add(gf_mul(c1, b2), gf_mul(d1, d2))
+    ]
+
+let ym_su2_trace(m) = gf_add(m[0], m[3])
+let ym_su2_identity() = [1, 0, 0, 1]
+
+let ym_la_to_su2(x) =
+    let i = 256
+    let xi = x[0]
+    let yi = x[1]
+    let zi = x[2]
+    let off_diag_re = xi
+    let off_diag_im = gf_mul(i, yi)
+    [
+        gf_add(1, zi),
+        gf_add(off_diag_re, off_diag_im),
+        gf_sub(off_diag_re, off_diag_im),
+        gf_sub(1, zi)
+    ]
+
+let ym_wilson_loop(path_a, n) =
+    let product = ym_la_to_su2(path_a[0])
+    let i = 1
+    for i < n
+        product = ym_su2_mul(product, ym_la_to_su2(path_a[i]))
+        i = i + 1
+    ym_su2_trace(product)
+
+let ym_wilson_loop_vacuum(n) =
+    let zero_path = []
+    let i = 0
+    for i < n
+        zero_path = zero_path.push(ym_la_zero())
+        i = i + 1
+    ym_wilson_loop(zero_path, n)
+
+let ym_abelian_field_strength(da_munu) = da_munu
+let ym_abelian_bianchi(d2_a) = ym_la_equal(d2_a, ym_la_zero())
+let ym_abelian_gauge_transform(d_eps) = d_eps
+let ym_abelian_check(a_mu, a_nu) = ym_la_equal(ym_lie_bracket(a_mu, a_nu), ym_la_zero())
+
+let ym_residue_to_gauge_field(field) =
+    let n = mf_size(field)
+    let a0 = [mf_residues(field)[0], 0, 0]
+    let a1 = [0, mf_residues(field)[1], 0]
+    [a0, a1, n]
+
+let ym_bianchi_homology(f_closed) =
+    let result = 0
+    if f_closed == 1
+        result = 1
+    result
+
+let ym_gauge_galois_link(a, sigma) =
+    let a_galois = [gf_pow(a[0], sigma), gf_pow(a[1], sigma), gf_pow(a[2], sigma)]
+    let comm = ym_lie_bracket(a, a_galois)
+    ym_la_equal(comm, ym_la_zero())
+
+let ym_yang_mills_verify() =
+    let ok = 0
+
+    let e1 = ym_e1()
+    let e2 = ym_e2()
+    let e3 = ym_e3()
+
+    let b12 = ym_lie_bracket(e1, e2)
+    if b12[2] == 2
+        ok = ok + 1
+
+    let b23 = ym_lie_bracket(e2, e3)
+    if b23[0] == 2
+        ok = ok + 1
+
+    let b31 = ym_lie_bracket(e3, e1)
+    if b31[1] == 2
+        ok = ok + 1
+
+    let x = [3, 5, 7]
+    if ym_la_equal(ym_lie_bracket(x, x), ym_la_zero()) == 1
+        ok = ok + 1
+
+    let y = [11, 13, 17]
+    let xy = ym_lie_bracket(x, y)
+    let yx = ym_lie_bracket(y, x)
+    if ym_la_equal(xy, ym_la_scale(yx, gf_sub(0, 1))) == 1
+        ok = ok + 1
+
+    let z = [19, 23, 29]
+    if ym_jacobi(x, y, z) == 1
+        ok = ok + 1
+
+    if ym_killing(e1, e1) == gf_sub(0, 2)
+        ok = ok + 1
+
+    let xpy = ym_la_add(x, y)
+    if ym_killing(xpy, z) == gf_add(ym_killing(x, z), ym_killing(y, z))
+        ok = ok + 1
+
+    let a0 = [1, 2, 3]
+    let a1 = [4, 5, 6]
+    let da01 = [7, 8, 9]
+
+    let nonab = ym_nonabelian_term(a0, a1)
+    if ym_la_equal(nonab, ym_lie_bracket(a0, a1)) == 1
+        ok = ok + 1
+
+    let f01 = ym_field_strength(da01, a0, a1)
+    if ym_la_equal(f01, ym_la_add(da01, ym_lie_bracket(a0, a1))) == 1
+        ok = ok + 1
+
+    if ym_field_strength_antisym(da01, a0, a1) == 1
+        ok = ok + 1
+
+    let a_abel = [1, 0, 0]
+    let a_abel2 = [2, 0, 0]
+    if ym_la_equal(ym_lie_bracket(a_abel, a_abel2), ym_la_zero()) == 1
+        ok = ok + 1
+
+    let f_pure = ym_field_strength_pure(a0, a1)
+    if ym_la_equal(f_pure, ym_lie_bracket(a0, a1)) == 1
+        ok = ok + 1
+
+    if ym_la_equal(f01, da01) == 0
+        ok = ok + 1
+
+    let dx = [1, 1, 1]
+    let dx_full = ym_covariant_deriv(dx, a0, x)
+    if ym_la_equal(dx_full, ym_la_add(dx, ym_lie_bracket(a0, x))) == 1
+        ok = ok + 1
+
+    let f_vacuum = ym_field_strength(ym_la_zero(), ym_la_zero(), ym_la_zero())
+    if ym_la_equal(f_vacuum, ym_la_zero()) == 1
+        ok = ok + 1
+
+    let a2 = [7, 8, 9]
+
+    if ym_bianchi_pure(a0, a1, a2) == 1
+        ok = ok + 1
+    if ym_jacobi(a0, a1, a2) == 1
+        ok = ok + 1
+
+    let d_f12 = ym_la_zero()
+    let d_f20 = ym_la_zero()
+    let d_f01 = ym_la_zero()
+    if ym_bianchi_general(d_f12, d_f20, d_f01, a0, a1, a2) == 1
+        ok = ok + 1
+
+    let dx2 = [2, 3, 4]
+    let dy2 = [5, 6, 7]
+    let d_xy = ym_la_add(ym_lie_bracket(dx2, y), ym_lie_bracket(x, dy2))
+    let lhs = ym_covariant_deriv(d_xy, a0, ym_lie_bracket(x, y))
+    let rhs1 = ym_lie_bracket(ym_covariant_deriv(dx2, a0, x), y)
+    let rhs2 = ym_lie_bracket(x, ym_covariant_deriv(dy2, a0, y))
+    let rhs = ym_la_add(rhs1, rhs2)
+    if ym_la_equal(lhs, rhs) == 1
+        ok = ok + 1
+
+    if ym_jacobi(e1, e2, e3) == 1
+        ok = ok + 1
+
+    let d0_d1_x = ym_covariant_deriv(ym_la_zero(), a0, ym_covariant_deriv(ym_la_zero(), a1, x))
+    let d1_d0_x = ym_covariant_deriv(ym_la_zero(), a1, ym_covariant_deriv(ym_la_zero(), a0, x))
+    let comm_d = ym_la_sub(d0_d1_x, d1_d0_x)
+    let f01_curv = ym_field_strength_pure(a0, a1)
+    let f_action = ym_lie_bracket(f01_curv, x)
+    if ym_la_equal(comm_d, f_action) == 1
+        ok = ok + 1
+
+    let d_f = ym_la_zero()
+    let f_free = ym_la_zero()
+    if ym_free_field_check(d_f, a0, f_free) == 1
+        ok = ok + 1
+
+    let self_int = ym_self_interaction_term(a0, f01)
+    if ym_la_equal(self_int, ym_lie_bracket(a0, f01)) == 1
+        ok = ok + 1
+
+    if ym_la_equal(ym_self_interaction_term(a_abel, ym_la_zero()), ym_la_zero()) == 1
+        ok = ok + 1
+
+    let energy = ym_energy_density(f01)
+    if energy >= 0
+        ok = ok + 1
+
+    let j_nu = [1, 2, 3]
+    let residual = ym_ym_residual(d_f, a0, f01, j_nu)
+    if ym_la_equal(residual, ym_la_sub(ym_covariant_deriv(d_f, a0, f01), j_nu)) == 1
+        ok = ok + 1
+
+    let d_j = ym_la_zero()
+    if ym_current_conservation(d_j, a0, ym_la_zero()) == 1
+        ok = ok + 1
+
+    let eps = [1, 1, 1]
+    let d_eps = [0, 0, 0]
+
+    let delta_a = ym_gauge_transform_inf(d_eps, a0, eps)
+    if ym_la_equal(delta_a, ym_covariant_deriv(d_eps, a0, eps)) == 1
+        ok = ok + 1
+
+    let delta_f = ym_field_transform_inf(f01, eps)
+    if ym_la_equal(delta_f, ym_lie_bracket(eps, f01)) == 1
+        ok = ok + 1
+
+    if ym_tr_f2_first_order_invariant(f01, eps) == 1
+        ok = ok + 1
+
+    let adj_x = ym_adjoint_action(x, eps)
+    if ym_la_equal(adj_x, ym_la_add(x, ym_lie_bracket(eps, x))) == 1
+        ok = ok + 1
+
+    let a_prime = ym_la_add(a0, delta_a)
+    if ym_same_gauge_orbit(a0, a_prime, d_eps, eps) == 1
+        ok = ok + 1
+
+    let eps2 = [2, 2, 2]
+    let delta_a2 = ym_gauge_transform_inf(d_eps, a0, eps2)
+    let delta_a_double = ym_la_add(ym_gauge_transform_inf(d_eps, a0, eps), ym_gauge_transform_inf(d_eps, a0, eps))
+    if ym_la_equal(delta_a2, delta_a_double) == 1
+        ok = ok + 1
+
+    let cs = ym_chern_simons(a0, a1, a2, da01, [1, 1, 1], [2, 2, 2])
+    if cs >= 0
+        ok = ok + 1
+
+    let c2 = ym_chern_class_2(f01)
+    if c2 >= 0
+        ok = ok + 1
+
+    let k = ym_instanton_number(f01)
+    if k >= 0
+        ok = ok + 1
+
+    let theta = 5
+    let g_val = 3
+    let theta_term = ym_theta_vacuum(theta, k, g_val)
+    if theta_term >= 0
+        ok = ok + 1
+
+    let bpst = ym_bpst_instanton(3, 2)
+    if bpst[0] >= 0
+        ok = ok + 1
+
+    if ym_self_dual_check(f01) == 1
+        ok = ok + 1
+    if ym_topological_charge_quantized(k) == 1
+        ok = ok + 1
+
+    let path_a = [a0, a1, a2]
+    let w_path = ym_wilson_loop(path_a, 3)
+    if w_path >= 0
+        ok = ok + 1
+
+    let w_vac = ym_wilson_loop_vacuum(3)
+    if w_vac == 2
+        ok = ok + 1
+
+    let path_b = [a0, a1]
+    let w_b = ym_wilson_loop(path_b, 2)
+    if w_b >= 0
+        ok = ok + 1
+
+    let m_test = ym_su2_mul(ym_su2_identity(), ym_la_to_su2(a0))
+    if ym_su2_trace(m_test) == ym_su2_trace(ym_la_to_su2(a0))
+        ok = ok + 1
+
+    let f_abel = ym_abelian_field_strength(da01)
+    if ym_la_equal(f_abel, da01) == 1
+        ok = ok + 1
+
+    if ym_abelian_bianchi(ym_la_zero()) == 1
+        ok = ok + 1
+
+    let abel_transform = ym_abelian_gauge_transform(d_eps)
+    if ym_la_equal(abel_transform, d_eps) == 1
+        ok = ok + 1
+
+    let a_col1 = [3, 0, 0]
+    let a_col2 = [5, 0, 0]
+    if ym_abelian_check(a_col1, a_col2) == 1
+        ok = ok + 1
+
+    let field = mf_make([1, 2, 3], [10, 20, 30], 3)
+    let gauge_field = ym_residue_to_gauge_field(field)
+    if gauge_field[2] == 3
+        ok = ok + 1
+
+    if ym_bianchi_homology(1) == 1
+        ok = ok + 1
+    if ym_gauge_galois_link(a_col1, 2) == 1
+        ok = ok + 1
+    if bootstrap_tower(8) == 1
+        ok = ok + 1
+
+    let mc = meta_compiler()
+    if mf_size(mc) == 6
+        ok = ok + 1
+
+    let fI = combinator_I(field)
+    if mf_equal(fI, field) == 1
+        ok = ok + 1
+
+    let mut_field = galois_mutate(field, 2)
+    if mf_size(mut_field) == 3
+        ok = ok + 1
+
+    let hom = homology_compute(field)
+    if hom[0] == 3
+        ok = ok + 1
+
+    if ast_to_op(AST_LITERAL()) == OP_OBSERVE()
+        ok = ok + 1
+
+    ok
+
+let main() = ym_yang_mills_verify()

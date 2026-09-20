@@ -1,0 +1,142 @@
+import "numtheor.ψ"
+let metric_identity(n) =
+    let g = []
+    let i = 0
+    for i < n * n
+        if i % (n + 1) == 0
+            g = arr_concat(g, [1000])
+        else
+            g = arr_concat(g, [0])
+        i = i + 1
+    g
+
+let metric_sphere(theta, phi) =
+    let sin_theta = theta - theta * theta * theta / 6000000
+    let sin_sq = sin_theta * sin_theta / 1000
+    [1000, 0, 0, sin_sq]
+
+let metric_hyperbolic(x, y) =
+    if y == 0
+        [0, 0, 0, 0]
+    else
+        let g = 1000000 / (y * y)
+        [g, 0, 0, g]
+
+let christoffel_symbols(metric, n) =
+    let gamma = []
+    let i = 0
+    for i < n * n * n
+        gamma = arr_concat(gamma, [0])
+        i = i + 1
+    gamma
+
+let geodesic_euclidean(start, end, t) =
+    let result = []
+    let i = 0
+    for i < start.len()
+        result = arr_concat(result, [start[i] + t * (end[i] - start[i]) / 1000])
+        i = i + 1
+    result
+
+let geodesic_sphere(start, end, t) =
+    let result = []
+    let i = 0
+    for i < start.len()
+        result = arr_concat(result, [start[i] + t * (end[i] - start[i]) / 1000])
+        i = i + 1
+    let norm_sq = 0
+    let i = 0
+    for i < result.len()
+        norm_sq = norm_sq + result[i] * result[i] / 1000
+        i = i + 1
+    let norm = isqrt(norm_sq)
+    if norm > 0
+        let i = 0
+        for i < result.len()
+            result[i] = result[i] * 1000 / norm
+            i = i + 1
+    result
+
+let distance_euclidean(a, b) =
+    let sum_sq = 0
+    let i = 0
+    for i < a.len()
+        let diff = a[i] - b[i]
+        sum_sq = sum_sq + diff * diff / 1000
+        i = i + 1
+    isqrt(sum_sq)
+
+let distance_manhattan(a, b) =
+    let sum = 0
+    let i = 0
+    for i < a.len()
+        let diff = a[i] - b[i]
+        sum = sum + ((diff < 0 ? -diff : diff))
+        i = i + 1
+    sum
+
+let distance_chebyshev(a, b) =
+    let max_diff = 0
+    let i = 0
+    for i < a.len()
+        let diff = a[i] - b[i]
+        let abs_diff = (diff < 0 ? -diff : diff)
+        if abs_diff > max_diff
+            max_diff = abs_diff
+        i = i + 1
+    max_diff
+
+let distance_geodesic_sphere(a, b) =
+    let dot = 0
+    let i = 0
+    for i < a.len()
+        dot = dot + a[i] * b[i] / 1000
+        i = i + 1
+    if dot > 1000
+        dot = 1000
+    else
+        0
+    if dot < -1000
+        dot = -1000
+    1570796 - dot * 1570796 / 1000
+
+let parallel_transport(vector, start, end, n) =
+    vector
+
+let lie_bracket(vf1, vf2, point, n) =
+    let result = []
+    let i = 0
+    for i < n
+        result = arr_concat(result, [0])
+        i = i + 1
+    result
+
+let exponential_map(tangent, point, t) =
+    let result = []
+    let i = 0
+    for i < point.len()
+        result = arr_concat(result, [point[i] + t * tangent[i] / 1000])
+        i = i + 1
+    result
+
+let volume_element(metric, n) =
+    if n == 2
+        let det = metric[0] * metric[3] / 1000 - metric[1] * metric[2] / 1000
+        isqrt(det * 1000)
+    else
+        1000
+
+let main() =
+    let g = metric_sphere(1570796 / 2, 0)
+    print(g)
+    let p1 = [1000, 0, 0]
+    let p2 = [0, 1000, 0]
+    let d1 = distance_euclidean(p1, p2)
+    print(d1)
+    let d2 = distance_geodesic_sphere(p1, p2)
+    print(d2)
+    let geo = geodesic_sphere(p1, p2, 500)
+    print(geo)
+    let vol = volume_element(g, 2)
+    print(vol)
+    0

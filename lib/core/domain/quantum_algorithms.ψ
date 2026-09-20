@@ -1,0 +1,363 @@
+import "../stdlib/gf65537.ψ"
+import "../stdlib/arr.ψ"
+import "../stdlib/fft.ψ"
+
+let SHOR_PERIOD_MAX_ITER = 17
+let GROVER_ITER_DIVISOR  = 4
+let GF_PRIMITIVE_ROOT    = 3
+let QAOA_SEARCH_RANGE    = 100
+let HHL_GAUSS_COMPLEXITY = 3
+
+let primitive_root_n(n) = fft_root(n)
+
+let ntt_inverse(x_hat) = intt_transform(x_hat)
+
+let shor_gf_factorize(n) =
+    if n == 0
+        [0, 0]
+    [n, gf_inv(n)]
+
+let _shor_period_acc(val, r, k) =
+    if k >= SHOR_PERIOD_MAX_ITER
+        r
+    if val == 1
+        r
+    _shor_period_acc(gf_mul(val, val), r * 2, k + 1)
+
+let shor_period(a) = _shor_period_acc(a, 1, 0)
+
+let shor_factorize(n) = shor_gf_factorize(n % GF_P)
+
+let _grover_oracle_acc(state, marked_index, i, n, result) =
+    if i >= n
+        result
+    let v = arr_get(state, i)
+    let out = ((i == marked_index) ? (gf_neg(v)) : (v))
+    arr_set(result, i, out)
+    _grover_oracle_acc(state, marked_index, i + 1, n, result)
+
+let grover_oracle(state, marked_index) =
+    let n = arr_len(state)
+    let result = arr_new_n(n)
+    _grover_oracle_acc(state, marked_index, 0, n, result)
+
+let _grover_overlap_acc(state, i, n, acc) =
+    if i >= n
+        acc
+    _grover_overlap_acc(state, i + 1, n, gf_add(acc, arr_get(state, i)))
+
+let _grover_diffusion_acc(state, two_s, overlap, i, n, result) =
+    if i >= n
+        result
+    let term = gf_sub(gf_mul(two_s, overlap), arr_get(state, i))
+    arr_set(result, i, term)
+    _grover_diffusion_acc(state, two_s, overlap, i + 1, n, result)
+
+let grover_diffusion(state) =
+    let n = arr_len(state)
+    let inv_sqrt_n = gf_inv(gf_sqrt(n))
+    let overlap = _grover_overlap_acc(state, 0, n, 0)
+    let weighted = gf_mul(inv_sqrt_n, overlap)
+    let two_s = gf_mul(2, inv_sqrt_n)
+    let result = arr_new_n(n)
+    _grover_diffusion_acc(state, two_s, weighted, 0, n, result)
+
+let grover_step(state, marked_index) =
+    let after_oracle = grover_oracle(state, marked_index)
+    grover_diffusion(after_oracle)
+
+let _grover_search_acc(state, marked_index, k, k_max) =
+    if k >= k_max
+        state
+    let next_state = grover_step(state, marked_index)
+    _grover_search_acc(next_state, marked_index, k + 1, k_max)
+
+let grover_search(n, marked_index) =
+    let inv_sqrt_n = gf_inv(gf_sqrt(n))
+    let state = arr_new_n(n)
+    sa_fill(state, inv_sqrt_n)
+    let k_max = gf_sqrt(n) / GROVER_ITER_DIVISOR
+    _grover_search_acc(state, marked_index, 0, k_max)
+
+let grover_success_probability(state, marked_index) =
+    let v = arr_get(state, marked_index)
+    gf_mul(v, v)
+
+let grover_speedup(n) = gf_div(n, gf_sqrt(n))
+
+let phase_eigenstate(phi) = gf_pow(GF_PRIMITIVE_ROOT, phi)
+
+let _phase_estimation_acc(u_eigenvalue, n_precision, phi) =
+    if phi >= n_precision
+        0
+    if gf_pow(GF_PRIMITIVE_ROOT, phi) == u_eigenvalue
+        phi
+    _phase_estimation_acc(u_eigenvalue, n_precision, phi + 1)
+
+let phase_estimation(u_eigenvalue, n_precision) =
+    _phase_estimation_acc(u_eigenvalue, n_precision, 0)
+
+let _discrete_log_acc(base, target, x) =
+    if x >= GF_P_MINUS_1
+        0
+    if gf_pow(base, x) == target
+        x
+    _discrete_log_acc(base, target, x + 1)
+
+let discrete_log(base, target) = _discrete_log_acc(base, target, 0)
+
+let _hhl_build_aug_row(a_matrix, b_vector, i, n) =
+    let row = arr_new_n(n + 1)
+    _hhl_build_row_acc(a_matrix, i, n, 0, row)
+    arr_set(row, n, arr_get(b_vector, i))
+    row
+let _hhl_build_row_acc(a_matrix, i, n, j, row) =
+    if j >= n
+        row
+    let aij = arr_get(arr_get(a_matrix, i), j)
+    arr_set(row, j, aij)
+    _hhl_build_row_acc(a_matrix, i, n, j + 1, row)
+let _hhl_build_aug_acc(a_matrix, b_vector, i, n, aug) =
+    if i >= n
+        aug
+    let row = _hhl_build_aug_row(a_matrix, b_vector, i, n)
+    arr_set(aug, i, row)
+    _hhl_build_aug_acc(a_matrix, b_vector, i + 1, n, aug)
+
+let _hhl_find_pivot_acc(aug, col, row, n) =
+    if row >= n
+        0 - 1
+    if arr_get(arr_get(aug, row), col) != 0
+        row
+    _hhl_find_pivot_acc(aug, col, row + 1, n)
+
+let _hhl_normalize_acc(aug, col, n, inv_pivot, j) =
+    if j > n
+        aug
+    let row = arr_get(aug, col)
+    let old = arr_get(row, j)
+    arr_set(row, j, gf_mul(old, inv_pivot))
+    arr_set(aug, col, row)
+    _hhl_normalize_acc(aug, col, n, inv_pivot, j + 1)
+
+let _hhl_eliminate_row_acc(aug, col, row, factor, j, n) =
+    if j > n
+        aug
+    let r = arr_get(aug, row)
+    let c = arr_get(aug, col)
+    let old = arr_get(r, j)
+    let pivot_val = arr_get(c, j)
+    arr_set(r, j, gf_sub(old, gf_mul(factor, pivot_val)))
+    arr_set(aug, row, r)
+    _hhl_eliminate_row_acc(aug, col, row, factor, j + 1, n)
+
+let _hhl_eliminate_col_acc(aug, col, row, n) =
+    if row >= n
+        aug
+    if row == col
+        _hhl_eliminate_col_acc(aug, col, row + 1, n)
+    let factor = arr_get(arr_get(aug, row), col)
+    if factor == 0
+        _hhl_eliminate_col_acc(aug, col, row + 1, n)
+    let next_aug = _hhl_eliminate_row_acc(aug, col, row, factor, 0, n)
+    _hhl_eliminate_col_acc(next_aug, col, row + 1, n)
+
+let _hhl_swap_if_needed(aug, pivot, col) =
+    if pivot == col
+        aug
+    sa_swap(aug, col, pivot)
+
+let _hhl_eliminate_all_acc(aug, col, n) =
+    if col >= n
+        aug
+    let pivot = _hhl_find_pivot_acc(aug, col, col, n)
+    if pivot == 0 - 1
+        aug
+    let aug2 = _hhl_swap_if_needed(aug, pivot, col)
+    let inv_pivot = gf_inv(arr_get(arr_get(aug2, col), col))
+    let aug3 = _hhl_normalize_acc(aug2, col, n, inv_pivot, 0)
+    let aug4 = _hhl_eliminate_col_acc(aug3, col, 0, n)
+    _hhl_eliminate_all_acc(aug4, col + 1, n)
+
+let _hhl_extract_acc(aug, i, n, x) =
+    if i >= n
+        x
+    let row = arr_get(aug, i)
+    arr_set(x, i, arr_get(row, n))
+    _hhl_extract_acc(aug, i + 1, n, x)
+
+let hhl_gf_solve(a_matrix, b_vector) =
+    let n = arr_len(b_vector)
+    let aug = arr_new_n(n)
+    _hhl_build_aug_acc(a_matrix, b_vector, 0, n, aug)
+    let aug2 = _hhl_eliminate_all_acc(aug, 0, n)
+    let x = arr_new_n(n)
+    _hhl_extract_acc(aug2, 0, n, x)
+
+let hhl_complexity_comparison(n) =
+    let i = 0
+    let result = 1
+    for i < HHL_GAUSS_COMPLEXITY
+        result = result * n
+        i = i + 1
+    result
+
+let _deutsch_jozsa_acc(f_values, x, n, result) =
+    if x >= n
+        result
+    let term = gf_pow(GF_PRIMITIVE_ROOT, arr_get(f_values, x))
+    _deutsch_jozsa_acc(f_values, x + 1, n, gf_add(result, term))
+
+let deutsch_jozsa(f_values) =
+    let n = arr_len(f_values)
+    let sum = _deutsch_jozsa_acc(f_values, 0, n, 0)
+    ((sum == n) ? (0) : (1))
+
+let _simon_check_period_acc(f_values, x, n, s) =
+    if x >= n
+        1
+    let x_plus_s = (x + s) % n
+    if arr_get(f_values, x) != arr_get(f_values, x_plus_s)
+        0
+    _simon_check_period_acc(f_values, x + 1, n, s)
+
+let _simon_period_acc(f_values, s, n) =
+    if s >= n
+        0
+    if _simon_check_period_acc(f_values, 0, n, s) == 1
+        s
+    _simon_period_acc(f_values, s + 1, n)
+
+let simon_period(f_values, n) = _simon_period_acc(f_values, 1, n)
+
+let _qaoa_layer_acc(psi, phase_combined, i, n, result) =
+    if i >= n
+        result
+    let new_amp = gf_mul(phase_combined, arr_get(psi, i))
+    arr_set(result, i, new_amp)
+    _qaoa_layer_acc(psi, phase_combined, i + 1, n, result)
+let qaoa_layer(psi, h_cost, h_mixer, gamma, beta) =
+    let phase_c = gf_pow(GF_PRIMITIVE_ROOT, gf_mul(beta, h_cost))
+    let phase_b = gf_pow(GF_PRIMITIVE_ROOT, gf_mul(gamma, h_mixer))
+    let phase_combined = gf_mul(phase_c, phase_b)
+    let n = arr_len(psi)
+    let result = arr_new_n(n)
+    _qaoa_layer_acc(psi, phase_combined, 0, n, result)
+
+let _qaoa_apply_layers_acc(psi, h_cost, h_mixer, gamma, beta, layer, p_layers) =
+    if layer >= p_layers
+        psi
+    let next = qaoa_layer(psi, h_cost, h_mixer, gamma, beta)
+    _qaoa_apply_layers_acc(next, h_cost, h_mixer, gamma, beta, layer + 1, p_layers)
+
+let _qaoa_compute_energy_acc(psi, h_cost, i, n, acc) =
+    if i >= n
+        acc
+    let prob = gf_mul(arr_get(psi, i), arr_get(psi, i))
+    let term = gf_mul(prob, h_cost)
+    _qaoa_compute_energy_acc(psi, h_cost, i + 1, n, gf_add(acc, term))
+let _qaoa_compute_energy(psi, h_cost) =
+      _qaoa_compute_energy_acc(psi, h_cost, 0, arr_len(psi), 0)
+
+let _qaoa_search_beta_acc(psi_init, h_cost, h_mixer, gamma, beta, p_layers,best_energy, best_params) =
+      if beta >= QAOA_SEARCH_RANGE
+          [best_energy, best_params]
+      let psi = _qaoa_apply_layers_acc(psi_init, h_cost, h_mixer, gamma, beta, 0, p_layers)
+      let energy = _qaoa_compute_energy(psi, h_cost)
+      let take = ((energy > best_energy) ? (1) : (0))
+      let new_best_energy = ((take) ? (energy) : (best_energy))
+      let new_params = (take != 0) ? ([gamma, beta]) : (best_params)
+      _qaoa_search_beta_acc(psi_init, h_cost, h_mixer, gamma, beta + 1, p_layers,
+                           new_best_energy, new_params)
+
+let _qaoa_search_gamma_acc(psi_init, h_cost, h_mixer, gamma, p_layers,best_energy, best_params) =
+      if gamma >= QAOA_SEARCH_RANGE
+          [best_energy, best_params]
+      let result = _qaoa_search_beta_acc(psi_init, h_cost, h_mixer, gamma, 0, p_layers,
+                                         best_energy, best_params)
+      let new_best_energy = arr_get(result, 0)
+      let new_best_params = arr_get(result, 1)
+      _qaoa_search_gamma_acc(psi_init, h_cost, h_mixer, gamma + 1, p_layers,
+                             new_best_energy, new_best_params)
+
+let qaoa_optimize(psi_init, h_cost, h_mixer, p_layers) =
+    _qaoa_search_gamma_acc(psi_init, h_cost, h_mixer, 0, p_layers, 0, [0, 0])
+
+let _vqe_energy_acc(psi, h_hamiltonian, i, n, acc) =
+    if i >= n
+        acc
+    let prob = gf_mul(arr_get(psi, i), arr_get(psi, i))
+    let term = gf_mul(prob, arr_get(h_hamiltonian, i))
+    _vqe_energy_acc(psi, h_hamiltonian, i + 1, n, gf_add(acc, term))
+let vqe_energy(psi, h_hamiltonian) =
+    _vqe_energy_acc(psi, h_hamiltonian, 0, arr_len(psi), 0)
+
+let _vqe_optimize_acc(psi_states, h_hamiltonian, theta, theta_max, best_energy, best_theta) =
+    if theta >= theta_max
+        [best_energy, best_theta]
+    let psi = arr_get(psi_states, theta)
+    let energy = vqe_energy(psi, h_hamiltonian)
+    let take = ((energy < best_energy) ? (1) : (0))
+    let new_best_energy = ((take) ? (energy) : (best_energy))
+    let new_best_theta = ((take) ? (theta) : (best_theta))
+    _vqe_optimize_acc(psi_states, h_hamiltonian, theta + 1, theta_max,
+                     new_best_energy, new_best_theta)
+
+let vqe_optimize(psi_states, h_hamiltonian, theta_max) =
+    _vqe_optimize_acc(psi_states, h_hamiltonian, 0, theta_max, 0, 0)
+
+let quantum_anneal_step(h_b, h_p, t) =
+    let one_minus_t = gf_sub(1, t)
+    gf_add(gf_mul(one_minus_t, h_b), gf_mul(t, h_p))
+
+let _quantum_anneal_acc(h_b, h_p, t, t_max, h_t) =
+    if t >= t_max
+        h_t
+    let next_h = quantum_anneal_step(h_b, h_p, t)
+    _quantum_anneal_acc(h_b, h_p, t + 1, t_max, next_h)
+
+let quantum_anneal(h_b, h_p, t_max) = _quantum_anneal_acc(h_b, h_p, 0, t_max, h_b)
+
+let _amplitude_amplification_acc(psi, marked_indices, i, n) =
+    if i >= n
+        psi
+    let marked = arr_get(marked_indices, i)
+    let next_psi = grover_step(psi, marked)
+    _amplitude_amplification_acc(next_psi, marked_indices, i + 1, n)
+
+let amplitude_amplification(psi, marked_indices) =
+    _amplitude_amplification_acc(psi, marked_indices, 0, arr_len(marked_indices))
+
+let _fp_amp_contains(arr, val, i, n) =
+    if i >= n
+        0
+    if arr_get(arr, i) == val
+        1
+    _fp_amp_contains(arr, val, i + 1, n)
+let _fp_amp_eval_acc(psi_k, marked_indices, i, n, prob) =
+    if i >= n
+        prob
+    let take = _fp_amp_contains(marked_indices, i, 0, arr_len(marked_indices))
+    let amp = arr_get(psi_k, i)
+    let contribution = ((take) ? (gf_mul(amp, amp)) : (0))
+    _fp_amp_eval_acc(psi_k, marked_indices, i + 1, n, gf_add(prob, contribution))
+
+let _fp_amp_iter_acc(psi, marked_indices, step, k) =
+    if step >= k
+        psi
+    let marked = arr_get(marked_indices, 0)
+    let next = grover_diffusion(grover_oracle(psi, marked))
+    _fp_amp_iter_acc(next, marked_indices, step + 1, k)
+
+let _fp_amp_search_acc(psi, marked_indices, k, n_max, best_psi, best_prob) =
+    if k >= n_max
+        best_psi
+    let psi_k = _fp_amp_iter_acc(psi, marked_indices, 0, k)
+    let prob = _fp_amp_eval_acc(psi_k, marked_indices, 0, arr_len(psi_k), 0)
+    let take = ((prob > best_prob) ? (1) : (0))
+    let new_best_psi = ((take) ? (psi_k) : (best_psi))
+    let new_best_prob = ((take) ? (prob) : (best_prob))
+    _fp_amp_search_acc(psi, marked_indices, k + 1, n_max, new_best_psi, new_best_prob)
+
+let fixed_point_amplification(psi, marked_indices, n_max) =
+    _fp_amp_search_acc(psi, marked_indices, 0, n_max, psi, 0)

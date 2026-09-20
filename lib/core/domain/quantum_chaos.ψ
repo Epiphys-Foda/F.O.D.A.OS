@@ -1,0 +1,292 @@
+import "../stdlib/gf65537.ψ"
+
+let sym_matrix_2x2(a, b, c) = [[a, b], [b, c]]
+
+let sym_trace_2x2(a, c) = gf_add(a, c)
+
+let sym_det_2x2(a, b, c) = gf_sub(gf_mul(a, c), gf_mul(b, b))
+
+let sym_discriminant_2x2(a, b, c) =
+    let d = gf_sub(gf_mul(a, a), gf_mul(gf_mul(2, gf_mul(a, c)), 1))
+    let ac_diff = gf_sub(a, c)
+    gf_add(gf_mul(ac_diff, ac_diff), gf_mul(4, gf_mul(b, b)))
+
+let eigenvalue_status_2x2(a, b, c) =
+    let disc = sym_discriminant_2x2(a, b, c)
+    gf_legendre(disc)
+
+let eigenvalues_2x2(a, b, c) =
+    let tr = gf_add(a, c)
+    let disc = sym_discriminant_2x2(a, b, c)
+    let leg = gf_legendre(disc)
+    if leg == 1
+        let sqrt_disc = gf_sqrt(disc)
+        let inv2 = gf_inv(2)
+        let lambda1 = gf_mul(gf_add(tr, sqrt_disc), inv2)
+        let lambda2 = gf_mul(gf_sub(tr, sqrt_disc), inv2)
+        [lambda1, lambda2]
+    else
+        0
+    if disc == 0
+        let lambda = gf_mul(tr, gf_inv(2))
+        [lambda, lambda]
+    else
+        [tr, disc]
+
+let level_spacing(lambda1, lambda2, mean_spacing) =
+    gf_div(gf_sub(lambda1, lambda2), mean_spacing)
+
+let wigner_surmise_algebraic(s, r_param) =
+    let s_sq = gf_mul(s, s)
+    let exp_term = gf_pow(gf_inv(r_param), s_sq)
+    gf_mul(s, exp_term)
+
+let poisson_spacing_algebraic(s, r_param) =
+    gf_pow(gf_inv(r_param), s)
+
+let spacing_distribution(eigenvalues, n, s_target) =
+    _spacing_count(eigenvalues, n, s_target, 0, 0)
+let _spacing_count(evals, n, target, i, count) =
+        if i >= n - 1
+            count
+        else
+            let spacing = gf_sub(evals[i + 1], evals[i])
+            let new_count = (spacing == target) ? count + 1 : count
+            _spacing_count(evals, n, target, i + 1, new_count)
+
+let spectral_form_factor(energies, n, tau) =
+    let phase_sum = _sff_sum(energies, n, tau, 0, 0)
+    gf_mul(phase_sum, phase_sum)
+let _sff_sum(energies, n, tau, i, acc) =
+        if i >= n
+            acc
+        else
+            let phase = gf_mul(energies[i], tau)
+            let term = gf_pow(3, phase)
+            _sff_sum(energies, n, tau, i + 1, gf_add(acc, term))
+
+let sff_slope(energies, n, tau1, tau2) =
+    let k1 = spectral_form_factor(energies, n, tau1)
+    let k2 = spectral_form_factor(energies, n, tau2)
+    gf_div(gf_sub(k2, k1), gf_sub(tau2, tau1))
+
+let riemann_zeta_gf(s) =
+    let exp = gf_sub(65536, s)
+    _zeta_sum(exp, 1, 0)
+let _zeta_sum(exp, n, acc) =
+        if n >= 65537
+            acc
+        else
+            let term = gf_pow(n, exp)
+            _zeta_sum(exp, n + 1, gf_add(acc, term))
+
+let riemann_zeta_partial(s, N) =
+    let exp = gf_sub(65536, s)
+    _zeta_partial_sum(exp, N, 1, 0)
+let _zeta_partial_sum(exp, N, n, acc) =
+        if n > N
+            acc
+        else
+            _zeta_partial_sum(exp, N, n + 1, gf_add(acc, gf_pow(n, exp)))
+
+let zeta_zero_search(s_min, s_max) =
+    _zeta_zero_loop(s_min, s_max, s_min, -1)
+let _zeta_zero_loop(s_min, s_max, s, last_zero) =
+        if s > s_max
+            last_zero
+        else
+            let z = riemann_zeta_gf(s)
+            if z == 0
+                s
+            else
+                _zeta_zero_loop(s_min, s_max, s + 1, last_zero)
+
+let zeta_functional_equation_check(s) =
+        let z_s = riemann_zeta_gf(s)
+        let z_1_minus_s = riemann_zeta_gf(gf_sub(1, s))
+        if z_1_minus_s == 0
+            (z_s == 0 ? 1 : 0)
+        else
+                0
+            gf_div(z_s, z_1_minus_s)
+
+let dirichlet_char_quadratic(n, q) =
+        if n % q == 0
+            0
+        else
+            let leg = gf_legendre(n % q)
+            (leg == 1 ? 1 : 65536)
+
+let dirichlet_l_function(s, q) =
+    let exp = gf_sub(65536, s)
+    _l_function_sum(exp, q, 1, 0)
+let _l_function_sum(exp, q, n, acc) =
+        if n >= 65537
+            acc
+        else
+            let chi = dirichlet_char_quadratic(n, q)
+            let term = gf_mul(chi, gf_pow(n, exp))
+            _l_function_sum(exp, q, n + 1, gf_add(acc, term))
+
+let unit_root(N, k) =
+    let exp = gf_div(gf_mul(k, 65536), N)
+    gf_pow(3, exp)
+
+let dyson_circular_ensemble(N) =
+    _dyson_loop(N, 0, [])
+let _dyson_loop(N, k, acc) =
+        if k >= N
+            acc
+        else
+            _dyson_loop(N, k + 1, arr_concat(acc, [unit_root(N, k)]))
+
+let circular_spacing(N) =
+    1
+
+let spectral_counting_function(energies, n, E) =
+    _counting_loop(energies, n, E, 0, 0)
+let _counting_loop(evals, n, E, i, count) =
+        if i >= n
+            count
+        else
+            let new_count = (evals[i] <= E) ? count + 1 : count
+            _counting_loop(evals, n, E, i + 1, new_count)
+
+let spectral_rigidity(energies, n, L, E_values, n_E) =
+    _rigidity_loop(energies, n, L, E_values, n_E, 0, 0)
+let _rigidity_loop(evals, n, L, E_vals, n_E, i, acc) =
+        if i >= n_E
+            gf_div(acc, n_E)
+        else
+            let E = E_vals[i]
+            let n1 = spectral_counting_function(evals, n, E)
+            let n2 = spectral_counting_function(evals, n, gf_add(E, L))
+            let diff = gf_sub(gf_sub(n2, n1), L)
+            let diff_sq = gf_mul(diff, diff)
+            _rigidity_loop(evals, n, L, E_vals, n_E, i + 1, gf_add(acc, diff_sq))
+
+let ergodicity_measure(probabilities, n) =
+    let inv_n = gf_inv(n)
+    let max_prob = _max_prob(probabilities, n, 0, 0)
+    gf_sub(1, gf_mul(n, max_prob))
+let _max_prob(probs, n, i, current_max) =
+        if i >= n
+            current_max
+        else
+            let p = probs[i]
+            let new_max = (p > current_max) ? p : current_max
+            _max_prob(probs, n, i + 1, new_max)
+
+let fredholm_det_2x2(K, z) =
+    let k11 = K[0][0]
+    let k12 = K[0][1]
+    let k21 = K[1][0]
+    let k22 = K[1][1]
+    let zk11 = gf_mul(z, k11)
+    let zk22 = gf_mul(z, k22)
+    let z_sq = gf_mul(z, z)
+    let cross = gf_mul(gf_mul(z_sq, k12), k21)
+    gf_sub(gf_mul(gf_sub(1, zk11), gf_sub(1, zk22)), cross)
+
+let fredholm_det_3x3(K, z) =
+    let a = gf_sub(1, gf_mul(z, K[0][0]))
+    let b = gf_neg(gf_mul(z, K[0][1]))
+    let c = gf_neg(gf_mul(z, K[0][2]))
+    let d = gf_neg(gf_mul(z, K[1][0]))
+    let e = gf_sub(1, gf_mul(z, K[1][1]))
+    let f = gf_neg(gf_mul(z, K[1][2]))
+    let g = gf_neg(gf_mul(z, K[2][0]))
+    let h = gf_neg(gf_mul(z, K[2][1]))
+    let i_val = gf_sub(1, gf_mul(z, K[2][2]))
+    let t1 = gf_mul(a, gf_sub(gf_mul(e, i_val), gf_mul(f, h)))
+    let t2 = gf_mul(b, gf_sub(gf_mul(d, i_val), gf_mul(f, g)))
+    let t3 = gf_mul(c, gf_sub(gf_mul(d, h), gf_mul(e, g)))
+    gf_sub(gf_add(t1, t3), t2)
+
+let selberg_trace_spectral(energies, n, h_values) =
+    _selberg_spectral(h_values, n, 0, 0)
+let _selberg_spectral(h_vals, n, i, acc) =
+        if i >= n
+            acc
+        else
+            _selberg_spectral(h_vals, n, i + 1, gf_add(acc, h_vals[i]))
+
+let selberg_trace_geometric(energies, n, density_values) =
+    _selberg_geometric(energies, n, density_values, 0, 0)
+let _selberg_geometric(evals, n, rho, i, acc) =
+        if i >= n
+            acc
+        else
+            let term = gf_mul(evals[i], rho[i])
+            _selberg_geometric(evals, n, rho, i + 1, gf_add(acc, term))
+
+let selberg_trace_check(energies, n, h_values, density_values) =
+        let spectral = selberg_trace_spectral(energies, n, h_values)
+        let geometric = selberg_trace_geometric(energies, n, density_values)
+        if spectral == geometric
+            1
+        else
+            0
+
+let chaos_criterion(energies, n, r_param) =
+    let p_actual = spacing_distribution(energies, n, 1)
+    let p_wigner = wigner_surmise_algebraic(1, r_param)
+    let p_poisson = poisson_spacing_algebraic(1, r_param)
+    let diff_wigner = gf_sub(p_actual, p_wigner)
+    let diff_poisson = gf_sub(p_actual, p_poisson)
+    let dw_sq = gf_mul(diff_wigner, diff_wigner)
+    let dp_sq = gf_mul(diff_poisson, diff_poisson)
+    if dw_sq < dp_sq
+        1
+    else
+        0
+    if dp_sq < dw_sq
+        0
+    else
+        65536
+
+let chaos_strength(energies, n, tau1, tau2) =
+    sff_slope(energies, n, tau1, tau2)
+
+let zeta_zero_spacing(s_min, s_max) =
+    let z1 = zeta_zero_search(s_min, s_max)
+    let z2 = zeta_zero_search(z1 + 1, s_max)
+    gf_sub(z2, z1)
+
+let montgomery_odlyzko_check(s_min, s_max, r_param) =
+    let spacing = zeta_zero_spacing(s_min, s_max)
+    let wigner_pred = wigner_surmise_algebraic(spacing, r_param)
+    wigner_pred
+
+let level_repulsion(s, beta) =
+    gf_pow(s, beta)
+
+let repulsion_beta_meaning(beta) =
+    if beta == 1
+        1
+    else
+        0
+    if beta == 2
+        2
+    else
+        0
+    if beta == 4
+        4
+    else
+        0
+
+let algebraic_lyapunov(derivative) =
+        if derivative < 32768
+            derivative
+        else
+            gf_neg(derivative)
+
+let ks_entropy_algebraic(lyapunov_exponents, n) =
+    _ks_entropy_loop(lyapunov_exponents, n, 0, 0)
+let _ks_entropy_loop(exponents, n, i, acc) =
+        if i >= n
+            acc
+        else
+            let lambda = exponents[i]
+            let positive = (lambda < 32768) ? lambda : 0
+            _ks_entropy_loop(exponents, n, i + 1, gf_add(acc, positive))

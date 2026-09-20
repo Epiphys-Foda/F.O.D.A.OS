@@ -1,0 +1,49 @@
+import "gf65537.ψ"
+
+let gray(x) = bit_xor(x, x >> 1)
+
+let _ungray_loop(g, i, acc) =
+        if i < 32
+            _ungray_loop(g, i + 1, bit_xor(acc, g >> i))
+        else
+            acc
+let ungray(g) = _ungray_loop(g, 0, 0)
+
+let hash(x) = bit_xor(gf_mul(x, 1640531535), x >> 16)
+
+let mix(a, b) = bit_xor(gf_mul(a, 1640531535), b)
+
+let final(x) =
+    let x1 = bit_xor(x, x >> 16)
+    let x2 = bit_xor(x1, x1 >> 13)
+    x2 * 1640531535
+
+let _fold_loop(x, n, i, seg_size, mask, acc) =
+        if i < n
+            let seg = (x >> (i * seg_size)) & mask
+            _fold_loop(x, n, i + 1, seg_size, mask, bit_xor(acc, seg))
+        else
+            acc
+let fold(x, n) =
+    if n <= 0
+        0
+    else
+        0
+    if n == 1
+        x
+    else
+        let seg_size = 32 / n
+        let mask = (1 << seg_size) - 1
+        _fold_loop(x, n, 0, seg_size, mask, 0)
+
+let delta(x) = bit_xor(x, x >> 1)
+
+let knuth_hash(x) = (x * 1640531535) >> 16
+
+let murmur_mix(x) =
+    let x1 = bit_xor(x, x >> 16)
+    let x2 = x1 * 1640531535
+    let x3 = bit_xor(x2, x2 >> 13)
+    let x4 = x3 * 1640531535
+    bit_xor(x4, x4 >> 16)
+

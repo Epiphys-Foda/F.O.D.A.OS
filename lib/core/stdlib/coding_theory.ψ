@@ -1,0 +1,149 @@
+let hamming_encode_7_4(data) =
+    let d = data
+    let p1 = d[0] ^ d[1] ^ d[3]
+    let p2 = d[0] ^ d[2] ^ d[3]
+    let p3 = d[1] ^ d[2] ^ d[3]
+    [d[0], d[1], d[2], d[3], p1, p2, p3]
+
+let hamming_decode_7_4(received) =
+    let r = received
+    let s1 = r[0] ^ r[2] ^ r[4] ^ r[6]
+    let s2 = r[1] ^ r[2] ^ r[5] ^ r[6]
+    let s3 = r[3] ^ r[4] ^ r[5] ^ r[6]
+    let syndrome = s1 + 2 * s2 + 4 * s3
+    if syndrome > 0
+        r[syndrome - 1] = r[syndrome - 1] ^ 1
+    [r[0], r[1], r[2], r[3]]
+
+let parity_encode(data) =
+    let parity = 0
+    let i = 0
+    for i < data.len()
+        parity = parity ^ data[i]
+        i = i + 1
+    arr_concat(data, [parity])
+
+let parity_check(received) =
+    let parity = 0
+    let i = 0
+    for i < received.len()
+        parity = parity ^ received[i]
+        i = i + 1
+    parity
+
+let repetition_encode(data, n) =
+    let result = []
+    let i = 0
+    for i < data.len()
+        let j = 0
+        for j < n
+            result = arr_concat(result, [data[i]])
+            j = j + 1
+        i = i + 1
+    result
+
+let repetition_decode(received, n) =
+    let result = []
+    let i = 0
+    for i < received.len()
+        let count_ones = 0
+        let j = 0
+        for j < n
+            count_ones = count_ones + received[i + j]
+            j = j + 1
+        if count_ones > n / 2
+            result = arr_concat(result, [1])
+        else
+            result = arr_concat(result, [0])
+        i = i + n
+    result
+
+let crc_encode(data, polynomial, poly_len) =
+    let result = []
+    let i = 0
+    for i < data.len()
+        result = arr_concat(result, [data[i]])
+        i = i + 1
+    let i = 0
+    for i < poly_len - 1
+        result = arr_concat(result, [0])
+        i = i + 1
+    let i = 0
+    for i < data.len()
+        if result[i] == 1
+            let j = 0
+            for j < poly_len
+                result[i + j] = result[i + j] ^ ((polynomial >> (poly_len - 1 - j)) & 1)
+                j = j + 1
+        i = i + 1
+    let crc = []
+    let i = data.len()
+    for i < result.len()
+        crc = arr_concat(crc, [result[i]])
+        i = i + 1
+    arr_concat(data, crc)
+
+let reed_solomon_encode(data, n_data, n_total, prime) =
+    let result = []
+    let i = 0
+    for i < n_total
+        let val = 0
+        let x_pow = 1
+        let j = 0
+        for j < n_data
+            val = (val + data[j] * x_pow) % prime
+            x_pow = x_pow * i % prime
+            j = j + 1
+        result = arr_concat(result, [val])
+        i = i + 1
+    result
+
+let reed_solomon_syndrome(received, n_data, prime) =
+    let syndromes = []
+    let s = 1
+    for s <= n_data
+        let val = 0
+        let i = 0
+        for i < received.len()
+            let x_pow = 1
+            let j = 0
+            for j < s
+                x_pow = x_pow * i % prime
+                j = j + 1
+            val = (val + received[i] * x_pow) % prime
+            i = i + 1
+        syndromes = arr_concat(syndromes, [val])
+        s = s + 1
+    syndromes
+
+let hamming_distance(a, b) =
+    let dist = 0
+    let i = 0
+    for i < a.len()
+        if a[i] != b[i]
+            dist = dist + 1
+        i = i + 1
+    dist
+
+let code_rate(k, n) =
+    k * 1000 / n
+
+let minimum_distance_repetition(n) =
+    n
+
+let minimum_distance_hamming() =
+    3
+
+let main() =
+    let data = [1, 0, 1, 1]
+    let encoded = hamming_encode_7_4(data)
+    print(encoded)
+    let received = encoded
+    received[2] = received[2] ^ 1
+    let decoded = hamming_decode_7_4(received)
+    print(decoded)
+    let rep = repetition_encode([1, 0, 1], 3)
+    print(rep)
+    let rep_dec = repetition_decode(rep, 3)
+    print(rep_dec)
+    0

@@ -1,0 +1,188 @@
+import "str.ψ"
+
+let kmp_table(pattern) =
+    let n = pattern.len()
+    let table = []
+    let i = 0
+    for i < n
+        table = arr_concat(table, [0])
+        i = i + 1
+    let pos = 1
+    let cnd = 0
+    for pos < n
+        if str_char_at(pattern, pos) == str_char_at(pattern, cnd)
+            table[pos] = cnd + 1
+            pos = pos + 1
+            cnd = cnd + 1
+        else
+            0
+        if cnd > 0
+            cnd = table[cnd - 1]
+        else
+            table[pos] = 0
+            pos = pos + 1
+    table
+
+let kmp_search(text, pattern) =
+    if pattern.len() == 0
+        0
+    else
+        let table = kmp_table(pattern)
+        let i = 0
+        let j = 0
+        let n = text.len()
+        let m = pattern.len()
+        for i < n
+            if str_char_at(text, i) == str_char_at(pattern, j)
+                i = i + 1
+                j = j + 1
+                if j == m
+                    return i - m
+                else
+                    0
+            if j > 0
+                j = table[j - 1]
+            else
+                i = i + 1
+        -1
+
+let boyer_moore_horspool(text, pattern) =
+    let n = text.len()
+    let m = pattern.len()
+    if m == 0
+        0
+    else
+        0
+    if m > n
+        -1
+    else
+        let shift = []
+        let i = 0
+        for i < 256
+            shift = arr_concat(shift, [m])
+            i = i + 1
+        let i = 0
+        for i < m - 1
+            let c = str_get(pattern, i)
+            shift[c % 256] = m - 1 - i
+            i = i + 1
+        let pos = 0
+        for pos <= n - m
+            let j = m - 1
+            for j >= 0 && str_char_at(text, pos + j) == str_char_at(pattern, j)
+                j = j - 1
+            if j < 0
+                return pos
+            let c = str_get(text, pos + m - 1)
+            pos = pos + shift[c % 256]
+        -1
+
+let rabin_karp(text, pattern) =
+    let n = text.len()
+    let m = pattern.len()
+    if m == 0
+        0
+    else
+        0
+    if m > n
+        -1
+    else
+        let base = 256
+        let mod_ = 1000000007
+        let pat_hash = 0
+        let txt_hash = 0
+        let h = 1
+        let i = 0
+        for i < m - 1
+            h = h * base % mod_
+            i = i + 1
+        let i = 0
+        for i < m
+            pat_hash = (pat_hash * base + str_get(pattern, i)) % mod_
+            txt_hash = (txt_hash * base + str_get(text, i)) % mod_
+            i = i + 1
+        let i = 0
+        for i <= n - m
+            if pat_hash == txt_hash
+                let j = 0
+                for j < m && str_char_at(text, i + j) == str_char_at(pattern, j)
+                    j = j + 1
+                if j == m
+                    return i
+            if i < n - m
+                txt_hash = (txt_hash - str_get(text, i) * h % mod_ + mod_) % mod_
+                txt_hash = (txt_hash * base + str_get(text, i + m)) % mod_
+            i = i + 1
+        -1
+
+let z_algorithm(s) =
+    let n = s.len()
+    let z = []
+    let i = 0
+    for i < n
+        z = arr_concat(z, [0])
+        i = i + 1
+    if n > 0
+        z[0] = n
+    let l = 0
+    let r = 0
+    let i = 1
+    for i < n
+        if i <= r
+            z[i] = (r - i + 1 < z[i - l] ? r - i + 1 : z[i - l])
+        for i + z[i] < n && str_char_at(s, z[i]) == str_char_at(s, i + z[i])
+            z[i] = z[i] + 1
+        if i + z[i] - 1 > r
+            l = i
+            r = i + z[i] - 1
+        i = i + 1
+    z
+
+let naive_search(text, pattern) =
+    let n = text.len()
+    let m = pattern.len()
+    if m == 0
+        0
+    else
+        0
+    if m > n
+        -1
+    else
+        let i = 0
+        for i <= n - m
+            let j = 0
+            for j < m && str_char_at(text, i + j) == str_char_at(pattern, j)
+                j = j + 1
+            if j == m
+                return i
+            i = i + 1
+        -1
+
+let count_occurrences(text, pattern) =
+    let count = 0
+    let pos = 0
+    let remaining = text
+    for pos < text.len()
+        let idx = kmp_search(remaining, pattern)
+        if idx == -1
+            pos = text.len()
+        else
+            count = count + 1
+            pos = pos + idx + 1
+            remaining = str_substring(remaining, idx + 1, text.len() - pos)
+    count
+
+let main() =
+    let text = "ABABDABACDABABCABAB"
+    let pattern = "ABABCABAB"
+    let v1 = kmp_search(text, pattern)
+    print(v1)
+    let v2 = naive_search(text, pattern)
+    print(v2)
+    let v3 = rabin_karp(text, pattern)
+    print(v3)
+    let v4 = boyer_moore_horspool(text, pattern)
+    print(v4)
+    let z = z_algorithm("AAAA")
+    print(z)
+    0

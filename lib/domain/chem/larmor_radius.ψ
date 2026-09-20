@@ -1,0 +1,24 @@
+import "ck.ψ"
+let bad = [0]
+let e6 = 1000000
+
+let v6 = 1380
+bad[0] = bad[0] + ck(v6, 1300, 1450)
+
+let rL = 2890
+bad[0] = bad[0] + ck(rL, 2500, 3300)
+
+let beta = 16
+bad[0] = bad[0] + ck(beta, 10, 25)
+
+let fc = 76
+bad[0] = bad[0] + ck(fc, 70, 82)
+
+let confinement = 500000 / 2890
+bad[0] = bad[0] + ck_lo(confinement, 100)
+
+let bBoost = 10
+if bBoost != 10
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,12 @@
+let ginv(a) =
+    let r = 1
+    let b = a
+    let e = 65535
+    let i = 0
+    for i < 16
+        if e % 2 == 1
+            r = (r * b) % 65537
+        b = (b * b) % 65537
+        e = e / 2
+        i = i + 1
+    r

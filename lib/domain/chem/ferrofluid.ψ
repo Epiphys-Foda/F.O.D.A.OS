@@ -1,0 +1,32 @@
+import "ck.ψ"
+let bad = [0]
+
+let np = 10
+bad[0] = bad[0] + ck(np, 5, 20)
+
+let settle = 0
+bad[0] = bad[0] + ck(settle, 0, 0)
+
+let lam = 10
+bad[0] = bad[0] + ck(lam, 5, 20)
+
+let bcrit = 150
+bad[0] = bad[0] + ck(bcrit, 50, 300)
+
+let seal = 1
+bad[0] = bad[0] + ck_lo(seal, 1)
+
+if 1963 < 1961
+    bad[0] = bad[0] + 1
+if 1963 > 1965
+    bad[0] = bad[0] + 1
+if 1967 < 1965
+    bad[0] = bad[0] + 1
+if 1967 > 1969
+    bad[0] = bad[0] + 1
+if 1970 < 1968
+    bad[0] = bad[0] + 1
+if 1970 > 1972
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

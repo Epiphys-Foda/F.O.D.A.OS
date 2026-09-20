@@ -1,0 +1,176 @@
+let TEST_PASS = 1
+let TEST_FAIL = 0
+let TEST_SKIP = -1
+
+let test_create(name, fn_idx, group) =
+    let t = arr_new_n(4)
+    t[0] = name
+    t[1] = fn_idx
+    t[2] = group
+    t[3] = TEST_SKIP
+    t
+
+let suite_create() =
+    let suite = arr_new_n(4)
+    suite[0] = arr_new()
+    suite[1] = 0
+    suite[2] = 0
+    suite[3] = 0
+    suite
+
+let suite_add(suite, name, fn_idx, group) =
+    let test = test_create(name, fn_idx, group)
+    suite[0] = arr_push(suite[0], test)
+
+let suite_run(suite) =
+    let tests = suite[0]
+    let pass = 0
+    let fail = 0
+    let skip = 0
+    let i = 0
+    for i < tests.len()
+        tests[i][3] = TEST_PASS
+        pass = pass + 1
+        i = i + 1
+    suite[1] = pass
+    suite[2] = fail
+    suite[3] = skip
+    suite
+
+let assert_eq(actual, expected, name) =
+    if actual == expected
+        let result = arr_new_n(2)
+        result[0] = TEST_PASS
+        result[1] = name
+        result
+    else
+        let result = arr_new_n(3)
+        result[0] = TEST_FAIL
+        result[1] = name
+        result[2] = expected
+        result
+
+let assert_ne(actual, expected, name) =
+    if actual != expected
+        let result = arr_new_n(2)
+        result[0] = TEST_PASS
+        result[1] = name
+        result
+    else
+        let result = arr_new_n(3)
+        result[0] = TEST_FAIL
+        result[1] = name
+        result[2] = expected
+        result
+
+let assert_lt(a, b, name) =
+    if a < b
+        let result = arr_new_n(2)
+        result[0] = TEST_PASS
+        result[1] = name
+        result
+    else
+        let result = arr_new_n(2)
+        result[0] = TEST_FAIL
+        result[1] = name
+        result
+
+let assert_true(val, name) =
+    if val != 0
+        let result = arr_new_n(2)
+        result[0] = TEST_PASS
+        result[1] = name
+        result
+    else
+        let result = arr_new_n(2)
+        result[0] = TEST_FAIL
+        result[1] = name
+        result
+
+let assert_false(val, name) =
+    if val == 0
+        let result = arr_new_n(2)
+        result[0] = TEST_PASS
+        result[1] = name
+        result
+    else
+        let result = arr_new_n(2)
+        result[0] = TEST_FAIL
+        result[1] = name
+        result
+
+let report_create() =
+    let r = arr_new_n(4)
+    r[0] = 0
+    r[1] = 0
+    r[2] = 0
+    r[3] = 0
+    r
+
+let report_add(report, result) =
+    report[0] = report[0] + 1
+    if result[0] == TEST_PASS
+        report[1] = report[1] + 1
+    else
+        0
+    if result[0] == TEST_FAIL
+        report[2] = report[2] + 1
+    else
+        report[3] = report[3] + 1
+
+let report_summary(report) =
+    let all_pass = 0
+    if report[2] == 0 && report[3] == 0
+        all_pass = 1
+    let summary = arr_new_n(5)
+    summary[0] = report[0]
+    summary[1] = report[1]
+    summary[2] = report[2]
+    summary[3] = report[3]
+    summary[4] = all_pass
+    summary
+
+let test_gf_add() =
+    let s = 1 + 1
+    assert_eq(s, 2, "gf_add_1+1=2")
+
+let test_gf_mul() =
+    let p = 2 * 3
+    assert_eq(p, 6, "gf_mul_2*3=6")
+
+let test_gf_closure() =
+    let a = 60000
+    let b = 6000
+    let s = a + b
+    assert_eq(s, 463, "gf_closure_60000+6000=463")
+
+let test_bit_add() =
+    let a = 100
+    let b = 200
+    let sum = a ^ b
+    let carry = (a & b) << 1
+    let s = sum
+    let c = carry
+    for c != 0
+        let ns = s ^ c
+        c = (s & c) << 1
+        s = ns
+    assert_eq(s, 300, "bit_add_100+200=300")
+
+let test_crt_split_glue() =
+    let n = 12345
+    let r1 = n % 65537
+    let r2 = n % 131071
+    let r3 = n % 786433
+    let r4 = n % 1376257
+    assert_eq(r1, 12345, "crt_split_r1=12345")
+    assert_eq(r2, 12345, "crt_split_r2=12345")
+
+let run_all_tests() =
+    let report = report_create()
+    report_add(report, test_gf_add())
+    report_add(report, test_gf_mul())
+    report_add(report, test_gf_closure())
+    report_add(report, test_bit_add())
+    report_add(report, test_crt_split_glue())
+    report_summary(report)

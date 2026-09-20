@@ -1,0 +1,198 @@
+import "../stdlib/gf65537.ψ"
+import "../stdlib/predicates.ψ"
+import "domain_list.ψ"
+
+let dirichlet_char_gf(n, modulus, generator) =
+        if n % modulus == 0
+            0
+        else
+            let k = discrete_log_gf(n, generator, modulus)
+            gf_pow(3, k)
+
+let discrete_log_gf(n, g, modulus) =
+    dlog_search_gf(n, g, modulus, 0, 1)
+
+let dlog_search_gf(n, g, modulus, k, g_pow) =
+        if k >= modulus
+            0
+        else
+            if g_pow % modulus == n % modulus
+                k
+            else
+                dlog_search_gf(n, g, modulus, k + 1, gf_mul(g_pow, g))
+
+let dirichlet_l_function_gf(s, modulus, generator) =
+    l_function_sum_gf(s, modulus, generator, 1, 0)
+
+let l_function_sum_gf(s, modulus, generator, n, acc) =
+        if n >= 65537
+            acc
+        else
+            let chi_n = dirichlet_char_gf(n, modulus, generator)
+            let neg_sn = gf_sub(0, gf_mul(s, n))
+            let term = gf_mul(chi_n, gf_pow(3, neg_sn))
+            l_function_sum_gf(s, modulus, generator, n + 1, gf_add(acc, term))
+
+let l_function_at_1_gf(modulus, generator) =
+    dirichlet_l_function_gf(1, modulus, generator)
+
+let prime_count_gf(x) =
+    prime_count_rec_gf(x, 2, 0)
+
+let prime_count_rec_gf(x, n, count) =
+        if n > x
+            count
+        else
+            if is_prime(n) == 1
+                prime_count_rec_gf(x, n + 1, count + 1)
+            else
+                prime_count_rec_gf(x, n + 1, count)
+
+let prime_number_theorem_gf(x) =
+    prime_count_gf(x)
+
+let primes_in_ap_gf(a, d, x) =
+    primes_ap_rec_gf(a, d, x, a, 0)
+
+let primes_ap_rec_gf(a, d, x, n, count) =
+        if n > x
+            count
+        else
+            let new_count = (is_prime(n) == 1) ? count + 1 : count
+            primes_ap_rec_gf(a, d, x, n + d, new_count)
+
+let legendre_symbol_gf(a, p) =
+        let result = gf_pow(a, (p - 1) / 2)
+        if result == 1
+            1
+        else
+            if result == p - 1
+                p - 1
+let quadratic_reciprocity_gf(p, q) =
+    let lhs = gf_mul(legendre_symbol_gf(p, q), legendre_symbol_gf(q, p))
+    let exponent = ((p - 1) / 2) * ((q - 1) / 2)
+    let rhs = (exponent % 2 == 0) ? 1 : 65536
+    (lhs == rhs) ? 1 : 0
+
+let elliptic_curve_points_gf(a, b) =
+    ec_points_rec_gf(a, b, 0, [])
+
+let ec_points_rec_gf(a, b, x, points) =
+        if x >= 65537
+            points
+        else
+            let rhs = gf_add(gf_add(gf_mul(gf_mul(x, x), x), gf_mul(a, x)), b)
+            let new_points = ec_find_y_gf(rhs, x, a, b, 0, points)
+            ec_points_rec_gf(a, b, x + 1, new_points)
+
+let ec_find_y_gf(rhs, x, a, b, y, points) =
+        if y >= 65537
+            points
+        else
+            let y_sq = gf_mul(y, y)
+            if y_sq == rhs
+                ec_find_y_gf(rhs, x, a, b, y + 1, append(points, [x, y]))
+            else
+                ec_find_y_gf(rhs, x, a, b, y + 1, points)
+
+let ec_add_gf(P, Q, a) =
+        if P[0] == -1
+            Q
+        else
+            if Q[0] == -1
+                P
+                if P[0] == Q[0] && P[1] == gf_sub(0, Q[1])
+                    [-1, -1]
+                else
+                    let lambda = ec_lambda_gf(P, Q, a)
+                    let x3 = gf_sub(gf_sub(gf_mul(lambda, lambda), P[0]), Q[0])
+                    let y3 = gf_sub(gf_mul(lambda, gf_sub(P[0], x3)), P[1])
+                    [x3, y3]
+
+let ec_lambda_gf(P, Q, a) =
+        if P[0] == Q[0] && P[1] == Q[1]
+            let num = gf_add(gf_mul(3, gf_mul(P[0], P[0])), a)
+            let den = gf_mul(2, P[1])
+            gf_div(num, den)
+        else
+            gf_div(gf_sub(Q[1], P[1]), gf_sub(Q[0], P[0]))
+
+let ec_order_gf(a, b) =
+    let points = elliptic_curve_points_gf(a, b)
+    gf_add(len(points), 1)
+
+let modular_form_gf(coefficients, n) =
+    modular_form_sum_gf(coefficients, 0, n, 0)
+
+let modular_form_sum_gf(coeffs, i, n, acc) =
+        if i > n
+            acc
+        else
+            let term = gf_mul(coeffs[i], gf_pow(3, i))
+            modular_form_sum_gf(coeffs, i + 1, n, gf_add(acc, term))
+
+let ramanujan_tau_gf(n) =
+        if n == 1
+            1
+        else
+            if n == 2
+                gf_sub(0, 24)
+                if n == 3
+                    252
+                else
+                    tau_recurrence_gf(n)
+
+let tau_recurrence_gf(n) =
+    0
+
+let ideal_class_group_gf(discriminant) =
+    let class_number = class_number_gf(discriminant)
+    class_number
+
+let class_number_gf(d) =
+    class_number_rec_gf(d, 0, 0)
+
+let class_number_rec_gf(d, a, count) =
+        if a * a > abs_gf(d) / 3
+            count
+        else
+            let new_count = (is_reduced_form_gf(a, d) == 1) ? count + 1 : count
+            class_number_rec_gf(d, a + 1, new_count)
+
+let is_reduced_form_gf(a, d) =
+    1
+
+let abs_gf(x) =
+    (x < 0) ? gf_sub(0, x) : x
+
+let artin_map_gf(ideal, galois_group) =
+    ideal % len(galois_group)
+
+let dedekind_zeta_gf(s, discriminant) =
+    zeta_sum_gf(s, discriminant, 1, 0)
+
+let zeta_sum_gf(s, d, norm, acc) =
+        if norm >= 65537
+            acc
+        else
+            let neg_s_norm = gf_sub(0, gf_mul(s, norm))
+            let term = gf_pow(3, neg_s_norm)
+            zeta_sum_gf(s, d, norm + 1, gf_add(acc, term))
+
+let quadratic_field_element_gf(a, b) =
+    [a, b]
+
+let qf_mul_gf(x, y, d) =
+    let a = x[0]
+    let b = x[1]
+    let c = y[0]
+    let e = y[1]
+    let real = gf_add(gf_mul(a, c), gf_mul(gf_mul(b, e), d))
+    let tau = gf_add(gf_mul(a, e), gf_mul(b, c))
+    [real, tau]
+
+let qf_norm_gf(x, d) =
+    let a_sq = gf_mul(x[0], x[0])
+    let b_sq_d = gf_mul(gf_mul(x[1], x[1]), d)
+    gf_sub(a_sq, b_sq_d)
+

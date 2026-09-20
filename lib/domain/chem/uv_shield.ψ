@@ -1,0 +1,25 @@
+import "ck.ψ"
+let bad = [0]
+
+let lam10 = 1240000 / 512
+bad[0] = bad[0] + ck(lam10, 2400, 2440)
+
+let e260 = 124000 / 26
+bad[0] = bad[0] + ck(e260, 4500, 5000)
+
+let dnaPeak = 260
+bad[0] = bad[0] + ck(dnaPeak, 255, 265)
+let o3Cut = 310
+bad[0] = bad[0] + ck(o3Cut, 300, 320)
+
+bad[0] = bad[0] + ck_lo(o3Cut, dnaPeak)
+
+let chlBlue = 430
+let chlRed = 662
+bad[0] = bad[0] + ck_lo(chlBlue, 400)
+bad[0] = bad[0] + ck_hi(chlRed, 700)
+
+let e500 = 124000 / 50
+bad[0] = bad[0] + ck(e500, 2400, 2600)
+
+arr_get(arr_new_n(1), bad[0])

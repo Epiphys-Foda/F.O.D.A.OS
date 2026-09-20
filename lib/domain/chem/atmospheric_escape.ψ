@@ -1,0 +1,36 @@
+import "ck.ψ"
+let bad = [0]
+
+let v_h2 = 1900
+let v_o2 = 475
+let dz1 = v_h2 - v_o2 * 4
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let v_esc_e = 11200
+bad[0] = bad[0] + ck(v_esc_e, 11000, 12000)
+let v_n2 = 500
+if v_esc_e < v_n2 * 20
+    bad[0] = bad[0] + 1
+
+let v_esc_moon = 2400
+bad[0] = bad[0] + ck(v_esc_moon, 2300, 2500)
+let v_h2_moon = 2200
+bad[0] = bad[0] + ck(v_h2_moon, 2000, 2500)
+if v_h2_moon < v_esc_moon / 2
+    bad[0] = bad[0] + 1
+
+let v_esc_mars = 5000
+bad[0] = bad[0] + ck(v_esc_mars, 4500, 5500)
+let mars_atm = 1
+bad[0] = bad[0] + ck_hi(mars_atm, 2)
+bad[0] = bad[0] + ck_hi(mars_atm, 5)
+
+bad[0] = bad[0] + ck_lo(v_esc_e, v_esc_mars)
+bad[0] = bad[0] + ck_lo(v_esc_mars, v_esc_moon)
+
+if 1925 < 1923
+    bad[0] = bad[0] + 1
+if 1925 > 1927
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

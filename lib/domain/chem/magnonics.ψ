@@ -1,0 +1,39 @@
+import "ck.ψ"
+let bad = [0]
+
+let f28 = 28
+bad[0] = bad[0] + ck(f28, 27, 29)
+
+let dw1 = 1
+let dw2 = 4
+let rk = dw2 / dw1
+bad[0] = bad[0] + ck(rk, 4, 4)
+
+let nmag = 7
+let hb = 7
+let dkp = hb - nmag
+bad[0] = bad[0] + ck(dkp, 0, 0)
+
+let alpha = 3
+bad[0] = bad[0] + ck(alpha, 2, 10)
+
+let becr = 1
+bad[0] = bad[0] + ck_lo(becr, 1)
+
+let m_tc = 0
+bad[0] = bad[0] + ck(m_tc, 0, 0)
+
+if 1948 < 1946
+    bad[0] = bad[0] + 1
+if 1948 > 1950
+    bad[0] = bad[0] + 1
+if 2006 < 2004
+    bad[0] = bad[0] + 1
+if 2006 > 2008
+    bad[0] = bad[0] + 1
+if 2014 < 2012
+    bad[0] = bad[0] + 1
+if 2014 > 2016
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

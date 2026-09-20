@@ -1,0 +1,151 @@
+let euler(f, t0, y0, t_end, n) =
+    let h = (t_end - t0) / n
+    let t = t0
+    let y = y0
+    let i = 0
+    for i < n
+        y = y + h * f(t, y)
+        t = t + h
+        i = i + 1
+    y
+
+let heun(f, t0, y0, t_end, n) =
+    let h = (t_end - t0) / n
+    let t = t0
+    let y = y0
+    let i = 0
+    for i < n
+        let k1 = f(t, y)
+        let k2 = f(t + h, y + h * k1)
+        y = y + h * (k1 + k2) / 2
+        t = t + h
+        i = i + 1
+    y
+
+let rk4(f, t0, y0, t_end, n) =
+    let h = (t_end - t0) / n
+    let t = t0
+    let y = y0
+    let i = 0
+    for i < n
+        let k1 = f(t, y)
+        let k2 = f(t + h / 2, y + h * k1 / 2)
+        let k3 = f(t + h / 2, y + h * k2 / 2)
+        let k4 = f(t + h, y + h * k3)
+        y = y + h * (k1 + 2 * k2 + 2 * k3 + k4) / 6
+        t = t + h
+        i = i + 1
+    y
+
+let rk4_system(f, t0, y0, t_end, n) =
+    let h = (t_end - t0) / n
+    let t = t0
+    let y = y0
+    let dim = y.len()
+    let i = 0
+    for i < n
+        let k1 = f(t, y)
+        let y2 = []
+        let j = 0
+        for j < dim
+            y2 = arr_concat(y2, [y[j] + h * k1[j] / 2])
+            j = j + 1
+        let k2 = f(t + h / 2, y2)
+        let y3 = []
+        let j = 0
+        for j < dim
+            y3 = arr_concat(y3, [y[j] + h * k2[j] / 2])
+            j = j + 1
+        let k3 = f(t + h / 2, y3)
+        let y4 = []
+        let j = 0
+        for j < dim
+            y4 = arr_concat(y4, [y[j] + h * k3[j]])
+            j = j + 1
+        let k4 = f(t + h, y4)
+        let y_new = []
+        let j = 0
+        for j < dim
+            y_new = arr_concat(y_new, [y[j] + h * (k1[j] + 2 * k2[j] + 2 * k3[j] + k4[j]) / 6])
+            j = j + 1
+        y = y_new
+        t = t + h
+        i = i + 1
+    y
+
+let midpoint_method(f, t0, y0, t_end, n) =
+    let h = (t_end - t0) / n
+    let t = t0
+    let y = y0
+    let i = 0
+    for i < n
+        let k1 = f(t, y)
+        let k2 = f(t + h / 2, y + h * k1 / 2)
+        y = y + h * k2
+        t = t + h
+        i = i + 1
+    y
+
+let adams_bashforth2(f, t0, y0, t_end, n) =
+    let h = (t_end - t0) / n
+    let t = t0
+    let y = y0
+    let f_prev = f(t, y)
+    y = y + h * f_prev
+    t = t + h
+    let i = 1
+    for i < n
+        let f_curr = f(t, y)
+        y = y + h * (3 * f_curr - f_prev) / 2
+        f_prev = f_curr
+        t = t + h
+        i = i + 1
+    y
+
+let verlet(f, t0, x0, v0, t_end, n) =
+    let h = (t_end - t0) / n
+    let t = t0
+    let x = x0
+    let v = v0
+    let a = f(t, x)
+    let i = 0
+    for i < n
+        let x_new = x + v * h + a * h * h / 2
+        let a_new = f(t + h, x_new)
+        let v_new = v + (a + a_new) * h / 2
+        x = x_new
+        v = v_new
+        a = a_new
+        t = t + h
+        i = i + 1
+    [x, v]
+
+let leapfrog(f, t0, x0, v0, t_end, n) =
+    let h = (t_end - t0) / n
+    let t = t0
+    let x = x0
+    let v = v0 + h / 2 * f(t, x)
+    let i = 0
+    for i < n
+        x = x + h * v
+        t = t + h
+        v = v + h * f(t, x)
+        i = i + 1
+    [x, v - h / 2 * f(t, x)]
+
+let main() =
+    let f(t, y) = y
+    let v1 = euler(f, 0, 1, 1, 100)
+    print(v1)
+    let v2 = heun(f, 0, 1, 1, 100)
+    print(v2)
+    let v3 = rk4(f, 0, 1, 1, 100)
+    print(v3)
+    let v4 = midpoint_method(f, 0, 1, 1, 100)
+    print(v4)
+    let v5 = adams_bashforth2(f, 0, 1, 1, 100)
+    print(v5)
+    let g(t, x) = -x
+    let v6 = verlet(g, 0, 1, 0, 1, 100)
+    print(v6)
+    0

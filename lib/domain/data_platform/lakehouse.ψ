@@ -1,0 +1,247 @@
+let LH_OP_INSERT = 0
+let LH_OP_UPDATE = 1
+let LH_OP_DELETE = 2
+let LH_OP_UPSERT = 3
+
+let LH_DEFAULT_MAX_VERSIONS = 100
+
+let lh_entry_new(version, op, row_key, payload, timestamp, txn_id) =
+    [version, op, row_key, payload, timestamp, txn_id]
+
+let lh_entry_version(e) = e[0]
+let lh_entry_op(e) = e[1]
+let lh_entry_key(e) = e[2]
+let lh_entry_payload(e) = e[3]
+let lh_entry_timestamp(e) = e[4]
+let lh_entry_txn(e) = e[5]
+
+let lh_table_new(name, pk_col) =
+    [name, [], [], {}, 0, pk_col, {}]
+
+let lh_table_name(t) = t[0]
+let lh_table_schema(t) = t[1]
+let lh_table_log(t) = t[2]
+let lh_table_state(t) = t[3]
+let lh_table_version(t) = t[4]
+let lh_table_pk(t) = t[5]
+let lh_table_history(t) = t[6]
+
+let lh_table_set_schema(t, s) = [t[0], s, t[2], t[3], t[4], t[5], t[6]]
+let lh_table_set_log(t, l) = [t[0], t[1], l, t[3], t[4], t[5], t[6]]
+let lh_table_set_state(t, s) = [t[0], t[1], t[2], s, t[4], t[5], t[6]]
+let lh_table_set_version(t, v) = [t[0], t[1], t[2], t[3], v, t[5], t[6]]
+let lh_table_set_history(t, h) = [t[0], t[1], t[2], t[3], t[4], t[5], h]
+
+let lh_table_insert(t, row_key, payload, timestamp, txn_id) =
+    let version = lh_table_version(t) + 1
+    let entry = lh_entry_new(version, LH_OP_INSERT, row_key, payload, timestamp, txn_id)
+    let log = lh_table_log(t)
+    log.push(entry)
+    let state = lh_table_state(t)
+    state[row_key] = payload
+    let t2 = lh_table_set_log(t, log)
+    t2 = lh_table_set_state(t2, state)
+    t2 = lh_table_set_version(t2, version)
+    t2
+
+let lh_table_update(t, row_key, payload, timestamp, txn_id) =
+    let state = lh_table_state(t)
+    if state[row_key] == 0
+        lh_table_insert(t, row_key, payload, timestamp, txn_id)
+    else
+        let version = lh_table_version(t) + 1
+        let entry = lh_entry_new(version, LH_OP_UPDATE, row_key, payload, timestamp, txn_id)
+        let log = lh_table_log(t)
+        log.push(entry)
+        state[row_key] = payload
+        let t2 = lh_table_set_log(t, log)
+        t2 = lh_table_set_state(t2, state)
+        t2 = lh_table_set_version(t2, version)
+        t2
+
+let lh_table_delete(t, row_key, timestamp, txn_id) =
+    let state = lh_table_state(t)
+    if state[row_key] == 0
+        t
+    else
+        let version = lh_table_version(t) + 1
+        let entry = lh_entry_new(version, LH_OP_DELETE, row_key, 0, timestamp, txn_id)
+        let log = lh_table_log(t)
+        log.push(entry)
+        let new_state = {}
+        let keys = keys_of(state)
+        let i = 0
+        let n = len(keys)
+        for i < n
+            if keys[i] != row_key
+                new_state[keys[i]] = state[keys[i]]
+            i = i + 1
+        let t2 = lh_table_set_log(t, log)
+        t2 = lh_table_set_state(t2, new_state)
+        t2 = lh_table_set_version(t2, version)
+        t2
+
+let lh_table_upsert(t, row_key, payload, timestamp, txn_id) =
+    let state = lh_table_state(t)
+    if state[row_key] == 0
+        lh_table_insert(t, row_key, payload, timestamp, txn_id)
+    else
+        lh_table_update(t, row_key, payload, timestamp, txn_id)
+
+let lh_table_get(t, row_key) =
+    let state = lh_table_state(t)
+    state[row_key]
+
+let lh_table_get_at_version(t, row_key, version) =
+    let log = lh_table_log(t)
+    let value = 0
+    let i = 0
+    let n = len(log)
+    for i < n
+        let entry = log[i]
+        if lh_entry_version(entry) > version
+            i = n
+        else
+            if lh_entry_key(entry) == row_key
+                let op = lh_entry_op(entry)
+                if op == LH_OP_DELETE
+                    value = 0
+                else
+                    value = lh_entry_payload(entry)
+            i = i + 1
+    value
+
+let lh_table_scan(t) =
+    let state = lh_table_state(t)
+    let keys = keys_of(state)
+    let result = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        result.push([keys[i], state[keys[i]]])
+        i = i + 1
+    result
+
+let lh_table_snapshot(t) =
+    let history = lh_table_history(t)
+    history[lh_table_version(t)] = lh_table_state(t)
+    let keys = keys_of(history)
+    for len(keys) > LH_DEFAULT_MAX_VERSIONS
+        let oldest = keys[0]
+        let i = 1
+        let n = len(keys)
+        for i < n
+            if keys[i] < oldest
+                oldest = keys[i]
+            i = i + 1
+        history[oldest] = 0
+        keys = []
+        i = 0
+        let n2 = len(keys_of(history))
+        let all_keys = keys_of(history)
+        for i < n2
+            if all_keys[i] != oldest
+                keys.push(all_keys[i])
+            i = i + 1
+    lh_table_set_history(t, history)
+
+let lh_zorder_encode(x, y) =
+    let result = 0
+    let bit = 1
+    let i = 0
+    for i < 16
+        if (x & bit) != 0
+            result = result | (bit << i)
+        if (y & bit) != 0
+            result = result | (bit << (i + 1))
+        bit = bit << 1
+        i = i + 1
+    result
+
+let lh_bragg_verify_state(t) =
+    let state = lh_table_state(t)
+    let log = lh_table_log(t)
+    let replay = {}
+    let i = 0
+    let n = len(log)
+    for i < n
+        let entry = log[i]
+        let key = lh_entry_key(entry)
+        let op = lh_entry_op(entry)
+        if op == LH_OP_DELETE
+            let new_replay = {}
+            let keys = keys_of(replay)
+            let j = 0
+            let m = len(keys)
+            for j < m
+                if keys[j] != key
+                    new_replay[keys[j]] = replay[keys[j]]
+                j = j + 1
+            replay = new_replay
+            replay[key] = lh_entry_payload(entry)
+        i = i + 1
+    let s_keys = keys_of(state)
+    let r_keys = keys_of(replay)
+    if len(s_keys) != len(r_keys)
+        0
+    else
+        let pass = 1
+        i = 0
+        n = len(s_keys)
+        for i < n
+            if state[s_keys[i]] != replay[s_keys[i]]
+                pass = 0
+                i = n
+            i = i + 1
+        pass
+
+let lh_bragg_verify_time_travel(t, row_key, version, expected) =
+    let actual = lh_table_get_at_version(t, row_key, version)
+    if actual == expected
+        1
+    else
+        0
+
+let lh_self_test() =
+    let results = []
+
+    let t = lh_table_new("events", "id")
+    t = lh_table_insert(t, "k1", [1, "data1"], 1000, 1)
+    t = lh_table_insert(t, "k2", [2, "data2"], 2000, 2)
+    results.push(lh_table_version(t) == 2)
+    let val = lh_table_get(t, "k1")
+    results.push(val[0] == 1)
+
+    t = lh_table_update(t, "k1", [1, "updated"], 3000, 3)
+    val = lh_table_get(t, "k1")
+    results.push(val[1] == "updated")
+    results.push(lh_table_version(t) == 3)
+
+    t = lh_table_delete(t, "k2", 4000, 4)
+    results.push(lh_table_get(t, "k2") == 0)
+    results.push(lh_table_version(t) == 4)
+
+    val = lh_table_get_at_version(t, "k1", 1)
+    results.push(val[1] == "data1")
+    val = lh_table_get_at_version(t, "k1", 3)
+    results.push(val[1] == "updated")
+
+    t = lh_table_upsert(t, "k1", [1, "upserted"], 5000, 5)
+    val = lh_table_get(t, "k1")
+    results.push(val[1] == "upserted")
+
+    t = lh_table_upsert(t, "k3", [3, "new"], 6000, 6)
+    val = lh_table_get(t, "k3")
+    results.push(val[0] == 3)
+
+    results.push(lh_bragg_verify_state(t))
+
+    results.push(lh_bragg_verify_time_travel(t, "k1", 1, [1, "data1"]))
+
+    let z1 = lh_zorder_encode(1, 1)
+    let z2 = lh_zorder_encode(2, 2)
+    results.push(z1 != z2)
+
+    results
+
+let lh_default_lakehouse() = lh_table_new("default", "id")

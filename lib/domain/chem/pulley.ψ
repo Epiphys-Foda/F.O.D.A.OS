@@ -1,0 +1,30 @@
+import "ck.ψ"
+let bad = [0]
+
+let w_load = 100
+let f_fixed = 100
+let dz1 = f_fixed - w_load
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let f_movable = 50
+let dz2 = f_movable * 2 - w_load
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let n_seg = 4
+let f_compound = 25
+let dz3 = f_compound * n_seg - w_load
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let d_load = 1
+let d_pull = 4
+let work_in = f_compound * d_pull
+let work_out = w_load * d_load
+let dz4 = work_in - work_out
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+if 250 < 200
+    bad[0] = bad[0] + 1
+if 250 > 300
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

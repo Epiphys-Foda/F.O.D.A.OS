@@ -1,0 +1,28 @@
+import "ck.ψ"
+let bad = [0]
+
+let num = 7297 * 7297 * 4121640 / 2
+if 109000000000000 > num
+    bad[0] = bad[0] + 1
+bad[0] = bad[0] + ck_hi(num, 110000000000000)
+
+let dry = 13606 - 13598
+bad[0] = bad[0] + ck_hi(dry, 20)
+
+let pred = 13606 * 588
+let meas = 8038000
+let diff = meas - pred
+let adiff =
+    if diff < 0
+        0 - diff
+    else
+        diff
+if adiff * 100 > meas
+    bad[0] = bad[0] + 1
+
+if 13606 < 13598
+    bad[0] = bad[0] + 1
+if 13606 > 13614
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

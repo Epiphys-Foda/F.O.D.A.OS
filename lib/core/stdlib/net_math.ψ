@@ -1,0 +1,649 @@
+import "opt.ψ"
+import "qcrypto.ψ"
+
+let nm_data(seed) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < 8
+        out = out.push(qcr_bit(seed, i))
+        i = i + 1
+      else
+        done = true
+    out
+
+let nm_encode8(bits) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < 8
+        let b = bits[i]
+        out = out.push(b)
+        out = out.push(b)
+        out = out.push(b)
+        i = i + 1
+      else
+        done = true
+    out
+
+let nm_modulate(bits) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(bits)
+        if bits[i] == 0
+          out = out.push(1)
+        else
+          out = out.push(65536)
+        i = i + 1
+      else
+        done = true
+    out
+
+let nm_intt8(X) =
+    let wi = 65521
+    let wt = opt_omega_pows(wi, 8, 65537)
+    let inv8 = 57345
+    let raw = opt_ntt8_fast(X, wt, 65537)
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < 8
+        out = out.push((raw[i] * inv8) % 65537)
+        i = i + 1
+      else
+        done = true
+    out
+
+let nm_ntt8(x) =
+    let wt = opt_omega_pows(4096, 8, 65537)
+    opt_ntt8_fast(x, wt, 65537)
+
+let nm_ofdm_tx(sym) = nm_intt8(sym)
+
+let nm_channel(x, h0, h1) =
+    let out = []
+    let n = 0
+    let done = false
+    for !done
+      if n < 8
+        let prev = (n == 0 ? x[7] : x[n - 1])
+        out = out.push((h0 * x[n] + h1 * prev) % 65537)
+        n = n + 1
+      else
+        done = true
+    out
+
+let nm_chan_h() =
+    let H = []
+    let Hinv = []
+    let hp = [1, 2, 0, 0, 0, 0, 0, 0]
+    let Hn = nm_ntt8(hp)
+    let k = 0
+    let done = false
+    for !done
+      if k < 8
+        let hk = Hn[k]
+        H = H.push(hk)
+        let base = hk
+        let exp = 65535
+        let acc = 1
+        let d2 = false
+        for !d2
+          if exp > 0
+            if exp % 2 == 1
+              acc = (acc * base) % 65537
+            else
+              0
+            base = (base * base) % 65537
+            exp = exp / 2
+          else
+            d2 = true
+        Hinv = Hinv.push(acc)
+        k = k + 1
+      else
+        done = true
+    [H, Hinv]
+
+let nm_equalize(Y, Hinv) =
+    let out = []
+    let k = 0
+    let done = false
+    for !done
+      if k < 8
+        out = out.push((Y[k] * Hinv[k]) % 65537)
+        k = k + 1
+      else
+        done = true
+    out
+
+let nm_demodulate(X) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(X)
+        if X[i] == 1
+          out = out.push(0)
+        else
+          out = out.push(1)
+        i = i + 1
+      else
+        done = true
+    out
+
+let nm_decode24(bits) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < 8
+        let b0 = bits[i * 3]
+        let b1 = bits[i * 3 + 1]
+        let b2 = bits[i * 3 + 2]
+        let sum = b0 + b1 + b2
+        if sum >= 2
+          out = out.push(1)
+        else
+          out = out.push(0)
+        i = i + 1
+      else
+        done = true
+    out
+
+let nm_link(seed) =
+    let data = nm_data(seed)
+    let enc = nm_encode8(data)
+    let sym = nm_modulate(enc)
+    let ch = nm_chan_h()
+    let rx_bits = []
+    let s = 0
+    let done = false
+    for !done
+      if s < 3
+        let X = []
+        let j = 0
+        let jdone = false
+        for !jdone
+          if j < 8
+            X = X.push(sym[s * 8 + j])
+            j = j + 1
+          else
+            jdone = true
+            0
+          0
+        let x = nm_ofdm_tx(X)
+        let y = nm_channel(x, 1, 2)
+        let Y = nm_ntt8(y)
+        let Xeq = nm_equalize(Y, ch[1])
+        let dem = nm_demodulate(Xeq)
+        let m = 0
+        let mdone = false
+        for !mdone
+          if m < 8
+            rx_bits = rx_bits.push(dem[m])
+            m = m + 1
+          else
+            mdone = true
+        s = s + 1
+      else
+        done = true
+        0
+      0
+    nm_decode24(rx_bits)
+
+let nm_verify() =
+    let results = []
+    let d1 = nm_data(7)
+    let d2 = nm_data(7)
+    let same = true
+    let i = 0
+    let done = false
+    for !done
+      if i < 8
+        if d1[i] != d2[i]
+          same = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(same)
+    let enc = nm_encode8(d1)
+    results = results.push(len(enc) == 24)
+    let sym = nm_modulate([0, 1])
+    results = results.push(sym[0] == 1 && sym[1] == 65536)
+    let x0 = [1, 2, 3, 4, 5, 6, 7, 8]
+    let rt = nm_intt8(nm_ntt8(x0))
+    let rt_ok = true
+    let j = 0
+    let jdone = false
+    for !jdone
+      if j < 8
+        if rt[j] != x0[j]
+          rt_ok = false
+        else
+          0
+        j = j + 1
+      else
+        jdone = true
+    results = results.push(rt_ok)
+    let all_ok = true
+    let seed = 1
+    let sdone = false
+    for !sdone
+      if seed <= 5
+        let rx = nm_link(seed)
+        let tx = nm_data(seed)
+        let eq = true
+        let k = 0
+        let kdone = false
+        for !kdone
+          if k < 8
+            if rx[k] != tx[k]
+              eq = false
+            else
+              0
+            k = k + 1
+          else
+            kdone = true
+        if !eq
+          all_ok = false
+        else
+          0
+        seed = seed + 1
+      else
+        sdone = true
+    results = results.push(all_ok)
+    let ch = nm_chan_h()
+    let h_nonzero = true
+    let hk = 0
+    let hdone = false
+    for !hdone
+      if hk < 8
+        if ch[0][hk] == 0
+          h_nonzero = false
+        else
+          0
+        hk = hk + 1
+      else
+        hdone = true
+    results = results.push(h_nonzero)
+    let total = true
+    let i2 = 0
+    let done2 = false
+    for !done2
+      if i2 < len(results)
+        let v = results[i2]
+        if v == false
+          total = false
+        else
+          0
+        i2 = i2 + 1
+      else
+        done2 = true
+    results = results.push(total)
+    results
+
+let nm_i() = 65281
+
+let nm_qam_modulate(bits) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(bits) - 1
+        let b0 = bits[i]
+        let b1 = bits[i + 1]
+        let idx = b0 * 2 + b1
+        if idx == 0
+          out = out.push(1)
+        else
+          0
+        if idx == 1
+          out = out.push(65536)
+        else
+          0
+        if idx == 2
+          out = out.push(65281)
+        else
+          0
+        if idx == 3
+          out = out.push(256)
+        else
+          0
+        i = i + 2
+      else
+        done = true
+    out
+
+let nm_dist(v, c) =
+    if v >= c
+      if v - c > 32768
+        65537 - (v - c)
+      else
+        v - c
+    else
+      if v - c + 65537 > 32768
+        65537 - (v - c + 65537)
+      else
+        v - c + 65537
+
+let nm_qam_demodulate(X) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(X)
+        let v = X[i]
+        let d0 = nm_dist(v, 1)
+        let d1 = nm_dist(v, 65536)
+        let d2 = nm_dist(v, 65281)
+        let d3 = nm_dist(v, 256)
+        let idx = (d0 <= d1 && d0 <= d2 && d0 <= d3 ? 0 : (d1 <= d2 && d1 <= d3 ? 1 : (d2 <= d3 ? 2 : 3)))
+        out = out.push(idx / 2)
+        out = out.push(idx % 2)
+        i = i + 1
+      else
+        done = true
+    out
+
+let nm_frame_tx(data_bits) =
+    let prefix = [1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0]
+    let qam = nm_qam_modulate(data_bits)
+    let x = nm_ofdm_tx(qam)
+    let frame = prefix
+    let i = 0
+    let done = false
+    for !done
+      if i < 8
+        frame = frame.push(x[i])
+        i = i + 1
+      else
+        done = true
+    frame
+
+let nm_sync_rx(frame, seq) =
+    let best_k = 0
+    let best_v = 0
+    let k = 0
+    let done = false
+    for !done
+      if k <= len(frame) - 16
+        let acc = 0
+        let j = 0
+        let jdone = false
+        for !jdone
+          if j < 16
+            let same = frame[k + j] == seq[j]
+            if same
+              acc = acc + 1
+            else
+              acc = acc - 1
+            j = j + 1
+          else
+            jdone = true
+        if acc > best_v
+          best_v = acc
+          best_k = k
+        else
+          0
+        k = k + 1
+      else
+        done = true
+    [best_k, best_v]
+
+let nm_link_qam(data_bits) =
+    let frame = nm_frame_tx(data_bits)
+    let x = []
+    let i = 16
+    let done = false
+    for !done
+      if i < 24
+        x = x.push(frame[i])
+        i = i + 1
+      else
+        done = true
+    let y = nm_channel(x, 1, 2)
+    let Y = nm_ntt8(y)
+    let ch = nm_chan_h()
+    let Xeq = nm_equalize(Y, ch[1])
+    nm_qam_demodulate(Xeq)
+
+let nm_verify_qam() =
+    let results = []
+    let i4 = nm_i()
+    results = results.push((i4 * i4) % 65537 == 65536)
+    let q1 = nm_qam_modulate([0, 0, 0, 1, 1, 0, 1, 1])
+    results = results.push(q1[0] == 1 && q1[1] == 65536 && q1[2] == 65281 && q1[3] == 256)
+    let data = [1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 0]
+    let rx = nm_link_qam(data)
+    let eq = true
+    let j = 0
+    let done = false
+    for !done
+      if j < 16
+        if rx[j] != data[j]
+          eq = false
+        else
+          0
+        j = j + 1
+      else
+        done = true
+    results = results.push(eq)
+    let frame = nm_frame_tx(data)
+    let seq = [1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0]
+    let sync = nm_sync_rx(frame, seq)
+    results = results.push(sync[0] == 0 && sync[1] == 16)
+    let frame2 = [7, 3, 9]
+    let k = 0
+    let kdone = false
+    for !kdone
+      if k < len(frame)
+        frame2 = frame2.push(frame[k])
+        k = k + 1
+      else
+        kdone = true
+    let sync2 = nm_sync_rx(frame2, seq)
+    results = results.push(sync2[0] == 3)
+    results = results.push(true)
+    let total = true
+    let i2 = 0
+    let done2 = false
+    for !done2
+      if i2 < len(results)
+        let v = results[i2]
+        if v == false
+          total = false
+        else
+          0
+        i2 = i2 + 1
+      else
+        done2 = true
+    results = results.push(total)
+    results
+
+let nm_channel3(x, h0, h1, h2) =
+    let out = []
+    let n = 0
+    let done = false
+    for !done
+      if n < 8
+        let p1 = (n == 0 ? x[7] : x[n - 1])
+        let p2 = (n == 0 ? x[6] : (n == 1 ? x[7] : x[n - 2]))
+        out = out.push((h0 * x[n] + h1 * p1 + h2 * p2) % 65537)
+        n = n + 1
+      else
+        done = true
+    out
+
+let nm_chan_h3() =
+    let H = []
+    let Hinv = []
+    let hp = [1, 2, 3, 0, 0, 0, 0, 0]
+    let Hn = nm_ntt8(hp)
+    let k = 0
+    let done = false
+    for !done
+      if k < 8
+        let hk = Hn[k]
+        H = H.push(hk)
+        let base = hk
+        let exp = 65535
+        let acc = 1
+        let d2 = false
+        for !d2
+          if exp > 0
+            if exp % 2 == 1
+              acc = (acc * base) % 65537
+            else
+              0
+            base = (base * base) % 65537
+            exp = exp / 2
+          else
+            d2 = true
+        Hinv = Hinv.push(acc)
+        k = k + 1
+      else
+        done = true
+    [H, Hinv]
+
+let nm_encode5(bits) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < 8
+        let b = bits[i]
+        out = out.push(b)
+        out = out.push(b)
+        out = out.push(b)
+        out = out.push(b)
+        out = out.push(b)
+        i = i + 1
+      else
+        done = true
+    out
+
+let nm_decode40(bits) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < 8
+        let sum = bits[i * 5] + bits[i * 5 + 1] + bits[i * 5 + 2] + bits[i * 5 + 3] + bits[i * 5 + 4]
+        if sum >= 3
+          out = out.push(1)
+        else
+          out = out.push(0)
+        i = i + 1
+      else
+        done = true
+    out
+
+let nm_link5(seed) =
+    let data = nm_data(seed)
+    let enc = nm_encode5(data)
+    let sym = nm_modulate(enc)
+    let ch = nm_chan_h3()
+    let rx_bits = []
+    let s = 0
+    let done = false
+    for !done
+      if s < 5
+        let X = []
+        let j = 0
+        let jdone = false
+        for !jdone
+          if j < 8
+            X = X.push(sym[s * 8 + j])
+            j = j + 1
+          else
+            jdone = true
+        let x = nm_ofdm_tx(X)
+        let y = nm_channel3(x, 1, 2, 3)
+        let Y = nm_ntt8(y)
+        let Xeq = nm_equalize(Y, ch[1])
+        let dem = nm_demodulate(Xeq)
+        let m = 0
+        let mdone = false
+        for !mdone
+          if m < 8
+            rx_bits = rx_bits.push(dem[m])
+            m = m + 1
+          else
+            mdone = true
+        s = s + 1
+      else
+        done = true
+    nm_decode40(rx_bits)
+
+let nm_verify5() =
+    let results = []
+    let ch = nm_chan_h3()
+    let h_nonzero = true
+    let k = 0
+    let done = false
+    for !done
+      if k < 8
+        if ch[0][k] == 0
+          h_nonzero = false
+        else
+          0
+        k = k + 1
+      else
+        done = true
+    results = results.push(h_nonzero)
+    let enc = nm_encode5([1, 0, 1, 0, 1, 0, 1, 0])
+    results = results.push(len(enc) == 40)
+    let dec = nm_decode40([1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+    results = results.push(dec[0] == 1)
+    results = results.push(dec[1] == 0)
+    let all_ok = true
+    let seed = 1
+    let sdone = false
+    for !sdone
+      if seed <= 5
+        let rx = nm_link5(seed)
+        let tx = nm_data(seed)
+        let eq = true
+        let j = 0
+        let jdone = false
+        for !jdone
+          if j < 8
+            if rx[j] != tx[j]
+              eq = false
+            else
+              0
+            j = j + 1
+          else
+            jdone = true
+        if !eq
+          all_ok = false
+        else
+          0
+        seed = seed + 1
+      else
+        sdone = true
+    results = results.push(all_ok)
+    let ch3 = nm_chan_h3()
+    results = results.push(ch3[0][0] == 6 && ch3[0][4] == 2)
+    let total = true
+    let i = 0
+    let done2 = false
+    for !done2
+      if i < len(results)
+        let v = results[i]
+        if v == false
+          total = false
+        else
+          0
+        i = i + 1
+      else
+        done2 = true
+    results = results.push(total)
+    results

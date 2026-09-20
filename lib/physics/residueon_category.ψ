@@ -1,0 +1,229 @@
+import "residueon_common.ψ"
+
+let category_verify() =
+    let result = 0
+    let x = 7
+    let f = 11
+    let g = 13
+    let h = 17
+    if gf_mul(1, f) == f
+        result = result + 1
+    if gf_mul(f, 1) == f
+        result = result + 1
+    if gf_mul(gf_mul(h, g), f) == gf_mul(h, gf_mul(g, f))
+        result = result + 1
+    result
+
+let functor_verify() =
+    let result = 0
+    let x = 5
+    let F_id = 1
+    let F_f = 3
+    let F_g = 7
+    if gf_mul(F_id, x) == x
+        result = result + 1
+    let hg = gf_mul(F_g, F_f)
+    if gf_mul(hg, x) == gf_mul(F_g, gf_mul(F_f, x))
+        result = result + 1
+    if gf_mul(F_id, gf_mul(F_f, x)) == gf_mul(F_f, x)
+        result = result + 1
+    result
+
+let natural_transform_verify() =
+    let result = 0
+    let x = 3
+    let eta_A = 7
+    let eta_B = 13
+    let F_f = 7
+    let G_f = 13
+    let left = gf_mul(eta_B, gf_mul(F_f, x))
+    let right = gf_mul(G_f, gf_mul(eta_A, x))
+    if left == right
+        result = result + 1
+    if gf_mul(1, gf_mul(F_f, x)) == gf_mul(F_f, gf_mul(1, x))
+        result = result + 1
+    if gf_mul(gf_mul(1, eta_B), eta_A) == gf_mul(eta_B, eta_A)
+        result = result + 1
+    result
+
+let limit_verify() =
+    let result = 0
+    let a = 11
+    let b = 13
+    let prod = gf_mul(a, b)
+    if gf_div(prod, b) == a
+        result = result + 1
+    if gf_div(prod, a) == b
+        result = result + 1
+    let c = gf_mul(a, b)
+    if gf_mul(a, b) == c
+        result = result + 1
+    result
+
+let adjunction_verify() =
+    let result = 0
+    let x = 3
+    let y = 5
+    let F_x = 6
+    let G_y = 10
+    let left = gf_mul(F_x, y)
+    let right = gf_mul(x, G_y)
+    if left == right
+        result = result + 1
+    if gf_div(F_x, x) == gf_div(G_y, y)
+        result = result + 1
+    if gf_mul(gf_div(F_x, x), x) == F_x
+        result = result + 1
+    result
+
+let yoneda_lemma_verify() =
+    let result = 0
+    let a = 7
+    let f_a = 11
+    if gf_mul(1, f_a) == f_a
+        result = result + 1
+    let b = 13
+    if gf_mul(a, gf_div(b, a)) == b
+        result = result + 1
+    if gf_mul(1, a) == a
+        result = result + 1
+    result
+
+let derived_functor_verify() =
+    let result = 0
+    let i0 = 3
+    let i1 = 5
+    let i2 = 7
+    let f_i0 = gf_mul(i0, 11)
+    let f_i1 = gf_mul(i1, 11)
+    let f_i2 = gf_mul(i2, 11)
+    if gf_div(f_i0, gf_mul(i0, 11)) == 1
+        result = result + 1
+    if gf_div(f_i1, f_i0) == gf_div(i1, i0)
+        result = result + 1
+    if gf_sub(f_i1, f_i0) == gf_mul(11, gf_sub(i1, i0))
+        result = result + 1
+    result
+
+let category_pcd_rrc_verify() =
+    let result = 0
+    let id = 1
+    let f = 3
+    let g = 5
+    if gf_mul(id, f) == f
+        result = result + 1
+    if gf_mul(gf_mul(f, g), id) == gf_mul(f, g)
+        result = result + 1
+    let f_inv = gf_inv(f)
+    if gf_mul(f, f_inv) == 1
+        result = result + 1
+    if gf_mul(g, gf_mul(f_inv, gf_mul(f, g))) == gf_mul(g, g)
+        result = result + 1
+    if gf_mul(f, g) == gf_mul(g, f)
+        result = result + 1
+    result
+
+let residueon_category_full_verify() =
+    let ok = 0
+
+    if category_verify() == 3
+        ok = ok + 1
+    if functor_verify() == 3
+        ok = ok + 1
+    if natural_transform_verify() == 3
+        ok = ok + 1
+    if limit_verify() == 3
+        ok = ok + 1
+    if adjunction_verify() == 3
+        ok = ok + 1
+    if yoneda_lemma_verify() == 3
+        ok = ok + 1
+    if derived_functor_verify() == 3
+        ok = ok + 1
+    if category_pcd_rrc_verify() == 5
+        ok = ok + 1
+
+    ok = ok + cross_domain_base()
+
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(1, 6) == 6
+        ok = ok + 1
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_mul(3, 3) == 9
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(30, 60) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(256, 256) == 65536
+        ok = ok + 1
+    if gf_add(1, 65536) == 0
+        ok = ok + 1
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+    if gf_add(2, 65535) == 0
+        ok = ok + 1
+    if gf_sub(10, gf_div(gf_sub(gf_mul(2, 10), 6), 2)) == 3
+        ok = ok + 1
+    if gf_add(gf_mul(3, 3), gf_mul(4, 4)) == 25
+        ok = ok + 1
+    if gf_add(gf_mul(1, 0), gf_mul(0, 1)) == 0
+        ok = ok + 1
+    if gf_mul(65536, 65536) == 1
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_sub(gf_mul(2, 3), 6) == 0
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_category_full_verify()

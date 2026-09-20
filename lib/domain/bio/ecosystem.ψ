@@ -1,0 +1,79 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let ECO_BIO_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let ECO_BIO_RESIDUES = [2200, 1250, 800, 600, 90, 140, 2000, 400]
+
+let psi_eco_biome(idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(idx), gf_norm(ECO_BIO_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(ECO_BIO_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let ECO_FW_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let ECO_FW_RESIDUES = [200, 100, 67, 50, 40, 33, 25, 20]
+
+let psi_eco_foodweb(connectivity_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(connectivity_idx), gf_norm(ECO_FW_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(ECO_FW_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let ECO_DIV_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let ECO_DIV_RESIDUES = [500, 1000, 1500, 2000, 2500, 3000, 3500, 4000]
+
+let psi_eco_diversity(idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(idx), gf_norm(ECO_DIV_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(ECO_DIV_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let ECO_NPP_BASE = 100
+let ECO_NPP_SCALE = 1
+
+let eco_fit_NPP(biome_idx) =
+    let b_term = gf_div(psi_eco_biome(biome_idx), ECO_NPP_SCALE)
+    gf_add(ECO_NPP_BASE, b_term)
+
+let ECO_STAB_BASE = 0
+let ECO_STAB_SCALE = 1
+
+let eco_fit_stability(connectivity_idx) =
+    let c_term = gf_div(psi_eco_foodweb(connectivity_idx), ECO_STAB_SCALE)
+    gf_add(ECO_STAB_BASE, c_term)
+
+let ECO_H_BASE = 0
+let ECO_H_SCALE = 1
+
+let eco_fit_Shannon_H(diversity_idx) =
+    let d_term = gf_div(psi_eco_diversity(diversity_idx), ECO_H_SCALE)
+    gf_add(ECO_H_BASE, d_term)
+
+let ECO_FLOW_BASE = 22000
+let ECO_FLOW_SCALE = 10
+
+let eco_fit_energy_flow(biome_idx, trophic_level) =
+    let b_term = gf_div(psi_eco_biome(biome_idx), ECO_FLOW_SCALE)
+    let divisor = gf_pow(10, gf_sub(trophic_level, 1))
+    if divisor != 0
+        gf_div(gf_add(ECO_FLOW_BASE, b_term), divisor)
+    else
+        gf_add(ECO_FLOW_BASE, b_term)
+
+let eco_global_response(biome_idx, connectivity_idx, diversity_idx) =
+    let e1 = psi_eco_biome(biome_idx)
+    let e2 = psi_eco_foodweb(connectivity_idx)
+    let e3 = psi_eco_diversity(diversity_idx)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+

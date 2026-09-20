@@ -1,0 +1,41 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let na_phi = 228
+let cs_phi = 210
+let zn_phi = 430
+bad[0] = bad[0] + ck(na_phi, 220, 235)
+bad[0] = bad[0] + ck(cs_phi, 205, 215)
+bad[0] = bad[0] + ck(zn_phi, 420, 440)
+
+bad[0] = bad[0] + ck_lo(zn_phi, na_phi)
+
+let na_th = small_div(124000, 228)
+bad[0] = bad[0] + ck(na_th, 530, 555)
+
+let cs_th = small_div(124000, 210)
+bad[0] = bad[0] + ck(cs_th, 575, 605)
+
+let zn_th = small_div(124000, 430)
+bad[0] = bad[0] + ck(zn_th, 280, 295)
+
+let ke400 = small_div(124000, 400) - 228
+bad[0] = bad[0] + ck(ke400, 70, 95)
+
+let ke500 = small_div(124000, 500) - 228
+bad[0] = bad[0] + ck(ke500, 15, 25)
+
+bad[0] = bad[0] + ck_hi(ke500, ke400)
+
+if 1905 < 1903
+    bad[0] = bad[0] + 1
+if 1905 > 1907
+    bad[0] = bad[0] + 1
+if 1916 < 1914
+    bad[0] = bad[0] + 1
+if 1916 > 1918
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

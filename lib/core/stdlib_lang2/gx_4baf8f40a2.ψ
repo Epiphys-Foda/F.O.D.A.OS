@@ -1,0 +1,22 @@
+let score_period(XX, YY, n, out2) =
+    let best = 1000000000
+    let bP = 0
+    let P = 2
+    for P < 9
+        let ok = 0
+        if P <= n
+            ok = 1
+        let s = 1000000000
+        if ok == 1
+            s = rel_permille(YY[n - P], 1, YY[n])
+        let take = 0
+        if s < best
+            take = 1
+        if take == 1
+            best = s
+            bP = P
+        P = P + 1
+    out2[0] = best
+    out2[1] = bP
+    0
+

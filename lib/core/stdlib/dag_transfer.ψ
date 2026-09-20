@@ -1,0 +1,113 @@
+import "psi_dataflow.ψ"
+import "psitp.ψ"
+
+let dt_full_dag_frame(dag) =
+    let payload = [dag.node_count, dag.edge_count]
+    let i = 0
+    let n = dag.node_count
+    let done = false
+    for !done
+      if i < n
+        let node = dag.nodes[i]
+        payload = [payload, node.opcode, node.pe_type].flat()
+        i = i + 1
+      else
+        done = true
+    let ei = 0
+    let en = dag.edge_count
+    let ed = false
+    for !ed
+      if ei < en
+        let e = dag.edges[ei]
+        payload = [payload, e.src_node, e.dst_node].flat()
+        ei = ei + 1
+      else
+        ed = true
+    let frame = psi_frame_encode(0, 0, 1, payload)
+    frame
+
+let dt_rebuild(payload) =
+    let d = dag_create()
+    let i = 0
+    let node_count = payload[0]
+    let edge_count = payload[1]
+    let done = false
+    for !done
+      if i < node_count
+        let op = payload[2 + i * 2]
+        let pe = payload[3 + i * 2]
+        d = dag_add_node_v13_1(d, op, pe, -1, i)
+        i = i + 1
+      else
+        done = true
+    let ei = 0
+    let edge_start = 2 + node_count * 2
+    let edone = false
+    for !edone
+      if ei < edge_count
+        let s = payload[edge_start + ei * 2]
+        let t = payload[edge_start + ei * 2 + 1]
+        d = dag_add_edge_v13_1(d, s, 0, t, 0, 0, 4)
+        ei = ei + 1
+      else
+        edone = true
+    d
+
+let dt_delta(a, b) =
+    let result = []
+    let i = 0
+    let na = a.node_count
+    let nb = b.node_count
+    let done = false
+    for !done
+      if i < na && i < nb
+        let op_a = a.nodes[i].opcode
+        let op_b = b.nodes[i].opcode
+        if op_a != op_b
+          result = result.push({ op: 1, node_id: i, opcode: op_b, pe_type: b.nodes[i].pe_type })
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    result
+
+let dt_apply_delta(dag, deltas) =
+    let d = dag
+    let i = 0
+    let n = len(deltas)
+    let done = false
+    for !done
+      if i < n
+        let delta = deltas[i]
+        if delta.op == 1
+          let new_nodes = []
+          let ni = 0
+          let nn = d.node_count
+          let nd = false
+          for !nd
+            if ni < nn
+              if ni == delta.node_id
+                new_nodes = new_nodes.push({ node_id: ni, opcode: delta.opcode, pe_type: delta.pe_type, in_ports: [], out_ports: [], fusion_group: -1, schedule_hint: ni, attrs: {} })
+              else
+                new_nodes = new_nodes.push(d.nodes[ni])
+              ni = ni + 1
+            else
+              nd = true
+          d = { nodes: new_nodes, edges: d.edges, node_count: d.node_count, edge_count: d.edge_count, root: d.root }
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    d
+
+let dt_sync(full_payload, deltas) =
+    let d = dt_rebuild(full_payload)
+    dt_apply_delta(d, deltas)
+
+let dt_roundtrip(dag) =
+    let frame = dt_full_dag_frame(dag)
+    let payload = psi_frame_decode(frame).payload
+    let rebuilt = dt_rebuild(payload)
+    rebuilt.node_count == dag.node_count && rebuilt.edge_count == dag.edge_count

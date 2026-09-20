@@ -1,0 +1,524 @@
+import "../domain_field.ψ"
+let DOC_P = 65537
+
+let DOC_BLK_PARAGRAPH = 1
+let DOC_BLK_HEADING   = 2
+let DOC_BLK_CODE      = 3
+let DOC_BLK_IMAGE     = 4
+let DOC_BLK_TABLE     = 5
+
+let DOC_FMT_HTML     = 1
+let DOC_FMT_MARKDOWN = 2
+let DOC_FMT_PLAIN    = 3
+
+let DOC_HASH_INIT = 12345
+let DOC_HASH_MUL  = 31
+
+let doc_hash_ints(data) =
+    let h = DOC_HASH_INIT
+    let i = 0
+    let n = len(data)
+    for i < n
+        h = (h * DOC_HASH_MUL + data[i]) % DOC_P
+        h = (h * h + data[i]) % DOC_P
+        i = i + 1
+    h
+
+let doc_make_id(title, owner, created_at) =
+    doc_hash_ints([len(title), owner, created_at])
+
+let doc_str_join(parts) =
+    let result = ""
+    let i = 0
+    let n = len(parts)
+    for i < n
+        result = result + parts[i]
+        i = i + 1
+    result
+
+let cb_new(blk_type, seq, content, meta) =
+    [blk_type, seq, content, meta]
+
+let cb_type(b) = b[0]
+let cb_seq(b) = b[1]
+let cb_content(b) = b[2]
+let cb_meta(b) = b[3]
+
+let cb_is_paragraph(b) =
+    (b[0] == DOC_BLK_PARAGRAPH ? 1 : 0)
+
+let cb_is_heading(b) =
+    (b[0] == DOC_BLK_HEADING ? 1 : 0)
+
+let cb_is_code(b) =
+    (b[0] == DOC_BLK_CODE ? 1 : 0)
+
+let cb_is_image(b) =
+    (b[0] == DOC_BLK_IMAGE ? 1 : 0)
+
+let cb_is_table(b) =
+    (b[0] == DOC_BLK_TABLE ? 1 : 0)
+
+let cb_set_content(b, content) =
+    b[2] = content
+    b
+
+let cb_set_meta(b, key, val) =
+    let m = cb_meta(b)
+    m[key] = val
+    b
+
+let doc_new(title, owner, created_at) =
+    let id = doc_make_id(title, owner, created_at)
+    [id, title, [], {}, owner, created_at, created_at]
+
+let doc_id(d) = d[0]
+let doc_title(d) = d[1]
+let doc_content_blocks(d) = d[2]
+let doc_metadata(d) = d[3]
+let doc_owner(d) = d[4]
+let doc_created(d) = d[5]
+let doc_updated(d) = d[6]
+
+let doc_set_title(d, title, now) =
+    d[1] = title
+    d[6] = now
+    d
+
+let doc_set_metadata(d, key, val, now) =
+    let md = doc_metadata(d)
+    md[key] = val
+    d[6] = now
+    d
+
+let doc_add_block(d, blk_type, content, meta, now) =
+    let blocks = doc_content_blocks(d)
+    let seq = len(blocks)
+    let blk = cb_new(blk_type, seq, content, meta)
+    blocks.push(blk)
+    d[6] = now
+    d
+
+let doc_get_block(d, seq) =
+    let blocks = doc_content_blocks(d)
+    let result = 0
+    if seq >= 0
+        if seq < len(blocks)
+            result = blocks[seq]
+    result
+
+let doc_update_block(d, seq, content, now) =
+    let blocks = doc_content_blocks(d)
+    if seq >= 0
+        if seq < len(blocks)
+            let blk = blocks[seq]
+            blk[2] = content
+            d[6] = now
+    d
+
+let doc_block_count(d) =
+    len(doc_content_blocks(d))
+
+let doc_snapshot(d) =
+    let blocks = doc_content_blocks(d)
+    let blocks_copy = []
+    let i = 0
+    let n = len(blocks)
+    for i < n
+        blocks_copy.push(blocks[i])
+        i = i + 1
+    [doc_id(d), doc_title(d), blocks_copy, doc_metadata(d), doc_owner(d), doc_created(d), doc_updated(d)]
+
+let dv_new(version_no, snapshot, author, ts, change_log) =
+    [version_no, snapshot, author, ts, change_log]
+
+let dv_version_no(v) = v[0]
+let dv_snapshot(v) = v[1]
+let dv_author(v) = v[2]
+let dv_ts(v) = v[3]
+let dv_change_log(v) = v[4]
+
+let dh_new() =
+    [[], []]
+
+let dh_versions(h) = h[0]
+let dh_diffs(h) = h[1]
+
+let dh_add_version(h, version) =
+    let versions = dh_versions(h)
+    versions.push(version)
+    h
+
+let dh_version_count(h) =
+    len(dh_versions(h))
+
+let dh_get_version(h, version_no) =
+    let versions = dh_versions(h)
+    let result = 0
+    let i = 0
+    let n = len(versions)
+    for i < n
+        if dv_version_no(versions[i]) == version_no
+            result = versions[i]
+            i = n
+        else
+            i = i + 1
+    result
+
+let dh_latest(h) =
+    let versions = dh_versions(h)
+    let n = len(versions)
+    if n == 0
+        0
+    else
+        versions[n - 1]
+
+let dh_add_diff(h, from_v, to_v, changes) =
+    let diffs = dh_diffs(h)
+    diffs.push({from: from_v, dst: to_v, changes: changes})
+    h
+
+let dc_new() =
+    [[], [], {}]
+
+let dc_editors(c) = c[0]
+let dc_conflicts(c) = c[1]
+let dc_locks(c) = c[2]
+
+let dc_add_editor(c, editor_id) =
+    let editors = dc_editors(c)
+    let found = 0
+    let i = 0
+    let n = len(editors)
+    for i < n
+        if editors[i] == editor_id
+            found = 1
+            i = n
+        else
+            i = i + 1
+    if found == 0
+        editors.push(editor_id)
+    c
+
+let dc_remove_editor(c, editor_id) =
+    let editors = dc_editors(c)
+    let new_list = []
+    let i = 0
+    let n = len(editors)
+    for i < n
+        if editors[i] != editor_id
+            new_list.push(editors[i])
+        i = i + 1
+    c[0] = new_list
+    c
+
+let dc_lock_block(c, seq, editor_id) =
+    let locks = dc_locks(c)
+    locks[seq] = editor_id
+    c
+
+let dc_unlock_block(c, seq) =
+    let locks = dc_locks(c)
+    locks[seq] = 0
+    c
+
+let dc_is_locked(c, seq) =
+    let locks = dc_locks(c)
+    let holder = locks[seq]
+    if holder == 0
+        0
+    else
+        1
+
+let dc_lock_holder(c, seq) =
+    dc_locks(c)[seq]
+
+let dc_mark_conflict(c, seq, editors) =
+    let conflicts = dc_conflicts(c)
+    conflicts.push({seq: seq, editors: editors})
+    c
+
+let dc_has_conflict(c, seq) =
+    let conflicts = dc_conflicts(c)
+    let found = 0
+    let i = 0
+    let n = len(conflicts)
+    for i < n
+        if conflicts[i]["seq"] == seq
+            found = 1
+            i = n
+        else
+            i = i + 1
+    found
+
+let dc_clear_conflicts(c) =
+    c[1] = []
+    c
+
+let doc_export_html(doc) =
+    let blocks = doc_content_blocks(doc)
+    let sb = []
+    sb.push("<html><head><title>")
+    sb.push(doc_title(doc))
+    sb.push("</title></head><body>")
+    let i = 0
+    let n = len(blocks)
+    for i < n
+        let blk = blocks[i]
+        let bt = cb_type(blk)
+        let content = cb_content(blk)
+        let meta = cb_meta(blk)
+        if bt == DOC_BLK_PARAGRAPH
+            sb.push("<p>")
+            sb.push(content)
+            sb.push("</p>")
+        else
+            if bt == DOC_BLK_HEADING
+                let level = meta["level"]
+                if level == 0
+                    level = 1
+                sb.push("<h" + str(level))
+                sb.push(">")
+                sb.push(content)
+                sb.push("</h" + str(level) + ">")
+            else
+                if bt == DOC_BLK_CODE
+                    sb.push("<pre><code>")
+                    sb.push(content)
+                    sb.push("</code></pre>")
+                else
+                    if bt == DOC_BLK_IMAGE
+                        let alt = meta["alt"]
+                        sb.push("<img src=\"")
+                        sb.push(content)
+                        sb.push("\"")
+                        if alt != 0
+                            sb.push(" alt=\"")
+                            sb.push(alt)
+                            sb.push("\"")
+                        sb.push(">")
+                    else
+                        if bt == DOC_BLK_TABLE
+                            sb.push("<table>")
+                            sb.push(content)
+                            sb.push("</table>")
+        i = i + 1
+    sb.push("</body></html>")
+    doc_str_join(sb)
+let doc_export_markdown(doc) =
+    let blocks = doc_content_blocks(doc)
+    let sb = []
+    let i = 0
+    let n = len(blocks)
+    for i < n
+        let blk = blocks[i]
+        let bt = cb_type(blk)
+        let content = cb_content(blk)
+        let meta = cb_meta(blk)
+        if bt == DOC_BLK_PARAGRAPH
+            sb.push(content)
+            sb.push("\n\n")
+        else
+            if bt == DOC_BLK_HEADING
+                let level = meta["level"]
+                if level == 0
+                    level = 1
+                let j = 0
+                for j < level
+                    sb.push("#")
+                    j = j + 1
+                sb.push(" ")
+                sb.push(content)
+                sb.push("\n\n")
+            else
+                if bt == DOC_BLK_CODE
+                    sb.push("```\n")
+                    sb.push(content)
+                    sb.push("\n```\n\n")
+                else
+                    if bt == DOC_BLK_IMAGE
+                        let alt = meta["alt"]
+                        if alt == 0
+                            sb.push("!")
+                            sb.push(content)
+                        else
+                            sb.push("![")
+                            sb.push(alt)
+                            sb.push("](")
+                            sb.push(content)
+                            sb.push(")")
+                        sb.push("\n\n")
+                    else
+                        if bt == DOC_BLK_TABLE
+                            sb.push(content)
+                            sb.push("\n\n")
+        i = i + 1
+    doc_str_join(sb)
+let doc_export_plain(doc) =
+    let blocks = doc_content_blocks(doc)
+    let sb = []
+    let i = 0
+    let n = len(blocks)
+    for i < n
+        let blk = blocks[i]
+        sb.push(cb_content(blk))
+        sb.push("\n")
+        i = i + 1
+    doc_str_join(sb)
+
+let doc_export(doc, format) =
+    if format == DOC_FMT_HTML
+        doc_export_html(doc)
+    else
+        0
+    if format == DOC_FMT_MARKDOWN
+        doc_export_markdown(doc)
+    else
+        0
+    if format == DOC_FMT_PLAIN
+        doc_export_plain(doc)
+    else
+        doc_export_plain(doc)
+
+let doc_import_plain(text, owner, created_at) =
+    let lines = str_split(text, "\n")
+    let doc = doc_new("Imported", owner, created_at)
+    let i = 0
+    let n = len(lines)
+    for i < n
+        if len(lines[i]) > 0
+            doc_add_block(doc, DOC_BLK_PARAGRAPH, lines[i], {}, created_at)
+        i = i + 1
+    doc
+
+let doc_import_markdown(text, owner, created_at) =
+    let lines = str_split(text, "\n")
+    let doc = doc_new("Imported MD", owner, created_at)
+    let i = 0
+    let n = len(lines)
+    for i < n
+        let line = lines[i]
+        if len(line) > 0
+            if str_contains(line, "#") == 1
+                doc_add_block(doc, DOC_BLK_HEADING, line, {level: 1}, created_at)
+            else
+                doc_add_block(doc, DOC_BLK_PARAGRAPH, line, {}, created_at)
+        i = i + 1
+    doc
+
+let ds_new() =
+    [{}, {}, 0, {}]
+
+let ds_docs(s) = s[0]
+let ds_idx_owner(s) = s[1]
+let ds_next_id(s) = s[2]
+let ds_histories(s) = s[3]
+
+let ds_create(s, title, owner, created_at) =
+    let doc = doc_new(title, owner, created_at)
+    let docs = ds_docs(s)
+    let id = doc_id(doc)
+    docs[id] = doc
+    let idx = ds_idx_owner(s)
+    let owner_list = idx[owner]
+    if owner_list == 0
+        idx[owner] = [id]
+    else
+        owner_list.push(id)
+    s[2] = s[2] + 1
+    doc
+
+let ds_get(s, doc_id) =
+    ds_docs(s)[doc_id]
+
+let ds_list_by_owner(s, owner) =
+    let idx = ds_idx_owner(s)
+    let lst = idx[owner]
+    if lst == 0
+        []
+    else
+        lst
+
+let ds_delete(s, doc_id) =
+    let docs = ds_docs(s)
+    let doc = docs[doc_id]
+    if doc != 0
+        let owner = doc_owner(doc)
+        let idx = ds_idx_owner(s)
+        let owner_list = idx[owner]
+        if owner_list != 0
+            let new_list = []
+            let i = 0
+            let n = len(owner_list)
+            for i < n
+                if owner_list[i] != doc_id
+                    new_list.push(owner_list[i])
+                i = i + 1
+            idx[owner] = new_list
+        docs[doc_id] = 0
+    s
+
+let ds_save_version(s, doc_id, author, ts, change_log) =
+    let docs = ds_docs(s)
+    let doc = docs[doc_id]
+    let result = 0
+    if doc != 0
+        let snap = doc_snapshot(doc)
+        let version_no = ds_next_id(s)
+        let version = dv_new(version_no, snap, author, ts, change_log)
+        let histories = ds_histories(s)
+        let hist = histories[doc_id]
+        if hist == 0
+            histories[doc_id] = dh_new()
+        let h = histories[doc_id]
+        dh_add_version(h, version)
+        s[2] = version_no + 1
+        result = version
+    result
+
+let ds_get_history(s, doc_id) =
+    let histories = ds_histories(s)
+    let hist = histories[doc_id]
+    if hist == 0
+        dh_new()
+    else
+        hist
+
+let ds_restore_version(s, doc_id, version_no, now) =
+    let docs = ds_docs(s)
+    let doc = docs[doc_id]
+    let result = 0
+    if doc != 0
+        let hist = ds_get_history(s, doc_id)
+        let version = dh_get_version(hist, version_no)
+        if version != 0
+            let snap = dv_snapshot(version)
+            let blocks_copy = []
+            let src_blocks = doc_content_blocks(snap)
+            let i = 0
+            let n = len(src_blocks)
+            for i < n
+                blocks_copy.push(src_blocks[i])
+                i = i + 1
+            doc[2] = blocks_copy
+            doc[6] = now
+            result = 1
+    result
+
+let ds_find_by_title(s, title_sub) =
+    let docs = ds_docs(s)
+    let keys = keys_of(docs)
+    let result = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let k = keys[i]
+        let doc = docs[k]
+        if doc != 0
+            if str_contains(doc_title(doc), title_sub) == 1
+                result.push([k, doc_title(doc), doc_owner(doc)])
+        i = i + 1
+    result
+
+let ds_count(s) =
+    len(keys_of(ds_docs(s)))

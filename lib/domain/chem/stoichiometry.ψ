@@ -1,0 +1,38 @@
+import "ck.ψ"
+let bad = [0]
+
+let c_left = 1
+let c_right = 1
+let h_left = 4
+let h_right = 4
+let o_left = 4
+let o_right = 4
+let dz1 = c_left - c_right
+bad[0] = bad[0] + ck(dz1, 0, 0)
+let dz2 = h_left - h_right
+bad[0] = bad[0] + ck(dz2, 0, 0)
+let dz3 = o_left - o_right
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let n_ch4 = 2
+let n_o2 = 3
+let o2_needed = n_ch4 * 2
+let o2_short = o2_needed - n_o2
+let dz4 = o2_short - 1
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let ch4_burned = 3
+let co2_made = 3
+let dz5 = ch4_burned - co2_made
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let ch4_left = 1
+let dz6 = ch4_left - 1
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+if 1789 < 1787
+    bad[0] = bad[0] + 1
+if 1789 > 1791
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

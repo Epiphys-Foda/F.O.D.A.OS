@@ -1,0 +1,84 @@
+import "ui_framework.ψ"
+import "pe_to_webgpu.ψ"
+
+let ui_node_calc(opcode, out, a, b) = pe_op_to_wgsl(opcode, out, a, b)
+
+let ui_pixel(value) =
+    let v = (value < 0 ? 0 - value : value)
+    v % 256
+
+let ui_rasterize(dag, params, width, height, eval_fn) =
+    let buf = []
+    let i = 0
+    let total = width * height
+    let done = false
+    for !done
+      if i < total
+        buf = buf.push(0)
+        i = i + 1
+      else
+        done = true
+        0
+      0
+    let results = ui_frame(dag, params, eval_fn)
+    let ri = 0
+    let rn = len(results)
+    let rd = false
+    for !rd
+      if ri < rn
+        let v = results[ri]
+        let color = ui_pixel(v)
+        let px = ri * width
+        let px_end = (ri + 1) * width
+        let pd = false
+        for !pd
+          if px < px_end && px < total
+            buf = [buf.slice(0, px), color, buf.slice(px + 1, len(buf))].flat()
+          else
+            0
+          if px >= px_end || px >= total
+            pd = true
+          else
+            px = px + 1
+        ri = ri + 1
+      else
+        rd = true
+    buf
+
+let ui_frames(dag, params_list, width, height, eval_fn) =
+    let frames = []
+    let i = 0
+    let n = len(params_list)
+    let done = false
+    for !done
+      if i < n
+        let frame = ui_rasterize(dag, params_list[i], width, height, eval_fn)
+        frames = frames.push(frame)
+        i = i + 1
+      else
+        done = true
+    frames
+
+let ui_buffer_stats(buf) =
+    let mn = buf[0]
+    let mx = buf[0]
+    let sum = 0
+    let i = 0
+    let n = len(buf)
+    let done = false
+    for !done
+      if i < n
+        let v = buf[i]
+        if v < mn
+          mn = v
+        else
+          0
+        if v > mx
+          mx = v
+        else
+          0
+        sum = sum + v
+        i = i + 1
+      else
+        done = true
+    { len: n, min: mn, max: mx, sum: sum }

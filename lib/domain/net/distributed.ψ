@@ -1,0 +1,394 @@
+let node_new(id) =
+    [id, 0, 0, [], 0, 0, 0, []]
+
+let node_id(n) = n[0]
+let node_term(n) = n[1]
+let node_voted(n) = n[2]
+let node_log(n) = n[3]
+let node_state(n) = n[4]
+let node_commit(n) = n[5]
+let node_applied(n) = n[6]
+let node_peers(n) = n[7]
+
+let node_set_term(n, t) =
+    n[1] = t
+    n
+
+let node_set_voted(n, v) =
+    n[2] = v
+    n
+
+let node_set_state(n, s) =
+    n[4] = s
+    n
+
+let node_set_commit(n, idx) =
+    n[5] = idx
+    n
+
+let node_set_applied(n, idx) =
+    n[6] = idx
+    n
+
+let node_add_peer(n, peer_id) =
+    let peers = node_peers(n)
+    peers.push(peer_id)
+    n[7] = peers
+    n
+
+let election_start(node) =
+    let t = node_term(node) + 1
+    node_set_term(node, t)
+    node_set_voted(node, node_id(node))
+    node_set_state(node, 1)
+    node
+
+let election_tally(node, votes) =
+    let n_peers = len(node_peers(node)) + 1
+    let quorum = (n_peers / 2) + 1
+    if votes >= quorum
+        node_set_state(node, 2)
+        1
+    else
+        node_set_state(node, 0)
+        0
+
+let heartbeat_send(leader) =
+    if node_state(leader) != 2
+        0
+    else
+        let t = node_term(leader)
+        let last_idx = len(node_log(leader)) - 1
+        [t, last_idx, 0]
+
+let heartbeat_recv(follower, hb) =
+    let hb_term = hb[0]
+    let my_term = node_term(follower)
+    if hb_term > my_term
+        node_set_term(follower, hb_term)
+        node_set_voted(follower, 0)
+        node_set_state(follower, 0)
+        1
+    else
+        0
+    if hb_term == my_term
+        node_set_state(follower, 0)
+        1
+    else
+        0
+
+let log_append(leader, command) =
+    let log = node_log(leader)
+    let entry = [node_term(leader), command]
+    log.push(entry)
+    leader[3] = log
+    leader
+
+let log_last_idx(node) =
+    let log = node_log(node)
+    len(log) - 1
+
+let log_last_term(node) =
+    let log = node_log(node)
+    let idx = len(log) - 1
+    if idx < 0
+        0
+    else
+        log[idx][0]
+
+let append_entries(leader, follower, prev_idx, prev_term, entries, leader_commit) =
+    let log = node_log(follower)
+    let my_term = node_term(follower)
+    let hb_term = node_term(leader)
+    let result = [0, 0]
+    if hb_term < my_term
+        result = [-1, 0]
+    else
+        let ok = 1
+        if prev_idx >= 0
+            if len(log) <= prev_idx
+                result = [-2, 0]
+                ok = 0
+            else
+                0
+            if log[prev_idx][0] != prev_term
+                result = [-3, 0]
+                ok = 0
+        if ok == 1
+            let i = 0
+            let n = len(entries)
+            for i < n
+                let idx = prev_idx + 1 + i
+                if idx < len(log)
+                    if log[idx][0] != entries[i][0]
+                        let new_log = []
+                        let j = 0
+                        for j < idx
+                            new_log.push(log[j])
+                            j = j + 1
+                        log = new_log
+                        log.push(entries[i])
+                    else
+                        0
+                    log.push(entries[i])
+                i = i + 1
+            follower[3] = log
+            if leader_commit > node_commit(follower)
+                let new_commit = leader_commit
+                if new_commit >= len(log) - 1
+                    new_commit = len(log) - 1
+                node_set_commit(follower, new_commit)
+            result = [0, len(log) - 1]
+    result
+
+let append_entries_ack(leader, follower_id, success, match_idx) =
+    if success == 0
+        0
+    else
+        1
+
+let quorum_check(n, w, r) =
+    if w + r > n
+        1
+    else
+        0
+    if w > (n / 2)
+        1
+    else
+        0
+
+let quorum_write_acks(n, w) =
+    w - 1
+
+let crdt_pncounter_new(n_nodes) =
+    [[], []]
+
+let crdt_init(counter, n_nodes) =
+    let p = counter[0]
+    let q = counter[1]
+    let i = 0
+    for i < n_nodes
+        p.push(0)
+        q.push(0)
+        i = i + 1
+    counter[0] = p
+    counter[1] = q
+    counter
+
+let crdt_increment(counter, node_id) =
+    let p = counter[0]
+    p[node_id] = p[node_id] + 1
+    counter[0] = p
+    counter
+
+let crdt_decrement(counter, node_id) =
+    let q = counter[1]
+    q[node_id] = q[node_id] + 1
+    counter[1] = q
+    counter
+
+let crdt_value(counter) =
+    let p = counter[0]
+    let q = counter[1]
+    let sum_p = 0
+    let sum_q = 0
+    let i = 0
+    let n = len(p)
+    for i < n
+        sum_p = sum_p + p[i]
+        sum_q = sum_q + q[i]
+        i = i + 1
+    sum_p - sum_q
+
+let crdt_merge(c1, c2) =
+    let p1 = c1[0]
+    let p2 = c2[0]
+    let q1 = c1[1]
+    let q2 = c2[1]
+    let n = len(p1)
+    let p = []
+    let q = []
+    let i = 0
+    for i < n
+        let pi = p1[i]
+        if p2[i] > pi
+            pi = p2[i]
+        p.push(pi)
+        let qi = q1[i]
+        if q2[i] > qi
+            qi = q2[i]
+        q.push(qi)
+        i = i + 1
+    [p, q]
+
+let vclock_new(n) =
+    let v = []
+    let i = 0
+    for i < n
+        v.push(0)
+        i = i + 1
+    v
+
+let vclock_increment(vc, node_id) =
+    vc[node_id] = vc[node_id] + 1
+    vc
+
+let vclock_merge(vc1, vc2) =
+    let n = len(vc1)
+    let result = []
+    let i = 0
+    for i < n
+        let m = vc1[i]
+        if vc2[i] > m
+            m = vc2[i]
+        result.push(m)
+        i = i + 1
+    result
+
+let vclock_compare(vc1, vc2) =
+    let n = len(vc1)
+    let less = 0
+    let greater = 0
+    let i = 0
+    for i < n
+        if vc1[i] < vc2[i]
+            less = 1
+        else
+            0
+        if vc1[i] > vc2[i]
+            greater = 1
+        i = i + 1
+    if less == 1
+        if greater == 1
+            0
+        else
+            -1
+    else
+        0
+    if greater == 1
+        1
+    else
+        2
+
+let distributed_verify() =
+    let ok1 = 1
+    let n1 = node_new(1)
+    if node_id(n1) != 1
+        ok1 = 0
+    if node_term(n1) != 0
+        ok1 = 0
+    if node_state(n1) != 0
+        ok1 = 0
+
+    let ok2 = 1
+    n1 = node_add_peer(n1, 2)
+    n1 = node_add_peer(n1, 3)
+    if len(node_peers(n1)) != 2
+        ok2 = 0
+
+    let ok3 = 1
+    n1 = election_start(n1)
+    if node_term(n1) != 1
+        ok3 = 0
+    if node_voted(n1) != 1
+        ok3 = 0
+    if node_state(n1) != 1
+        ok3 = 0
+
+    let ok4 = 1
+    let won = election_tally(n1, 2)
+    if won != 1
+        ok4 = 0
+    if node_state(n1) != 2
+        ok4 = 0
+
+    let n2 = node_new(2)
+    n2 = node_add_peer(n2, 1)
+    n2 = node_add_peer(n2, 3)
+    n2 = election_start(n2)
+    let lost = election_tally(n2, 1)
+    if lost != 0
+        ok4 = 0
+    if node_state(n2) != 0
+        ok4 = 0
+
+    let ok5 = 1
+    let leader = node_new(1)
+    leader = node_set_term(leader, 5)
+    leader = node_set_state(leader, 2)
+    leader = log_append(leader, "set x=1")
+    leader = log_append(leader, "set y=2")
+    if len(node_log(leader)) != 2
+        ok5 = 0
+    if node_log(leader)[0][1] != "set x=1"
+        ok5 = 0
+    if log_last_idx(leader) != 1
+        ok5 = 0
+
+    let ok6 = 1
+    let follower = node_new(2)
+    follower = node_set_term(follower, 5)
+    let entries = [[5, "set x=1"], [5, "set y=2"]]
+    let result = append_entries(leader, follower, -1, 0, entries, -1)
+    if result[0] != 0
+        ok6 = 0
+    if len(node_log(follower)) != 2
+        ok6 = 0
+
+    let ok7 = 1
+    if quorum_check(3, 2, 2) != 1
+        ok7 = 0
+    if quorum_check(3, 1, 1) != 0
+        ok7 = 0
+    if quorum_write_acks(3, 2) != 1
+        ok7 = 0
+
+    let ok8 = 1
+    let c1 = crdt_pncounter_new(3)
+    c1 = crdt_init(c1, 3)
+    c1 = crdt_increment(c1, 0)
+    c1 = crdt_increment(c1, 0)
+    c1 = crdt_increment(c1, 1)
+    if crdt_value(c1) != 3
+        ok8 = 0
+    c1 = crdt_decrement(c1, 2)
+    if crdt_value(c1) != 2
+        ok8 = 0
+
+    let c2 = crdt_pncounter_new(3)
+    c2 = crdt_init(c2, 3)
+    c2 = crdt_increment(c2, 1)
+    c2 = crdt_increment(c2, 2)
+    let merged = crdt_merge(c1, c2)
+    if crdt_value(merged) != 3
+        ok8 = 0
+
+    let ok9 = 1
+    let vc1 = vclock_new(3)
+    let vc2 = vclock_new(3)
+    vc1 = vclock_increment(vc1, 0)
+    vc1 = vclock_increment(vc1, 0)
+    vc2 = vclock_increment(vc2, 1)
+    if vclock_compare(vc1, vc2) != 0
+        ok9 = 0
+    let vc3 = vclock_merge(vc1, vc2)
+    if vclock_compare(vc1, vc3) != -1
+        ok9 = 0
+    if vclock_compare(vc3, vc2) != 1
+        ok9 = 0
+
+    let all_ok = ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7 * ok8 * ok9
+    if all_ok == 1
+        print("distributed_verify: ALL PASS")
+    else
+        print("distributed_verify: FAIL")
+        print(ok1)
+        print(ok2)
+        print(ok3)
+        print(ok4)
+        print(ok5)
+        print(ok6)
+        print(ok7)
+        print(ok8)
+        print(ok9)
+    all_ok

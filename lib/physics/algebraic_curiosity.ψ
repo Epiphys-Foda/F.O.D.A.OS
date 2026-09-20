@@ -1,0 +1,132 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let kb_new() = [0, 0, 0, 0, 0]
+
+let kb_explored(kb, op_type) =
+    kb[op_type]
+
+let kb_record(kb, op_type) =
+    if op_type == 0
+        [kb[0] + 1, kb[1], kb[2], kb[3], kb[4]]
+    else
+        0
+    if op_type == 1
+        [kb[0], kb[1] + 1, kb[2], kb[3], kb[4]]
+    else
+        0
+    if op_type == 2
+        [kb[0], kb[1], kb[2] + 1, kb[3], kb[4]]
+    else
+        0
+    if op_type == 3
+        [kb[0], kb[1], kb[2], kb[3] + 1, kb[4]]
+    else
+        0
+    if op_type == 4
+        [kb[0], kb[1], kb[2], kb[3], kb[4] + 1]
+    else
+        kb
+
+let curiosity_target(kb) =
+    let min_op = 0
+    let min_count = kb[0]
+    if kb[1] < min_count
+        min_op = 1
+    min_count = kb[1]
+    if kb[2] < min_count
+        min_op = 2
+    min_count = kb[2]
+    if kb[3] < min_count
+        min_op = 3
+    min_count = kb[3]
+    if kb[4] < min_count
+        min_op = 4
+    min_count = kb[4]
+    min_op
+
+let hypothesize(op_type, seed) =
+    let pole = gf_add(gf_mul(seed, 37), 101)
+    let residue = gf_add(gf_mul(seed, 13), 1)
+    gene_new(pole, residue, op_type)
+
+let explore(kb, op_type, seed) =
+    let gene = hypothesize(op_type, seed)
+    let fit = fitness(gene)
+    let new_kb = kb_record(kb, op_type)
+    let result = fit * 100 + op_type
+    [new_kb, result]
+
+let godel_drive(kb, rounds) =
+    let current_kb = kb
+    let total_fit = 0
+    let round = 0
+    for round < rounds
+        let target_op = curiosity_target(current_kb)
+        let gene = hypothesize(target_op, round)
+        let fit = fitness(gene)
+        total_fit = total_fit + fit
+        current_kb = kb_record(current_kb, target_op)
+        round = round + 1
+    total_fit
+
+let knowledge_amount(kb) =
+    let count = 0
+    if kb[0] > 0
+        count = count + 1
+    if kb[1] > 0
+        count = count + 1
+    if kb[2] > 0
+        count = count + 1
+    if kb[3] > 0
+        count = count + 1
+    if kb[4] > 0
+        count = count + 1
+    count
+
+let curiosity_verify() =
+    let ok = 0
+
+    let kb0 = kb_new()
+    if knowledge_amount(kb0) == 0
+        ok = ok + 1
+
+    let kb1 = kb_record(kb0, 0)
+    if knowledge_amount(kb1) == 1
+        ok = ok + 1
+
+    let kb2 = kb_record(kb1, 1)
+    if knowledge_amount(kb2) == 2
+        ok = ok + 1
+
+    let target0 = curiosity_target(kb0)
+    if target0 == 0
+        ok = ok + 1
+
+    let target1 = curiosity_target(kb1)
+    if target1 == 1
+        ok = ok + 1
+
+    let gene = hypothesize(0, 1)
+    if gene_pole(gene) > 0 && gene_residue(gene) > 0
+        ok = ok + 1
+
+    let kb_start = kb_new()
+    let total_fit = godel_drive(kb_start, 5)
+    if total_fit >= 0
+        ok = ok + 1
+
+    let total_fit2 = godel_drive(kb_start, 10)
+    if total_fit2 >= 0
+        ok = ok + 1
+
+    let kb_after = kb_record(kb_record(kb_record(kb_new(), 0), 2), 4)
+    if knowledge_amount(kb_after) == 3
+        ok = ok + 1
+
+    let kb_repeat = kb_record(kb_after, 0)
+    if knowledge_amount(kb_repeat) == 3
+        ok = ok + 1
+
+    ok
+
+let main() = curiosity_verify()

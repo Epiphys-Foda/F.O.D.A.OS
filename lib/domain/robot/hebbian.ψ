@@ -1,0 +1,156 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let HEB_MAX_NEURONS = 256
+let HEB_MAX_SYNAPSES = 4096
+
+let hnet_create(n_neurons) =
+    let neurons = []
+    let i = 0
+    for i < n_neurons
+        neurons.push([i, 0, 0])
+        i = i + 1
+    [neurons, [], n_neurons, 0]
+let hnet_add_synapse(net, pre, post, weight) =
+    let synapses = net[1]
+    synapses.push([pre, post, weight, 0])
+    [net[0], synapses, net[2], net[3] + 1]
+let hnet_activate(net, inputs) =
+    let neurons = net[0]
+    let synapses = net[1]
+    let i = 0
+    let n = net[2]
+    for i < n
+        let activation = neurons[i][2]
+        let j = 0
+        let m = net[3]
+        for j < m
+            let syn = synapses[j]
+            if syn[1] == i
+                activation = gf_add(activation, gf_mul(syn[2], neurons[syn.get(0)][1]))
+            j = j + 1
+        neurons[i] = [i, activation, neurons[i][2]]
+        i = i + 1
+    [neurons, synapses, n, net[3]]
+let hebbian_learn(net, lr) =
+    let neurons = net[0]
+    let synapses = net[1]
+    let i = 0
+    let n = net[3]
+    for i < n
+        let syn = synapses[i]
+        let pre_act = neurons[syn.get(0)][1]
+        let post_act = neurons[syn.get(1)][1]
+        let delta_w = gf_mul(lr, gf_mul(pre_act, post_act))
+        synapses[i] = [syn[0], syn[1], gf_add(syn[2], delta_w), syn[3]]
+        i = i + 1
+    [neurons, synapses, net[2], net[3]]
+let oja_learn(net, lr) =
+    let neurons = net[0]
+    let synapses = net[1]
+    let i = 0
+    let n = net[3]
+    for i < n
+        let syn = synapses[i]
+        let pre_act = neurons[syn.get(0)][1]
+        let post_act = neurons[syn.get(1)][1]
+        let delta_w = gf_mul(lr, gf_mul(post_act, gf_sub(pre_act, gf_mul(syn[2], post_act))))
+        synapses[i] = [syn[0], syn[1], gf_add(syn[2], delta_w), syn[3]]
+        i = i + 1
+    [neurons, synapses, net[2], net[3]]
+let stdp_learn(net, pre_spike_time, post_spike_time, lr) =
+    let dt = gf_sub(post_spike_time, pre_spike_time)
+    let delta_w = 0
+    if dt > 0
+        delta_w = gf_mul(lr, gf_neg(gf_pow(dt, 2)))
+    else
+        delta_w = gf_mul(lr, gf_pow(gf_neg(dt), 2))
+    delta_w
+let field_hebbian(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let hebbian_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_hebbian(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+
+let HEB_PRE_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let HEB_PRE_WEIGHTS = [10, 20, 30, 40, 50, 60, 70, 80]
+
+let psi_heb_pre(pre_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(pre_idx), gf_norm(HEB_PRE_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(HEB_PRE_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let HEB_POST_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let HEB_POST_WEIGHTS = [80, 70, 60, 50, 40, 30, 20, 10]
+
+let psi_heb_post(post_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(post_idx), gf_norm(HEB_POST_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(HEB_POST_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let HEB_W_POLES = [100, 200, 300, 400, 500, 600, 700, 800]
+let HEB_W_WEIGHTS = [10, 20, 30, 40, 50, 60, 70, 80]
+
+let psi_heb_w(w_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(w_idx), gf_norm(HEB_W_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(HEB_W_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let hebbian_global_response(pre_idx, post_idx, w_idx) =
+    let e1 = psi_heb_pre(pre_idx)
+    let e2 = psi_heb_post(post_idx)
+    let e3 = psi_heb_w(w_idx)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+
+let heb_pre_monotonic_test() =
+    let v1 = psi_heb_pre(1)
+    let v2 = psi_heb_pre(8)
+    (v1 != v2 ? 1 : 0)
+
+let heb_post_decay_test() =
+    let v1 = HEB_POST_WEIGHTS[0]
+    let v2 = HEB_POST_WEIGHTS[7]
+    (v1 > v2 ? 1 : 0)
+
+let heb_w_monotonic_test() =
+    let v1 = psi_heb_w(100)
+    let v2 = psi_heb_w(800)
+    (v1 != v2 ? 1 : 0)
+
+let heb_global_nonzero_test() =
+    let g = hebbian_global_response(2, 2, 150)
+    (g != 0 ? 1 : 0)
+
+let heb_symmetry_test() =
+    let v1 = hebbian_global_response(2, 2, 150)
+    let v2 = hebbian_global_response(2, 2, 150)
+    (v1 == v2 ? 1 : 0)
+

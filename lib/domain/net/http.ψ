@@ -1,0 +1,72 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let HTTP_MAX_HEADER = 8192
+let HTTP_MAX_BODY = 1048576
+
+let HTTP_GET = 1
+let HTTP_POST = 2
+let HTTP_PUT = 3
+let HTTP_DELETE = 4
+let HTTP_PATCH = 5
+let HTTP_HEAD = 6
+let HTTP_OPTIONS = 7
+
+let http_request_create(method, path) = [method, path, [], []]
+let http_request_set_header(req, key, value) =
+    let headers = req[2]
+    headers.push([key, value])
+    [req[0], req[1], headers, req[3]]
+let http_request_set_body(req, body) = [req[0], req[1], req[2], body]
+let http_response_create(status) = [status, [], []]
+let http_response_set_header(resp, key, value) =
+    let headers = resp[1]
+    headers.push([key, value])
+    [resp[0], headers, resp[2]]
+let http_response_set_body(resp, body) = [resp[0], resp[1], body]
+let http_route_create(method, path, handler) = [method, path, handler]
+let http_route_match(route, method, path) =
+    (route[0] == method && route[1] == path ? 1 : 0)
+let http_router_dispatch(routes, req) =
+    let i = 0
+    let n = len(routes)
+    for i < n
+        let route = routes[i]
+        if http_route_match(route, req[0], req[1]) == 1
+            route[2]
+        i = i + 1
+    0
+let middleware_chain(mw_ids, req) =
+    let result = req
+    let i = 0
+    let n = len(mw_ids)
+    for i < n
+        result = http_mw_apply(mw_ids[i], result)
+        i = i + 1
+    result
+let http_mw_apply(mw_id, req) =
+    req
+let HTTP_200_OK = 200
+let HTTP_400_BAD_REQUEST = 400
+let HTTP_404_NOT_FOUND = 404
+let HTTP_500_INTERNAL = 500
+let url_parse_path(url) = gf_norm(url) % 65536
+let url_parse_query(url) = gf_norm(url) / 65536
+let http_field_route(path, n) =
+    let hash = 0
+    let i = 0
+    for i < n
+        hash = gf_add(hash, gf_mul(path, gf_pow(3, i)))
+        i = i + 1
+    hash
+
+let http_verify() =
+    let req = http_request_create(HTTP_GET, 100)
+    let req2 = http_request_set_header(req, 1, 200)
+    let route = http_route_create(HTTP_GET, 100, 300)
+    let routes = [route]
+    let handler = http_router_dispatch(routes, req2)
+    let resp = http_response_create(HTTP_200_OK)
+    let ok = 0
+    (handler == 300 ? (ok = 1) : (ok = 0))
+    ok
+

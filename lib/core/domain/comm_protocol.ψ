@@ -1,0 +1,65 @@
+import "../stdlib/gf65537.ψ"
+
+let rs_encode_gf(message, n, k) =
+    let codeword = []
+    for i in 0..n
+        let eval = 0
+        for j in 0..k
+            eval = gf_add(eval, gf_mul(message[j], gf_pow(i, j)))
+        codeword = arr_concat(codeword, [eval])
+    codeword
+
+let rs_decode_gf(received, n, k) =
+    let decoded = []
+    for i in 0..k
+        decoded = arr_concat(decoded, [received[i]])
+    decoded
+
+let psk_modulate_gf(symbol, M) =
+    gf_pow(3, symbol)
+
+let qam_modulate_gf(I, Q) =
+    [I, Q]
+
+let fsk_modulate_gf(symbol, n_frequencies) =
+    symbol
+
+let tdm_multiplex_gf(channels, n_channels) =
+    let multiplexed = []
+    for t in 0..len(channels[0])
+        for c in 0..n_channels
+            multiplexed = arr_concat(multiplexed, [channels[c][t]])
+    multiplexed
+
+let cdm_multiplex_gf(data, spreading_code) =
+    let n = len(data)
+    let result = []
+    for i in 0..n
+        result = arr_concat(result, [gf_mul(data[i], spreading_code)])
+    result
+
+let bit_error_rate_gf(n_errors, n_total) =
+    gf_div(n_errors, n_total)
+
+let snr_gf(signal_power, noise_power) =
+    gf_div(signal_power, noise_power)
+
+let channel_capacity_gf(bandwidth, snr) =
+    gf_mul(bandwidth, gf_add(1, snr))
+
+let stop_wait_arq_gf(n_transmissions, n_success) =
+    gf_sub(n_transmissions, n_success)
+
+let equalizer_gf(received, taps) =
+    let n = len(received)
+    let result = 0
+    for i in 0..n
+        result = gf_add(result, gf_mul(received[i], taps))
+    result
+
+let phase_sync_gf(received_phase, reference_phase) =
+    gf_sub(received_phase, reference_phase)
+
+let time_sync_gf(received_time, reference_time) =
+    gf_sub(received_time, reference_time)
+

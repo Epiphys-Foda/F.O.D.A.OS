@@ -1,0 +1,66 @@
+import "super_db.ψ"
+let rf_dbtx_snapshot(db) =
+    let snap = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(db)
+        snap = snap.push(db[i])
+        i = i + 1
+      else
+        done = true
+    snap
+
+let rf_dbtx_rollback(db, snapshot) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(snapshot)
+        out = out.push(snapshot[i])
+        i = i + 1
+      else
+        done = true
+    out
+
+let rf_dbtx_log(db, op, x, y, r) =
+    let log = []
+    log = log.push(op)
+    log = log.push(x)
+    log = log.push(y)
+    log = log.push(r)
+    log
+
+let rf_dbtx_replay(log) =
+    let db = []
+    let i = 0
+    let done = false
+    for !done
+      if i + 3 < len(log)
+        let op = log[i]
+        if op == 0
+          db = rf_db_insert(db, log[i + 1], log[i + 2], log[i + 3])
+        else
+          0
+        i = i + 4
+      else
+        done = true
+    db
+
+let rf_dbtx_demo(db) =
+    let snap = rf_dbtx_snapshot(db)
+    let cur = rf_db_insert(db, 50, 50, 7)
+    let rolled = rf_dbtx_rollback(cur, snap)
+    [len(cur), len(rolled)]
+
+let rf_dbtx_test() =
+    let db = [0, 0, 100, 5, 5, 50]
+    let t1 = len(rf_dbtx_snapshot(db)) == 6
+    let cur = rf_db_insert(db, 50, 50, 7)
+    let t2 = len(rf_dbtx_rollback(cur, rf_dbtx_snapshot(db))) == 6
+    let t3 = len(rf_dbtx_log(db, 0, 50, 50, 7)) == 4
+    let replay = rf_dbtx_replay(rf_dbtx_log(db, 0, 50, 50, 7))
+    let t4 = len(replay) == 3 && replay[0] == 50
+    let demo = rf_dbtx_demo(db)
+    let t5 = demo[1] == 6
+    t1 && t2 && t3 && t4 && t5

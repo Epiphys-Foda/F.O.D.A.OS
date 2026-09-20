@@ -1,0 +1,30 @@
+import "ck.ψ"
+let bad = [0]
+
+let s_straight = 20
+bad[0] = bad[0] + ck(s_straight, 18, 22)
+
+let s_curved = 25
+let ds = s_curved - s_straight
+bad[0] = bad[0] + ck(ds, 3, 7)
+
+let stat = 1
+bad[0] = bad[0] + ck_lo(stat, 1)
+
+let generator = 1
+bad[0] = bad[0] + ck_lo(generator, 1)
+
+if 1744 < 1742
+    bad[0] = bad[0] + 1
+if 1744 > 1746
+    bad[0] = bad[0] + 1
+if 1788 < 1786
+    bad[0] = bad[0] + 1
+if 1788 > 1790
+    bad[0] = bad[0] + 1
+if 1948 < 1946
+    bad[0] = bad[0] + 1
+if 1948 > 1950
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

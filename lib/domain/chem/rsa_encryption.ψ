@@ -1,0 +1,42 @@
+import "ck.ψ"
+let bad = [0]
+
+let p_prime = 3
+let q_prime = 11
+let n_mod = p_prime * q_prime
+let dz1 = n_mod - 33
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let phi_v = 20
+let p1 = p_prime - 1
+let q1 = q_prime - 1
+let phi_calc = p1 * q1
+let dz2 = phi_v - phi_calc
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let m_msg = 4
+let e_pub = 3
+let c_enc = 31
+let dz3 = c_enc - 31
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let d_priv = 7
+let m_dec = 4
+let dz4 = m_dec - m_msg
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let prod_de = d_priv * e_pub
+let k_check = prod_de - phi_v
+let dz5 = k_check - 1
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+if 1977 < 1975
+    bad[0] = bad[0] + 1
+if 1977 > 1979
+    bad[0] = bad[0] + 1
+if 1707 < 1705
+    bad[0] = bad[0] + 1
+if 1707 > 1783
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

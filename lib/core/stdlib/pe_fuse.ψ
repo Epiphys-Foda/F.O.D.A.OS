@@ -1,0 +1,76 @@
+let FUSE_MAC_ADD = 1001
+let FUSE_MAC_OR = 1002
+let FUSE_LT_ADD = 1003
+let FUSE_FFT_ADD = 1004
+let FUSE_PASS = 1005
+
+let pe_fuse_pair(op_a, op_b) =
+    if op_a == 1 && op_b == 3
+        FUSE_MAC_ADD
+    else
+      if op_a == 1 && op_b == 6
+          FUSE_MAC_OR
+      else
+        if op_a == 8 && op_b == 3
+            FUSE_LT_ADD
+        else
+          if op_a == 14 && op_b == 3
+              FUSE_FFT_ADD
+          else
+            if (op_a == 10 || op_a == 11) && (op_b == 10 || op_b == 11)
+                FUSE_PASS
+            else
+                0
+
+let pe_fuse_rec(pe_ops, pc, acc) =
+    let n = len(pe_ops)
+    if pc >= n
+      acc
+    else
+      let op = pe_ops[pc]
+      if op == 13
+        pe_fuse_rec(pe_ops, pc + 2, [acc, op, pe_ops[pc + 1]].flat())
+      else
+        if pc + 1 < n
+        else
+          0
+        if pc + 1 < n && pe_ops[pc + 1] != 13
+          let fused = pe_fuse_pair(op, pe_ops[pc + 1])
+          if fused != 0
+            pe_fuse_rec(pe_ops, pc + 2, acc.push(fused))
+          else
+            pe_fuse_rec(pe_ops, pc + 1, acc.push(op))
+        else
+          pe_fuse_rec(pe_ops, pc + 1, acc.push(op))
+
+let pe_fuse_seq(pe_ops) = pe_fuse_rec(pe_ops, 0, [])
+
+let pe_fuse_ratio(pe_ops) =
+    let fused = pe_fuse_seq(pe_ops)
+    let orig = 0
+    let pc = 0
+    let n = len(pe_ops)
+    let done = false
+    for !done
+      if pc < n
+        orig = orig + 1
+        if pe_ops[pc] == 13
+          pc = pc + 2
+        else
+          pc = pc + 1
+      else
+        done = true
+    let fused_count = 0
+    let fc = 0
+    let fn_ = len(fused)
+    let fd = false
+    for !fd
+      if fc < fn_
+        fused_count = fused_count + 1
+        if fused[fc] == 13
+          fc = fc + 2
+        else
+          fc = fc + 1
+      else
+        fd = true
+    (orig == 0 ? 0 : (orig - fused_count) / orig)

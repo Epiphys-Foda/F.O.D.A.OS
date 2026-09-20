@@ -1,0 +1,38 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+let e6 = 1000000
+let e12 = e6 * e6
+let e36 = e12 * e12 * e12
+let e37 = e36 * 10
+
+let NUM_I = 2 * 28 * e37
+if 500 * e36 > NUM_I
+    bad[0] = bad[0] + 1
+if NUM_I > 625 * e36
+    bad[0] = bad[0] + 1
+
+let NUM_e = 394784 * 112 * 42
+let DEN_e = 331 * 331 * 331
+if 40 * DEN_e > NUM_e
+    bad[0] = bad[0] + 1
+if NUM_e > 60 * DEN_e
+    bad[0] = bad[0] + 1
+
+let NUM_t = 331 * 10000000000
+let DEN_t = 84 * 315576 * 100
+if 1100 * DEN_t > NUM_t
+    bad[0] = bad[0] + 1
+if NUM_t > 1400 * DEN_t
+    bad[0] = bad[0] + 1
+
+if 10 * 971 > 13 * 1000
+    bad[0] = bad[0] + 1
+if 13 * 1000 > 16 * 971
+    bad[0] = bad[0] + 1
+
+let stab = 10
+bad[0] = bad[0] + ck(stab, 9, 11)
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,33 @@
+import "ck.ψ"
+let bad = [0]
+
+let m = 1
+let v_in = 1
+let v_out = 1
+let p_in = m * v_in
+let p_out = m * v_out
+let dz1 = p_in - p_out
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let ke_in = 1
+let ke_out = 1
+let dz2 = ke_in - ke_out
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let v_alt = 2
+let ke_alt = v_alt * v_alt
+let ke_orig = 1
+if ke_alt < ke_orig * 2
+    bad[0] = bad[0] + 1
+
+let count_in = 1
+let count_out = 1
+let dz3 = count_in - count_out
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+if 1687 < 1685
+    bad[0] = bad[0] + 1
+if 1687 > 1689
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

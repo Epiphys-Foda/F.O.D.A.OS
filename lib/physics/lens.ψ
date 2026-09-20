@@ -1,0 +1,131 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let PARALLEL_LIGHT = 1
+
+let single_lens_residue(light, f) =
+    light
+
+let double_lens_residue_f1(light, f1, f2) =
+    let diff = wfc_sub(f1, f2)
+    let inv_diff = wfc_inv(diff)
+    wfc_mul(light, inv_diff)
+
+let double_lens_residue_f2(light, f1, f2) =
+    let diff = wfc_sub(f2, f1)
+    let inv_diff = wfc_inv(diff)
+    wfc_mul(light, inv_diff)
+
+let verify_single_lens() =
+    let pass = 1
+    let intensity = single_lens_residue(PARALLEL_LIGHT, 100)
+    if intensity != 1
+        pass = 0
+
+    let intensity2 = single_lens_residue(PARALLEL_LIGHT, 200)
+    if intensity2 != 1
+        pass = 0
+
+    let intensity3 = single_lens_residue(2, 300)
+    if intensity3 != 2
+        pass = 0
+    pass
+
+let verify_double_lens_antisymmetry() =
+    let pass = 1
+    let f1 = 100
+    let f2 = 200
+
+    let r1 = double_lens_residue_f1(PARALLEL_LIGHT, f1, f2)
+    let r2 = double_lens_residue_f2(PARALLEL_LIGHT, f1, f2)
+
+    let sum = wfc_add(r1, r2)
+    if sum != 0
+        pass = 0
+
+    let neg_r2 = wfc_sub(P, r2)
+    if r1 != neg_r2
+        pass = 0
+    pass
+
+let verify_double_lens_spacing() =
+    let pass = 1
+
+    let r_close = double_lens_residue_f1(1, 100, 101)
+    let neg_one = wfc_sub(P, 1)
+    if r_close != neg_one
+        pass = 0
+
+    let r_far = double_lens_residue_f1(1, 100, 200)
+    let expected = wfc_sub(P, wfc_inv(100))
+    if r_far != expected
+        pass = 0
+
+    pass
+
+let triple_lens_residue_f1(light, f1, f2, f3) =
+    let d12 = wfc_sub(f1, f2)
+    let d13 = wfc_sub(f1, f3)
+    let inv_d12 = wfc_inv(d12)
+    let inv_d13 = wfc_inv(d13)
+    wfc_mul(wfc_mul(light, inv_d12), inv_d13)
+
+let verify_triple_lens() =
+    let pass = 1
+    let r1 = triple_lens_residue_f1(1, 100, 200, 300)
+    let d12 = wfc_sub(100, 200)
+    let d13 = wfc_sub(100, 300)
+    let product = wfc_mul(d12, d13)
+    let expected = wfc_inv(product)
+    if r1 != expected
+        pass = 0
+    pass
+
+let lens_image_distance(u, f) =
+    let inv_u = wfc_inv(u)
+    let inv_f = wfc_inv(f)
+    let inv_v = wfc_sub(inv_f, inv_u)
+    wfc_inv(inv_v)
+
+let verify_imaging() =
+    let pass = 1
+    let v = lens_image_distance(200, 100)
+    if v != 200
+        pass = 0
+
+    let v2 = lens_image_distance(300, 100)
+    if v2 != 150
+        pass = 0
+
+    pass
+
+let magnification(u, v) =
+    let inv_u = wfc_inv(u)
+    wfc_sub(P, wfc_mul(v, inv_u))
+
+let verify_magnification() =
+    let pass = 1
+    let m1 = magnification(200, 200)
+    if m1 != wfc_sub(P, 1)
+        pass = 0
+
+    let m2 = magnification(300, 150)
+    let expected = wfc_sub(P, wfc_inv(2))
+    if m2 != expected
+        pass = 0
+    pass
+
+let main() =
+    let result = 0
+    if verify_single_lens() == 1
+        result = result + 1
+    if verify_double_lens_antisymmetry() == 1
+        result = result + 1
+    if verify_double_lens_spacing() == 1
+        result = result + 1
+    if verify_triple_lens() == 1
+        result = result + 1
+    if verify_imaging() == 1
+        result = result + 1
+    if verify_magnification() == 1
+        result = result + 1
+    result

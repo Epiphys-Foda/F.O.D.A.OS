@@ -1,0 +1,591 @@
+let device_new(name, bus_id, kind) =
+    [name, bus_id, 0, kind, {}, 0, 0, 0, []]
+
+let dev_name(d) = d[0]
+let dev_bus_id(d) = d[1]
+let dev_driver(d) = d[2]
+let dev_type(d) = d[3]
+let dev_regs(d) = d[4]
+let dev_irq(d) = d[5]
+let dev_state(d) = d[6]
+let dev_parent(d) = d[7]
+let dev_children(d) = d[8]
+
+let dev_set_driver(d, drv) =
+    d[2] = drv
+    d
+
+let dev_set_irq(d, irq) =
+    d[5] = irq
+    d
+
+let dev_set_state(d, s) =
+    d[6] = s
+    d
+
+let dev_set_parent(d, p) =
+    d[7] = p
+    d
+
+let dev_add_child(d, child) =
+    let ch = dev_children(d)
+    ch.push(child)
+    d[8] = ch
+    d
+
+let dev_reg_read(d, offset) =
+    let regs = dev_regs(d)
+    let v = regs[offset]
+    if v == 0
+        0
+    else
+        v
+
+let dev_reg_write(d, offset, value) =
+    let regs = dev_regs(d)
+    regs[offset] = value
+    d[4] = regs
+    d
+
+let driver_new(name, kind) =
+    [name, kind, "probe", "remove", "suspend", "resume", {}, []]
+
+let drv_name(d) = d[0]
+let drv_type(d) = d[1]
+let drv_probe(d) = d[2]
+let drv_remove(d) = d[3]
+let drv_suspend(d) = d[4]
+let drv_resume(d) = d[5]
+let drv_ops(d) = d[6]
+let drv_id_table(d) = d[7]
+
+let drv_add_id(d, id) =
+    let t = drv_id_table(d)
+    t.push(id)
+    d[7] = t
+    d
+
+let drv_add_op(d, op_name, handler) =
+    let ops = drv_ops(d)
+    ops[op_name] = handler
+    d[6] = ops
+    d
+
+let drv_matches(d, bus_id) =
+    let t = drv_id_table(d)
+    let i = 0
+    let n = len(t)
+    let found = 0
+    for i < n
+        if t[i] == bus_id
+            found = 1
+            i = n
+        i = i + 1
+    found
+
+let bus_new(name) =
+    [name, [], [], {}]
+
+let bus_name(b) = b[0]
+let bus_devices(b) = b[1]
+let bus_drivers(b) = b[2]
+let bus_matched(b) = b[3]
+
+let bus_add_device(b, dev) =
+    let ds = bus_devices(b)
+    ds.push(dev)
+    b[1] = ds
+    b
+
+let bus_add_driver(b, drv) =
+    let ds = bus_drivers(b)
+    ds.push(drv)
+    b[2] = ds
+    b
+
+let bus_match_device(b, dev) =
+    let drvs = bus_drivers(b)
+    let i = 0
+    let n = len(drvs)
+    let bound = 0
+    for i < n
+        let drv = drvs[i]
+        if drv_matches(drv, dev_bus_id(dev)) == 1
+            dev = dev_set_driver(dev, drv_name(drv))
+            dev = dev_set_state(dev, 2)
+            let matched = bus_matched(b)
+            matched[dev_name(dev)] = drv_name(drv)
+            b[3] = matched
+            bound = 1
+            i = n
+        i = i + 1
+    bound
+
+let bus_probe_all(b) =
+    let ds = bus_devices(b)
+    let i = 0
+    let n = len(ds)
+    let count = 0
+    for i < n
+        let dev = ds[i]
+        if dev_driver(dev) == 0
+            let ok = bus_match_device(b, dev)
+            if ok == 1
+                dev = dev_set_state(dev, 3)
+                ds[i] = dev
+                count = count + 1
+        i = i + 1
+    b[1] = ds
+    count
+
+let chardev_new(name, major, minor) =
+    [name, major, minor, {}, {}, 0]
+
+let chardev_name(c) = c[0]
+let chardev_major(c) = c[1]
+let chardev_minor(c) = c[2]
+let chardev_ops(c) = c[3]
+let chardev_data(c) = c[4]
+let chardev_open_count(c) = c[5]
+
+let chardev_set_op(c, op, handler) =
+    let ops = chardev_ops(c)
+    ops[op] = handler
+    c[3] = ops
+    c
+
+let chardev_open(c) =
+    c[5] = chardev_open_count(c) + 1
+    c[5]
+
+let chardev_close(c) =
+    if chardev_open_count(c) > 0
+        c[5] = chardev_open_count(c) - 1
+    c[5]
+
+let chardev_read(c, count) =
+    let data = chardev_data(c)
+    let result = []
+    let i = 0
+    for i < count
+        let v = data[i]
+        if v == 0
+            i = count
+        else
+            result.push(v)
+        i = i + 1
+    result
+
+let chardev_write(c, buf) =
+    c[4] = buf
+    len(buf)
+
+let blockdev_new(name, sector_size, total_sectors) =
+    [name, sector_size, total_sectors, {}, []]
+
+let blkdev_name(b) = b[0]
+let blkdev_sector_size(b) = b[1]
+let blkdev_total_sectors(b) = b[2]
+let blkdev_blocks(b) = b[3]
+let blkdev_queue(b) = b[4]
+
+let blkdev_read_block(b, sector) =
+    let blocks = blkdev_blocks(b)
+    let blk = blocks[sector]
+    if blk == 0
+        let zeros = []
+        let sz = blkdev_sector_size(b)
+        let i = 0
+        for i < sz
+            zeros.push(0)
+            i = i + 1
+        zeros
+    else
+        blk
+
+let blkdev_write_block(b, sector, data) =
+    let blocks = blkdev_blocks(b)
+    blocks[sector] = data
+    b[3] = blocks
+    b
+
+let blkdev_submit_io(b, kind, sector, buf) =
+    let req = [kind, sector, buf, 0]
+    let q = blkdev_queue(b)
+    q.push(req)
+    b[4] = q
+    req
+
+let blkdev_process_io(b) =
+    let q = blkdev_queue(b)
+    let done = []
+    let i = 0
+    let n = len(q)
+    for i < n
+        let req = q[i]
+        let typ = req[0]
+        let sector = req[1]
+        let buf = req[2]
+        if typ == 0
+            let blk = blkdev_read_block(b, sector)
+            req[2] = blk
+            req[3] = 1
+        else
+            if typ == 1
+                b = blkdev_write_block(b, sector, buf)
+                req[3] = 1
+            else
+                req[3] = 1
+        done.push(req)
+        i = i + 1
+    b[4] = []
+    done
+
+let netdev_new(name, mac) =
+    [name, mac, 1500, [], [], {up: 0}, {rx_packets: 0, tx_packets: 0, rx_bytes: 0, tx_bytes: 0, errors: 0}]
+
+let netdev_name(n) = n[0]
+let netdev_mac(n) = n[1]
+let netdev_mtu(n) = n[2]
+let netdev_rx(n) = n[3]
+let netdev_tx(n) = n[4]
+let netdev_flags(n) = n[5]
+let netdev_stats(n) = n[6]
+
+let netdev_up(n) =
+    let f = netdev_flags(n)
+    f["up"] = 1
+    f["running"] = 1
+    n[5] = f
+    n
+
+let netdev_down(n) =
+    let f = netdev_flags(n)
+    f["up"] = 0
+    f["running"] = 0
+    n[5] = f
+    n
+
+let netdev_tx_packet(n, packet) =
+    let txq = netdev_tx(n)
+    txq.push(packet)
+    n[4] = txq
+    let s = netdev_stats(n)
+    s["tx_packets"] = s["tx_packets"] + 1
+    s["tx_bytes"] = s["tx_bytes"] + len(packet)
+    n[6] = s
+    n
+
+let netdev_rx_packet(n, packet) =
+    let rxq = netdev_rx(n)
+    rxq.push(packet)
+    n[3] = rxq
+    let s = netdev_stats(n)
+    s["rx_packets"] = s["rx_packets"] + 1
+    s["rx_bytes"] = s["rx_bytes"] + len(packet)
+    n[6] = s
+    n
+
+let netdev_poll_rx(n, max_count) =
+    let rxq = netdev_rx(n)
+    let pkts = []
+    let i = 0
+    let n_pkt = len(rxq)
+    for i < max_count
+        if i >= n_pkt
+            i = max_count
+        else
+            pkts.push(rxq[i])
+        i = i + 1
+    n[3] = []
+    pkts
+
+let irq_new(num) =
+    [num, "default_isr", 0, 0, 0]
+
+let irq_num(i) = i[0]
+let irq_handler(i) = i[1]
+let irq_dev_id(i) = i[2]
+let irq_enabled(i) = i[3]
+let irq_count(i) = i[4]
+
+let irq_set_handler(i, handler, dev_id) =
+    i[1] = handler
+    i[2] = dev_id
+    i
+
+let irq_enable(i) =
+    i[3] = 1
+    i
+
+let irq_disable(i) =
+    i[3] = 0
+    i
+
+let irq_handle(i) =
+    if irq_enabled(i) == 1
+        i[4] = irq_count(i) + 1
+        1
+    else
+        0
+
+let dma_new(channel) =
+    [channel, 0, 0, 0, 0, 0]
+
+let dma_channel(d) = d[0]
+let dma_src(d) = d[1]
+let dma_dst(d) = d[2]
+let dma_size(d) = d[3]
+let dma_dir(d) = d[4]
+let dma_status(d) = d[5]
+
+let dma_setup(d, src, dst, size, dir) =
+    d[1] = src
+    d[2] = dst
+    d[3] = size
+    d[4] = dir
+    d[5] = 1
+    d
+
+let dma_complete(d) =
+    d[5] = 2
+    d
+
+let dma_wait(d) =
+    let max_poll = 1024
+    let n = 0
+    for n < max_poll
+        if dma_status(d) == 2
+            n = max_poll
+        n = n + 1
+    dma_status(d)
+
+let pm_new() =
+    [0, 0, 100, {}]
+
+let pm_state(p) = p[0]
+let pm_usage(p) = p[1]
+
+let pm_get(p) =
+    p[1] = pm_usage(p) + 1
+    if pm_usage(p) == 1
+        p[0] = 0
+    p
+
+let pm_put(p) =
+    if pm_usage(p) > 0
+        p[1] = pm_usage(p) - 1
+    if pm_usage(p) == 0
+        p[0] = 1
+    p
+
+let pm_suspend(p) =
+    p[0] = 1
+    p
+
+let pm_resume(p) =
+    p[0] = 0
+    p
+
+let dt_node_new(name, compatible) =
+    [name, compatible, [], {}, []]
+
+let dtn_name(n) = n[0]
+let dtn_compatible(n) = n[1]
+let dtn_regs(n) = n[2]
+let dtn_props(n) = n[3]
+let dtn_children(n) = n[4]
+
+let dtn_add_reg(n, offset, size) =
+    let r = dtn_regs(n)
+    r.push([offset, size])
+    n[2] = r
+    n
+
+let dtn_add_prop(n, key, val) =
+    let p = dtn_props(n)
+    p[key] = val
+    n[3] = p
+    n
+
+let dtn_add_child(n, child) =
+    let ch = dtn_children(n)
+    ch.push(child)
+    n[4] = ch
+    n
+
+let dtn_find_child(n, name) =
+    let ch = dtn_children(n)
+    let i = 0
+    let nn = len(ch)
+    let found = 0
+    for i < nn
+        if dtn_name(ch[i]) == name
+            found = ch[i]
+            i = nn
+        i = i + 1
+    found
+
+let dtn_walk(n, visitor_fn) =
+    let count = 1
+    let ch = dtn_children(n)
+    let i = 0
+    let nn = len(ch)
+    for i < nn
+        count = count + dtn_walk(ch[i], visitor_fn)
+        i = i + 1
+    count
+
+let driver_framework_init(bus_list) =
+    let i = 0
+    let n = len(bus_list)
+    let total_probed = 0
+    for i < n
+        let bus = bus_list[i]
+        let probed = bus_probe_all(bus)
+        total_probed = total_probed + probed
+        i = i + 1
+    total_probed
+
+let device_driver_verify() =
+    let ok1 = 1
+    let dev = device_new("uart0", "ns16550", 0)
+    if dev_name(dev) != "uart0"
+        ok1 = 0
+    if dev_bus_id(dev) != "ns16550"
+        ok1 = 0
+    if dev_type(dev) != 0
+        ok1 = 0
+
+    let ok2 = 1
+    let drv = driver_new("ns16550_drv", 0)
+    drv = drv_add_id(drv, "ns16550")
+    if drv_matches(drv, "ns16550") != 1
+        ok2 = 0
+    if drv_matches(drv, "other") != 0
+        ok2 = 0
+
+    let ok3 = 1
+    let bus = bus_new("platform")
+    bus = bus_add_device(bus, dev)
+    bus = bus_add_driver(bus, drv)
+    let count = bus_probe_all(bus)
+    if count != 1
+        ok3 = 0
+    let matched = bus_matched(bus)
+    if matched["uart0"] != "ns16550_drv"
+        ok3 = 0
+
+    let ok4 = 1
+    let cdev = chardev_new("ttyS0", 4, 64)
+    let openc = chardev_open(cdev)
+    if openc != 1
+        ok4 = 0
+    cdev[4] = [72, 73, 74]
+    let rd = chardev_read(cdev, 3)
+    if len(rd) != 3
+        ok4 = 0
+    if rd[0] != 72
+        ok4 = 0
+    chardev_close(cdev)
+
+    let ok5 = 1
+    let bdev = blockdev_new("sda", 512, 1024)
+    let wbuf = [1, 2, 3]
+    bdev = blkdev_write_block(bdev, 0, wbuf)
+    let rblk = blkdev_read_block(bdev, 0)
+    if len(rblk) != 3
+        ok5 = 0
+    if rblk[0] != 1
+        ok5 = 0
+    blkdev_submit_io(bdev, 0, 0, [])
+    let iores = blkdev_process_io(bdev)
+    if len(iores) != 1
+        ok5 = 0
+
+    let ok6 = 1
+    let ndev = netdev_new("eth0", [0x52, 0x54, 0x00, 0x12, 0x34, 0x56])
+    ndev = netdev_up(ndev)
+    let f = netdev_flags(ndev)
+    if f["up"] != 1
+        ok6 = 0
+    ndev = netdev_tx_packet(ndev, [1, 2, 3])
+    let s = netdev_stats(ndev)
+    if s["tx_packets"] != 1
+        ok6 = 0
+    let pkts = netdev_poll_rx(ndev, 4)
+    if len(pkts) != 0
+        ok6 = 0
+
+    let ok7 = 1
+    let irq = irq_new(10)
+    irq = irq_set_handler(irq, "my_isr", 100)
+    if irq_handle(irq) == 1
+        ok7 = 0
+    irq = irq_enable(irq)
+    if irq_handle(irq) != 1
+        ok7 = 0
+    if irq_count(irq) != 1
+        ok7 = 0
+
+    let ok8 = 1
+    let d = dma_new(0)
+    d = dma_setup(d, 0x1000, 0x2000, 256, 2)
+    if dma_status(d) != 1
+        ok8 = 0
+    d = dma_complete(d)
+    if dma_status(d) != 2
+        ok8 = 0
+    let st = dma_wait(d)
+    if st != 2
+        ok8 = 0
+
+    let ok9 = 1
+    let pm = pm_new()
+    pm = pm_get(pm)
+    if pm_usage(pm) != 1
+        ok9 = 0
+    if pm_state(pm) != 0
+        ok9 = 0
+    pm = pm_put(pm)
+    if pm_usage(pm) != 0
+        ok9 = 0
+    if pm_state(pm) != 1
+        ok9 = 0
+
+    let ok10 = 1
+    let root = dt_node_new("/", "root")
+    let child = dt_node_new("uart@1000", "ns16550")
+    child = dtn_add_reg(child, 0x1000, 0x100)
+    root = dtn_add_child(root, child)
+    let found = dtn_find_child(root, "uart@1000")
+    if found == 0
+        ok10 = 0
+    let walked = dtn_walk(root, "visit")
+    if walked != 2
+        ok10 = 0
+
+    let ok11 = 1
+    let bus2 = bus_new("usb")
+    let bus_list = [bus, bus2]
+    let total = driver_framework_init(bus_list)
+    if total != 0
+        ok11 = 0
+
+    let all = ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7 * ok8 * ok9 * ok10 * ok11
+    if all == 1
+        print("device_driver_verify: ALL 11 PASS")
+    else
+        print("device_driver_verify: FAIL")
+        print(ok1)
+        print(ok2)
+        print(ok3)
+        print(ok4)
+        print(ok5)
+        print(ok6)
+        print(ok7)
+        print(ok8)
+        print(ok9)
+        print(ok10)
+        print(ok11)
+    all

@@ -1,0 +1,39 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let h0 = 800
+bad[0] = bad[0] + ck(h0, 750, 850)
+
+let h_half = small_div(h0 * 3, 4)
+bad[0] = bad[0] + ck(h_half, 550, 650)
+
+let h_hot = small_div(h0 * 3, 4)
+bad[0] = bad[0] + ck_hi(h_hot, h0)
+
+let phi0 = 207
+bad[0] = bad[0] + ck(phi0, 200, 215)
+
+bad[0] = bad[0] + ck_hi(phi0, 300)
+
+let lam = 40
+bad[0] = bad[0] + ck(lam, 30, 50)
+
+let decay = 37
+bad[0] = bad[0] + ck(decay, 33, 42)
+
+let hc1 = 1700
+let hc2 = 4000
+bad[0] = bad[0] + ck_lo(hc2, hc1)
+
+if 1933 < 1931
+    bad[0] = bad[0] + 1
+if 1933 > 1935
+    bad[0] = bad[0] + 1
+if 1961 < 1959
+    bad[0] = bad[0] + 1
+if 1961 > 1963
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

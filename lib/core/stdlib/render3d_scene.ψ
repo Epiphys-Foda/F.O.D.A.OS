@@ -1,0 +1,56 @@
+import "gfx.ψ"
+import "ui.ψ"
+import "render3d_ui.ψ"
+
+let rf_rdsc_panel(env, robots, targets, fb, w, h) =
+    let out = fb
+    out = ui_draw_rect_border(out, w, h, 0, 0, w, h, gfx_pack_rgb(60, 70, 90))
+    out = rf_rdru_scene(env, robots, targets, w, h, 0)
+    out
+
+let rf_rdsc_btn(fb, w, h, x, y, bw, bh, hovered) =
+    ui_button(fb, w, h, x, y, bw, bh, gfx_pack_rgb(50, 80, 120), gfx_pack_rgb(180, 200, 230), 0)
+
+let rf_rdsc_hud(fb, w, h, x, y, tw, th) =
+    let out = fb
+    out = gfx_fill_rect(out, w, h, x, y, tw, th, gfx_pack_rgb(15, 18, 26))
+    out = ui_separator_h(out, w, h, x, y + th - 1, tw, gfx_pack_rgb(60, 70, 90))
+    out
+
+let rf_rdsc_status(env, robots, targets) =
+    let rcount = len(robots) / 3
+    let tcount = len(targets) / 3
+    let f0 = rf_rd3_field(env, 0, 0, 0)
+    [rcount, tcount, f0]
+
+let rf_rdsc_control(fb, w, h) =
+    let out = fb
+    out = rf_rdsc_btn(out, w, h, 2, 2, 30, 10, 0)
+    out = rf_rdsc_btn(out, w, h, 34, 2, 30, 10, 1)
+    out = rf_rdsc_btn(out, w, h, 66, 2, 30, 10, 0)
+    out
+
+let rf_rdsc_full(env, robots, targets, w, h) =
+    let fb = gfx_create(w, h)
+    fb = rf_rdsc_panel(env, robots, targets, fb, w, h)
+    fb = rf_rdsc_control(fb, w, h)
+    fb = rf_rdsc_hud(fb, w, h, 0, h - 2, w, 2)
+    fb
+
+let rf_rdsc_verify() =
+    let env = [0, 0, 0, 100]
+    let fb0 = gfx_create(16, 16)
+    let p1 = rf_rdsc_panel(env, [2, 0, 0], [0, 0, 0], fb0, 16, 16)
+    let t1 = gfx_get_pixel(p1, 16, 10, 8) == gfx_pack_rgb(255, 255, 255)
+    let b1 = rf_rdsc_btn(fb0, 16, 16, 2, 2, 5, 5, 0)
+    let px2 = gfx_get_pixel(b1, 16, 4, 4)
+    let t2 = (px2 == 0 ? false : true)
+    let h1 = rf_rdsc_hud(fb0, 16, 16, 0, 14, 16, 2)
+    let t3 = gfx_get_pixel(h1, 16, 8, 14) == gfx_pack_rgb(15, 18, 26)
+    let st = rf_rdsc_status(env, [2, 0, 0], [0, 0, 0])
+    let t4 = st[0] == 1 && st[1] == 1
+    let c1 = rf_rdsc_control(fb0, 16, 16)
+    let px5 = gfx_get_pixel(c1, 16, 4, 6)
+    let t5 = (px5 == 0 ? false : true)
+    let t6 = len(rf_rdsc_full(env, [2, 0, 0], [0, 0, 0], 16, 16)) == 256
+    t1 && t2 && t3 && t4 && t5 && t6

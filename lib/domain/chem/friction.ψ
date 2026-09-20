@@ -1,0 +1,32 @@
+import "ck.ψ"
+let bad = [0]
+
+let m_kg = 10
+let g = 10
+let n_force = m_kg * g
+let dz1 = n_force - 100
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let mu_s = 5
+let f_s_max = 50
+let push_1 = 40
+let f_self = 40
+let dz2 = f_self - push_1
+bad[0] = bad[0] + ck(dz2, 0, 0)
+bad[0] = bad[0] + ck_hi(push_1, f_s_max)
+
+let push_2 = 60
+bad[0] = bad[0] + ck_lo(push_2, f_s_max)
+
+let mu_k = 3
+let f_k = mu_k * n_force / 10
+let dz3 = f_k - 30
+bad[0] = bad[0] + ck(dz3, 0, 0)
+bad[0] = bad[0] + ck_hi(mu_k, mu_s)
+
+if 1699 < 1697
+    bad[0] = bad[0] + 1
+if 1699 > 1701
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

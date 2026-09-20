@@ -1,0 +1,159 @@
+import "../domain_field.ψ"
+
+let MEM_P = 65537
+let MEM_SIZE = 65536
+let MEM_BLOCK_SIZE = 4096
+let MEM_MIN_ORDER = 0
+let MEM_MAX_ORDER = 16
+
+let mem_blocks = array_new(MEM_SIZE)
+let mem_free_lists = array_new(MEM_MAX_ORDER + 1)
+let mem_allocated = 0
+let mem_total = MEM_SIZE
+
+let mem_init() =
+    let block = { addr: 0, order: MEM_MAX_ORDER, free: 1, buddy: 0, parent: 0, next: 0, prev: 0 }
+    mem_blocks[0] = block
+    mem_free_lists[MEM_MAX_ORDER] = 0
+    mem_allocated = 0
+
+let mem_alloc(size) =
+    let order = 0
+    let cap = 1
+    for cap < size
+        cap = cap * 2
+        order = order + 1
+    if order > MEM_MAX_ORDER
+        0
+
+    let o = order
+    for o <= MEM_MAX_ORDER && mem_free_lists[o] == 0
+        o = o + 1
+    if o > MEM_MAX_ORDER
+        0
+
+    let addr = mem_free_lists[o]
+    mem_remove_from_free(addr, o)
+
+    for o > order
+        o = o - 1
+        let buddy_addr = addr + mem_block_count(o)
+        let __b = mem_blocks[buddy_addr]
+        __b.addr = buddy_addr
+        __b.order = o
+        __b.free = 1
+        __b.buddy = addr
+        let __a = mem_blocks[addr]
+        __a.buddy = buddy_addr
+        mem_add_to_free(buddy_addr, o)
+
+    let __m = mem_blocks[addr]
+    __m.free = 0
+    __m.order = order
+    mem_allocated = mem_allocated + mem_block_count(order)
+    addr
+
+let mem_block_count(order) =
+    let n = 1
+    let i = 0
+    for i < order
+        n = n * 2
+        i = i + 1
+    n
+
+let mem_free(addr) =
+    let block = mem_blocks[addr]
+    let order = block.order
+    block.free = 1
+    mem_allocated = mem_allocated - mem_block_count(order)
+
+    let merging = 1
+    for order < MEM_MAX_ORDER && merging == 1
+        let buddy_addr = block.buddy
+        let buddy = mem_blocks[buddy_addr]
+        if buddy.free == 1 && buddy.order == order
+            mem_remove_from_free(buddy_addr, order)
+            if addr > buddy_addr
+                addr = buddy_addr
+            order = order + 1
+            block = mem_blocks[addr]
+            block.order = order
+            block.buddy = mem_buddy_addr(addr, order)
+        else
+            merging = 0
+    mem_add_to_free(addr, order)
+
+let mem_buddy_addr(addr, order) =
+    let mask = mem_block_count(order)
+    let buddy = addr ~ mask
+    buddy % MEM_SIZE
+
+let mem_add_to_free(addr, order) =
+    let __t2 = mem_blocks[addr]
+    __t2.next = mem_free_lists[order]
+    let __t3 = mem_blocks[addr]
+    __t3.free = 1
+    if mem_free_lists[order] != 0
+        let __t4 = mem_blocks[mem_free_lists.get(order)]
+        __t4.prev = addr
+    mem_free_lists[order] = addr
+
+let mem_remove_from_free(addr, order) =
+        let block = mem_blocks[addr]
+        if block.prev != 0
+            let __t5 = mem_blocks[block.prev]
+            __t5.next = block.next
+        else
+            mem_free_lists[order] = block.next
+        if block.next != 0
+            let __t6 = mem_blocks[block.next]
+            __t6.prev = block.prev
+        block.next = 0
+        block.prev = 0
+
+let mem_residue_field_eval(z) =
+    let result = 0
+    let addr = 0
+    for addr < MEM_SIZE
+        let block = mem_blocks[addr]
+        if block.free == 0
+            let residue = mem_block_hash(addr)
+            let denom = mem_inv_zz(z, addr)
+            result = domain_gf_add(result, domain_gf_mul(residue, denom))
+        addr = addr + 1
+    result
+
+let mem_inv_zz(z, zk) =
+    let diff = domain_gf_mod(z - zk)
+    (diff == 0 ? 0 : domain_gf_inv(diff))
+
+let mem_block_hash(addr) =
+    let h = addr
+    let i = 0
+    for i < MEM_BLOCK_SIZE
+        h = (h * 31 + addr + i) % MEM_P
+        i = i + 1
+    h
+
+let mem_usage() =
+    mem_allocated
+
+let mem_free_count() =
+    MEM_SIZE - mem_allocated
+
+let mem_fragmentation() =
+    let max_free_order = MEM_MAX_ORDER
+    for max_free_order >= 0 && mem_free_lists[max_free_order] == 0
+        max_free_order = max_free_order - 1
+    if max_free_order < 0
+        0
+    else
+        let max_alloc = mem_block_count(max_free_order)
+        let total_free = MEM_SIZE - mem_allocated
+        if total_free == 0
+            0
+        else
+            (total_free - max_alloc) * MEM_P / total_free
+
+let array_new(n) = arr_new_n(n)
+

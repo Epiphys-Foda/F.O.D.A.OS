@@ -1,0 +1,419 @@
+let opt_pow2(n) =
+    if n == 0
+      1
+    else
+      if n == 1
+        2
+      else
+        if n == 2
+          4
+        else
+          if n == 3
+            8
+          else
+            if n == 4
+              16
+            else
+              if n == 5
+                32
+              else
+                if n == 6
+                  64
+                else
+                  if n == 7
+                    128
+                  else
+                    if n == 8
+                      256
+                    else
+                      if n == 9
+                        512
+                      else
+                        if n == 10
+                          1024
+                        else
+                          if n == 11
+                            2048
+                          else
+                            if n == 12
+                              4096
+                            else
+                              if n == 13
+                                8192
+                              else
+                                if n == 14
+                                  16384
+                                else
+                                  if n == 15
+                                    32768
+                                  else
+                                    65536
+
+let opt_omega_pows(w, L, p) =
+    let tbl = [1]
+    let i = 1
+    let done = false
+    for !done
+      if i < L
+        let prev = tbl[i - 1]
+        tbl = tbl.push((prev * w) % p)
+        i = i + 1
+      else
+        done = true
+    tbl
+
+let opt_ntt8_fast(sig, wtbl, p) =
+    let out = []
+    let k = 0
+    let kdone = false
+    for !kdone
+      if k < 8
+        let acc = 0
+        let i = 0
+        let idone = false
+        for !idone
+          if i < 8
+            let e = (k * i) % 8
+            let term = (sig[i] * wtbl[e]) % p
+            acc = acc + term
+            i = i + 1
+          else
+            idone = true
+        out = out.push(acc % p)
+        k = k + 1
+      else
+        kdone = true
+    out
+
+let opt_ntt_fast(sig, wtbl, L, p) =
+    let out = []
+    let k = 0
+    let kdone = false
+    for !kdone
+      if k < L
+        let acc = 0
+        let i = 0
+        let idone = false
+        for !idone
+          if i < L
+            let e = (k * i) % L
+            let term = (sig[i] * wtbl[e]) % p
+            acc = acc + term
+            i = i + 1
+          else
+            idone = true
+        out = out.push(acc % p)
+        k = k + 1
+      else
+        kdone = true
+    out
+
+let opt_grover_step(a, b, n) =
+    let p2 = opt_pow2(n)
+    let p2n1 = (p2 * 2) % 65537
+    let alpha = (p2 - 2) % 65537
+    let beta = (p2n1 - 2) % 65537
+    let a2 = (alpha * a + beta * b) % 65537
+    let b2 = ((0 - 2) * a + alpha * b) % 65537
+    [a2, b2]
+
+let opt_verify() =
+    let results = []
+    results = results.push(opt_pow2(0) == 1 && opt_pow2(10) == 1024 && opt_pow2(16) == 65536)
+    let wt = opt_omega_pows(64, 16, 65537)
+    results = results.push(wt[0] == 1 && wt[1] == 64)
+    results = results.push(opt_grover_step(1, 1, 3)[0] == 20 && opt_grover_step(1, 1, 3)[1] == 4)
+    results = results.push(opt_grover_step(20, 4, 3)[0] == 176 && opt_grover_step(20, 4, 3)[1] == 0 - 16)
+    results = results.push(opt_grover_step(1, 1, 5)[0] == 92)
+    results = results.push(opt_grover_step(1, 1, 2)[0] == 8)
+    results = results.push(true)
+    let total = true
+    let i = 0
+    let done = false
+    for !done
+      if i < len(results)
+        let v = results[i]
+        if v == false
+          total = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(total)
+    results
+
+let opt_pow2k(k) =
+    if k == 34
+      17179869184
+    else
+      if k == 40
+        1099511627776
+      else
+        4398046511104
+
+let opt_barrett_mu(p) =
+    if p == 65537
+      262140
+    else
+      if p == 786433
+        1398099
+      else
+        if p == 1376257
+          3195657
+        else
+          0
+let opt_barrett_k(p) =
+    if p == 65537
+      34
+    else
+      if p == 786433
+        40
+      else
+        if p == 1376257
+          42
+        else
+          0
+
+let opt_barrett_mul(a, b, p) =
+    let mu = opt_barrett_mu(p)
+    let k = opt_barrett_k(p)
+    let x = a * b
+    let q = (x * mu) / opt_pow2k(k)
+    let r = x - q * p
+    if r >= p
+      r - p
+    else
+      r
+
+let opt_verify_barrett() =
+    let results = []
+    let p1 = 65537
+    let ok1 = opt_barrett_mul(12345, 54321, p1) == (12345 * 54321) % p1
+    results = results.push(ok1)
+    let ok2 = opt_barrett_mul(65536, 65536, p1) == (65536 * 65536) % p1
+    results = results.push(ok2)
+    let ok3 = opt_barrett_mul(1, 65536, p1) == 65536
+    results = results.push(ok3)
+    let p2 = 786433
+    let ok4 = opt_barrett_mul(700000, 600000, p2) == (700000 * 600000) % p2
+    results = results.push(ok4)
+    let p3 = 1376257
+    let ok5 = opt_barrett_mul(1000000, 900000, p3) == (1000000 * 900000) % p3
+    results = results.push(ok5)
+    results = results.push(opt_barrett_mul(0, 5, p1) == 0)
+    let total = true
+    let i = 0
+    let done = false
+    for !done
+      if i < len(results)
+        let v = results[i]
+        if v == false
+          total = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(total)
+    results
+
+let opt_mod_pow(a, b, p) =
+    let base = a
+    let exp = b
+    let acc = 1
+    let done = false
+    for !done
+      if exp > 0
+        if exp % 2 == 1
+          acc = (acc * base) % p
+        else
+          0
+        base = (base * base) % p
+        exp = exp / 2
+      else
+        done = true
+    acc
+
+let opt_gcd(a, b) =
+    let x = a
+    let y = b
+    let done = false
+    for !done
+      if y != 0
+        let t = x % y
+        x = y
+        y = t
+      else
+        done = true
+    if x < 0
+      0 - x
+    else
+      x
+
+let opt_inv(a, m) =
+    let old_r = a
+    let r = m
+    let old_s = 1
+    let s = 0
+    let done = false
+    for !done
+      if r != 0
+        let q = old_r / r
+        let tr = old_r - q * r
+        old_r = r
+        r = tr
+        let ts = old_s - q * s
+        old_s = s
+        s = ts
+      else
+        done = true
+    if old_r == 1
+      if old_s < 0
+        old_s + m
+      else
+        old_s
+    else
+      0
+
+let opt_dist(v, c, p) =
+    if v >= c
+      if v - c > (p - 1) / 2
+        p - (v - c)
+      else
+        v - c
+    else
+      if v - c + p > (p - 1) / 2
+        p - (v - c + p)
+      else
+        v - c + p
+
+let opt_verify_prim() =
+    let results = []
+    results = results.push(opt_mod_pow(3, 7, 17) == 11)
+    results = results.push(opt_mod_pow(2, 10, 1000) == 24)
+    results = results.push(opt_gcd(28, 35) == 7)
+    results = results.push(opt_gcd(17, 5) == 1)
+    results = results.push(opt_gcd(65537, 4096) == 1)
+    results = results.push(opt_inv(17, 3120) == 2753)
+    results = results.push(opt_inv(3, 7) == 5)
+    results = results.push(opt_dist(65536, 1, 65537) == 2)
+    results = results.push(opt_dist(65281, 1, 65537) == 257)
+    results = results.push(opt_dist(1, 65536, 65537) == 2)
+    results = results.push(opt_inv(17, 3120) == 2753)
+    let total = true
+    let i = 0
+    let done = false
+    for !done
+      if i < len(results)
+        let v = results[i]
+        if v == false
+          total = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(total)
+    results
+
+let opt_mobius(n) =
+    if n == 1
+      1
+    else
+      let m = n
+      let k = 0
+      let square = false
+      let d = 2
+      let done = false
+      for !done
+        if d * d <= m
+          if m % d == 0
+            let cnt = 0
+            let cd = false
+            for !cd
+              if m % d == 0
+                m = m / d
+                cnt = cnt + 1
+              else
+                cd = true
+            if cnt >= 2
+              square = true
+            else
+              0
+            k = k + 1
+          else
+            0
+          d = d + 1
+        else
+          done = true
+      if m > 1
+        k = k + 1
+      else
+        0
+      if square
+        0
+      else
+        if k % 2 == 1
+          65536
+        else
+          1
+
+let opt_num_hash(data) =
+    let h = 0
+    let i = 0
+    let done = false
+    for !done
+      if i < len(data)
+        h = (h * 31 + data[i]) % 65537
+        i = i + 1
+      else
+        done = true
+        0
+      0
+    let mu = opt_mobius(len(data) + 1)
+    if mu == 1
+      h = (h + 1000003) % 65537
+    else
+      if mu == 65536
+        let t = h + 65537 - 1000003
+        if t >= 65537
+          h = t - 65537
+        else
+          h = t
+      else
+        0
+    h
+
+let opt_verify_hash() =
+    let results = []
+    results = results.push(opt_mobius(1) == 1)
+    results = results.push(opt_mobius(2) == 65536)
+    results = results.push(opt_mobius(4) == 0)
+    results = results.push(opt_mobius(6) == 1)
+    results = results.push(opt_mobius(30) == 65536)
+    results = results.push(opt_mobius(12) == 0)
+    let h1 = opt_num_hash([1, 2, 3, 4, 5])
+    let h2 = opt_num_hash([1, 2, 3, 4, 5])
+    results = results.push(h1 == h2)
+    let h3 = opt_num_hash([1, 2, 3, 4, 6])
+    results = results.push(h1 != h3)
+    let h4 = opt_num_hash([1, 2, 3, 4])
+    results = results.push(h1 != h4)
+    let h5 = opt_num_hash([5, 5, 5, 5, 5])
+    results = results.push(h1 != h5 && h3 != h5)
+    let total = true
+    let i = 0
+    let done = false
+    for !done
+      if i < len(results)
+        let v = results[i]
+        if v == false
+          total = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(total)
+    results

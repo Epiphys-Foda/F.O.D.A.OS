@@ -1,0 +1,157 @@
+let COMPILER_OPT_NONE = 0
+let COMPILER_OPT_BASIC = 1
+let COMPILER_OPT_FULL = 2
+
+let COMPILER_NUM_INT = 0
+let COMPILER_NUM_BIGINT = 1
+let COMPILER_NUM_FIXED = 2
+let COMPILER_NUM_RATIONAL = 3
+
+let compiler_config() =
+    let config = arr_new_n(5)
+    config[0] = 0
+    config[1] = COMPILER_OPT_FULL
+    config[2] = COMPILER_NUM_INT
+    config[3] = 1
+    config[4] = 1
+    config
+
+let num_add(config, a, b) =
+    let num_type = config[2]
+    if num_type == COMPILER_NUM_INT
+        let s = a + b
+        (s >= 65537 ? s - 65537 : s)
+    else
+            0
+    if num_type == COMPILER_NUM_BIGINT
+        let s = a + b
+        s
+    else
+        0
+    if num_type == COMPILER_NUM_FIXED
+        let s = a ^ b
+        let carry = (a & b) << 1
+        let ss = s
+        let c = carry
+        for c != 0
+            let ns = ss ^ c
+            c = (ss & c) << 1
+            ss = ns
+        ss
+    else
+        a + b
+
+let num_mul(config, a, b) =
+    let num_type = config[2]
+    if num_type == COMPILER_NUM_INT
+        (a * b) % 65537
+    else
+        0
+    if num_type == COMPILER_NUM_BIGINT
+        a * b
+    else
+        0
+    if num_type == COMPILER_NUM_FIXED
+        (a * b) / 65536
+    else
+        a * b
+
+let num_eq(config, a, b) =
+    (a == b ? 1 : 0)
+
+let num_lt(config, a, b) =
+    (a < b ? 1 : 0)
+
+let pipeline_lex(source) =
+    source
+
+let pipeline_parse(tokens) =
+    tokens
+
+let pipeline_lower(ast, config) =
+    ast
+
+let pipeline_optimize(residue_table, config) =
+    let opt_level = config[1]
+    if opt_level == COMPILER_OPT_NONE
+        residue_table
+    else
+        0
+    if opt_level == COMPILER_OPT_BASIC
+        residue_table
+    else
+        residue_table
+
+let pipeline_emit(optimized_table, config) =
+    let backend_id = config[0]
+    optimized_table
+
+let compile(source, config) =
+    let tokens = pipeline_lex(source)
+    let ast = pipeline_parse(tokens)
+    let residue = pipeline_lower(ast, config)
+    let optimized = pipeline_optimize(residue, config)
+    let output = pipeline_emit(optimized, config)
+    output
+
+let compile_all_backends(source) =
+    let results = arr_new()
+    let backend_id = 0
+    for backend_id < 10
+        let config = compiler_config()
+        config[0] = backend_id
+        let result = compile(source, config)
+        results = arr_push(results, result)
+        backend_id = backend_id + 1
+    results
+
+let compile_parallel(sources, config) =
+    let n = sources.len()
+    let n_shards = 4
+    let shard_size = n / n_shards
+    if shard_size == 0
+        shard_size = 1
+    let results = arr_new()
+    let ch = 0
+    for ch < n_shards
+        let shard_result = arr_new()
+        let i = ch * shard_size
+        let end = i + shard_size
+        if end > n
+            end = n
+        for i < end
+            let compiled = compile(sources[i], config)
+            shard_result = arr_push(shard_result, compiled)
+            i = i + 1
+        results = arr_push(results, shard_result)
+        ch = ch + 1
+    let final = arr_new()
+    let r = 0
+    for r < results.len()
+        let shard = results[r]
+        let i = 0
+        for i < shard.len()
+            final = arr_push(final, shard[i])
+            i = i + 1
+        r = r + 1
+    final
+
+let compiler_stats(config) =
+    let stats = arr_new_n(6)
+    stats[0] = config[0]
+    stats[1] = config[1]
+    stats[2] = config[2]
+    stats[3] = config[3]
+    stats[4] = config[4]
+    stats[5] = 0
+    stats
+
+let verify_kleene(source) =
+    let config = compiler_config()
+    let g1 = compile(source, config)
+    let g2 = compile(g1, config)
+    (g1 == g2 ? 1 : 0)
+
+let main_compile(source) =
+    let config = compiler_config()
+    compile(source, config)

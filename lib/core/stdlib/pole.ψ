@@ -1,0 +1,46 @@
+let POLE_P = 65537
+
+let pole_mul(a, b) = gfmul(a, b)
+
+let pole_pow(base, exp) = base ^ exp
+
+let pole_inv(d) =
+    (d == 0 ? 0 : pole_pow(d, POLE_P - 2))
+
+let pole_move(x, v, dt) =
+    let r = x + v * dt
+    r - r / POLE_P * POLE_P
+
+let pole_orbit_impl(x, v, dt, n, idx, acc) =
+    if idx < n
+      let nx = pole_move(x, v, dt)
+      pole_orbit_impl(nx, v, dt, n, idx + 1, acc.push(nx))
+    else
+        acc
+
+let pole_orbit(x, v, dt, n) = pole_orbit_impl(x, v, dt, n, 0, [])
+
+let pole_returns(x, v, dt, n) = pole_move(x, v * n, dt) == x
+
+let pole_velocity_constant(x, v, dt) = pole_move(pole_move(x, v, dt), v, dt) - pole_move(x, v, dt) == v * dt
+
+let pole_field_impl(x, poles, idx, acc) =
+    if idx < len(poles)
+      let d = x - poles[idx]
+      let d2 = (d < 0 ? d + POLE_P : d)
+      let acc2 = acc + pole_inv(d2)
+      pole_field_impl(x, poles, idx + 1, acc2 - acc2 / POLE_P * POLE_P)
+    else
+        acc
+
+let pole_field(x, poles) = pole_field_impl(x, poles, 0, 0)
+
+let pole_threshold(v, t) =
+    (v < t ? 0 : v)
+
+let pole_magnetize(v, t) =
+    (v < t ? 0 : v)
+
+let pole_threshold_ok(v_low, v_high, t) = pole_threshold(v_low, t) == 0 && pole_threshold(v_high, t) == v_high
+
+let pole_summary() = { theory: "Cauchy residue x time", orbit: "trajectory = velocity integral + winding", field: "field = superposed residue kernel", threshold: "Meissner threshold" }

@@ -1,0 +1,38 @@
+import "ck.ψ"
+let bad = [0]
+
+let plant = 1000
+let herb = 100
+let carn = 10
+let apex = 1
+let dz1 = herb * 10 - plant
+bad[0] = bad[0] + ck(dz1, 0, 0)
+let dz2 = carn * 10 - herb
+bad[0] = bad[0] + ck(dz2, 0, 0)
+let dz3 = apex * 10 - carn
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+if apex > plant / 100
+    bad[0] = bad[0] + 1
+
+let eff = 1
+bad[0] = bad[0] + ck_hi(eff, 2)
+
+let toxin_factor = 100
+bad[0] = bad[0] + ck(toxin_factor, 10, 500)
+let toxin_top = toxin_factor * toxin_factor
+if toxin_top < toxin_factor * 10
+    bad[0] = bad[0] + 1
+
+if 1927 < 1925
+    bad[0] = bad[0] + 1
+if 1927 > 1929
+    bad[0] = bad[0] + 1
+if 1942 < 1940
+    bad[0] = bad[0] + 1
+if 1942 > 1944
+    bad[0] = bad[0] + 1
+if 1942 < 1927
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

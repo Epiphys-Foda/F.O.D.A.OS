@@ -1,0 +1,43 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let f0 = 500
+let vs = 34
+bad[0] = bad[0] + ck(vs, 30, 40)
+
+let f_app = small_div(f0 * 3400, 340 - vs)
+bad[0] = bad[0] + ck(f_app, 5450, 5650)
+
+let f_rec = small_div(f0 * 3400, 340 + vs)
+bad[0] = bad[0] + ck(f_rec, 4450, 4650)
+
+let up = f_app / 10 - 500
+let dn = 500 - f_rec / 10
+bad[0] = bad[0] + ck_lo(up, dn)
+
+let fb = 4000
+let f_echo = small_div(fb * 340, 340 - 30)
+bad[0] = bad[0] + ck(f_echo, 4300, 4450)
+bad[0] = bad[0] + ck_lo(f_echo, fb)
+
+let df = small_div(50000000, 15400)
+bad[0] = bad[0] + ck(df, 3000, 3500)
+
+let mach2 = small_div(340000, 680)
+if mach2 != 500
+    bad[0] = bad[0] + 1
+let cone = 30
+bad[0] = bad[0] + ck(cone, 29, 31)
+
+if 1842 < 1840
+    bad[0] = bad[0] + 1
+if 1842 > 1844
+    bad[0] = bad[0] + 1
+if 1845 < 1843
+    bad[0] = bad[0] + 1
+if 1845 > 1847
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

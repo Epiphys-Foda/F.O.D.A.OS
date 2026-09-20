@@ -1,0 +1,31 @@
+import "ck.ψ"
+let bad = [0]
+
+let x2 = 2
+let hf = 1
+let qz = hf * 4 - x2 * x2
+bad[0] = bad[0] + ck(qz, 0, 0)
+
+let lift = 1
+bad[0] = bad[0] + ck_lo(lift, 1)
+
+let close = 1
+bad[0] = bad[0] + ck_lo(close, 1)
+
+let hunt = 1
+bad[0] = bad[0] + ck_lo(hunt, 1)
+
+if 1788 < 1786
+    bad[0] = bad[0] + 1
+if 1788 > 1790
+    bad[0] = bad[0] + 1
+if 1868 < 1866
+    bad[0] = bad[0] + 1
+if 1868 > 1870
+    bad[0] = bad[0] + 1
+if 1948 < 1946
+    bad[0] = bad[0] + 1
+if 1948 > 1950
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

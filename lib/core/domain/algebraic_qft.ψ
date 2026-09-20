@@ -1,0 +1,141 @@
+import "../stdlib/gf65537.ψ"
+
+let local_algebra(region_size) =
+    let mat = [0] * region_size
+    for i in 0..region_size
+        mat[i] = [0] * region_size
+    mat
+
+let isotony_check(o1_size, o2_size) =
+    (o1_size <= o2_size ? 1 : 0)
+
+let locality_check(o1_o2_spacelike, a_o1, a_o2) =
+        if o1_o2_spacelike == 1
+            let comm = gf_sub(gf_mul(a_o1, a_o2), gf_mul(a_o2, a_o1))
+            (comm == 0 ? 1 : 0)
+        else
+                0
+            1
+
+let covariance_action(u_matrix, a_o, u_dagger) =
+    gf_mul(gf_mul(u_matrix, a_o), u_dagger)
+
+let spectrum_condition(energy) =
+    (energy <= 32768 ? 1 : 0)
+
+let vacuum_state(n_dim) =
+    let omega = [0] * n_dim
+    omega[0] = 1
+    omega
+
+let algebra_type(n_dim) =
+    [1, n_dim]
+
+let matrix_trace(mat, n) =
+    let trace = 0
+    for i in 0..n
+        trace = gf_add(trace, mat[i][i])
+    trace
+
+let minimal_projection(i, n) =
+    let proj = [0] * n
+    for k in 0..n
+        let row = [0] * n
+        if k == i
+            row[i] = 1
+        proj[k] = row
+    proj
+
+let tomita_operator(a, omega) =
+    gf_mul(a, omega)
+
+let modular_operator(s) =
+    gf_mul(s, s)
+
+let modular_conjugation(s, delta) =
+    let sqrt_delta = gf_sqrt(delta)
+    let inv_sqrt_delta = gf_inv(sqrt_delta)
+    gf_mul(s, inv_sqrt_delta)
+
+let modular_automorphism(a, delta, t) =
+    let delta_t = gf_pow(delta, t)
+    let delta_neg_t = gf_inv(delta_t)
+    gf_mul(gf_mul(delta_t, a), delta_neg_t)
+
+let modular_conjugation_property(j, a_o, j_inv) =
+    gf_mul(gf_mul(j, a_o), j_inv)
+
+let kms_condition(omega, a, b, delta, t) =
+    let sigma_t_b = modular_automorphism(b, delta, t)
+    let lhs = gf_mul(omega, gf_mul(a, sigma_t_b))
+    let rhs = gf_mul(omega, gf_mul(b, a))
+    (lhs == rhs ? 1 : 0)
+
+let reeh_schlieder_check(omega, local_algebra_action) =
+    (omega != 0 ? 1 : 0)
+
+let area_law(boundary_size) =
+    boundary_size
+
+let entanglement_entropy_aqft(n_dim) =
+    gf_sub(gf_mul(n_dim, n_dim), 1)
+
+let area_vs_volume_law(boundary_size, volume_size) =
+    [boundary_size, volume_size]
+
+let dhr_charge(charge_label) =
+    charge_label
+
+let charge_fusion(q1, q2) =
+    gf_add(q1, q2)
+
+let charge_conjugate(q) =
+    gf_neg(q)
+
+let is_neutral_charge(q) =
+    (gf_add(q, charge_conjugate(q)) == 0 ? 1 : 0)
+
+let charge_statistics(dim_spacetime, charge) =
+        if dim_spacetime <= 2
+            [1, charge]
+        else
+            [0, charge % 2]
+
+let dhr_representation(charge_label, n_dim) =
+    [charge_label, n_dim]
+
+let ope_algebraic(a_x, b_y, structure_constants, n_terms) =
+    let result = 0
+    for k in 0..n_terms
+        result = gf_add(result, structure_constants[k])
+    result
+
+let ope_structure_constant(c_k, delta_k, z) =
+    gf_mul(c_k, gf_inv(gf_pow(z, delta_k)))
+
+let wightman_function(omega, operators, n) =
+    let result = omega
+    for i in 0..n
+        result = gf_mul(result, operators[i])
+    gf_mul(result, omega)
+
+let wightman_2point(omega, a1, a2) =
+    gf_mul(gf_mul(gf_mul(omega, a1), a2), omega)
+
+let borchers_class(n_fields) =
+    n_fields
+
+let nuclearity_check(n_dim) =
+    1
+
+let nuclearity_bound(n_dim) =
+    gf_mul(n_dim, n_dim)
+
+let split_property(n1, n2) =
+    gf_mul(n1, n2)
+
+let quantum_energy_inequality(f_values, t_munu_values, n_times) =
+    let result = 0
+    for t in 0..n_times
+        result = gf_add(result, gf_mul(f_values[t], t_munu_values[t]))
+    (result <= 32768 ? 1 : 0)

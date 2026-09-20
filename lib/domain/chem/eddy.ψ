@@ -1,0 +1,36 @@
+import "ck.ψ"
+let bad = [0]
+
+let a0 = 100
+let a1 = 50
+let a2 = 25
+let rz1 = a1 * 2 - a0
+let rz2 = a2 * 2 - a1
+bad[0] = bad[0] + ck(rz1, 0, 0)
+bad[0] = bad[0] + ck(rz2, 0, 0)
+
+let eff = 84
+let effg = 40
+let effz = eff * 10 / effg
+bad[0] = bad[0] + ck(effz, 18, 25)
+
+let lam = 4
+bad[0] = bad[0] + ck(lam, 4, 4)
+
+let oppose = 1
+bad[0] = bad[0] + ck_lo(oppose, 1)
+
+if 1824 < 1822
+    bad[0] = bad[0] + 1
+if 1824 > 1826
+    bad[0] = bad[0] + 1
+if 1834 < 1832
+    bad[0] = bad[0] + 1
+if 1834 > 1836
+    bad[0] = bad[0] + 1
+if 1855 < 1853
+    bad[0] = bad[0] + 1
+if 1855 > 1857
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,63 @@
+import "wf_brain.ψ"
+
+let P = 65537
+let P2 = 131071
+
+import "../core/stdlib_lang2/gf_canon_shared.ψ"
+import "sh_d39d441e28.ψ"
+import "../core/stdlib_lang2/bm_canon.ψ"
+import "sh_ee308d734f.ψ"
+import "sh_bffc56f968.ψ"
+import "sh_0fe08dee05.ψ"
+let quad_signature(C, L) =
+    let ok = 0
+    if L == 3
+        let s1 = 0
+        if C[1] == gf_sub(0, 3)
+            s1 = 1
+        let s2 = 0
+        if C[2] == 3
+            s2 = 1
+        let s3 = 0
+        if C[3] == gf_sub(0, 1)
+            s3 = 1
+        ok = s1 * s2 * s3
+    ok
+
+let lag_hit(num, den, actual, tol) =
+    let aden = abs_i(den)
+    let diff = abs_i(num - actual * den)
+    let lim = tol * aden
+    let hit = 0
+    if diff <= lim
+        hit = 1
+    hit
+
+let kepler_pass(A, Tt, n, ref) =
+    let aref3 = A[ref] * A[ref] * A[ref]
+    let tref2 = Tt[ref] * Tt[ref]
+    let hits = 0
+    let i = 0
+    for i < n
+        let ai3 = A[i] * A[i] * A[i]
+        let ti2 = Tt[i] * Tt[i]
+        let lhs = ti2 * aref3
+        let rhs = ai3 * tref2
+        let d = lhs - rhs
+        let neg = 0
+        if d < 0
+            neg = 1
+        let ad = d
+        if neg == 1
+            ad = 0 - d
+        let pass = 0
+        if ad * 100 <= rhs
+            pass = 1
+        hits = hits + pass
+        i = i + 1
+    hits
+
+let rrns_audit2(arr, n, out2) =
+    out2[0] = rrns_chain(arr, n, P)
+    out2[1] = rrns_chain(arr, n, 131071)
+    0

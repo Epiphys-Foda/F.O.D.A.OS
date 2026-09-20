@@ -1,0 +1,267 @@
+let tp_new(topic, pid, leader) =
+    [topic, pid, [], leader, [], {}, 0, 1]
+
+let tp_topic(p) = p[0]
+let tp_pid(p) = p[1]
+let tp_log(p) = p[2]
+let tp_leader(p) = p[3]
+let tp_followers(p) = p[4]
+let tp_groups(p) = p[5]
+let tp_next(p) = p[6]
+let tp_healthy(p) = p[7]
+
+let tp_set_log(p, v) = [p[0], p[1], v, p[3], p[4], p[5], p[6], p[7]]
+let tp_set_followers(p, v) = [p[0], p[1], p[2], p[3], v, p[5], p[6], p[7]]
+let tp_set_groups(p, v) = [p[0], p[1], p[2], p[3], p[4], v, p[6], p[7]]
+let tp_set_next(p, v) = [p[0], p[1], p[2], p[3], p[4], p[5], v, p[7]]
+let tp_set_healthy(p, v) = [p[0], p[1], p[2], p[3], p[4], p[5], p[6], v]
+
+let tp_append(p, key, value, ts) =
+    let offset = tp_next(p)
+    let msg = [offset, key, value, ts]
+    let log = tp_log(p)
+    log.push(msg)
+    p = tp_set_log(p, log)
+    p = tp_set_next(p, offset + 1)
+    [p, offset]
+
+let tp_add_follower(p, follower_id) =
+    let followers = tp_followers(p)
+    followers.push(follower_id)
+    tp_set_followers(p, followers)
+
+let tp_register_group(p, group) =
+    let groups = tp_groups(p)
+    groups[group] = 0
+    tp_set_groups(p, groups)
+
+let tp_commit_offset(p, group, offset) =
+    let groups = tp_groups(p)
+    groups[group] = offset
+    tp_set_groups(p, groups)
+
+let tp_get_offset(p, group) =
+    let groups = tp_groups(p)
+    let v = groups[group]
+    if v == 0
+        0
+    else
+        v
+
+let tp_fetch(p, group, max_count) =
+    let groups = tp_groups(p)
+    let offset = groups[group]
+    if offset == 0
+        offset = 0
+    let log = tp_log(p)
+    let result = []
+    let i = offset
+    let n = len(log)
+    for i < n && len(result) < max_count
+        result.push(log[i])
+        i = i + 1
+    result
+
+let tp_topic_new(name, num_partitions, replication, created) =
+    let partitions = []
+    let i = 0
+    for i < num_partitions
+        let p = tp_new(name, i, "node" + i)
+        let j = 1
+        for j < replication
+            p = tp_add_follower(p, "node" + ((i + j) % num_partitions))
+            j = j + 1
+        partitions.push(p)
+        i = i + 1
+    [name, partitions, num_partitions, replication, created]
+
+let tp_t_name(t) = t[0]
+let tp_t_parts(t) = t[1]
+let tp_t_num(t) = t[2]
+let tp_t_rep(t) = t[3]
+let tp_t_created(t) = t[4]
+
+let tp_t_set_parts(t, v) = [t[0], v, t[2], t[3], t[4]]
+
+let tp_route_partition(topic, key) =
+    let h = 0
+    let s = "" + key
+    let i = 0
+    let n = len(s)
+    for i < n
+        h = (h * 31 + s[i]) % 65537
+        i = i + 1
+    h % tp_t_num(topic)
+
+let tp_publish(topic, key, value, ts) =
+    let pid = tp_route_partition(topic, key)
+    let parts = tp_t_parts(topic)
+    let p = parts[pid]
+    let r = tp_append(p, key, value, ts)
+    p = r[0]
+    parts[pid] = p
+    topic = tp_t_set_parts(topic, parts)
+    [topic, pid, r[1]]
+
+let tp_publish_round_robin(topic, value, ts, counter) =
+    let pid = counter % tp_t_num(topic)
+    let parts = tp_t_parts(topic)
+    let p = parts[pid]
+    let r = tp_append(p, 0, value, ts)
+    p = r[0]
+    parts[pid] = p
+    topic = tp_t_set_parts(topic, parts)
+    [topic, pid, r[1]]
+
+let tp_coord_new() = [{}, {}, {}, 0]
+
+let c_groups(c) = c[0]
+let c_members(c) = c[1]
+let c_gen(c) = c[2]
+let c_reb(c) = c[3]
+
+let c_set_groups(c, v) = [v, c[1], c[2], c[3]]
+let c_set_members(c, v) = [c[0], v, c[2], c[3]]
+let c_set_gen(c, v) = [c[0], c[1], v, c[3]]
+let c_set_reb(c, v) = [c[0], c[1], c[2], v]
+
+let tp_join_group(c, group, consumer_id) =
+    let members = c_members(c)
+    let list = members[group]
+    if list == 0
+        list = []
+    list.push(consumer_id)
+    members[group] = list
+    c = c_set_members(c, members)
+    let gens = c_gen(c)
+    let g = gens[group]
+    if g == 0
+        g = 0
+    gens[group] = g + 1
+    c = c_set_gen(c, gens)
+    c = c_set_reb(c, c_reb(c) + 1)
+    c
+
+let tp_assign_partitions(c, group, topic) =
+    let members = c_members(c)
+    let list = members[group]
+    if list == 0 || len(list) == 0
+        c
+    else
+        let num_parts = tp_t_num(topic)
+        let num_consumers = len(list)
+        let groups = c_groups(c)
+        let assignment = {}
+        let i = 0
+        for i < num_parts
+            let cid = list[i % num_consumers]
+            let parts = assignment[cid]
+            if parts == 0
+                parts = []
+            parts.push(i)
+            assignment[cid] = parts
+            i = i + 1
+        groups[group + ":" + tp_t_name(topic)] = assignment
+        c = c_set_groups(c, groups)
+        c
+
+let tp_bragg_check(topic) =
+    let parts = tp_t_parts(topic)
+    let ok = 1
+    let i = 0
+    let n = len(parts)
+    for i < n
+        let p = parts[i]
+        let log = tp_log(p)
+        let prev_offset = -1
+        let j = 0
+        let m = len(log)
+        for j < m
+            let msg = log[j]
+            if msg[0] <= prev_offset
+                ok = 0
+            prev_offset = msg[0]
+            j = j + 1
+        i = i + 1
+    ok
+
+let tp_test_basic() =
+    let topic = tp_topic_new("orders", 4, 2, 1000)
+    let ok1 = 1
+    if tp_t_num(topic) != 4
+        ok1 = 0
+    if len(tp_t_parts(topic)) != 4
+        ok1 = 0
+
+    let pid1 = tp_route_partition(topic, "order-1")
+    let pid2 = tp_route_partition(topic, "order-1")
+    let pid3 = tp_route_partition(topic, "order-2")
+    let ok2 = 1
+    if pid1 != pid2
+        ok2 = 0
+
+    let r1 = tp_publish(topic, "order-1", 100, 2000)
+    topic = r1[0]
+    let r2 = tp_publish(topic, "order-2", 200, 2100)
+    topic = r2[0]
+    let r3 = tp_publish(topic, "order-1", 150, 2200)
+    topic = r3[0]
+
+    let ok3 = 1
+    let p1 = tp_t_parts(topic)[pid1]
+    if len(tp_log(p1)) != 2
+        ok3 = 0
+
+    let coord = tp_coord_new()
+    coord = tp_join_group(coord, "g1", "c1")
+    coord = tp_join_group(coord, "g1", "c2")
+    let ok4 = 1
+    let members = c_members(coord)["g1"]
+    if len(members) != 2
+        ok4 = 0
+    if c_reb(coord) != 2
+        ok4 = 0
+
+    coord = tp_assign_partitions(coord, "g1", topic)
+    let ok5 = 1
+    let assignment = c_groups(coord)["g1:" + tp_t_name(topic)]
+    if assignment == 0
+        ok5 = 0
+
+    p1 = tp_register_group(p1, "g1")
+    let parts = tp_t_parts(topic)
+    parts[pid1] = p1
+    topic = tp_t_set_parts(topic, parts)
+    let fetched = tp_fetch(p1, "g1", 10)
+    let ok6 = 1
+    if len(fetched) != 2
+        ok6 = 0
+
+    p1 = tp_commit_offset(p1, "g1", 2)
+    parts = tp_t_parts(topic)
+    parts[pid1] = p1
+    topic = tp_t_set_parts(topic, parts)
+    let ok7 = 1
+    if tp_get_offset(p1, "g1") != 2
+        ok7 = 0
+
+    let fetched2 = tp_fetch(p1, "g1", 10)
+    let ok8 = 1
+    if len(fetched2) != 0
+        ok8 = 0
+
+    let ok9 = 1
+    if tp_bragg_check(topic) != 1
+        ok9 = 0
+
+    ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7 * ok8 * ok9
+
+let tp_test_self() =
+        let ok = tp_test_basic()
+        if ok == 1
+            print("topic_partition: ALL PASS")
+        else
+            print("topic_partition: FAIL")
+        ok
+
+    tp_test_self()

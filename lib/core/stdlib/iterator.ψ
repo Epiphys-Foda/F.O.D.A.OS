@@ -1,0 +1,115 @@
+let iter_new(arr) =
+    { items: arr }
+
+let iter_range(a, b) =
+    let items = []
+    let i = a
+    for i < b
+      items = items.push(i)
+      i = i + 1
+    { items: items }
+
+let iter_from_str(s) =
+    { items: s.chars() }
+
+let iter_len(self) = self.len(items)
+
+let iter_is_empty(self) = self.len(items) == 0
+
+let iter_get(self, i) = self.items[i]
+
+let iter_map(self, f) =
+    { items: self.items.map(f) }
+
+let iter_filter(self, pred) =
+    { items: self.items.filter(pred) }
+
+let iter_take(self, n) =
+    if n <= 0
+      { items: [] }
+    else
+      let total = self.len(items)
+      let m = ((n < total ? n : total))
+      { items: self.items.slice(0, m) }
+
+let iter_drop(self, n) =
+    if n <= 0
+      self
+    else
+      let total = self.len(items)
+      let m = ((n < total ? n : total))
+      { items: self.items.slice(m, total) }
+
+let iter_concat(self, other) =
+    { items: [self.items, other.items].flat() }
+
+let iter_reverse(self) =
+    { items: self.items.reverse() }
+
+let iter_sort(self) =
+    { items: self.items.sort() }
+
+let iter_zip(self, other) =
+    let result = []
+    let n = (self.len(items) < other.len(items) ? self.len(items) : other.len(items))
+    let i = 0
+    let done = false
+    for !done
+      if i < n
+        result = result.push([self.items[i], other.items[i]])
+        i = i + 1
+      else
+        done = true
+    { items: result }
+
+let iter_collect(self) = self.items
+
+let iter_for_each(self, f) =
+    self.items.map(f)
+    null
+
+let iter_reduce(self, f, init) = self.items.reduce(f, init)
+
+let iter_sum(self) = self.items.sum()
+
+let iter_count(self) = self.len(items)
+
+let iter_find(self, pred) =
+    let found = null
+    let has_found = false
+    let i = 0
+    let n = self.len(items)
+    for i < n
+      let x = self.items[i]
+      let hit = pred(x)
+      if hit
+        if has_found
+          0
+        else
+          has_found = true
+          found = x
+      else
+        0
+      i = i + 1
+    found
+
+let iter_any(self, pred) =
+    let found = false
+    let i = 0
+    let n = self.len(items)
+    for i < n
+      let x = self.items[i]
+      found = ((pred(x) ? true : found))
+      i = i + 1
+    found
+
+let iter_all(self, pred) =
+    let all_ok = true
+    let i = 0
+    let n = self.len(items)
+    for i < n
+      let x = self.items[i]
+      all_ok = ((!pred(x) ? false : all_ok))
+      i = i + 1
+    all_ok
+

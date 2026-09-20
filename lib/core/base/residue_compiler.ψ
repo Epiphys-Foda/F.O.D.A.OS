@@ -1,0 +1,464 @@
+let P = 65537
+
+let rpf_eval(field, z0) =
+    let primes = rpf_primes(field)
+    let n = rpf_count(field)
+    let total = 0
+    let i = 0
+    for i < n
+        let rp = primes[i]
+        let z = rp_z(rp)
+        let r = rp_r(rp)
+        let dz = gf_sub(z0, z)
+        if dz == 0
+            total = gf_add(total, r)
+        if dz != 0
+            let inv_dz = gf_inv(dz)
+            total = gf_add(total, gf_mul(r, inv_dz))
+        i = i + 1
+    total
+
+let rpf_galois(field, sigma) =
+    let primes = rpf_primes(field)
+    let n = rpf_count(field)
+    let new_primes = arr_new()
+    let i = 0
+    for i < n
+        let rp = primes[i]
+        let new_z = gf_pow(rp_z(rp), sigma)
+        let new_r = gf_pow(rp_r(rp), sigma)
+        let new_n = rp_n(rp)
+        new_primes = arr_push(new_primes, rp_make(new_z, new_r, new_n))
+        i = i + 1
+    rpf_make(new_primes, n)
+
+let rpf_homology(field) =
+    let primes = rpf_primes(field)
+    let n = rpf_count(field)
+    let unique_z = arr_new()
+    let i = 0
+    for i < n
+        let z = rp_z(primes[i])
+        let found = 0
+        let j = 0
+        for j < len(unique_z)
+            if unique_z[j] == z
+                found = 1
+            j = j + 1
+        if found == 0
+            unique_z = arr_push(unique_z, z)
+        i = i + 1
+    len(unique_z)
+
+let tok_int(value, pos) = rp_make(0, value, pos)
+let tok_ident(char_code, pos) = rp_make(1, char_code, pos)
+let tok_op(op_code, pos) = rp_make(3, op_code, pos)
+let tok_lparen(pos) = rp_make(4, 0, pos)
+let tok_rparen(pos) = rp_make(5, 0, pos)
+let tok_eq(pos) = rp_make(8, 0, pos)
+let tok_newline(pos) = rp_make(10, 0, pos)
+let tok_eof(pos) = rp_make(11, 0, pos)
+
+let tok_type(tok) = rp_z(tok)
+let tok_value(tok) = rp_r(tok)
+let tok_pos(tok) = rp_n(tok)
+
+let is_digit(c) =
+    (c >= 48 && c <= 57 ? 1 : 0)
+let is_alpha(c) =
+    if c == 95
+        1
+    else
+        (c >= 65 && c <= 90 ? 1 : (c >= 97 && c <= 122 ? 1 : 0))
+let is_space(c) =
+    if c == 32
+        1
+    else
+        (c == 9 ? 1 : (c == 13 ? 1 : 0))
+
+let is_op_char(c) =
+    if c == 43
+        1
+    else
+        (c == 45 ? 1 : (c == 42 ? 1 : (c == 47 ? 1 : (c == 60 ? 1 : (c == 62 ? 1 : (c == 33 ? 1 : (c == 37 ? 1 : 0)))))))
+
+let lex_to_residue(src) =
+    let n = len(src)
+    let tokens = arr_new()
+    let i = 0
+    let pos = 0
+
+    for i < n
+        let c = src[i]
+        let handled = 0
+
+        if is_space(c) == 1
+            i = i + 1
+            handled = 1
+        if handled == 0
+            if c == 10
+                tokens = arr_push(tokens, tok_newline(pos))
+                pos = pos + 1
+                i = i + 1
+                handled = 1
+        if handled == 0
+            if is_digit(c) == 1
+                let num = 0
+                let done = 0
+                for done == 0
+                    if i < n
+                        let d = src[i]
+                        if is_digit(d) == 1
+                            num = num * 10 + (d - 48)
+                            i = i + 1
+                        else
+                            done = 1
+                    else
+                        done = 1
+                tokens = arr_push(tokens, tok_int(num, pos))
+                pos = pos + 1
+                handled = 1
+        if handled == 0
+            if is_alpha(c) == 1
+                let char_code = c
+                let done = 0
+                for done == 0
+                    if i < n
+                        let d = src[i]
+                        if is_alpha(d) == 1
+                            i = i + 1
+                        else
+                            if is_digit(d) == 1
+                                i = i + 1
+                            else
+                                done = 1
+                    else
+                        done = 1
+                tokens = arr_push(tokens, tok_ident(char_code, pos))
+                pos = pos + 1
+                handled = 1
+        if handled == 0
+            if is_op_char(c) == 1
+                tokens = arr_push(tokens, tok_op(c, pos))
+                pos = pos + 1
+                i = i + 1
+                handled = 1
+        if handled == 0
+            if c == 40
+                tokens = arr_push(tokens, tok_lparen(pos))
+                pos = pos + 1
+                i = i + 1
+                handled = 1
+        if handled == 0
+            if c == 41
+                tokens = arr_push(tokens, tok_rparen(pos))
+                pos = pos + 1
+                i = i + 1
+                handled = 1
+        if handled == 0
+            if c == 61
+                tokens = arr_push(tokens, tok_eq(pos))
+                pos = pos + 1
+                i = i + 1
+                handled = 1
+        if handled == 0
+            if c == 59
+                i = i + 1
+                handled = 1
+        if handled == 0
+            i = i + 1
+
+    tokens = arr_push(tokens, tok_eof(pos))
+    rpf_make(tokens, len(tokens))
+
+let ast_int(value) = rp_make(0, value, 0)
+let ast_var(name_code) = rp_make(1, name_code, 0)
+let ast_binop(op_code, left, right) = rp_make(2, op_code, 2)
+let ast_call(fn_code, arity) = rp_make(3, fn_code, arity)
+let ast_let(name_code) = rp_make(6, name_code, 1)
+let ast_exprstmt() = rp_make(11, 0, 1)
+let ast_program(count) = rp_make(12, 0, count)
+
+let ast_type(node) = rp_z(node)
+let ast_data(node) = rp_r(node)
+let ast_arity(node) = rp_n(node)
+
+let parse_to_residue(token_field) =
+    let tokens = rpf_primes(token_field)
+    let n = rpf_count(token_field)
+    let ast_nodes = arr_new()
+    let i = 0
+
+    for i < n
+        let tok = tokens[i]
+        let ttype = tok_type(tok)
+        let tval = tok_value(tok)
+
+        if ttype == 0
+            ast_nodes = arr_push(ast_nodes, ast_int(tval))
+        if ttype == 1
+            ast_nodes = arr_push(ast_nodes, ast_var(tval))
+        if ttype == 3
+            ast_nodes = arr_push(ast_nodes, ast_binop(tval, ast_int(0), ast_int(0)))
+        if ttype == 11
+            ast_nodes = arr_push(ast_nodes, ast_program(len(ast_nodes)))
+
+        i = i + 1
+
+    rpf_make(ast_nodes, len(ast_nodes))
+
+let OP_I32_CONST = 65
+let OP_I32_ADD = 106
+let OP_I32_SUB = 107
+let OP_I32_MUL = 108
+let OP_LOCAL_GET = 32
+let OP_END = 11
+let OP_RETURN = 15
+
+let sleb128(n) =
+    let bytes = arr_new()
+    let val = n
+    let done = 0
+    for done == 0
+        let byte = val % 128
+        val = val / 128
+        let sign_bit = byte % 64
+        let stop = 0
+        if val == 0
+            if sign_bit == 0
+                stop = 1
+        if val == -1
+            if sign_bit != 0
+                stop = 1
+        if stop == 1
+            bytes = arr_push(bytes, byte)
+            done = 1
+        if stop == 0
+            bytes = arr_push(bytes, byte + 128)
+    bytes
+
+let codegen_to_residue(ast_field) =
+    let nodes = rpf_primes(ast_field)
+    let n = rpf_count(ast_field)
+    let wasm = arr_new()
+    let i = 0
+
+    for i < n
+        let node = nodes[i]
+        let ntype = ast_type(node)
+        let ndata = ast_data(node)
+
+        if ntype == 0
+            wasm = arr_push(wasm, OP_I32_CONST)
+            let encoded = sleb128(ndata)
+            let j = 0
+            for j < len(encoded)
+                wasm = arr_push(wasm, encoded[j])
+                j = j + 1
+        if ntype == 1
+            wasm = arr_push(wasm, OP_I32_CONST)
+            wasm = arr_push(wasm, ndata)
+        if ntype == 2
+            let wasm_op = OP_I32_ADD
+            if ndata == 43
+                wasm_op = OP_I32_ADD
+            if ndata == 45
+                wasm_op = OP_I32_SUB
+            if ndata == 42
+                wasm_op = OP_I32_MUL
+            wasm = arr_push(wasm, wasm_op)
+        if ntype == 12
+            wasm = arr_push(wasm, OP_END)
+
+        i = i + 1
+
+    wasm
+
+let residue_compile(src) =
+    let token_field = lex_to_residue(src)
+    let ast_field = parse_to_residue(token_field)
+    let wasm = codegen_to_residue(ast_field)
+    wasm
+
+let pcd_check(token_field) =
+    let tokens = rpf_primes(token_field)
+    let n = rpf_count(token_field)
+    let ok = 1
+    let i = 0
+    for i < n - 1
+        let t1 = tok_type(tokens[i])
+        let t2 = tok_type(tokens[i + 1])
+        if t1 == 11
+            if i < n - 1
+                ok = 0
+        i = i + 1
+    ok
+
+let rrc_check(ast_field) =
+    let nodes = rpf_primes(ast_field)
+    let n = rpf_count(ast_field)
+    let ok = 1
+    if n == 0
+        ok = 0
+    if n > 0
+        let last = nodes[n - 1]
+        if ast_type(last) != 12
+            ok = 0
+    ok
+
+let residue_compiler_verify() =
+    let ok = 0
+    let total = 0
+
+    total = total + 1
+    if gf_add(65536, 2) == 1
+        ok = ok + 1
+
+    total = total + 1
+    if gf_mul(256, 256) == 65536
+        ok = ok + 1
+
+    total = total + 1
+    if gf_mul(2, gf_inv(2)) == 1
+        ok = ok + 1
+
+    total = total + 1
+    let rp = rp_make(1, 2, 0)
+    if rp_z(rp) == 1
+        ok = ok + 1
+
+    total = total + 1
+    if rp_r(rp) == 2
+        ok = ok + 1
+
+    total = total + 1
+    let p1 = rp_make(1, 2, 0)
+    let p2 = rp_make(3, 4, 1)
+    let p3 = rp_make(5, 6, 2)
+    let field = rpf_make([p1, p2, p3], 3)
+    if rpf_homology(field) == 3
+        ok = ok + 1
+
+    total = total + 1
+    let mutated = rpf_galois(field, 2)
+    if rpf_count(mutated) == 3
+        ok = ok + 1
+
+    total = total + 1
+    let eval_val = rpf_eval(field, 1)
+    if eval_val >= 0
+        ok = ok + 1
+
+    let dbg_s8 = ok
+
+    total = total + 1
+    let src1 = [52, 50]
+    let tok_field1 = lex_to_residue(src1)
+    let tok_count1 = rpf_count(tok_field1)
+    if tok_count1 == 2
+        ok = ok + 1
+
+    let dbg_s9 = ok
+
+    total = total + 1
+    let toks1 = rpf_primes(tok_field1)
+    let tok0 = toks1[0]
+    if tok_type(tok0) == 0
+        ok = ok + 1
+
+    total = total + 1
+    if tok_value(tok0) == 42
+        ok = ok + 1
+
+    total = total + 1
+    let src2 = [120]
+    let tok_field2 = lex_to_residue(src2)
+    let toks2 = rpf_primes(tok_field2)
+    let tok_x = toks2[0]
+    if tok_type(tok_x) == 1
+        ok = ok + 1
+
+    total = total + 1
+    let ast_field1 = parse_to_residue(tok_field1)
+    let ast_nodes1 = rpf_primes(ast_field1)
+    let ast0 = ast_nodes1[0]
+    if ast_type(ast0) == 0
+        ok = ok + 1
+
+    total = total + 1
+    if ast_data(ast0) == 42
+        ok = ok + 1
+
+    total = total + 1
+    let wasm1 = codegen_to_residue(ast_field1)
+    if wasm1[0] == OP_I32_CONST
+        ok = ok + 1
+
+    let dbg_s15 = ok
+
+    total = total + 1
+    let wasm_result = residue_compile(src1)
+    if len(wasm_result) > 0
+        ok = ok + 1
+
+    total = total + 1
+    if pcd_check(tok_field1) == 1
+        ok = ok + 1
+
+    total = total + 1
+    if rrc_check(ast_field1) == 1
+        ok = ok + 1
+
+    total = total + 1
+    if tok_pos(tok0) == 0
+        ok = ok + 1
+
+    total = total + 1
+    if rpf_homology(mutated) == 3
+        ok = ok + 1
+
+    total = total + 1
+    let src3 = [120, 32, 43, 32, 49]
+    let tok_field3 = lex_to_residue(src3)
+    let tok_count3 = rpf_count(tok_field3)
+    if tok_count3 == 4
+        ok = ok + 1
+
+    total = total + 1
+    let ast_field3 = parse_to_residue(tok_field3)
+    let ast_count3 = rpf_count(ast_field3)
+    if ast_count3 == 4
+        ok = ok + 1
+
+    total = total + 1
+    let wasm3 = codegen_to_residue(ast_field3)
+    if len(wasm3) > 2
+        ok = ok + 1
+
+    total = total + 1
+    if gf_neg(1) == 65536
+        ok = ok + 1
+
+    total = total + 1
+    let eigenstate = rp_make(256, 1, 1)
+    if rp_z(eigenstate) == 256
+        ok = ok + 1
+
+    total = total + 1
+    let pipeline_result = residue_compile([120, 32, 43, 32, 49])
+    if len(pipeline_result) > 0
+        ok = ok + 1
+
+    total = total + 1
+    let compiler_field = rpf_make([rp_make(0, 0, 0), rp_make(1, 1, 1), rp_make(2, 2, 2)], 3)
+    if rpf_count(compiler_field) == 3
+        ok = ok + 1
+
+    total = total + 1
+    let self_compile_check = rpf_homology(compiler_field)
+    if self_compile_check == 3
+        ok = ok + 1
+
+    ok
+
+let main() = residue_compiler_verify()

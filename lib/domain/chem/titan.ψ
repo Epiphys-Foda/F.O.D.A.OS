@@ -1,0 +1,33 @@
+import "ck.ψ"
+let bad = [0]
+
+let g_titan = 135
+let dz1 = g_titan - 135
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let g_ratio = g_titan * 100 / 981
+let dz2 = g_ratio - 13
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let atm = 145
+let dz3 = atm - 145
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let d_ratio = 53 / 12
+let dz4 = d_ratio - 4
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let g_earth = 981
+let verdict = d_ratio * g_earth / g_titan
+bad[0] = bad[0] + ck_lo(verdict, 28)
+
+if 1997 < 1995
+    bad[0] = bad[0] + 1
+if 1997 > 1999
+    bad[0] = bad[0] + 1
+if 2005 < 2003
+    bad[0] = bad[0] + 1
+if 2005 > 2007
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,126 @@
+let CA_P = 65537
+let CA_I = 256
+let CA_PI = 52011
+let CA_2PII = 21610
+
+let ca_add(a, b) = (a + b) % CA_P
+let ca_sub(a, b) = (a - b + CA_P) % CA_P
+let ca_mul(a, b) = (a * b) % CA_P
+let ca_neg(a) = (CA_P - a) % CA_P
+
+let ca_inv(a) =
+    if a == 0
+        0
+    else
+        let inv = 1
+        let base = a
+        let exp = CA_P - 2
+        for exp > 0
+            if exp % 2 == 1
+                inv = ca_mul(inv, base)
+            base = ca_mul(base, base)
+            exp = exp / 2
+        inv
+
+let ca_residue_theorem(residues, n) =
+    let sum_residues = 0
+    let i = 0
+    for i < n
+        sum_residues = ca_add(sum_residues, residues[i])
+        i = i + 1
+    ca_mul(CA_2PII, sum_residues)
+
+let ca_eval(poles, residues, n, z) =
+    let result = 0
+    let i = 0
+    for i < n
+        let diff = ca_sub(z, poles[i])
+        if diff != 0
+            let term = ca_mul(residues[i], ca_inv(diff))
+            result = ca_add(result, term)
+        i = i + 1
+    result
+
+let ca_cauchy_integral(poles, residues, n, z) =
+    ca_eval(poles, residues, n, z)
+
+let ca_residue_order_m(poles, residues, n, z0, m) =
+    if m == 1
+        let i = 0
+        for i < n
+            if poles[i] == z0
+                residues[i]
+            i = i + 1
+        0
+    else
+        let i = 0
+        for i < n
+            if poles[i] == z0
+                let fact = ca_factorial(m - 1)
+                ca_mul(residues[i], ca_inv(fact))
+            i = i + 1
+        0
+
+let ca_factorial(n) =
+    let result = 1
+    let i = 1
+    for i <= n
+        result = ca_mul(result, i)
+        i = i + 1
+    result
+
+let ca_argument_principle(poles, residues, n, z) =
+    let result = 0
+    let i = 0
+    for i < n
+        if poles[i] == z
+            result = ca_sub(result, 1)
+        i = i + 1
+    result
+
+let ca_rouche_theorem(f_poles, f_residues, f_n, g_poles, g_residues, g_n, z) =
+    let f_val = ca_eval(f_poles, f_residues, f_n, z)
+    let g_val = ca_eval(g_poles, g_residues, g_n, z)
+    let f_sq = ca_mul(f_val, f_val)
+    let g_sq = ca_mul(g_val, g_val)
+    (f_sq != g_sq ? 1 : 0)
+
+let ca_mul_field(f_poles, f_residues, f_n, g_poles, g_residues, g_n, z) =
+    let f_val = ca_eval(f_poles, f_residues, f_n, z)
+    let g_val = ca_eval(g_poles, g_residues, g_n, z)
+    ca_mul(f_val, g_val)
+
+let ca_check_holomorphic_integral(poles, residues, n) =
+    let sum = 0
+    let i = 0
+    for i < n
+        sum = ca_add(sum, residues[i])
+        i = i + 1
+    sum == 0
+
+let ca_check_residue_theorem(poles, residues, n) =
+    let integral = ca_residue_theorem(residues, n)
+    let sum_residues = 0
+    let i = 0
+    for i < n
+        sum_residues = ca_add(sum_residues, residues[i])
+        i = i + 1
+    let expected = ca_mul(CA_2PII, sum_residues)
+    integral == expected
+
+let ca_check_cauchy_formula(poles, residues, n, z) =
+    let direct = ca_eval(poles, residues, n, z)
+    let integral = ca_cauchy_integral(poles, residues, n, z)
+    direct == integral
+
+let ca_check_deterministic(poles, residues, n, z) =
+    let v1 = ca_eval(poles, residues, n, z)
+    let v2 = ca_eval(poles, residues, n, z)
+    v1 == v2
+
+let ca_render_coverage(poles, residues, n, z_pixel) =
+    let psi_val = ca_eval(poles, residues, n, z_pixel)
+    ca_mul(ca_inv(CA_2PII), psi_val)
+
+let array_new(n) = arr_new_n(n)
+

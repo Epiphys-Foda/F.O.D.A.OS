@@ -1,0 +1,30 @@
+import "ck.ψ"
+let bad = [0]
+
+let v_p = 303
+let r_p = 147
+let v_a = 293
+let r_a = 152
+let area_p = v_p * r_p
+let area_a = v_a * r_a
+let dz1 = area_p - area_a
+bad[0] = bad[0] + ck(dz1, -50, 50)
+
+bad[0] = bad[0] + ck_lo(v_p, v_a)
+
+bad[0] = bad[0] + ck(r_p, 145, 149)
+bad[0] = bad[0] + ck(r_a, 150, 154)
+bad[0] = bad[0] + ck_hi(r_p, r_a)
+
+let d_summer = 94
+let d_winter = 89
+bad[0] = bad[0] + ck(d_summer, 92, 96)
+bad[0] = bad[0] + ck(d_winter, 87, 91)
+bad[0] = bad[0] + ck_lo(d_summer, d_winter)
+
+if 1609 < 1607
+    bad[0] = bad[0] + 1
+if 1609 > 1611
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

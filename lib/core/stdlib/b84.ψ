@@ -1,0 +1,271 @@
+import "qcrypto.ψ"
+
+let b84_bases(seed, n) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < n
+        out = out.push(qcr_basis(seed, i))
+        i = i + 1
+      else
+        done = true
+    out
+
+let b84_alice_bits(seed, n) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < n
+        out = out.push(qcr_bit(seed, i))
+        i = i + 1
+      else
+        done = true
+    out
+
+let b84_transmit(bits, bases) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(bits)
+        out = out.push(qcr_encode(bits[i], bases[i]))
+        i = i + 1
+      else
+        done = true
+    out
+
+let b84_receive(enc, bases_b) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(enc)
+        out = out.push(qcr_measure(enc[i], bases_b[i]))
+        i = i + 1
+      else
+        done = true
+    out
+
+let b84_key(bits_b, bases_a, bases_b) = qcr_sift_key(bits_b, bases_a, bases_b)
+
+let b84_eve_attack(enc, seed_e) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(enc)
+        let eve_basis = qcr_basis(seed_e, i)
+        let measured = qcr_measure(enc[i], eve_basis)
+        out = out.push(qcr_encode(measured, eve_basis))
+        i = i + 1
+      else
+        done = true
+    out
+
+let b84_verify() =
+    let results = []
+    let n = 32
+    let seed_a = 7
+    let seed_b = 11
+    let bits_a = b84_alice_bits(seed_a, n)
+    let bases_a = b84_bases(seed_a, n)
+    results = results.push(len(bits_a) == n && len(bases_a) == n)
+    let enc = b84_transmit(bits_a, bases_a)
+    let bases_b = b84_bases(seed_b, n)
+    let bits_b = b84_receive(enc, bases_b)
+    let key = b84_key(bits_b, bases_a, bases_b)
+    results = results.push(len(key) > 0)
+    results = results.push(qcr_eavesdrop_clean(bits_a, bases_a, bases_b))
+    let seed_e = 13
+    let enc_e = b84_eve_attack(enc, seed_e)
+    let bits_eb = b84_receive(enc_e, bases_b)
+    let eve_exposed = false
+    let k = 0
+    let kdone = false
+    for !kdone
+      if k < n
+        if bases_a[k] == bases_b[k]
+          if bits_eb[k] != bits_a[k]
+            eve_exposed = true
+          else
+              0
+        else
+          0
+        k = k + 1
+      else
+        kdone = true
+    results = results.push(eve_exposed)
+    let key_e = b84_key(bits_eb, bases_a, bases_b)
+    let key_diff = false
+    let kd = 0
+    let kddone = false
+    for !kddone
+      if kd < len(key)
+        if key[kd] != key_e[kd]
+          key_diff = true
+        else
+          0
+        kd = kd + 1
+      else
+        kddone = true
+    results = results.push(key_diff)
+    let key_ok = true
+    let i = 0
+    let done = false
+    for !done
+      if i < n
+        if bases_a[i] == bases_b[i]
+          if bits_b[i] != bits_a[i]
+            key_ok = false
+          else
+              0
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(key_ok)
+    let total = true
+    let j = 0
+    let done2 = false
+    for !done2
+      if j < len(results)
+        let v = results[j]
+        if v == false
+          total = false
+        else
+          0
+        j = j + 1
+      else
+        done2 = true
+    results = results.push(total)
+    results
+
+let b84_lcg_stream(seed, a, c, m, bitpos, n) =
+    let x = seed
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < n
+        x = (a * x + c) % m
+        let div = x
+        let k = 0
+        let kdone = false
+        for !kdone
+          if k < bitpos
+            div = div / 2
+            k = k + 1
+          else
+            kdone = true
+        out = out.push(div % 2)
+        i = i + 1
+      else
+        done = true
+    out
+
+let b84_e91_run(seed, n, eve) =
+    let r = b84_lcg_stream(seed * 13 + 3, 5, 3, 64, 3, n)
+    let ba = b84_lcg_stream(seed * 3 + 1, 5, 3, 64, 2, n)
+    let bb = b84_lcg_stream(seed * 5 + 2, 7, 11, 64, 2, n)
+    let eb = if eve
+      b84_lcg_stream(seed * 7 + 5, 11, 5, 64, 2, n)
+    else
+      []
+    let key = []
+    let sifted = 0
+    let bad = 0
+    let i = 0
+    let done = false
+    for !done
+      if i < n
+        let val = r[i]
+        if eve
+          if eb[i] != ba[i]
+            val = 1 - r[i]
+          else
+              0
+        else
+          0
+        if ba[i] == bb[i]
+          sifted = sifted + 1
+          key = key.push(val)
+          if val != r[i]
+            bad = bad + 1
+          else
+              0
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    [key, sifted, bad]
+
+let b84_e91_key(seed, n) = b84_e91_run(seed, n, false)
+
+let b84_verify_e91() =
+    let results = []
+    let k1 = b84_e91_run(5, 64, false)
+    let k2 = b84_e91_run(5, 64, false)
+    let same = true
+    let i = 0
+    let done = false
+    for !done
+      if i < len(k1[0])
+        if k1[0][i] != k2[0][i]
+          same = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(same)
+    results = results.push(k1[1] > 20 && k1[1] < 44)
+    results = results.push(k1[2] == 0)
+    let ke = b84_e91_run(5, 64, true)
+    results = results.push(ke[2] > 0)
+    let diff = false
+    let j = 0
+    let done2 = false
+    for !done2
+      if j < len(ke[0])
+        if ke[0][j] != k1[0][j]
+          diff = true
+        else
+          0
+        j = j + 1
+      else
+        done2 = true
+    results = results.push(diff)
+    let all_ok = true
+    let seed = 3
+    let sdone = false
+    for !sdone
+      if seed <= 13
+        let r1 = b84_e91_run(seed, 64, false)
+        let r2 = b84_e91_run(seed, 64, true)
+        if r1[2] != 0 || r2[2] == 0
+          all_ok = false
+        else
+          0
+        seed = seed + 2
+      else
+        sdone = true
+    results = results.push(all_ok)
+    let total = true
+    let i2 = 0
+    let done3 = false
+    for !done3
+      if i2 < len(results)
+        let v = results[i2]
+        if v == false
+          total = false
+        else
+          0
+        i2 = i2 + 1
+      else
+        done3 = true
+    results = results.push(total)
+    results

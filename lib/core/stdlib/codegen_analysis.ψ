@@ -1,0 +1,396 @@
+import "gf65537.ψ"
+import "arr.ψ"
+
+let sb5_estimate_function_size(fn_id, ast) = gf_mul(arr_len(ast), 4)
+
+let sb5_estimate_module_size(functions) =
+    let n = arr_len(functions)
+    _sb5_size_acc(functions, n, 0, 0)
+let _sb5_size_acc(functions, n, i, total) =
+    if i >= n
+        total
+    let fn_ast = arr_get(functions, i)
+    let size = sb5_estimate_function_size(i, fn_ast)
+    _sb5_size_acc(functions, n, i + 1, gf_add(total, size))
+
+let sb5_size_budget_check(actual_size, budget) = ((actual_size <= budget) ? (1) : (0))
+
+let sb5_inline_decision(fn_size, call_count, budget) =
+    if budget < fn_size
+        0
+    if fn_size <= 12
+        1
+    if call_count >= 3
+        1
+    0
+
+let sb5_optimize_inline(functions, budget) =
+    let n = arr_len(functions)
+    let decisions = arr_new_n(n)
+    _sb5_opt_acc(functions, decisions, n, 0, budget)
+    decisions
+let _sb5_opt_acc(functions, decisions, n, i, remaining) =
+    if i >= n
+        decisions
+    let fn_ast = arr_get(functions, i)
+    let fn_size = sb5_estimate_function_size(i, fn_ast)
+    let call_count = 1
+    let should_inline = sb5_inline_decision(fn_size, call_count, remaining)
+    arr_set(decisions, i, should_inline)
+    let new_remaining = ((should_inline == 1) ? (remaining - fn_size) : (remaining))
+    _sb5_opt_acc(functions, decisions, n, i + 1, new_remaining)
+
+let sb5_call_graph_depth(call_graph, fn_id) =
+    let n = arr_len(call_graph)
+    _sb5_depth_acc(call_graph, fn_id, n, 0, 0)
+let _sb5_depth_acc(call_graph, fn_id, n, visited, depth) =
+    if depth >= 16
+        depth
+    if fn_id >= n
+        depth
+    let calls = arr_get(call_graph, fn_id)
+    if arr_len(calls) == 0
+        depth
+    let first_call = arr_get(calls, 0)
+    _sb5_depth_acc(call_graph, first_call, n, visited, depth + 1)
+
+let sc7_should_inline(fn_body_size, call_freq, is_recursive, total_budget) =
+    if is_recursive == 1
+        0
+    if fn_body_size <= 3
+        1
+    if fn_body_size <= 10 && call_freq >= 5
+        1
+    if total_budget < fn_body_size
+        0
+    0
+
+let sc7_estimate_inline_benefit(fn_body_size, call_count) =
+    gf_sub(gf_mul(call_count, 10), fn_body_size)
+
+let sc7_inline_threshold(budget_remaining) =
+    if budget_remaining > 1000
+        3
+    if budget_remaining > 100
+        6
+    10
+
+let sc7_recursive_check(call_graph, fn_id) =
+    let visited = arr_new_n(arr_len(call_graph))
+    _sc7_rec_acc(call_graph, fn_id, fn_id, visited, arr_len(call_graph))
+let _sc7_rec_acc(call_graph, target, current, visited, n) =
+    if current >= n
+        0
+    if arr_get(visited, current) == 1
+        0
+    arr_set(visited, current, 1)
+    let calls = arr_get(call_graph, current)
+    if arr_len(calls) == 0
+        0
+    _sc7_rec_check(call_graph, target, calls, visited, n, 0)
+let _sc7_rec_check(call_graph, target, calls, visited, n, i) =
+    if i >= arr_len(calls)
+        0
+    let callee = arr_get(calls, i)
+    if callee == target
+        1
+    if _sc7_rec_acc(call_graph, target, callee, visited, n) == 1
+        1
+    _sc7_rec_check(call_graph, target, calls, visited, n, i + 1)
+
+let regex_make(pattern_id) = pattern_id
+
+let regex_to_nfa(pattern_id) =
+    let n = 4
+    let transitions = arr_new_n(n)
+    _regex_nfa_acc(transitions, n, 0)
+    transitions
+let _regex_nfa_acc(transitions, n, i) =
+    if i >= n
+        transitions
+    arr_set(transitions, i, arr_new_n(2))
+    _regex_nfa_acc(transitions, n, i + 1)
+
+let regex_nfa_to_dfa(nfa) =
+    let n = arr_len(nfa)
+    1 << n
+
+let regex_match(pattern_id, input_char) = ((pattern_id == input_char) ? (1) : (0))
+
+let regex_compile_to_matrix(pattern_id, alphabet_size) =
+    let n = 4
+    let m = arr_new()
+    _regex_mat_acc(m, n, alphabet_size, 0, pattern_id)
+    m
+let _regex_mat_acc(m, n, alpha, i, pattern_id) =
+    if i >= n
+        m
+    let row = arr_new_n(alpha)
+    if i < n - 1
+      arr_set(row, pattern_id, i + 1)
+    arr_push(m, row)
+    _regex_mat_acc(m, n, alpha, i + 1, pattern_id)
+
+let parse_table_make(rows, cols) =
+    let m = arr_new_n(rows)
+    _pt_init_acc(m, rows, cols, 0)
+    m
+let _pt_init_acc(m, rows, cols, i) =
+    if i >= rows
+        m
+    arr_set(m, i, arr_new_n(cols))
+    _pt_init_acc(m, rows, cols, i + 1)
+
+let parse_table_set(table, nt, t, production) =
+    let row = arr_get(table, nt)
+    arr_set(row, t, production)
+    arr_set(table, nt, row)
+    table
+
+let parse_table_get(table, nt, t) = arr_get(arr_get(table, nt), t)
+
+let parse_table_to_gf_matrix(table) = table
+
+let parse_table_ll1_check(table, nt_count, t_count) =
+    _pt_check_acc(table, nt_count, t_count, 0, 0)
+let _pt_check_acc(table, nts, ts, i, j) =
+    if i >= nts
+        1
+    if j >= ts
+        _pt_check_acc(table, nts, ts, i + 1, 0)
+    let prod = parse_table_get(table, i, j)
+    _pt_check_acc(table, nts, ts, i, j + 1)
+
+let symbol_hash(symbol_id) = gf_mul(symbol_id, 52011)
+
+let symbol_equal(s1, s2) = ((symbol_hash(s1) == symbol_hash(s2)) ? (1) : (0))
+
+let symbol_table_make() = arr_new()
+
+let symbol_table_insert(table, symbol_id, value) =
+    let entry = arr_new_n(2)
+    arr_set(entry, 0, symbol_hash(symbol_id))
+    arr_set(entry, 1, value)
+    arr_push(table, entry)
+    table
+
+let symbol_table_lookup(table, symbol_id) =
+    let h = symbol_hash(symbol_id)
+    let n = arr_len(table)
+    _stl_acc(table, h, n, 0)
+let _stl_acc(table, h, n, i) =
+    if i >= n
+        0 - 1
+    let entry = arr_get(table, i)
+    if arr_get(entry, 0) == h
+      arr_get(entry, 1)
+    _stl_acc(table, h, n, i + 1)
+
+let ERRNO_SUCCESS          = 0
+let ERRNO_LEX_ERROR        = 0 - 1
+let ERRNO_PARSE_ERROR      = 0 - 2
+let ERRNO_TYPE_ERROR       = 0 - 3
+let ERRNO_UNDEFINED_SYMBOL = 0 - 4
+let ERRNO_DUPLICATE_DEF    = 0 - 5
+let ERRNO_ARITY_MISMATCH   = 0 - 6
+let ERRNO_WASM_GEN_ERROR   = 0 - 7
+let ERRNO_INTERNAL         = 0 - 99
+
+let errno_to_message(errno) =
+    if errno == 0
+        0
+    if errno == ERRNO_LEX_ERROR
+        1
+    if errno == ERRNO_PARSE_ERROR
+        2
+    if errno == ERRNO_TYPE_ERROR
+        3
+    if errno == ERRNO_UNDEFINED_SYMBOL
+        4
+    if errno == ERRNO_DUPLICATE_DEF
+        5
+    if errno == ERRNO_ARITY_MISMATCH
+        6
+    if errno == ERRNO_WASM_GEN_ERROR
+        7
+    99
+
+let errno_is_error(errno) = ((errno < 0) ? (1) : (0))
+
+let errno_severity(errno) =
+    if errno == 0
+        0
+    if errno == ERRNO_INTERNAL
+        3
+    if errno == ERRNO_WASM_GEN_ERROR
+        3
+    2
+
+let debug_record_make(input, output, trace) =
+    let v = arr_new_n(3)
+    arr_set(v, 0, input)
+    arr_set(v, 1, output)
+    arr_set(v, 2, trace)
+    v
+
+let debug_record_input(rec) = arr_get(rec, 0)
+
+let debug_record_output(rec) = arr_get(rec, 1)
+
+let debug_record_trace(rec) = arr_get(rec, 2)
+
+let debug_replay_check(rec, new_input, new_output) =
+      debug_record_input(rec) == new_input && debug_record_output(rec) == new_output ? 1 : 0
+
+let debug_deterministic_check(fn_id, input, n) =
+    let first = host_call(fn_id, input, 0)
+    _debug_det_acc(fn_id, input, first, n, 1)
+let _debug_det_acc(fn_id, input, expected, n, i) =
+    if i >= n
+        1
+    let result = host_call(fn_id, input, 0)
+    if result != expected
+        0
+    _debug_det_acc(fn_id, input, expected, n, i + 1)
+
+let ai_suggestion_make(category, priority, action) =
+    let v = arr_new_n(3)
+    arr_set(v, 0, category)
+    arr_set(v, 1, priority)
+    arr_set(v, 2, action)
+    v
+
+let AI_CAT_PERF      = 1
+let AI_CAT_SIZE      = 2
+let AI_CAT_STYLE     = 3
+let AI_CAT_CORRECT   = 4
+let AI_CAT_PARADIGM  = 5
+
+let AI_PRI_LOW    = 1
+let AI_PRI_MED    = 2
+let AI_PRI_HIGH   = 3
+let AI_PRI_CRIT   = 4
+
+let ai_analyze_loop_pattern(loop_body) =
+    let n = arr_len(loop_body)
+    if n <= 4
+      ai_suggestion_make(AI_CAT_PERF, AI_PRI_LOW, 1)
+    if n <= 16
+      ai_suggestion_make(AI_CAT_PERF, AI_PRI_MED, 2)
+    ai_suggestion_make(AI_CAT_PERF, AI_PRI_HIGH, 3)
+
+let ai_analyze_hot_path(call_freq, fn_size) =
+    if call_freq >= 100 && fn_size <= 10
+      ai_suggestion_make(AI_CAT_PERF, AI_PRI_HIGH, 4)
+    if call_freq >= 10
+      ai_suggestion_make(AI_CAT_PERF, AI_PRI_MED, 4)
+    ai_suggestion_make(AI_CAT_PERF, AI_PRI_LOW, 0)
+
+let ai_analyze_gf_pattern(ops) =
+    let n = arr_len(ops)
+    if n < 2
+        ai_suggestion_make(AI_CAT_PERF, AI_PRI_LOW, 0)
+    let op1 = arr_get(ops, 0)
+    let op2 = arr_get(ops, 1)
+    if op1 == 3 && op2 == 1
+      ai_suggestion_make(AI_CAT_PARADIGM, AI_PRI_HIGH, 5)
+    ai_suggestion_make(AI_CAT_PERF, AI_PRI_LOW, 0)
+
+let ai_analyze_paradigm_violation(ast) =
+    let n = arr_len(ast)
+    _ai_pv_acc(ast, n, 0, 0)
+let _ai_pv_acc(ast, n, i, violations) =
+    if i >= n
+      if violations > 0
+        ai_suggestion_make(AI_CAT_PARADIGM, AI_PRI_CRIT, 6)
+      ai_suggestion_make(AI_CAT_PARADIGM, AI_PRI_LOW, 0)
+    let node = arr_get(ast, i)
+    let new_v = ((node == 100 || node == 101 || node == 102) ? (violations + 1) : (violations))
+    _ai_pv_acc(ast, n, i + 1, new_v)
+
+let wasm_magic() = 1836280960
+
+let wasm_version() = 1
+
+let WASM_SEC_TYPE     = 1
+let WASM_SEC_IMPORT   = 2
+let WASM_SEC_FUNC     = 3
+let WASM_SEC_TABLE    = 4
+let WASM_SEC_MEM      = 5
+let WASM_SEC_GLOBAL   = 6
+let WASM_SEC_EXPORT   = 7
+let WASM_SEC_START    = 8
+let WASM_SEC_ELEM     = 9
+let WASM_SEC_CODE     = 10
+let WASM_SEC_DATA     = 11
+
+let wasm_verify_magic(bytes) = ((bytes == wasm_magic()) ? (1) : (0))
+
+let wasm_verify_version(bytes) = ((bytes == wasm_version()) ? (1) : (0))
+
+let wasm_verify_section(section_id, size, content) =
+    if section_id < 1 || section_id > 12
+        0
+    if size != arr_len(content)
+        0
+    1
+
+let wasm_verify_function_signature(sig) =
+    let n = arr_len(sig)
+    if n < 2
+        0
+    let param_count = arr_get(sig, 0)
+    let result_count = arr_get(sig, 1)
+    if param_count + 2 != n
+        0
+    1
+
+let wasm_stack_balance_check(ops) =
+    let n = arr_len(ops)
+    _wasm_sb_acc(ops, n, 0, 0)
+let _wasm_sb_acc(ops, n, i, depth) =
+    if i >= n
+        ((depth == 0) ? (1) : (0))
+    if depth < 0
+        0
+    let op = arr_get(ops, i)
+    let new_depth = depth + 1
+    _wasm_sb_acc(ops, n, i + 1, new_depth)
+
+let wasm_size_analyze(wasm_bytes) =
+    let v = arr_new_n(12)
+    _wasm_size_acc(wasm_bytes, v, 0, arr_len(wasm_bytes))
+    v
+let _wasm_size_acc(bytes, v, i, n) =
+    if i >= n
+        v
+    let section_id = arr_get(bytes, i)
+    if section_id >= 1 && section_id <= 12
+      let cur = arr_get(v, section_id - 1)
+      arr_set(v, section_id - 1, cur + 1)
+    _wasm_size_acc(bytes, v, i + 1, n)
+
+let compile_time_model(source_size, pass_count, opt_level) =
+    let a = 1
+    let b = 100
+    let c = 1
+    let lex_parse = gf_mul(a, source_size)
+    let pass_overhead = gf_mul(b, pass_count)
+    let opt_time = gf_mul(gf_mul(gf_mul(c, source_size), pass_count), opt_level)
+    gf_add(gf_add(lex_parse, pass_overhead), opt_time)
+
+let compile_time_predict(source_size, pass_count) =
+    let ops = compile_time_model(source_size, pass_count, 1)
+    ops / 1000000
+
+let compile_time_complexity_class(n) =
+    if n <= 100
+        0
+    if n <= 1000
+        2
+    if n <= 10000
+        2
+    2
+
+let compile_time_upper_bound(source_size, pass_count) =
+    gf_mul(gf_mul(source_size, pass_count), 65537)

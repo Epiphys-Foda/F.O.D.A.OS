@@ -1,0 +1,250 @@
+import "residueon_common.ψ"
+
+let convex_verify() =
+    let result = 0
+    let f2 = gf_mul(2, 2)
+    let f4 = gf_mul(4, 4)
+    let f3 = gf_mul(3, 3)
+    let jensen_rhs = gf_div(gf_add(f2, f4), 2)
+    if f3 <= jensen_rhs
+        result = result + 1
+    let x_min = 65536
+    let f_min = gf_add(gf_add(gf_mul(x_min, x_min), gf_mul(2, x_min)), 1)
+    if f_min == 0
+        result = result + 1
+    if f3 == 9
+        result = result + 1
+    if 2 > 0
+        result = result + 1
+    result
+
+let gradient_descent_verify() =
+    let result = 0
+    let grad = gf_mul(2, 4)
+    if grad == 8
+        result = result + 1
+    let x1 = gf_sub(4, gf_mul(gf_div(1, 2), grad))
+    if x1 == 0
+        result = result + 1
+    if 0 <= 16
+        result = result + 1
+    result
+
+let quadratic_optim_verify() =
+    let result = 0
+    let x_star = gf_div(6, 2)
+    if x_star == 3
+        result = result + 1
+    let f_min = gf_add(gf_add(gf_mul(3, 3), gf_mul(65531, 3)), 5)
+    if f_min == 65533
+        result = result + 1
+    let f_prime = gf_add(gf_mul(2, 3), 65531)
+    if f_prime == 0
+        result = result + 1
+    if 2 > 0
+        result = result + 1
+    result
+
+let lagrange_verify() =
+    let result = 0
+    let x_opt = 2
+    let y_opt = 2
+    if gf_add(x_opt, y_opt) == 4
+        result = result + 1
+    let lambda = gf_mul(2, x_opt)
+    if lambda == 4
+        result = result + 1
+    let f_opt = gf_add(gf_mul(x_opt, x_opt), gf_mul(y_opt, y_opt))
+    if f_opt == 8
+        result = result + 1
+    result
+
+let newton_verify() =
+    let result = 0
+    let x0 = 10
+    let fp = gf_sub(gf_mul(2, x0), 6)
+    let fpp = 2
+    let x1 = gf_sub(x0, gf_div(fp, fpp))
+    if x1 == 3
+        result = result + 1
+    let fp2 = gf_sub(gf_mul(2, x1), 6)
+    if fp2 == 0
+        result = result + 1
+    let f_min = gf_sub(gf_mul(3, 3), gf_mul(6, 3))
+    if f_min == 65528
+        result = result + 1
+    result
+
+let duality_verify() =
+    let result = 0
+    let lambda_star = 65531
+    let x_star = gf_div(gf_neg(lambda_star), 2)
+    if x_star == 3
+        result = result + 1
+    let f_opt = gf_mul(3, 3)
+    if f_opt == 9
+        result = result + 1
+    if gf_add(gf_mul(2, 3), gf_mul(lambda_star, 1)) == 0
+        result = result + 1
+    result
+
+let kkt_verify() =
+    let result = 0
+    let x_star = 3
+    let lambda = 6
+    let g = gf_sub(x_star, 3)
+    if gf_mul(2, x_star) == lambda
+        result = result + 1
+    if gf_mul(lambda, g) == 0
+        result = result + 1
+    if g <= 0
+        result = result + 1
+    if lambda >= 0
+        result = result + 1
+    result
+
+let optim_pcd_rrc_verify() =
+    let result = 0
+    if 2 > 0
+        result = result + 1
+    if gf_add(gf_mul(2, 3), 65531) == 0
+        result = result + 1
+    if gf_sub(9, 9) == 0
+        result = result + 1
+    if gf_mul(6, 0) == 0
+        result = result + 1
+    if gf_sub(10, gf_div(gf_sub(gf_mul(2, 10), 6), 2)) == 3
+        result = result + 1
+    result
+
+let residueon_optim_full_verify() =
+    let ok = 0
+
+    if convex_verify() == 4
+        ok = ok + 1
+
+    if gradient_descent_verify() == 3
+        ok = ok + 1
+
+    if quadratic_optim_verify() == 4
+        ok = ok + 1
+
+    if lagrange_verify() == 3
+        ok = ok + 1
+
+    if newton_verify() == 3
+        ok = ok + 1
+
+    if duality_verify() == 3
+        ok = ok + 1
+
+    if kkt_verify() == 4
+        ok = ok + 1
+
+    if optim_pcd_rrc_verify() == 5
+        ok = ok + 1
+
+    ok = ok + cross_domain_base()
+
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+
+    if gf_mul(1, 6) == 6
+        ok = ok + 1
+
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+
+    if gf_mul(3, 3) == 9
+        ok = ok + 1
+
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+
+    if gf_div(30, 60) == gf_div(1, 2)
+        ok = ok + 1
+
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+
+    if gf_mul(256, 256) == 65536
+        ok = ok + 1
+
+    if gf_add(1, 65536) == 0
+        ok = ok + 1
+
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+
+    if gf_add(2, 65535) == 0
+        ok = ok + 1
+
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_optim_full_verify()

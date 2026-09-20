@@ -1,0 +1,28 @@
+let frozen6_perdrift(YY, n, P, K) =
+    let D = YY[n] - YY[n - P]
+    let W = arr_new_n(n + K)
+    let i = 0
+    for i < n
+        W[i] = YY[i]
+        i = i + 1
+    let ok = 1
+    let k = 0
+    for k < K
+        let idx = n + k
+        let own = 0
+        if idx - P >= n
+            own = 1
+        let src = 0
+        if own == 0
+            src = YY[idx - P]
+        if own == 1
+            src = W[idx - P]
+        let pred = src + D
+        W[idx] = pred
+        let bad = 0
+        if rel_permille(pred, 1, YY[idx]) > QTOL
+            bad = 1
+        ok = ok * (1 - bad)
+        k = k + 1
+    ok
+

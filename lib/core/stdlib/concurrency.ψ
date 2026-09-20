@@ -1,0 +1,244 @@
+let CRT_P1 = 65537
+let CRT_P2 = 131071
+let CRT_P3 = 786433
+let CRT_P4 = 1376257
+
+let crt_split(n) =
+    let result = arr_new()
+    result = arr_push(result, n % CRT_P1)
+    result = arr_push(result, n % CRT_P2)
+    result = arr_push(result, n % CRT_P3)
+    result = arr_push(result, n % CRT_P4)
+    result
+
+let crt_add(res_a, res_b) =
+    let result = arr_new()
+    result = arr_push(result, (res_a[0] + res_b[0]) % CRT_P1)
+    result = arr_push(result, (res_a[1] + res_b[1]) % CRT_P2)
+    result = arr_push(result, (res_a[2] + res_b[2]) % CRT_P3)
+    result = arr_push(result, (res_a[3] + res_b[3]) % CRT_P4)
+    result
+
+let crt_mul(res_a, res_b) =
+    let result = arr_new()
+    result = arr_push(result, (res_a[0] * res_b[0]) % CRT_P1)
+    result = arr_push(result, (res_a[1] * res_b[1]) % CRT_P2)
+    result = arr_push(result, (res_a[2] * res_b[2]) % CRT_P3)
+    result = arr_push(result, (res_a[3] * res_b[3]) % CRT_P4)
+    result
+
+let crt_sub(res_a, res_b) =
+    let result = arr_new()
+    result = arr_push(result, (res_a[0] + CRT_P1 - res_b[0]) % CRT_P1)
+    result = arr_push(result, (res_a[1] + CRT_P2 - res_b[1]) % CRT_P2)
+    result = arr_push(result, (res_a[2] + CRT_P3 - res_b[2]) % CRT_P3)
+    result = arr_push(result, (res_a[3] + CRT_P4 - res_b[3]) % CRT_P4)
+    result
+
+let crt_mod_inv(a, m) =
+    let x = 1
+    let found = 0
+    for found == 0 && x < m
+        if (a * x) % m == 1
+            found = 1
+        x = x + 1
+    x - 1
+
+let crt_glue(residues) =
+    let P = CRT_P1 * CRT_P2 * CRT_P3 * CRT_P4
+    let M1 = P / CRT_P1
+    let M2 = P / CRT_P2
+    let M3 = P / CRT_P3
+    let M4 = P / CRT_P4
+    let y1 = crt_mod_inv(M1 % CRT_P1, CRT_P1)
+    let y2 = crt_mod_inv(M2 % CRT_P2, CRT_P2)
+    let y3 = crt_mod_inv(M3 % CRT_P3, CRT_P3)
+    let y4 = crt_mod_inv(M4 % CRT_P4, CRT_P4)
+    let x = (residues[0] * M1 * y1 + residues[1] * M2 * y2 + residues[2] * M3 * y3 + residues[3] * M4 * y4) % P
+    x
+
+let taskdag_create() =
+    let dag = arr_new_n(4)
+    dag[0] = arr_new()
+    dag[1] = arr_new()
+    dag[2] = 0
+    dag[3] = arr_new()
+    dag
+
+let dag_add_task(dag, fn_idx, deps) =
+    let node = arr_new_n(4)
+    node[0] = dag[2]
+    node[1] = fn_idx
+    node[2] = deps
+    node[3] = 0
+    let new_nodes = arr_push(dag[0], node)
+    let new_dag = arr_new_n(4)
+    new_dag[0] = new_nodes
+    new_dag[1] = dag[1]
+    new_dag[2] = dag[2] + 1
+    new_dag[3] = dag[3]
+    new_dag
+
+let dag_is_ready(dag, node_id) =
+    let nodes = dag[0]
+    let results = dag[3]
+    let node = 0
+    let i = 0
+    for i < nodes.len()
+        if nodes[i][0] == node_id
+            node = nodes[i]
+            i = nodes.len()
+        i = i + 1
+    let deps = node[2]
+    let all_done = 1
+    let j = 0
+    for j < deps.len()
+        let dep_id = deps[j]
+        let found = 0
+        let k = 0
+        for k < results.len()
+            if results[k][0] == dep_id
+                found = 1
+                k = results.len()
+            k = k + 1
+        if found == 0
+            all_done = 0
+            j = deps.len()
+        j = j + 1
+    all_done
+
+let dag_get_result(dag, node_id) =
+    let results = dag[3]
+    let i = 0
+    for i < results.len()
+        if results[i][0] == node_id
+            return results[i][1]
+        i = i + 1
+    0
+
+let dag_mark_done(dag, node_id, result) =
+    let res_entry = arr_new_n(2)
+    res_entry[0] = node_id
+    res_entry[1] = result
+    let new_results = arr_push(dag[3], res_entry)
+    let new_dag = arr_new_n(4)
+    new_dag[0] = dag[0]
+    new_dag[1] = dag[1]
+    new_dag[2] = dag[2]
+    new_dag[3] = new_results
+    new_dag
+
+let dag_count_ready(dag) =
+    let nodes = dag[0]
+    let count = 0
+    let i = 0
+    for i < nodes.len()
+        if dag_is_ready(dag, nodes[i][0]) == 1
+            count = count + 1
+        i = i + 1
+    count
+
+let pipeline_create(stages) =
+    let pipe = arr_new_n(2)
+    pipe[0] = stages
+    pipe[1] = 0
+    pipe
+
+let pipeline_set_input(pipe, input) =
+    let new_pipe = arr_new_n(2)
+    new_pipe[0] = pipe[0]
+    new_pipe[1] = input
+    new_pipe
+
+let pipeline_get_output(pipe) = pipe[1]
+
+let shard_data(data, n_shards) =
+    let n = data.len()
+    let shard_size = n / n_shards
+    if shard_size == 0
+        shard_size = 1
+    let shards = arr_new()
+    let i = 0
+    for i < n
+        let chunk = arr_new()
+        let j = 0
+        for j < shard_size && i + j < n
+            chunk = arr_push(chunk, data[i + j])
+            j = j + 1
+        if chunk.len() > 0
+            shards = arr_push(shards, chunk)
+        i = i + shard_size
+    shards
+
+let par_sum(data, n_channels) =
+    let shards = shard_data(data, n_channels)
+    let total = 0
+    let ch = 0
+    for ch < shards.len()
+        let shard = shards[ch]
+        let partial = 0
+        let i = 0
+        for i < shard.len()
+            partial = partial + shard[i]
+            i = i + 1
+        total = total + partial
+        ch = ch + 1
+    total
+
+let par_map_square(data) =
+    let result = arr_new()
+    let i = 0
+    for i < data.len()
+        result = arr_push(result, data[i] * data[i])
+        i = i + 1
+    result
+
+let par_map_double(data) =
+    let result = arr_new()
+    let i = 0
+    for i < data.len()
+        result = arr_push(result, data[i] * 2)
+        i = i + 1
+    result
+
+let par_reduce_sum(data, n_channels) =
+    let shards = shard_data(data, n_channels)
+    let results = arr_new()
+    let ch = 0
+    for ch < shards.len()
+        let shard = shards[ch]
+        let partial = 0
+        let i = 0
+        for i < shard.len()
+            partial = partial + shard[i]
+            i = i + 1
+        results = arr_push(results, partial)
+        ch = ch + 1
+    let final = 0
+    let r = 0
+    for r < results.len()
+        final = final + results[r]
+        r = r + 1
+    final
+
+let par_reduce_max(data, n_channels) =
+    let shards = shard_data(data, n_channels)
+    let results = arr_new()
+    let ch = 0
+    for ch < shards.len()
+        let shard = shards[ch]
+        let partial = 0
+        let i = 0
+        for i < shard.len()
+            if shard[i] > partial
+                partial = shard[i]
+            i = i + 1
+        results = arr_push(results, partial)
+        ch = ch + 1
+    let final = 0
+    let r = 0
+    for r < results.len()
+        if results[r] > final
+            final = results[r]
+        r = r + 1
+    final

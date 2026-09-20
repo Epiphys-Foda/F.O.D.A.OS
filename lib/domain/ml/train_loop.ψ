@@ -1,0 +1,291 @@
+import "../../core/stdlib/gf65537.ψ"
+import "berlekamp_massey.ψ"
+import "ssm_field.ψ"
+
+let gen_geometric(base, n) =
+    let seq = []
+    let i = 0
+    for i < n
+        seq.push(gf_pow(base, i))
+        i = i + 1
+    seq
+
+let gen_fibonacci(n) =
+    let seq = []
+    let a = 1
+    let b = 1
+    let i = 0
+    for i < n
+        seq.push(a)
+        let c = gf_add(a, b)
+        a = b
+        b = c
+        i = i + 1
+    seq
+
+let gen_oscillation(freq, amp, n) =
+    let seq = []
+    let omega = gf_pow(3, freq)
+    let i = 0
+    for i < n
+        let phase = gf_add(gf_pow(omega, i), gf_pow(gf_inv(omega), i))
+        seq.push(gf_mul(amp, phase))
+        i = i + 1
+    seq
+
+let gen_damped(base, decay, n) =
+    let combined = gf_mul(base, decay)
+    gen_geometric(combined, n)
+
+let train_state_init(n_poles) =
+    let poles = []
+    let residues = []
+    let i = 0
+    for i < n_poles
+        poles.push(gf_reduce(i + 2))
+        residues.push(1)
+        i = i + 1
+    [poles, residues, [], [], 0, 65537]
+
+let train_epoch(state, data, targets, lr) =
+    let poles = state[0]
+    let residues = state[1]
+    let hist_loss = state[2]
+    let hist_acc = state[3]
+    let epoch = state[4]
+    let best_loss = state[5]
+
+    let n_poles = len(poles)
+    let n = len(data)
+
+    let total_loss = 0
+    let correct = 0
+    let current_poles = poles
+    let current_residues = residues
+
+    let t = 0
+    for t < n
+        let x = data[t]
+        let y_target = targets[t]
+
+        let pred = 0
+        let k = 0
+        for k < n_poles
+            let diff = gf_sub(x, current_poles[k])
+            if diff != 0
+                pred = gf_add(pred, gf_div(current_residues[k], diff))
+            k = k + 1
+
+        let error = gf_sub(pred, y_target)
+        let loss = gf_mul(error, error)
+        total_loss = gf_add(total_loss, loss)
+
+        if gf_abs(error) < 100
+            correct = correct + 1
+
+        let k2 = 0
+        for k2 < n_poles
+            let z = current_poles[k2]
+            let r = current_residues[k2]
+            let diff = gf_sub(x, z)
+            if diff != 0
+                let inv_diff = gf_inv(diff)
+                let inv_diff_sq = gf_mul(inv_diff, inv_diff)
+                let grad_r = inv_diff
+                let grad_z = gf_neg(gf_mul(r, inv_diff_sq))
+                current_residues[k2] = gf_sub(r, gf_mul(lr, gf_mul(error, grad_r)))
+                current_poles[k2] = gf_sub(z, gf_mul(lr, gf_mul(error, grad_z)))
+            k2 = k2 + 1
+        t = t + 1
+
+    let avg_loss = gf_div(total_loss, n)
+    let accuracy = gf_div(correct, n)
+
+    let new_hist_loss = []
+    let i_l = 0
+    let nl = len(hist_loss)
+    for i_l < nl
+        new_hist_loss.push(hist_loss[i_l])
+        i_l = i_l + 1
+    new_hist_loss.push(avg_loss)
+
+    let new_hist_acc = []
+    let i_a = 0
+    let na = len(hist_acc)
+    for i_a < na
+        new_hist_acc.push(hist_acc[i_a])
+        i_a = i_a + 1
+    new_hist_acc.push(accuracy)
+
+    let new_best = best_loss
+    if avg_loss < best_loss
+        new_best = avg_loss
+
+    let new_state = [current_poles, current_residues, new_hist_loss, new_hist_acc, epoch + 1, new_best]
+    [avg_loss, accuracy, new_state]
+
+let evaluate(state, test_data, test_targets) =
+    let poles = state[0]
+    let residues = state[1]
+    let n_poles = len(poles)
+    let n = len(test_data)
+
+    let total_loss = 0
+    let correct = 0
+
+    let i = 0
+    for i < n
+        let x = test_data[i]
+        let y_target = test_targets[i]
+
+        let pred = 0
+        let k = 0
+        for k < n_poles
+            let diff = gf_sub(x, poles[k])
+            if diff != 0
+                pred = gf_add(pred, gf_div(residues[k], diff))
+            k = k + 1
+
+        let error = gf_sub(pred, y_target)
+        let loss = gf_mul(error, error)
+        total_loss = gf_add(total_loss, loss)
+
+        if gf_abs(error) < 100
+            correct = correct + 1
+        i = i + 1
+
+    let avg_loss = gf_div(total_loss, n)
+    let accuracy = gf_div(correct, n)
+    [avg_loss, accuracy]
+
+let verify_law_discovery(sequence) =
+    let law = learn_field_law(sequence)
+    let min_poly = law[0]
+    let L = law[3]
+
+    let half = len(sequence) / 2
+    let train_seq = []
+    let i = 0
+    for i < half
+        train_seq.push(sequence[i])
+        i = i + 1
+
+    let predicted = predict_future(min_poly, train_seq, 2)
+    let ok = 0
+    if half + 1 < len(sequence)
+        if half < len(sequence)
+            if predicted[0] == sequence[half]
+                ok = 1
+    [L, ok]
+
+let run_training_experiment(n_epochs, n_poles, lr) =
+    let train_data = []
+    let train_targets = []
+    let i = 0
+    for i < 20
+        let x = gf_reduce(i + 1)
+        let y = gf_div(100, x)
+        train_data.push(x)
+        train_targets.push(y)
+        i = i + 1
+
+    let state = train_state_init(n_poles)
+
+    let best_loss = 65537
+    let best_acc = 0
+    let final_state = state
+
+    let epoch = 0
+    for epoch < n_epochs
+        let result = train_epoch(final_state, train_data, train_targets, lr)
+        let avg_loss = result[0]
+        let accuracy = result[1]
+        final_state = result[2]
+
+        if avg_loss < best_loss
+            best_loss = avg_loss
+        if accuracy > best_acc
+            best_acc = accuracy
+        epoch = epoch + 1
+
+    let test_result = evaluate(final_state, train_data, train_targets)
+    let final_loss = test_result[0]
+    let final_acc = test_result[1]
+
+    let law_result = verify_law_discovery(train_targets)
+    let law_order = law_result[0]
+    let law_ok = law_result[1]
+
+    let history = final_state[2]
+    [final_loss, final_acc, law_order, law_ok, best_loss]
+
+let continuous_train(max_rounds) =
+    let round = 0
+    let best_accuracy = 0
+    let total_improvement = 0
+    let prev_loss = 65537
+
+    for round < max_rounds
+        let n_poles = 2 + (round % 3)
+        let lr = gf_div(1, 10 + round)
+
+        let data = []
+        let targets = []
+        let base = 2 + (round % 5)
+        let i = 0
+        for i < 15
+            let x = gf_reduce(i + 1)
+            let y = gf_pow(base, i)
+            data.push(x)
+            targets.push(y)
+            i = i + 1
+
+        let state = train_state_init(n_poles)
+        let current_state = state
+
+        let epoch = 0
+        for epoch < 10
+            let result = train_epoch(current_state, data, targets, lr)
+            current_state = result[2]
+            epoch = epoch + 1
+
+        let eval_result = evaluate(current_state, data, targets)
+        let loss = eval_result[0]
+        let acc = eval_result[1]
+
+        if acc > best_accuracy
+            best_accuracy = acc
+
+        if loss < prev_loss
+            total_improvement = gf_add(total_improvement, gf_sub(prev_loss, loss))
+        prev_loss = loss
+
+        round = round + 1
+
+    [round, total_improvement, best_accuracy]
+
+let full_self_test() =
+    let bm_pass = bm_self_test()
+    let ssm_pass = ssm_self_test()
+
+    let exp_result = run_training_experiment(5, 2, gf_div(1, 100))
+    let train_loss = exp_result[0]
+    let train_pass = 0
+    if train_loss < 65537
+        train_pass = 1
+
+    let total = bm_pass + ssm_pass + train_pass
+    [bm_pass, ssm_pass, train_pass, total]
+
+let main_train() =
+    let rounds = 20
+    let result = continuous_train(rounds)
+    let completed = result[0]
+    let improvement = result[1]
+    let best_acc = result[2]
+
+    let self_test = full_self_test()
+    let total_pass = self_test[3]
+
+    let score = gf_add(gf_add(completed, improvement), gf_add(best_acc, total_pass))
+    score

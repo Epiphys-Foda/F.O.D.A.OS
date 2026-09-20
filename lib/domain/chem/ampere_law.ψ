@@ -1,0 +1,31 @@
+import "ck.ψ"
+let bad = [0]
+
+let i_a = 10
+let b1_nT = 2000
+let b2_nT = 1000
+let dz1 = b1_nT * 1 - b2_nT * 2
+bad[0] = bad[0] + ck(dz1, 0, 0)
+bad[0] = bad[0] + ck_hi(b2_nT, b1_nT)
+
+let n_turns = 100
+let i_sol = 5
+let b_sol = n_turns * i_sol
+let dz2 = b_sol - 500
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let deflect = 1
+bad[0] = bad[0] + ck_lo(deflect, 1)
+
+if 1820 < 1818
+    bad[0] = bad[0] + 1
+if 1820 > 1822
+    bad[0] = bad[0] + 1
+if 1827 < 1825
+    bad[0] = bad[0] + 1
+if 1827 > 1829
+    bad[0] = bad[0] + 1
+if 1827 < 1820
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

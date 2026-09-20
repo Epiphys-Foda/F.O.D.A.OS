@@ -1,0 +1,217 @@
+import "../domain_field.ψ"
+
+let WAL_P = 65537
+let WAL_OP_INSERT = 1
+let WAL_OP_UPDATE = 2
+let WAL_OP_DELETE = 4
+let WAL_OP_COMMIT = 8
+let WAL_OP_ABORT = 16
+let WAL_POLE_SCALE = 256
+let WAL_POLE_OFFSET = 1
+let WAL_FRACTAL_N0 = 0
+let WAL_FRACTAL_N1 = 1
+
+let wal_default_log() =
+    [[], 0, 0, 0, []]
+
+let wal_append(wal, tx_id, op_type, key, value, ts) =
+    let new_lsn = wal[1] + 1
+    let prev_lsn = wal[1]
+    let record = [new_lsn, tx_id, op_type, key, value, prev_lsn, ts]
+    let records = wal[0]
+    records.push(record)
+    let log = wal[4]
+    log.push(["append", tx_id, op_type, key, value, ts])
+    [records, new_lsn, wal[2], wal[3], log]
+
+let wal_flush(wal, until_lsn) =
+    let log = wal[4]
+    log.push(["flush", until_lsn])
+    [wal[0], wal[1], until_lsn, wal[3], log]
+
+let wal_checkpoint(wal, lsn) =
+    let records = wal[0]
+    let new_records = []
+    let i = 0
+    let n = len(records)
+    for i < n
+        if records[i][0] > lsn
+            new_records.push(records[i])
+        i = i + 1
+    let log = wal[4]
+    log.push(["checkpoint", lsn])
+    [new_records, wal[1], wal[2], lsn, log]
+
+let wal_replay(wal, from_lsn) =
+    let records = wal[0]
+    let applied = []
+    let i = 0
+    let n = len(records)
+    for i < n
+        let rec = records[i]
+        if rec[0] >= from_lsn
+            applied.push([rec[2], rec[3], rec[4], rec[1], rec[0]])
+        i = i + 1
+    [applied, len(applied)]
+
+let wal_find_record(wal, lsn) =
+    let records = wal[0]
+    let result = 0
+    let i = 0
+    let n = len(records)
+    for i < n
+        if records[i][0] == lsn
+            result = records[i]
+            i = n
+        i = i + 1
+    result
+
+let wal_tx_records(wal, tx_id) =
+    let records = wal[0]
+    let result = []
+    let i = 0
+    let n = len(records)
+    for i < n
+        if records[i][1] == tx_id
+            result.push(records[i])
+        i = i + 1
+    result
+
+let wal_replay_to_state(wal, from_lsn) =
+    let records = wal[0]
+    let state = {}
+    let i = 0
+    let n = len(records)
+    for i < n
+        let rec = records[i]
+        if rec[0] >= from_lsn
+            if rec[2] == WAL_OP_INSERT
+                state[rec[3]] = rec[4]
+            else
+                0
+            if rec[2] == WAL_OP_UPDATE
+                state[rec[3]] = rec[4]
+            else
+                0
+            if rec[2] == WAL_OP_DELETE
+                state[rec[3]] = 0
+        i = i + 1
+    state
+
+let wal_checksum(wal) =
+    let records = wal[0]
+    let cs = 0
+    let i = 0
+    let n = len(records)
+    for i < n
+        let rec = records[i]
+        cs = (cs + rec[0] + rec[1] + rec[2] + rec[3] + rec[4]) % WAL_P
+        i = i + 1
+    cs
+
+let wal_bragg_verify(wal, ops_seq) =
+    let ref_wal = wal_default_log()
+    let i = 0
+    let n = len(ops_seq)
+    for i < n
+        let op = ops_seq[i]
+        ref_wal = wal_append(ref_wal, op[0], op[1], op[2], op[3], i)
+        i = i + 1
+    let d1_wal = wal_default_log()
+    i = 0
+    for i < n
+        let op = ops_seq[i]
+        d1_wal = wal_append(d1_wal, op[0], op[1], op[2], op[3], i)
+        i = i + 1
+    let r1_state = wal_replay_to_state(ref_wal, 0)
+    let d1_state = wal_replay_to_state(d1_wal, 0)
+    let consistent = 1
+    if ref_wal[1] != d1_wal[1]
+        consistent = 0
+    let r1_cs = wal_checksum(ref_wal)
+    let d1_cs = wal_checksum(d1_wal)
+    if r1_cs != d1_cs
+        consistent = 0
+    let keys = keys_of(r1_state)
+    let k = 0
+    let kn = len(keys)
+    for k < kn
+        if r1_state[keys[k]] != d1_state[keys[k]]
+            consistent = 0
+        k = k + 1
+    consistent
+
+let wal_gf_mod(x) = domain_gf_mod(x)
+let wal_gf_inv(x) = domain_gf_inv(x)
+let wal_field_encode(records, n) =
+    let records = []
+    let _i = 0
+    for _i < n
+        records.push([records[_i], records[_i]])
+        _i = _i + 1
+    domain_field_encode(records, n, 1, 0)
+let wal_field_eval(poles, residues, z) = domain_field_eval(poles, residues, z)
+let wal_field_bragg_verify(wal, ops_seq) = domain_bragg_verify(wal[0], wal[1], ops_seq[0], ops_seq[1])
+let wal_test_basic() =
+    let ok1 = 1
+    let wal = wal_default_log()
+    wal = wal_append(wal, 1, WAL_OP_INSERT, 100, 1000, 10)
+    wal = wal_append(wal, 1, WAL_OP_INSERT, 200, 2000, 20)
+    wal = wal_append(wal, 2, WAL_OP_UPDATE, 100, 1500, 30)
+    wal = wal_append(wal, 2, WAL_OP_COMMIT, 0, 0, 40)
+    if wal[1] != 4
+        ok1 = 0
+    let records = wal[0]
+    if records[0][5] != 0
+        ok1 = 0
+    if records[1][5] != 1
+        ok1 = 0
+    if records[2][5] != 2
+        ok1 = 0
+
+    let ok2 = 1
+    wal = wal_flush(wal, 3)
+    if wal[2] != 3
+        ok2 = 0
+
+    let ok3 = 1
+    let replay = wal_replay(wal, 0)
+    if replay[1] != 4
+        ok3 = 0
+    let state = wal_replay_to_state(wal, 0)
+    if state[100] != 1500
+        ok3 = 0
+    if state[200] != 2000
+        ok3 = 0
+
+    let ok4 = 1
+    wal = wal_checkpoint(wal, 2)
+    if wal[3] != 2
+        ok4 = 0
+    if len(wal[0]) != 2
+        ok4 = 0
+
+    let ok5 = 1
+    let ops = [[1, 1, 10, 100], [1, 2, 20, 200], [2, 1, 10, 150]]
+    let bragg = wal_bragg_verify(wal, ops)
+    if bragg != 1
+        ok5 = 0
+
+    let ok6 = 1
+    let w1 = wal_default_log()
+    w1 = wal_append(w1, 1, WAL_OP_INSERT, 5, 50, 1)
+    let w2 = wal_default_log()
+    w2 = wal_append(w2, 1, WAL_OP_INSERT, 5, 50, 1)
+    if wal_checksum(w1) != wal_checksum(w2)
+        ok6 = 0
+
+    ok1 * ok2 * ok3 * ok4 * ok5 * ok6
+
+let wal_test_self() =
+    let ok = wal_test_basic()
+    if ok == 1
+        print("wal: ALL PASS")
+    else
+        print("wal: FAIL")
+    ok
+

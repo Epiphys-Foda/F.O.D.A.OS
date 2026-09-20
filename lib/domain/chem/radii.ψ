@@ -1,0 +1,44 @@
+import "ck.ψ"
+let bad = [0]
+
+let dP20 = 128 - 96
+bad[0] = bad[0] + ck_lo(dP20, 1)
+let dP21 = 96 - 84
+bad[0] = bad[0] + ck_lo(dP21, 1)
+let dP22 = 84 - 76
+bad[0] = bad[0] + ck_lo(dP22, 1)
+let dP23 = 76 - 71
+bad[0] = bad[0] + ck_lo(dP23, 1)
+let dP24 = 71 - 66
+bad[0] = bad[0] + ck_lo(dP24, 1)
+let dP25 = 66 - 57
+bad[0] = bad[0] + ck_lo(dP25, 1)
+
+let dP30 = 166 - 141
+bad[0] = bad[0] + ck_lo(dP30, 1)
+let dP31 = 141 - 124
+bad[0] = bad[0] + ck_lo(dP31, 1)
+let dP32 = 124 - 117
+bad[0] = bad[0] + ck_lo(dP32, 1)
+let dP33 = 117 - 107
+bad[0] = bad[0] + ck_lo(dP33, 1)
+let dP34 = 107 - 105
+bad[0] = bad[0] + ck_lo(dP34, 1)
+let dP35 = 105 - 102
+bad[0] = bad[0] + ck_lo(dP35, 1)
+
+let dAlk0 = 166 - 128
+bad[0] = bad[0] + ck_lo(dAlk0, 1)
+let dAlk1 = 203 - 166
+bad[0] = bad[0] + ck_lo(dAlk1, 1)
+let dAlk2 = 226 - 203
+bad[0] = bad[0] + ck_lo(dAlk2, 1)
+let dAlk3 = 244 - 226
+bad[0] = bad[0] + ck_lo(dAlk3, 1)
+
+let f_ie = 1742
+let cs_ie = 386
+let dfie = f_ie - cs_ie
+bad[0] = bad[0] + ck_lo(dfie, 1)
+
+arr_get(arr_new_n(1), bad[0])

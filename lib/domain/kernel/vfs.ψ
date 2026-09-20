@@ -1,0 +1,394 @@
+let vfs_inode_new(id, name, kind) =
+    [id, name, kind, 0, 420, 0, {}, [], 0]
+
+let ino_id(i) = i[0]
+let ino_name(i) = i[1]
+let ino_type(i) = i[2]
+let ino_size(i) = i[3]
+let ino_mode(i) = i[4]
+let ino_parent(i) = i[5]
+let ino_children(i) = i[6]
+let ino_data(i) = i[7]
+let ino_ts(i) = i[8]
+
+let ino_is_dir(i) = ino_type(i) == 1
+let ino_is_file(i) = ino_type(i) == 0
+
+let ino_set_size(i, size) =
+    i[3] = size
+    i
+
+let ino_set_data(i, data) =
+    i[7] = data
+    i[3] = len(data)
+    i
+
+let ino_add_child(i, child_name, child_id) =
+    let children = ino_children(i)
+    children[child_name] = child_id
+    i[6] = children
+    i
+
+let ino_get_child(i, name) =
+    ino_children(i)[name]
+
+let ino_remove_child(i, name) =
+    let children = ino_children(i)
+    children[name] = 0
+    i[6] = children
+    i
+
+let vfs_new() =
+    [{}, 0, {}, {}, {}]
+
+let vfs_inodes(v) = v[0]
+let vfs_next_id(v) = v[1]
+let vfs_mounts(v) = v[2]
+let vfs_fds(v) = v[3]
+let vfs_root_id(v) = v[4]
+
+let vfs_alloc_inode_id(v) =
+    let id = v[1]
+    v[1] = id + 1
+    id
+
+let vfs_init_root(v) =
+    let id = vfs_alloc_inode_id(v)
+    let root = vfs_inode_new(id, "/", 1)
+    let inodes = vfs_inodes(v)
+    inodes[id] = root
+    v[0] = inodes
+    v[4] = id
+    v
+
+let vfs_get_inode(v, id) =
+    vfs_inodes(v)[id]
+
+let vfs_path_split(path) =
+    let parts = []
+    let current = ""
+    let i = 1
+    let n = len(path)
+    for i < n
+        let c = path[i]
+        if c == "/"
+            if current != ""
+                parts.push(current)
+                current = ""
+            else
+                0
+            current = current + c
+        i = i + 1
+    if current != ""
+        parts.push(current)
+    parts
+
+let vfs_resolve_path(v, path) =
+    if path == "/" || path == ""
+        vfs_get_inode(v, vfs_root_id(v))
+    else
+        let parts = vfs_path_split(path)
+        let current = vfs_get_inode(v, vfs_root_id(v))
+        let i = 0
+        let n = len(parts)
+        let found = current
+        let ok = 1
+        for i < n
+            if ino_is_dir(current) == 1
+                let child_id = ino_get_child(current, parts[i])
+                if child_id == 0
+                    ok = 0
+                    i = n
+                else
+                    current = vfs_get_inode(v, child_id)
+                    if current == 0
+                        ok = 0
+                        i = n
+                    else
+                        found = current
+            else
+                ok = 0
+                i = n
+            i = i + 1
+        if ok == 1
+            found
+        else
+            0
+
+let vfs_create(v, parent_path, name) =
+    let parent = vfs_resolve_path(v, parent_path)
+    if parent == 0
+        0
+    else
+        if ino_is_dir(parent) == 0
+            0
+        else
+            let id = vfs_alloc_inode_id(v)
+            let new_node = vfs_inode_new(id, name, 0)
+            new_node[5] = ino_id(parent)
+            let inodes = vfs_inodes(v)
+            inodes[id] = new_node
+            parent = ino_add_child(parent, name, id)
+            inodes[ino_id(parent)] = parent
+            v[0] = inodes
+            new_node
+
+let vfs_mkdir(v, parent_path, name) =
+    let parent = vfs_resolve_path(v, parent_path)
+    if parent == 0
+        0
+    else
+        if ino_is_dir(parent) == 0
+            0
+        else
+            let id = vfs_alloc_inode_id(v)
+            let new_node = vfs_inode_new(id, name, 1)
+            new_node[5] = ino_id(parent)
+            let inodes = vfs_inodes(v)
+            inodes[id] = new_node
+            parent = ino_add_child(parent, name, id)
+            inodes[ino_id(parent)] = parent
+            v[0] = inodes
+            new_node
+
+let vfs_write(v, path, data) =
+    let node = vfs_resolve_path(v, path)
+    if node == 0
+        0
+    else
+        if ino_is_file(node) == 0
+            0
+        else
+            node = ino_set_data(node, data)
+            let inodes = vfs_inodes(v)
+            inodes[ino_id(node)] = node
+            v[0] = inodes
+            1
+
+let vfs_read(v, path) =
+    let node = vfs_resolve_path(v, path)
+    if node == 0
+        0
+    else
+        if ino_is_file(node) == 0
+            0
+        else
+            ino_data(node)
+
+let vfs_stat(v, path) =
+    let node = vfs_resolve_path(v, path)
+    if node == 0
+        0
+    else
+        [ino_id(node), ino_name(node), ino_type(node), ino_size(node), ino_mode(node)]
+
+let vfs_delete(v, path) =
+    let node = vfs_resolve_path(v, path)
+    if node == 0
+        0
+    else
+        if ino_is_dir(node) == 1
+            let children = ino_children(node)
+            if len(keys_of(children)) > 0
+                0
+            else
+                let inodes = vfs_inodes(v)
+                inodes[ino_id(node)] = 0
+                let parent = vfs_get_inode(v, ino_parent(node))
+                if parent != 0
+                    parent = ino_remove_child(parent, ino_name(node))
+                    inodes[ino_id(parent)] = parent
+                v[0] = inodes
+                1
+            let inodes = vfs_inodes(v)
+            inodes[ino_id(node)] = 0
+            let parent = vfs_get_inode(v, ino_parent(node))
+            if parent != 0
+                parent = ino_remove_child(parent, ino_name(node))
+                inodes[ino_id(parent)] = parent
+            v[0] = inodes
+            1
+
+let vfs_list_dir(v, path) =
+    let node = vfs_resolve_path(v, path)
+    if node == 0
+        []
+    else
+        if ino_is_dir(node) == 0
+            []
+        else
+            let children = ino_children(node)
+            keys_of(children)
+
+let vfs_open(v, path, mode) =
+    let node = vfs_resolve_path(v, path)
+    if node == 0
+        if mode == 1 || mode == 2
+            let parent_path = str_slice_to(path, str_rfind(path, "/"))
+            let name = str_slice_from(path, str_rfind(path, "/") + 1)
+            node = vfs_create(v, parent_path, name)
+            if node == 0
+                return -1
+            else
+                0
+            return -1
+    let fd_num = len(keys_of(vfs_fds(v)))
+    let handle = [fd_num, ino_id(node), 0, mode, 0]
+    let fds = vfs_fds(v)
+    fds[fd_num] = handle
+    v[3] = fds
+    fd_num
+
+let str_rfind(s, ch) =
+    let i = len(s) - 1
+    let found = -1
+    for i >= 0
+        if s[i] == ch
+            found = i
+            i = -1
+        i = i - 1
+    found
+
+let vfs_fd_read(v, fd_num, count) =
+    let fds = vfs_fds(v)
+    let handle = fds[fd_num]
+    if handle == 0
+        []
+    else
+        let inode = vfs_get_inode(v, handle[1])
+        let offset = handle[2]
+        let data = ino_data(inode)
+        let result = []
+        let i = 0
+        for i < count
+            if offset + i < len(data)
+                result.push(data[offset + i])
+            i = i + 1
+        handle[2] = offset + len(result)
+        fds[fd_num] = handle
+        v[3] = fds
+        result
+
+let vfs_fd_write(v, fd_num, data) =
+    let fds = vfs_fds(v)
+    let handle = fds[fd_num]
+    if handle == 0
+        0
+    else
+        let inode = vfs_get_inode(v, handle[1])
+        let offset = handle[2]
+        let old_data = ino_data(inode)
+        let new_data = []
+        let i = 0
+        let n = len(old_data)
+        for i < n
+            new_data.push(old_data[i])
+            i = i + 1
+        i = 0
+        let dn = len(data)
+        for i < dn
+            if offset + i < len(new_data)
+                new_data[offset + i] = data[i]
+            else
+                new_data.push(data[i])
+            i = i + 1
+        inode = ino_set_data(inode, new_data)
+        let inodes = vfs_inodes(v)
+        inodes[handle[1]] = inode
+        v[0] = inodes
+        handle[2] = offset + len(data)
+        fds[fd_num] = handle
+        v[3] = fds
+        len(data)
+
+let vfs_close(v, fd_num) =
+    let fds = vfs_fds(v)
+    let existed = 0
+    if fds[fd_num] != 0
+        existed = 1
+    fds[fd_num] = 0
+    v[3] = fds
+    existed
+
+let vfs_lseek(v, fd_num, offset, whence) =
+    let fds = vfs_fds(v)
+    let handle = fds[fd_num]
+    if handle == 0
+        -1
+    else
+        let inode = vfs_get_inode(v, handle[1])
+        let new_offset = offset
+        if whence == 1
+            new_offset = handle[2] + offset
+        else
+            0
+        if whence == 2
+            new_offset = ino_size(inode) + offset
+        handle[2] = new_offset
+        fds[fd_num] = handle
+        v[3] = fds
+        new_offset
+
+let vfs_mount(v, mount_point, fs_backend) =
+    let mounts = vfs_mounts(v)
+    mounts[mount_point] = fs_backend
+    v[2] = mounts
+    v
+
+let vfs_umount(v, mount_point) =
+    let mounts = vfs_mounts(v)
+    mounts[mount_point] = 0
+    v[2] = mounts
+    v
+
+let vfs_get_mount(v, mount_point) =
+    vfs_mounts(v)[mount_point]
+
+let vfs_find_mount(v, path) =
+    let mounts = vfs_mounts(v)
+    let keys = keys_of(mounts)
+    let best = ""
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let k = keys[i]
+        if str_starts_with(path, k) == 1
+            if len(k) > len(best)
+                best = k
+        i = i + 1
+    if best == ""
+        0
+    else
+        [best, mounts[best]]
+
+let page_cache_new(max_pages) =
+    [{}, max_pages, 0]
+
+let pc_pages(pc) = pc[0]
+let pc_max(pc) = pc[1]
+let pc_hits(pc) = pc[2]
+
+let pc_get(pc, key) =
+    let pages = pc_pages(pc)
+    let page = pages[key]
+    if page == 0
+        0
+    else
+        pc[2] = pc[2] + 1
+        page
+
+let pc_put(pc, key, data) =
+    let pages = pc_pages(pc)
+    pages[key] = data
+    if pc_max(pc) > 0
+        if len(keys_of(pages)) > pc_max(pc)
+            let keys = keys_of(pages)
+            pages[keys[0]] = 0
+    pc[0] = pages
+    pc
+
+let pc_invalidate(pc, key) =
+    let pages = pc_pages(pc)
+    pages[key] = 0
+    pc[0] = pages
+    pc

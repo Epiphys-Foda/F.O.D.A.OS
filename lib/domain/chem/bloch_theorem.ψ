@@ -1,0 +1,35 @@
+import "ck.ψ"
+let bad = [0]
+
+let n_cells = 100
+let k_states = n_cells
+let states_per_band = 2 * k_states
+if states_per_band < 2 * n_cells - 1
+    bad[0] = bad[0] + 1
+if states_per_band > 2 * n_cells + 1
+    bad[0] = bad[0] + 1
+
+let n_elec = n_cells
+let half_band = k_states
+bad[0] = bad[0] + ck_lo(n_elec, half_band)
+
+let gap_si = 1100
+bad[0] = bad[0] + ck(gap_si, 900, 1300)
+
+let bloch_exists = 1
+bad[0] = bad[0] + ck_lo(bloch_exists, 1)
+
+if 1928 < 1926
+    bad[0] = bad[0] + 1
+if 1928 > 1930
+    bad[0] = bad[0] + 1
+if 1931 < 1929
+    bad[0] = bad[0] + 1
+if 1931 > 1933
+    bad[0] = bad[0] + 1
+if 1931 < 1929
+    bad[0] = bad[0] + 1
+if 1931 > 1933
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

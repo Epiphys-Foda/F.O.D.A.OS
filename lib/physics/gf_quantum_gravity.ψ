@@ -1,0 +1,138 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let metric_det_2d(g00, g01, g11) =
+    gf_sub(gf_mul(g00, g11), gf_mul(g01, g01))
+
+let metric_inverse_2d(g00, g01, g11) =
+    let det = metric_det_2d(g00, g01, g11)
+    let inv_det = gf_inv(det)
+    [[gf_mul(g11, inv_det), gf_neg(gf_mul(g01, inv_det))],
+     [gf_neg(gf_mul(g01, inv_det)), gf_mul(g00, inv_det)]]
+
+let christoffel_1d(g_plus, g_zero, g_minus) =
+    let dg = gf_sub(g_plus, g_minus)
+    let two_g = gf_mul(2, g_zero)
+    gf_div(dg, two_g)
+
+let ricci_scalar_1d(g_plus, g_zero, g_minus) =
+    let dg = gf_sub(g_plus, g_minus)
+    let d2g = gf_sub(gf_add(g_plus, g_minus), gf_mul(2, g_zero))
+    let d2g_over_g = gf_div(d2g, g_zero)
+    let dg_sq_over_2g2 = gf_div(gf_mul(dg, dg), gf_mul(2, gf_mul(g_zero, g_zero)))
+    gf_neg(gf_mul(2, gf_sub(d2g_over_g, dg_sq_over_2g2)))
+
+let einstein_tensor_1d(r_scalar, g_zero) =
+    gf_div(r_scalar, 2)
+
+let eh_action_total(sqrt_neg_dets, ricci_scalars, n) =
+    let action = 0
+    let i = 0
+    for i < n
+        let term = gf_mul(sqrt_neg_dets[i], ricci_scalars[i])
+        action = gf_add(action, term)
+        i = i + 1
+    action
+
+let path_integral_weight(action, r) = gf_pow(r, action)
+
+let two_metric_partition(s1, s2, r) =
+    gf_add(gf_pow(r, s1), gf_pow(r, s2))
+
+let einstein_self_consistent(g_init, matter_source, max_iter) =
+    let current_g = g_init
+    let i = 0
+    for i < max_iter
+        let r = ricci_scalar_1d(current_g, current_g, current_g)
+        let g_tensor = einstein_tensor_1d(r, current_g)
+        let residual = gf_sub(matter_source, g_tensor)
+        let next_g = gf_add(current_g, residual)
+        if next_g == current_g
+            current_g
+        current_g = next_g
+        i = i + 1
+    current_g
+
+let schwarzschild_radius(G, M) = gf_mul(2, gf_mul(G, M))
+
+let horizon_area(r_s) = gf_mul(4, gf_mul(r_s, r_s))
+
+let blackhole_entropy(area, G) = gf_div(area, gf_mul(4, G))
+
+let hawking_temperature(G, M) = gf_inv(gf_mul(8, gf_mul(G, M)))
+
+let information_capacity(entropy) = entropy
+
+let bulk_to_boundary(bulk_field, n_bulk, n_boundary) =
+    let boundary = []
+    let i = 0
+    for i < n_boundary
+        let val = 0
+        let j = 0
+        for j < n_bulk
+            val = gf_add(val, gf_div(bulk_field[j], gf_add(1, j)))
+            j = j + 1
+        boundary.push(val)
+        i = i + 1
+    boundary
+
+let ryu_takayanagi_entropy(minimal_surface_area, G) =
+    gf_div(minimal_surface_area, gf_mul(4, G))
+
+let gauss_bonnet_2d(curvatures, n) =
+    let sum_k = 0
+    let i = 0
+    for i < n
+        sum_k = gf_add(sum_k, curvatures[i])
+        i = i + 1
+    gf_div(sum_k, 2)
+
+let friedmann_equation(G, rho, k, a, lambda) =
+    let term1 = gf_div(gf_mul(gf_mul(8, G), rho), 3)
+    let term2 = gf_div(k, gf_mul(a, a))
+    let term3 = gf_div(lambda, 3)
+    gf_sub(gf_add(term1, term3), term2)
+
+let scale_factor_evolve(a, G, rho, k, lambda, dt) =
+    let h_sq = friedmann_equation(G, rho, k, a, lambda)
+    let h = gf_sqrt(h_sq)
+    gf_add(a, gf_mul(h, dt))
+
+let gravitational_wave_step(h_prev, h_curr, h_left, h_right) =
+    let d2t = gf_sub(gf_mul(2, h_curr), h_prev)
+    let d2x = gf_sub(gf_add(h_left, h_right), gf_mul(2, h_curr))
+    gf_add(d2t, d2x)
+
+let field_gravity(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 1100 + i * 900
+        let diff = gf_sub(z, pole)
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let gravity_verify() =
+    let det = metric_det_2d(2, 1, 3)
+    let ok1 = (det == 5 ? 1 : 0)
+
+    let inv = metric_inverse_2d(2, 1, 3)
+    let ok28 = (inv[0][0] > 0 ? 1 : 0)
+
+    let r = ricci_scalar_1d(100, 100, 100)
+    let ok3 = (r == 0 ? 1 : 0)
+
+    let rs = schwarzschild_radius(1, 100)
+    let ok4 = (rs == 200 ? 1 : 0)
+
+    let area = horizon_area(rs)
+    let entropy = blackhole_entropy(area, 1)
+    let ok5 = (entropy == 40000 ? 1 : 0)
+
+    let sol = einstein_self_consistent(100, 50, 100)
+    let ok6 = (sol > 0 ? 1 : 0)
+
+    let h_sq = friedmann_equation(1, 100, 0, 10, 0)
+    let ok7 = (h_sq > 0 ? 1 : 0)
+
+    ok1 + ok3 + ok4 + ok5 + ok6 + ok7

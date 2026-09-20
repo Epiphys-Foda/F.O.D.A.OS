@@ -1,0 +1,36 @@
+import "ck.ψ"
+let bad = [0]
+
+let narm = 6
+let bdeg = 360 / narm
+let bzc = bdeg - 60
+bad[0] = bad[0] + ck(bzc, 0, 0)
+
+let hexttl = 4 * 180
+bad[0] = bad[0] + ck(hexttl, 720, 720)
+
+let dend = 15
+bad[0] = bad[0] + ck(dend, 12, 18)
+
+let rhow = 1000
+let rhos = 100
+let ratio10 = rhow / rhos
+bad[0] = bad[0] + ck(ratio10, 10, 10)
+
+let same = 1
+bad[0] = bad[0] + ck_lo(same, 1)
+
+if 1611 < 1609
+    bad[0] = bad[0] + 1
+if 1611 > 1613
+    bad[0] = bad[0] + 1
+if 1885 < 1883
+    bad[0] = bad[0] + 1
+if 1885 > 1887
+    bad[0] = bad[0] + 1
+if 1954 < 1952
+    bad[0] = bad[0] + 1
+if 1954 > 1956
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

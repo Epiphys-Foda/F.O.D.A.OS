@@ -1,0 +1,186 @@
+import "../stdlib/gf65537.ψ"
+
+let born(cond, a, b) =
+    if cond != 0
+        a
+    else
+        b
+
+let metric_det_2d(g00, g01, g11) =
+    gf_sub(gf_mul(g00, g11), gf_mul(g01, g01))
+
+let metric_inverse_2d(g00, g01, g11) =
+    let det = metric_det_2d(g00, g01, g11)
+    let inv_det = gf_inv(det)
+    [[gf_mul(g11, inv_det), gf_neg(gf_mul(g01, inv_det))],
+     [gf_neg(gf_mul(g01, inv_det)), gf_mul(g00, inv_det)]]
+
+let sqrt_neg_det_2d(g00, g01, g11) =
+    let det = metric_det_2d(g00, g01, g11)
+    let neg_det = gf_neg(det)
+    let legendre = gf_legendre(neg_det)
+    if legendre == 1
+        gf_sqrt(neg_det)
+    else
+        0
+    if legendre == 0
+        0
+    else
+        65536
+
+let christoffel_1d(g_plus, g_zero, g_minus) =
+    let dg = gf_sub(g_plus, g_minus)
+    let two_g = gf_mul(2, g_zero)
+    gf_div(dg, two_g)
+
+let ricci_scalar_1d(g_plus, g_zero, g_minus) =
+    let dg = gf_sub(g_plus, g_minus)
+    let d2g = gf_sub(gf_add(g_plus, g_minus), gf_mul(2, g_zero))
+    let d2g_over_g = gf_div(d2g, g_zero)
+    let dg_sq = gf_mul(dg, dg)
+    let g_sq = gf_mul(g_zero, g_zero)
+    let dg_sq_over_2g2 = gf_div(dg_sq, gf_mul(2, g_sq))
+    gf_neg(gf_mul(2, gf_sub(d2g_over_g, dg_sq_over_2g2)))
+
+let eh_action_single(sqrt_neg_g, ricci_scalar) =
+    gf_mul(sqrt_neg_g, ricci_scalar)
+
+let eh_action_total(metrics, ricci_scalars, sqrt_neg_dets, n) =
+    _eh_loop(sqrt_neg_dets, ricci_scalars, n, 0, 0)
+let _eh_loop(sqrt_g, r, n, x, acc) =
+        if x >= n
+            acc
+        else
+            let term = gf_mul(sqrt_g[x], r[x])
+            _eh_loop(sqrt_g, r, n, x + 1, gf_add(acc, term))
+
+let total_gravity_action(sqrt_neg_g, ricci_scalar, l_matter, coupling_8pi) =
+    let r_term = ricci_scalar
+    let matter_term = gf_mul(coupling_8pi, l_matter)
+    gf_mul(sqrt_neg_g, gf_add(r_term, matter_term))
+
+let path_integral_weight(action, r) =
+    gf_pow(r, action)
+
+let two_metric_partition(s1, s2, r) =
+    gf_add(gf_pow(r, s1), gf_pow(r, s2))
+
+let einstein_tensor_1d(ricci_scalar, g_00) =
+    gf_mul(gf_inv(2), ricci_scalar)
+
+let einstein_equation_check(einstein_tensor, stress_energy, coupling_8pi) =
+    let rhs = gf_mul(coupling_8pi, stress_energy)
+    gf_sub(einstein_tensor, rhs)
+
+let einstein_self_consistent(g_init, matter_source, max_iter) =
+    _einstein_sc_loop(g_init, matter_source, max_iter, 0, g_init)
+let _einstein_sc_loop(g, t, max_iter, i, current_g) =
+        if i >= max_iter
+            current_g
+        else
+            let r = ricci_scalar_1d(current_g, current_g, current_g)
+            let g_tensor = einstein_tensor_1d(r, current_g)
+            let residual = gf_sub(t, g_tensor)
+            let new_g = gf_add(current_g, residual)
+            _einstein_sc_loop(g, t, max_iter, i + 1, new_g)
+
+let schwarzschild_radius(g_newton, mass) =
+    gf_mul(gf_mul(2, g_newton), mass)
+
+let black_hole_area(r_s) =
+    gf_mul(4, gf_mul(r_s, r_s))
+
+let black_hole_entropy(area, g_newton) =
+    gf_div(area, gf_mul(4, g_newton))
+
+let hawking_temperature(g_newton, mass) =
+    gf_inv(gf_mul(gf_mul(8, g_newton), mass))
+
+let black_hole_information(g_newton, mass) =
+    let r_s = schwarzschild_radius(g_newton, mass)
+    let area = black_hole_area(r_s)
+    black_hole_entropy(area, g_newton)
+
+let holographic_entropy_check(s_bulk, s_boundary) =
+        if s_bulk == s_boundary
+            1
+        else
+            0
+
+let gravitational_wave_step(h_t, h_t_minus_1) =
+    gf_sub(gf_mul(2, h_t), h_t_minus_1)
+
+let gravitational_wave_amplitude(a_amp, k, x, omega, t) =
+    let phase = gf_sub(gf_mul(k, x), gf_mul(omega, t))
+    gf_mul(a_amp, gf_pow(3, phase))
+
+let gravitational_strain(delta_l, length) =
+    gf_div(delta_l, length)
+
+let hubble_parameter(a_t_plus, a_t) =
+    gf_div(gf_sub(a_t_plus, a_t), a_t)
+
+let friedmann_equation(g_newton, rho, k_curvature, a_scale, lambda_cosmo) =
+    let matter_term = gf_mul(gf_div(gf_mul(8, g_newton), 3), rho)
+    let curvature_term = gf_div(k_curvature, gf_mul(a_scale, a_scale))
+    let lambda_term = gf_div(lambda_cosmo, 3)
+    gf_add(gf_sub(matter_term, curvature_term), lambda_term)
+
+let scale_factor_radiation(a_t, t, t_plus_1) =
+    let ratio = gf_div(t_plus_1, t)
+    let sqrt_ratio = gf_sqrt(ratio)
+    gf_mul(a_t, sqrt_ratio)
+
+let scale_factor_matter(a_t, t, t_plus_1) =
+    let ratio = gf_div(t_plus_1, t)
+    let two_thirds = gf_div(2, 3)
+    gf_mul(a_t, gf_pow(ratio, two_thirds))
+
+let critical_density(hubble_sq, g_newton) =
+    gf_div(gf_mul(3, hubble_sq), gf_mul(8, g_newton))
+
+let density_parameter(rho, rho_critical) =
+    gf_div(rho, rho_critical)
+
+let universe_age_matter(hubble) =
+    gf_div(2, gf_mul(3, hubble))
+
+let euler_characteristic(b0, b1, b2, b3) =
+    gf_add(gf_sub(gf_add(b0, b2), b1), gf_neg(b3))
+
+let gauss_bonnet_check(curvature_sum, euler_char) =
+        let rhs = gf_mul(2, euler_char)
+        if curvature_sum == rhs
+            1
+        else
+            0
+
+let interval_2d(g00, g01, g11, dx0, dx1) =
+    let term0 = gf_mul(g00, gf_mul(dx0, dx0))
+    let term1 = gf_mul(gf_mul(2, g01), gf_mul(dx0, dx1))
+    let term2 = gf_mul(g11, gf_mul(dx1, dx1))
+    gf_add(gf_add(term0, term1), term2)
+
+let causal_type(g00, g01, g11, dx0, dx1) =
+    let ds_sq = interval_2d(g00, g01, g11, dx0, dx1)
+    if ds_sq == 0
+        0
+    else
+        0
+    if ds_sq > 0 && ds_sq < 32768
+        1
+    else
+        2
+
+let holographic_dim_map(bulk_dim) =
+    bulk_dim - 1
+
+let ryu_takayanagi(area_min_surface, g_newton) =
+    gf_div(area_min_surface, gf_mul(4, g_newton))
+
+let holographic_rg_flow(g_bulk_ir, g_boundary_uv) =
+        if g_bulk_ir == g_boundary_uv
+            1
+        else
+            0
+

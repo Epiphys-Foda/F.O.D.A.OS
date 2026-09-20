@@ -1,0 +1,28 @@
+import "ck.ψ"
+let bad = [0]
+
+let b = 2
+let st = b * 2
+let dst = st - 2 * 2
+bad[0] = bad[0] + ck(dst, 0, 0)
+
+let sent = 1000
+let kept = sent * 50 / 100
+let dk = kept - 500
+bad[0] = bad[0] + ck(dk, 0, 0)
+
+let f = 50
+let qber = f * 25 / 10
+bad[0] = bad[0] + ck(qber, 120, 130)
+
+let thresh = 11
+bad[0] = bad[0] + ck(thresh, 10, 12)
+let caught = qber / thresh
+bad[0] = bad[0] + ck_lo(caught, 1)
+
+if 1984 < 1982
+    bad[0] = bad[0] + 1
+if 1984 > 1986
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

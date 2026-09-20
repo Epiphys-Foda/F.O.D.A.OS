@@ -1,0 +1,26 @@
+import "ck.ψ"
+let bad = [0]
+
+let ls = 1058
+bad[0] = bad[0] + ck(ls, 1050, 1066)
+
+let dirac = 0
+let dd = dirac - 0
+bad[0] = bad[0] + ck(dd, 0, 0)
+
+let bethe = 1000
+bad[0] = bad[0] + ck(bethe, 900, 1100)
+
+let lr = 76
+bad[0] = bad[0] + ck(lr, 70, 80)
+
+if 1947 < 1945
+    bad[0] = bad[0] + 1
+if 1947 > 1949
+    bad[0] = bad[0] + 1
+if 1955 < 1953
+    bad[0] = bad[0] + 1
+if 1955 > 1957
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

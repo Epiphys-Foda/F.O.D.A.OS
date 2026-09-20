@@ -1,0 +1,29 @@
+import "ck.ψ"
+let bad = [0]
+
+let dp = 1000 * 1400 / (10 * 10000)
+bad[0] = bad[0] + ck(dp, 14, 14)
+
+let tr = 2 * 100 * 1000 / 1400
+bad[0] = bad[0] + ck(tr, 130, 160)
+
+let cw = 1400
+bad[0] = bad[0] + ck(cw, 1200, 1500)
+
+let lift = 1
+bad[0] = bad[0] + ck_lo(lift, 1)
+
+if 1898 < 1896
+    bad[0] = bad[0] + 1
+if 1898 > 1900
+    bad[0] = bad[0] + 1
+if 1878 < 1876
+    bad[0] = bad[0] + 1
+if 1878 > 1880
+    bad[0] = bad[0] + 1
+if 1772 < 1770
+    bad[0] = bad[0] + 1
+if 1772 > 1774
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

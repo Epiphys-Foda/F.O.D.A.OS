@@ -1,0 +1,166 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let species_new(gene, population, threshold) = [gene, population, threshold]
+let species_gene(s) = s[0]
+let species_pop(s) = s[1]
+let species_threshold(s) = s[2]
+
+let env_new(nutrient, temperature, pressure) = [nutrient, temperature, pressure]
+let env_nutrient(e) = e[0]
+let env_temperature(e) = e[1]
+let env_pressure(e) = e[2]
+
+let species_metabolize(s, env) =
+    let g = species_gene(s)
+    let pop = species_pop(s)
+    let threshold = species_threshold(s)
+    let p = gene_pole(g)
+    let r = gene_residue(g)
+    let op = gene_op(g)
+    let nutrient = env_nutrient(env)
+    let new_r = gf_add(r, gf_mul(nutrient, p))
+    [gene_new(p, new_r, op), pop, threshold]
+
+let species_grow(s, env) =
+    let g = species_gene(s)
+    let pop = species_pop(s)
+    let threshold = species_threshold(s)
+    let fit = fitness(g)
+    let pressure = env_pressure(env)
+    let growth = fit - pressure
+    let new_pop = (growth > 0 ? pop + growth : pop / 2)
+    [g, new_pop, threshold]
+
+let species_evolve(s, env, sigma) =
+    let g = species_gene(s)
+    let pop = species_pop(s)
+    let threshold = species_threshold(s)
+    let mutated = galois_mutate(g, sigma)
+    let fit_orig = fitness(g)
+    let fit_mut = fitness(mutated)
+    let winner = (fit_mut > fit_orig ? mutated : g)
+    [winner, pop, threshold]
+
+let compete(s1, s2, env) =
+    let g1 = species_gene(s1)
+    let g2 = species_gene(s2)
+    let pop1 = species_pop(s1)
+    let pop2 = species_pop(s2)
+    let t1 = species_threshold(s1)
+    let t2 = species_threshold(s2)
+    let nutrient = env_nutrient(env)
+    let f1 = fitness(g1)
+    let f2 = fitness(g2)
+    let total_fit = f1 + f2
+    let pop1_new = (total_fit == 0 ? pop1 : pop1 + nutrient * f1 / total_fit)
+    let pop2_new = (total_fit == 0 ? pop2 : pop2 + nutrient * f2 / total_fit)
+    [species_new(g1, pop1_new, t1), species_new(g2, pop2_new, t2)]
+
+let symbiosis(s1, s2) =
+    let g1 = species_gene(s1)
+    let g2 = species_gene(s2)
+    let pop1 = species_pop(s1)
+    let pop2 = species_pop(s2)
+    let t1 = species_threshold(s1)
+    let t2 = species_threshold(s2)
+    [species_new(g1, pop1 + 1, t1), species_new(g2, pop2 + 1, t2)]
+
+let ecosystem_step(species_a, species_b, env, sigma) =
+    let sa_fed = species_metabolize(species_a, env)
+    let sb_fed = species_metabolize(species_b, env)
+    let sa_evo = species_evolve(sa_fed, env, sigma)
+    let sb_evo = species_evolve(sb_fed, env, sigma)
+    let pair = compete(sa_evo, sb_evo, env)
+    let sa_comp = pair[0]
+    let sb_comp = pair[1]
+    let sa_grown = species_grow(sa_comp, env)
+    let sb_grown = species_grow(sb_comp, env)
+    [sa_grown, sb_grown]
+
+let ecosystem_evolve(sa, sb, env, generations) =
+    let current_a = sa
+    let current_b = sb
+    let gen = 0
+    let total_pop = 0
+    for gen < generations
+        let sigma = gf_add(gen, 1)
+        let result = ecosystem_step(current_a, current_b, env, sigma)
+        current_a = result[0]
+        current_b = result[1]
+        total_pop = total_pop + species_pop(current_a) + species_pop(current_b)
+        gen = gen + 1
+    total_pop
+
+let ecosystem_crisis(sa, sb, env_good, env_bad, crisis_gen, total_gen) =
+    let current_a = sa
+    let current_b = sb
+    let gen = 0
+    let survived = 0
+    for gen < total_gen
+        let env = (gen < crisis_gen ? env_good : env_bad)
+        let sigma = gf_add(gen, 1)
+        let result = ecosystem_step(current_a, current_b, env, sigma)
+        current_a = result[0]
+        current_b = result[1]
+        if species_pop(current_a) > 0 || species_pop(current_b) > 0
+            survived = survived + 1
+        gen = gen + 1
+    survived
+
+let ecosystem_verify() =
+    let ok = 0
+
+    let s1 = species_new(gene_new(101, 1, 0), 10, 2)
+    if species_pop(s1) == 10
+        ok = ok + 1
+
+    let env = env_new(5, 20, 1)
+    if env_nutrient(env) == 5
+        ok = ok + 1
+
+    let s_fed = species_metabolize(s1, env)
+    if gene_residue(species_gene(s_fed)) == 506
+        ok = ok + 1
+
+    let s_grown = species_grow(s1, env)
+    if species_pop(s_grown) == 13
+        ok = ok + 1
+
+    let s_evo = species_evolve(s1, env, 1)
+    if gene_pole(species_gene(s_evo)) == 101
+        ok = ok + 1
+
+    let s2 = species_new(gene_new(103, 1, 1), 8, 2)
+    let comp_result = compete(s1, s2, env)
+    let sa_after = comp_result[0]
+    let sb_after = comp_result[1]
+    if species_pop(sa_after) >= 10
+        ok = ok + 1
+
+    let sym_result = symbiosis(s1, s2)
+    if species_pop(sym_result[0]) == 11
+        ok = ok + 1
+    if species_pop(sym_result[1]) == 9
+        ok = ok + 1
+
+    let eco_result = ecosystem_step(s1, s2, env, 1)
+    if species_pop(eco_result[0]) >= 0
+        ok = ok + 1
+
+    let eco_evolve = ecosystem_evolve(s1, s2, env, 5)
+    if eco_evolve >= 0
+        ok = ok + 1
+
+    let env_good = env_new(5, 20, 1)
+    let env_bad = env_new(0, 5, 3)
+    let crisis = ecosystem_crisis(s1, s2, env_good, env_bad, 5, 10)
+    if crisis >= 0
+        ok = ok + 1
+
+    let long_evolve = ecosystem_evolve(s1, s2, env, 8)
+    if long_evolve >= 0
+        ok = ok + 1
+
+    ok
+
+let main() = ecosystem_verify()

@@ -1,0 +1,119 @@
+import "super_db3d.ψ"
+let rf_dbtq_store(db3, traj, r) =
+    let out = db3
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(traj)
+        out = rf_db3_insert(out, traj[i], traj[i + 1], traj[i + 2], r)
+        i = i + 3
+      else
+        done = true
+    out
+
+let rf_dbtq_near(db3, x, y, z) =
+    let best_d2 = 2147483000
+    let best_i = 0
+    let i = 0
+    let done = false
+    for !done
+      if i + 3 < len(db3)
+        let dx = x - db3[i]
+        let dy = y - db3[i + 1]
+        let dz = z - db3[i + 2]
+        let ax = (dx < 0 ? 0 - dx : dx)
+        let ay = (dy < 0 ? 0 - dy : dy)
+        let az = (dz < 0 ? 0 - dz : dz)
+        let dx2 = (ax > 26457 ? 700000000 : ax * ax)
+        let dy2 = (ay > 26457 ? 700000000 : ay * ay)
+        let dz2 = (az > 26457 ? 700000000 : az * az)
+        let d2 = dx2 + dy2 + dz2
+        if d2 < best_d2
+          best_d2 = d2
+          best_i = i
+        else
+          0
+        i = i + 4
+      else
+        done = true
+    [best_i, best_d2]
+
+let rf_dbtq_trace(db3, n) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < n && i + 3 < len(db3)
+        out = out.push(db3[i])
+        out = out.push(db3[i + 1])
+        out = out.push(db3[i + 2])
+        i = i + 4
+      else
+        done = true
+    out
+
+let rf_dbtq_similar(db3a, db3b) =
+    let shared = 0
+    let i = 0
+    let done = false
+    for !done
+      if i + 3 < len(db3a)
+        let j = 0
+        let jdone = false
+        for !jdone
+          if j + 3 < len(db3b)
+            if db3a[i] == db3b[j] && db3a[i + 1] == db3b[j + 1] && db3a[i + 2] == db3b[j + 2]
+              shared = shared + 1
+            else
+              0
+            j = j + 4
+          else
+            jdone = true
+        i = i + 4
+      else
+        done = true
+    shared
+
+let rf_dbtq_avg(db3) =
+    let sx = 0
+    let sy = 0
+    let sz = 0
+    let n = 0
+    let i = 0
+    let done = false
+    for !done
+      if i + 3 < len(db3)
+        sx = sx + db3[i]
+        sy = sy + db3[i + 1]
+        sz = sz + db3[i + 2]
+        n = n + 1
+        i = i + 4
+      else
+        done = true
+    (n == 0 ? [0, 0, 0] : [sx / n, sy / n, sz / n])
+
+let rf_dbtq_report(db3) =
+    let n = 0
+    let i = 0
+    let done = false
+    for !done
+      if i + 3 < len(db3)
+        n = n + 1
+        i = i + 4
+      else
+        done = true
+    [n, db3[0], db3[1]]
+
+let rf_dbtq_test() =
+    let traj = [5, 0, 0, 4, 0, 0, 3, 0, 0]
+    let db3 = rf_dbtq_store([], traj, 10)
+    let t1 = len(db3) == 12
+    let near = rf_dbtq_near(db3, 5, 1, 0)
+    let t2 = near[1] == 1
+    let t3 = len(rf_dbtq_trace(db3, 2)) == 3
+    let t4 = rf_dbtq_similar(db3, db3) == 3
+    let avg = rf_dbtq_avg(db3)
+    let t5 = avg[0] == 4
+    let rep = rf_dbtq_report(db3)
+    let t6 = rep[0] == 3 && rep[1] == 5
+    t1 && t2 && t3 && t4 && t5 && t6

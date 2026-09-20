@@ -1,0 +1,32 @@
+import "ck.ψ"
+let bad = [0]
+
+let precess = 360 * 3 / 4
+bad[0] = bad[0] + ck(precess, 270, 270)
+
+let pole = 360
+bad[0] = bad[0] + ck(pole, 360, 360)
+
+let eq = 0
+bad[0] = bad[0] + ck(eq, 0, 0)
+
+let T16 = 16
+bad[0] = bad[0] + ck(T16, 16, 17)
+
+let flip = 1
+bad[0] = bad[0] + ck_lo(flip, 1)
+
+if 1851 < 1849
+    bad[0] = bad[0] + 1
+if 1851 > 1853
+    bad[0] = bad[0] + 1
+if 1862 < 1860
+    bad[0] = bad[0] + 1
+if 1862 > 1864
+    bad[0] = bad[0] + 1
+if 1990 < 1988
+    bad[0] = bad[0] + 1
+if 1990 > 1992
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

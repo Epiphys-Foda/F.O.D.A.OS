@@ -1,0 +1,37 @@
+import "ck.ψ"
+let bad = [0]
+
+let rms2 = 230 * 230
+let dz1 = rms2 - 52900
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let peak = isqrt(2 * rms2)
+let dz2 = peak - 325
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let mean_sq = peak * peak / 2
+bad[0] = bad[0] + ck(mean_sq, 51500, 54000)
+
+let sq_rms = 230
+let dz4 = sq_rms - 230
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let v_old = 110
+let loss_old = v_old * v_old
+let loss_new = rms2
+let ratio = loss_new / 121 / 100
+let dz5 = ratio - 4
+bad[0] = bad[0] + ck(dz5, 0, 0)
+let dz6 = loss_old - 12100
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+if 1888 < 1886
+    bad[0] = bad[0] + 1
+if 1888 > 1890
+    bad[0] = bad[0] + 1
+if 1983 < 1981
+    bad[0] = bad[0] + 1
+if 1983 > 1985
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

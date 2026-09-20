@@ -1,0 +1,51 @@
+import "../stdlib/gf65537.ψ"
+import "../stdlib/fft.ψ"
+
+let ntt_root(n) = fft_root(n)
+
+let channel_encode(op_stream, n) = ntt(op_stream, n)
+
+let channel_decode(codeword, n) = intt(codeword, n)
+
+let _syndrome_loop(codeword, n, k, i, syn) =
+    if i >= k
+      syn
+    else
+      syn[i] = codeword[i]
+      _syndrome_loop(codeword, n, k, i + 1, syn)
+let channel_syndrome(codeword, n, k) =
+    let syn = arr_new_n(k)
+    _syndrome_loop(codeword, n, k, 0, syn)
+    syn
+
+let _verify_decode_loop(orig, decoded, n, i) =
+    if i >= n
+      1
+    else
+        0
+    if orig[i] == decoded[i]
+      _verify_decode_loop(orig, decoded, n, i + 1)
+    else
+      0
+let channel_verify(op_stream, n) =
+    let encoded = channel_encode(op_stream, n)
+    let decoded = channel_decode(encoded, n)
+    _verify_decode_loop(op_stream, decoded, n, 0)
+
+let bragg_condition_check(X, n) =
+    let x_rec = intt(ntt(X, n), n)
+    _verify_decode_loop(X, x_rec, n, 0)
+
+let test_channel_code() =
+    let w = ntt_root(4)
+    assert_eq(gfmul(w, gfmul(w, gfmul(w, w))), 1)
+    let s = arr_new_n(4)
+    s[0] = 1
+    s[1] = 2
+    s[2] = 3
+    s[3] = 4
+    let v = channel_verify(s, 4)
+    assert_eq(v, 1)
+    let b = bragg_condition_check(s, 4)
+    assert_eq(b, 1)
+    0

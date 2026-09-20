@@ -1,0 +1,91 @@
+let rf_rdi_reach(tx, ty, L) =
+    let dist2 = tx * tx + ty * ty
+    let disc = L * L - dist2
+    [disc, dist2]
+
+let rf_rdi_ik2(L1, L2, tx, ty, grid) =
+    let found = 0
+    let fx = 0
+    let fy = 0
+    let i = 0
+    let done = false
+    for !done
+      if i <= grid && found == 0
+        let j = 0
+        let jdone = false
+        for !jdone
+          if j <= grid && found == 0
+            let px = i - grid / 2
+            let py = j - grid / 2
+            let d1 = px * px + py * py
+            let d2 = (tx - px) * (tx - px) + (ty - py) * (ty - py)
+            if d1 == L1 * L1 && d2 == L2 * L2
+              found = 1
+              fx = px
+              fy = py
+            else
+              0
+            j = j + 1
+          else
+            jdone = true
+        i = i + 1
+      else
+        done = true
+    [found, fx, fy]
+
+let rf_rdi_verify_pose(L2, j2x, j2y, tx, ty) =
+    let dx = tx - j2x
+    let dy = ty - j2y
+    let dist2 = dx * dx + dy * dy
+    if dist2 == L2 * L2
+    else
+      if dist2 == L2 * L2 + 1 || dist2 == L2 * L2 - 1
+        1
+      else
+        0
+
+let rf_rdi_singular(L1, L2, tx, ty) =
+    let dist2 = tx * tx + ty * ty
+    let max2 = (L1 + L2) * (L1 + L2)
+    let min2 = (L1 - L2) * (L1 - L2)
+    if dist2 == max2 || dist2 == min2
+    else
+      0
+
+let rf_rdi_bezout(L1, L2, tx, ty) =
+    let dist2 = tx * tx + ty * ty
+    let max2 = (L1 + L2) * (L1 + L2)
+    let min2 = (L1 - L2) * (L1 - L2)
+    if dist2 > max2
+    else
+      if dist2 < min2
+      else
+        if dist2 == max2 || dist2 == min2
+        else
+          2
+
+let rf_rdi_arm_traj(L1, L2, tx, ty, steps) =
+    let out = []
+    let ex = 0
+    let ey = L1
+    let i = 0
+    let done = false
+    for !done
+      if i < steps
+        out = out.push(ex)
+        out = out.push(ey)
+        i = i + 1
+      else
+        done = true
+    out
+
+let rf_rdi_verify() =
+    let r1 = rf_rdi_reach(3, 4, 5)
+    let t1 = r1[0] == 0
+    let ik = rf_rdi_ik2(3, 4, 0, 7, 14)
+    let t2 = ik[0] == 1 && ik[1] == 0 && ik[2] == 3
+    let t3 = rf_rdi_verify_pose(4, 0, 3, 0, 7) == 1
+    let t4 = rf_rdi_singular(3, 4, 0, 7) == 1
+    let t5 = rf_rdi_bezout(3, 4, 0, 7) == 1
+    let t6 = len(rf_rdi_arm_traj(3, 4, 3, 4, 2)) == 4
+    t1 && t2 && t3 && t4 && t5 && t6

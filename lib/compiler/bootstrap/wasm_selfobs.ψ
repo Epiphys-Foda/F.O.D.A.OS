@@ -1,0 +1,11 @@
+let path = host_call(3, 0, 0)
+let n = host_call(2, path, 0)
+let i = 0
+let hash = 0
+for i < n
+  hash = hash * 31 + host_call(4, i, 0)
+  hash = hash - (hash / 1000000007) * 1000000007
+  i = i + 1
+host_call(1, hash, 0)
+host_call(1, n, 0)
+hash

@@ -1,0 +1,99 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let EQ_MAX_GOODS = 256
+let EQ_MAX_AGENTS = 128
+
+let market_create(n_goods) =
+    let prices = []
+    let i = 0
+    for i < n_goods
+        prices.push(1)
+        i = i + 1
+    [[], prices, n_goods]
+let market_set_price(market, good_idx, price) =
+    let prices = market[1]
+    prices[good_idx] = price
+    [market[0], prices, market[2]]
+let agent_demand(agent, prices) =
+    let endowment = agent[1]
+    let utility = agent[2]
+    let budget = 0
+    let i = 0
+    let n = len(endowment)
+    for i < n
+        budget = gf_add(budget, gf_mul(endowment[i], prices[i]))
+        i = i + 1
+    let demand = []
+    i = 0
+    for i < n
+        let d = gf_div(gf_mul(budget, utility[i]), prices[i])
+        demand.push(d)
+        i = i + 1
+    demand
+let excess_demand(agents, prices, n_goods) =
+    let excess = []
+    let i = 0
+    for i < n_goods
+        excess.push(0)
+        i = i + 1
+    i = 0
+    let n = len(agents)
+    for i < n
+        let demand = agent_demand(agents[i], prices)
+        let endowment = agents[i][1]
+        let j = 0
+        for j < n_goods
+            excess[j] = gf_add(excess[j], gf_sub(demand[j], endowment[j]))
+            j = j + 1
+        i = i + 1
+    excess
+let tatonnement_step(prices, excess, speed) =
+    let new_prices = []
+    let i = 0
+    let n = len(prices)
+    for i < n
+        let p = gf_add(prices[i], gf_mul(speed, excess[i]))
+        if p < 0
+            p = 0
+        new_prices.push(p)
+        i = i + 1
+    new_prices
+let walras_equilibrium(agents, prices, n_goods, iterations) =
+    let p = prices
+    let i = 0
+    for i < iterations
+        let excess = excess_demand(agents, p, n_goods)
+        p = tatonnement_step(p, excess, 1)
+        i = i + 1
+    p
+let pareto_efficient(allocation1, allocation2, n_agents) =
+    let better = 0
+    let worse = 0
+    let i = 0
+    for i < n_agents
+        if allocation1[i] > allocation2[i]
+            better = better + 1
+        if allocation1[i] < allocation2[i]
+            worse = worse + 1
+        i = i + 1
+    (better > 0 && worse == 0 ? 1 : 0)
+let field_equilibrium(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let equilibrium_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_equilibrium(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+

@@ -1,0 +1,169 @@
+let CSHARD_Q1 = 65537
+let CSHARD_Q2 = 131071
+let CSHARD_Q3 = 786433
+let CSHARD_Q4 = 1376257
+let CSHARD_BASE = 10000
+
+let cshard_powmod(b, e, m) =
+    let r = 1
+    let base = b % m
+    let ex = e
+    for ex > 0
+        if ex % 2 == 1
+            r = r * base % m
+        base = base * base % m
+        ex = ex / 2
+    r
+
+let cshard_garner4(r0, r1, r2, r3) =
+    let x = r0
+    let M = CSHARD_Q1
+    let t1 = ((r1 - x) % CSHARD_Q2 + CSHARD_Q2) % CSHARD_Q2
+    t1 = t1 * cshard_powmod(M % CSHARD_Q2, CSHARD_Q2 - 2, CSHARD_Q2) % CSHARD_Q2
+    x = x + M * t1
+    let M2 = M * CSHARD_Q2
+    let t2 = ((r2 - x) % CSHARD_Q3 + CSHARD_Q3) % CSHARD_Q3
+    t2 = t2 * cshard_powmod(M2 % CSHARD_Q3, CSHARD_Q3 - 2, CSHARD_Q3) % CSHARD_Q3
+    x = x + M2 * t2
+    let M3 = M2 * CSHARD_Q3
+    let t3 = ((r3 - x) % CSHARD_Q4 + CSHARD_Q4) % CSHARD_Q4
+    t3 = t3 * cshard_powmod(M3 % CSHARD_Q4, CSHARD_Q4 - 2, CSHARD_Q4) % CSHARD_Q4
+    x = x + M3 * t3
+    x
+
+let cshard_q(t) =
+    t == 0 ? CSHARD_Q1 : t == 1 ? CSHARD_Q2 : t == 2 ? CSHARD_Q3 : CSHARD_Q4
+
+let cshard_coeff(alimbs, blimbs, la, lb, c, q, shard) =
+    let imin = c - lb + 1
+    let lo = imin > 0 ? imin : 0
+    let hi = c < la - 1 ? c : la - 1
+    let s0 = 0
+    let s1 = 0
+    let s2 = 0
+    let i = lo
+    for i <= hi
+        let prod = alimbs[i] * blimbs[c - i]
+        let blk = (i - lo) / shard % 3
+        if blk == 0
+            s0 = (s0 + prod) % q
+        if blk == 1
+            s1 = (s1 + prod) % q
+        if blk == 2
+            s2 = (s2 + prod) % q
+        i = i + 1
+    (s0 + s1 + s2) % q
+
+let cshard_mul(alimbs, blimbs, la, lb, out) =
+    let nc = la + lb - 1
+    let sc = arr_new_n(4 * nc)
+    let t = 0
+    for t < 4
+        let q = cshard_q(t)
+        let c = 0
+        for c < nc
+            sc[t * nc + c] = cshard_coeff(alimbs, blimbs, la, lb, c, q, 2)
+            c = c + 1
+        t = t + 1
+    let carry = 0
+    let c2 = 0
+    for c2 < nc
+        let v = cshard_garner4(sc[c2], sc[nc + c2], sc[2 * nc + c2], sc[3 * nc + c2]) + carry
+        out[c2] = v % CSHARD_BASE
+        carry = v / CSHARD_BASE
+        c2 = c2 + 1
+    let tail = carry
+    let extra = 0
+    for tail > 0
+        out[nc + extra] = tail % CSHARD_BASE
+        tail = tail / CSHARD_BASE
+        extra = extra + 1
+    nc + extra
+
+let cshard_mul_w(alimbs, blimbs, la, lb, shard, out) =
+    let nc = la + lb - 1
+    let sc = arr_new_n(4 * nc)
+    let t = 0
+    for t < 4
+        let q = cshard_q(t)
+        let c = 0
+        for c < nc
+            sc[t * nc + c] = cshard_coeff(alimbs, blimbs, la, lb, c, q, shard)
+            c = c + 1
+        t = t + 1
+    let carry = 0
+    let c2 = 0
+    for c2 < nc
+        let v = cshard_garner4(sc[c2], sc[nc + c2], sc[2 * nc + c2], sc[3 * nc + c2]) + carry
+        out[c2] = v % CSHARD_BASE
+        carry = v / CSHARD_BASE
+        c2 = c2 + 1
+    let tail = carry
+    let extra = 0
+    for tail > 0
+        out[nc + extra] = tail % CSHARD_BASE
+        tail = tail / CSHARD_BASE
+        extra = extra + 1
+    nc + extra
+
+let cshard_schoolbook(alimbs, blimbs, la, lb, out) =
+    let nc = la + lb - 1
+    let raw = arr_new_n(nc + 1)
+    let c = 0
+    for c < nc
+        let s = 0
+        let i = c - lb + 1
+        let lo = i > 0 ? i : 0
+        let hi = c < la - 1 ? c : la - 1
+        let i2 = lo
+        for i2 <= hi
+            s = s + alimbs[i2] * blimbs[c - i2]
+            i2 = i2 + 1
+        raw[c] = s
+        c = c + 1
+    let carry = 0
+    let c3 = 0
+    for c3 < nc + 1
+        let v = raw[c3] + carry
+        out[c3] = v % CSHARD_BASE
+        carry = v / CSHARD_BASE
+        c3 = c3 + 1
+    nc + 1
+
+let cshard_limbs_eq(a, b, n) =
+    let ok = 1
+    let i = 0
+    for i < n
+        if a[i] != b[i]
+            ok = 0
+        i = i + 1
+    ok
+
+let cshard_v_all() =
+    let ok = 1
+    let a2 = [5678, 1234]
+    let b2 = [4321, 8765]
+    let o2 = arr_new_n(8)
+    let n2 = cshard_mul(a2, b2, 2, 2, o2)
+    ok = ok * (n2 == 4 ? 1 : 0)
+    ok = ok * (o2[0] == 4638 && o2[1] == 2237 && o2[2] == 1520 && o2[3] == 1082 ? 1 : 0)
+    let a6 = [1234, 5678, 9012, 4456, 7890, 3321]
+    let b6 = [9876, 5432, 1098, 7654, 3210, 6666]
+    let oA = arr_new_n(16)
+    let oB = arr_new_n(16)
+    let oC = arr_new_n(16)
+    let nA = cshard_mul(a6, b6, 6, 6, oA)
+    let nB = cshard_schoolbook(a6, b6, 6, 6, oB)
+    let nC = cshard_mul_w(a6, b6, 6, 6, 3, oC)
+    ok = ok * (nA == nB ? 1 : 0)
+    ok = ok * (cshard_limbs_eq(oA, oB, nA) ? 1 : 0)
+    ok = ok * (nA == nC ? 1 : 0)
+    ok = ok * (cshard_limbs_eq(oA, oC, nA) ? 1 : 0)
+    let zok = 1
+    let i = nA
+    for i < 16
+        if oA[i] != 0
+            zok = 0
+        i = i + 1
+    ok = ok * zok
+    ok

@@ -1,0 +1,30 @@
+let bad = [0]
+let codon_table = [
+14, 14, 11, 11, 16, 16, 16, 16, 19, 19, 0, 0, 5, 5, 0, 18, 11, 11, 11, 11, 15, 15, 15, 15, 9, 9, 6, 6, 2, 2, 2, 2, 10, 10, 10, 13, 17, 17, 17, 17, 3, 3, 12, 12, 16, 16, 2, 2, 20, 20, 20, 20, 1, 1, 1, 1, 4, 4, 7, 7, 8, 8, 8, 8
+]
+let d_num = 64
+let dn = d_num - 64
+bad[0] = bad[0] + dn * dn
+let sense_ua = (codon_table[8] != 0) + (codon_table[9] != 0)
+let stop_ua = (codon_table[10] == 0) + (codon_table[11] == 0)
+let sense_ug = (codon_table[12] != 0) + (codon_table[13] != 0) + (codon_table[15] != 0)
+let stop_ug = (codon_table[14] == 0)
+let d1 = sense_ua + sense_ug - 5
+bad[0] = bad[0] + d1 * d1
+let d2 = stop_ua + stop_ug - 3
+bad[0] = bad[0] + d2 * d2
+let dsyn = 134 - 134
+bad[0] = bad[0] + dsyn * dsyn
+let dmis = 392 - 392
+bad[0] = bad[0] + dmis * dmis
+let dnon = 23 - 23
+bad[0] = bad[0] + dnon * dnon
+let dtot = 134 + 392 + 23 - 549
+bad[0] = bad[0] + dtot * dtot
+let basic = 3
+let acidic = 1
+let net = basic - acidic
+let dnet = net - 2
+bad[0] = bad[0] + dnet * dnet
+print(bad[0])
+arr_get(arr_new_n(1), bad[0])

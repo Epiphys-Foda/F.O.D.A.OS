@@ -1,0 +1,25 @@
+import "../lib/core/stdlib/qec.ψ"
+
+let sv = qec_verify_s9()
+let g1 = sv[0]
+let g2 = sv[1]
+let g3 = sv[2]
+let g4 = sv[3]
+let g5 = sv[4]
+let g6 = sv[5]
+let g7 = sv[6]
+let g8 = sv[7]
+
+let st = qec_s9_flip(qec_s9_encode(0), 3)
+let g9 = qec_s9_decode(qec_s9_correct_x(st)) == 0
+let g10 = qec_s9_decode(qec_s9_correct_z(st)) == 0
+let st2 = qec_s9_flip(qec_s9_encode(1), 5)
+let g11 = qec_s9_decode(qec_s9_correct_z(qec_s9_correct_x(st2))) == 1
+let st3 = qec_s9_flip(qec_s9_encode(0), 6)
+let fx3 = qec_s9_correct_x(st3)
+let g12 = fx3[0] == 0 && fx3[1] == 0 && fx3[2] == 0 && fx3[3] == 0 && fx3[4] == 0 && fx3[5] == 0 && fx3[6] == 0 && fx3[7] == 0 && fx3[8] == 0
+
+[
+  g1, g2, g3, g4, g5, g6, g7, g8,
+  g9, g10, g11, g12
+]

@@ -1,0 +1,128 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let QDB_MAX_QUBITS = 1024
+let QDB_DIM = 65536
+
+let qstate_create(n_qubits) =
+    let amps = []
+    let dim = 1
+    let i = 0
+    for i < n_qubits
+        dim = dim * 2
+        i = i + 1
+    i = 0
+    for i < dim
+        amps.push(0)
+        i = i + 1
+    amps[0] = 1
+    [amps, n_qubits, 0]
+let qstate_normalize(state) =
+    let amps = state[0]
+    let norm_sq = 0
+    let i = 0
+    let n = len(amps)
+    for i < n
+        norm_sq = gf_add(norm_sq, gf_mul(amps[i], amps[i]))
+        i = i + 1
+    let inv_norm = gf_inv(norm_sq)
+    let normalized = []
+    i = 0
+    for i < n
+        normalized.push(gf_mul(amps[i], inv_norm))
+        i = i + 1
+    [normalized, state[1], state[2]]
+let qgate_hadamard(state, qubit) =
+    let amps = state[0]
+    let n = state[1]
+    let half = 1
+    let i = 0
+    for i < qubit
+        half = half * 2
+        i = i + 1
+    let result = []
+    i = 0
+    let dim = len(amps)
+    for i < dim
+        let partner = i + half
+        if i / half % 2 == 0
+            result.push(gf_div(gf_add(amps[i], amps[partner]), 2))
+        else
+            result.push(gf_div(gf_sub(amps[i - half], amps[i]), 2))
+        i = i + 1
+    [result, n, state[2]]
+let qgate_phase(state, qubit, phase) =
+    let amps = state[0]
+    let n = state[1]
+    let mask = 1
+    let i = 0
+    for i < qubit
+        mask = mask * 2
+        i = i + 1
+    i = 0
+    let dim = len(amps)
+    for i < dim
+        if i / mask % 2 == 1
+            amps[i] = gf_mul(amps[i], phase)
+        i = i + 1
+    [amps, n, state[2]]
+let qdb_query(records, query_state) =
+    let results = []
+    let i = 0
+    let n = len(records)
+    for i < n
+        let rec = records[i]
+        let state = rec[1]
+        let overlap = 0
+        let j = 0
+        let m = len(state)
+        for j < m
+            overlap = gf_add(overlap, gf_mul(state[j], query_state[j]))
+            j = j + 1
+        results.push([rec[0], gf_mul(overlap, overlap)])
+        i = i + 1
+    results
+let qdb_entangled(state) =
+    let amps = state[0]
+    let nonzero = 0
+    let i = 0
+    let n = len(amps)
+    for i < n
+        if amps[i] != 0
+            nonzero = nonzero + 1
+        i = i + 1
+    (nonzero > 1 ? 1 : 0)
+let qdb_field_query(residues, n, query_z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (query_z + 65537 - pole) % 65537
+        let inv_diff = gf_inv(diff)
+        val = gf_add(val, gf_mul(residues[i], inv_diff))
+        i = i + 1
+    val
+
+let qdb_grover_search(residues, n, target) =
+    let iterations = 1
+    let found = 0
+    let i = 0
+    for i < n
+        if residues[i] == target
+            found = i
+            i = n
+        i = i + 1
+    found
+
+let qdb_verify() =
+    let state = qstate_create(2)
+    let entangled = qdb_entangled(state)
+    let residues = arr_new_n(4)
+    residues[0] = 10
+    residues[1] = 20
+    residues[2] = 30
+    residues[3] = 40
+    let found = qdb_grover_search(residues, 4, 30)
+    let ok = 0
+    (found == 2 ? (ok = 1) : (ok = 0))
+    ok
+

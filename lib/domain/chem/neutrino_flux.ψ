@@ -1,0 +1,16 @@
+import "ck.ψ"
+let bad = [0]
+
+let f10 = 64
+bad[0] = bad[0] + ck(f10, 60, 68)
+
+let q = 2673
+bad[0] = bad[0] + ck(q, 2670, 2676)
+
+let share = 37
+bad[0] = bad[0] + ck(share, 35, 40)
+
+let he = 894
+bad[0] = bad[0] + ck(he, 850, 938)
+
+arr_get(arr_new_n(1), bad[0])

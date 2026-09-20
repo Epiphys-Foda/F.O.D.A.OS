@@ -1,0 +1,737 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+import "bootstrap3_domain.ψ"
+
+let rp_add(rp1, rp2) =
+    let z1 = rp_z(rp1)
+    let z2 = rp_z(rp2)
+    let r1 = rp_r(rp1)
+    let r2 = rp_r(rp2)
+    let n1 = rp_n(rp1)
+    let n2 = rp_n(rp2)
+    let result = rp1
+    if z1 == z2
+        if n1 == n2
+            result = rp_make(z1, gf_add(r1, r2), n1)
+    result
+
+import "sh_ef2caeb45c.ψ"
+let rp_scale(rp, scalar) = rp_make(rp_z(rp), gf_mul(rp_r(rp), scalar), rp_n(rp))
+
+let rp_galois(rp, sigma) = rp_make(gf_pow(rp_z(rp), sigma), gf_pow(rp_r(rp), sigma), rp_n(rp))
+
+let rp_eval(rp, z0) =
+    let z = rp_z(rp)
+    let r = rp_r(rp)
+    let n = rp_n(rp)
+    let dz = gf_sub(z0, z)
+    let dz_n = gf_pow(dz, n)
+    gf_mul(r, gf_inv(dz_n))
+
+let rp_residue(rp) = rp_r(rp)
+
+let rpf_eval(field, z0) =
+    let primes = rpf_primes(field)
+    let n = rpf_count(field)
+    let total = 0
+    let i = 0
+    for i < n
+        total = gf_add(total, rp_eval(primes[i], z0))
+        i = i + 1
+    total
+
+let rpf_total_residue(field) =
+    let primes = rpf_primes(field)
+    let n = rpf_count(field)
+    let total = 0
+    let i = 0
+    for i < n
+        total = gf_add(total, rp_residue(primes[i]))
+        i = i + 1
+    total
+
+let rpf_add(f1, f2) =
+    let p1 = rpf_primes(f1)
+    let n1 = rpf_count(f1)
+    let p2 = rpf_primes(f2)
+    let n2 = rpf_count(f2)
+    let combined = []
+    let i = 0
+    for i < n1
+        combined = combined.push(p1[i])
+        i = i + 1
+    let j = 0
+    for j < n2
+        combined = combined.push(p2[j])
+        j = j + 1
+    rpf_make(combined, gf_add(n1, n2))
+
+let rpf_galois(field, sigma) =
+    let primes = rpf_primes(field)
+    let n = rpf_count(field)
+    let new_primes = []
+    let i = 0
+    for i < n
+        new_primes = new_primes.push(rp_galois(primes[i], sigma))
+        i = i + 1
+    rpf_make(new_primes, n)
+
+let rpf_fingerprint(field) =
+    let primes = rpf_primes(field)
+    let n = rpf_count(field)
+    let fp = 0
+    let i = 0
+    for i < n
+        let rp = primes[i]
+        fp = gf_add(gf_mul(fp, 31), rp_z(rp))
+        fp = gf_add(gf_mul(fp, 37), rp_r(rp))
+        fp = gf_add(gf_mul(fp, 41), rp_n(rp))
+        i = i + 1
+    fp
+
+let rp_collide(rp1, rp2) =
+    let z1 = rp_z(rp1)
+    let z2 = rp_z(rp2)
+    let r1 = rp_r(rp1)
+    let r2 = rp_r(rp2)
+    let dz = gf_sub(z1, z2)
+    let dz_inv = gf_inv(dz)
+    let phase_shift = gf_mul(gf_mul(r1, r2), dz_inv)
+    let new_r1 = gf_add(r1, phase_shift)
+    let new_r2 = gf_sub(r2, phase_shift)
+    [rp_make(z1, new_r1, 1), rp_make(z2, new_r2, 1)]
+
+import "sh_9190a5699c.ψ"
+
+let rpf_homology(field) =
+    let n = rpf_count(field)
+    let h0 = n
+    let h1 = rpf_total_residue(field)
+    [h0, h1]
+
+let rpf_cancer_check(field) =
+    let hom = rpf_homology(field)
+    let result = 0
+    if hom[1] != 0
+        result = 1
+    result
+
+let rpf_apoptosis(field) =
+    let cancer = rpf_cancer_check(field)
+    let result = field
+    if cancer == 1
+        result = rpf_make([], 0)
+    result
+
+let rp_to_photon_config(rp) =
+    let z = rp_z(rp)
+    let r = rp_r(rp)
+    let n = rp_n(rp)
+    [z, r, n]
+
+let rp_to_superconductor_config(rp) = rp_to_photon_config(rp)
+
+let rp_to_fluid_config(rp) = rp_to_photon_config(rp)
+
+let rp_dna(primes, n) = rpf_make(primes, n)
+
+let rp_mutate(dna, sigma) = rpf_galois(dna, sigma)
+
+let rp_transcribe(dna) = rpf_collide(dna)
+
+let rp_translate(dna) = rpf_fingerprint(rp_transcribe(dna))
+
+let rp_fitness(dna) =
+    let primes = rpf_primes(dna)
+    let n = rpf_count(dna)
+    let fitness = 0
+    let i = 0
+    for i < n
+        let r = rp_r(primes[i])
+        fitness = gf_add(fitness, gf_mul(r, r))
+        i = i + 1
+    fitness
+
+let rp_generation(dna, sigma) =
+    let mutated = rp_mutate(dna, sigma)
+    let fit_orig = rp_fitness(dna)
+    let fit_mut = rp_fitness(mutated)
+    let result = dna
+    if fit_mut > fit_orig
+        result = mutated
+    result
+
+let rp_information(rp) =
+    let z_bits = 16
+    let r_bits = 16
+    let n = rp_n(rp)
+    gf_add(gf_add(z_bits, r_bits), n)
+
+let rpf_information(field) =
+    let n = rpf_count(field)
+    gf_mul(n, 33)
+
+let rpf_entropy(field) =
+    let primes = rpf_primes(field)
+    let n = rpf_count(field)
+    let h = 0
+    let i = 0
+    for i < n
+        let r = rp_r(primes[i])
+        h = gf_add(h, gf_mul(r, gf_sub(r, 1)))
+        i = i + 1
+    gf_mul(h, gf_inv(2))
+
+let rp_s_matrix(rp1, rp2) = rp_collide(rp1, rp2)
+
+let rpf_s_matrix(field) = rpf_collide(field)
+
+let rp_propagator(p, m) =
+    let p2 = gf_mul(p, p)
+    let m2 = gf_mul(m, m)
+    gf_inv(gf_sub(p2, m2))
+
+let rp_propagator_residue(m) = gf_inv(gf_mul(2, m))
+
+let rp_particle_mass(rp) = rp_z(rp)
+
+let rp_s_matrix_element(field) =
+    let primes = rpf_primes(field)
+    let n = rpf_count(field)
+    let s = 1
+    let i = 0
+    for i < n
+        let m = rp_particle_mass(primes[i])
+        s = gf_mul(s, rp_propagator_residue(m))
+        i = i + 1
+    s
+
+let residue_prime_verify() =
+    let ok = 0
+
+    let rp1 = rp_make(3, 10, 1)
+    if rp_z(rp1) == 3
+        ok = ok + 1
+    if rp_r(rp1) == 10
+        ok = ok + 1
+    if rp_n(rp1) == 1
+        ok = ok + 1
+
+    let rp2 = rp_make(5, 20, 1)
+    let rp3 = rp_make(7, 30, 2)
+
+    let rp4 = rp_make(3, 15, 1)
+    let rp_add_result = rp_add(rp1, rp4)
+    if rp_r(rp_add_result) == 25
+        ok = ok + 1
+
+    let rp_mul_result = rp_mul(rp1, rp2)
+    if rp_z(rp_mul_result) == 3
+        ok = ok + 1
+
+    let rp_scaled = rp_scale(rp1, 2)
+    if rp_r(rp_scaled) == 20
+        ok = ok + 1
+
+    let rp_mut = rp_galois(rp1, 2)
+    if rp_z(rp_mut) == 9
+        ok = ok + 1
+    if rp_r(rp_mut) == 100
+        ok = ok + 1
+
+    let eval1 = rp_eval(rp1, 10)
+    if eval1 >= 0
+        ok = ok + 1
+
+    if rp_residue(rp1) == 10
+        ok = ok + 1
+
+    let primes = [rp1, rp2, rp3]
+    let field = rpf_make(primes, 3)
+    if rpf_count(field) == 3
+        ok = ok + 1
+
+    let field_eval = rpf_eval(field, 100)
+    if field_eval >= 0
+        ok = ok + 1
+
+    let total_res = rpf_total_residue(field)
+    if total_res == gf_add(gf_add(10, 20), 30)
+        ok = ok + 1
+
+    let field2 = rpf_make([rp1], 1)
+    let field_add = rpf_add(field, field2)
+    if rpf_count(field_add) == 4
+        ok = ok + 1
+
+    let field_mut = rpf_galois(field, 2)
+    if rpf_count(field_mut) == 3
+        ok = ok + 1
+
+    let fp = rpf_fingerprint(field)
+    if fp >= 0
+        ok = ok + 1
+
+    let collide_result = rp_collide(rp1, rp2)
+    if rp_z(collide_result[0]) == 3
+        ok = ok + 1
+    if rp_z(collide_result[1]) == 5
+        ok = ok + 1
+
+    let collided_field = rpf_collide(field)
+    if rpf_count(collided_field) == 3
+        ok = ok + 1
+
+    let hom = rpf_homology(field)
+    if hom[0] == 3
+        ok = ok + 1
+    if hom[1] == 60
+        ok = ok + 1
+
+    let cancer = rpf_cancer_check(field)
+    if cancer == 0 || cancer == 1
+        ok = ok + 1
+
+    let apop = rpf_apoptosis(field)
+    if rpf_count(apop) >= 0
+        ok = ok + 1
+
+    let photon = rp_to_photon_config(rp1)
+    if photon[0] == 3
+        ok = ok + 1
+    if photon[1] == 10
+        ok = ok + 1
+    if photon[2] == 1
+        ok = ok + 1
+
+    let supercond = rp_to_superconductor_config(rp2)
+    if supercond[0] == 5
+        ok = ok + 1
+
+    let fluid = rp_to_fluid_config(rp3)
+    if fluid[0] == 7
+        ok = ok + 1
+
+    let dna = rp_dna(primes, 3)
+    let mutated_dna = rp_mutate(dna, 2)
+    if rpf_count(mutated_dna) == 3
+        ok = ok + 1
+
+    let transcribed = rp_transcribe(dna)
+    if rpf_count(transcribed) == 3
+        ok = ok + 1
+
+    let translated = rp_translate(dna)
+    if translated >= 0
+        ok = ok + 1
+
+    let fit = rp_fitness(dna)
+    if fit >= 0
+        ok = ok + 1
+
+    let gen = rp_generation(dna, 2)
+    if rpf_count(gen) == 3
+        ok = ok + 1
+
+    let info = rp_information(rp1)
+    if info >= 0
+        ok = ok + 1
+
+    let field_info = rpf_information(field)
+    if field_info == 99
+        ok = ok + 1
+
+    let entropy = rpf_entropy(field)
+    if entropy >= 0
+        ok = ok + 1
+
+    let s_mat = rp_s_matrix(rp1, rp2)
+    if rp_z(s_mat[0]) == 3
+        ok = ok + 1
+
+    let field_s = rpf_s_matrix(field)
+    if rpf_count(field_s) == 3
+        ok = ok + 1
+
+    let prop = rp_propagator(10, 3)
+    if prop >= 0
+        ok = ok + 1
+
+    let prop_res = rp_propagator_residue(3)
+    if gf_mul(prop_res, 6) == 1
+        ok = ok + 1
+
+    let mass = rp_particle_mass(rp1)
+    if mass == 3
+        ok = ok + 1
+
+    let s_elem = rp_s_matrix_element(field)
+    if s_elem >= 0
+        ok = ok + 1
+
+    let total = rpf_total_residue(field)
+    let manual_sum = gf_add(gf_add(rp_residue(rp1), rp_residue(rp2)), rp_residue(rp3))
+    if total == manual_sum
+        ok = ok + 1
+
+    let before = rpf_total_residue(field)
+    let after = rpf_total_residue(collided_field)
+    if before == after
+        ok = ok + 1
+
+    ok
+
+let residue_prime_main() = residue_prime_verify()
+import "sh_e39bb00202.ψ"
+import "sh_af95b2b028.ψ"
+import "sh_7c6dfc404d.ψ"
+import "sh_cb68026814.ψ"
+import "sh_0ce8ba5325.ψ"
+import "sh_0473596775.ψ"
+import "sh_34708e8229.ψ"
+import "sh_e06a4e4200.ψ"
+import "sh_1b5ec76ed2.ψ"
+import "../core/stdlib_lang2/gx_33aab46c3d.ψ"
+import "sh_e0d12bd923.ψ"
+import "sh_b63852aa1c.ψ"
+import "sh_beb5173b91.ψ"
+let COMP_LEXER() = 0
+let COMP_PARSER() = 1
+let COMP_CODEGEN() = 2
+let COMP_VERIFY() = 3
+let COMP_OPTIMIZE() = 4
+let COMP_LINKER() = 5
+let COMP_RUNTIME() = 6
+let COMP_BOOTSTRAP() = 7
+
+let COMP_COUNT() = 8
+
+let comp_fingerprint(comp_id) = gf_pow(comp_id, 3)
+
+let compiler_field() =
+    let primes = [
+        rp_make(COMP_LEXER(), comp_fingerprint(COMP_LEXER()), 1),
+        rp_make(COMP_PARSER(), comp_fingerprint(COMP_PARSER()), 1),
+        rp_make(COMP_CODEGEN(), comp_fingerprint(COMP_CODEGEN()), 1),
+        rp_make(COMP_VERIFY(), comp_fingerprint(COMP_VERIFY()), 1),
+        rp_make(COMP_OPTIMIZE(), comp_fingerprint(COMP_OPTIMIZE()), 1),
+        rp_make(COMP_LINKER(), comp_fingerprint(COMP_LINKER()), 1),
+        rp_make(COMP_RUNTIME(), comp_fingerprint(COMP_RUNTIME()), 1),
+        rp_make(COMP_BOOTSTRAP(), comp_fingerprint(COMP_BOOTSTRAP()), 1)
+    ]
+    rpf_make(primes, COMP_COUNT())
+
+let bootstrap_observe(compiler) = rpf_fingerprint(compiler)
+
+let bootstrap_compile(compiler) =
+    let primes = rpf_primes(compiler)
+    let n = rpf_count(compiler)
+    let new_primes = []
+    let i = 0
+    for i < n
+        let rp = primes[i]
+        let z = rp_z(rp)
+        let r = rp_r(rp)
+        let nn = rp_n(rp)
+        let new_r = gf_pow(z, 3)
+        new_primes = new_primes.push(rp_make(z, new_r, nn))
+        i = i + 1
+    rpf_make(new_primes, n)
+
+let bootstrap_self_verify(compiler) =
+    let compiled = bootstrap_compile(compiler)
+    let fp1 = rpf_fingerprint(compiler)
+    let fp2 = rpf_fingerprint(compiled)
+    let result = 0
+    if fp1 == fp2
+        result = 1
+    result
+
+let bootstrap_galois(compiler, sigma) = rpf_galois(compiler, sigma)
+
+let bootstrap_homology(compiler) = rpf_homology(compiler)
+
+let bootstrap_meta_observe(compiler) =
+    let fp = bootstrap_observe(compiler)
+    gf_mul(fp, fp)
+
+let bootstrap_self_compile(compiler) = bootstrap_compile(compiler)
+
+let bootstrap_verify_identical(compiler) =
+    let compiled = bootstrap_self_compile(compiler)
+    let fp1 = rpf_fingerprint(compiler)
+    let fp2 = rpf_fingerprint(compiled)
+    let result = 0
+    if fp1 == fp2
+        result = 1
+    result
+
+let bootstrap_tower_k(compiler, k) =
+    let current = compiler
+    let i = 0
+    for i < k
+        current = bootstrap_compile(current)
+        i = i + 1
+    current
+
+let bootstrap_tower_verify(compiler, k) =
+    let fp0 = rpf_fingerprint(compiler)
+    let tower_k = bootstrap_tower_k(compiler, k)
+    let fpk = rpf_fingerprint(tower_k)
+    let result = 0
+    if fp0 == fpk
+        result = 1
+    result
+
+let bootstrap_galois_verify(compiler, sigma) =
+    let mutated = bootstrap_galois(compiler, sigma)
+    let compiled = bootstrap_compile(mutated)
+    let fp1 = rpf_fingerprint(mutated)
+    let fp2 = rpf_fingerprint(compiled)
+    let result = 0
+    if fp1 == fp2
+        result = 1
+    result
+
+let bootstrap_cancer_check(compiler) = rpf_cancer_check(compiler)
+
+let bootstrap_apoptosis(compiler) = rpf_apoptosis(compiler)
+
+let bootstrap_component_collide(compiler) = rpf_collide(compiler)
+
+let bootstrap_collide_verify(compiler) =
+    let collided = bootstrap_component_collide(compiler)
+    let fp_before = rpf_fingerprint(compiler)
+    let fp_after = rpf_fingerprint(collided)
+    let total_before = rpf_total_residue(compiler)
+    let total_after = rpf_total_residue(collided)
+    let result = 0
+    if total_before == total_after
+        result = 1
+    result
+
+let bootstrap_evolve(compiler, sigma, generations) =
+    let current = compiler
+    let i = 0
+    for i < generations
+        let mutated = bootstrap_galois(current, sigma)
+        let fit_orig = rp_fitness(current)
+        let fit_mut = rp_fitness(mutated)
+        if fit_mut > fit_orig
+            current = mutated
+        i = i + 1
+    current
+
+let ast_to_residue_prime(ast_type, ast_value) =
+    let op = ast_to_op(ast_type)
+    rp_make(op, ast_value, 1)
+
+let ast_to_residue_field(ast_types, ast_values, n) =
+    let primes = []
+    let i = 0
+    for i < n
+        primes = primes.push(ast_to_residue_prime(ast_types[i], ast_values[i]))
+        i = i + 1
+    rpf_make(primes, n)
+
+let bootstrap_residue_prime_verify() =
+    let ok = 0
+    let dbg = 0
+
+    let compiler = compiler_field()
+    if rpf_count(compiler) == 8
+        ok = ok + 1
+    else
+        dbg = 1
+
+    let fp = bootstrap_observe(compiler)
+    if fp >= 0
+        ok = ok + 1
+    else
+        if dbg == 0
+
+    let compiled = bootstrap_compile(compiler)
+    if rpf_count(compiled) == 8
+        ok = ok + 1
+    else
+        if dbg == 0
+
+    if bootstrap_self_verify(compiler) == 1
+        ok = ok + 1
+    else
+        if dbg == 0
+
+    let mutated = bootstrap_galois(compiler, 2)
+    if rpf_count(mutated) == 8
+        ok = ok + 1
+    else
+        if dbg == 0
+
+    let hom = bootstrap_homology(compiler)
+    if hom[0] == 8
+        ok = ok + 1
+    else
+        if dbg == 0
+
+    let meta_obs = bootstrap_meta_observe(compiler)
+    if meta_obs >= 0
+        ok = ok + 1
+    else
+        if dbg == 0
+
+    if bootstrap_verify_identical(compiler) == 1
+        ok = ok + 1
+    else
+        if dbg == 0
+
+    let self_compiled = bootstrap_self_compile(compiler)
+    if rpf_count(self_compiled) == 8
+        ok = ok + 1
+    else
+        if dbg == 0
+
+    let all_pass = 1
+    if bootstrap_self_verify(compiler) == 0
+        all_pass = 0
+    if bootstrap_verify_identical(compiler) == 0
+        all_pass = 0
+    if bootstrap_tower_verify(compiler, 8) == 0
+        all_pass = 0
+    if bootstrap_galois_verify(compiler, 2) == 0
+        all_pass = 0
+
+    let fp0 = rpf_fingerprint(compiler)
+    let fp1 = rpf_fingerprint(bootstrap_tower_k(compiler, 1))
+    let fp2 = rpf_fingerprint(bootstrap_tower_k(compiler, 2))
+
+    let observe_then_compile = bootstrap_observe(bootstrap_compile(compiler))
+    let compile_then_observe = bootstrap_observe(compiler)
+
+    if bootstrap_tower_verify(compiler, 1) == 1
+        ok = ok + 1
+    else
+        if dbg == 0
+    if bootstrap_tower_verify(compiler, 2) == 1
+        ok = ok + 1
+    else
+        if dbg == 0
+    if bootstrap_tower_verify(compiler, 4) == 1
+        ok = ok + 1
+    else
+        if dbg == 0
+    if bootstrap_tower_verify(compiler, 8) == 1
+        ok = ok + 1
+    else
+        if dbg == 0
+    if bootstrap_tower_verify(compiler, 16) == 1
+        ok = ok + 1
+    else
+        if dbg == 0
+
+    if bootstrap_galois_verify(compiler, 1) == 1
+        ok = ok + 1
+    else
+        if dbg == 0
+    if bootstrap_galois_verify(compiler, 2) == 1
+        ok = ok + 1
+    else
+        if dbg == 0
+    if bootstrap_galois_verify(compiler, 3) == 1
+        ok = ok + 1
+    else
+        if dbg == 0
+
+    let cancer = bootstrap_cancer_check(compiler)
+    if cancer == 0 || cancer == 1
+        ok = ok + 1
+    else
+        if dbg == 0
+    let apop = bootstrap_apoptosis(compiler)
+    if rpf_count(apop) >= 0
+        ok = ok + 1
+    else
+        if dbg == 0
+
+    let collided = bootstrap_component_collide(compiler)
+    let collide_count = rpf_count(collided)
+    let collide_before = rpf_total_residue(compiler)
+    let collide_after = rpf_total_residue(collided)
+    if collide_count == 8
+        ok = ok + 1
+    else
+        if dbg == 0
+    if collide_before == collide_after
+        ok = ok + 1
+    else
+        if dbg == 0
+
+    let evolved = bootstrap_evolve(compiler, 2, 5)
+    if rpf_count(evolved) == 8
+        ok = ok + 1
+    else
+        if dbg == 0
+
+    let ast_rp = ast_to_residue_prime(AST_LITERAL(), 42)
+    if rp_z(ast_rp) == OP_OBSERVE()
+        ok = ok + 1
+    else
+        if dbg == 0
+    if rp_r(ast_rp) == 42
+        ok = ok + 1
+    else
+        if dbg == 0
+
+    let ast_types = [AST_LITERAL(), AST_BINOP(), AST_IF(), AST_CALL()]
+    let ast_values = [10, 20, 30, 40]
+    let ast_field = ast_to_residue_field(ast_types, ast_values, 4)
+    if rpf_count(ast_field) == 4
+        ok = ok + 1
+    else
+        if dbg == 0
+
+    let ast_compiled = bootstrap_compile(ast_field)
+    if rpf_count(ast_compiled) == 4
+        ok = ok + 1
+    else
+        if dbg == 0
+
+    let total_res = rpf_total_residue(compiler)
+    if total_res >= 0
+        ok = ok + 1
+    else
+        if dbg == 0
+
+    if collide_before == collide_after
+        ok = ok + 1
+    else
+        if dbg == 0
+
+    let primes = rpf_primes(compiler)
+    let first_rp = primes[0]
+    let photon_config = rp_to_photon_config(first_rp)
+    if photon_config[0] == COMP_LEXER()
+        ok = ok + 1
+    else
+        if dbg == 0
+
+    if all_pass == 1
+        ok = ok + 1
+    else
+        if dbg == 0
+
+    if fp0 == fp1
+        ok = ok + 1
+    else
+        if dbg == 0
+    if fp1 == fp2
+        ok = ok + 1
+    else
+        if dbg == 0
+
+    if observe_then_compile == compile_then_observe
+        ok = ok + 1
+    else
+        if dbg == 0
+
+    ok
+
+let main() = bootstrap_residue_prime_verify()

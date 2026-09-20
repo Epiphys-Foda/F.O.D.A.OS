@@ -1,0 +1,191 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let EPI_MAX_NODES = 1024
+
+let sir_create(S, I, R) = [S, I, R]
+let sir_step(state, params) =
+    let S = state[0]
+    let I = state[1]
+    let R = state[2]
+    let beta = params[0]
+    let gamma = params[1]
+    let N = params[2]
+    let new_S = gf_sub(S, gf_div(gf_mul(gf_mul(beta, S), I), N))
+    let new_I = gf_add(gf_sub(I, gf_div(gf_mul(gf_mul(beta, S), I), N)), gf_neg(gf_mul(gamma, I)))
+    let new_R = gf_add(R, gf_mul(gamma, I))
+    [new_S, new_I, new_R]
+let sir_run(initial, params, steps) =
+    let state = initial
+    let history = [state]
+    let i = 0
+    for i < steps
+        state = sir_step(state, params)
+        history.push(state)
+        i = i + 1
+    history
+let seir_step(S, E, I, R, beta, sigma, gamma, N) =
+    let new_S = gf_sub(S, gf_div(gf_mul(gf_mul(beta, S), I), N))
+    let new_E = gf_add(gf_sub(gf_div(gf_mul(gf_mul(beta, S), I), N), gf_mul(sigma, E)), E)
+    let new_I = gf_add(gf_sub(gf_mul(sigma, E), gf_mul(gamma, I)), I)
+    let new_R = gf_add(R, gf_mul(gamma, I))
+    [new_S, new_E, new_I, new_R]
+let network_spread(adjacency, infected, beta, n_nodes) =
+    let new_infected = []
+    let i = 0
+    for i < n_nodes
+        new_infected.push(infected[i])
+        i = i + 1
+    i = 0
+    for i < n_nodes
+        if infected[i] == 0
+            let neighbors_infected = 0
+            let j = 0
+            for j < n_nodes
+                if adjacency[i * n_nodes + j] == 1 && infected[j] == 1
+                    neighbors_infected = neighbors_infected + 1
+                j = j + 1
+            if neighbors_infected > 0 && beta > 0
+                new_infected[i] = 1
+        i = i + 1
+    new_infected
+let basic_reproduction_number(beta, gamma, N) = gf_div(gf_mul(beta, N), gamma)
+let field_epidemic(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let epidemic_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_epidemic(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+
+let R0_POLES = [13, 20, 25, 30, 50, 70, 120, 180]
+let R0_LABELS = ["seasonal_flu", "HIV", "COVID19", "SARS", "mumps", "smallpox", "polio", "measles"]
+let TRANSMISSION_WEIGHTS = [10, 30, 50, 70, 60, 50, 80, 100]
+
+let psi_R0(R0_x10) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(R0_x10), gf_norm(R0_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(TRANSMISSION_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let INCUBATION_POLES = [50, 25, 14, 10, 8, 7, 5, 3]
+let INCUBATION_WEIGHTS = [80, 70, 60, 50, 40, 30, 20, 10]
+let DISEASE_LABELS_INC = ["flu_2d", "covid_4d", "measles_7d", "chicpox_10d", "sars_12d", "ebola_14d", "hep_20d", "hiv_30d"]
+
+let psi_incubation(sigma_x100) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(sigma_x100), gf_norm(INCUBATION_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(INCUBATION_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let RECOVERY_POLES = [143, 100, 71, 48, 33, 25, 17, 10]
+let RECOVERY_WEIGHTS = [90, 80, 70, 60, 50, 40, 30, 20]
+
+let psi_recovery(gamma_x1000) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(gamma_x1000), gf_norm(RECOVERY_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(RECOVERY_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let epidemic_global_response(R0_x10, sigma_x100, gamma_x1000) =
+    let e1 = psi_R0(R0_x10)
+    let e2 = psi_incubation(sigma_x100)
+    let e3 = psi_recovery(gamma_x1000)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+
+let r0_threshold_test() =
+    let v_below = psi_R0(10)
+    let v_above = psi_R0(20)
+    (v_above != v_below ? 1 : 0)
+
+let incubation_inverse_test() =
+    let v_short = psi_incubation(50)
+    let v_long = psi_incubation(10)
+    (v_short != v_long ? 1 : 0)
+
+let recovery_inverse_test() =
+    let v_short = psi_recovery(143)
+    let v_long = psi_recovery(25)
+    (v_short != v_long ? 1 : 0)
+
+let nested_fractal_epidemic_invariants() =
+    let e1 = psi_R0(25)
+    let e2 = psi_incubation(25)
+    let e3 = psi_recovery(100)
+    let inv1 = 0
+    if e1 != 0
+        (e2 != 0 ? (e3 != 0 ? (inv1 = 1) : 0) : 0)
+    let inv2 = 0
+    if R0_POLES[0] < R0_POLES[3]
+        (R0_POLES[3] < R0_POLES[7] ? (inv2 = 1) : 0)
+    let inv3 = 0
+    if INCUBATION_POLES[0] > INCUBATION_POLES[3]
+        (INCUBATION_POLES[3] > INCUBATION_POLES[7] ? (inv3 = 1) : 0)
+    let inv4 = 0
+    if RECOVERY_POLES[0] > RECOVERY_POLES[3]
+        (RECOVERY_POLES[3] > RECOVERY_POLES[7] ? (inv4 = 1) : 0)
+    let inv5 = r0_threshold_test()
+    [inv1, inv2, inv3, inv4, inv5]
+
+let epidemic_verify_v20() =
+    let t1 = 0
+    if psi_R0(25) != 0
+        t1 = 1
+    let t2 = 0
+    if psi_incubation(25) != 0
+        t2 = 1
+    let t3 = 0
+    if psi_recovery(100) != 0
+        t3 = 1
+    let t4 = r0_threshold_test()
+    let t5 = incubation_inverse_test()
+    let t6 = recovery_inverse_test()
+    let t7 = 0
+    if R0_POLES[0] == 13
+        t7 = 1
+    let t8 = 0
+    if R0_POLES[2] == 25
+        t8 = 1
+    let t9 = 0
+    if R0_POLES[7] == 180
+        t9 = 1
+    let t10 = 0
+    if INCUBATION_POLES[0] == 50
+        t10 = 1
+    let t11 = 0
+    if RECOVERY_POLES[0] == 143
+        t11 = 1
+    let invs = nested_fractal_epidemic_invariants()
+    let t12 = 0
+    if invs[0] == 1
+        if invs[1] == 1
+            if invs[2] == 1
+                if invs[3] == 1
+                    if invs[4] == 1
+                        t12 = 1
+    let passed = t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12
+    passed == 12
+

@@ -1,0 +1,26 @@
+import "ck.ψ"
+let bad = [0]
+
+let w3 = 2 * 2 * 2
+let dw = w3 - 8
+bad[0] = bad[0] + ck(dw, 0, 0)
+
+let tau = 16
+bad[0] = bad[0] + ck(tau, 15, 17)
+
+let a61 = 61
+bad[0] = bad[0] + ck(a61, 58, 64)
+
+let r12 = 12
+bad[0] = bad[0] + ck(r12, 10, 14)
+
+if 1916 < 1914
+    bad[0] = bad[0] + 1
+if 1916 > 1918
+    bad[0] = bad[0] + 1
+if 1960 < 1958
+    bad[0] = bad[0] + 1
+if 1960 > 1962
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

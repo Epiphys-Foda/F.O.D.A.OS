@@ -1,0 +1,44 @@
+import "ck.ψ"
+let bad = [0]
+
+let base = 4 * 10 + 7
+let dz1 = base - 47
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let val = base * 100
+let dz2 = val - 4700
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let tol = val * 5 / 100
+let dz3 = tol - 235
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let w_lo = val - tol
+let w_hi = val + tol
+let dz4 = w_lo - 4465
+bad[0] = bad[0] + ck(dz4, 0, 0)
+let dz5 = w_hi - 4935
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let cap = 10 * 10
+let dz6 = cap - 100
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+let cap5 = 10 * 10 * 10
+let dz7 = cap5 - 1000
+bad[0] = bad[0] + ck(dz7, 0, 0)
+
+let small = base / 10
+let dz8 = small - 4
+bad[0] = bad[0] + ck(dz8, 0, 0)
+
+if 1930 < 1925
+    bad[0] = bad[0] + 1
+if 1930 > 1935
+    bad[0] = bad[0] + 1
+if 1968 < 1966
+    bad[0] = bad[0] + 1
+if 1968 > 1970
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

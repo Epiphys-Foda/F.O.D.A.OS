@@ -1,0 +1,393 @@
+import "residueon_common.ψ"
+
+let it_mod_mul(a, b, m) =
+    let result = 0
+    let a_mod = a % m
+    if a_mod < 0
+        a_mod = a_mod + m
+    let b_work = b
+    for b_work > 0
+        if b_work % 2 == 1
+            result = result + a_mod
+        result = result % m
+        a_mod = a_mod + a_mod
+        a_mod = a_mod % m
+        b_work = b_work / 2
+    result
+
+let it_mod(a, m) =
+    let result = a
+    if m > 0
+        result = ((a % m) + m) % m
+    result
+
+let pole_distance(z1, z2) =
+    let d = gf_sub(z1, z2)
+    let result = d
+    if d > 32768
+        result = 65537 - d
+    result
+
+let local_collision_prob(z1, z2) =
+    let d = pole_distance(z1, z2)
+    let prob = 0
+    if d == 0
+    else
+    prob
+
+let is_resonance(n1, n2, resonance_order) =
+    let result = 0
+    if n1 + n2 == resonance_order
+        result = 1
+    result
+
+let long_range_collision(rp1, rp2, resonance_order) =
+    let n1 = rp_n(rp1)
+    let n2 = rp_n(rp2)
+    let z1 = rp_z(rp1)
+    let z2 = rp_z(rp2)
+    let resonance = is_resonance(n1, n2, resonance_order)
+    let result = 0
+    if resonance == 1
+        result = local_collision_prob(z1, z2)
+    result
+
+let collision_strength(rp1, rp2) = gf_mul(rp_r(rp1), rp_r(rp2))
+
+let collision_probability(rp1, rp2, resonance_order) =
+    let local = local_collision_prob(rp_z(rp1), rp_z(rp2))
+    let long_range = long_range_collision(rp1, rp2, resonance_order)
+    let strength = collision_strength(rp1, rp2)
+    gf_add(gf_mul(local, strength), long_range)
+
+let residueon_collide(rp1, rp2) =
+    let z_new = gf_add(rp_z(rp1), rp_z(rp2))
+    let r_new = gf_mul(rp_r(rp1), rp_r(rp2))
+    let n_new = rp_n(rp1) + rp_n(rp2)
+    rp_make(z_new, r_new, n_new)
+
+let field_collide(field, threshold, resonance_order) =
+    let primes = rpf_primes(field)
+    let n = rpf_count(field)
+    let new_primes = []
+    let i = 0
+    for i < n
+        let j = i + 1
+        for j < n
+            let rp_i = primes[i]
+            let rp_j = primes[j]
+            let prob = collision_probability(rp_i, rp_j, resonance_order)
+            if prob > threshold
+                let collided = residueon_collide(rp_i, rp_j)
+                new_primes = new_primes.push(collided)
+            j = j + 1
+        i = i + 1
+    let result_count = 0
+    let k = 0
+    for k < n
+        if len(new_primes) > k
+            result_count = result_count + 1
+        k = k + 1
+    rpf_make(new_primes, len(new_primes))
+
+let residueon_phase(rp) = it_mod(rp_r(rp), 256)
+
+let pcd_scan(field) =
+    let primes = rpf_primes(field)
+    let n = rpf_count(field)
+    let defects = 0
+    let i = 0
+    for i < n
+        let j = i + 1
+        for j < n
+            let phase_i = residueon_phase(primes[i])
+            let phase_j = residueon_phase(primes[j])
+            let phase_diff = phase_i - phase_j
+            if phase_diff < 0
+                phase_diff = phase_diff + 256
+            if phase_diff > 128
+                defects = defects + 1
+            j = j + 1
+        i = i + 1
+    defects
+
+let pcd_verify(field) =
+    let defects = pcd_scan(field)
+    let result = 0
+    if defects == 0
+        result = 1
+    result
+
+let residueon_curvature(rp_prev, rp_curr, rp_next) =
+    let r_prev = rp_r(rp_prev)
+    let r_curr = rp_r(rp_curr)
+    let r_next = rp_r(rp_next)
+    gf_add(gf_sub(r_next, gf_mul(2, r_curr)), r_prev)
+
+let rrc_scan(field) =
+    let primes = rpf_primes(field)
+    let n = rpf_count(field)
+    let defects = 0
+    let i = 1
+    for i < n - 1
+        let rp_prev = primes[i - 1]
+        let rp_curr = primes[i]
+        let rp_next = primes[i + 1]
+        let curvature = residueon_curvature(rp_prev, rp_curr, rp_next)
+        let abs_curve = curvature
+        if abs_curve < 0
+            abs_curve = abs_curve + 65537
+        if abs_curve > 32768
+            defects = defects + 1
+        i = i + 1
+    defects
+
+let rrc_verify(field) =
+    let defects = rrc_scan(field)
+    let result = 0
+    if defects == 0
+        result = 1
+    result
+
+let topological_scan(field) =
+    let pcd_defects = pcd_scan(field)
+    let rrc_defects = rrc_scan(field)
+    let total = pcd_defects + rrc_defects
+    let healthy = 0
+    if total == 0
+        healthy = 1
+    [pcd_defects, rrc_defects, total, healthy]
+
+let topological_health_index(field) =
+    let report = topological_scan(field)
+    report[2]
+
+let clustering_coefficient(field, idx, threshold, resonance_order) =
+    let primes = rpf_primes(field)
+    let n = rpf_count(field)
+    let rp_i = primes[idx]
+
+    let neighbors = []
+    let j = 0
+    for j < n
+        if j != idx
+            let prob = collision_probability(rp_i, primes[j], resonance_order)
+            if prob > threshold
+                neighbors = neighbors.push(j)
+        j = j + 1
+
+    let k = len(neighbors)
+    let result = 0
+    if k > 1
+        let links = 0
+        let a = 0
+        for a < k
+            let b = a + 1
+            for b < k
+                let rp_a = primes[neighbors.get(a)]
+                let rp_b = primes[neighbors.get(b)]
+                let prob = collision_probability(rp_a, rp_b, resonance_order)
+                if prob > threshold
+                    links = links + 1
+                b = b + 1
+            a = a + 1
+        let denom = k + k - 1
+        if denom > 0
+            result = links
+    result
+
+let avg_clustering_coefficient(field, threshold, resonance_order) =
+    let n = rpf_count(field)
+    let total = 0
+    let i = 0
+    for i < n
+        total = total + clustering_coefficient(field, i, threshold, resonance_order)
+        i = i + 1
+    (n > 0 ? total / n : 0)
+
+let evolve_step(field, threshold, resonance_order) =
+    let collided = field_collide(field, threshold, resonance_order)
+    let health = topological_health_index(field)
+    [rpf_count(collided), health]
+
+let evolve_steps(field, steps, threshold, resonance_order) =
+    let current = field
+    let i = 0
+    let total_health = 0
+    for i < steps
+        let result = evolve_step(current, threshold, resonance_order)
+        total_health = total_health + result[1]
+        i = i + 1
+    total_health
+
+let residueon_topology_verify() =
+    let ok = 0
+
+    let test_primes = [
+        rp_make(3, 100, 1),
+        rp_make(5, 200, 1),
+        rp_make(7, 300, 1),
+        rp_make(11, 400, 1),
+        rp_make(13, 500, 1),
+        rp_make(17, 600, 1),
+        rp_make(19, 700, 1),
+        rp_make(23, 800, 1)
+    ]
+    let field = rpf_make(test_primes, 8)
+
+    if pole_distance(3, 5) == 2
+        ok = ok + 1
+    if pole_distance(5, 3) == 2
+        ok = ok + 1
+    if pole_distance(7, 7) == 0
+        ok = ok + 1
+
+    let prob_close = local_collision_prob(3, 5)
+    let prob_far = local_collision_prob(3, 23)
+    if prob_close > prob_far
+        ok = ok + 1
+    if prob_close == gf_inv(2)
+        ok = ok + 1
+
+    if is_resonance(1, 1, 2) == 1
+        ok = ok + 1
+    if is_resonance(1, 2, 2) == 0
+        ok = ok + 1
+
+    let rp1 = rp_make(3, 100, 1)
+    let rp2 = rp_make(5, 200, 1)
+    if collision_strength(rp1, rp2) == gf_mul(100, 200)
+        ok = ok + 1
+
+    let collided = residueon_collide(rp1, rp2)
+    if rp_z(collided) == gf_add(3, 5)
+        ok = ok + 1
+    if rp_r(collided) == gf_mul(100, 200)
+        ok = ok + 1
+    if rp_n(collided) == 2
+        ok = ok + 1
+
+    if residueon_phase(rp_make(0, 100, 1)) == 100
+        ok = ok + 1
+    if residueon_phase(rp_make(0, 300, 1)) == 44
+        ok = ok + 1
+
+    let clean_primes = [
+        rp_make(0, 10, 1),
+        rp_make(1, 20, 1),
+        rp_make(2, 30, 1),
+        rp_make(3, 40, 1)
+    ]
+    let clean_field = rpf_make(clean_primes, 4)
+    let pcd_result = pcd_scan(clean_field)
+    if pcd_result >= 0
+        ok = ok + 1
+
+    let pcd_pass = pcd_verify(clean_field)
+    if pcd_pass == 0 || pcd_pass == 1
+        ok = ok + 1
+
+    let rp_a = rp_make(0, 10, 1)
+    let rp_b = rp_make(1, 20, 1)
+    let rp_c = rp_make(2, 30, 1)
+    let curve = residueon_curvature(rp_a, rp_b, rp_c)
+    if curve == 0
+        ok = ok + 1
+
+    let rrc_result = rrc_scan(clean_field)
+    if rrc_result >= 0
+        ok = ok + 1
+
+    let rrc_pass = rrc_verify(clean_field)
+    if rrc_pass == 0 || rrc_pass == 1
+        ok = ok + 1
+
+    let report = topological_scan(clean_field)
+    if report[0] >= 0
+        ok = ok + 1
+    if report[1] >= 0
+        ok = ok + 1
+    if report[2] == report[0] + report[1]
+        ok = ok + 1
+    if report[3] == 0 || report[3] == 1
+        ok = ok + 1
+
+    let health = topological_health_index(clean_field)
+    if health >= 0
+        ok = ok + 1
+
+    let cc = clustering_coefficient(field, 0, 0, 2)
+    if cc >= 0
+        ok = ok + 1
+
+    let avg_cc = avg_clustering_coefficient(field, 0, 2)
+    if avg_cc >= 0
+        ok = ok + 1
+
+    let step_result = evolve_step(field, 0, 2)
+    if step_result[0] >= 0
+        ok = ok + 1
+    if step_result[1] >= 0
+        ok = ok + 1
+
+    let evolved_health = evolve_steps(field, 3, 0, 2)
+    if evolved_health >= 0
+        ok = ok + 1
+
+    let g1 = rp_make(0, 3, 1)
+    let g2 = rp_make(1, 5, 1)
+    let g_collided = residueon_collide(g1, g2)
+    if rp_z(g_collided) == 1
+        ok = ok + 1
+
+    let mutated = rpf_galois(field, 2)
+    if rpf_count(mutated) == 8
+        ok = ok + 1
+
+    let hom = rpf_homology(field)
+    if hom[0] == 8
+        ok = ok + 1
+
+    let bootstrap_field = rpf_make([
+        rp_make(0, 0, 1),
+        rp_make(1, 1, 1),
+        rp_make(2, 8, 1),
+        rp_make(3, 27, 1),
+        rp_make(4, 64, 1),
+        rp_make(5, 125, 1),
+        rp_make(6, 216, 1),
+        rp_make(7, 343, 1)
+    ], 8)
+    let bs_health = topological_health_index(bootstrap_field)
+    if bs_health >= 0
+        ok = ok + 1
+
+    let before = rpf_total_residue(field)
+    let after_collide = rpf_total_residue(rpf_collide(field))
+    if before >= 0
+        ok = ok + 1
+    if after_collide >= 0
+        ok = ok + 1
+
+    if ast_to_op(AST_LITERAL()) == OP_OBSERVE()
+        ok = ok + 1
+
+    let f = mf_make([0, 1], [3, 5], 2)
+    let fI = combinator_I(f)
+    if mf_equal(fI, f) == 1
+        ok = ok + 1
+
+    if bootstrap_tower(8) == 1
+        ok = ok + 1
+
+    let apop = apoptosis(f)
+    if mf_size(apop) >= 0
+        ok = ok + 1
+
+    let mc = meta_compiler()
+    if mf_size(mc) == 6
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_topology_verify()

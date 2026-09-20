@@ -1,0 +1,35 @@
+import "ck.ψ"
+let bad = [0]
+
+let om = 729
+bad[0] = bad[0] + ck(om, 725, 732)
+
+let dphi = 25 * om / 190
+bad[0] = bad[0] + ck(dphi, 85, 105)
+
+let amg = 125052
+let frmg = 4 * amg * om / (190 * 10000)
+bad[0] = bad[0] + ck(frmg, 150, 250)
+
+let fog = 1000
+let dphif = dphi * fog / 1000
+let dz = dphif - dphi
+bad[0] = bad[0] + ck(dz, 0, 0)
+
+let rec = 1
+bad[0] = bad[0] + ck_lo(rec, 1)
+
+if 1913 < 1911
+    bad[0] = bad[0] + 1
+if 1913 > 1915
+    bad[0] = bad[0] + 1
+if 1925 < 1923
+    bad[0] = bad[0] + 1
+if 1925 > 1927
+    bad[0] = bad[0] + 1
+if 1976 < 1974
+    bad[0] = bad[0] + 1
+if 1976 > 1978
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

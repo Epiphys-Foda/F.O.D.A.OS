@@ -1,0 +1,23 @@
+import "ck.ψ"
+let bad = [0]
+
+let qM = 81
+bad[0] = bad[0] + ck(qM, 80, 83)
+
+let rCom = 4671
+bad[0] = bad[0] + ck(rCom, 4600, 4750)
+
+if 4671 * 100 > 6371 * 100
+    bad[0] = bad[0] + 1
+
+let dToMoon = 384400 - 4671
+bad[0] = bad[0] + ck(dToMoon, 379000, 380000)
+
+let rToMoon = 384400 - 4671
+if rToMoon < 80 * 4671
+    bad[0] = bad[0] + 1
+
+let peg = 3573
+bad[0] = bad[0] + ck(peg, 3400, 3800)
+
+arr_get(arr_new_n(1), bad[0])

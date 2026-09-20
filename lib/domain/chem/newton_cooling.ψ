@@ -1,0 +1,53 @@
+import "ck.ψ"
+let bad = [0]
+
+let d0 = 80
+let d1 = 40
+let d2 = 20
+let d3 = 10
+let d4 = 5
+let dz1 = d1 * 2 - d0
+bad[0] = bad[0] + ck(dz1, 0, 0)
+let dz2 = d2 * 2 - d1
+bad[0] = bad[0] + ck(dz2, 0, 0)
+let dz3 = d3 * 2 - d2
+bad[0] = bad[0] + ck(dz3, 0, 0)
+let dz4 = d4 * 2 - d3
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let drop1 = d0 - d1
+let drop2 = d1 - d2
+let dz5 = drop1 - drop2 * 2
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let room = 20
+bad[0] = bad[0] + ck(room, 18, 22)
+let t4 = room + d4
+bad[0] = bad[0] + ck_lo(t4, room)
+
+let d_a = 24
+let d_b = 12
+let dz6 = d_a - d_b * 2
+bad[0] = bad[0] + ck(dz6, 0, 0)
+let t_half = 90
+let elapsed = 180
+let dz7 = elapsed - t_half * 2
+bad[0] = bad[0] + ck(dz7, 0, 0)
+bad[0] = bad[0] + ck(d_a, 23, 25)
+
+let dt_frac = 19
+bad[0] = bad[0] + ck(dt_frac, 15, 25)
+bad[0] = bad[0] + ck_hi(dt_frac, 50)
+
+if 1701 < 1699
+    bad[0] = bad[0] + 1
+if 1701 > 1703
+    bad[0] = bad[0] + 1
+if 1822 < 1820
+    bad[0] = bad[0] + 1
+if 1822 > 1824
+    bad[0] = bad[0] + 1
+if 1822 < 1701
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

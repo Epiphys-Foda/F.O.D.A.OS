@@ -1,0 +1,437 @@
+let QQ_BIN_MAGIC_0 = 81
+let QQ_BIN_MAGIC_1 = 81
+let QQ_BIN_MAGIC_2 = 66
+let QQ_BIN_MAGIC_3 = 67
+let QQ_BIN_VERSION = 1
+let QQ_BIN_ALGEBRA = 1
+let QQ_BIN_NODE_SIZE = 8
+let QQ_BIN_EDGE_SIZE = 8
+let QQ_BIN_HEADER_SIZE = 16
+let QQ_BIN_I16_MOD = 65536
+let QQ_BIN_I16_BOUNDARY = 32768
+
+let qqbin_u16_lo(v) = v - v / 256 * 256
+
+let qqbin_u16_hi(v) = v / 256
+
+let qqbin_u16_bytes(v) = [qqbin_u16_lo(v), qqbin_u16_hi(v)]
+
+let qqbin_u16_from(lo, hi) = lo + hi * 256
+
+let qqbin_i16_bytes(v) =
+    let u = (v < 0 ? v + QQ_BIN_I16_MOD : v)
+    [qqbin_u16_lo(u), qqbin_u16_hi(u)]
+
+let qqbin_i16_from(lo, hi) =
+    let u = lo + hi * 256
+    (u >= QQ_BIN_I16_BOUNDARY ? u - QQ_BIN_I16_MOD : u)
+
+let qqbin_node_bytes(node) =
+    let fgb = qqbin_i16_bytes(node.fusion_group)
+    let shb = qqbin_u16_bytes(node.schedule_hint)
+    [node.opcode, node.pe_type, fgb[0], fgb[1], shb[0], shb[1], 0, 0]
+
+let qqbin_edge_bytes(edge) =
+    let sb = qqbin_u16_bytes(edge.src_node)
+    let db = qqbin_u16_bytes(edge.dst_node)
+    [sb[0], sb[1], edge.src_port, db[0], db[1], edge.dst_port, edge.token_type, edge.fifo_depth]
+
+let qqbin_u32_bytes(v) =
+    let b0 = v - v / 256 * 256
+    let r1 = v / 256
+    let b1 = r1 - r1 / 256 * 256
+    let r2 = r1 / 256
+    let b2 = r2 - r2 / 256 * 256
+    let b3 = r2 / 256
+    [b0, b1, b2, b3]
+
+let qqbin_u32_from(b0, b1, b2, b3) = b0 + b1 * 256 + b2 * 65536 + b3 * 16777216
+
+let qqbin_header_bytes(node_count, edge_count) =
+    let nb = qqbin_u32_bytes(node_count)
+    let eb = qqbin_u32_bytes(edge_count)
+    [
+      QQ_BIN_MAGIC_0, QQ_BIN_MAGIC_1, QQ_BIN_MAGIC_2, QQ_BIN_MAGIC_3,
+      1, 0, 1, 0,
+      nb[0], nb[1], nb[2], nb[3],
+      eb[0], eb[1], eb[2], eb[3]
+    ]
+
+let qqbin_append_nodes(nodes, idx, acc) =
+    let n = len(nodes)
+    let r = if idx < n
+      let node = nodes[idx]
+      let nb = qqbin_node_bytes(node)
+      qqbin_append_nodes(nodes, idx + 1, acc.push(nb[0]).push(nb[1]).push(nb[2]).push(nb[3]).push(nb[4]).push(nb[5]).push(nb[6]).push(nb[7]))
+    else
+      acc
+    r
+
+let qqbin_append_edges(edges, idx, acc) =
+    let n = len(edges)
+    let r = if idx < n
+      let edge = edges[idx]
+      let eb = qqbin_edge_bytes(edge)
+      qqbin_append_edges(edges, idx + 1, acc.push(eb[0]).push(eb[1]).push(eb[2]).push(eb[3]).push(eb[4]).push(eb[5]).push(eb[6]).push(eb[7]))
+    else
+      acc
+    r
+
+let qqbin_encode(dag) =
+    let h = qqbin_header_bytes(dag.node_count, dag.edge_count)
+    let with_nodes = qqbin_append_nodes(dag.nodes, 0, h)
+    qqbin_append_edges(dag.edges, 0, with_nodes)
+
+let qqbin_magic_ok(buf) = buf[0] == QQ_BIN_MAGIC_0 && buf[1] == QQ_BIN_MAGIC_1 && buf[2] == QQ_BIN_MAGIC_2 && buf[3] == QQ_BIN_MAGIC_3
+
+let qqbin_version(buf) = buf[4] + buf[5] * 256
+
+let qqbin_algebra(buf) = buf[6] + buf[7] * 256
+
+let qqbin_node_count(buf) = qqbin_u32_from(buf[8], buf[9], buf[10], buf[11])
+
+let qqbin_edge_count(buf) = qqbin_u32_from(buf[12], buf[13], buf[14], buf[15])
+
+let qqbin_buf_size(buf) = QQ_BIN_HEADER_SIZE + qqbin_node_count(buf) * QQ_BIN_NODE_SIZE + qqbin_edge_count(buf) * QQ_BIN_EDGE_SIZE
+
+let qqbin_node_offset(idx) = QQ_BIN_HEADER_SIZE + idx * QQ_BIN_NODE_SIZE
+
+let qqbin_edge_offset(buf, idx) = QQ_BIN_HEADER_SIZE + qqbin_node_count(buf) * QQ_BIN_NODE_SIZE + idx * QQ_BIN_EDGE_SIZE
+
+let qqbin_node_at(buf, idx) =
+    let off = qqbin_node_offset(idx)
+    { node_id: idx, opcode: buf[off], pe_type: buf[off + 1], in_ports: [], out_ports: [], fusion_group: qqbin_i16_from(buf[off + 2], buf[off + 3]), schedule_hint: qqbin_u16_from(buf[off + 4], buf[off + 5]), attrs: {} }
+
+let qqbin_edge_at(buf, idx) =
+    let off = qqbin_edge_offset(buf, idx)
+    { src_node: qqbin_u16_from(buf[off], buf[off + 1]), src_port: buf[off + 2], dst_node: qqbin_u16_from(buf[off + 3], buf[off + 4]), dst_port: buf[off + 5], token_type: buf[off + 6], fifo_depth: buf[off + 7] }
+
+let qqbin_in_ports(edges, node_id, idx, acc) =
+    let n = len(edges)
+    let r = if idx < n
+      let e = edges[idx]
+      if e.dst_node == node_id
+        qqbin_in_ports(edges, node_id, idx + 1, acc.push(e.src_node))
+      else
+        qqbin_in_ports(edges, node_id, idx + 1, acc)
+    else
+      acc
+    r
+
+let qqbin_out_ports(edges, node_id, idx, acc) =
+    let n = len(edges)
+    let r = if idx < n
+      let e = edges[idx]
+      if e.src_node == node_id
+        qqbin_out_ports(edges, node_id, idx + 1, acc.push(e.dst_node))
+      else
+        qqbin_out_ports(edges, node_id, idx + 1, acc)
+    else
+      acc
+    r
+
+let qqbin_collect_nodes(buf, edges, node_count, idx, acc) =
+    let r = if idx < node_count
+      let node = qqbin_node_at(buf, idx)
+      let in_p = qqbin_in_ports(edges, idx, 0, [])
+      let out_p = qqbin_out_ports(edges, idx, 0, [])
+      let node2 =
+        { node_id: node.node_id, opcode: node.opcode, pe_type: node.pe_type, in_ports: in_p, out_ports: out_p, fusion_group: node.fusion_group, schedule_hint: node.schedule_hint, attrs: node.attrs }
+      qqbin_collect_nodes(buf, edges, node_count, idx + 1, acc.push(node2))
+    else
+      acc
+    r
+
+let qqbin_collect_edges(buf, edge_count, idx, acc) =
+    let r = if idx < edge_count
+      qqbin_collect_edges(buf, edge_count, idx + 1, acc.push(qqbin_edge_at(buf, idx)))
+    else
+      acc
+    r
+
+let qqbin_find_root(nodes, idx, fallback) =
+    let n = len(nodes)
+    let r = if idx < n
+      let node = nodes[idx]
+      if node.opcode == 17
+        idx
+      else
+        qqbin_find_root(nodes, idx + 1, fallback)
+    else
+      fallback
+    r
+
+let qqbin_decode(buf) =
+    let n = qqbin_node_count(buf)
+    let m = qqbin_edge_count(buf)
+    let edges = qqbin_collect_edges(buf, m, 0, [])
+    let nodes = qqbin_collect_nodes(buf, edges, n, 0, [])
+    let root = qqbin_find_root(nodes, 0, -1)
+      { nodes: nodes, edges: edges, node_count: n, edge_count: m, root: root }
+
+let qqbin_nodes_same(a, b, idx) =
+    let na = len(a)
+    let nb = len(b)
+    let n = (na < nb ? na : nb)
+    let r = if idx < n
+      let na = a[idx]
+      let nb = b[idx]
+      if na.opcode == nb.opcode && na.pe_type == nb.pe_type && na.fusion_group == nb.fusion_group && na.schedule_hint == nb.schedule_hint
+        qqbin_nodes_same(a, b, idx + 1)
+      else
+        false
+    else
+      true
+    r
+
+let qqbin_edges_same(a, b, idx) =
+    let na = len(a)
+    let nb = len(b)
+    let n = (na < nb ? na : nb)
+    let r = if idx < n
+      let ea = a[idx]
+      let eb = b[idx]
+      if ea.src_node == eb.src_node && ea.src_port == eb.src_port && ea.dst_node == eb.dst_node && ea.dst_port == eb.dst_port && ea.token_type == eb.token_type && ea.fifo_depth == eb.fifo_depth
+        qqbin_edges_same(a, b, idx + 1)
+      else
+        false
+    else
+      true
+    r
+
+let qqbin_equiv(a, b) = a.node_count == b.node_count && a.edge_count == b.edge_count && qqbin_nodes_same(a.nodes, b.nodes, 0) && qqbin_edges_same(a.edges, b.edges, 0)
+
+let qqbin_roundtrip(dag) =
+    let bytes = qqbin_encode(dag)
+    let back = qqbin_decode(bytes)
+    qqbin_equiv(dag, back)
+
+let qqbin_count_changed_nodes(a, b, idx, acc) =
+    let n = len(a)
+    let r = if idx < n
+      let na = a[idx]
+      let nb = b[idx]
+      if na.opcode == nb.opcode && na.pe_type == nb.pe_type
+        qqbin_count_changed_nodes(a, b, idx + 1, acc)
+      else
+        qqbin_count_changed_nodes(a, b, idx + 1, acc + 1)
+    else
+      acc
+    r
+
+let qqbin_count_changed_edges(a, b, idx, acc) =
+    let n = len(a)
+    let r = if idx < n
+      let ea = a[idx]
+      let eb = b[idx]
+      if ea.src_node == eb.src_node && ea.dst_node == eb.dst_node && ea.token_type == eb.token_type && ea.fifo_depth == eb.fifo_depth
+        qqbin_count_changed_edges(a, b, idx + 1, acc)
+      else
+        qqbin_count_changed_edges(a, b, idx + 1, acc + 1)
+    else
+      acc
+    r
+
+let qqbin_delta_info(base, new) =
+    let cn = qqbin_count_changed_nodes(base.nodes, new.nodes, 0, 0)
+    let ce = qqbin_count_changed_edges(base.edges, new.edges, 0, 0)
+    let base_size = qqbin_encode(base).len()
+    let new_size = qqbin_encode(new).len()
+    let delta_bytes = cn * QQ_BIN_NODE_SIZE + ce * QQ_BIN_EDGE_SIZE
+    [cn, ce, base_size, new_size, delta_bytes]
+
+let qqbin_delta_ratio(base, new) =
+    let info = qqbin_delta_info(base, new)
+    let new_size = info[3]
+    (new_size > 0 ? info[4] * 100 / new_size : 0)
+
+let qqbin_summary() =
+    { format: "QQBC-BIN", version: QQ_BIN_VERSION, algebra: QQ_BIN_ALGEBRA, header_bytes: QQ_BIN_HEADER_SIZE, node_bytes: QQ_BIN_NODE_SIZE, edge_bytes: QQ_BIN_EDGE_SIZE, layout: "magic(4) + ver(2) + alg(2) + ncount(4) + ecount(4) + node(8)*N + edge(8)*M", derived: "in_ports/out_ports/root rebuilt from edges (zero redundancy)", target: "UI scene < 4KB, 3D model < 32KB, mmap load < 1ms" }
+
+let qqbin_node_from_bytes(b) =
+    { node_id: 0, opcode: b[0], pe_type: b[1], in_ports: [], out_ports: [], fusion_group: qqbin_i16_from(b[2], b[3]), schedule_hint: qqbin_u16_from(b[4], b[5]), attrs: {} }
+
+let qqbin_edge_from_bytes(b) =
+    { src_node: qqbin_u16_from(b[0], b[1]), src_port: b[2], dst_node: qqbin_u16_from(b[3], b[4]), dst_port: b[5], token_type: b[6], fifo_depth: b[7] }
+
+let qqbin_node_changed(a, b) = a.opcode != b.opcode || a.pe_type != b.pe_type || a.fusion_group != b.fusion_group || a.schedule_hint != b.schedule_hint
+
+let qqbin_edge_changed(a, b) = a.src_node != b.src_node || a.src_port != b.src_port || a.dst_node != b.dst_node || a.dst_port != b.dst_port || a.token_type != b.token_type || a.fifo_depth != b.fifo_depth
+
+let qqbin_make_node_patch(a, b, idx, acc) =
+    let n = len(a)
+    let r = if idx < n
+      if qqbin_node_changed(a[idx], b[idx])
+        qqbin_make_node_patch(a, b, idx + 1, acc.push({idx: idx, bytes: qqbin_node_bytes(b[idx])}))
+      else
+        qqbin_make_node_patch(a, b, idx + 1, acc)
+    else
+      acc
+    r
+
+let qqbin_make_edge_patch(a, b, idx, acc) =
+    let n = len(a)
+    let r = if idx < n
+      if qqbin_edge_changed(a[idx], b[idx])
+        qqbin_make_edge_patch(a, b, idx + 1, acc.push({idx: idx, bytes: qqbin_edge_bytes(b[idx])}))
+      else
+        qqbin_make_edge_patch(a, b, idx + 1, acc)
+    else
+      acc
+    r
+
+let qqbin_make_delta(base, new) =
+    { node_patch: qqbin_make_node_patch(base.nodes, new.nodes, 0, []), edge_patch: qqbin_make_edge_patch(base.edges, new.edges, 0, []) }
+
+let qqbin_replace_at(arr, idx, v, i, acc) =
+    let n = len(arr)
+    let r = if i < n
+      if i == idx
+        qqbin_replace_at(arr, idx, v, i + 1, acc.push(v))
+      else
+        qqbin_replace_at(arr, idx, v, i + 1, acc.push(arr[i]))
+    else
+      acc
+    r
+
+let qqbin_apply_node_patch(nodes, patch, pi, acc) =
+    let n = len(patch)
+    let r = if pi < n
+      let p = patch[pi]
+      let node = qqbin_node_from_bytes(p.bytes)
+      let node2 =
+        { node_id: p.idx, opcode: node.opcode, pe_type: node.pe_type, in_ports: node.in_ports, out_ports: node.out_ports, fusion_group: node.fusion_group, schedule_hint: node.schedule_hint, attrs: node.attrs }
+      let new_nodes = qqbin_replace_at(nodes, p.idx, node2, 0, [])
+      qqbin_apply_node_patch(new_nodes, patch, pi + 1, acc)
+    else
+      nodes
+    r
+
+let qqbin_apply_edge_patch(edges, patch, pi, acc) =
+    let n = len(patch)
+    let r = if pi < n
+      let p = patch[pi]
+      let new_edges = qqbin_replace_at(edges, p.idx, qqbin_edge_from_bytes(p.bytes), 0, [])
+      qqbin_apply_edge_patch(new_edges, patch, pi + 1, acc)
+    else
+      edges
+    r
+
+let qqbin_rebuild_ports(nodes, edges, idx, acc) =
+    let n = len(nodes)
+    let r = if idx < n
+      let node = nodes[idx]
+      let in_p = qqbin_in_ports(edges, idx, 0, [])
+      let out_p = qqbin_out_ports(edges, idx, 0, [])
+      let node2 =
+        { node_id: idx, opcode: node.opcode, pe_type: node.pe_type, in_ports: in_p, out_ports: out_p, fusion_group: node.fusion_group, schedule_hint: node.schedule_hint, attrs: node.attrs }
+      qqbin_rebuild_ports(nodes, edges, idx + 1, acc.push(node2))
+    else
+      acc
+    r
+
+let qqbin_apply_delta(base, delta) =
+    let n = base.node_count
+    let m = base.edge_count
+    let patched_nodes = qqbin_apply_node_patch(base.nodes, delta.node_patch, 0, [])
+    let patched_edges = qqbin_apply_edge_patch(base.edges, delta.edge_patch, 0, [])
+    let final_nodes = qqbin_rebuild_ports(patched_nodes, patched_edges, 0, [])
+    let root = qqbin_find_root(final_nodes, 0, -1)
+      { nodes: final_nodes, edges: patched_edges, node_count: n, edge_count: m, root: root }
+
+let qqbin_delta_roundtrip(base, new) =
+    let delta = qqbin_make_delta(base, new)
+    let rebuilt = qqbin_apply_delta(base, delta)
+    qqbin_equiv(rebuilt, new)
+
+let qqbin_delta_patch_count(delta) = [delta.len(node_patch), delta.len(edge_patch)]
+
+let qqbin_delta_append_np(patch, idx, acc) =
+    let n = len(patch)
+    let r = if idx < n
+      let p = patch[idx]
+      let ib = qqbin_u16_bytes(p.idx)
+      let nb = p.bytes
+      let acc2 = acc.push(ib[0]).push(ib[1]).push(nb[0]).push(nb[1]).push(nb[2]).push(nb[3]).push(nb[4]).push(nb[5]).push(nb[6]).push(nb[7])
+      qqbin_delta_append_np(patch, idx + 1, acc2)
+    else
+      acc
+    r
+
+let qqbin_delta_append_ep(patch, idx, acc) =
+    let n = len(patch)
+    let r = if idx < n
+      let p = patch[idx]
+      let ib = qqbin_u16_bytes(p.idx)
+      let nb = p.bytes
+      let acc2 = acc.push(ib[0]).push(ib[1]).push(nb[0]).push(nb[1]).push(nb[2]).push(nb[3]).push(nb[4]).push(nb[5]).push(nb[6]).push(nb[7])
+      qqbin_delta_append_ep(patch, idx + 1, acc2)
+    else
+      acc
+    r
+
+let qqbin_delta_encode(delta) =
+    let nc = qqbin_u16_bytes(delta.len(node_patch))
+    let ec = qqbin_u16_bytes(delta.len(edge_patch))
+    let head = [nc[0], nc[1], ec[0], ec[1]]
+    let with_np = qqbin_delta_append_np(delta.node_patch, 0, head)
+    qqbin_delta_append_ep(delta.edge_patch, 0, with_np)
+
+let qqbin_delta_decode_nodes(buf, count, idx, acc) =
+    let n = count
+    let r = if idx < n
+      let base = 4 + idx * 10
+      let ib = qqbin_u16_from(buf[base], buf[base + 1])
+      let nb = [buf[base + 2], buf[base + 3], buf[base + 4], buf[base + 5], buf[base + 6], buf[base + 7], buf[base + 8], buf[base + 9]]
+      qqbin_delta_decode_nodes(buf, count, idx + 1, acc.push({idx: ib, bytes: nb}))
+    else
+      acc
+    r
+
+let qqbin_delta_decode_edges(buf, np_count, count, idx, acc) =
+    let n = count
+    let r = if idx < n
+      let base = 4 + np_count * 10 + idx * 10
+      let ib = qqbin_u16_from(buf[base], buf[base + 1])
+      let nb = [buf[base + 2], buf[base + 3], buf[base + 4], buf[base + 5], buf[base + 6], buf[base + 7], buf[base + 8], buf[base + 9]]
+      qqbin_delta_decode_edges(buf, np_count, count, idx + 1, acc.push({idx: ib, bytes: nb}))
+    else
+      acc
+    r
+
+let qqbin_delta_decode(buf) =
+    let npc = qqbin_u16_from(buf[0], buf[1])
+    let epc = qqbin_u16_from(buf[2], buf[3])
+      { node_patch: qqbin_delta_decode_nodes(buf, npc, 0, []), edge_patch: qqbin_delta_decode_edges(buf, npc, epc, 0, []) }
+
+let qqbin_bytes_same(a, b, idx) =
+    let n = len(a)
+    let r = if idx < n
+      if a[idx] == b[idx]
+        qqbin_bytes_same(a, b, idx + 1)
+      else
+        false
+    else
+      true
+    r
+
+let qqbin_delta_patches_same(a, b, idx) =
+    let n = len(a)
+    let r = if idx < n
+      let pa = a[idx]
+      let pb = b[idx]
+      if pa.idx == pb.idx && pa.len(bytes) == pb.len(bytes) && qqbin_bytes_same(pa.bytes, pb.bytes, 0)
+        qqbin_delta_patches_same(a, b, idx + 1)
+      else
+        false
+    else
+      true
+    r
+
+let qqbin_delta_wire_roundtrip(delta) =
+    let wire = qqbin_delta_encode(delta)
+    let back = qqbin_delta_decode(wire)
+    back.len(node_patch) == delta.len(node_patch) && back.len(edge_patch) == delta.len(edge_patch) && qqbin_delta_patches_same(back.node_patch, delta.node_patch, 0) && qqbin_delta_patches_same(back.edge_patch, delta.edge_patch, 0)
+
+let qqbin_delta_size(delta) = qqbin_delta_encode(delta).len()
+

@@ -1,0 +1,27 @@
+let bad = [0]
+
+let r7 = 128
+let r8 = 161
+let r9 = 193
+
+let y7 = 2000 * r7 / (1000 + r7)
+let y8 = 2000 * r8 / (1000 + r8)
+let y9 = 2000 * r9 / (1000 + r9)
+let d7 = y7 - 226
+bad[0] = bad[0] + d7 * d7
+let d8 = y8 - 277
+bad[0] = bad[0] + d8 * d8
+let d9 = y9 - 323
+bad[0] = bad[0] + d9 * d9
+
+if 226 > 247
+    bad[0] = bad[0] + 1
+if 247 > 323
+    bad[0] = bad[0] + 1
+
+let f8 = 198
+let r8c = f8 * 815 / 1000
+let dr8 = r8c - 161
+bad[0] = bad[0] + dr8 * dr8
+
+arr_get(arr_new_n(1), bad[0])

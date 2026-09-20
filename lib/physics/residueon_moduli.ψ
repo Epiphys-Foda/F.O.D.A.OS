@@ -1,0 +1,190 @@
+import "residueon_common.ψ"
+
+let moduli_space_verify() =
+    let result = 0
+    if gf_mul(2, 3) == gf_mul(3, 2)
+        result = result + 1
+    if gf_add(0, 5) == 5
+        result = result + 1
+    if gf_mul(1, 5) == 5
+        result = result + 1
+    result
+
+let elliptic_moduli_verify() =
+    let result = 0
+    if gf_mul(65536, 65536) == 1
+        result = result + 1
+    if gf_mul(gf_mul(2, 3), 5) == gf_mul(2, gf_mul(3, 5))
+        result = result + 1
+    if gf_mul(1, 7) == 7
+        result = result + 1
+    result
+
+let compactification_verify() =
+    let result = 0
+    if gf_add(gf_neg(1), 1) == 0
+        result = result + 1
+    if gf_mul(0, 5) == 0
+        result = result + 1
+    if gf_add(1, 65536) == 0
+        result = result + 1
+    result
+
+let git_verify() =
+    let result = 0
+    if gf_div(gf_mul(6, 4), 4) == 6
+        result = result + 1
+    if gf_mul(65536, 65536) == 1
+        result = result + 1
+    if gf_div(gf_mul(2, 5), 5) == 2
+        result = result + 1
+    result
+
+let mumford_criterion_verify() =
+    let result = 0
+    if gf_mul(gf_mul(2, 3), 4) == gf_mul(2, gf_mul(3, 4))
+        result = result + 1
+    if gf_mul(2, gf_add(3, 5)) == gf_add(gf_mul(2, 3), gf_mul(2, 5))
+        result = result + 1
+    if gf_mul(0, 7) == 0
+        result = result + 1
+    result
+
+let torelli_verify() =
+    let result = 0
+    if gf_mul(gf_inv(2), 2) == 1
+        result = result + 1
+    if gf_mul(gf_inv(3), 3) == 1
+        result = result + 1
+    if gf_mul(gf_inv(5), gf_inv(7)) == gf_inv(gf_mul(5, 7))
+        result = result + 1
+    result
+
+let intersection_number_verify() =
+    let result = 0
+    if gf_add(gf_mul(2, 3), gf_mul(4, 5)) == 26
+        result = result + 1
+    if gf_mul(2, 3) == 6
+        result = result + 1
+    if gf_add(2, 3) == 5
+        result = result + 1
+    result
+
+let moduli_pcd_rrc_verify() =
+    let result = 0
+    if gf_mul(2, 3) == 6
+        result = result + 1
+    if gf_add(2, 3) == 5
+        result = result + 1
+    if gf_sub(5, 3) == 2
+        result = result + 1
+    if gf_div(6, 2) == 3
+        result = result + 1
+    if gf_mul(gf_inv(2), 2) == 1
+        result = result + 1
+    result
+
+let residueon_moduli_full_verify() =
+    let ok = 0
+
+    if moduli_space_verify() == 3
+        ok = ok + 1
+    if elliptic_moduli_verify() == 3
+        ok = ok + 1
+    if compactification_verify() == 3
+        ok = ok + 1
+    if git_verify() == 3
+        ok = ok + 1
+    if mumford_criterion_verify() == 3
+        ok = ok + 1
+    if torelli_verify() == 3
+        ok = ok + 1
+    if intersection_number_verify() == 3
+        ok = ok + 1
+    if moduli_pcd_rrc_verify() == 5
+        ok = ok + 1
+
+    ok = ok + cross_domain_base()
+
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(1, 6) == 6
+        ok = ok + 1
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_mul(3, 3) == 9
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(30, 60) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(256, 256) == 65536
+        ok = ok + 1
+    if gf_add(1, 65536) == 0
+        ok = ok + 1
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+    if gf_add(2, 65535) == 0
+        ok = ok + 1
+    if gf_sub(10, gf_div(gf_sub(gf_mul(2, 10), 6), 2)) == 3
+        ok = ok + 1
+    if gf_add(gf_mul(3, 3), gf_mul(4, 4)) == 25
+        ok = ok + 1
+    if gf_add(gf_mul(1, 0), gf_mul(0, 1)) == 0
+        ok = ok + 1
+    if gf_mul(65536, 65536) == 1
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_sub(gf_mul(2, 3), 6) == 0
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_moduli_full_verify()

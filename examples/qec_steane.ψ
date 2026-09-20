@@ -1,0 +1,41 @@
+import "../lib/core/stdlib/qec.ψ"
+
+let sv = qec_verify_stn()
+let g1 = sv[0]
+let g2 = sv[1]
+let g3 = sv[2]
+let g4 = sv[3]
+let g5 = sv[4]
+let g6 = sv[5]
+let g7 = sv[6]
+let g8 = sv[7]
+
+let gv = qec_verify_gates()
+let g9 = gv[0]
+let g10 = gv[1]
+let g11 = gv[2]
+let g12 = gv[3]
+let g13 = gv[4]
+let g14 = gv[5]
+let g15 = gv[6]
+let g16 = gv[7]
+
+let st3 = qec_stn_flip(qec_stn_encode(0), 2)
+let sy3 = qec_stn_syndrome(st3)
+let g17 = sy3[0] == 0 && sy3[1] == 1 && sy3[2] == 1
+let st7 = qec_stn_flip(qec_stn_encode(0), 6)
+let sy7 = qec_stn_syndrome(st7)
+let g18 = sy7[0] == 1 && sy7[1] == 1 && sy7[2] == 1
+let sy0 = qec_stn_syndrome(qec_stn_encode(0))
+let g19 = sy0[0] == 0 && sy0[1] == 0 && sy0[2] == 0
+let full = qec_s9_encode(0)
+let full_err = qec_s9_flip(full, 4)
+let full_gate = qec_s9_xl(full_err)
+let full_fix = qec_s9_correct_x(full_gate)
+let g20 = qec_s9_decode(full_fix) == 1
+
+[
+  g1, g2, g3, g4, g5, g6, g7, g8,
+  g9, g10, g11, g12, g13, g14, g15, g16,
+  g17, g18, g19, g20
+]

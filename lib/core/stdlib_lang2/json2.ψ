@@ -1,0 +1,346 @@
+let _j2_itos(n) =
+    let neg = n < 0 ? 1 : 0
+    let v = neg == 1 ? 0 - n : n
+    let digits = []
+    if v == 0
+        digits.push(48)
+    for v > 0
+        digits.push(48 + v % 10)
+        v = v / 10
+    let out = []
+    if neg == 1
+        out.push(45)
+    let i = len(digits) - 1
+    for i >= 0
+        out.push(digits[i])
+        i = i - 1
+    out
+
+let _j2_eq(a, b) =
+    let n = len(a)
+    if n != len(b)
+        return 0
+    for i in 0..n
+        if a[i] != b[i]
+            return 0
+    1
+
+let _j2_append(out, codes) =
+    for x in codes
+        out.push(x)
+    out
+
+let j2_null() = [0, 0]
+let j2_bool(b) = [1, b]
+let j2_num(n) = [2, n]
+let j2_str(codes) = [3, codes]
+let j2_arr(items) = [4, items]
+let j2_obj(pairs) = [5, pairs]
+
+let _j2_elen(codes) =
+    let n = 0
+    for c in codes
+        if c == 34 || c == 92 || c == 10 || c == 9 || c == 13
+            n = n + 2
+        else
+            n = n + 1
+    n
+
+let _j2_slen(v) =
+    let t = v[0]
+    if t == 0
+        return 4
+    if t == 1
+        return v[1] == 1 ? 4 : 5
+    if t == 2
+        return len(_j2_itos(v[1]))
+    if t == 3
+        return _j2_elen(v[1]) + 2
+    if t == 4
+        let items = v[1]
+        let n = len(items)
+        if n == 0
+            return 2
+        let total = 2 + n - 1
+        for i in 0..n
+            total = total + _j2_slen(items[i])
+        return total
+    let pairs = v[1]
+    let n = len(pairs)
+    if n == 0
+        return 2
+    let total = 2 + n - 1
+    for i in 0..n
+        total = total + _j2_elen(pairs[i][0]) + 2 + 1 + _j2_slen(pairs[i][1])
+    total
+
+let _j2_esc_second(c) = c == 34 ? 34 : c == 92 ? 92 : c == 10 ? 110 : c == 9 ? 116 : 114
+
+let _j2_sfill_str(codes, buf, pos) =
+    let p = pos
+    buf[p] = 34
+    let p2 = p + 1
+    let w = p2
+    for c in codes
+        if c == 34 || c == 92 || c == 10 || c == 9 || c == 13
+            buf[w] = 92
+            buf[w + 1] = _j2_esc_second(c)
+            w = w + 2
+        else
+            buf[w] = c
+            w = w + 1
+    buf[w] = 34
+    w + 1
+
+let _j2_sfill(v, buf, pos) =
+    let t = v[0]
+    if t == 0
+        buf[pos] = 110
+        buf[pos + 1] = 117
+        buf[pos + 2] = 108
+        buf[pos + 3] = 108
+        return pos + 4
+    if t == 1
+        if v[1] == 1
+            buf[pos] = 116
+            buf[pos + 1] = 114
+            buf[pos + 2] = 117
+            buf[pos + 3] = 101
+            return pos + 4
+        buf[pos] = 102
+        buf[pos + 1] = 97
+        buf[pos + 2] = 108
+        buf[pos + 3] = 115
+        buf[pos + 4] = 101
+        return pos + 5
+    if t == 2
+        let dc = _j2_itos(v[1])
+        let w = pos
+        for x in dc
+            buf[w] = x
+            w = w + 1
+        return w
+    if t == 3
+        return _j2_sfill_str(v[1], buf, pos)
+    if t == 4
+        let items = v[1]
+        let n = len(items)
+        buf[pos] = 91
+        let w = pos + 1
+        for i in 0..n
+            if i > 0
+                buf[w] = 44
+                w = w + 1
+            w = _j2_sfill(items[i], buf, w)
+        buf[w] = 93
+        return w + 1
+    let pairs = v[1]
+    let n = len(pairs)
+    buf[pos] = 123
+    let w = pos + 1
+    for i in 0..n
+        if i > 0
+            buf[w] = 44
+            w = w + 1
+        w = _j2_sfill_str(pairs[i][0], buf, w)
+        buf[w] = 58
+        w = w + 1
+        w = _j2_sfill(pairs[i][1], buf, w)
+    buf[w] = 125
+    return w + 1
+
+let j2_ser(v) = _j2_ser_build(v)
+
+let _j2_ser_build(v) =
+    let buf = arr_new_n(_j2_slen(v))
+    _j2_sfill(v, buf, 0)
+    buf
+
+let _j2_is_ws(c) = c == 32 || c == 9 || c == 10 || c == 13 ? 1 : 0
+
+let _j2_skipws(codes, pos) =
+    let p = pos
+    for p < len(codes) && _j2_is_ws(codes[p]) == 1
+        p = p + 1
+    p
+
+let _j2_is_digit(c) = c >= 48 && c <= 57 ? 1 : 0
+
+let _j2_str_end(codes, pos) =
+    let i = pos + 1
+    for i < len(codes)
+        if codes[i] == 92
+            i = i + 2
+        else
+            if codes[i] == 34
+                return i + 1
+            else
+                i = i + 1
+    len(codes)
+
+let _j2_num_end(codes, pos) =
+    let i = pos
+    if codes[i] == 45
+        i = i + 1
+    for i < len(codes) && _j2_is_digit(codes[i]) == 1
+        i = i + 1
+    i
+
+let _j2_nest_end(codes, pos, open, close) =
+    let depth = 0
+    let i = pos
+    for i < len(codes)
+        let c = codes[i]
+        if c == open
+            depth = depth + 1
+        if c == close
+            depth = depth - 1
+        if c == 34
+            i = _j2_str_end(codes, i) - 1
+        if depth == 0
+            return i + 1
+        i = i + 1
+    len(codes)
+
+let _j2_vend(codes, pos) =
+    let c = codes[pos]
+    if c == 34
+        return _j2_str_end(codes, pos)
+    if c == 123
+        return _j2_nest_end(codes, pos, 123, 125)
+    if c == 91
+        return _j2_nest_end(codes, pos, 91, 93)
+    if c == 116
+        return pos + 4
+    if c == 102
+        return pos + 5
+    if c == 110
+        return pos + 4
+    _j2_num_end(codes, pos)
+
+let _j2_count(codes, s, e) =
+    let n = 0
+    let i = _j2_skipws(codes, s + 1)
+    for i < e - 1
+        n = n + 1
+        let ve = _j2_vend(codes, i)
+        let j = _j2_skipws(codes, ve)
+        if codes[j] == 58
+            let vs = _j2_skipws(codes, j + 1)
+            j = _j2_skipws(codes, _j2_vend(codes, vs))
+        if codes[j] == 44
+            i = _j2_skipws(codes, j + 1)
+        else
+            i = e
+    n
+
+let _j2_build(codes, s, e) =
+    let c = codes[s]
+    if c == 34
+        return [3, _j2_unesc(codes, s + 1, e - 1)]
+    if c == 123
+        return _j2_build_obj(codes, s, e)
+    if c == 91
+        return _j2_build_arr(codes, s, e)
+    if c == 116
+        return [1, 1]
+    if c == 102
+        return [1, 0]
+    if c == 110
+        return [0, 0]
+    [2, _j2_num(codes, s, e)]
+
+let _j2_num(codes, s, e) =
+    let neg = codes[s] == 45 ? 1 : 0
+    let d0 = neg == 1 ? s + 1 : s
+    let acc = 0
+    for i in d0..e
+        acc = acc * 10 + codes[i] - 48
+    neg == 1 ? 0 - acc : acc
+
+let _j2_unesc_len(codes, s, e) =
+    let n = 0
+    let i = s
+    for i < e
+        if codes[i] == 92
+            n = n + 1
+            i = i + 2
+        else
+            n = n + 1
+            i = i + 1
+    n
+
+let _j2_unesc_fill(codes, s, e, buf) =
+    let w = 0
+    let i = s
+    for i < e
+        let c = codes[i]
+        if c == 92
+            let d = codes[i + 1]
+            if d == 110
+                buf[w] = 10
+            if d == 116
+                buf[w] = 9
+            if d == 114
+                buf[w] = 13
+            if d == 98
+                buf[w] = 8
+            if d == 102
+                buf[w] = 12
+            if d == 34
+                buf[w] = 34
+            if d == 92
+                buf[w] = 92
+            if d == 47
+                buf[w] = 47
+            w = w + 1
+            i = i + 2
+        else
+            buf[w] = c
+            w = w + 1
+            i = i + 1
+    buf
+
+let _j2_unesc(codes, s, e) =
+    let buf = arr_new_n(_j2_unesc_len(codes, s, e))
+    _j2_unesc_fill(codes, s, e, buf)
+    buf
+
+let _j2_build_arr(codes, s, e) =
+    let n = _j2_count(codes, s, e)
+    let items = arr_new_n(n)
+    let i = _j2_skipws(codes, s + 1)
+    for k in 0..n
+        let ve = _j2_vend(codes, i)
+        items[k] = _j2_build(codes, i, ve)
+        let j = _j2_skipws(codes, ve)
+        if codes[j] == 44
+            j = j + 1
+        i = _j2_skipws(codes, j)
+    [4, items]
+
+let _j2_build_obj(codes, s, e) =
+    let n = _j2_count(codes, s, e)
+    let pairs = arr_new_n(n)
+    let i = _j2_skipws(codes, s + 1)
+    for k in 0..n
+        let ke = _j2_str_end(codes, i)
+        let kc = _j2_unesc(codes, i + 1, ke - 1)
+        let j = _j2_skipws(codes, ke)
+        let vs = _j2_skipws(codes, j + 1)
+        let ve = _j2_vend(codes, vs)
+        let pr = arr_new_n(2)
+        pr[0] = kc
+        pr[1] = _j2_build(codes, vs, ve)
+        pairs[k] = pr
+        let j2 = _j2_skipws(codes, ve)
+        if codes[j2] == 44
+            j2 = j2 + 1
+        i = _j2_skipws(codes, j2)
+    [5, pairs]
+
+let j2_parse(codes) = _j2_build(codes, _j2_skipws(codes, 0), len(codes))
+
+let j2_canon(v) = _j2_build(j2_ser(v), 0, len(j2_ser(v)))
+
+let j2_v_roundtrip(v) = _j2_eq(j2_ser(j2_canon(v)), j2_ser(v))

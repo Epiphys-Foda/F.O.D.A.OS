@@ -1,0 +1,26 @@
+import "ck.ψ"
+let bad = [0]
+
+let flux0 = 414
+bad[0] = bad[0] + ck(flux0, 400, 430)
+
+let per = 1
+let dper = per - 1
+bad[0] = bad[0] + ck(dper, 0, 0)
+
+let F = 0
+bad[0] = bad[0] + ck_hi(F, 0)
+
+let dB = 13
+bad[0] = bad[0] + ck(dB, 10, 16)
+
+if 1959 < 1957
+    bad[0] = bad[0] + 1
+if 1959 > 1961
+    bad[0] = bad[0] + 1
+if 1960 < 1958
+    bad[0] = bad[0] + 1
+if 1960 > 1962
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

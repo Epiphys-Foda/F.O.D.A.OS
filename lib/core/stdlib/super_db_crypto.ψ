@@ -1,0 +1,46 @@
+import "super_db.ψ"
+let rf_dbc_encrypt(db, key) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(db)
+        out = out.push(db[i])
+        out = out.push(db[i + 1])
+        let r = rf_db_mul(db[i + 2], key)
+        out = out.push(r - (r / 65537) * 65537)
+        i = i + 3
+      else
+        done = true
+    out
+
+let rf_dbc_decrypt(db, key) = rf_dbc_encrypt(db, rf_db_mod_pow(key, 65535, 65537))
+
+let rf_dbc_sign(db, key) =
+    let chk = rf_db_checksum(db)
+    let s = rf_db_mul(chk, key)
+    s - (s / 65537) * 65537
+
+let rf_dbc_verify(db, key, sig) =
+    let chk = rf_db_checksum(db)
+    let s = rf_db_mul(chk, key)
+    let expected = s - (s / 65537) * 65537
+    [expected, sig]
+
+let rf_dbc_roundtrip(db, key) = rf_dbc_decrypt(rf_dbc_encrypt(db, key), key)
+
+let rf_dbc_mac(db, key) = rf_dbc_sign(db, key)
+
+let rf_dbc_test() =
+    let db = [0, 0, 100, 5, 5, 50]
+    let enc = rf_dbc_encrypt(db, 7)
+    let t1 = enc[2] == 700 - (700 / 65537) * 65537 && enc[5] == 350
+    let dec = rf_dbc_decrypt(enc, 7)
+    let t2 = dec[2] == 100 && dec[5] == 50
+    let rt = rf_dbc_roundtrip(db, 7)
+    let t3 = rt[2] == 100
+    let sig1 = rf_dbc_sign(db, 7)
+    let sig2 = rf_dbc_sign(db, 7)
+    let t4 = sig1 == sig2
+    let t5 = rf_dbc_mac(db, 7) == rf_dbc_mac(db, 7)
+    t1 && t2 && t3 && t4 && t5

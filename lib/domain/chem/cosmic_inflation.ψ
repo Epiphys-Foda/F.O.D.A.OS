@@ -1,0 +1,28 @@
+import "ck.ψ"
+let bad = [0]
+
+let omega_x100 = 100
+bad[0] = bad[0] + ck(omega_x100, 99, 101)
+
+let pert = 1
+bad[0] = bad[0] + ck_hi(pert, 2)
+bad[0] = bad[0] + ck_hi(pert, 100)
+
+let folds = 60
+bad[0] = bad[0] + ck(folds, 50, 70)
+
+let seed = 1
+bad[0] = bad[0] + ck_lo(seed, 1)
+
+if 1981 < 1979
+    bad[0] = bad[0] + 1
+if 1981 > 1983
+    bad[0] = bad[0] + 1
+if 1992 < 1990
+    bad[0] = bad[0] + 1
+if 1992 > 1994
+    bad[0] = bad[0] + 1
+if 1992 < 1981
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

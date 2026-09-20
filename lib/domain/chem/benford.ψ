@@ -1,0 +1,38 @@
+import "ck.ψ"
+let bad = [0]
+
+let p1 = 301
+let p2 = 176
+let p3 = 125
+let p4 = 97
+let p5 = 79
+let p6 = 67
+let p7 = 58
+let p8 = 51
+let p9 = 46
+
+let total = p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9
+let dz1 = total - 1000
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+bad[0] = bad[0] + ck_lo(p1, p2)
+bad[0] = bad[0] + ck_lo(p2, p3)
+bad[0] = bad[0] + ck_lo(p3, p4)
+
+let dz2 = p1 - 301
+bad[0] = bad[0] + ck(dz2, 0, 0)
+let dz3 = p9 - 46
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+if 1881 < 1879
+    bad[0] = bad[0] + 1
+if 1881 > 1883
+    bad[0] = bad[0] + 1
+if 1938 < 1936
+    bad[0] = bad[0] + 1
+if 1938 > 1940
+    bad[0] = bad[0] + 1
+if 1938 < 1881
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

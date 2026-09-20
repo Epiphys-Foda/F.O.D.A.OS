@@ -1,0 +1,37 @@
+import "ck.ψ"
+let bad = [0]
+
+if 26000000 > 27000000
+    bad[0] = bad[0] + 1
+if 27000000 > 28000000
+    bad[0] = bad[0] + 1
+
+let e6 = 1000000
+let e12 = e6 * e6
+let e18 = e12 * e6
+let e19 = e18 * 10
+let e24 = e12 * e12
+let e27 = e24 * 1000
+let dM3 = 384400 * 384400 * 384400
+let dS3 = 149600000 * 149600000 * 149600000
+let Tm = 7346 * e19 / dM3
+let Ts = 1989 * e27 / dS3
+
+if 2000 * Ts > 1000 * Tm
+    bad[0] = bad[0] + 1
+if 1000 * Tm > 2300 * Ts
+    bad[0] = bad[0] + 1
+
+let spring = Tm + Ts
+let neap = Tm - Ts
+if 260 * neap > 100 * spring
+    bad[0] = bad[0] + 1
+if 100 * spring > 280 * neap
+    bad[0] = bad[0] + 1
+
+if 8 * dM3 != 768800 * 768800 * 768800
+    bad[0] = bad[0] + 1
+
+bad[0] = bad[0] + ck_lo(Tm, Ts)
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,43 @@
+import "ck.ψ"
+let bad = [0]
+
+let g_ratio = 36
+let height = 1000
+let dist = g_ratio * height
+let dz1 = dist - 36000
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let v_fwd = g_ratio * 3 / 2
+let dz2 = v_fwd - 54
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let kmh = v_fwd * 36 / 10
+let dz3 = kmh - 194
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let w_load = 3240
+let d_drag = w_load / g_ratio
+let ledger_a = w_load * height
+let ledger_b = d_drag * dist
+let dz4 = ledger_a - ledger_b
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let dz5 = d_drag - 90
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let fly34 = 4 * 300 / 3
+let dz6 = fly34 - 400
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+bad[0] = bad[0] + ck_lo(dist, height)
+
+if 1891 < 1889
+    bad[0] = bad[0] + 1
+if 1891 > 1893
+    bad[0] = bad[0] + 1
+if 1902 < 1900
+    bad[0] = bad[0] + 1
+if 1902 > 1904
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,39 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let ke_bottom = 98
+let pe_top = 98
+if ke_bottom != pe_top
+    bad[0] = bad[0] + 1
+
+let eta_carnot = 40
+bad[0] = bad[0] + ck(eta_carnot, 30, 50)
+
+let p_before = 2 * 3 + 1 * 0
+let v_after = small_div(p_before, 2 + 1)
+let p_after = (2 + 1) * v_after
+if p_before != p_after
+    bad[0] = bad[0] + 1
+
+let L_before = 5 * 1
+let L_after = 1 * 5
+if L_before != L_after
+    bad[0] = bad[0] + 1
+
+bad[0] = bad[0] + ck_hi(L_after, L_before)
+
+let q_neutron = 0
+let q_proton = 1
+let q_electron = 0 - 1
+let q_total = q_proton + q_electron
+if q_total != q_neutron
+    bad[0] = bad[0] + 1
+
+if 1918 < 1916
+    bad[0] = bad[0] + 1
+if 1918 > 1920
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

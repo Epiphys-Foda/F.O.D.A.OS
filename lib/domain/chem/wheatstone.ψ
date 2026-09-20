@@ -1,0 +1,33 @@
+import "ck.ψ"
+let bad = [0]
+
+let r1 = 100
+let r2 = 100
+let r3 = 1000
+let r4 = 1000
+let cz = r1 * r4 - r2 * r3
+bad[0] = bad[0] + ck(cz, 0, 0)
+
+let ig = 0
+bad[0] = bad[0] + ck(ig, 0, 0)
+
+let sg = 350
+bad[0] = bad[0] + ck(sg, 300, 400)
+
+let sens = 10
+bad[0] = bad[0] + ck(sens, 8, 12)
+
+if 1833 < 1831
+    bad[0] = bad[0] + 1
+if 1833 > 1835
+    bad[0] = bad[0] + 1
+if 1843 < 1841
+    bad[0] = bad[0] + 1
+if 1843 > 1845
+    bad[0] = bad[0] + 1
+if 1860 < 1858
+    bad[0] = bad[0] + 1
+if 1860 > 1862
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

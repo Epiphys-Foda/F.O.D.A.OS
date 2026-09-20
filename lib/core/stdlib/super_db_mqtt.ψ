@@ -1,0 +1,46 @@
+import "super_db.ψ"
+import "super_db_engine.ψ"
+let rf_db_mqtt_publish(db, cx, cy, w, h, x, y, r) = rf_db_insert(db, x, y, r)
+
+let rf_db_mqtt_subscribe(db, cx, cy, w, h) = rf_db_publish(db, cx, cy, w, h)
+
+let rf_db_mqtt_retain(db, cx, cy, w, h) = rf_db_publish(db, cx, cy, w, h)
+
+let rf_db_mqtt_qos(db, cx, cy, w, h, min_r) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(db)
+        let xk = db[i]
+        let yk = db[i + 1]
+        let rk = db[i + 2]
+        if rf_db_in_rect(xk, yk, cx, cy, w, h) && rk >= min_r
+          out = out.push(xk)
+          out = out.push(yk)
+          out = out.push(rk)
+        else
+          0
+        i = i + 3
+      else
+        done = true
+    out
+
+let rf_db_mqtt_broker(db, cx, cy, w, h, x, y, r) =
+    rf_db_mqtt_retain(rf_db_mqtt_publish(db, cx, cy, w, h, x, y, r), cx, cy, w, h)
+
+let rf_db_mqtt_verify() =
+    let ok = true
+    if rf_db_mqtt_publish([], 0, 0, 10, 10, 5, 5, 7)[0] == 5
+      ok = ok && true
+    else
+      ok = false
+    if rf_db_mqtt_subscribe([0, 0, 5, 100, 100, 7], 0, 0, 10, 10)[0] == 0
+      ok = ok && true
+    else
+      ok = false
+    if rf_db_mqtt_retain([0, 0, 5], 0, 0, 10, 10)[0] == 0
+      ok = ok && true
+    else
+      ok = false
+    ok

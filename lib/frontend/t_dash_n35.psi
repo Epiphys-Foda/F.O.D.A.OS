@@ -1,0 +1,92 @@
+import "wblit.ψ"
+import "wui.ψ"
+
+let init(w, h) =
+    let st = arr_new_n(96)
+    let fb = arr_new_n(w * h)
+    arr_set(st, 6, fb)
+    arr_set(st, 9, font_glyphs())
+    arr_set(st, 15, arr_new_n(34))
+    arr_set(st, 5, ui_ctx(st, fb, w, h, st[9]))
+    arr_set(st, 90, aurora_theme_dark())
+    arr_set(st, 91, aurora_theme_light())
+    arr_set(st, 0, 7)
+    arr_set(st, 1, 64)
+    arr_set(st, 2, 1)
+    arr_set(st, 80, arr_new_n(8))
+    arr_set(st, 81, arr_new_n(64))
+    arr_set(st, 82, 0)
+    arr_set(st, 83, 100)
+    arr_set(st, 84, arr_new_n(8))
+    st
+
+let frame(st) =
+    let u = st[5]
+    let fb = u[0]
+    let w = u[1]
+    let h = u[2]
+    let fg = u[4]
+    let th = u[14]
+    let tb = st[15]
+    fill_rect(fb, w, h, 0, 0, w, h, th[0])
+    ui_begin(u)
+    ui_layout(u, 4, 4, w - 8, h - 8)
+    ui_gap(u, 6)
+    ui_row(u, 12)
+    ui_place(u, 176, 12)
+    blit_text2x(fb, w, h, u[10], u[11], "AURORA TRAINING GROUND", th[8], fg)
+    ui_row_end(u)
+    ui_row(u, 14)
+    ui_place(u, 100, 14)
+    ui_slider(u, 1, u[10], u[11], 100, st, 0)
+    blit_num(u, u[10] + 104, u[11] + 1, st[0])
+    ui_place(u, 100, 14)
+    ui_slider(u, 2, u[10], u[11], 100, st, 1)
+    blit_num(u, u[10] + 104, u[11] + 1, st[1])
+    ui_row_end(u)
+    ui_row(u, 16)
+    ui_place(u, 50, 12)
+    ui_toggle(u, 3, u[10], u[11], "AUTO SAVE", st, 2)
+    ui_place(u, 34, 16)
+    let step_hit = ui_button(u, 4, u[10], u[11], 34, 16, "STEP")
+    if step_hit == 1
+      arr_set(st, 3, st[3] + 1)
+      let cnt = st[82]
+      let prev = st[83]
+      let nxt = (prev * 9 + 20) // 10
+      arr_set(st[81], cnt, nxt)
+      arr_set(st, 82, cnt + 1)
+      arr_set(st, 83, nxt)
+    ui_place(u, 40, 16)
+    let reset_hit = ui_button(u, 5, u[10], u[11], 40, 16, "RESET")
+    if reset_hit == 1
+      arr_set(st, 0, 7)
+      arr_set(st, 1, 64)
+      arr_set(st, 3, 0)
+      arr_set(st, 82, 0)
+      arr_set(st, 83, 100)
+    ui_place(u, 120, 14)
+    ui_input(u, 6, u[10], u[11], 120, tb)
+    ui_row_end(u)
+    ui_curve(u, 8, 4, 84, 312, 150, st[81], st[82], th[6])
+    ui_row(u, 14)
+    ui_place(u, 90, 14)
+    let opts = ["GPU", "CPU", "TPU"]
+    let dev = st[80]
+    ui_select(u, 7, u[10], u[11], 90, opts, 3, dev, 0)
+    ui_place(u, 90, 14)
+    let topts = ["DARK", "LIGHT"]
+    let tstate = st[84]
+    ui_select(u, 11, u[10], u[11], 90, topts, 2, tstate, 0)
+    let tsel = tstate[0]
+    let active_th = st[90 + tsel]
+    ui_theme(u, active_th)
+    ui_place(u, 110, 10)
+    let prog = st[3] * 5
+    if prog > 100
+      prog = 100
+    arr_set(dev, 2, prog)
+    ui_progress(u, 12, u[10], u[11], 106, 10, dev, 2)
+    present_size(w, h)
+    present(fb, w * h)
+    0

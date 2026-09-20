@@ -1,0 +1,42 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let ybco = 93
+let hgcu = 134
+bad[0] = bad[0] + ck(ybco, 90, 95)
+bad[0] = bad[0] + ck(hgcu, 130, 136)
+
+let lobe = 1
+let node = 0
+if node != 0
+    bad[0] = bad[0] + 1
+
+let sx = 1
+let sy = 0 - 1
+if sx * sy > 0
+    bad[0] = bad[0] + 1
+
+let half = small_div(207, 2)
+bad[0] = bad[0] + ck(half, 95, 110)
+
+let s_sign = 1
+if s_sign == 0
+    bad[0] = bad[0] + 1
+bad[0] = bad[0] + ck_hi(half, 207)
+
+let lin = 1
+if lin != 1
+    bad[0] = bad[0] + 1
+
+if 1986 < 1984
+    bad[0] = bad[0] + 1
+if 1986 > 1988
+    bad[0] = bad[0] + 1
+if 1995 < 1993
+    bad[0] = bad[0] + 1
+if 1995 > 1997
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

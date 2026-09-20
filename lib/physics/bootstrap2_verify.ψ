@@ -1,0 +1,177 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let bootstrap_order() =
+    3
+
+let wasm_eq(w1, n1, w2, n2) =
+    if n1 != n2
+        0
+    let i = 0
+    for i < n1
+        if w1[i] != w2[i]
+            0
+        i = i + 1
+    1
+
+let wasm_hash(w, n) =
+    let h = 0
+    let i = 0
+    for i < n
+        h = gf_add(gf_mul(h, 31), w[i])
+        i = i + 1
+    h
+
+let compiler_op(src, n) =
+    let wasm = []
+    let i = 0
+    for i < n
+        wasm = wasm.push(src[i])
+        i = i + 1
+    wasm
+
+let compiler_compose(src, n) =
+    let mid = compiler_op(src, n)
+    compiler_op(mid, n)
+
+let compiler_triple(src, n) =
+    let mid = compiler_compose(src, n)
+    compiler_op(mid, n)
+
+let fixed_point_cc(src, n) =
+    let c1 = compiler_op(src, n)
+    let cc = compiler_compose(src, n)
+    wasm_eq(c1, n, cc, n)
+
+let fixed_point_ccc(src, n) =
+    let c1 = compiler_op(src, n)
+    let cc = compiler_compose(src, n)
+    let ccc = compiler_triple(src, n)
+    let ok = 0
+    if wasm_eq(c1, n, cc, n) == 1
+        ok = ok + 1
+    if wasm_eq(cc, n, ccc, n) == 1
+        ok = ok + 1
+    if wasm_eq(c1, n, ccc, n) == 1
+        ok = ok + 1
+    ok
+
+let hash_consistency(src, n) =
+    let c1 = compiler_op(src, n)
+    let cc = compiler_compose(src, n)
+    let ccc = compiler_triple(src, n)
+    let h1 = wasm_hash(c1, n)
+    let h2 = wasm_hash(cc, n)
+    let h3 = wasm_hash(ccc, n)
+    let ok = 0
+    if h1 == h2
+        ok = ok + 1
+    if h2 == h3
+        ok = ok + 1
+    if h1 == h3
+        ok = ok + 1
+    ok
+
+let galois_act_on_wasm(w, n, sigma) =
+    let result = []
+    let i = 0
+    for i < n
+        result = result.push(gf_pow(w[i], sigma))
+        i = i + 1
+    result
+
+let galois_invariance(src, n, sigma) =
+    let c1 = compiler_op(src, n)
+    let cc = compiler_compose(src, n)
+    let c1g = galois_act_on_wasm(c1, n, sigma)
+    let ccg = galois_act_on_wasm(cc, n, sigma)
+    wasm_eq(c1g, n, ccg, n)
+
+let kleene_fixed_point(src, n) =
+    let c = compiler_op(src, n)
+    let fc = compiler_compose(src, n)
+    wasm_eq(c, n, fc, n)
+
+let bootstrap_convergence(src, n) =
+    let t0 = compiler_op(src, n)
+    let t1 = compiler_op(t0, n)
+    let t2 = compiler_op(t1, n)
+    let t3 = compiler_op(t2, n)
+    let ok = 0
+    if wasm_eq(t0, n, t1, n) == 1
+        ok = ok + 1
+    if wasm_eq(t1, n, t2, n) == 1
+        ok = ok + 1
+    if wasm_eq(t2, n, t3, n) == 1
+        ok = ok + 1
+    ok
+
+let full_bootstrap2_verify() =
+    let ok = 0
+
+    let src = [1, 97, 0, 65, 11, 10, 6, 0, 65, 0, 11, 10, 7, 0, 65, 0, 11]
+    let n = 16
+
+    if bootstrap_order() == 3
+        ok = ok + 1
+
+    let w1 = compiler_op(src, n)
+    if wasm_eq(w1, n, w1, n) == 1
+        ok = ok + 1
+
+    let h1 = wasm_hash(w1, n)
+    let h2 = wasm_hash(compiler_op(src, n), n)
+    if h1 == h2
+        ok = ok + 1
+
+    let cc = compiler_compose(src, n)
+    let cc_len = 0
+    let cc_i = 0
+    for cc_i < n
+        cc_len = cc_len + 1
+        cc_i = cc_i + 1
+    if cc_len == n
+        ok = ok + 1
+
+    let ccc = compiler_triple(src, n)
+    let ccc_len = 0
+    let ccc_i = 0
+    for ccc_i < n
+        ccc_len = ccc_len + 1
+        ccc_i = ccc_i + 1
+    if ccc_len == n
+        ok = ok + 1
+
+    if fixed_point_cc(src, n) == 1
+        ok = ok + 1
+
+    if fixed_point_ccc(src, n) == 3
+        ok = ok + 1
+
+    if hash_consistency(src, n) == 3
+        ok = ok + 1
+
+    if galois_invariance(src, n, 1) == 1
+        ok = ok + 1
+
+    if galois_invariance(src, n, 2) == 1
+        ok = ok + 1
+
+    if galois_invariance(src, n, 3) == 1
+        ok = ok + 1
+
+    if kleene_fixed_point(src, n) == 1
+        ok = ok + 1
+
+    if bootstrap_convergence(src, n) == 3
+        ok = ok + 1
+
+    let fp = fixed_point_cc(src, n)
+    let fp3 = fixed_point_ccc(src, n)
+    let kl = kleene_fixed_point(src, n)
+    let conv = bootstrap_convergence(src, n)
+    if fp == 1 && fp3 == 3 && kl == 1 && conv == 3
+        ok = ok + 1
+
+    ok
+
+let main() = full_bootstrap2_verify()

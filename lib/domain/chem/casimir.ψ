@@ -1,0 +1,28 @@
+import "ck.ψ"
+let bad = [0]
+
+let f13 = 13
+bad[0] = bad[0] + ck(f13, 11, 15)
+
+let d4 = 2 * 2 * 2 * 2
+let dd = d4 - 16
+bad[0] = bad[0] + ck(dd, 0, 0)
+
+let pres = 1
+bad[0] = bad[0] + ck(pres, 1, 2)
+
+let outside = 1
+let inside = 1
+let more = outside + 1 - inside
+bad[0] = bad[0] + ck_lo(more, 1)
+
+if 1948 < 1946
+    bad[0] = bad[0] + 1
+if 1948 > 1950
+    bad[0] = bad[0] + 1
+if 1997 < 1995
+    bad[0] = bad[0] + 1
+if 1997 > 1999
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

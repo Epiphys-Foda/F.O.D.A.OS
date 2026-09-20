@@ -1,0 +1,13 @@
+let kleene_fp(initial, transform_fp, max_iter) =
+    let x = initial
+    let prev = gf_add(initial, 1)
+    let i = 0
+    let converged = 0
+    for i < max_iter
+        if x == prev
+            converged = 1
+        prev = x
+        x = gf_add(gf_mul(transform_fp, x), 1)
+        i = i + 1
+    [x, converged, i]
+

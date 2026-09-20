@@ -1,0 +1,47 @@
+import "ck.ψ"
+let bad = [0]
+
+let r_in = 4000
+let r_out = 16000
+let a_t = (r_in + r_out) / 2
+let dz1 = a_t - 10000
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let g_m = 400000
+let v1sq = g_m / r_in
+let dz2 = v1sq - 100
+bad[0] = bad[0] + ck(dz2, 0, 0)
+let v2sq = g_m / r_out
+let dz3 = v2sq - 25
+bad[0] = bad[0] + ck(dz3, 0, 0)
+let v1 = isqrt(v1sq)
+let dz4 = v1 - 10
+bad[0] = bad[0] + ck(dz4, 0, 0)
+let v2 = isqrt(v2sq)
+let dz5 = v2 - 5
+bad[0] = bad[0] + ck(dz5, 0, 0)
+
+let vp2 = g_m * 2 / r_in - g_m / a_t
+let dz6 = vp2 - 160
+bad[0] = bad[0] + ck(dz6, 0, 0)
+
+let va2 = g_m * 2 / r_out - g_m / a_t
+let dz7 = va2 - 10
+bad[0] = bad[0] + ck(dz7, 0, 0)
+
+bad[0] = bad[0] + ck_lo(vp2, v1sq)
+bad[0] = bad[0] + ck_lo(v2sq, va2)
+
+let vesc2 = 2 * v1sq
+let dz8 = vesc2 - 200
+bad[0] = bad[0] + ck(dz8, 0, 0)
+bad[0] = bad[0] + ck_hi(vp2, vesc2)
+
+bad[0] = bad[0] + ck(a_t, r_in, r_out)
+
+if 1925 < 1923
+    bad[0] = bad[0] + 1
+if 1925 > 1927
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

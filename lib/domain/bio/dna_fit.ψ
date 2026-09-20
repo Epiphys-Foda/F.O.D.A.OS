@@ -1,0 +1,98 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let DNA_BP_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let DNA_BP_RESIDUES = [750, 750, 1000, 1000, 800, 800, 1000, 1000]
+
+let psi_dna_bp(bp_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(bp_idx), gf_norm(DNA_BP_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(DNA_BP_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let DNA_NN_POLES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+let DNA_NN_RESIDUES = [100, 88, 48, 145, 144, 128, 130, 217, 224, 177]
+
+let psi_dna_nn(nn_idx) =
+    let val = 0
+    let k = 0
+    for k < 10
+        let diff = gf_sub(gf_norm(nn_idx), gf_norm(DNA_NN_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(DNA_NN_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let DNA_GC_POLES = [0, 10, 20, 30, 40, 50, 60, 100]
+let DNA_GC_RESIDUES = [0, 40, 80, 120, 160, 200, 240, 400]
+
+let psi_dna_gc(gc_x10) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(gc_x10), gf_norm(DNA_GC_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(DNA_GC_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let DNA_TM_BASE = 3000
+let DNA_TM_BP_SCALE = 100
+
+let dna_fit_Tm(bp_idx, nn_idx, gc_x10) =
+    let bp_term = gf_div(psi_dna_bp(bp_idx), DNA_TM_BP_SCALE)
+    let nn_term = psi_dna_nn(nn_idx)
+    let gc_term = psi_dna_gc(gc_x10)
+    gf_add(gf_add(gf_add(DNA_TM_BASE, bp_term), nn_term), gc_term)
+
+let DNA_DCP_BASE = 25
+
+let dna_fit_delta_Cp(bp_idx) =
+    let bp_term = psi_dna_bp(bp_idx)
+    gf_add(DNA_DCP_BASE, gf_div(bp_term, 100))
+
+let DNA_DG_GC_SCALE = 10
+
+let dna_fit_delta_G(nn_idx, gc_x10) =
+    let nn_term = psi_dna_nn(nn_idx)
+    let gc_term = gf_div(psi_dna_gc(gc_x10), DNA_DG_GC_SCALE)
+    gf_add(nn_term, gc_term)
+
+let DNA_DS_T_SCALE = 310
+
+let dna_fit_delta_S(bp_idx, nn_idx) =
+    let bp_term = psi_dna_bp(bp_idx)
+    let nn_term = gf_div(psi_dna_nn(nn_idx), DNA_DS_T_SCALE)
+    gf_sub(bp_term, nn_term)
+
+let dna_global_response(bp_idx, nn_idx, gc_x10) =
+    let e1 = psi_dna_bp(bp_idx)
+    let e2 = psi_dna_nn(nn_idx)
+    let e3 = psi_dna_gc(gc_x10)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+
+let dna_enthalpy_entropy_compensation(bp_idx, nn_idx) =
+    let h_term = psi_dna_bp(bp_idx)
+    let s_term = psi_dna_nn(nn_idx)
+    gf_add(h_term, s_term)
+
+let dna_gc_at_duality(bp_idx_gc, bp_idx_at) =
+    let gc_term = psi_dna_bp(bp_idx_gc)
+    let at_term = psi_dna_bp(bp_idx_at)
+    gf_sub(gc_term, at_term)
+
+let dna_fit_verify() =
+    let e1 = psi_dna_bp(3)
+    let e2 = psi_dna_nn(9)
+    let e3 = psi_dna_gc(50)
+    let ok = 0
+    if e1 != 0
+        ok = 1
+    if e2 != 0
+        ok = gf_add(ok, 1)
+    if e3 != 0
+        ok = gf_add(ok, 1)
+    ok

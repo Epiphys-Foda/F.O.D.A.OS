@@ -1,0 +1,460 @@
+let platform_new(name, vendor, version) =
+    [name, vendor, version, []]
+
+let plat_name(p) = p[0]
+let plat_vendor(p) = p[1]
+let plat_version(p) = p[2]
+let plat_devices(p) = p[3]
+
+let plat_add_device(p, dev) =
+    let ds = plat_devices(p)
+    ds.push(dev)
+    p[3] = ds
+    p
+
+let plat_get_device(p, idx) =
+    let ds = plat_devices(p)
+    if idx < len(ds)
+        ds[idx]
+    else
+        0
+
+let acc_device_new(name, kind) =
+    [name, kind, 0, 64, 1000, 8 * 1024 * 1024, 64 * 1024, 16 * 1024, 0, 0]
+
+let ad_name(d) = d[0]
+let ad_type(d) = d[1]
+let ad_vendor(d) = d[2]
+let ad_units(d) = d[3]
+let ad_clock(d) = d[4]
+let ad_global_mem(d) = d[5]
+let ad_local_mem(d) = d[6]
+let ad_const_mem(d) = d[7]
+let ad_image(d) = d[8]
+let ad_caps(d) = d[9]
+
+let ad_set_units(d, n) =
+    d[3] = n
+    d
+
+let ad_set_clock(d, mhz) =
+    d[4] = mhz
+    d
+
+let ad_set_global_mem(d, bytes) =
+    d[5] = bytes
+    d
+
+let ad_set_image_support(d, v) =
+    d[8] = v
+    d
+
+let ad_peek_capability(d, bit) =
+    let mask = 1
+    let i = 0
+    for i < bit
+        mask = mask * 2
+        i = i + 1
+    if d[9] / mask - (d[9] / mask / 2) * 2 == 1
+        1
+    else
+        0
+
+let ad_set_capability(d, bit) =
+    let mask = 1
+    let i = 0
+    for i < bit
+        mask = mask * 2
+        i = i + 1
+    if ad_peek_capability(d, bit) == 0
+        d[9] = d[9] + mask
+    d
+
+let ad_type_name(d) =
+    let t = ad_type(d)
+    if t == 0
+        "CPU"
+    else
+        0
+    if t == 1
+        "GPU"
+    else
+        0
+    if t == 2
+        "TPU"
+    else
+        0
+    if t == 3
+        "NPU"
+    else
+        0
+    if t == 4
+        "FPGA"
+    else
+        0
+    if t == 5
+        "ASIC"
+    else
+        "Unknown"
+
+let buffer_new(id, size) =
+    [id, size, 0, 0, 1, 0]
+
+let buf_id(b) = b[0]
+let buf_size(b) = b[1]
+let buf_host(b) = b[2]
+let buf_device(b) = b[3]
+let buf_refcount(b) = b[4]
+let buf_readonly(b) = b[5]
+
+let buf_retain(b) =
+    b[4] = buf_refcount(b) + 1
+    b
+
+let buf_release(b) =
+    if buf_refcount(b) > 0
+        b[4] = buf_refcount(b) - 1
+    b
+
+let buf_set_readonly(b, v) =
+    b[5] = v
+    b
+
+let buf_set_device_ptr(b, ptr) =
+    b[3] = ptr
+    b
+
+let buf_set_host_ptr(b, ptr) =
+    b[2] = ptr
+    b
+
+let program_new(source) =
+    [source, 0, "", "", {}]
+
+let prog_source(p) = p[0]
+let prog_status(p) = p[1]
+let prog_log(p) = p[2]
+let prog_options(p) = p[3]
+let prog_kernels(p) = p[4]
+
+let prog_set_options(p, opts) =
+    p[3] = opts
+    p
+
+let prog_build(p) =
+    if len(prog_source(p)) == 0
+        p[1] = -1
+        p[2] = "empty source"
+    else
+        p[1] = 1
+        p[2] = "build ok"
+        let ks = {}
+        ks["main"] = 0
+        p[4] = ks
+    p
+
+let prog_get_kernel(p, name) =
+    let ks = prog_kernels(p)
+    if ks[name] != 0
+        0
+    else
+        kernel_obj_new(name, p)
+
+let prog_build_log(p) = prog_log(p)
+
+let kernel_obj_new(name, program) =
+    [name, program, [], [], 1, [1, 1, 1], [1, 1, 1]]
+
+let ko_name(k) = k[0]
+let ko_program(k) = k[1]
+let ko_args(k) = k[2]
+let ko_sizes(k) = k[3]
+let ko_dim(k) = k[4]
+let ko_global(k) = k[5]
+let ko_local(k) = k[6]
+
+let ko_set_arg(k, idx, value, size) =
+    let args = ko_args(k)
+    let sizes = ko_sizes(k)
+    for len(args) <= idx
+        args.push(0)
+        sizes.push(0)
+    args[idx] = value
+    sizes[idx] = size
+    k[2] = args
+    k[3] = sizes
+    k
+
+let ko_set_work_dim(k, dim) =
+    k[4] = dim
+    k
+
+let ko_set_global_size(k, x, y, z) =
+    k[5] = [x, y, z]
+    k
+
+let ko_set_local_size(k, x, y, z) =
+    k[6] = [x, y, z]
+    k
+
+let ko_total_threads(k) =
+    let g = ko_global(k)
+    g[0] * g[1] * g[2]
+
+let cmd_queue_new(id, device_id) =
+    [id, device_id, [], [], 0]
+
+let cq_id(cq) = cq[0]
+let cq_dev(cq) = cq[1]
+let cq_queue(cq) = cq[2]
+let cq_events(cq) = cq[3]
+let cq_profiling(cq) = cq[4]
+
+let cq_enable_profiling(cq) =
+    cq[4] = 1
+    cq
+
+let cq_enqueue_ndrange(cq, kernel, wait_events) =
+    let q = cq_queue(cq)
+    let cmd = [0, kernel, wait_events, 0, 0]
+    q.push(cmd)
+    cq[2] = q
+    let evs = cq_events(cq)
+    let ev_id = len(evs) + 1
+    evs.push([ev_id, 0, 0])
+    cq[3] = evs
+    ev_id
+
+let cq_enqueue_read_buffer(cq, buf, offset, size, host_ptr, wait_events) =
+    let q = cq_queue(cq)
+    let cmd = [1, buf, offset, size, host_ptr, wait_events, 0, 0]
+    q.push(cmd)
+    cq[2] = q
+    let evs = cq_events(cq)
+    let ev_id = len(evs) + 1
+    evs.push([ev_id, 0, 0])
+    cq[3] = evs
+    ev_id
+
+let cq_enqueue_write_buffer(cq, buf, offset, size, host_ptr, wait_events) =
+    let q = cq_queue(cq)
+    let cmd = [2, buf, offset, size, host_ptr, wait_events, 0, 0]
+    q.push(cmd)
+    cq[2] = q
+    let evs = cq_events(cq)
+    let ev_id = len(evs) + 1
+    evs.push([ev_id, 0, 0])
+    cq[3] = evs
+    ev_id
+
+let cq_enqueue_copy_buffer(cq, src_buf, dst_buf, src_offset, dst_offset, size, wait_events) =
+    let q = cq_queue(cq)
+    let cmd = [3, src_buf, dst_buf, src_offset, dst_offset, size, wait_events, 0, 0]
+    q.push(cmd)
+    cq[2] = q
+    let evs = cq_events(cq)
+    let ev_id = len(evs) + 1
+    evs.push([ev_id, 0, 0])
+    cq[3] = evs
+    ev_id
+
+let cq_finish(cq) =
+    let q = cq_queue(cq)
+    let n = len(q)
+    let i = 0
+    for i < n
+        let cmd = q[i]
+        cmd[len(cmd) - 2] = i
+        cmd[len(cmd) - 1] = i + 1
+        i = i + 1
+    let evs = cq_events(cq)
+    let j = 0
+    let en = len(evs)
+    for j < en
+        let ev = evs[j]
+        ev[1] = 1
+        ev[2] = j + 1
+        evs[j] = ev
+        j = j + 1
+    cq[2] = []
+    cq[3] = evs
+    n
+
+let cq_flush(cq) =
+    cq[2] = []
+    cq
+
+let cq_get_event(cq, ev_id) =
+    let evs = cq_events(cq)
+    let i = 0
+    let n = len(evs)
+    let found = 0
+    for i < n
+        if evs[i][0] == ev_id
+            found = evs[i]
+            i = n
+        i = i + 1
+    found
+
+let image_new(format, width, height, depth) =
+    [format, width, height, depth, {}]
+
+let img_format(i) = i[0]
+let img_width(i) = i[1]
+let img_height(i) = i[2]
+let img_depth(i) = i[3]
+let img_data(i) = i[4]
+
+let img_set_pixel(img, x, y, z, value) =
+    let data = img_data(img)
+    let key = x * 65536 + y * 256 + z
+    data[key] = value
+    img[4] = data
+    img
+
+let img_get_pixel(img, x, y, z) =
+    let data = img_data(img)
+    let key = x * 65536 + y * 256 + z
+    let v = data[key]
+    if v == 0
+        0
+    else
+        v
+
+let sampler_new(normalized, addressing, filter) =
+    [normalized, addressing, filter]
+
+let samp_norm(s) = s[0]
+let samp_addr(s) = s[1]
+let samp_filter(s) = s[2]
+
+let accelerator_verify() =
+    let ok1 = 1
+    let plat = platform_new("FodaOS Platform", "FodaOS", "1.0")
+    let dev = acc_device_new("fodaos_gpu0", 1)
+    dev = ad_set_units(dev, 80)
+    dev = ad_set_clock(dev, 1500)
+    dev = ad_set_global_mem(dev, 16 * 1024 * 1024 * 1024)
+    plat = plat_add_device(plat, dev)
+    if plat_name(plat) != "FodaOS Platform"
+        ok1 = 0
+    let d0 = plat_get_device(plat, 0)
+    if d0 == 0
+        ok1 = 0
+    if ad_type_name(d0) != "GPU"
+        ok1 = 0
+    if ad_units(d0) != 80
+        ok1 = 0
+
+    let ok2 = 1
+    let cap_dev = acc_device_new("cap_dev", 1)
+    cap_dev = ad_set_capability(cap_dev, 5)
+    if ad_peek_capability(cap_dev, 5) != 1
+        ok2 = 0
+    if ad_peek_capability(cap_dev, 0) != 0
+        ok2 = 0
+    cap_dev = ad_set_capability(cap_dev, 0)
+    if ad_peek_capability(cap_dev, 0) != 1
+        ok2 = 0
+
+    let ok3 = 1
+    let buf = buffer_new(1, 1024)
+    buf = buf_retain(buf)
+    if buf_refcount(buf) != 2
+        ok3 = 0
+    buf = buf_release(buf)
+    if buf_refcount(buf) != 1
+        ok3 = 0
+    buf = buf_set_readonly(buf, 1)
+    if buf_readonly(buf) != 1
+        ok3 = 0
+
+    let ok4 = 1
+    let prog = program_new(str_concat(str_concat("kernel void add(int *a) ", chr(123)), " }"))
+    prog = prog_set_options(prog, "-cl-fast-relaxed-math")
+    prog = prog_build(prog)
+    if prog_status(prog) != 1
+        ok4 = 0
+    if prog_log(prog) != "build ok"
+        ok4 = 0
+
+    let prog2 = program_new("")
+    prog2 = prog_build(prog2)
+    if prog_status(prog2) != -1
+        ok4 = 0
+
+    let ok5 = 1
+    let kobj = kernel_obj_new("add", prog)
+    kobj = ko_set_arg(kobj, 0, 100, 4)
+    kobj = ko_set_arg(kobj, 1, 200, 4)
+    if ko_args(kobj)[0] != 100
+        ok5 = 0
+    if ko_args(kobj)[1] != 200
+        ok5 = 0
+    kobj = ko_set_work_dim(kobj, 2)
+    kobj = ko_set_global_size(kobj, 256, 256, 1)
+    kobj = ko_set_local_size(kobj, 16, 16, 1)
+    if ko_total_threads(kobj) != 256 * 256
+        ok5 = 0
+
+    let ok6 = 1
+    let cq = cmd_queue_new(1, 0)
+    cq = cq_enable_profiling(cq)
+    if cq_profiling(cq) != 1
+        ok6 = 0
+    let ev1 = cq_enqueue_ndrange(cq, kobj, [])
+    if ev1 != 1
+        ok6 = 0
+    let ev2 = cq_enqueue_read_buffer(cq, buf, 0, 1024, 0x1000, [])
+    if ev2 != 2
+        ok6 = 0
+    let ev3 = cq_enqueue_write_buffer(cq, buf, 0, 512, 0x2000, [])
+    if ev3 != 3
+        ok6 = 0
+    let done = cq_finish(cq)
+    if done != 3
+        ok6 = 0
+    let ev = cq_get_event(cq, 1)
+    if ev == 0
+        ok6 = 0
+    if ev[1] != 1
+        ok6 = 0
+
+    let ok7 = 1
+    let img = image_new(0, 256, 256, 1)
+    img = img_set_pixel(img, 10, 20, 0, 255)
+    if img_get_pixel(img, 10, 20, 0) != 255
+        ok7 = 0
+    if img_get_pixel(img, 0, 0, 0) != 0
+        ok7 = 0
+
+    let samp = sampler_new(1, 0, 1)
+    if samp_norm(samp) != 1
+        ok7 = 0
+    if samp_addr(samp) != 0
+        ok7 = 0
+    if samp_filter(samp) != 1
+        ok7 = 0
+
+    let ok8 = 1
+    let cq2 = cmd_queue_new(2, 0)
+    cq2 = cq_enable_profiling(cq2)
+    cq_enqueue_ndrange(cq2, kobj, [])
+    cq2 = cq_flush(cq2)
+    if len(cq_queue(cq2)) != 0
+        ok8 = 0
+
+    let all_ok = ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7 * ok8
+    if all_ok == 1
+        print("accelerator_verify: ALL 8 PASS")
+    else
+        print("accelerator_verify: FAIL")
+        print(ok1)
+        print(ok2)
+        print(ok3)
+        print(ok4)
+        print(ok5)
+        print(ok6)
+        print(ok7)
+        print(ok8)
+    all_ok

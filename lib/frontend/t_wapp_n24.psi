@@ -1,0 +1,46 @@
+﻿
+import "wblit.ψ"
+import "wui.ψ"
+
+let cross5() = [
+  0, 0, 1894805759, 0, 0,
+  0, 0, 1894805759, 0, 0,
+  1894805759, 1894805759, 0, 1894805759, 1894805759,
+  0, 0, 1894805759, 0, 0,
+  0, 0, 1894805759, 0, 0
+]
+
+let init() =
+    let st = arr_new_n(80)
+    let fb = arr_new_n(160 * 120)
+    arr_set(st, 6, fb)
+    arr_set(st, 7, 60)
+    arr_set(st, 8, 20)
+    arr_set(st, 9, font_glyphs())
+    arr_set(st, 10, cross5())
+    arr_set(st, 15, arr_new_n(34))
+    arr_set(st, 5, ui_ctx(st, fb, 160, 120, st[9]))
+    st
+
+let frame(st) =
+    let fb = st[6]
+    let fg = st[9]
+    let tb = st[15]
+    let u = st[5]
+    fill_rect(fb, 160, 120, 0, 0, 160, 120, 524801)
+    ui_panel(u, 2, 2, 156, 62)
+    ui_begin(u)
+    let vx = ui_slider(u, 1, 8, 8, 130, st, 7)
+    let vy = ui_slider(u, 2, 8, 26, 130, st, 8)
+    let hit = ui_button(u, 3, 118, 8, 34, 16, "RESET")
+    let committed = ui_input(u, 4, 8, 44, 140, tb)
+    if hit == 1
+      arr_set(st, 7, 60)
+      arr_set(st, 8, 20)
+    let cy = 78 + vy // 3
+    blit_sprite(fb, 160, 120, vx, cy, st[10], 5, 5)
+    blit_text(fb, 160, 120, 8, 70, "DRAG SLIDERS - TYPE ABOVE", 13668464, fg)
+    present_size(160, 120)
+    present(fb, 160 * 120)
+    0
+

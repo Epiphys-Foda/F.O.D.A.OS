@@ -1,0 +1,210 @@
+let ad_dual(value, deriv) =
+    let d = arr_new()
+    d = arr_push(d, value)
+    d = arr_push(d, deriv)
+    d
+
+let ad_val(d) = d[0]
+let ad_deriv(d) = d[1]
+
+let ad_const(c) = ad_dual(c, 0)
+
+let ad_var(x) = ad_dual(x, 1)
+
+let ad_add(a, b) = ad_dual(a[0] + b[0], a[1] + b[1])
+
+let ad_sub(a, b) = ad_dual(a[0] - b[0], a[1] - b[1])
+
+let ad_mul(a, b) = ad_dual(a[0] * b[0], a[1] * b[0] + a[0] * b[1])
+
+let ad_div(a, b) =
+    let val = a[0] / b[0]
+    let deriv = (a[1] * b[0] - a[0] * b[1]) / (b[0] * b[0])
+    ad_dual(val, deriv)
+
+let ad_pow(a, n) =
+    let val = 1
+    let i = 0
+    for i < n
+        val = val * a[0]
+        i = i + 1
+    let deriv_val = 1
+    i = 0
+    for i < n - 1
+        deriv_val = deriv_val * a[0]
+        i = i + 1
+    ad_dual(val, n * deriv_val * a[1])
+
+let ad_neg(a) = ad_dual(0 - a[0], 0 - a[1])
+
+let ad_square(a) = ad_mul(a, a)
+
+let ad_cube(a) = ad_mul(a, ad_square(a))
+
+let ad_sin(a) =
+    let x = a[0]
+    let x2 = x * x
+    let x3 = x2 * x
+    let x5 = x3 * x2
+    let val = x - x3 / 6 + x5 / 120
+    let x4 = x2 * x2
+    let cos_val = 1 - x2 / 2 + x4 / 24
+    ad_dual(val, cos_val * a[1])
+
+let ad_cos(a) =
+    let x = a[0]
+    let x2 = x * x
+    let x4 = x2 * x2
+    let val = 1 - x2 / 2 + x4 / 24
+    let x3 = x2 * x
+    let x5 = x3 * x2
+    let sin_val = x - x3 / 6 + x5 / 120
+    ad_dual(val, 0 - sin_val * a[1])
+
+let ad_exp(a) =
+    let x = a[0]
+    let x2 = x * x
+    let x3 = x2 * x
+    let x4 = x3 * x
+    let val = 1 + x + x2 / 2 + x3 / 6 + x4 / 24
+    ad_dual(val, val * a[1])
+
+let ad_log(a) =
+    let x = a[0]
+    let t = x - 1
+    let t2 = t * t
+    let t3 = t2 * t
+    let val = t - t2 / 2 + t3 / 3
+    let deriv = 1 / x
+    ad_dual(val, deriv * a[1])
+
+let ad_sqrt(a) =
+    let x = a[0]
+    if x <= 0
+        return ad_dual(0, 0)
+    let val = 1
+    for val * val <= x
+        val = val + 1
+    val = val - 1
+    let deriv = 1 / (2 * val)
+    ad_dual(val, deriv * a[1])
+
+let ad_poly_example(x) =
+    let dx = ad_var(x)
+    let sq = ad_square(dx)
+    let three_x = ad_mul(ad_const(3), dx)
+    let result = ad_add(ad_add(sq, three_x), ad_const(2))
+    result
+
+let ad_sin_cos_example(x) =
+    let dx = ad_var(x)
+    let s = ad_sin(dx)
+    let c = ad_cos(dx)
+    ad_mul(s, c)
+
+let ad_exp_sq_example(x) =
+    let dx = ad_var(x)
+    let sq = ad_square(dx)
+    ad_exp(sq)
+
+let ad_gradient_2d(f_tag, x, y) =
+    let grad_x = 0
+    let grad_y = 0
+    if f_tag == 1
+        grad_x = 2 * x
+        grad_y = 2 * y
+    else
+        0
+    if f_tag == 2
+        grad_x = y
+        grad_y = x
+    else
+        0
+    if f_tag == 3
+        grad_x = 2 * x * y
+        grad_y = x * x
+    else
+        0
+    if f_tag == 4
+        grad_x = 3 * x * x
+        grad_y = 3 * y * y
+    let result = arr_new()
+    result = arr_push(result, grad_x)
+    result = arr_push(result, grad_y)
+    result
+
+let ad_hessian_diag(f_tag, x, y) =
+    let hxx = 0
+    let hyy = 0
+    if f_tag == 1
+        hxx = 2
+        hyy = 2
+    else
+        0
+    if f_tag == 2
+        hxx = 0
+        hyy = 0
+    else
+        0
+    if f_tag == 3
+        hxx = 2 * y
+        hyy = 0
+    else
+        0
+    if f_tag == 4
+        hxx = 6 * x
+        hyy = 6 * y
+    let result = arr_new()
+    result = arr_push(result, hxx)
+    result = arr_push(result, hyy)
+    result
+
+let ad_taylor(f_tag, a, x, order) =
+    let dx = x - a
+    let result = 0
+    if f_tag == 1
+        result = a * a + 2 * a * dx + dx * dx
+    else
+        0
+    if f_tag == 2
+        result = a * a * a + 3 * a * a * dx + 3 * a * dx * dx + dx * dx * dx
+    else
+        0
+    if f_tag == 3
+        if a != 0
+            let inv_a = 1 / a
+            result = inv_a - inv_a * inv_a * dx + inv_a * inv_a * inv_a * dx * dx
+    result
+
+let ad_chain_rule_check(x) =
+    let x2 = x * x
+    let x4 = x2 * x2
+    let cos_x2 = 1 - x2 / 2 + x4 / 24
+    let deriv = cos_x2 * 2 * x
+    deriv
+
+let ad_newton_step(x, fx, fpx) =
+    if fpx == 0
+        return x
+    x - fx / fpx
+
+let ad_newton_solve(initial, max_iter) =
+    let x = initial
+    let i = 0
+    for i < max_iter
+        let fx = x * x - 2
+        let fpx = 2 * x
+        if fpx == 0
+            i = max_iter
+        else
+            x = x - fx / fpx
+            i = i + 1
+    x
+
+let main() =
+    let result = ad_poly_example(3)
+    print(result[0])
+    print(result[1])
+    let root = ad_newton_solve(1, 10)
+    print(root)
+    0

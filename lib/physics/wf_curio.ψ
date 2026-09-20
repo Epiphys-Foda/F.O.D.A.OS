@@ -1,0 +1,34 @@
+let P = 65537
+let P2 = 131071
+
+import "../core/stdlib_lang2/gf_canon_shared.ψ"
+import "sh_d39d441e28.ψ"
+import "wf_brain.ψ"
+import "../core/stdlib_lang2/bm_canon.ψ"
+import "sh_ee308d734f.ψ"
+import "sh_bffc56f968.ψ"
+import "sh_0fe08dee05.ψ"
+let curio_target(visits, n) =
+    let best = 0
+    let bestv = 1000000
+    let i = 0
+    for i < n
+        if visits[i] < bestv
+            bestv = visits[i]
+            best = i
+        i = i + 1
+    best
+
+let is_novel(L, c1, c2, KL, K1, K2, nk) =
+    let novel = 1
+    let i = 0
+    for i < nk
+        let eq = 0
+        if KL[i] == L
+            if K1[i] == c1
+                if K2[i] == c2
+                    eq = 1
+        novel = novel * (1 - eq)
+        i = i + 1
+    novel
+

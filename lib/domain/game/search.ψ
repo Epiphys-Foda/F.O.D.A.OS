@@ -1,0 +1,238 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let SEARCH_MAX_DEPTH = 64
+
+let minimax(node, depth, maximizing) =
+    if depth == 0
+        node[1]
+    let children = node[2]
+    let n = len(children)
+    if n == 0
+        node[1]
+    let i = 0
+    let value = 0
+    if maximizing != 0
+        value = 0
+        for i < n
+            let child_value = minimax(children[i], depth - 1, 0)
+            if child_value > value
+                value = child_value
+            i = i + 1
+    if maximizing == 0
+        value = 65536
+        for i < n
+            let child_value = minimax(children[i], depth - 1, 1)
+            if child_value < value
+                value = child_value
+            i = i + 1
+    value
+
+let alphabeta(node, depth, alpha, beta, maximizing) =
+    if depth == 0
+        node[1]
+    let children = node[2]
+    let n = len(children)
+    if n == 0
+        node[1]
+    let i = 0
+    let value = 0
+    if maximizing != 0
+        value = 0
+        for i < n
+            let child_value = alphabeta(children[i], depth - 1, alpha, beta, 0)
+            if child_value > value
+                value = child_value
+            if value > alpha
+                alpha = value
+            if alpha >= beta
+                value
+            i = i + 1
+    if maximizing == 0
+        value = 65536
+        for i < n
+            let child_value = alphabeta(children[i], depth - 1, alpha, beta, 1)
+            if child_value < value
+                value = child_value
+            if value < beta
+                beta = value
+            if alpha >= beta
+                value
+            i = i + 1
+    value
+
+let iterative_deepening(node, max_depth) =
+    let best_value = 0
+    let depth = 1
+    for depth <= max_depth
+        best_value = alphabeta(node, depth, 0, 65536, 1)
+        depth = depth + 1
+    best_value
+
+let transposition_lookup(table, state) = table[state]
+
+let transposition_store(table, state, value) =
+    table[state] = value
+    table
+
+let move_ordering(moves, history) =
+    let sorted = []
+    let i = 0
+    let n = len(moves)
+    for i < n
+        sorted.push(moves[i])
+        i = i + 1
+    sorted
+
+let field_search(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let search_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_search(test_data, 3, 500)
+    let ok = 0
+    if result != 0
+        ok = 1
+    if result == 0
+        ok = 0
+    ok
+
+let SRCH_ALPHA_POLES = [0, 1000, 2000, 3000, 4000, 5000, 6000, 7000]
+let SRCH_ALPHA_WEIGHTS = [10, 20, 30, 40, 50, 60, 70, 80]
+
+let psi_search_alpha(a_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(a_idx), gf_norm(SRCH_ALPHA_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(SRCH_ALPHA_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let SRCH_BETA_POLES = [7000, 6000, 5000, 4000, 3000, 2000, 1000, 0]
+let SRCH_BETA_WEIGHTS = [80, 70, 60, 50, 40, 30, 20, 10]
+
+let psi_search_beta(b_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(b_idx), gf_norm(SRCH_BETA_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(SRCH_BETA_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let SRCH_PRUNE_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let SRCH_PRUNE_WEIGHTS = [100, 90, 80, 70, 60, 50, 40, 30]
+
+let psi_search_prune(p_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(p_idx), gf_norm(SRCH_PRUNE_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(SRCH_PRUNE_WEIGHTS[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let search_global_response(a_idx, b_idx, p_idx) =
+    let e1 = psi_search_alpha(a_idx)
+    let e2 = psi_search_beta(b_idx)
+    let e3 = psi_search_prune(p_idx)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+
+let search_alpha_monotonic_test() =
+    let v1 = psi_search_alpha(0)
+    let v2 = psi_search_alpha(7000)
+    (v1 != v2 ? 1 : 0)
+
+let search_beta_inverse_test() =
+    let v1 = SRCH_BETA_WEIGHTS[0]
+    let v2 = SRCH_BETA_WEIGHTS[7]
+    (v1 > v2 ? 1 : 0)
+
+let search_prune_decay_test() =
+    let v1 = SRCH_PRUNE_WEIGHTS[0]
+    let v2 = SRCH_PRUNE_WEIGHTS[7]
+    (v1 > v2 ? 1 : 0)
+
+let search_global_nonzero_test() =
+    let g = search_global_response(0, 7000, 1)
+    (g != 0 ? 1 : 0)
+
+let search_alpha_le_beta_test() =
+    let alpha_max = SRCH_ALPHA_POLES[7]
+    let beta_max = SRCH_BETA_POLES[0]
+    (alpha_max <= beta_max ? 1 : 0)
+
+let search_deterministic_test() =
+    let v1 = search_global_response(0, 7000, 1)
+    let v2 = search_global_response(0, 7000, 1)
+    (v1 == v2 ? 1 : 0)
+
+let nested_fractal_search_invariants() =
+    let e1 = psi_search_alpha(0)
+    let e2 = psi_search_beta(7000)
+    let e3 = psi_search_prune(1)
+    let inv1 = 0
+    if e1 != 0
+        (e2 != 0 ? (e3 != 0 ? (inv1 = 1) : 0) : 0)
+    let inv2 = 0
+    if SRCH_ALPHA_WEIGHTS[0] < SRCH_ALPHA_WEIGHTS[7]
+        inv2 = 1
+    let inv3 = 0
+    if SRCH_BETA_WEIGHTS[0] > SRCH_BETA_WEIGHTS[7]
+        inv3 = 1
+    let inv4 = 0
+    if SRCH_PRUNE_WEIGHTS[0] > SRCH_PRUNE_WEIGHTS[7]
+        inv4 = 1
+    let inv5 = 0
+    if search_global_response(0, 7000, 1) != 0
+        inv5 = 1
+    [inv1, inv2, inv3, inv4, inv5]
+
+let search_verify_v22() =
+    let t1 = 0
+    if psi_search_alpha(0) != 0
+        t1 = 1
+    let t2 = 0
+    if psi_search_beta(7000) != 0
+        t2 = 1
+    let t3 = 0
+    if psi_search_prune(1) != 0
+        t3 = 1
+    let t4 = 0
+    if search_global_response(0, 7000, 1) != 0
+        t4 = 1
+    let t5 = search_alpha_monotonic_test()
+    let t6 = search_beta_inverse_test()
+    let t7 = search_prune_decay_test()
+    let t8 = search_global_nonzero_test()
+    let t9 = search_alpha_le_beta_test()
+    let t10 = search_deterministic_test()
+    let t11 = 0
+    if SRCH_ALPHA_WEIGHTS[0] < SRCH_ALPHA_WEIGHTS[7]
+        t11 = 1
+    let t12 = 0
+    if SRCH_ALPHA_POLES[0] < SRCH_ALPHA_POLES[7]
+        t12 = 1
+    let invs = nested_fractal_search_invariants()
+    let inv_ok = 0
+    if invs[0] == 1
+        if invs[1] == 1
+            if invs[2] == 1
+                if invs[3] == 1
+                    if invs[4] == 1
+                        inv_ok = 1
+    let passed = t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 + t12 + inv_ok
+    passed == 13

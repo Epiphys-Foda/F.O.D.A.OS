@@ -1,0 +1,253 @@
+import "../domain_field.ψ"
+
+let ET_STAGE_EXTRACT = 0
+let ET_STAGE_TRANSFORM = 1
+let ET_STAGE_LOAD = 2
+
+let ET_TASK_STATUS_PENDING = 0
+let ET_TASK_STATUS_RUNNING = 1
+let ET_TASK_STATUS_SUCCESS = 2
+let ET_TASK_STATUS_FAILED = 3
+let ET_TASK_STATUS_SKIPPED = 4
+
+let ET_DEFAULT_MAX_RETRIES = 3
+
+let et_task_new(id, name, stage) =
+    [id, name, stage, [], 0, ET_TASK_STATUS_PENDING, 0, 0, 0, 0, 0]
+
+let et_task_id(t) = t[0]
+let et_task_name(t) = t[1]
+let et_task_stage(t) = t[2]
+let et_task_deps(t) = t[3]
+let et_task_transform(t) = t[4]
+let et_task_status(t) = t[5]
+let et_task_started_at(t) = t[6]
+let et_task_finished_at(t) = t[7]
+let et_task_input_rows(t) = t[8]
+let et_task_output_rows(t) = t[9]
+let et_task_error(t) = t[10]
+
+let et_task_set_deps(t, d) = [t[0], t[1], t[2], d, t[4], t[5], t[6], t[7], t[8], t[9], t[10]]
+let et_task_set_transform(t, f) = [t[0], t[1], t[2], t[3], f, t[5], t[6], t[7], t[8], t[9], t[10]]
+let et_task_set_status(t, s) = [t[0], t[1], t[2], t[3], t[4], s, t[6], t[7], t[8], t[9], t[10]]
+let et_task_set_started(t, ts) = [t[0], t[1], t[2], t[3], t[4], t[5], ts, t[7], t[8], t[9], t[10]]
+let et_task_set_finished(t, ts) = [t[0], t[1], t[2], t[3], t[4], t[5], t[6], ts, t[8], t[9], t[10]]
+let et_task_set_input(t, n) = [t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7], n, t[9], t[10]]
+let et_task_set_output(t, n) = [t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7], t[8], n, t[10]]
+let et_task_set_error(t, e) = [t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7], t[8], t[9], e]
+
+let et_task_add_dep(t, dep_id) =
+    let deps = et_task_deps(t)
+    deps.push(dep_id)
+    et_task_set_deps(t, deps)
+
+let et_pipeline_new(max_retries) =
+    [{}, [], 0, max_retries, 0, 0, 0]
+
+let et_pipeline_default() = et_pipeline_new(ET_DEFAULT_MAX_RETRIES)
+
+let et_pipeline_tasks(p) = p[0]
+let et_pipeline_order(p) = p[1]
+let et_pipeline_schedule(p) = p[2]
+let et_pipeline_max_retries(p) = p[3]
+let et_pipeline_total_runs(p) = p[4]
+let et_pipeline_total_success(p) = p[5]
+let et_pipeline_total_failed(p) = p[6]
+
+let et_pipeline_set_tasks(p, t) = [t, p[1], p[2], p[3], p[4], p[5], p[6]]
+let et_pipeline_set_order(p, o) = [p[0], o, p[2], p[3], p[4], p[5], p[6]]
+let et_pipeline_inc_runs(p) = [p[0], p[1], p[2], p[3], p[4] + 1, p[5], p[6]]
+let et_pipeline_inc_success(p) = [p[0], p[1], p[2], p[3], p[4], p[5] + 1, p[6]]
+let et_pipeline_inc_failed(p) = [p[0], p[1], p[2], p[3], p[4], p[5], p[6] + 1]
+
+let et_pipeline_add_task(p, task) =
+    let tasks = et_pipeline_tasks(p)
+    tasks[et_task_id(task)] = task
+    et_pipeline_set_tasks(p, tasks)
+
+let et_pipeline_topo_sort(p) =
+    let tasks = et_pipeline_tasks(p)
+    let in_degree = {}
+    let keys = keys_of(tasks)
+    let i = 0
+    let n = len(keys)
+    for i < n
+        in_degree[keys[i]] = 0
+        i = i + 1
+    i = 0
+    for i < n
+        let task = tasks[keys[i]]
+        let deps = et_task_deps(task)
+        let j = 0
+        let m = len(deps)
+        for j < m
+            in_degree[keys[i]] = in_degree[keys[i]] + 1
+            j = j + 1
+        i = i + 1
+    let queue = []
+    i = 0
+    for i < n
+        if in_degree[keys[i]] == 0
+            queue.push(keys[i])
+        i = i + 1
+    let order = []
+    for len(queue) > 0
+        let cur = queue[0]
+        let new_queue = []
+        let j = 1
+        let m = len(queue)
+        for j < m
+            new_queue.push(queue[j])
+            j = j + 1
+        queue = new_queue
+        order.push(cur)
+        let all_keys = keys_of(tasks)
+        let k = 0
+        let nk = len(all_keys)
+        for k < nk
+            let task = tasks[all_keys[k]]
+            let deps = et_task_deps(task)
+            let d = 0
+            let nd = len(deps)
+            let found = 0
+            for d < nd
+                if deps[d] == cur
+                    found = 1
+                    d = nd
+                d = d + 1
+            if found == 1
+                in_degree[all_keys[k]] = in_degree[all_keys[k]] - 1
+                if in_degree[all_keys[k]] == 0
+                    queue.push(all_keys[k])
+            k = k + 1
+    et_pipeline_set_order(p, order)
+
+let et_task_execute(task, input_rows, now_ms, transform_fn_id) =
+    let t = et_task_set_started(task, now_ms)
+    t = et_task_set_input(t, input_rows)
+    let output = input_rows
+    let success = 1
+    if transform_fn_id == 1
+        output = input_rows / 2
+    else
+        if transform_fn_id == 2
+            output = input_rows * 2
+        else
+            if transform_fn_id == 3
+                output = 1
+    t = et_task_set_output(t, output)
+    t = et_task_set_finished(t, now_ms + 100)
+    t = et_task_set_status(t, ET_TASK_STATUS_SUCCESS)
+    [t, success]
+
+let et_pipeline_execute(p, initial_input, now_ms) =
+    let order = et_pipeline_order(p)
+    if len(order) == 0
+        let topo_res = et_pipeline_topo_sort(p)
+        p = topo_res
+        order = et_pipeline_order(p)
+    let tasks = et_pipeline_tasks(p)
+    let cur_input = initial_input
+    let i = 0
+    let n = len(order)
+    let p2 = et_pipeline_inc_runs(p)
+    let all_success = 1
+    for i < n
+        let task_id = order[i]
+        let task = tasks[task_id]
+        let exec_res = et_task_execute(task, cur_input, now_ms + i * 100, et_task_transform(task))
+        let new_task = exec_res[0]
+        tasks[task_id] = new_task
+        cur_input = et_task_output_rows(new_task)
+        if exec_res[1] == 0
+            all_success = 0
+            i = n
+        i = i + 1
+    p2 = et_pipeline_set_tasks(p2, tasks)
+    if all_success == 1
+        p2 = et_pipeline_inc_success(p2)
+    else
+        p2 = et_pipeline_inc_failed(p2)
+    [p2, all_success, cur_input]
+
+let et_bragg_verify_transform(input_rows, transform_fn_id, expected_output) =
+    let actual = input_rows
+    if transform_fn_id == 1
+        actual = input_rows / 2
+    else
+        if transform_fn_id == 2
+            actual = input_rows * 2
+        else
+            if transform_fn_id == 3
+                actual = 1
+    if actual == expected_output
+        1
+    else
+        0
+
+let et_bragg_verify_topo_order(p) =
+    let order = et_pipeline_order(p)
+    let tasks = et_pipeline_tasks(p)
+    let executed = {}
+    let i = 0
+    let n = len(order)
+    let pass = 1
+    for i < n
+        let task = tasks[order[i]]
+        let deps = et_task_deps(task)
+        let j = 0
+        let m = len(deps)
+        for j < m
+            if executed[deps[j]] == 0
+                pass = 0
+                i = n
+                j = m
+            j = j + 1
+        executed[order[i]] = 1
+        i = i + 1
+    pass
+
+let et_self_test() =
+    let results = []
+
+    let p = et_pipeline_default()
+    let t1 = et_task_new(1, "extract", ET_STAGE_EXTRACT)
+    t1 = et_task_set_transform(t1, 0)
+    let t2 = et_task_new(2, "filter", ET_STAGE_TRANSFORM)
+    t2 = et_task_set_transform(t2, 1)
+    t2 = et_task_add_dep(t2, 1)
+    let t3 = et_task_new(3, "load", ET_STAGE_LOAD)
+    t3 = et_task_set_transform(t3, 0)
+    t3 = et_task_add_dep(t3, 2)
+    p = et_pipeline_add_task(p, t1)
+    p = et_pipeline_add_task(p, t2)
+    p = et_pipeline_add_task(p, t3)
+
+    p = et_pipeline_topo_sort(p)
+    let order = et_pipeline_order(p)
+    results.push(len(order) == 3)
+    results.push(order[0] == 1)
+    results.push(order[1] == 2)
+    results.push(order[2] == 3)
+
+    results.push(et_bragg_verify_topo_order(p))
+
+    let exec_res = et_pipeline_execute(p, 100, 0)
+    p = exec_res[0]
+    let success = exec_res[1]
+    let final_output = exec_res[2]
+    results.push(success == 1)
+    results.push(final_output == 50)
+
+    results.push(et_bragg_verify_transform(100, 1, 50))
+    results.push(et_bragg_verify_transform(50, 2, 100))
+    results.push(et_bragg_verify_transform(100, 3, 1))
+
+    let tasks = et_pipeline_tasks(p)
+    let task1 = tasks[1]
+    results.push(et_task_status(task1) == ET_TASK_STATUS_SUCCESS)
+    results.push(et_task_output_rows(task1) == 100)
+
+    results
+
+let et_default_pipeline() = et_pipeline_default()

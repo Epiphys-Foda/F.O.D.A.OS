@@ -1,0 +1,27 @@
+import "ck.ψ"
+let bad = [0]
+
+let dou = 2
+let ddou = dou - 2
+bad[0] = bad[0] + ck(ddou, 0, 0)
+
+let resp = 10 / 2
+let dresp = resp - 5
+bad[0] = bad[0] + ck(dresp, 0, 0)
+
+let lock = 1
+bad[0] = bad[0] + ck_lo(lock, 1)
+
+let floquet = 1
+bad[0] = bad[0] + ck_lo(floquet, 1)
+
+if 2012 < 2010
+    bad[0] = bad[0] + 1
+if 2012 > 2014
+    bad[0] = bad[0] + 1
+if 2017 < 2015
+    bad[0] = bad[0] + 1
+if 2017 > 2019
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

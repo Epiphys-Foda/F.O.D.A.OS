@@ -1,0 +1,27 @@
+import "ck.ψ"
+let bad = [0]
+
+let p2 = 1024 * 1024 * 1024 * 1024 * 1024
+let hs = p2 * 8
+let dhs = hs - 9007199254740992
+bad[0] = bad[0] + ck(dhs, 0, 0)
+
+let dead = 1
+let working = 54 - dead
+let dq = working - 53
+bad[0] = bad[0] + ck(dq, 0, 0)
+
+let secs = 10000 * 31560000
+let ratio = secs / 200
+bad[0] = bad[0] + ck(ratio, 1500000000, 1700000000)
+
+let ibm = 216000
+let ratio2 = ibm / 200
+bad[0] = bad[0] + ck(ratio2, 1000, 1200)
+
+if 2019 < 2017
+    bad[0] = bad[0] + 1
+if 2019 > 2021
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

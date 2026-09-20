@@ -1,0 +1,209 @@
+import "../stdlib/gf65537.ψ"
+
+let canonical_partition(energies, degeneracies, n, r) =
+    _z_loop(energies, degeneracies, n, r, 0, 0)
+let _z_loop(energies, degen, n, r, i, acc) =
+        if i >= n
+            acc
+        else
+            let boltzmann = gf_pow(r, energies[i])
+            let term = gf_mul(degen[i], boltzmann)
+            _z_loop(energies, degen, n, r, i + 1, gf_add(acc, term))
+
+let microcanonical_partition(omega_e) =
+    omega_e
+
+let grand_partition(canonical_z, z_fugacity, n_particles) =
+    let z_power = gf_pow(z_fugacity, n_particles)
+    gf_mul(z_power, canonical_z)
+
+let algebraic_rank(energies, degeneracies, n) =
+    _rank_loop(energies, degeneracies, n, 0, 0)
+let _rank_loop(energies, degen, n, i, acc) =
+        if i >= n
+            acc
+        else
+            _rank_loop(energies, degen, n, i + 1, gf_add(acc, degen[i]))
+
+let helmholtz_free_energy(t, rank_z) =
+    gf_neg(gf_mul(t, rank_z))
+
+let gibbs_free_energy(f, p_pressure, v_volume) =
+    gf_add(f, gf_mul(p_pressure, v_volume))
+
+let thermodynamic_entropy(rank_z, t, rank_z_plus, rank_z_minus) =
+    let dr = gf_sub(rank_z_plus, rank_z_minus)
+    let half_dr = gf_mul(dr, gf_inv(2))
+    let t_term = gf_mul(t, half_dr)
+    gf_add(rank_z, t_term)
+
+let simple_entropy(rank_z) =
+    rank_z
+
+let internal_energy(energies, degeneracies, n, r) =
+    let z = canonical_partition(energies, degeneracies, n, r)
+    let numerator = _ue_num_loop(energies, degeneracies, n, r, 0, 0)
+    gf_div(numerator, z)
+let _ue_num_loop(energies, degen, n, r, i, acc) =
+        if i >= n
+            acc
+        else
+            let boltzmann = gf_pow(r, energies[i])
+            let term = gf_mul(gf_mul(degen[i], boltzmann), energies[i])
+            _ue_num_loop(energies, degen, n, r, i + 1, gf_add(acc, term))
+
+let heat_capacity(u_t1, u_t2, t1, t2) =
+    let du = gf_sub(u_t2, u_t1)
+    let dt = gf_sub(t2, t1)
+    gf_div(du, dt)
+
+let pressure(f_v1, f_v2, v1, v2) =
+    let df = gf_sub(f_v2, f_v1)
+    let dv = gf_sub(v2, v1)
+    gf_neg(gf_div(df, dv))
+
+let equally_spaced_partition(r, delta, n_levels) =
+        let r_delta = gf_pow(r, delta)
+        let r_n_delta = gf_pow(r_delta, n_levels)
+        let numerator = gf_sub(r_n_delta, 1)
+        let denominator = gf_sub(r_delta, 1)
+        if denominator == 0
+            n_levels
+        else
+            gf_div(numerator, denominator)
+
+let harmonic_oscillator_partition(r, omega, n_max) =
+    equally_spaced_partition(r, omega, n_max + 1)
+
+let bose_einstein(r, energy) =
+        let r_neg_e = gf_pow(gf_inv(r), energy)
+        let denom = gf_sub(r_neg_e, 1)
+        if denom == 0
+            0
+        else
+            gf_inv(denom)
+
+let fermi_dirac(r, energy) =
+    let r_neg_e = gf_pow(gf_inv(r), energy)
+    let denom = gf_add(r_neg_e, 1)
+    gf_inv(denom)
+
+let maxwell_boltzmann(r, energy) =
+    gf_pow(r, energy)
+
+let second_difference(f_minus, f_zero, f_plus) =
+    gf_sub(gf_add(f_plus, f_minus), gf_mul(2, f_zero))
+
+let phase_transition_criterion(f_t_minus, f_t, f_t_plus) =
+        let d2f = second_difference(f_t_minus, f_t, f_t_plus)
+        if d2f == 0
+            0
+        else
+            1
+
+let critical_exponent(rank_c, rank_t_diff) =
+        if rank_t_diff == 0
+            0
+        else
+            gf_neg(gf_div(rank_c, rank_t_diff))
+
+let carnot_efficiency(t_hot, t_cold) =
+    let ratio = gf_div(t_cold, t_hot)
+    gf_sub(1, ratio)
+
+let otto_efficiency(r, gamma) =
+    let exponent = gf_sub(1, gamma)
+    let ratio = gf_pow(r, exponent)
+    gf_sub(1, ratio)
+
+let second_law_check(s_initial, s_final) =
+    let delta_s = gf_sub(s_final, s_initial)
+    if delta_s == 0
+        0
+    else
+        0
+    if delta_s < 32768
+        1
+    else
+        65536
+
+let chemical_potential(g_n, g_n_plus_1) =
+    gf_sub(g_n_plus_1, g_n)
+
+let equilibrium_constant(r, delta_g, t) =
+    let exponent = gf_neg(gf_div(delta_g, t))
+    gf_pow(r, exponent)
+
+let vant_hoff(k_t1, k_t2, t1, t2, delta_h) =
+    let dk = gf_sub(k_t2, k_t1)
+    let dt = gf_sub(t2, t1)
+    let lhs = gf_div(dk, dt)
+    let t2_sq = gf_mul(t2, t2)
+    let rhs = gf_div(delta_h, t2_sq)
+    gf_sub(lhs, rhs)
+
+let algebraic_coherence(rank_diag, rank_rho) =
+    gf_sub(rank_diag, rank_rho)
+
+let purification_entropy(rank_rho) =
+    gf_sub(rank_rho, 1)
+
+let spectral_density(energies, n, e_target) =
+    _density_loop(energies, n, e_target, 0, 0)
+let _density_loop(energies, n, e_target, i, count) =
+        if i >= n
+            count
+        else
+            let new_count = (energies[i] == e_target ? count + 1 : count)
+            _density_loop(energies, n, e_target, i + 1, new_count)
+
+let spectral_partition(energies, n, r, e_min, e_max) =
+    _spectral_z_loop(energies, n, r, e_min, e_max, e_min, 0)
+let _spectral_z_loop(energies, n, r, e_min, e_max, e, acc) =
+        if e > e_max
+            acc
+        else
+            let rho_e = spectral_density(energies, n, e)
+            let term = gf_mul(rho_e, gf_pow(r, e))
+            _spectral_z_loop(energies, n, r, e_min, e_max, e + 1, gf_add(acc, term))
+
+let enthalpy(u, p_pressure, v_volume) =
+    gf_add(u, gf_mul(p_pressure, v_volume))
+
+let helmholtz_from_u(u, t, s) =
+    gf_sub(u, gf_mul(t, s))
+
+let maxwell_relation_check(s_v1, s_v2, v1, v2, p_t1, p_t2, t1, t2) =
+    let lhs = gf_div(gf_sub(s_v2, s_v1), gf_sub(v2, v1))
+    let rhs = gf_div(gf_sub(p_t2, p_t1), gf_sub(t2, t1))
+    gf_sub(lhs, rhs)
+
+let third_law_check(rank_z_t0) =
+        if rank_z_t0 == 1
+            1
+        else
+            0
+
+let energy_bound(u, e_ground) =
+        if u >= e_ground && u < 32768
+            1
+        else
+            0
+
+let entropy_bound(rank_z, rank_total) =
+        if rank_z <= rank_total
+            1
+        else
+            0
+
+let bec_critical_condition(r, e_ground) =
+        let r_neg_e0 = gf_pow(gf_inv(r), e_ground)
+        if r_neg_e0 == 1
+            1
+        else
+            0
+
+let bec_condensate_fraction(r, e_ground, n_total) =
+    let n_0 = bose_einstein(r, e_ground)
+    gf_div(n_0, n_total)
+

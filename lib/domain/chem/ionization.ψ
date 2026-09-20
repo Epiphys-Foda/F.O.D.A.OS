@@ -1,0 +1,68 @@
+import "ck.ψ"
+let bad = [0]
+
+let he = 2459
+let ne = 2156
+let ar = 1576
+let kr = 1400
+let xe = 1213
+let rn = 1075
+let h = 1360
+let li = 539
+let f = 1742
+let na = 514
+let cl = 1251
+let k = 434
+let br = 1181
+let rb = 418
+let i = 1009
+let cs = 379
+let at = 890
+let fr = 407
+
+let m1 = he - h
+bad[0] = bad[0] + ck_lo(m1, 1)
+let m2 = he - li
+bad[0] = bad[0] + ck_lo(m2, 1)
+let m3 = ne - f
+bad[0] = bad[0] + ck_lo(m3, 1)
+let m4 = ne - na
+bad[0] = bad[0] + ck_lo(m4, 1)
+let m5 = ar - cl
+bad[0] = bad[0] + ck_lo(m5, 1)
+let m6 = ar - k
+bad[0] = bad[0] + ck_lo(m6, 1)
+let m7 = kr - br
+bad[0] = bad[0] + ck_lo(m7, 1)
+let m8 = kr - rb
+bad[0] = bad[0] + ck_lo(m8, 1)
+let m9 = xe - i
+bad[0] = bad[0] + ck_lo(m9, 1)
+let m10 = xe - cs
+bad[0] = bad[0] + ck_lo(m10, 1)
+let m11 = rn - at
+bad[0] = bad[0] + ck_lo(m11, 1)
+let m12 = rn - fr
+bad[0] = bad[0] + ck_lo(m12, 1)
+
+let c1 = he - ne
+bad[0] = bad[0] + ck_lo(c1, 1)
+let c2 = ne - ar
+bad[0] = bad[0] + ck_lo(c2, 1)
+let c3 = ar - kr
+bad[0] = bad[0] + ck_lo(c3, 1)
+let c4 = kr - xe
+bad[0] = bad[0] + ck_lo(c4, 1)
+let c5 = xe - rn
+bad[0] = bad[0] + ck_lo(c5, 1)
+
+let b1 = li - na
+bad[0] = bad[0] + ck_lo(b1, 1)
+let b2 = na - k
+bad[0] = bad[0] + ck_lo(b2, 1)
+let b3 = k - rb
+bad[0] = bad[0] + ck_lo(b3, 1)
+let b4 = rb - cs
+bad[0] = bad[0] + ck_lo(b4, 1)
+
+arr_get(arr_new_n(1), bad[0])

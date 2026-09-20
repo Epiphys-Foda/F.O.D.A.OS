@@ -1,0 +1,334 @@
+import "../domain_field.ψ"
+
+let BFT_P = 65537
+
+let BFT_MSG_PRE_PREPARE = 1
+let BFT_MSG_PREPARE     = 2
+let BFT_MSG_COMMIT      = 3
+let BFT_MSG_VIEW_CHANGE = 4
+let BFT_MSG_NEW_VIEW    = 5
+let BFT_MSG_CHECKPOINT  = 6
+
+let BFT_ROLE_PRIMARY = 1
+let BFT_ROLE_BACKUP   = 2
+
+let BFT_STATE_NORMAL    = 1
+let BFT_STATE_VIEW_CHG  = 2
+let BFT_STATE_RECOVER   = 3
+
+let BFT_PHASE_PRE_PREPARE = 1
+let BFT_PHASE_PREPARE      = 2
+let BFT_PHASE_COMMIT       = 3
+let BFT_PHASE_DONE         = 4
+
+let bft_msg_new(kind, view, seq, node_id, digest, payload) =
+    [kind, view, seq, node_id, digest, payload, 0]
+
+let bft_m_type(m)     = m[0]
+let bft_m_view(m)     = m[1]
+let bft_m_seq(m)      = m[2]
+let bft_m_node(m)     = m[3]
+let bft_m_digest(m)   = m[4]
+let bft_m_payload(m)  = m[5]
+let bft_m_sig(m)      = m[6]
+
+let bft_m_set_sig(m, s) =
+    m[6] = s
+    m
+
+let bft_sign(msg, node_id) =
+    let d = bft_m_digest(msg)
+    (node_id * BFT_P + d) % BFT_P
+
+let bft_verify(msg, node_id) =
+    let sig = bft_m_sig(msg)
+    let expected = bft_sign(msg, node_id)
+    sig == expected
+
+let bft_node_new(id, role, f_tolerance) =
+    [id, role, 0, 0, BFT_STATE_NORMAL, [], {}, {}, {}, [0, 0, 0, 2 * f_tolerance + 1, 3 * f_tolerance + 1]]
+
+let bft_n_id(n)            = n[0]
+let bft_n_role(n)          = n[1]
+let bft_n_view(n)          = n[2]
+let bft_n_seq(n)           = n[3]
+let bft_n_state(n)         = n[4]
+let bft_n_log(n)           = n[5]
+let bft_n_prepared(n)      = n[6]
+let bft_n_committed(n)     = n[7]
+let bft_n_checkpoints(n)   = n[8]
+let bft_n_stats(n)         = n[9]
+
+let bft_n_set_role(n, r) =
+    n[1] = r
+    n
+let bft_n_set_view(n, v) =
+    n[2] = v
+    n
+let bft_n_set_seq(n, s) =
+    n[3] = s
+    n
+let bft_n_set_state(n, s) =
+    n[4] = s
+    n
+let bft_n_set_log(n, l) =
+    n[5] = l
+    n
+let bft_n_set_prepared(n, p) =
+    n[6] = p
+    n
+let bft_n_set_committed(n, c) =
+    n[7] = c
+    n
+let bft_n_set_checkpoints(n, c) =
+    n[8] = c
+    n
+let bft_n_set_stats(n, s) =
+    n[9] = s
+    n
+
+let bft_n_log_append(n, msg) =
+    let log = bft_n_log(n)
+    log.push(msg)
+    n = bft_n_set_log(n, log)
+    let st = bft_n_stats(n)
+    st[0] = st[0] + 1
+    n = bft_n_set_stats(n, st)
+    n
+
+let bft_n_handle_pre_prepare(n, msg, quorum) =
+    if bft_m_type(msg) != BFT_MSG_PRE_PREPARE
+        [n, 0]
+    else
+        n = bft_n_log_append(n, msg)
+        if bft_m_view(msg) != bft_n_view(n)
+            [n, 0]
+        else
+            let seq = bft_m_seq(msg)
+            let prep = bft_msg_new(BFT_MSG_PREPARE, bft_n_view(n), seq, bft_n_id(n), bft_m_digest(msg), [])
+            prep = bft_m_set_sig(prep, bft_sign(prep, bft_n_id(n)))
+            n = bft_n_log_append(n, prep)
+            [n, prep]
+
+let bft_n_handle_prepare(n, msg, quorum) =
+    if bft_m_type(msg) != BFT_MSG_PREPARE
+        [n, 0]
+    else
+        n = bft_n_log_append(n, msg)
+        let seq = bft_m_seq(msg)
+        let prepared = bft_n_prepared(n)
+        let cnt = prepared[seq]
+        if cnt == 0
+            cnt = 0
+        cnt = cnt + 1
+        prepared[seq] = cnt
+        n = bft_n_set_prepared(n, prepared)
+        if cnt >= quorum
+            let commit = bft_msg_new(BFT_MSG_COMMIT, bft_n_view(n), seq, bft_n_id(n), bft_m_digest(msg), [])
+            commit = bft_m_set_sig(commit, bft_sign(commit, bft_n_id(n)))
+            n = bft_n_log_append(n, commit)
+            [n, commit]
+        else
+            [n, 0]
+
+let bft_n_handle_commit(n, msg, quorum) =
+    if bft_m_type(msg) != BFT_MSG_COMMIT
+        [n, 0]
+    else
+        n = bft_n_log_append(n, msg)
+        let seq = bft_m_seq(msg)
+        let committed = bft_n_committed(n)
+        let cnt = committed[seq]
+        if cnt == 0
+            cnt = 0
+        cnt = cnt + 1
+        committed[seq] = cnt
+        n = bft_n_set_committed(n, committed)
+        if cnt >= quorum
+            let st = bft_n_stats(n)
+            st[1] = st[1] + 1
+            n = bft_n_set_stats(n, st)
+            [n, 1]
+        else
+            [n, 0]
+
+let bft_n_start_view_change(n, now_ts) =
+    let new_view = bft_n_view(n) + 1
+    n = bft_n_set_view(n, new_view)
+    n = bft_n_set_state(n, BFT_STATE_VIEW_CHG)
+    let vc = bft_msg_new(BFT_MSG_VIEW_CHANGE, new_view, bft_n_seq(n), bft_n_id(n), now_ts, [])
+    vc = bft_m_set_sig(vc, bft_sign(vc, bft_n_id(n)))
+    n = bft_n_log_append(n, vc)
+    let st = bft_n_stats(n)
+    st[2] = st[2] + 1
+    n = bft_n_set_stats(n, st)
+    [n, vc]
+
+let bft_n_handle_view_change(n, msg, quorum) =
+    if bft_m_type(msg) != BFT_MSG_VIEW_CHANGE
+        [n, 0]
+    else
+        n = bft_n_log_append(n, msg)
+        let new_view = bft_m_view(msg)
+        let st = bft_n_stats(n)
+        let cnt = st[3]
+        cnt = cnt + 1
+        st[3] = cnt
+        n = bft_n_set_stats(n, st)
+        if cnt >= quorum
+            n = bft_n_set_view(n, new_view)
+            n = bft_n_set_state(n, BFT_STATE_NORMAL)
+            let new_primary = new_view % 4
+            if new_primary == bft_n_id(n)
+                n = bft_n_set_role(n, BFT_ROLE_PRIMARY)
+            else
+                n = bft_n_set_role(n, BFT_ROLE_BACKUP)
+            let nv = bft_msg_new(BFT_MSG_NEW_VIEW, new_view, 0, bft_n_id(n), 0, [])
+            nv = bft_m_set_sig(nv, bft_sign(nv, bft_n_id(n)))
+            n = bft_n_log_append(n, nv)
+            [n, nv]
+        else
+            [n, 0]
+
+let bft_n_make_checkpoint(n, seq, state_digest) =
+    let cps = bft_n_checkpoints(n)
+    cps[seq] = state_digest
+    n = bft_n_set_checkpoints(n, cps)
+    let prepared = bft_n_prepared(n)
+    let committed = bft_n_committed(n)
+    let pkeys = keys_of(prepared)
+    let ckeys = keys_of(committed)
+    let i = 0
+    for i < len(pkeys)
+        if pkeys[i] < seq
+            prepared[pkeys[i]] = 0
+        i = i + 1
+    i = 0
+    for i < len(ckeys)
+        if ckeys[i] < seq
+            committed[ckeys[i]] = 0
+        i = i + 1
+    n = bft_n_set_prepared(n, prepared)
+    n = bft_n_set_committed(n, committed)
+    n
+
+let bft_cluster_new(f_tol) =
+    [[], f_tol, 2 * f_tol + 1, 0, [0, 0, 0]]
+
+let bft_cl_nodes(c)         = c[0]
+let bft_cl_f(c)             = c[1]
+let bft_cl_quorum(c)        = c[2]
+let bft_cl_primary(c)       = c[3]
+let bft_cl_stats(c)         = c[4]
+
+let bft_cl_set_nodes(c, n) =
+    c[0] = n
+    c
+let bft_cl_set_primary(c, p) =
+    c[3] = p
+    c
+let bft_cl_set_stats(c, s) =
+    c[4] = s
+    c
+
+let bft_cl_add_node(c, node) =
+    let nodes = bft_cl_nodes(c)
+    nodes.push(node)
+    c = bft_cl_set_nodes(c, nodes)
+    c
+
+let bft_cl_propose(c, request, seq) =
+    let nodes = bft_cl_nodes(c)
+    let primary_id = bft_cl_primary(c)
+    let i = 0
+    let n = len(nodes)
+    let digest = (request * BFT_P + seq) % BFT_P
+    let new_msgs = []
+    for i < n
+        if bft_n_id(nodes[i]) == primary_id
+            let msg = bft_msg_new(BFT_MSG_PRE_PREPARE, bft_n_view(nodes[i]), seq, primary_id, digest, request)
+            msg = bft_m_set_sig(msg, bft_sign(msg, primary_id))
+            nodes[i] = bft_n_log_append(nodes[i], msg)
+            new_msgs.push(msg)
+        i = i + 1
+    c = bft_cl_set_nodes(c, nodes)
+    [c, new_msgs]
+
+let bft_cl_broadcast(c, msg) =
+    let nodes = bft_cl_nodes(c)
+    let quorum = bft_cl_quorum(c)
+    let new_msgs = []
+    let i = 0
+    let n = len(nodes)
+    for i < n
+        let r = 0
+        if bft_m_type(msg) == BFT_MSG_PREPARE
+            let res = bft_n_handle_prepare(nodes[i], msg, quorum)
+            nodes[i] = res[0]
+            if res[1] != 0
+                new_msgs.push(res[1])
+            else
+                0
+        if bft_m_type(msg) == BFT_MSG_COMMIT
+            let res = bft_n_handle_commit(nodes[i], msg, quorum)
+            nodes[i] = res[0]
+            if res[1] != 0
+                new_msgs.push(res[1])
+        i = i + 1
+    c = bft_cl_set_nodes(c, nodes)
+    [c, new_msgs]
+
+let bft_cl_bragg_verify(c) =
+    let nodes = bft_cl_nodes(c)
+    let ok = 1
+    let total_committed = 0
+    let i = 0
+    let n = len(nodes)
+    for i < n
+        let st = bft_n_stats(nodes[i])
+        total_committed = total_committed + st[1]
+        i = i + 1
+    let stats = bft_cl_stats(c)
+    ok = total_committed > 0
+    [ok, total_committed]
+
+let bft_default_cluster() =
+    let c = bft_cluster_new(1)
+    let n1 = bft_node_new(0, BFT_ROLE_PRIMARY, 1)
+    let n2 = bft_node_new(1, BFT_ROLE_BACKUP, 1)
+    let n3 = bft_node_new(2, BFT_ROLE_BACKUP, 1)
+    let n4 = bft_node_new(3, BFT_ROLE_BACKUP, 1)
+    c = bft_cl_add_node(c, n1)
+    c = bft_cl_add_node(c, n2)
+    c = bft_cl_add_node(c, n3)
+    c = bft_cl_add_node(c, n4)
+    c
+
+let bft_self_test() =
+    let c = bft_default_cluster()
+    let ok1 = len(bft_cl_nodes(c)) == 4
+    let ok2 = bft_cl_quorum(c) == 3
+    let prop = bft_cl_propose(c, 42, 1)
+    c = prop[0]
+    let pre_prep_msgs = prop[1]
+    let ok3 = len(pre_prep_msgs) == 1
+    let pp = pre_prep_msgs[0]
+    let nodes = bft_cl_nodes(c)
+    let prep_msgs = []
+    let i = 1
+    for i < 4
+        let res = bft_n_handle_pre_prepare(nodes[i], pp, bft_cl_quorum(c))
+        nodes[i] = res[0]
+        if res[1] != 0
+            prep_msgs.push(res[1])
+        i = i + 1
+    c = bft_cl_set_nodes(c, nodes)
+    let ok4 = len(prep_msgs) == 3
+    i = 0
+    for i < 3
+        let br = bft_cl_broadcast(c, prep_msgs[i])
+        c = br[0]
+        i = i + 1
+    let bv = bft_cl_bragg_verify(c)
+    let ok5 = bv[0] == 1
+    ["bft", ok1, ok2, ok3, ok4, ok5]

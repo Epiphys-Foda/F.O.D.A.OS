@@ -1,0 +1,31 @@
+import "ck.ψ"
+let bad = [0]
+
+let m3 = 3
+let n4 = 4
+let sum34 = m3 * m3 + n4 * n4
+
+let m5 = 5
+let n0 = 0
+let sum50 = m5 * m5 + n0 * n0
+
+let dz = sum50 - sum34
+bad[0] = bad[0] + ck(dz, 0, 0)
+
+let node = 1
+bad[0] = bad[0] + ck_lo(node, 1)
+
+if 1787 < 1785
+    bad[0] = bad[0] + 1
+if 1787 > 1789
+    bad[0] = bad[0] + 1
+if 1808 < 1806
+    bad[0] = bad[0] + 1
+if 1808 > 1810
+    bad[0] = bad[0] + 1
+if 1810 < 1808
+    bad[0] = bad[0] + 1
+if 1810 > 1812
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

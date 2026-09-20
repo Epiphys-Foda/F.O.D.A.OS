@@ -1,0 +1,71 @@
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let tbl_orig = [
+    14, 14, 11, 11, 16, 16, 16, 16, 19, 19, 0, 0, 5, 5, 0, 18,
+    11, 11, 11, 11, 15, 15, 15, 15, 9, 9, 6, 6, 2, 2, 2, 2,
+    10, 10, 10, 13, 17, 17, 17, 17, 3, 3, 12, 12, 16, 16, 2, 2,
+    20, 20, 20, 20, 1, 1, 1, 1, 4, 4, 7, 7, 8, 8, 8, 8,
+]
+
+let tbl_tamp = [
+    15, 14, 11, 11, 16, 16, 16, 16, 19, 19, 0, 0, 5, 5, 0, 18,
+    11, 11, 11, 11, 15, 15, 15, 15, 9, 9, 6, 6, 2, 2, 2, 2,
+    10, 10, 10, 13, 17, 17, 17, 17, 3, 3, 12, 12, 16, 16, 2, 2,
+    20, 20, 20, 20, 1, 1, 1, 1, 4, 4, 7, 7, 8, 8, 8, 8,
+]
+
+let chkOrig = [0]
+let rOrig = 1
+let j = 0
+for j < 64
+    let jx = j * 1
+    let term = smod(tbl_orig[jx] * rOrig, 65537)
+    chkOrig[0] = smod(chkOrig[0] + term, 65537)
+    let rn = smod(rOrig * 3, 65537)
+    rOrig = rn
+    j = j + 1
+let dOrig = chkOrig[0] - 20892
+let adOrig =
+    if dOrig < 0
+        0 - dOrig
+    else
+        dOrig
+let mOrig = smod(adOrig, 65537)
+bad[0] = bad[0] + mOrig
+
+let chkTamp = [0]
+let rTamp = 1
+let j = 0
+for j < 64
+    let jx = j * 1
+    let term = smod(tbl_tamp[jx] * rTamp, 65537)
+    chkTamp[0] = smod(chkTamp[0] + term, 65537)
+    let rn = smod(rTamp * 3, 65537)
+    rTamp = rn
+    j = j + 1
+let dTamp = chkTamp[0] - 20893
+let adTamp =
+    if dTamp < 0
+        0 - dTamp
+    else
+        dTamp
+let mTamp = smod(adTamp, 65537)
+bad[0] = bad[0] + mTamp
+
+let dd = chkTamp[0] - chkOrig[0]
+let add =
+    if dd < 0
+        0 - dd
+    else
+        dd
+let td = add - 1
+let wd =
+    if td < 0
+        0 - td
+    else
+        td
+bad[0] = bad[0] + wd
+
+arr_get(arr_new_n(1), bad[0])

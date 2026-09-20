@@ -1,0 +1,86 @@
+let I18N_EN = 0
+let I18N_ZH = 1
+let I18N_JA = 2
+let I18N_KO = 3
+let I18N_FR = 4
+let I18N_DE = 5
+
+let i18n_catalog_create() = arr_new()
+
+let i18n_catalog_add(catalog, locale, key, message) =
+    let entry = arr_new_n(3)
+    entry[0] = locale
+    entry[1] = key
+    entry[2] = message
+    arr_push(catalog, entry)
+
+let i18n_translate(catalog, locale, key) =
+    let i = 0
+    for i < catalog.len()
+        if catalog[i][0] == locale && catalog[i][1] == key
+            return catalog[i][2]
+        i = i + 1
+    let i = 0
+    for i < catalog.len()
+        if catalog[i][0] == I18N_EN && catalog[i][1] == key
+            return catalog[i][2]
+        i = i + 1
+    key
+
+let i18n_locale_name(locale) =
+    if locale == I18N_EN
+        "English"
+    else
+        0
+    if locale == I18N_ZH
+        "Chinese"
+    else
+        0
+    if locale == I18N_JA
+        "Japanese"
+    else
+        0
+    if locale == I18N_KO
+        "Korean"
+    else
+        0
+    if locale == I18N_FR
+        "French"
+    else
+        0
+    if locale == I18N_DE
+        "German"
+    else
+        "Unknown"
+
+let i18n_format_int(n) =
+    let s = arr_new()
+    if n < 0
+        s = arr_push(s, 45)
+        n = 0 - n
+    if n == 0
+        s = arr_push(s, 48)
+    else
+        let tmp = arr_new()
+        for n > 0
+            tmp = arr_push(tmp, 48 + (n % 10))
+            n = n / 10
+        let i = tmp.len() - 1
+        for i >= 0
+            s = arr_push(s, tmp[i])
+            i = i - 1
+    s
+
+let i18n_plural(n) =
+    (n == 1 ? 0 : 1)
+
+let i18n_translate_plural(catalog, locale, key, n) =
+    let plural_form = i18n_plural(n)
+    let full_key = key
+    if plural_form == 1
+        let i = 0
+        for i < catalog.len()
+            if catalog[i][0] == locale && catalog[i][1] == key && catalog[i][2] != 0
+                return catalog[i][2]
+            i = i + 1
+    i18n_translate(catalog, locale, key)

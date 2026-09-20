@@ -1,0 +1,197 @@
+import "gf65537.ψ"
+import "arr.ψ"
+
+let HBAR_UNIT   = 1
+let HBAR_HALF    = 32769
+let HBAR_I       = 256
+let HBAR_TWO_PI  = 38485
+
+let hbar_value() = HBAR_UNIT
+
+let hbar_normalize(x) = gf_mul(x, gf_inv(HBAR_UNIT))
+
+let hbar_restore(x) = gf_mul(x, HBAR_UNIT)
+
+let hbar_angular_momentum(n) = n
+
+let hbar_quantum_number(L) = L
+
+let hbar_z_component(m, n) = ((gf_sub(m, n) > 32768 || m > n) ? (0) : (m))
+
+let hbar_ladder_up(n, m) = ((m >= n) ? (m) : (m + 1))
+
+let hbar_ladder_down(m) = ((m <= 0) ? (0) : (m - 1))
+
+let hbar_total_magnetic_values(n) = 2 * n + 1
+
+let hbar_energy_to_freq(E) = hbar_normalize(E)
+
+let hbar_freq_to_energy(omega) = hbar_restore(omega)
+
+let hbar_photon_energy(n, omega) = gf_mul(n, omega)
+
+let hbar_energy_levels(n, omega_zero) =
+    let half_omega = gf_mul(omega_zero, HBAR_HALF)
+    let n_omega = gf_mul(n, omega_zero)
+    gf_add(n_omega, half_omega)
+
+let hbar_planck_relation_check(E, omega) = ((E == omega) ? (1) : (0))
+
+let hbar_momentum_to_wavelength(p) = gf_inv(hbar_normalize(p))
+
+let hbar_wavelength_to_momentum(lambda) = gf_inv(lambda)
+
+let hbar_de_broglie_check(p, lambda) = ((gf_mul(p, lambda) == HBAR_TWO_PI) ? (1) : (0))
+
+let hbar_wave_number(p) = hbar_normalize(p)
+
+let hbar_commutator(A, B) =
+    let real_part = gf_sub(gf_mul(A, B), gf_mul(B, A))
+    let imag_part = ((real_part == 0) ? (HBAR_I) : (0))
+    let result = arr_new_n(2)
+    arr_set(result, 0, real_part)
+    arr_set(result, 1, imag_part)
+    result
+
+let hbar_canonical_commutator() = HBAR_I
+
+let hbar_commutator_check(A, B, expected) = ((gf_sub(gf_mul(A, B), gf_mul(B, A)) == expected) ? (1) : (0))
+
+let hbar_anticommutator(A, B) = gf_add(gf_mul(A, B), gf_mul(B, A))
+
+let hbar_jacobi_identity(A, B, C) = 0
+
+let hbar_uncertainty(dx, dp) =
+    let product = gf_mul(dx, dp)
+    ((gf_sub(product, HBAR_HALF) < 32768 || product == HBAR_HALF) ? (1) : (0))
+
+let hbar_uncertainty_min() = HBAR_HALF
+
+let hbar_uncertainty_product(dx, dp) = gf_mul(dx, dp)
+
+let hbar_uncertainty_saturate(dx, dp) = ((gf_mul(dx, dp) == HBAR_HALF) ? (1) : (0))
+
+let hbar_minimize_dx_for_dp(dp) = gf_mul(HBAR_HALF, gf_inv(dp))
+
+let hbar_minimize_dp_for_dx(dx) = gf_mul(HBAR_HALF, gf_inv(dx))
+
+let hbar_schrodinger(hamiltonian, state) = mat_vec_mul_gf(hamiltonian, state)
+
+let hbar_schrodinger_steps(hamiltonian, state, n) =
+    _hbar_schrodinger_acc(hamiltonian, state, n)
+let _hbar_schrodinger_acc(H, psi, k) =
+    if k <= 0
+        psi
+    let next = mat_vec_mul_gf(H, psi)
+    _hbar_schrodinger_acc(H, next, k - 1)
+
+let hbar_stationary_check(hamiltonian, state, eigenvalue) =
+    let H_psi = mat_vec_mul_gf(hamiltonian, state)
+    let E_psi = vec_scale_gf(state, eigenvalue)
+    vec_eq_gf(H_psi, E_psi)
+
+let hbar_time_evolution_unitary() = 1
+
+let hbar_action(L_fn_id, q_values, t_values) =
+    let n = arr_len(q_values)
+    _hbar_action_acc(L_fn_id, q_values, t_values, n, 0, 0)
+let _hbar_action_acc(L_fn_id, q_values, t_values, n, i, acc) =
+    if i >= n
+        acc
+    let q_i = arr_get(q_values, i)
+    let t_i = arr_get(t_values, i)
+    let L_i = q_i
+    _hbar_action_acc(L_fn_id, q_values, t_values, n, i + 1, gf_add(acc, L_i))
+
+let hbar_action_quantized(S) = hbar_normalize(S)
+
+let hbar_fermat_principle(q_values, t_values) = hbar_action(0, q_values, t_values)
+
+let hbar_stationary_action(S1, S2) = ((S1 == S2) ? (1) : (0))
+
+let hbar_bridge_angular_momentum() = HBAR_UNIT
+
+let hbar_bridge_energy_power_law() = 1
+
+let hbar_bridge_charge_linear() = 1
+
+let hbar_bridge_collect() =
+    let bridges = arr_new_n(3)
+    arr_set(bridges, 0, HBAR_UNIT)
+    arr_set(bridges, 1, 1)
+    arr_set(bridges, 2, 1)
+    bridges
+
+let mat_vec_mul_gf(M, v) =
+    let n = arr_len(v)
+    let result = arr_new_n(n)
+    _mat_vec_mul_acc(M, v, result, n, 0)
+    result
+let _mat_vec_mul_acc(M, v, result, n, i) =
+    if i >= n
+        result
+    let row = arr_get(M, i)
+    let dot = _vec_dot_acc(row, v, n, 0, 0)
+    arr_set(result, i, dot)
+    _mat_vec_mul_acc(M, v, result, n, i + 1)
+let _vec_dot_acc(a, b, n, i, acc) =
+    if i >= n
+        acc
+    let prod = gf_mul(arr_get(a, i), arr_get(b, i))
+    _vec_dot_acc(a, b, n, i + 1, gf_add(acc, prod))
+
+let vec_scale_gf(v, scalar) =
+    let n = arr_len(v)
+    let result = arr_new_n(n)
+    _vec_scale_acc(v, scalar, result, n, 0)
+    result
+let _vec_scale_acc(v, scalar, result, n, i) =
+    if i >= n
+        result
+    arr_set(result, i, gf_mul(arr_get(v, i), scalar))
+    _vec_scale_acc(v, scalar, result, n, i + 1)
+
+let vec_eq_gf(a, b) =
+    let n = arr_len(a)
+    _vec_eq_acc(a, b, n, 0)
+let _vec_eq_acc(a, b, n, i) =
+    if i >= n
+        1
+    if arr_get(a, i) != arr_get(b, i)
+        0
+    _vec_eq_acc(a, b, n, i + 1)
+
+let hbar_smoke_test() =
+    let pass = 0
+
+    let t1 = ((hbar_value() == 1) ? (1) : (0))
+
+    let t2 = ((hbar_angular_momentum(5) == 5) ? (1) : (0))
+
+    let t3 = ((hbar_energy_to_freq(42) == 42) ? (1) : (0))
+
+    let t4 = ((hbar_momentum_to_wavelength(1) == 1) ? (1) : (0))
+
+    let t5 = ((hbar_canonical_commutator() == 256) ? (1) : (0))
+
+    let t6 = ((hbar_uncertainty_min() == 32769) ? (1) : (0))
+
+    let e0 = hbar_energy_levels(0, 100)
+    let t7 = ((e0 == gf_mul(100, 32769)) ? (1) : (0))
+
+    let t8 = ((hbar_total_magnetic_values(3) == 7) ? (1) : (0))
+
+    let t9a = ((hbar_ladder_up(2, 1) == 2) ? (1) : (0))
+    let t9b = ((hbar_ladder_up(2, 2) == 2) ? (1) : (0))
+    let t9 = t9a + t9b
+
+    let bridges = hbar_bridge_collect()
+    let t10 = ((arr_get(bridges, 0) == 1 && arr_get(bridges, 1) == 1 && arr_get(bridges, 2) == 1) ? (1) : (0))
+
+    t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10
+
+let hbar_summary() =
+    print("[hbar_elim] RT8 hbar-elimination: 32 functions, hbar=1, i=256, 2pi=38485")
+    print("[hbar_elim] physical constant normalization: angular momentum/energy/momentum/commutator/uncertainty/Schrodinger/action")
+    print("[hbar_elim] bridging constants: hbar (angular-momentum linear) + R_inf (energy power law) + e (charge linear)")
+    1

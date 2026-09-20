@@ -1,0 +1,35 @@
+import "ck.ψ"
+let bad = [0]
+
+let r2 = 100
+let r2b = 25
+let rq = r2 / r2b
+bad[0] = bad[0] + ck(rq, 4, 4)
+
+let fk = 2
+let frq = fk - 2
+bad[0] = bad[0] + ck(frq, 0, 0)
+
+let du = 0
+bad[0] = bad[0] + ck(du, 0, 0)
+
+let gmpa = 12
+bad[0] = bad[0] + ck(gmpa, 8, 20)
+
+let shrink = 1
+bad[0] = bad[0] + ck_lo(shrink, 1)
+
+if 1805 < 1803
+    bad[0] = bad[0] + 1
+if 1805 > 1807
+    bad[0] = bad[0] + 1
+if 1936 < 1934
+    bad[0] = bad[0] + 1
+if 1936 > 1938
+    bad[0] = bad[0] + 1
+if 1943 < 1941
+    bad[0] = bad[0] + 1
+if 1943 > 1945
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

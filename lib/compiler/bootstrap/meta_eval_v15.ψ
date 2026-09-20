@@ -1,0 +1,271 @@
+let peek(d) = host_call(10, host_call(7, 0, 0), 0)
+let peek_off(off) = host_call(10, host_call(7, 0, 0) + off, 0)
+let nxt(d) = host_call(10, host_call(7, 0, 0), 0) + host_call(6, 0, host_call(7, 0, 0) + 1) * 0
+let at_eof(d) = host_call(7, 0, 0) >= host_call(7, 1, 0)
+let skws(d) =
+    (at_eof(0) ? 0 : (((peek(0) == 32) + (peek(0) == 10) + (peek(0) == 9) + (peek(0) == 13) ? nxt(0) * 0 + skws(0) : (((peek(0) == 47) * (peek_off(1) == 47) ? skip_comment(0) * 0 + skws(0) : 0)))))
+let skip_comment(d) = nxt(0) * 0 + nxt(0) * 0 + skip_to_nl(0)
+let skip_to_nl(d) =
+    (at_eof(0) ? 0 : ((peek(0) == 10 ? nxt(0) : nxt(0) * 0 + skip_to_nl(0))))
+let is_ident_char(c) =
+    ((c >= 97) * (c <= 122) ? 1 : (((c >= 65) * (c <= 90) ? 1 : (((c >= 48) * (c <= 57) ? 1 : ((c == 95 ? 1 : 0)))))))
+let mod53(v) = v - (v / 53) * 53
+let mod256(v) = v - (v / 256) * 256
+let hash_loop(h) =
+    (is_ident_char(peek(0)) ? hash_loop(h * 33 + nxt(0)) : mod53(h) + 10)
+let rawhash_lp(h) =
+    (is_ident_char(peek(0)) ? rawhash_lp(h * 33 + nxt(0)) : h)
+let hslot(d) = hash_loop(5381)
+let eval_expr(d) = eval_pipe(0)
+let q_band_115(a, b) =
+    ((a == 0) + (b == 0) ? 0 : (a - (a / 2) * 2) * (b - (b / 2) * 2) + 2 * q_band_115(a / 2, b / 2))
+let q_bor_1005(a, b) = a + b - q_band_115(a, b)
+let xorop_007(a, b) = a + b - 2 * q_band_115(a, b)
+let notop_001(a) = 0 - a - 1
+let q_log_002(d) = q_log_lp_000(eval_cmp(0))
+let q_and_v_003(left, right) =
+    ((left != 0) * (right != 0) ? 1 : 0)
+let q_or_v_000(left, right) =
+    ((left != 0) + (right != 0) ? 1 : 0)
+let q_log_lp_000(left) =
+    ((skws(0) * 0 + peek(0) == 38) * (peek_off(1) == 38) ? nxt(0) * 0 + nxt(0) * 0 + q_log_lp_000(q_and_v_003(left, eval_cmp(0))) : (((skws(0) * 0 + peek(0) == 124) * (peek_off(1) == 124) ? nxt(0) * 0 + nxt(0) * 0 + q_log_lp_000(q_or_v_000(left, eval_cmp(0))) : left)))
+let eval_cmp(d) = eval_cmp_loop(eval_add(0), skws(0) * 0 + peek(0))
+let eval_cmp_loop(left, c) =
+    (c == 61 ? ((peek_off(1) == 61 ? nxt(0) * 0 + nxt(0) * 0 + eval_cmp_loop(left == eval_add(0), skws(0) * 0 + peek(0)) : left)) : ((c == 33 ? ((peek_off(1) == 61 ? nxt(0) * 0 + nxt(0) * 0 + eval_cmp_loop(left != eval_add(0), skws(0) * 0 + peek(0)) : left)) : ((c == 60 ? ((peek_off(1) == 61 ? nxt(0) * 0 + nxt(0) * 0 + eval_cmp_loop(left <= eval_add(0), skws(0) * 0 + peek(0)) : nxt(0) * 0 + eval_cmp_loop(left < eval_add(0), skws(0) * 0 + peek(0)))) : ((c == 62 ? ((peek_off(1) == 61 ? nxt(0) * 0 + nxt(0) * 0 + eval_cmp_loop(left >= eval_add(0), skws(0) * 0 + peek(0)) : nxt(0) * 0 + eval_cmp_loop(left > eval_add(0), skws(0) * 0 + peek(0)))) : left)))))))
+let eval_add(d) = eval_add_loop(eval_mul(0), skws(0) * 0 + peek(0))
+let eval_add_loop(left, c) =
+    ((c == 43) * (peek_off(1) == 43) ? nxt(0) * 0 + nxt(0) * 0 + eval_add_loop(q_scat_005(left, eval_mul(0)), skws(0) * 0 + peek(0)) : ((c == 43 ? nxt(0) * 0 + eval_add_loop(left + eval_mul(0), skws(0) * 0 + peek(0)) : ((c == 45 ? nxt(0) * 0 + eval_add_loop(left - eval_mul(0), skws(0) * 0 + peek(0)) : left)))))
+let eval_mul(d) = eval_mul_loop(eval_unary(0), skws(0) * 0 + peek(0))
+let eval_mul_loop(left, c) =
+    (c == 42 ? nxt(0) * 0 + eval_mul_loop(left * eval_unary(0), skws(0) * 0 + peek(0)) : ((c == 47 ? nxt(0) * 0 + eval_mul_loop(left / eval_unary(0), skws(0) * 0 + peek(0)) : (((c == 38) * (peek_off(1) != 38) ? nxt(0) * 0 + eval_mul_loop(q_band_115(left, eval_unary(0)), skws(0) * 0 + peek(0)) : (((c == 124) * (peek_off(1) != 124) * (peek_off(1) != 62) ? nxt(0) * 0 + eval_mul_loop(q_bor_1005(left, eval_unary(0)), skws(0) * 0 + peek(0)) : ((c == 94 ? nxt(0) * 0 + eval_mul_loop(xorop_007(left, eval_unary(0)), skws(0) * 0 + peek(0)) : left)))))))))
+let eval_unary(d) = skws(0) * 0 + ((peek(0) == 45 ? nxt(0) * 0 + (0 - eval_unary(0)) : ((peek(0) == 33 ? nxt(0) * 0 + q_not_002(eval_unary(0)) : ((peek(0) == 126 ? nxt(0) * 0 + notop_001(eval_unary(0)) : eu2(eval_primary(0))))))))
+let eu2(v) =
+    (skws(0) * 0 + peek(0) == 91 ? arr_index(v) : v)
+let eval_primary(d) =
+    (peek(0) == 40 ? parse_paren(0) : ((peek(0) == 34 ? str_parse(0) : ((peek(0) == 91 ? q_arrlit_000(0) : (((peek(0) >= 48) * (peek(0) <= 57) ? parse_number(0) : ((qx_true_kw_000(0) ? nxt(0) * 0 + nxt(0) * 0 + nxt(0) * 0 + nxt(0) * 0 + 1 : ((q_false_kw_000(0) ? nxt(0) * 0 + nxt(0) * 0 + nxt(0) * 0 + nxt(0) * 0 + nxt(0) * 0 + 0 : epd(0))))))))))))
+let q_not_002(v) =
+    (v == 0 ? 1 : 0)
+let qx_true_kw_000(d) = (peek(0) == 116) * (peek_off(1) == 114) * (peek_off(2) == 117) * (peek_off(3) == 101) * (1 - is_ident_char(peek_off(4)))
+let q_false_kw_000(d) = (peek(0) == 102) * (peek_off(1) == 97) * (peek_off(2) == 108) * (peek_off(3) == 115) * (peek_off(4) == 101) * (1 - is_ident_char(peek_off(5)))
+let q_arrlit_000(d) = nxt(0) * 0 + q_arrl_st_000(host_call(7, 5, 0))
+let q_arrl_st_000(arr_id) = host_call(6, 5, arr_id + 1) * 0 + host_call(8, 3072 + arr_id, 0) * 0 + q_arrl_cl_000(arr_id, skws(0) * 0 + peek(0))
+let q_arrl_cl_000(arr_id, c) =
+    (c == 93 ? nxt(0) * 0 + arr_id : q_arrl_psh_004(arr_id, eval_expr(0)))
+let q_arrl_psh_004(arr_id, v) = host_call(8, 4096 + arr_id * 64 + host_call(9, 3072 + arr_id, 0), v) * 0 + host_call(8, 3072 + arr_id, host_call(9, 3072 + arr_id, 0) + 1) * 0 + q_arel_001(arr_id)
+let q_arel_001(arr_id) = skws(0) * 0 + ((peek(0) == 44 ? nxt(0) * 0 + q_arrl_cl_000(arr_id, skws(0) * 0 + peek(0)) : q_arrl_cl_000(arr_id, skws(0) * 0 + peek(0))))
+let str_parse(d) = nxt(0) * 0 + s_st(host_call(7, 5, 0))
+let s_st(arr_id) = host_call(6, 5, arr_id + 1) * 0 + host_call(8, 3072 + arr_id, 0) * 0 + strf(arr_id, peek(0))
+let strf(arr_id, c) =
+    (c == 34 ? s_dn(arr_id) : ((c == 92 ? str_esc(arr_id) : s_psh(arr_id, c))))
+let str_esc(arr_id) = str_psh_esc(arr_id, nxt(0))
+let str_psh_esc(arr_id, c) =
+    (c == 110 ? s_psh(arr_id, 10) : ((c == 116 ? s_psh(arr_id, 9) : ((c == 92 ? s_psh(arr_id, 92) : ((c == 34 ? s_psh(arr_id, 34) : s_psh(arr_id, c))))))))
+let s_psh(arr_id, c) = host_call(8, 4096 + arr_id * 64 + host_call(9, 3072 + arr_id, 0), c) * 0 + host_call(8, 3072 + arr_id, host_call(9, 3072 + arr_id, 0) + 1) * 0 + nxt(0) * 0 + strf(arr_id, peek(0))
+let s_dn(arr_id) = nxt(0) * 0 + arr_id
+let q_scat_005(left, right) = host_call(8, 3132, left) * 0 + host_call(8, 3133, right) * 0 + q_sci_001(host_call(7, 5, 0))
+let q_sci_001(new_id) = host_call(6, 5, new_id + 1) * 0 + host_call(8, 3072 + new_id, host_call(9, 3072 + host_call(9, 3132, 0), 0) + host_call(9, 3072 + host_call(9, 3133, 0), 0)) * 0 + q_scl_002(new_id, 0)
+let q_scl_002(new_id, i) =
+    (i < host_call(9, 3072 + host_call(9, 3132, 0), 0) ? host_call(8, 4096 + new_id * 64 + i, host_call(9, 4096 + host_call(9, 3132, 0) * 64 + i, 0)) * 0 + q_scl_002(new_id, i + 1) : q_scr_002(new_id, 0))
+let q_scr_002(new_id, i) =
+    (i < host_call(9, 3072 + host_call(9, 3133, 0), 0) ? host_call(8, 4096 + new_id * 64 + host_call(9, 3072 + host_call(9, 3132, 0), 0) + i, host_call(9, 4096 + host_call(9, 3133, 0) * 64 + i, 0)) * 0 + q_scr_002(new_id, i + 1) : new_id)
+let epd(d) =
+    (is_if_kw(0) ? eval_if_v(0) : epd2b(0))
+let epd2b(d) =
+    (is_alloc_kw(0) ? eval_alloc(0) : epd3(0))
+let epd3(d) =
+    (is_len_k(0) ? do_len(0) : epd4(0))
+let epd4(d) =
+    (is_push_k(0) ? eval_push(0) : parse_var(0))
+let is_if_kw(d) = (peek(0) == 105) * (peek_off(1) == 102) * (1 - is_ident_char(peek_off(2)))
+let is_alloc_kw(d) = (peek(0) == 97) * (peek_off(1) == 108) * (peek_off(2) == 108) * (peek_off(3) == 111) * (peek_off(4) == 99) * (1 - is_ident_char(peek_off(5)))
+let is_len_k(d) = (peek(0) == 108) * (peek_off(1) == 101) * (peek_off(2) == 110) * (1 - is_ident_char(peek_off(3)))
+let is_push_k(d) = (peek(0) == 112) * (peek_off(1) == 117) * (peek_off(2) == 115) * (peek_off(3) == 104) * (1 - is_ident_char(peek_off(4)))
+let parse_paren(d) = nxt(0) * 0 + skws(0) * 0 + parse_paren_close(eval_expr(0))
+let parse_paren_close(v) = skws(0) * 0 + nxt(0) * 0 + v
+let parse_number(d) = parse_number_loop(0, peek(0))
+let parse_number_loop(acc, c) =
+    ((c >= 48) * (c <= 57) ? nxt(0) * 0 + parse_number_loop(acc * 10 + (c - 48), peek(0)) : acc)
+let parse_var(d) = parse_var_dispatch(rawhash_lp(5381))
+let sign_extend(v) =
+    (v >= 2147483648 ? v - 4294967296 : v)
+let parse_var_dispatch(h) =
+    (skws(0) * 0 + peek(0) == 40 ? do_fncall(mod256(h)) : ((skws(0) * 0 + peek(0) == 91 ? do_arr(mod53(h) + 10) : (((skws(0) * 0 + peek(0) == 61) * (peek_off(1) != 61) ? q_asn_do_007(mod53(h) + 10) : (((peek_off(1) == 61) * ((peek(0) == 43) + (peek(0) == 45) + (peek(0) == 42) + (peek(0) == 47)) ? q_casn_chk_002(mod53(h) + 10) : sign_extend(host_call(7, mod53(h) + 10, 0)))))))))
+let q_asn_do_007(slot) = nxt(0) * 0 + skws(0) * 0 + host_call(6, slot, eval_expr(0))
+let q_casn_chk_002(slot) = host_call(6, 6, (peek(0) == 43) * 0 + (peek(0) == 45) * 1 + (peek(0) == 42) * 2 + (peek(0) == 47) * 3) * 0 + q_casn_do(slot)
+let q_casn_do(slot) = nxt(0) * 0 + nxt(0) * 0 + skws(0) * 0 + host_call(6, 9, eval_expr(0)) * 0 + host_call(6, slot, q_casn_op_003(sign_extend(host_call(7, slot, 0)), host_call(7, 9, 0)))
+let q_casn_op_003(left, right) =
+    (host_call(7, 6, 0) == 0 ? left + right : ((host_call(7, 6, 0) == 1 ? left - right : ((host_call(7, 6, 0) == 2 ? left * right : left / right)))))
+let eval_if_v(d) = skip_if_kw(0) * 0 + skws(0) * 0 + eval_if_branch(eval_expr(0))
+let skip_if_kw(d) = nxt(0) * 0 + nxt(0)
+let eval_if_branch(cond) = skws(0) * 0 + nxt(0) * 0 + skws(0) * 0 + ((cond != 0 ? eval_if_then(eval_expr(0)) : eval_if_else(0)))
+let eval_if_then(tv) = skws(0) * 0 + skip_else_kw(0) * 0 + skws(0) * 0 + nxt(0) * 0 + skws(0) * 0 + skip_until_eol(0) * 0 + tv
+let eval_if_else(d) = skip_until_else(0) * 0 + skip_else_kw(0) * 0 + skws(0) * 0 + nxt(0) * 0 + skws(0) * 0 + eval_expr(0)
+let q_is_else_kw_006(d) = (peek(0) == 101) * (peek_off(1) == 108) * (peek_off(2) == 115) * (peek_off(3) == 101) * (1 - is_ident_char(peek_off(4)))
+let skip_else_kw(d) = nxt(0) * 0 + nxt(0) * 0 + nxt(0) * 0 + nxt(0)
+let skip_until_else(d) = sue_loop(0)
+let sue_loop(dp) =
+    (at_eof(0) ? 0 : ((peek(0) == 40 ? nxt(0) * 0 + sue_loop(dp + 1) : ((peek(0) == 41 ? nxt(0) * 0 + sue_loop(dp - 1) : (((dp == 0) * (peek(0) == 101) * (peek_off(1) == 108) * (peek_off(2) == 115) * (peek_off(3) == 101) * (1 - is_ident_char(peek_off(4))) ? 0 : nxt(0) * 0 + sue_loop(dp))))))))
+let skip_until_eol(d) = se_loop(0)
+let se_loop(dp) =
+    (at_eof(0) ? 0 : ((peek(0) == 40 ? nxt(0) * 0 + se_loop(dp + 1) : ((peek(0) == 41 ? ((dp == 0 ? 0 : nxt(0) * 0 + se_loop(dp - 1))) : (((dp == 0) * ((peek(0) == 10) + (peek(0) == 13)) ? 0 : nxt(0) * 0 + se_loop(dp))))))))
+let dispatch_stmt(d) = host_call(6, 2, (is_let(0) ? eval_let_v(0) : dfn(0)))
+let dfn(d) =
+    (is_fn_kw(0) ? eval_fn_def(0) : dwh(0))
+let dwh(d) =
+    (is_while_kw(0) ? evwh(0) : dprint(0))
+let dprint(d) =
+    (fi_kwd_003(0) ? fi_eval_011(0) : ((is_print(0) ? eval_print(0) : eval_expr(0))))
+let is_let(d) = (peek(0) == 108) * (peek_off(1) == 101) * (peek_off(2) == 116) * (1 - is_ident_char(peek_off(3)))
+let is_print(d) = (peek(0) == 112) * (peek_off(1) == 114) * (peek_off(2) == 105) * (peek_off(3) == 110) * (peek_off(4) == 116) * (1 - is_ident_char(peek_off(5)))
+let eval_let_v(d) = skip_let_kw(0) * 0 + skws(0) * 0 + let_store(hslot(0))
+let skip_let_kw(d) = nxt(0) * 0 + nxt(0) * 0 + nxt(0)
+let let_store(slot) = skws(0) * 0 + nxt(0) * 0 + skws(0) * 0 + host_call(6, slot, eval_expr(0))
+let eval_print(d) = skip_print_kw(0) * 0 + skws(0) * 0 + nxt(0) * 0 + skws(0) * 0 + poutput(eval_expr(0))
+let skip_print_kw(d) = nxt(0) * 0 + nxt(0) * 0 + nxt(0) * 0 + nxt(0) * 0 + nxt(0)
+let poutput(v) = skws(0) * 0 + nxt(0) * 0 + host_call(1, v, 0)
+let is_fn_kw(d) = (peek(0) == 102) * (peek_off(1) == 110) * (1 - is_ident_char(peek_off(2)))
+let skip_fn_kw(d) = nxt(0) * 0 + nxt(0)
+let eval_fn_def(d) = skip_fn_kw(0) * 0 + skws(0) * 0 + eval_fn_def_name(rawhash_lp(5381))
+let eval_fn_def_name(hash) = skws(0) * 0 + nxt(0) * 0 + skws(0) * 0 + eval_fn_def_arg(mod256(hash), hslot(0))
+let eval_fn_def_arg(fn_slot, arg_slot) = skws(0) * 0 + ((peek(0) == 44 ? fn_def_arg2(fn_slot, arg_slot) : (nxt(0) * 0 + skws(0) * 0 + eval_fn_def_eq(fn_slot, arg_slot))))
+let fn_def_arg2(fn_slot, arg1_slot) = nxt(0) * 0 + skws(0) * 0 + host_call(6, 9, hslot(0)) * 0 + eval_fn_def_arg2(fn_slot, arg1_slot)
+let eval_fn_def_arg2(fn_slot, arg1_slot) = skws(0) * 0 + nxt(0) * 0 + skws(0) * 0 + eval_fn_def_eq2(fn_slot, arg1_slot)
+let eval_fn_def_eq2(fn_slot, arg1_slot) = skws(0) * 0 + nxt(0) * 0 + skws(0) * 0 + efd_arg2(fn_slot, arg1_slot)
+let efd_arg2(fn_slot, arg1_slot) = store_fn_meta2(fn_slot, arg1_slot) * 0 + skip_until_eol(0)
+let store_fn_meta2(fn_slot, arg1_slot) = host_call(8, fn_slot, arg1_slot) * 0 + host_call(8, 256 + fn_slot, host_call(7, 0, 0)) * 0 + host_call(8, 512 + fn_slot, host_call(7, 9, 0))
+let eval_fn_def_eq(fn_slot, arg_slot) = skws(0) * 0 + nxt(0) * 0 + skws(0) * 0 + efd_body(fn_slot, arg_slot)
+let efd_body(fn_slot, arg_slot) = store_fn_meta(fn_slot, arg_slot) * 0 + skip_until_eol(0)
+let store_fn_meta(fn_slot, arg_slot) = host_call(8, fn_slot, arg_slot) * 0 + host_call(8, 256 + fn_slot, host_call(7, 0, 0)) * 0 + host_call(8, 512 + fn_slot, 8)
+let do_fncall(slot) = fn_call_args(slot)
+let fn_call_args(slot) = host_call(6, 4, nxt(0) * 0 + skws(0) * 0 + eval_expr(0)) * 0 + fn_call_close(slot)
+let fn_call_close(slot) = skws(0) * 0 + ((peek(0) == 44 ? fn_call_arg2(slot) : (nxt(0) * 0 + fn_push2(slot))))
+let fn_call_arg2(slot) = host_call(6, 7, nxt(0) * 0 + skws(0) * 0 + eval_expr(0)) * 0 + fn_call_arg2_close(slot)
+let fn_call_arg2_close(slot) = skws(0) * 0 + nxt(0) * 0 + fn_push2(slot)
+let fn_push2(slot) = fcev2(host_call(8, 1024 + host_call(7, 3, 0), host_call(7, host_call(9, slot, 0), 0)) * 0 + host_call(8, 1536 + host_call(7, 3, 0), host_call(7, host_call(9, 512 + slot, 0), 0)) * 0 + host_call(8, 2048 + host_call(7, 3, 0), host_call(7, 0, 0)) * 0 + host_call(6, 3, host_call(7, 3, 0) + 1) * 0 + host_call(6, host_call(9, slot, 0), host_call(7, 4, 0)) * 0 + host_call(6, host_call(9, 512 + slot, 0), host_call(7, 7, 0)) * 0 + host_call(6, 0, host_call(9, 256 + slot, 0)) * 0 + eval_expr(0), slot)
+let fcev2(result, slot) = fn_pop2(result, slot)
+let fn_pop2(result, slot) = host_call(6, 3, host_call(7, 3, 0) - 1) * 0 + host_call(6, 0, host_call(9, 2048 + host_call(7, 3, 0), 0)) * 0 + host_call(6, host_call(9, slot, 0), host_call(9, 1024 + host_call(7, 3, 0), 0)) * 0 + host_call(6, host_call(9, 512 + slot, 0), host_call(9, 1536 + host_call(7, 3, 0), 0)) * 0 + result
+let eval_alloc(d) = nxt(0) * 0 + nxt(0) * 0 + nxt(0) * 0 + nxt(0) * 0 + nxt(0) * 0 + skws(0) * 0 + nxt(0) * 0 + skws(0) * 0 + aclose(host_call(7, 5, 0), eval_expr(0))
+let aclose(arr_id, n) = skws(0) * 0 + nxt(0) * 0 + host_call(8, 3072 + arr_id, n) * 0 + host_call(6, 5, arr_id + 1) * 0 + arr_id
+let do_len(d) = nxt(0) * 0 + nxt(0) * 0 + nxt(0) * 0 + skws(0) * 0 + nxt(0) * 0 + skws(0) * 0 + host_call(6, 9, eval_expr(0)) * 0 + skws(0) * 0 + nxt(0) * 0 + host_call(9, 3072 + host_call(7, 9, 0), 0)
+let len_close(arr_id) = skws(0) * 0 + nxt(0) * 0 + host_call(9, 3072 + arr_id, 0)
+let eval_push(d) = nxt(0) * 0 + nxt(0) * 0 + nxt(0) * 0 + nxt(0) * 0 + skws(0) * 0 + nxt(0) * 0 + skws(0) * 0 + psh_arr(eval_expr(0))
+let psh_arr(arr_id) = skws(0) * 0 + nxt(0) * 0 + skws(0) * 0 + psh_val(arr_id, eval_expr(0))
+let psh_val(arr_id, v) = skws(0) * 0 + nxt(0) * 0 + psh_fin(arr_id, v)
+let psh_fin(arr_id, v) = host_call(8, 4096 + arr_id * 64 + host_call(9, 3072 + arr_id, 0), v) * 0 + host_call(8, 3072 + arr_id, host_call(9, 3072 + arr_id, 0) + 1) * 0 + v
+let do_arr(var_slot) = arr_index(sign_extend(host_call(7, var_slot, 0)))
+let arr_index(arr_id) = skws(0) * 0 + nxt(0) * 0 + skws(0) * 0 + arr_i2(arr_id, eval_expr(0))
+let arr_i2(arr_id, idx) = skws(0) * 0 + nxt(0) * 0 + arr_aft(arr_id, idx)
+let arr_aft(arr_id, idx) = skws(0) * 0 + (((peek(0) == 61) * (peek_off(1) != 61) ? arr_set(arr_id, idx) : arr_read(arr_id, idx)))
+let arr_read(arr_id, idx) = sign_extend(host_call(9, 4096 + arr_id * 64 + idx, 0))
+let arr_set(arr_id, idx) = nxt(0) * 0 + skws(0) * 0 + host_call(6, 9, eval_expr(0)) * 0 + arr_store(arr_id, idx)
+let arr_store(arr_id, idx) = host_call(8, 4096 + arr_id * 64 + idx, host_call(7, 9, 0)) * 0 + host_call(7, 9, 0)
+let is_while_kw(d) = (peek(0) == 119) * (peek_off(1) == 104) * (peek_off(2) == 105) * (peek_off(3) == 108) * (peek_off(4) == 101) * (1 - is_ident_char(peek_off(5)))
+let sk_wh_kw(d) = nxt(0) * 0 + nxt(0) * 0 + nxt(0) * 0 + nxt(0) * 0 + nxt(0)
+let wsva(d) = wsvb(host_call(9, 3116, 0))
+let wsvb(ptr) = host_call(8, 3120 + ptr * 4, host_call(9, 3112, 0)) * 0 + wsvd(ptr)
+let wsvd(ptr) = host_call(8, 3121 + ptr * 4, host_call(9, 3113, 0)) * 0 + wsvf(ptr)
+let wsvf(ptr) = host_call(8, 3122 + ptr * 4, host_call(9, 3114, 0)) * 0 + wsvh(ptr)
+let wsvh(ptr) = host_call(8, 3123 + ptr * 4, host_call(9, 3115, 0)) * 0 + host_call(8, 3116, ptr + 1) * 0 + 0
+let wrva(d) = wrvc(host_call(9, 3116, 0) - 1)
+let wrvc(ptr) = host_call(8, 3116, ptr) * 0 + wrvd(ptr)
+let wrvd(ptr) = host_call(8, 3112, host_call(9, 3120 + ptr * 4, 0)) * 0 + wrvf(ptr)
+let wrvf(ptr) = host_call(8, 3113, host_call(9, 3121 + ptr * 4, 0)) * 0 + wrvg(ptr)
+let wrvg(ptr) = host_call(8, 3114, host_call(9, 3122 + ptr * 4, 0)) * 0 + wrvi(ptr)
+let wrvi(ptr) = host_call(8, 3115, host_call(9, 3123 + ptr * 4, 0)) * 0 + 0
+let evwh(d) = wsva(0) * 0 + sk_wh_kw(0) * 0 + skws(0) * 0 + host_call(8, 3112, host_call(7, 0, 0)) * 0 + ew_ac(0)
+let ew_ac(d) = eval_expr(0) * 0 + skws(0) * 0 + nxt(0) * 0 + ew_md(peek(0))
+let ew_md(c) =
+    ((c == 10) + (c == 13) ? ew_mlt(0) : ew_single(0))
+let ew_single(d) = host_call(8, 3115, 0) * 0 + skws(0) * 0 + host_call(8, 3113, host_call(7, 0, 0)) * 0 + ew_single_end(find_eol(0))
+let ew_single_end(bend) = host_call(8, 3114, bend) * 0 + ew_loop(0)
+let ew_mlt(d) = host_call(8, 3115, 1) * 0 + skws(0) * 0 + host_call(8, 3113, host_call(7, 0, 0)) * 0 + ew_multi_end(find_end(0))
+let ew_multi_end(bend) = host_call(8, 3114, bend) * 0 + ew_loop(0)
+let ew_loop(d) = host_call(6, 0, host_call(9, 3112, 0)) * 0 + ew_check_cond(eval_expr(0))
+let ew_check_cond(cond) =
+    (cond == 0 ? ew_exit(0) : ew_run_body(0))
+let ew_run_body(d) = host_call(6, 0, host_call(9, 3113, 0)) * 0 + ew_eval_body(0)
+let ew_eval_body(d) =
+    (host_call(9, 3115, 0) == 0 ? ew_single_body(0) : ew_multi_body(0))
+let ew_single_body(d) = dispatch_stmt(0) * 0 + ew_loop(0)
+let ew_multi_body(d) = ew_blk(host_call(9, 3114, 0)) * 0 + ew_loop(0)
+let ew_blk(end_pos) =
+    (host_call(7, 0, 0) >= end_pos ? 0 : (skws(0) * 0 + ew_block_chk(end_pos)))
+let ew_block_chk(end_pos) =
+    (host_call(7, 0, 0) >= end_pos ? 0 : (dispatch_stmt(0) * 0 + ew_blk(end_pos)))
+let ew_exit(d) = host_call(6, 0, host_call(9, 3114, 0)) * 0 + ew_endx(0) * 0 + wrva(0) * 0 + 0
+let ew_endx(d) =
+    (host_call(9, 3115, 0) == 0 ? 0 : (skws(0) * 0 + nxt(0) * 0 + nxt(0) * 0 + nxt(0) * 0 + skws(0) * 0 + 0))
+let find_eol(d) = feol_rs(feol_init(0))
+let feol_init(d) = host_call(8, 3108, 0) * 0 + host_call(8, 3111, host_call(7, 0, 0)) * 0 + feol_lp(0)
+let feol_rs(found) = host_call(6, 0, host_call(9, 3111, 0)) * 0 + found
+let feol_lp(d) =
+    (at_eof(0) ? host_call(7, 0, 0) : feol_dp(peek(0)))
+let feol_dp(c) =
+    (c == 40 ? feol_open(0) : ((c == 91 ? feol_open(0) : ((c == 41 ? feol_close(0) : ((c == 93 ? feol_close(0) : (((c == 10) + (c == 13) ? feol_eol(0) : feol_adv2(0))))))))))
+let feol_open(d) = host_call(8, 3108, host_call(9, 3108, 0) + 1) * 0 + nxt(0) * 0 + feol_lp(0)
+let feol_close(d) = host_call(8, 3108, (host_call(9, 3108, 0) > 0 ? host_call(9, 3108, 0) - 1 : 0)) * 0 + nxt(0) * 0 + feol_lp(0)
+let feol_eol(d) =
+    (host_call(9, 3108, 0) == 0 ? host_call(7, 0, 0) : (nxt(0) * 0 + feol_lp(0)))
+let feol_adv2(d) = nxt(0) * 0 + feol_lp(0)
+let find_end(d) = fek_rst(fek_in(0))
+let fek_in(d) = host_call(8, 3108, 0) * 0 + host_call(8, 3109, 0) * 0 + host_call(8, 3110, 0) * 0 + host_call(8, 3111, host_call(7, 0, 0)) * 0 + fek_loop(0)
+let fek_rst(found) = host_call(6, 0, host_call(9, 3111, 0)) * 0 + found
+let fek_loop(d) =
+    (at_eof(0) ? host_call(7, 0, 0) : fek_d(peek(0)))
+let fek_d(c) =
+    (c == 40 ? fek_open(0) : ((c == 91 ? fek_open(0) : ((c == 41 ? fek_cl2(0) : ((c == 93 ? fek_cl2(0) : (((c == 10) + (c == 13) ? fek_nl(0) : fek_body(c))))))))))
+let fek_open(d) = host_call(8, 3108, host_call(9, 3108, 0) + 1) * 0 + host_call(8, 3109, 0) * 0 + nxt(0) * 0 + fek_loop(0)
+let fek_cl2(d) = host_call(8, 3108, (host_call(9, 3108, 0) > 0 ? host_call(9, 3108, 0) - 1 : 0)) * 0 + host_call(8, 3109, 0) * 0 + nxt(0) * 0 + fek_loop(0)
+let fek_nl(d) = host_call(8, 3109, 1) * 0 + nxt(0) * 0 + fek_loop(0)
+let fek_body(c) =
+    ((host_call(9, 3108, 0) == 0) * (host_call(9, 3109, 0) == 1) ? fek_k2(c) : fek_adv(c))
+let fek_k2(c) =
+    (c == 101 ? fek_end(0) : ((c == 119 ? fek_wh(0) : fek_adv(c))))
+let fek_end(d) =
+    ((peek_off(1) == 110) * (peek_off(2) == 100) * (1 - is_ident_char(peek_off(3))) ? fek_end_c(0) : fek_adv(peek(0)))
+let fek_end_c(d) =
+    (host_call(9, 3110, 0) > 0 ? fek_eni(0) : host_call(7, 0, 0))
+let fek_eni(d) = host_call(8, 3110, host_call(9, 3110, 0) - 1) * 0 + fek_adv(peek(0))
+let fek_wh(d) =
+    ((peek_off(1) == 104) * (peek_off(2) == 105) * (peek_off(3) == 108) * (peek_off(4) == 101) * (1 - is_ident_char(peek_off(5))) ? fek_wc(0) : fek_adv(peek(0)))
+let fek_wc(d) = host_call(8, 3110, host_call(9, 3110, 0) + 1) * 0 + fek_adv(peek(0))
+let fek_adv(c) =
+    ((c == 32) + (c == 9) ? fek_kp2(0) : fek_clr(0))
+let fek_kp2(d) = nxt(0) * 0 + fek_loop(0)
+let fek_clr(d) = host_call(8, 3109, 0) * 0 + nxt(0) * 0 + fek_loop(0)
+let fsv_006(mode, idx) =
+    (mode == 0 ? ((idx < 7 ? host_call(8, 3142 + host_call(9, 3141, 0) * 7 + idx, host_call(9, 3134 + idx, 0)) * 0 + fsv_006(0, idx + 1) : host_call(8, 3141, host_call(9, 3141, 0) + 1) * 0 + 0)) : ((idx == 0 ? host_call(8, 3141, host_call(9, 3141, 0) - 1) * 0 + fsv_006(1, 1) : ((idx < 8 ? host_call(8, 3134 + idx - 1, host_call(9, 3142 + host_call(9, 3141, 0) * 7 + idx - 1, 0)) * 0 + fsv_006(1, idx + 1) : 0)))))
+let fi_kwd_003(d) = (peek(0) == 102) * (peek_off(1) == 111) * (peek_off(2) == 114) * (1 - is_ident_char(peek_off(3)))
+let fi_eval_011(d) = nxt(0) * 0 + nxt(0) * 0 + nxt(0) * 0 + skws(0) * 0 + fi_var_003(hslot(0))
+let fi_var_003(slot) = skws(0) * 0 + nxt(0) * 0 + nxt(0) * 0 + skws(0) * 0 + fi_arr_009(slot, eval_expr(0))
+let fi_arr_009(slot, arr_id) = fsv_006(0, 0) * 0 + skws(0) * 0 + nxt(0) * 0 + host_call(8, 3134, arr_id) * 0 + host_call(8, 3135, slot) * 0 + host_call(8, 3136, 0) * 0 + host_call(8, 3137, host_call(9, 3072 + arr_id, 0)) * 0 + fi_md_001(peek(0))
+let fi_md_001(c) =
+    ((c == 10) + (c == 13) ? fi_mlt_009(0) : fi_sgl_005(0))
+let fi_sgl_005(d) = host_call(8, 3140, 0) * 0 + skws(0) * 0 + host_call(8, 3138, host_call(7, 0, 0)) * 0 + host_call(8, 3139, find_eol(0)) * 0 + fi_lp_001(0)
+let fi_mlt_009(d) = host_call(8, 3140, 1) * 0 + skws(0) * 0 + host_call(8, 3138, host_call(7, 0, 0)) * 0 + host_call(8, 3139, find_end(0)) * 0 + fi_lp_001(0)
+let fi_lp_001(d) =
+    (host_call(9, 3136, 0) < host_call(9, 3137, 0) ? fi_run_004(0) : fi_ex_001(0))
+let fi_run_004(d) = host_call(6, host_call(9, 3135, 0), host_call(9, 4096 + host_call(9, 3134, 0) * 64 + host_call(9, 3136, 0), 0)) * 0 + host_call(6, 0, host_call(9, 3138, 0)) * 0 + fi_eb_015(0) * 0 + host_call(8, 3136, host_call(9, 3136, 0) + 1) * 0 + fi_lp_001(0)
+let fi_eb_015(d) =
+    (host_call(9, 3140, 0) == 0 ? dispatch_stmt(0) : fi_mb_013(host_call(9, 3139, 0)))
+let fi_mb_013(end_pos) =
+    (host_call(7, 0, 0) >= end_pos ? 0 : (skws(0) * 0 + fi_mbc_003(end_pos)))
+let fi_mbc_003(end_pos) =
+    (host_call(7, 0, 0) >= end_pos ? 0 : (dispatch_stmt(0) * 0 + fi_mb_013(end_pos)))
+let fi_ex_001(d) = host_call(6, 0, host_call(9, 3139, 0)) * 0 + fi_ex2_002(0) * 0 + fsv_006(1, 0) * 0 + 0
+let fi_ex2_002(d) =
+    (host_call(9, 3140, 0) == 0 ? 0 : (skws(0) * 0 + nxt(0) * 0 + nxt(0) * 0 + nxt(0) * 0 + skws(0) * 0 + 0))
+let eval_pipe(d) = pplp(q_log_002(0), skws(0) * 0 + peek(0))
+let pplp(left, c) =
+    (c == 124 ? ((peek_off(1) == 62 ? pplp(dpc(left) * 0 + nxt(0) * 0 + nxt(0) * 0 + skws(0) * 0 + v17pp(pipe_fn(rawhash_lp(5381))), skws(0) * 0 + peek(0)) : left)) : left)
+let v17pp(slot) =
+    (skws(0) * 0 + peek(0) == 40 ? pp_paren(slot) : fn_push2(slot))
+let pp_paren(slot) = nxt(0) * 0 + skws(0) * 0 + host_call(6, 7, eval_expr(0)) * 0 + skws(0) * 0 + nxt(0) * 0 + fn_push2(slot)
+let dpc(left) = host_call(6, 4, left)
+let pipe_fn(h) = mod256(h)
+host_call(6, 1, host_call(11, 0, 0))
+for host_call(7, 0, 0) < host_call(7, 1, 0)
+  skws(0)
+  (host_call(7, 0, 0) < host_call(7, 1, 0) ? dispatch_stmt(0) : 0)
+end
+host_call(7, 2, 0)

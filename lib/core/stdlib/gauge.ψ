@@ -1,0 +1,230 @@
+import "braid.ψ"
+
+let gg_s1() = [[1, 0], [0, 65536]]
+let gg_s2() = [[32768, 1], [16385, 32769]]
+let gg_id() = [[1, 0], [0, 1]]
+
+let gg_mul(A, B) = braid_m2_mul(A, B)
+
+let gg_tr(m) = (m[0][0] + m[1][1]) % 65537
+
+let gg_inv2(m) =
+    let a = m[0][0]
+    let b = m[0][1]
+    let c = m[1][0]
+    let d = m[1][1]
+    let det = (a * d - b * c) % 65537
+    let det_inv = gg_pow(det, 65535)
+    [[(d * det_inv) % 65537, (65537 - b) * det_inv % 65537], [(65537 - c) * det_inv % 65537, (a * det_inv) % 65537]]
+
+let gg_pow(base, exp) =
+    let b = base
+    let e = exp
+    let acc = 1
+    let done = false
+    for !done
+      if e > 0
+        if e % 2 == 1
+          acc = (acc * b) % 65537
+        else
+          0
+        b = (b * b) % 65537
+        e = e / 2
+      else
+        done = true
+    acc
+
+let gg_wilson(u1, u2, u3, u4) = gg_mul(gg_mul(gg_mul(u1, u2), u3), u4)
+
+let gg_gauge_u(g, u, gi) = gg_mul(gg_mul(g, u), gi)
+
+let gg_gauge4(u1, u2, u3, u4, g0, g1, g2, g3) =
+    let i0 = gg_inv2(g0)
+    let i1 = gg_inv2(g1)
+    let i2 = gg_inv2(g2)
+    let i3 = gg_inv2(g3)
+    let u1t = gg_gauge_u(g0, u1, i1)
+    let u2t = gg_gauge_u(g1, u2, i2)
+    let u3t = gg_gauge_u(g2, u3, i3)
+    let u4t = gg_gauge_u(g3, u4, i0)
+    [u1t, u2t, u3t, u4t]
+
+let gg_pure_config() = [gg_id(), gg_id(), gg_id(), gg_id()]
+
+let gg_vortex_config() = [gg_s1(), gg_id(), gg_id(), gg_id()]
+
+let gg_verify() =
+    let results = []
+    let pc = gg_pure_config()
+    let w0 = gg_wilson(pc[0], pc[1], pc[2], pc[3])
+    results = results.push(gg_tr(w0) == 2)
+    let vc = gg_vortex_config()
+    let wv = gg_wilson(vc[0], vc[1], vc[2], vc[3])
+    results = results.push(gg_tr(wv) != 2)
+    results = results.push(gg_mul(gg_s1(), gg_s2())[0][1] != gg_mul(gg_s2(), gg_s1())[0][1])
+    let g0 = gg_s1()
+    let g1 = gg_s2()
+    let g2 = gg_mul(gg_s1(), gg_s2())
+    let g3 = gg_id()
+    let u1 = gg_s1()
+    let u2 = gg_s2()
+    let u3 = gg_mul(gg_s1(), gg_s2())
+    let u4 = gg_id()
+    let w_before = gg_wilson(u1, u2, u3, u4)
+    let tr_before = gg_tr(w_before)
+    let trafo = gg_gauge4(u1, u2, u3, u4, g0, g1, g2, g3)
+    let w_after = gg_wilson(trafo[0], trafo[1], trafo[2], trafo[3])
+    results = results.push(gg_tr(w_after) == tr_before)
+    let ginv = gg_inv2(g0)
+    let conj = gg_gauge_u(g0, gg_s1(), ginv)
+    results = results.push(gg_tr(conj) == gg_tr(gg_s1()))
+    let u_inv = gg_inv2(gg_s2())
+    let prod = gg_mul(gg_s2(), u_inv)
+    results = results.push(prod[0][0] == 1 && prod[0][1] == 0 && prod[1][0] == 0 && prod[1][1] == 1)
+    results = results.push(gg_wilson(gg_id(), gg_id(), gg_id(), gg_id())[0][0] == 1)
+    let total = true
+    let i = 0
+    let done = false
+    for !done
+      if i < len(results)
+        let v = results[i]
+        if v == false
+          total = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(total)
+    results
+
+let gb_rot() = [[0, 1], [65536, 0]]
+
+let gb_trace(w) =
+    if w == 0
+      2
+    else
+      if w == 1
+        0
+      else
+        if w == 2
+          65535
+        else
+          0
+
+let gb_embed(d, w) = d - d % 2 + w % 2
+
+let gb_extract(d) = d % 2
+
+let gb_watermark(data, owner) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < 8
+        let w = (owner + i) % 4
+        out = out.push(gb_embed(data[i], w))
+        i = i + 1
+      else
+        done = true
+    out
+
+let gb_verify_wm(data, owner) =
+    let ok = true
+    let i = 0
+    let done = false
+    for !done
+      if i < 8
+        let w = (owner + i) % 4
+        if gb_extract(data[i]) != w % 2
+          ok = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    ok
+
+let gb_verify_wm_all() =
+    let results = []
+    let r = gb_rot()
+    let r2 = gg_mul(r, r)
+    results = results.push(r2[0][0] == 65536 && r2[1][1] == 65536)
+    results = results.push(gb_trace(0) == 2 && gb_trace(1) == 0 && gb_trace(2) == 65535 && gb_trace(3) == 0)
+    let em = gb_embed(100, 1)
+    results = results.push(em == 101 && gb_extract(em) == 1)
+    let em2 = gb_embed(101, 0)
+    results = results.push(em2 == 100 && gb_extract(em2) == 0)
+    let wm = gb_watermark([100, 101, 102, 103, 104, 105, 106, 107], 3)
+    results = results.push(gb_verify_wm(wm, 3))
+    results = results.push(!gb_verify_wm(wm, 4))
+    results = results.push(wm[0] >= 99 && wm[0] <= 101)
+    let total = true
+    let i = 0
+    let done = false
+    for !done
+      if i < len(results)
+        let v = results[i]
+        if v == false
+          total = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(total)
+    results
+
+let v16_loop_invariant(u1, u2, u3, u4) =
+    let w = gg_wilson(u1, u2, u3, u4)
+    gg_tr(w)
+
+let v16_same_orbit(c1, c2) =
+    let w1 = v16_loop_invariant(c1[0], c1[1], c1[2], c1[3])
+    let w2 = v16_loop_invariant(c2[0], c2[1], c2[2], c2[3])
+    (w1 == w2 ? 1 : 0)
+
+let v16_program_equiv(prog1, prog2) = v16_same_orbit(prog1, prog2)
+
+let v16_topo_charge(u1, u2, u3, u4) =
+    let w = v16_loop_invariant(u1, u2, u3, u4)
+    w - 2
+
+let v16_is_pure(u1, u2, u3, u4) =
+    let q = v16_topo_charge(u1, u2, u3, u4)
+    (q == 0 ? 1 : 0)
+
+let v16_verify() =
+      let results = []
+      let pc = gg_pure_config()
+      results = results.push(v16_is_pure(pc[0], pc[1], pc[2], pc[3]) == 1)
+      let vc = gg_vortex_config()
+      results = results.push(v16_is_pure(vc[0], vc[1], vc[2], vc[3]) == 0)
+      results = results.push(v16_program_equiv(pc, pc) == 1)
+      results = results.push(v16_program_equiv(pc, vc) == 0)
+      let g0 = gg_s1()
+      let g1 = gg_s2()
+      let g2 = gg_mul(gg_s1(), gg_s2())
+      let g3 = gg_id()
+      let u1 = gg_s1()
+      let u2 = gg_s2()
+      let u3 = gg_mul(gg_s1(), gg_s2())
+      let u4 = gg_id()
+      let orig = [u1, u2, u3, u4]
+      let trafo = gg_gauge4(u1, u2, u3, u4, g0, g1, g2, g3)
+      results = results.push(v16_program_equiv(orig, trafo) == 1)
+      let total = true
+      let i = 0
+      let done = false
+      for !done
+        if i < len(results)
+          let v = results[i]
+          if v == false
+            total = false
+          else
+            0
+          i = i + 1
+        else
+          done = true
+      results = results.push(total)
+      results

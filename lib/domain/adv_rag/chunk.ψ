@@ -1,0 +1,246 @@
+let CK_P = 65537
+
+let CK_STRATEGY_FIXED     = 1
+let CK_STRATEGY_SENTENCE  = 2
+let CK_STRATEGY_SEMANTIC  = 3
+let CK_STRATEGY_RECURSIVE = 4
+
+let CK_SENTENCE_END = 0
+
+let CK_LVL_PARAGRAPH = 1
+let CK_LVL_SENTENCE  = 2
+let CK_LVL_WORD      = 3
+
+let CK_PARA_SEP = 1000
+let CK_SENT_SEP = 1001
+let CK_WORD_SEP = 1002
+
+let CK_DEFAULT_CHUNK_SIZE = 256
+let CK_DEFAULT_OVERLAP   = 32
+let CK_DEFAULT_MAX_DEPTH = 3
+let CK_DEFAULT_SEMANTIC_THRESHOLD = 256
+
+let ck_chunk_new(cid, tokens, start_off, end_off) =
+    [cid, tokens, start_off, end_off, []]
+
+let ck_c_id(c)        = c[0]
+let ck_c_tokens(c)     = c[1]
+let ck_c_start(c)     = c[2]
+let ck_c_end(c)        = c[3]
+let ck_c_meta(c)       = c[4]
+
+let ck_c_set_meta(c, m) =
+    c[4] = m
+    c
+
+let ck_fixed_chunk(tokens, chunk_size, overlap) =
+    let result = []
+    let n = len(tokens)
+    let cid = 0
+    let pos = 0
+    for pos < n
+        let end = pos + chunk_size
+        if end > n
+            end = n
+        let chunk_tokens = []
+        let i = pos
+        for i < end
+            chunk_tokens.push(tokens[i])
+            i = i + 1
+        result.push(ck_chunk_new(cid, chunk_tokens, pos, end))
+        cid = cid + 1
+        let next_pos = pos + chunk_size - overlap
+        if next_pos <= pos
+            next_pos = pos + 1
+        pos = next_pos
+    result
+
+let ck_sentence_chunk(tokens, chunk_size, overlap) =
+    let result = []
+    let n = len(tokens)
+    let cid = 0
+    let pos = 0
+    for pos < n
+        let end = pos + chunk_size
+        if end > n
+            end = n
+        let cut = end
+        let i = end - 1
+        for i > pos
+            if tokens[i] == CK_SENTENCE_END
+                cut = i + 1
+                i = pos
+            else
+                i = i - 1
+        let chunk_tokens = []
+        i = pos
+        for i < cut
+            chunk_tokens.push(tokens[i])
+            i = i + 1
+        result.push(ck_chunk_new(cid, chunk_tokens, pos, cut))
+        cid = cid + 1
+        let next_pos = cut - overlap
+        if next_pos <= pos
+            next_pos = cut
+        pos = next_pos
+    result
+
+let ck_semantic_chunk(tokens, chunk_size, threshold) =
+    let result = []
+    let n = len(tokens)
+    let cid = 0
+    let pos = 0
+    for pos < n
+        let end = pos + chunk_size
+        if end > n
+            end = n
+        let cut = end
+        let i = pos + 1
+        for i < end
+            if i > 0
+                let diff = tokens[i] - tokens[i - 1]
+                if diff < 0
+                    diff = -diff
+                if diff > threshold
+                    cut = i
+                    i = end
+            i = i + 1
+        let chunk_tokens = []
+        i = pos
+        for i < cut
+            chunk_tokens.push(tokens[i])
+            i = i + 1
+        result.push(ck_chunk_new(cid, chunk_tokens, pos, cut))
+        cid = cid + 1
+        pos = cut
+        if pos >= n
+            pos = n
+        if cut == pos
+            pos = pos + 1
+    result
+
+let ck_recursive_split(tokens, chunk_size, depth, max_depth) =
+    if depth > max_depth
+        ck_fixed_chunk(tokens, chunk_size, 0)
+    else
+        let sep = 0
+        if depth == 1
+            sep = CK_PARA_SEP
+        else
+            if depth == 2
+                sep = CK_SENT_SEP
+            else
+                sep = CK_WORD_SEP
+        let segments = []
+        let cur_seg = []
+        let i = 0
+        let n = len(tokens)
+        for i < n
+            if tokens[i] == sep
+                if len(cur_seg) > 0
+                    segments.push(cur_seg)
+                cur_seg = []
+            else
+                cur_seg.push(tokens[i])
+            i = i + 1
+        if len(cur_seg) > 0
+            segments.push(cur_seg)
+        let result = []
+        let j = 0
+        let m = len(segments)
+        for j < m
+            let seg = segments[j]
+            if len(seg) > chunk_size
+                let sub = ck_recursive_split(seg, chunk_size, depth + 1, max_depth)
+                let k = 0
+                let sm = len(sub)
+                for k < sm
+                    result.push(sub[k])
+                    k = k + 1
+            else
+                result.push(ck_chunk_new(0, seg, 0, len(seg)))
+            j = j + 1
+        result
+
+let ck_bragg_chunk(tokens, chunk_size, overlap, strategy) =
+    let c1 = 0
+    let c2 = 0
+    if strategy == CK_STRATEGY_FIXED
+        c1 = ck_fixed_chunk(tokens, chunk_size, overlap)
+        c2 = ck_fixed_chunk(tokens, chunk_size, overlap)
+    else
+        if strategy == CK_STRATEGY_SENTENCE
+            c1 = ck_sentence_chunk(tokens, chunk_size, overlap)
+            c2 = ck_sentence_chunk(tokens, chunk_size, overlap)
+        else
+            if strategy == CK_STRATEGY_SEMANTIC
+                c1 = ck_semantic_chunk(tokens, chunk_size, CK_DEFAULT_SEMANTIC_THRESHOLD)
+                c2 = ck_semantic_chunk(tokens, chunk_size, CK_DEFAULT_SEMANTIC_THRESHOLD)
+            else
+                c1 = ck_recursive_split(tokens, chunk_size, 1, CK_DEFAULT_MAX_DEPTH)
+                c2 = ck_recursive_split(tokens, chunk_size, 1, CK_DEFAULT_MAX_DEPTH)
+    let pass = 1
+    if len(c1) != len(c2)
+        pass = 0
+    else
+        let i = 0
+        let n = len(c1)
+        for i < n
+            if ck_c_start(c1[i]) != ck_c_start(c2[i])
+                pass = 0
+            if ck_c_end(c1[i]) != ck_c_end(c2[i])
+                pass = 0
+            i = i + 1
+    pass
+
+let ck_self_test() =
+    let tokens = [1, 2, 3, 0, 4, 5, 6, 0, 7, 8, 9, 10, 11, 12, 0, 13, 14, 15, 16, 17]
+
+    let fixed = ck_fixed_chunk(tokens, 8, 2)
+    let t_fixed = 0
+    if len(fixed) > 0
+        if ck_c_start(fixed[0]) == 0
+            if ck_c_end(fixed[0]) == 8
+                t_fixed = 1
+
+    let sent = ck_sentence_chunk(tokens, 10, 0)
+    let t_sent = 0
+    if ck_c_end(sent[0]) == 4
+        t_sent = 1
+
+    let sem_tokens = [10, 10, 10, 500, 500, 500, 1000, 1000]
+    let sem = ck_semantic_chunk(sem_tokens, 8, CK_DEFAULT_SEMANTIC_THRESHOLD)
+    let t_sem = 0
+    if len(sem) >= 2
+        t_sem = 1
+
+    let rec_tokens = [1, 2, CK_PARA_SEP, 3, 4, 5, CK_PARA_SEP, 6, 7, 8, 9, 10, 11, 12, 13]
+    let rec = ck_recursive_split(rec_tokens, 4, 1, CK_DEFAULT_MAX_DEPTH)
+    let t_rec = 0
+    if len(rec) > 0
+        t_rec = 1
+
+    let bragg_fixed = ck_bragg_chunk(tokens, 8, 2, CK_STRATEGY_FIXED)
+    let t_bragg_fixed = 0
+    if bragg_fixed == 1
+        t_bragg_fixed = 1
+
+    let bragg_sent = ck_bragg_chunk(tokens, 10, 0, CK_STRATEGY_SENTENCE)
+    let t_bragg_sent = 0
+    if bragg_sent == 1
+        t_bragg_sent = 1
+
+    let bragg_sem = ck_bragg_chunk(sem_tokens, 8, 0, CK_STRATEGY_SEMANTIC)
+    let t_bragg_sem = 0
+    if bragg_sem == 1
+        t_bragg_sem = 1
+
+    let bragg_rec = ck_bragg_chunk(rec_tokens, 4, 0, CK_STRATEGY_RECURSIVE)
+    let t_bragg_rec = 0
+    if bragg_rec == 1
+        t_bragg_rec = 1
+
+    [t_fixed, t_sent, t_sem, t_rec, t_bragg_fixed, t_bragg_sent, t_bragg_sem, t_bragg_rec]
+
+let ck_default_engine() =
+    [CK_STRATEGY_FIXED, CK_DEFAULT_CHUNK_SIZE, CK_DEFAULT_OVERLAP, CK_DEFAULT_MAX_DEPTH]

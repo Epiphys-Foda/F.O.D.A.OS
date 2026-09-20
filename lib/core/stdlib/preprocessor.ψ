@@ -1,0 +1,96 @@
+let pp_find_chained(source, start) =
+    let n = source.len()
+    let i = start
+    let found = -1
+    for i < n && found == -1
+        if source[i] == 93 && i + 1 < n && source[i + 1] == 46
+            found = i
+        i = i + 1
+    found
+
+let pp_strip_comments(source) =
+    let n = source.len()
+    let result = arr_new()
+    let i = 0
+    let in_string = 0
+    for i < n
+        let c = source[i]
+        if c == 34
+            if in_string == 0
+                in_string = 1
+            else
+                in_string = 0
+        if in_string == 0 && c == 47 && i + 1 < n && source[i + 1] == 47
+            for i < n && source[i] != 10
+                i = i + 1
+            if i < n
+                result = arr_push(result, source[i])
+                i = i + 1
+            else
+                0
+            result = arr_push(result, c)
+            i = i + 1
+    result
+
+let pp_normalize_whitespace(source) =
+    let n = source.len()
+    let result = arr_new()
+    let i = 0
+    for i < n
+        let c = source[i]
+        if c == 9
+            result = arr_push(result, 32)
+            result = arr_push(result, 32)
+            result = arr_push(result, 32)
+            result = arr_push(result, 32)
+        else
+            result = arr_push(result, c)
+        i = i + 1
+    result
+
+let pp_normalize_line_endings(source) =
+    let n = source.len()
+    let result = arr_new()
+    let i = 0
+    for i < n
+        if source[i] == 13 && i + 1 < n && source[i + 1] == 10
+            result = arr_push(result, 10)
+            i = i + 2
+        else
+            0
+        if source[i] == 13
+            result = arr_push(result, 10)
+            i = i + 1
+        else
+            result = arr_push(result, source[i])
+            i = i + 1
+    result
+
+let pp_run(source) =
+    let s1 = pp_strip_comments(source)
+    let s2 = pp_normalize_whitespace(s1)
+    let s3 = pp_normalize_line_endings(s2)
+    s3
+
+let pp_stats(source) =
+    let stats = arr_new_n(5)
+    let n = source.len()
+    stats[0] = n
+    let lines = 1
+    let i = 0
+    for i < n
+        if source[i] == 10
+            lines = lines + 1
+        i = i + 1
+    stats[1] = lines
+    let code_bytes = 0
+    let i = 0
+    for i < n
+        let c = source[i]
+        if c != 32 && c != 9 && c != 10 && c != 13
+            code_bytes = code_bytes + 1
+        i = i + 1
+    stats[2] = code_bytes
+    stats[3] = n - code_bytes
+    stats[4] = 0
+    stats

@@ -1,0 +1,28 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let eps = 0 - 4
+let mu = 0 - 1
+let sq = isqrt(eps * mu)
+let n = 0 - sq
+let dn = n + 2
+bad[0] = bad[0] + ck(dn, 0, 0)
+
+let doprev = 1
+bad[0] = bad[0] + ck_lo(doprev, 1)
+
+let evan = 5
+bad[0] = bad[0] + ck(evan, 4, 6)
+
+if 1968 < 1966
+    bad[0] = bad[0] + 1
+if 1968 > 1970
+    bad[0] = bad[0] + 1
+if 2000 < 1998
+    bad[0] = bad[0] + 1
+if 2000 > 2002
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

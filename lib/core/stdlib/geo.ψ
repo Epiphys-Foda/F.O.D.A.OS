@@ -1,0 +1,86 @@
+import "numtheor.ψ"
+let haversine_distance(lat1, lon1, lat2, lon2) =
+    let rlat1 = lat1 * 1745 / 100000
+    let rlat2 = lat2 * 1745 / 100000
+    let rlon1 = lon1 * 1745 / 100000
+    let rlon2 = lon2 * 1745 / 100000
+    let dlat = rlat2 - rlat1
+    let dlon = rlon2 - rlon1
+    let sin_dlat = dlat / 2
+    let sin_dlon = dlon / 2
+    let a = sin_dlat * sin_dlat / 1000 + cos_approx(rlat1) * cos_approx(rlat2) / 1000 * sin_dlon * sin_dlon / 1000
+    let c = 2 * isqrt(a * 1000)
+    6371000 * c / 1000
+
+let cos_approx(x) =
+    1000 - x * x / 2000000
+
+let bearing(lat1, lon1, lat2, lon2) =
+    let rlat1 = lat1 * 1745 / 100000
+    let rlat2 = lat2 * 1745 / 100000
+    let dlon = (lon2 - lon1) * 1745 / 100000
+    let y = sin_approx(dlon) * cos_approx(rlat2)
+    let x = cos_approx(rlat1) * sin_approx(rlat2) / 1000 - sin_approx(rlat1) * cos_approx(rlat2) * cos_approx(dlon) / 1000000
+    if x == 0
+        (y > 0 ? 90000 : -90000)
+    else
+            0
+        y * 90000 / x
+
+let sin_approx(x) =
+    x - x * x * x / 6000000
+
+let midpoint(lat1, lon1, lat2, lon2) =
+    [(lat1 + lat2) / 2, (lon1 + lon2) / 2]
+
+let destination_point(lat, lon, bearing_val, distance) =
+    let rlat = lat * 1745 / 100000
+    let rbrg = bearing_val * 1745 / 100000
+    let d_r = distance / 6371000
+    let new_lat = lat + d_r * sin_approx(rbrg) * 100000 / 1745
+    let new_lon = lon + d_r * cos_approx(rbrg) * 100000 / (1745 * cos_approx(rlat) / 1000)
+    [new_lat, new_lon]
+
+let utm_zone(lon) =
+    (lon + 180000) / 600000 + 1
+
+let lat_to_tile_y(lat, zoom) =
+    let rlat = lat * 1745 / 100000
+    let n = 1
+    let i = 0
+    for i < zoom
+        n = n * 2
+        i = i + 1
+    let tan_lat = sin_approx(rlat) * 1000 / cos_approx(rlat)
+    let y = n * (1000 - tan_lat) / 2000
+    y
+
+let lon_to_tile_x(lon, zoom) =
+    let n = 1
+    let i = 0
+    for i < zoom
+        n = n * 2
+        i = i + 1
+    n * (lon + 180000) / 360000
+
+let polygon_area(coords) =
+    let n = coords.len() / 2
+    let area = 0
+    let i = 0
+    for i < n
+        let j = (i + 1) % n
+        area = area + (coords[i * 2] * coords[j * 2 + 1] - coords[j * 2] * coords[i * 2 + 1]) / 1000
+        i = i + 1
+    if area < 0
+        -area / 2
+    else
+        area / 2
+
+let main() =
+    let d = haversine_distance(0, 0, 0, 1000)
+    print(d)
+    let b = bearing(0, 0, 0, 1000)
+    print(b)
+    let z = utm_zone(-122419494)
+    print(z)
+    0

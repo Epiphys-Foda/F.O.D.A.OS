@@ -1,0 +1,276 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+import "../core/base/rt.ψ"
+
+let field_step(ops_type, ops_data, n) =
+    let changed = 0
+    let stack = arr_new_n(n)
+    let sp = 0
+    let i = 0
+    for i < n
+        let t = ops_type[i]
+        if t == 0
+            stack[sp] = ops_data[i]
+            sp = sp + 1
+        if t == 1
+            if sp >= 2
+                let b = stack[sp - 1]
+                let a = stack[sp - 2]
+                sp = sp - 2
+                let r = gf_mul(a, b)
+                stack[sp] = r
+                sp = sp + 1
+                ops_data[i] = r
+                changed = 1
+        if t == 2
+            if sp >= 2
+                let b = stack[sp - 1]
+                let a = stack[sp - 2]
+                sp = sp - 2
+                let r = gf_add(a, b)
+                stack[sp] = r
+                sp = sp + 1
+                ops_data[i] = r
+                changed = 1
+        if t == 3
+            if sp >= 1
+                let a = stack[sp - 1]
+                let r = gf_mul(a, 3)
+                stack[sp - 1] = r
+                ops_data[i] = r
+                changed = 1
+        if t == 4
+            if sp >= 1
+                let a = stack[sp - 1]
+                let r = a
+                if a > 32768
+                    r = 0
+                stack[sp - 1] = r
+                ops_data[i] = r
+                changed = 1
+        if t == 5
+            if sp >= 1
+                let a = stack[sp - 1]
+                let r = (65535 * a + 2) % 65537
+                stack[sp - 1] = r
+                ops_data[i] = r
+                changed = 1
+        i = i + 1
+    changed
+
+let field_evolve(ops_type, ops_data, n, max_steps) =
+    let steps = 0
+    let converged = 0
+    for steps < max_steps
+        let changed = field_step(ops_type, ops_data, n)
+        if changed == 0
+            converged = 1
+            steps = max_steps
+        steps = steps + 1
+    let stack = arr_new_n(n)
+    let sp = 0
+    let i = 0
+    for i < n
+        let t = ops_type[i]
+        if t == 0
+            stack[sp] = ops_data[i]
+            sp = sp + 1
+        if t == 1
+            if sp >= 2
+                let b = stack[sp - 1]
+                let a = stack[sp - 2]
+                sp = sp - 2
+                stack[sp] = gf_mul(a, b)
+                sp = sp + 1
+        if t == 2
+            if sp >= 2
+                let b = stack[sp - 1]
+                let a = stack[sp - 2]
+                sp = sp - 2
+                stack[sp] = gf_add(a, b)
+                sp = sp + 1
+        if t == 3
+            if sp >= 1
+                stack[sp - 1] = (stack[sp - 1] * 3) % 65537
+        if t == 4
+            if sp >= 1
+                let a = stack[sp - 1]
+                if a > 32768
+                    stack[sp - 1] = 0
+        if t == 5
+            if sp >= 1
+                stack[sp - 1] = (65535 * stack[sp - 1] + 2) % 65537
+        i = i + 1
+    let result = 0
+    if sp > 0
+        result = stack[sp - 1]
+    let out = arr_new_n(3)
+    out[0] = result
+    out[1] = steps
+    out[2] = converged
+    out
+
+let residue_theorem_global(residues, n) =
+    let sum = 0
+    let i = 0
+    for i < n
+        sum = (sum + residues[i]) % 65537
+        i = i + 1
+    sum
+
+let field_energy(residues, n) =
+    let e = 0
+    let i = 0
+    for i < n
+        let r = residues[i]
+        e = (e + r * r) % 65537
+        i = i + 1
+    e
+
+let field_gradient(poles, residues, n, k) =
+    let grad = 0
+    let z_k = poles[k]
+    let r_k = residues[k]
+    let j = 0
+    for j < n
+        if j != k
+            let diff = (z_k + 65537 - poles[j]) % 65537
+            let inv_diff = gf_inv(diff)
+            let inv_diff2 = gf_mul(inv_diff, inv_diff)
+            grad = (grad + r_k * inv_diff2) % 65537
+        j = j + 1
+    grad
+
+let field_flow(poles, residues, n, eta) =
+    let new_poles = arr_new_n(n)
+    let i = 0
+    for i < n
+        let grad = field_gradient(poles, residues, n, i)
+        let new_z = (poles[i] + eta * grad) % 65537
+        new_poles[i] = new_z
+        i = i + 1
+    new_poles
+
+let field_fixed_point(data1, data2, n) =
+    let ok = 1
+    let i = 0
+    for i < n
+        if data1[i] != data2[i]
+            ok = 0
+        i = i + 1
+    ok
+
+let main() =
+    print(111)
+    let n = 3
+    let ops_type = arr_new_n(n)
+    ops_type[0] = 0
+    ops_type[1] = 0
+    ops_type[2] = 1
+    let ops_data = arr_new_n(n)
+    ops_data[0] = 3
+    ops_data[1] = 5
+    ops_data[2] = 0
+
+    let result = field_evolve(ops_type, ops_data, n, 100)
+    print(result[0])
+    print(result[1])
+    print(result[2])
+
+    print(222)
+    let residues = arr_new_n(3)
+    residues[0] = 3
+    residues[1] = 5
+    residues[2] = 15
+    let global_sum = residue_theorem_global(residues, 3)
+    print(global_sum)
+
+    print(333)
+    let n3 = 5
+    let ops3_type = arr_new_n(n3)
+    ops3_type[0] = 0
+    ops3_type[1] = 5
+    ops3_type[2] = 4
+    ops3_type[3] = 0
+    ops3_type[4] = 1
+    let ops3_data = arr_new_n(n3)
+    ops3_data[0] = 42
+    ops3_data[1] = 0
+    ops3_data[2] = 0
+    ops3_data[3] = 2
+    ops3_data[4] = 0
+
+    let result3 = field_evolve(ops3_type, ops3_data, n3, 100)
+    print(result3[0])
+    print(result3[1])
+    print(result3[2])
+
+    print(444)
+    let e1 = field_energy(residues, 3)
+    print(e1)
+
+    print(555)
+    let poles = arr_new_n(3)
+    poles[0] = 127
+    poles[1] = 1127
+    poles[2] = 2101
+    let grad0 = field_gradient(poles, residues, 3, 0)
+    let grad1 = field_gradient(poles, residues, 3, 1)
+    let grad2 = field_gradient(poles, residues, 3, 2)
+    print(grad0)
+    print(grad1)
+    print(grad2)
+
+    print(666)
+    let new_poles = field_flow(poles, residues, 3, 1)
+    let i = 0
+    for i < 3
+        print(new_poles[i])
+        i = i + 1
+
+    print(777)
+    let n7 = 3
+    let ops7_type = arr_new_n(n7)
+    ops7_type[0] = 0
+    ops7_type[1] = 0
+    ops7_type[2] = 1
+    let ops7_data1 = arr_new_n(n7)
+    ops7_data1[0] = 7
+    ops7_data1[1] = 11
+    ops7_data1[2] = 0
+    let ops7_data2 = arr_new_n(n7)
+    ops7_data2[0] = 7
+    ops7_data2[1] = 11
+    ops7_data2[2] = 0
+
+    let r7 = field_evolve(ops7_type, ops7_data1, n7, 100)
+    let r7b = field_evolve(ops7_type, ops7_data2, n7, 100)
+    let fp_ok = field_fixed_point(ops7_data1, ops7_data2, n7)
+    print(r7[0])
+    print(r7b[0])
+    print(fp_ok)
+
+    print(888)
+    let n8 = 2
+    let ops8_type = arr_new_n(n8)
+    ops8_type[0] = 0
+    ops8_type[1] = 3
+    let ops8_data = arr_new_n(n8)
+    ops8_data[0] = 100
+    ops8_data[1] = 0
+    let r8 = field_evolve(ops8_type, ops8_data, n8, 100)
+    print(r8[0])
+
+    print(999)
+    let n9 = 3
+    let ops9_type = arr_new_n(n9)
+    ops9_type[0] = 0
+    ops9_type[1] = 0
+    ops9_type[2] = 2
+    let ops9_data = arr_new_n(n9)
+    ops9_data[0] = 10
+    ops9_data[1] = 20
+    ops9_data[2] = 0
+    let r9 = field_evolve(ops9_type, ops9_data, n9, 100)
+    print(r9[0])
+
+    result[0]

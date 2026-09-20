@@ -1,0 +1,28 @@
+import "ck.ψ"
+let bad = [0]
+
+let nume = 2 * 6674 * 5972
+let dve1 = 6371 * 11185 * 11185 - nume * 10000
+let dve2 = nume * 10000 - 6371 * 11187 * 11187
+bad[0] = bad[0] + ck_hi(dve1, 0)
+bad[0] = bad[0] + ck_hi(dve2, 0)
+
+let numm = 2 * 6674 * 7342
+let dvm1 = 17374 * 2374 * 2374 - numm * 1000
+let dvm2 = numm * 1000 - 17374 * 2376 * 2376
+bad[0] = bad[0] + ck_hi(dvm1, 0)
+bad[0] = bad[0] + ck_hi(dvm2, 0)
+
+let vn2 = 3 * 8314 * 288 / 28
+let dvn = vn2 - 256546
+bad[0] = bad[0] + dvn * dvn
+let vh2 = 3 * 8314 * 1000 / 2
+let dvh = vh2 - 12471000
+bad[0] = bad[0] + dvh * dvh
+
+if 11187 * 10 < 507 * 20
+    bad[0] = bad[0] + 1
+if 3531 * 10 < 2375 * 4
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

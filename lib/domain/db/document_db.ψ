@@ -1,0 +1,357 @@
+import "../domain_field.ψ"
+
+let ddb_doc_new(id, fields) = [id, fields]
+let ddb_doc_id(d) = d[0]
+let ddb_doc_fields(d) = d[1]
+let ddb_doc_set_fields(d, f) = [d[0], f]
+let ddb_doc_get(d, key) =
+    let f = ddb_doc_fields(d)
+    f[key]
+let ddb_doc_set(d, key, value) =
+    let f = ddb_doc_fields(d)
+    f[key] = value
+    ddb_doc_set_fields(d, f)
+let ddb_doc_has(d, key) =
+    let f = ddb_doc_fields(d)
+    let v = f[key]
+    if v == 0
+        0
+    else
+        1
+
+let ddb_coll_new(name) = [name, {}, 1, {}, 0]
+
+let c_name(c) = c[0]
+let c_docs(c) = c[1]
+let c_next_id(c) = c[2]
+let c_indexes(c) = c[3]
+let c_total(c) = c[4]
+
+let c_set_docs(c, v) = [c[0], v, c[2], c[3], c[4]]
+let c_set_next_id(c, v) = [c[0], c[1], v, c[3], c[4]]
+let c_set_indexes(c, v) = [c[0], c[1], c[2], v, c[4]]
+let c_set_total(c, v) = [c[0], c[1], c[2], c[3], v]
+
+let ddb_coll_create_index(c, field) =
+    let indexes = c_indexes(c)
+    if indexes[field] == 0
+        let index = {}
+        let docs = c_docs(c)
+        let keys = keys_of(docs)
+        let i = 0
+        let n = len(keys)
+        for i < n
+            let d = docs[keys[i]]
+            if d != 0
+                let v = ddb_doc_get(d, field)
+                if v != 0
+                    let lst = index[v]
+                    if lst == 0
+                        lst = []
+                    lst.push(ddb_doc_id(d))
+                    index[v] = lst
+            i = i + 1
+        indexes[field] = index
+        c = c_set_indexes(c, indexes)
+    c
+
+let ddb_coll_insert(c, fields) =
+    let id = c_next_id(c)
+    c = c_set_next_id(c, id + 1)
+    let doc = ddb_doc_new(id, fields)
+    let docs = c_docs(c)
+    docs[id] = doc
+    c = c_set_docs(c, docs)
+    let indexes = c_indexes(c)
+    let keys = keys_of(indexes)
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let field = keys[i]
+        let v = fields[field]
+        if v != 0
+            let idx = indexes[field]
+            let lst = idx[v]
+            if lst == 0
+                lst = []
+            lst.push(id)
+            idx[v] = lst
+        i = i + 1
+    c = c_set_total(c, c_total(c) + 1)
+    [c, id]
+
+let ddb_coll_find_by_id(c, id) =
+    let docs = c_docs(c)
+    docs[id]
+
+let ddb_coll_find_by_field(c, field, value) =
+    let indexes = c_indexes(c)
+    let idx = indexes[field]
+    let result = []
+    if idx != 0
+        let lst = idx[value]
+        if lst != 0
+            let docs = c_docs(c)
+            let i = 0
+            let n = len(lst)
+            for i < n
+                let d = docs[lst[i]]
+                if d != 0
+                    result.push(d)
+                i = i + 1
+    result
+
+let ddb_coll_find(c, filter) =
+    let docs = c_docs(c)
+    let keys = keys_of(docs)
+    let result = []
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let d = docs[keys[i]]
+        if d != 0
+            let ok = 1
+            if filter != 0
+                let fkeys = keys_of(filter)
+                let j = 0
+                let m = len(fkeys)
+                for j < m
+                    let k = fkeys[j]
+                    let expected = filter[k]
+                    let actual = ddb_doc_get(d, k)
+                    if actual != expected
+                        ok = 0
+                    j = j + 1
+            if ok == 1
+                result.push(d)
+        i = i + 1
+    result
+
+let ddb_coll_update(c, filter, update_fields) =
+    let matches = ddb_coll_find(c, filter)
+    let i = 0
+    let n = len(matches)
+    for i < n
+        let d = matches[i]
+        let fkeys = keys_of(update_fields)
+        let j = 0
+        let m = len(fkeys)
+        for j < m
+            let k = fkeys[j]
+            d = ddb_doc_set(d, k, update_fields[k])
+            j = j + 1
+        let docs = c_docs(c)
+        docs[ddb_doc_id(d)] = d
+        c = c_set_docs(c, docs)
+        i = i + 1
+    [c, n]
+
+let ddb_coll_delete(c, filter) =
+    let matches = ddb_coll_find(c, filter)
+    let docs = c_docs(c)
+    let i = 0
+    let n = len(matches)
+    for i < n
+        let d = matches[i]
+        docs[ddb_doc_id(d)] = 0
+        i = i + 1
+    c = c_set_docs(c, docs)
+    c = c_set_total(c, c_total(c) - n)
+    [c, n]
+
+let ddb_pipeline_filter(docs, filter) =
+    let result = []
+    let i = 0
+    let n = len(docs)
+    for i < n
+        let d = docs[i]
+        let ok = 1
+        if filter != 0
+            let fkeys = keys_of(filter)
+            let j = 0
+            let m = len(fkeys)
+            for j < m
+                let k = fkeys[j]
+                if ddb_doc_get(d, k) != filter[k]
+                    ok = 0
+                j = j + 1
+        if ok == 1
+            result.push(d)
+        i = i + 1
+    result
+
+let ddb_pipeline_project(docs, fields) =
+    let result = []
+    let i = 0
+    let n = len(docs)
+    for i < n
+        let d = docs[i]
+        let new_fields = {}
+        let fkeys = keys_of(fields)
+        let j = 0
+        let m = len(fkeys)
+        for j < m
+            let k = fkeys[j]
+            let v = ddb_doc_get(d, k)
+            if v != 0
+                new_fields[k] = v
+            j = j + 1
+        result.push(ddb_doc_new(ddb_doc_id(d), new_fields))
+        i = i + 1
+    result
+
+let ddb_pipeline_sort(docs, field, ascending) =
+    let arr = []
+    let i = 0
+    let n = len(docs)
+    for i < n
+        arr.push(docs[i])
+        i = i + 1
+    i = 0
+    n = len(arr)
+    for i < n
+        let target = i
+        let j = i + 1
+        for j < n
+            let vj = ddb_doc_get(arr[j], field)
+            let vt = ddb_doc_get(arr[target], field)
+            if vj == 0
+                vj = 0
+            if vt == 0
+                vt = 0
+            if ascending == 1
+                if vj < vt
+                    target = j
+                else
+                    0
+                if vj > vt
+                    target = j
+            j = j + 1
+        let tmp = arr[i]
+        arr[i] = arr[target]
+        arr[target] = tmp
+        i = i + 1
+    arr
+
+let ddb_pipeline_limit(docs, limit) =
+    let result = []
+    let i = 0
+    let n = len(docs)
+    for i < n && i < limit
+        result.push(docs[i])
+        i = i + 1
+    result
+
+let ddb_coll_aggregate(c, stages) =
+    let docs = []
+    let keys = keys_of(c_docs(c))
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let d = c_docs(c)[keys[i]]
+        if d != 0
+            docs.push(d)
+        i = i + 1
+    i = 0
+    n = len(stages)
+    for i < n
+        let stage = stages[i]
+        let op = stage[0]
+        if op == "filter"
+            docs = ddb_pipeline_filter(docs, stage[1])
+        else
+            0
+        if op == "project"
+            docs = ddb_pipeline_project(docs, stage[1])
+        else
+            0
+        if op == "sort"
+            docs = ddb_pipeline_sort(docs, stage[1], stage[2])
+        else
+            0
+        if op == "limit"
+            docs = ddb_pipeline_limit(docs, stage[1])
+        i = i + 1
+    docs
+
+let ddb_test_basic() =
+    let c = ddb_coll_new("users")
+    let ok1 = 1
+    if c_total(c) != 0
+        ok1 = 0
+    if c_next_id(c) != 1
+        ok1 = 0
+
+    let r1 = ddb_coll_insert(c, {name: "alice", age: 30})
+    c = r1[0]
+    let id1 = r1[1]
+    let r2 = ddb_coll_insert(c, {name: "bob", age: 25})
+    c = r2[0]
+    let id2 = r2[1]
+    let r3 = ddb_coll_insert(c, {name: "alice", age: 22})
+    c = r3[0]
+
+    let ok2 = 1
+    if id1 != 1
+        ok2 = 0
+    if c_total(c) != 3
+        ok2 = 0
+
+    let d = ddb_coll_find_by_id(c, 1)
+    let ok3 = 1
+    if ddb_doc_get(d, "name") != "alice"
+        ok3 = 0
+
+    c = ddb_coll_create_index(c, "name")
+    let ok4 = 1
+    if c_indexes(c)["name"] == 0
+        ok4 = 0
+
+    let alices = ddb_coll_find_by_field(c, "name", "alice")
+    let ok5 = 1
+    if len(alices) != 2
+        ok5 = 0
+
+    let old_alices = ddb_coll_find(c, {name: "alice", age: 30})
+    let ok6 = 1
+    if len(old_alices) != 1
+        ok6 = 0
+
+    let ur = ddb_coll_update(c, {name: "bob"}, {age: 26})
+    c = ur[0]
+    let ok7 = 1
+    if ur[1] != 1
+        ok7 = 0
+    let bob = ddb_coll_find_by_field(c, "name", "bob")[0]
+    if ddb_doc_get(bob, "age") != 26
+        ok7 = 0
+
+    let pipeline = [["filter", {name: "alice"}], ["sort", "age", 0], ["limit", 1]]
+    let agg = ddb_coll_aggregate(c, pipeline)
+    let ok8 = 1
+    if len(agg) != 1
+        ok8 = 0
+    else
+        0
+    if ddb_doc_get(agg[0], "age") != 30
+        ok8 = 0
+
+    let dr = ddb_coll_delete(c, {name: "alice"})
+    c = dr[0]
+    let ok9 = 1
+    if dr[1] != 2
+        ok9 = 0
+    if c_total(c) != 1
+        ok9 = 0
+
+    ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7 * ok8 * ok9
+
+let ddb_test_self() =
+        let ok = ddb_test_basic()
+        if ok == 1
+            print("document_db: ALL PASS")
+        else
+            print("document_db: FAIL")
+        ok
+
+    ddb_test_self()

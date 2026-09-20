@@ -1,0 +1,14 @@
+let lag3_eval(zz, ee, zq, out2) =
+    let z1 = zz[0]
+    let z2 = zz[1]
+    let z3 = zz[2]
+    let n1 = (zq - z2) * (zq - z3)
+    let n2 = (zq - z1) * (zq - z3)
+    let n3 = (zq - z1) * (zq - z2)
+    let d1 = (z1 - z2) * (z1 - z3)
+    let d2 = (z2 - z1) * (z2 - z3)
+    let d3 = (z3 - z1) * (z3 - z2)
+    out2[0] = ee[0] * n1 * d2 * d3 + ee[1] * n2 * d1 * d3 + ee[2] * n3 * d1 * d2
+    out2[1] = d1 * d2 * d3
+    0
+

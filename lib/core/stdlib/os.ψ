@@ -1,0 +1,21 @@
+let os_layer_id() = 5
+
+let os_module_count() = 10
+
+let os_time_ms() = host_call(2, 0)
+
+let os_read_file(path_id) = host_call(3, path_id)
+
+let os_print_str(s_id) = host_call(25, s_id)
+
+let os_int_to_str(n) = host_call(24, n)
+
+let os_print_int(n) =
+    let s_id = os_int_to_str(n)
+    os_print_str(s_id)
+
+let test_os_layer() =
+    assert_eq(os_layer_id(), 5)
+    assert_eq(os_module_count(), 10)
+    let r = os_print_int(12345)
+    0

@@ -1,0 +1,74 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let ARM_X0 = 0
+let ARM_X1 = 1
+let ARM_X2 = 2
+let ARM_X3 = 3
+let ARM_SP = 31
+let ARM_XZR = 32
+let ARM_ADD = 1
+let ARM_SUB = 2
+let ARM_MUL = 3
+let ARM_MOV = 4
+let ARM_LDR = 5
+let ARM_STR = 6
+let ARM_BL = 8
+let ARM_RET = 9
+let ARM_NOP = 11
+
+let arm_encode(opcode, operands) = [opcode, operands]
+let arm_add(dst, s1, s2) = arm_encode(ARM_ADD, [dst, s1, s2])
+let arm_sub(dst, s1, s2) = arm_encode(ARM_SUB, [dst, s1, s2])
+let arm_mul(dst, s1, s2) = arm_encode(ARM_MUL, [dst, s1, s2])
+let arm_mov(dst, src) = arm_encode(ARM_MOV, [dst, src])
+let arm_ret() = arm_encode(ARM_RET, [])
+let arm_codegen(ir) =
+    let code = []
+    let i = 0
+    let n = len(ir)
+    for i < n
+        code.push(arm_encode(ARM_NOP, []))
+        i = i + 1
+    code
+let arm_calling_convention(args) =
+    let alloc = []
+    let i = 0
+    let n = len(args)
+    for i < n && i < 8
+        alloc.push(i)
+        i = i + 1
+    alloc
+let arm_machine_code(instructions) =
+    let mc = []
+    let i = 0
+    let n = len(instructions)
+    for i < n
+        mc.push(instructions[i][0])
+        i = i + 1
+    mc
+let arm_aot_compile(ir) =
+    let code = arm_codegen(ir)
+    arm_machine_code(code)
+let arm_neon_add(dst, s1, s2) = arm_encode(ARM_ADD, [dst, s1, s2])
+let arm_neon_mul(dst, s1, s2) = arm_encode(ARM_MUL, [dst, s1, s2])
+let arm_sve_width() = 128
+let field_arm(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let arm_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_arm(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+

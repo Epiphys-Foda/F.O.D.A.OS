@@ -1,0 +1,37 @@
+import "ck.ψ"
+let bad = [0]
+
+let dsc1 = 18207 - 15657 - 2550
+bad[0] = bad[0] + dsc1 * dsc1
+let v272 = 0
+let e272 = 2550 - 318 * 8
+if e272 < 0
+    v272 = v272 + 1
+let f272 = 319 * 8 - 2550
+if f272 < 1
+    v272 = v272 + 1
+bad[0] = bad[0] + v272 * v272
+
+let s90p = 18207 - 318 * 8
+let ds90 = s90p - 15657
+let ads90 =
+    if ds90 < 0
+        0 - ds90
+    else
+        ds90
+let tds = ads90 - 10
+let wtds =
+    if tds < 0
+        0
+    else
+        tds
+bad[0] = bad[0] + wtds
+
+let rat = 18207 - 15657
+bad[0] = bad[0] + ck_lo(rat, 2550)
+
+let s74 = 18207 - 318 * 16
+let d74 = s74 - 13119
+bad[0] = bad[0] + d74 * d74
+
+arr_get(arr_new_n(1), bad[0])

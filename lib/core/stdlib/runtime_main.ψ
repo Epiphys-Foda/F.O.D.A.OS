@@ -1,0 +1,8 @@
+let expr = "host_call(1, 42, 0)"
+let wasm = psi_to_wasm(expr)
+let x86_code = wasm_aot_compile(wasm)
+
+let arc_path = "runtime_main.arc"
+let total_len = arc_save(x86_code, 0, arc_path)
+
+[expr, len(wasm), len(x86_code), total_len, x86_code[0], x86_code[1], x86_code[2], x86_code[3], x86_code[4]]

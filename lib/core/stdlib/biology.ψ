@@ -1,0 +1,207 @@
+import "str.ψ"
+
+let dna_complement(base) =
+    if base == "A"
+        "T"
+    else
+        0
+    if base == "T"
+        "A"
+    else
+        0
+    if base == "G"
+        "C"
+    else
+        0
+    if base == "C"
+        "G"
+    else
+        base
+
+let dna_reverse_complement(sequence) =
+    let result = ""
+    let i = sequence.len() - 1
+    for i >= 0
+        let base = str_char_at(sequence, i)
+        let comp = dna_complement(base)
+        result = str_append(result, comp)
+        i = i - 1
+    result
+
+let gc_content(sequence) =
+    let gc_count = 0
+    let i = 0
+    for i < sequence.len()
+        let base = str_char_at(sequence, i)
+        if base == "G" || base == "C"
+            gc_count = gc_count + 1
+        i = i + 1
+    gc_count * 1000 / sequence.len()
+
+let dna_to_rna(sequence) =
+    let result = ""
+    let i = 0
+    for i < sequence.len()
+        let base = str_char_at(sequence, i)
+        if base == "T"
+            result = str_append(result, "U")
+        else
+            result = str_append(result, base)
+        i = i + 1
+    result
+
+let codon_to_amino(codon) =
+    if codon == "ATG"
+        "M"
+    else
+        0
+    if codon == "TAA" || codon == "TAG" || codon == "TGA"
+        "*"
+    else
+        0
+    if codon == "GCT" || codon == "GCC" || codon == "GCA" || codon == "GCG"
+        "A"
+    else
+        0
+    if codon == "TGT" || codon == "TGC"
+        "C"
+    else
+        0
+    if codon == "GAT" || codon == "GAC"
+        "D"
+    else
+        0
+    if codon == "GAA" || codon == "GAG"
+        "E"
+    else
+        0
+    if codon == "TTT" || codon == "TTC"
+        "F"
+    else
+        0
+    if codon == "GGT" || codon == "GGC" || codon == "GGA" || codon == "GGG"
+        "G"
+    else
+        0
+    if codon == "CAT" || codon == "CAC"
+        "H"
+    else
+        0
+    if codon == "ATT" || codon == "ATC" || codon == "ATA"
+        "I"
+    else
+        0
+    if codon == "AAA" || codon == "AAG"
+        "K"
+    else
+        0
+    if codon == "CTT" || codon == "CTC" || codon == "CTA" || codon == "CTG"
+        "L"
+    else
+        0
+    if codon == "TTG" || codon == "TTA"
+        "L"
+    else
+        "X"
+
+let translate(sequence) =
+    let protein = ""
+    let i = 0
+    for i + 2 < sequence.len()
+        let codon = str_substring(sequence, i, 3)
+        let amino = codon_to_amino(codon)
+        protein = str_append(protein, amino)
+        if amino == "*"
+            i = sequence.len()
+        i = i + 3
+    protein
+
+let hamming_distance(seq1, seq2) =
+    let dist = 0
+    let n = (seq1.len() < seq2.len() ? seq1.len() : seq2.len())
+    let i = 0
+    for i < n
+        if str_char_at(seq1, i) != str_char_at(seq2, i)
+            dist = dist + 1
+        i = i + 1
+    dist + (seq1.len() - n) + (seq2.len() - n)
+
+let edit_distance(seq1, seq2) =
+    let m = seq1.len()
+    let n = seq2.len()
+    let prev = []
+    let j = 0
+    for j <= n
+        prev = arr_concat(prev, [j])
+        j = j + 1
+    let i = 1
+    for i <= m
+        let curr = [i]
+        let j = 1
+        for j <= n
+            let cost = (str_char_at(seq1, i - 1) == str_char_at(seq2, j - 1) ? 0 : 1)
+            let val = prev[j] + 1
+            if curr[j - 1] + 1 < val
+                val = curr[j - 1] + 1
+            if prev[j - 1] + cost < val
+                val = prev[j - 1] + cost
+            curr = arr_concat(curr, [val])
+            j = j + 1
+        prev = curr
+        i = i + 1
+    prev[n]
+
+let melting_temp(sequence) =
+    let at_count = 0
+    let gc_count = 0
+    let i = 0
+    for i < sequence.len()
+        let base = str_char_at(sequence, i)
+        if base == "A" || base == "T"
+            at_count = at_count + 1
+        else
+            0
+        if base == "G" || base == "C"
+            gc_count = gc_count + 1
+        i = i + 1
+    2 * at_count + 4 * gc_count
+
+let molecular_weight_dna(sequence) =
+    let mw = 0
+    let i = 0
+    for i < sequence.len()
+        let base = str_char_at(sequence, i)
+        if base == "A"
+            mw = mw + 331
+        else
+            0
+        if base == "T"
+            mw = mw + 322
+        else
+            0
+        if base == "G"
+            mw = mw + 347
+        else
+            0
+        if base == "C"
+            mw = mw + 307
+        i = i + 1
+    mw
+
+let main() =
+    let seq = "ATGCGAT"
+    let gc = gc_content(seq)
+    print(gc)
+    let rc = dna_reverse_complement(seq)
+    print(rc)
+    let rna = dna_to_rna(seq)
+    print(rna)
+    let protein = translate("ATGGCATGAAATAG")
+    print(protein)
+    let hd = hamming_distance("ACGT", "ACCT")
+    print(hd)
+    let ed = edit_distance("ACGT", "AGT")
+    print(ed)
+    let tm = melting_temp("ATCGATCG")
+    print(tm)
+    0

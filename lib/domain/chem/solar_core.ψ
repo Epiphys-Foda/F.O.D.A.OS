@@ -1,0 +1,31 @@
+import "ck.ψ"
+let bad = [0]
+
+let tCore = 157
+bad[0] = bad[0] + ck(tCore, 150, 165)
+
+let rhoCore = 150
+bad[0] = bad[0] + ck(rhoCore, 140, 160)
+
+let pCore = 25
+bad[0] = bad[0] + ck(pCore, 23, 27)
+
+let xH = 34
+bad[0] = bad[0] + ck(xH, 30, 38)
+
+let pDensity = 276
+bad[0] = bad[0] + ck(pDensity, 250, 300)
+
+let lum100 = 383
+bad[0] = bad[0] + ck(lum100, 380, 386)
+
+if 34 > 71
+    bad[0] = bad[0] + 1
+
+let tRatio = 2720
+bad[0] = bad[0] + ck(tRatio, 2600, 2800)
+
+let agePct = 46
+bad[0] = bad[0] + ck(agePct, 40, 55)
+
+arr_get(arr_new_n(1), bad[0])

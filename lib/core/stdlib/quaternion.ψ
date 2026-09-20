@@ -1,0 +1,120 @@
+import "numtheor.ψ"
+let quat_new(w, x, y, z) =
+    [w, x, y, z]
+
+let quat_add(a, b) =
+    [a[0] + b[0], a[1] + b[1], a[2] + b[2], a[3] + b[3]]
+
+let quat_sub(a, b) =
+    [a[0] - b[0], a[1] - b[1], a[2] - b[2], a[3] - b[3]]
+
+let quat_mul(a, b) =
+    let w = a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3]
+    let x = a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2]
+    let y = a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1]
+    let z = a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0]
+    [w, x, y, z]
+
+let quat_scale(a, s) =
+    [a[0] * s, a[1] * s, a[2] * s, a[3] * s]
+
+let quat_conj(a) =
+    [a[0], -a[1], -a[2], -a[3]]
+
+let quat_norm_sq(a) =
+    a[0] * a[0] + a[1] * a[1] + a[2] * a[2] + a[3] * a[3]
+
+let quat_norm(a) =
+    isqrt(quat_norm_sq(a))
+
+let quat_normalize(a) =
+    let n = quat_norm(a)
+    if n == 0
+        a
+    else
+        [a[0] * 1000 / n, a[1] * 1000 / n, a[2] * 1000 / n, a[3] * 1000 / n]
+
+let quat_inverse(a) =
+    let n_sq = quat_norm_sq(a)
+    if n_sq == 0
+        [0, 0, 0, 0]
+    else
+        let c = quat_conj(a)
+        [c[0] * 1000 / n_sq, c[1] * 1000 / n_sq, c[2] * 1000 / n_sq, c[3] * 1000 / n_sq]
+
+let quat_from_axis_angle(axis, angle) =
+    let half_angle = angle / 2
+    let cos_ha = 1000 - half_angle * half_angle / 2000000
+    let sin_ha = half_angle
+    [cos_ha, axis[0] * sin_ha / 1000, axis[1] * sin_ha / 1000, axis[2] * sin_ha / 1000]
+
+let quat_rotate_vec(q, v) =
+    let qv = quat_mul(q, [0, v[0], v[1], v[2]])
+    let q_inv = quat_inverse(q)
+    let result = quat_mul(qv, q_inv)
+    [result[1], result[2], result[3]]
+
+let quat_to_matrix(q) =
+    let w = q[0]
+    let x = q[1]
+    let y = q[2]
+    let z = q[3]
+    let n = quat_norm_sq(q)
+    if n == 0
+        [1000, 0, 0, 0, 1000, 0, 0, 0, 1000]
+    else
+        let s = 1000000 / n
+        [
+            1000 - s * (y * y + z * z) / 1000,
+            s * (x * y - z * w) / 1000,
+            s * (x * z + y * w) / 1000,
+            s * (x * y + z * w) / 1000,
+            1000 - s * (x * x + z * z) / 1000,
+            s * (y * z - x * w) / 1000,
+            s * (x * z - y * w) / 1000,
+            s * (y * z + x * w) / 1000,
+            1000 - s * (x * x + y * y) / 1000
+        ]
+
+let quat_slerp(a, b, t) =
+    let dot = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3]
+    let b_signed = b
+    if dot < 0
+        b_signed = [-b[0], -b[1], -b[2], -b[3]]
+        dot = -dot
+    if dot > 999
+        let result = [
+            a[0] + t * (b_signed[0] - a[0]) / 1000,
+            a[1] + t * (b_signed[1] - a[1]) / 1000,
+            a[2] + t * (b_signed[2] - a[2]) / 1000,
+            a[3] + t * (b_signed[3] - a[3]) / 1000
+        ]
+        quat_normalize(result)
+    else
+        let theta = 1570796 - dot * 1570796 / 1000
+        let sin_theta = theta
+        let sin_t_theta = theta * t / 1000
+        let w1 = (1000 - t) * sin_theta / 1000
+        let w2 = t * sin_theta / 1000
+        if sin_theta == 0
+            a
+        else
+            quat_normalize([
+                w1 * a[0] / 1000 + w2 * b_signed[0] / 1000,
+                w1 * a[1] / 1000 + w2 * b_signed[1] / 1000,
+                w1 * a[2] / 1000 + w2 * b_signed[2] / 1000,
+                w1 * a[3] / 1000 + w2 * b_signed[3] / 1000
+            ])
+
+let main() =
+    let q1 = quat_new(1000, 0, 0, 0)
+    let q2 = quat_from_axis_angle([0, 1000, 0], 1570796)
+    print(q2)
+    let v = [1000, 0, 0]
+    let rv = quat_rotate_vec(q2, v)
+    print(rv)
+    let m = quat_to_matrix(q2)
+    print(m)
+    let q3 = quat_slerp(q1, q2, 500)
+    print(q3)
+    0

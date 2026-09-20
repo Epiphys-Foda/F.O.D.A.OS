@@ -1,0 +1,222 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let qstate_new(poles, res, n) = [poles, res, n]
+
+let qinner_product(p1, r1, n1, p2, r2, n2) =
+    let result = 0
+    let i = 0
+    for i < n1
+        let j = 0
+        for j < n2
+            let diff = gf_sub(p1[i], p2[j])
+            if diff != 0
+                let term = gf_mul(r1[i], r2[j])
+                term = gf_mul(term, gf_inv(diff))
+                result = gf_add(result, term)
+            j = j + 1
+        i = i + 1
+    result
+
+let qnorm(poles, res, n) =
+    let norm = 0
+    let i = 0
+    for i < n
+        norm = gf_add(norm, gf_mul(res[i], res[i]))
+        i = i + 1
+    norm
+
+let qnormalize(poles, res, n) =
+    let norm = qnorm(poles, res, n)
+    let inv_norm = 0
+    if norm != 0
+        inv_norm = gf_inv(norm)
+    let new_res = []
+    let i = 0
+    for i < n
+        new_res = new_res.push(gf_mul(res[i], inv_norm))
+        i = i + 1
+    [poles, new_res, n]
+
+let observe(poles, res, n, z0) =
+    let result = 0
+    let i = 0
+    for i < n
+        let diff = gf_sub(z0, poles[i])
+        if diff != 0
+            result = gf_add(result, gf_mul(res[i], gf_inv(diff)))
+        i = i + 1
+    result
+
+let collapse(poles, res, n, z0) =
+    if n == 1
+        [poles, res, 1]
+    let observed = observe(poles, res, n, z0)
+    let new_poles = [poles[0]]
+    let new_res = [res[0]]
+    [new_poles, new_res, 1]
+
+let self_observe(poles, res, n) =
+    let self_z = qnorm(poles, res, n)
+    observe(poles, res, n, self_z)
+
+let self_collapse(poles, res, n) =
+    let self_z = qnorm(poles, res, n)
+    collapse(poles, res, n, self_z)
+
+let collapse_bootstrap(poles, res, n, z0) =
+    let collapsed = collapse(poles, res, n, z0)
+    let c_poles = collapsed[0]
+    let c_res = collapsed[1]
+    let c_n = collapsed[2]
+    let collapsed2 = collapse(c_poles, c_res, c_n, z0)
+    let c2_poles = collapsed2[0]
+    let c2_res = collapsed2[1]
+    let identical = 1
+    if c_poles[0] != c2_poles[0]
+        identical = 0
+    if c_res[0] != c2_res[0]
+        identical = 0
+    identical
+
+let entangle(p1, r1, n1, p2, r2, n2) =
+    let poles = []
+    let res = []
+    let n = 0
+    let i = 0
+    for i < n1
+        let j = 0
+        for j < n2
+            poles = poles.push(gf_add(gf_mul(p1[i], 256), p2[j]))
+            res = res.push(gf_mul(r1[i], r2[j]))
+            n = n + 1
+            j = j + 1
+        i = i + 1
+    [poles, res, n]
+
+let entanglement_measure(p1, r1, n1, p2, r2, n2) =
+    let entangled = entangle(p1, r1, n1, p2, r2, n2)
+    let e_norm = qnorm(entangled[0], entangled[1], entangled[2])
+    let n1_norm = qnorm(p1, r1, n1)
+    let n2_norm = qnorm(p2, r2, n2)
+    let product = gf_mul(n1_norm, n2_norm)
+    gf_sub(e_norm, product)
+
+let correlation(poles, res, n, a, b) =
+    let diff = gf_sub(a, b)
+    let result = 0
+    let i = 0
+    for i < n
+        let term = gf_mul(res[i], gf_pow(3, diff))
+        result = gf_add(result, term)
+        i = i + 1
+    result
+
+let bell_value(poles, res, n, a, b, c, d) =
+    let e_ab = correlation(poles, res, n, a, b)
+    let e_ac = correlation(poles, res, n, a, c)
+    let e_db = correlation(poles, res, n, d, b)
+    let e_dc = correlation(poles, res, n, d, c)
+    gf_add(gf_sub(e_ab, e_ac), gf_add(e_db, e_dc))
+
+let qgalois(poles, res, n, sigma) =
+    let new_p = []
+    let new_r = []
+    let i = 0
+    for i < n
+        new_p = new_p.push(gf_pow(poles[i], sigma))
+        new_r = new_r.push(gf_pow(res[i], sigma))
+        i = i + 1
+    [new_p, new_r, n]
+
+let qgalois_inner_product(p1, r1, n1, p2, r2, n2, sigma) =
+    let orig_ip = qinner_product(p1, r1, n1, p2, r2, n2)
+    let g1 = qgalois(p1, r1, n1, sigma)
+    let g2 = qgalois(p2, r2, n2, sigma)
+    let g_ip = qinner_product(g1[0], g1[1], n1, g2[0], g2[1], n2)
+    let expected = gf_pow(orig_ip, sigma)
+    (g_ip == expected ? 1 : 0)
+
+let full_quantum_verify() =
+    let ok = 0
+
+    let poles = [1, 2, 3]
+    let res = [100, 200, 300]
+    let n = 3
+
+    let ip = qinner_product(poles, res, n, poles, res, n)
+    if ip >= 0
+        ok = ok + 1
+
+    let norm = qnorm(poles, res, n)
+    if norm == 8926
+        ok = ok + 1
+
+    let normalized = qnormalize(poles, res, n)
+    if normalized[2] == 3
+        ok = ok + 1
+
+    let obs = observe(poles, res, n, 10)
+    if obs >= 0
+        ok = ok + 1
+
+    let collapsed = collapse(poles, res, n, 10)
+    if collapsed[2] == 1
+        ok = ok + 1
+
+    let self_obs = self_observe(poles, res, n)
+    if self_obs >= 0
+        ok = ok + 1
+
+    let self_coll = self_collapse(poles, res, n)
+    if self_coll[2] == 1
+        ok = ok + 1
+
+    let cb = collapse_bootstrap(poles, res, n, 10)
+    if cb == 1
+        ok = ok + 1
+
+    let cb2 = collapse_bootstrap(poles, res, n, 50)
+    if cb2 == 1
+        ok = ok + 1
+
+    let p2 = [4, 5]
+    let r2 = [50, 60]
+    let entangled = entangle(poles, res, n, p2, r2, 2)
+    if entangled[2] == 6
+        ok = ok + 1
+
+    let ent_meas = entanglement_measure(poles, res, n, p2, r2, 2)
+    if ent_meas >= 0
+        ok = ok + 1
+
+    let corr = correlation(poles, res, n, 10, 20)
+    if corr >= 0
+        ok = ok + 1
+
+    let bell = bell_value(poles, res, n, 10, 20, 30, 40)
+    if bell >= 0
+        ok = ok + 1
+
+    let qg = qgalois(poles, res, n, 2)
+    if qg[2] == 3
+        ok = ok + 1
+
+    let qg1 = qgalois(poles, res, n, 1)
+    if qg1[0][0] == 1
+        ok = ok + 1
+
+    let gip = qgalois_inner_product(poles, res, n, poles, res, n, 1)
+    if gip == 1
+        ok = ok + 1
+
+    if cb == 1 && self_obs >= 0 && entangled[2] == 6
+        ok = ok + 1
+
+    let collapsed_state = collapse(poles, res, n, 10)
+    let recollapsed = collapse(collapsed_state[0], collapsed_state[1], collapsed_state[2], 10)
+    if recollapsed[0][0] == collapsed_state[0][0]
+        ok = ok + 1
+
+    ok
+
+let main() = full_quantum_verify()

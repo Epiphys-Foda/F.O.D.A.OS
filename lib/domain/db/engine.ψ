@@ -1,0 +1,160 @@
+﻿
+
+let DB_P = 65537
+let DB_MAX_RECORDS = 65536
+
+let db_table = array_new(256)
+let db_count = 0
+
+let db_add(a, b) = (a + b) % DB_P
+let db_sub(a, b) = (a - b + DB_P) % DB_P
+let db_mul(a, b) = (a * b) % DB_P
+let db_inv(a) =
+    if a == 0
+        0
+    else
+        let inv = 1
+        let base = a
+        let exp = DB_P - 2
+        for exp > 0
+            if exp % 2 == 1
+                inv = db_mul(inv, base)
+            base = db_mul(base, base)
+            exp = exp / 2
+        inv
+
+let db_create(name) =
+    let did = 1
+    for did < 256
+        if db_table[did] == 0
+            let db = { name: name, records: array_new(DB_MAX_RECORDS), count: 0, capacity: DB_MAX_RECORDS, head: 0 }
+            db_table[did] = db
+            db_count = db_count + 1
+            did
+        did = did + 1
+    0
+
+let db_insert(did, id, residue, tag) =
+    let db = db_table[did]
+    if db == 0
+        0
+    if db.count >= db.capacity
+        0
+
+    let rec = { id: id, residue: residue, tag: tag, next: db.head }
+    db.records[id] = rec
+    db.head = id
+    db.count = db.count + 1
+    id
+
+let db_query_residue(did, z) =
+    let db = db_table[did]
+    if db == 0
+        0
+
+    let result = 0
+    let rid = db.head
+    for rid != 0
+        let rec = db.records[rid]
+        let diff = db_sub(z, rec.id)
+        if diff != 0
+            let term = db_mul(rec.residue, db_inv(diff))
+            result = db_add(result, term)
+        rid = rec.next
+    result
+
+let db_query_tag(did, tag) =
+    let db = db_table[did]
+    if db == 0
+        0
+
+    let result = array_new(256)
+    let count = 0
+    let rid = db.head
+    for rid != 0
+        let rec = db.records[rid]
+        if rec.tag == tag
+            result[count] = rec.id
+            count = count + 1
+        rid = rec.next
+    [result, count]
+
+let db_query_exact(did, id) =
+    let db = db_table[did]
+    if db == 0
+        0
+    let rec = db.records[id]
+    (rec == 0 ? 0 : rec.residue)
+
+let db_delete(did, id) =
+        let db = db_table[did]
+        if db == 0
+            0
+
+        let rid = db.head
+        let prev = 0
+        for rid != 0 && rid != id
+            prev = rid
+            rid = db.records[rid].next
+        if rid == 0
+            0
+        if prev == 0
+            db.head = db.records[id].next
+        else
+            let __t1 = db.records[prev]
+            __t1.next = db.records[id].next
+        db.records[id] = 0
+        db.count = db.count - 1
+        1
+
+let db_update(did, id, new_residue) =
+    let db = db_table[did]
+    if db == 0
+        0
+    let rec = db.records[id]
+    if rec == 0
+        0
+    rec.residue = new_residue
+    1
+
+let db_query_range(did, z_start, z_end) =
+    let db = db_table[did]
+    if db == 0
+        0
+
+    let result = array_new(256)
+    let count = 0
+    let z = z_start
+    for z != z_end
+        result[count] = db_query_residue(did, z)
+        count = count + 1
+        z = db_add(z, 1)
+    [result, count]
+
+let db_query_derivative(did, z) =
+    let db = db_table[did]
+    if db == 0
+        0
+
+    let result = 0
+    let rid = db.head
+    for rid != 0
+        let rec = db.records[rid]
+        let diff = db_sub(z, rec.id)
+        if diff != 0
+            let diff2 = db_mul(diff, diff)
+            let term = db_mul(rec.residue, db_inv(diff2))
+            result = db_sub(result, term)
+        rid = rec.next
+    result
+
+let db_count_records(did) =
+    let db = db_table[did]
+    (db == 0 ? 0 : db.count)
+
+let db_close(did) =
+    db_table[did] = 0
+    db_count = db_count - 1
+
+let array_new(n) = arr_new_n(n)
+

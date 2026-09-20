@@ -1,0 +1,33 @@
+import "ck.ψ"
+let bad = [0]
+
+let fset = 194
+bad[0] = bad[0] + ck(fset, 170, 220)
+
+let nset = 500
+let ftot = nset * fset / 1000
+bad[0] = bad[0] + ck(ftot, 80, 120)
+
+let fsq = 3000 * fset / 1000
+bad[0] = bad[0] + ck(fsq, 500, 700)
+
+let ang = 30
+bad[0] = bad[0] + ck(ang, 25, 35)
+
+let dir = 1
+bad[0] = bad[0] + ck_lo(dir, 1)
+
+if 2000 < 1998
+    bad[0] = bad[0] + 1
+if 2000 > 2002
+    bad[0] = bad[0] + 1
+if 2002 < 2000
+    bad[0] = bad[0] + 1
+if 2002 > 2004
+    bad[0] = bad[0] + 1
+if 2008 < 2006
+    bad[0] = bad[0] + 1
+if 2008 > 2010
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

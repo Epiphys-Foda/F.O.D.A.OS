@@ -1,0 +1,43 @@
+import "ck.ψ"
+let bad = [0]
+
+let j10 = 10
+let g10u = 5
+let e2u = j10 * j10 - g10u * g10u
+bad[0] = bad[0] + ck(e2u, 1, 100)
+
+let g10b = 15
+let e2b = j10 * j10 - g10b * g10b
+bad[0] = bad[0] + ck_hi(e2b, 0)
+
+let g10ep = 10
+let e2ep = j10 * j10 - g10ep * g10ep
+bad[0] = bad[0] + ck(e2ep, 0, 0)
+
+let gain = 5
+let loss = 5
+let balance = gain - loss
+bad[0] = bad[0] + ck(balance, 0, 0)
+
+let s1 = 1
+let s2 = 10
+let ratio10 = s2 / s1
+bad[0] = bad[0] + ck(ratio10, 10, 10)
+
+let sq_check = s2 * s2 - 100
+bad[0] = bad[0] + ck(sq_check, 0, 0)
+
+if 1998 < 1996
+    bad[0] = bad[0] + 1
+if 1998 > 2000
+    bad[0] = bad[0] + 1
+if 2009 < 2007
+    bad[0] = bad[0] + 1
+if 2009 > 2011
+    bad[0] = bad[0] + 1
+if 2014 < 2012
+    bad[0] = bad[0] + 1
+if 2014 > 2016
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

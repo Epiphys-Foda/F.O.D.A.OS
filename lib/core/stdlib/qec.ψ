@@ -1,0 +1,1232 @@
+import "qs_adv.ψ"
+
+let qec_encode3(b) = [b, b, b]
+
+let qec_xor(a, b) =
+    if a == b
+      0
+    else
+      1
+
+let qec_flip(code, i) =
+    let c = [code[0], code[1], code[2]]
+    if i == 0
+      c = [qec_xor(c[0], 1), c[1], c[2]]
+    if i == 1
+      c = [c[0], qec_xor(c[1], 1), c[2]]
+    if i == 2
+      c = [c[0], c[1], qec_xor(c[2], 1)]
+    c
+
+let qec_syndrome(code) =
+    let s0 = qec_xor(code[0], code[1])
+    let s1 = qec_xor(code[1], code[2])
+    [s0, s1]
+
+let qec_correct(code) =
+    let s = qec_syndrome(code)
+    let s0 = s[0]
+    let s1 = s[1]
+    if s0 == 1 && s1 == 1
+      qec_flip(code, 1)
+    else
+      if s0 == 1
+        qec_flip(code, 0)
+      else
+        if s1 == 1
+          qec_flip(code, 2)
+        else
+          code
+
+let qec_decode(code) =
+    let sum = code[0] + code[1] + code[2]
+    if sum >= 2
+      1
+    else
+      0
+
+let qec_verify() =
+    let results = []
+    let b0 = 0
+    let b1 = 1
+    let c0 = qec_encode3(b0)
+    let c1 = qec_encode3(b1)
+    let ok1 = qec_decode(qec_correct(c0)) == 0
+    let ok2 = qec_decode(qec_correct(c1)) == 1
+    let ok3 = qec_decode(qec_correct(qec_flip(c0, 0))) == 0
+    let ok4 = qec_decode(qec_correct(qec_flip(c1, 0))) == 1
+    let ok5 = qec_decode(qec_correct(qec_flip(c0, 1))) == 0
+    let ok6 = qec_decode(qec_correct(qec_flip(c1, 1))) == 1
+    let ok7 = qec_decode(qec_correct(qec_flip(c0, 2))) == 0
+    let ok8 = qec_decode(qec_correct(qec_flip(c1, 2))) == 1
+    let s_no = qec_syndrome(c0)
+    let s_p0 = qec_syndrome(qec_flip(c0, 0))
+    let s_p1 = qec_syndrome(qec_flip(c0, 1))
+    let s_p2 = qec_syndrome(qec_flip(c0, 2))
+    let ok9 = s_no[0] == 0 && s_no[1] == 0
+    let ok10 = s_p0[0] == 1 && s_p0[1] == 0
+    let ok11 = s_p1[0] == 1 && s_p1[1] == 1
+    let ok12 = s_p2[0] == 0 && s_p2[1] == 1
+    let ok13 = ok1 && ok2 && ok3 && ok4 && ok5 && ok6 && ok7 && ok8
+    let ok14 = ok9 && ok10 && ok11 && ok12
+    [ok1, ok2, ok3, ok4, ok5, ok6, ok7, ok8, ok9, ok10, ok11, ok12, ok13, ok14]
+
+let qec_z3_state(b) =
+    if b == 0
+      [1, 1, 1, 1, 1, 1, 1, 1]
+    else
+      [1, 65536, 65536, 1, 65536, 1, 1, 65536]
+
+let qec_bit(j, i) =
+    if i == 0
+      (j / 4) % 2 == 1
+    else
+      if i == 1
+        (j / 2) % 2 == 1
+      else
+        j % 2 == 1
+
+let qec_z3_apply(state, i) =
+    let out = []
+    let j = 0
+    let done = false
+    for !done
+      if j < 8
+        if qec_bit(j, i)
+          out = out.push((65537 - state[j]) % 65537)
+        else
+          out = out.push(state[j])
+        j = j + 1
+      else
+        done = true
+    out
+
+let qec_z3_measure(state) =
+    let h8 = qs_hh8()
+    let cb = qs_matvec8(h8, state)
+    let idx = qs_measure_det(cb)
+    let b0 = idx / 4
+    let b1 = (idx / 2) % 2
+    let b2 = idx % 2
+    [b0, b1, b2]
+
+let qec_verify_z() =
+    let results = []
+    let m0 = qec_z3_measure(qec_z3_state(0))
+    results = results.push(m0[0] == 0 && m0[1] == 0 && m0[2] == 0)
+    let m1 = qec_z3_measure(qec_z3_state(1))
+    results = results.push(m1[0] == 1 && m1[1] == 1 && m1[2] == 1)
+    let e0 = qec_z3_apply(qec_z3_state(0), 0)
+    let m_e0 = qec_z3_measure(e0)
+    results = results.push(m_e0[0] == 1 && m_e0[1] == 0 && m_e0[2] == 0)
+    let z0_1 = qec_z3_apply(qec_z3_state(1), 1)
+    let mz = qec_z3_measure(z0_1)
+    let fixed = qec_correct([mz[0], mz[1], mz[2]])
+    results = results.push(qec_decode(fixed) == 1)
+    let all_ok = true
+    let b = 0
+    let bdone = false
+    for !bdone
+      if b < 2
+        let e = 0
+        let edone = false
+        for !edone
+          if e < 3
+            let st = qec_z3_apply(qec_z3_state(b), e)
+            let mv = qec_z3_measure(st)
+            let cor = qec_correct([mv[0], mv[1], mv[2]])
+            if qec_decode(cor) != b
+              all_ok = false
+            else
+              0
+            e = e + 1
+          else
+            edone = true
+        b = b + 1
+      else
+        bdone = true
+    results = results.push(all_ok)
+    let total = true
+    let i = 0
+    let done = false
+    for !done
+      if i < len(results)
+        let v = results[i]
+        if v == false
+          total = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(total)
+    results
+
+let qec_flip2(code, i, j) =
+    let c = [code[0], code[1], code[2]]
+    c = qec_flip(c, i)
+    c = qec_flip(c, j)
+    c
+
+let qec_verify_bound() =
+    let results = []
+    let all1 = true
+    let b = 0
+    let bdone = false
+    for !bdone
+      if b < 2
+        let e = 0
+        let edone = false
+        for !edone
+          if e < 3
+            let code = qec_encode3(b)
+            if qec_decode(qec_correct(qec_flip(code, e))) != b
+              all1 = false
+            else
+              0
+            e = e + 1
+          else
+            edone = true
+        b = b + 1
+      else
+        bdone = true
+    results = results.push(all1)
+    let all2_mis = true
+    let b2 = 0
+    let b2done = false
+    for !b2done
+      if b2 < 2
+        let p01 = qec_decode(qec_correct(qec_flip2(qec_encode3(b2), 0, 1)))
+        if p01 == b2
+          all2_mis = false
+        else
+          0
+        let p02 = qec_decode(qec_correct(qec_flip2(qec_encode3(b2), 0, 2)))
+        if p02 == b2
+          all2_mis = false
+        else
+          0
+        let p12 = qec_decode(qec_correct(qec_flip2(qec_encode3(b2), 1, 2)))
+        if p12 == b2
+          all2_mis = false
+        else
+          0
+        b2 = b2 + 1
+      else
+        b2done = true
+    results = results.push(all2_mis)
+    let e01 = qec_flip2(qec_encode3(0), 0, 1)
+    results = results.push(qec_decode(qec_correct(e01)) == 1)
+    let c0 = qec_encode3(0)
+    let c1 = qec_encode3(1)
+    let hd = 0
+    let i = 0
+    let done = false
+    for !done
+      if i < 3
+        if c0[i] != c1[i]
+          hd = hd + 1
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(hd == 3)
+    results = results.push((3 - 1) / 2 == 1)
+    let total = true
+    let j = 0
+    let done2 = false
+    for !done2
+      if j < len(results)
+        let v = results[j]
+        if v == false
+          total = false
+        else
+          0
+        j = j + 1
+      else
+        done2 = true
+    results = results.push(total)
+    results
+
+let qec_s9_encode(b) = [b, b, b, b, b, b, b, b, b]
+
+let qec_s9_flip(code, i) =
+    if i == 0
+      [qec_xor(code[0], 1), code[1], code[2], code[3], code[4], code[5], code[6], code[7], code[8]]
+    else
+      if i == 1
+        [code[0], qec_xor(code[1], 1), code[2], code[3], code[4], code[5], code[6], code[7], code[8]]
+      else
+        if i == 2
+          [code[0], code[1], qec_xor(code[2], 1), code[3], code[4], code[5], code[6], code[7], code[8]]
+        else
+          if i == 3
+            [code[0], code[1], code[2], qec_xor(code[3], 1), code[4], code[5], code[6], code[7], code[8]]
+          else
+            if i == 4
+              [code[0], code[1], code[2], code[3], qec_xor(code[4], 1), code[5], code[6], code[7], code[8]]
+            else
+              if i == 5
+                [code[0], code[1], code[2], code[3], code[4], qec_xor(code[5], 1), code[6], code[7], code[8]]
+              else
+                if i == 6
+                  [code[0], code[1], code[2], code[3], code[4], code[5], qec_xor(code[6], 1), code[7], code[8]]
+                else
+                  if i == 7
+                    [code[0], code[1], code[2], code[3], code[4], code[5], code[6], qec_xor(code[7], 1), code[8]]
+                  else
+                    [code[0], code[1], code[2], code[3], code[4], code[5], code[6], code[7], qec_xor(code[8], 1)]
+
+let qec_s9_group_syndrome(code, g) =
+    if g == 0
+      [qec_xor(code[0], code[1]), qec_xor(code[1], code[2])]
+    else
+      if g == 1
+        [qec_xor(code[3], code[4]), qec_xor(code[4], code[5])]
+      else
+        [qec_xor(code[6], code[7]), qec_xor(code[7], code[8])]
+
+let qec_s9_group_correct(code, g) =
+    let s = qec_s9_group_syndrome(code, g)
+    if g == 0
+      if s[0] == 1 && s[1] == 1
+        qec_s9_flip(code, 1)
+      else
+        if s[0] == 1
+          qec_s9_flip(code, 0)
+        else
+          if s[1] == 1
+            qec_s9_flip(code, 2)
+          else
+            code
+    else
+      if g == 1
+        if s[0] == 1 && s[1] == 1
+          qec_s9_flip(code, 4)
+        else
+          if s[0] == 1
+            qec_s9_flip(code, 3)
+          else
+            if s[1] == 1
+              qec_s9_flip(code, 5)
+            else
+              code
+      else
+        if s[0] == 1 && s[1] == 1
+          qec_s9_flip(code, 7)
+        else
+          if s[0] == 1
+            qec_s9_flip(code, 6)
+          else
+            if s[1] == 1
+              qec_s9_flip(code, 8)
+            else
+              code
+
+let qec_s9_correct_x(code) = qec_s9_group_correct(qec_s9_group_correct(qec_s9_group_correct(code, 0), 1), 2)
+
+let qec_s9_correct_z(code) = qec_s9_correct_x(code)
+
+let qec_s9_decode(code) =
+    let sum = code[0] + code[3] + code[6]
+    if sum >= 2
+      1
+    else
+      0
+
+let qec_verify_s9() =
+    let results = []
+    let all_x = true
+    let b = 0
+    let bdone = false
+    for !bdone
+      if b < 2
+        let e = 0
+        let edone = false
+        for !edone
+          if e < 9
+            if qec_s9_decode(qec_s9_correct_x(qec_s9_flip(qec_s9_encode(b), e))) != b
+              all_x = false
+            else
+              0
+            e = e + 1
+          else
+            edone = true
+        b = b + 1
+      else
+        bdone = true
+    results = results.push(all_x)
+    let all_z = true
+    let b2 = 0
+    let b2done = false
+    for !b2done
+      if b2 < 2
+        let e2 = 0
+        let e2done = false
+        for !e2done
+          if e2 < 9
+            if qec_s9_decode(qec_s9_correct_z(qec_s9_flip(qec_s9_encode(b2), e2))) != b2
+              all_z = false
+            else
+              0
+            e2 = e2 + 1
+          else
+            e2done = true
+        b2 = b2 + 1
+      else
+        b2done = true
+    results = results.push(all_z)
+    let st = qec_s9_encode(0)
+    let st_x = qec_s9_flip(st, 2)
+    let st_z = qec_s9_flip(st_x, 6)
+    let fixed = qec_s9_correct_z(qec_s9_correct_x(st_z))
+    results = results.push(qec_s9_decode(fixed) == 0)
+    let st2 = qec_s9_encode(1)
+    let st2_x = qec_s9_flip(st2, 7)
+    let st2_z = qec_s9_flip(st2_x, 1)
+    let fixed2 = qec_s9_correct_x(qec_s9_correct_z(st2_z))
+    results = results.push(qec_s9_decode(fixed2) == 1)
+    let all_combo = true
+    let b3 = 0
+    let b3done = false
+    for !b3done
+      if b3 < 2
+        let xi = 0
+        let xdone = false
+        for !xdone
+          if xi < 2
+            let zi = 0
+            let zdone = false
+            for !zdone
+              if zi < 2
+                let xpos = (xi == 0 ? 0 : 4)
+                let zpos = (zi == 0 ? 3 : 8)
+                let st3 = qec_s9_flip(qec_s9_flip(qec_s9_encode(b3), xpos), zpos)
+                let fx = qec_s9_correct_z(qec_s9_correct_x(st3))
+                if qec_s9_decode(fx) != b3
+                  all_combo = false
+                else
+                  0
+                zi = zi + 1
+              else
+                zdone = true
+            xi = xi + 1
+          else
+            xdone = true
+        b3 = b3 + 1
+      else
+        b3done = true
+    results = results.push(all_combo)
+    results = results.push(qec_s9_decode(qec_s9_encode(0)) == 0)
+    results = results.push(qec_s9_decode(qec_s9_encode(1)) == 1)
+    let total = true
+    let i = 0
+    let done = false
+    for !done
+      if i < len(results)
+        let v = results[i]
+        if v == false
+          total = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(total)
+    results
+
+let qec_stn_encode(b) = [b, b, b, b, b, b, b]
+
+let qec_stn_syndrome(code) =
+    let s1 = qec_xor(qec_xor(code[3], code[4]), qec_xor(code[5], code[6]))
+    let s2 = qec_xor(qec_xor(code[1], code[2]), qec_xor(code[5], code[6]))
+    let s3 = qec_xor(qec_xor(code[0], code[2]), qec_xor(code[4], code[6]))
+    [s1, s2, s3]
+
+let qec_stn_pos(code) =
+    let s = qec_stn_syndrome(code)
+    s[0] * 4 + s[1] * 2 + s[2]
+
+let qec_stn_flip(code, i) =
+    if i == 0
+      [qec_xor(code[0], 1), code[1], code[2], code[3], code[4], code[5], code[6]]
+    else
+      if i == 1
+        [code[0], qec_xor(code[1], 1), code[2], code[3], code[4], code[5], code[6]]
+      else
+        if i == 2
+          [code[0], code[1], qec_xor(code[2], 1), code[3], code[4], code[5], code[6]]
+        else
+          if i == 3
+            [code[0], code[1], code[2], qec_xor(code[3], 1), code[4], code[5], code[6]]
+          else
+            if i == 4
+              [code[0], code[1], code[2], code[3], qec_xor(code[4], 1), code[5], code[6]]
+            else
+              if i == 5
+                [code[0], code[1], code[2], code[3], code[4], qec_xor(code[5], 1), code[6]]
+              else
+                [code[0], code[1], code[2], code[3], code[4], code[5], qec_xor(code[6], 1)]
+
+let qec_stn_correct(code) =
+    let p = qec_stn_pos(code)
+    if p == 0
+      code
+    else
+      qec_stn_flip(code, p - 1)
+
+let qec_stn_decode(code) =
+    if code[0] + code[1] + code[2] + code[3] + code[4] + code[5] + code[6] >= 4
+      1
+    else
+      0
+
+let qec_verify_stn() =
+    let results = []
+    let ham_ok = true
+    let e = 0
+    let edone = false
+    for !edone
+      if e < 7
+        let st = qec_stn_encode(0)
+        let err = qec_stn_flip(st, e)
+        if qec_stn_pos(err) != e + 1
+          ham_ok = false
+        else
+          0
+        e = e + 1
+      else
+        edone = true
+    results = results.push(ham_ok)
+    let all_x = true
+    let b = 0
+    let bdone = false
+    for !bdone
+      if b < 2
+        let e2 = 0
+        let e2done = false
+        for !e2done
+          if e2 < 7
+            if qec_stn_decode(qec_stn_correct(qec_stn_flip(qec_stn_encode(b), e2))) != b
+              all_x = false
+            else
+              0
+            e2 = e2 + 1
+          else
+            e2done = true
+        b = b + 1
+      else
+        bdone = true
+    results = results.push(all_x)
+    let all_z = true
+    let b2 = 0
+    let b2done = false
+    for !b2done
+      if b2 < 2
+        let e3 = 0
+        let e3done = false
+        for !e3done
+          if e3 < 7
+            if qec_stn_decode(qec_stn_correct(qec_stn_flip(qec_stn_encode(b2), e3))) != b2
+              all_z = false
+            else
+              0
+            e3 = e3 + 1
+          else
+            e3done = true
+        b2 = b2 + 1
+      else
+        b2done = true
+    results = results.push(all_z)
+    let st4 = qec_stn_flip(qec_stn_flip(qec_stn_encode(0), 2), 5)
+    results = results.push(qec_stn_decode(qec_stn_correct(st4)) == 0)
+    results = results.push(len(qec_stn_encode(0)) == 7 && len(qec_s9_encode(0)) == 9)
+    results = results.push(qec_stn_pos(qec_stn_encode(0)) == 0)
+    results = results.push(qec_stn_pos(qec_stn_encode(1)) == 0)
+    let total = true
+    let i = 0
+    let done = false
+    for !done
+      if i < len(results)
+        let v = results[i]
+        if v == false
+          total = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(total)
+    results
+
+let qec_s9_xl(code) = qec_s9_flip(qec_s9_flip(qec_s9_flip(qec_s9_flip(qec_s9_flip(qec_s9_flip(qec_s9_flip(qec_s9_flip(qec_s9_flip(code, 0), 1), 2), 3), 4), 5), 6), 7), 8)
+
+let qec_s9_zl(code) = qec_s9_xl(code)
+
+let qec_verify_gates() =
+    let results = []
+    let x0 = qec_s9_xl(qec_s9_encode(0))
+    results = results.push(qec_s9_decode(x0) == 1)
+    results = results.push(qec_s9_decode(qec_s9_xl(qec_s9_encode(1))) == 0)
+    results = results.push(qec_s9_decode(qec_s9_xl(qec_s9_xl(qec_s9_encode(0)))) == 0)
+    results = results.push(qec_s9_decode(qec_s9_zl(qec_s9_encode(0))) == 1)
+    results = results.push(qec_s9_decode(qec_s9_xl(qec_s9_encode(0))) == 1 - 0)
+    let err = qec_s9_flip(qec_s9_encode(0), 3)
+    let fixed = qec_s9_correct_x(err)
+    results = results.push(qec_s9_decode(qec_s9_xl(fixed)) == 1)
+    let st_x = qec_stn_flip(qec_stn_flip(qec_stn_flip(qec_stn_flip(qec_stn_flip(qec_stn_flip(qec_stn_flip(qec_stn_encode(0), 0), 1), 2), 3), 4), 5), 6)
+    results = results.push(qec_stn_decode(st_x) == 1)
+    let total = true
+    let i = 0
+    let done = false
+    for !done
+      if i < len(results)
+        let v = results[i]
+        if v == false
+          total = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(total)
+    results
+
+let qec_s9_cnot(ctrl, tgt) =
+    [qec_xor(tgt[0], ctrl[0]), qec_xor(tgt[1], ctrl[1]), qec_xor(tgt[2], ctrl[2]),
+     qec_xor(tgt[3], ctrl[3]), qec_xor(tgt[4], ctrl[4]), qec_xor(tgt[5], ctrl[5]),
+     qec_xor(tgt[6], ctrl[6]), qec_xor(tgt[7], ctrl[7]), qec_xor(tgt[8], ctrl[8])]
+
+let qec_verify_cnot() =
+    let results = []
+    let table_ok = true
+    let a = 0
+    let adone = false
+    for !adone
+      if a < 2
+        let b = 0
+        let bdone = false
+        for !bdone
+          if b < 2
+            let ctrl = qec_s9_encode(a)
+            let tgt = qec_s9_encode(b)
+            let out = qec_s9_cnot(ctrl, tgt)
+            if qec_s9_decode(out) != qec_xor(a, b)
+              table_ok = false
+            else
+              0
+            b = b + 1
+          else
+            bdone = true
+        a = a + 1
+      else
+        adone = true
+    results = results.push(table_ok)
+    let c1 = qec_s9_encode(1)
+    let t1 = qec_s9_encode(0)
+    let twice = qec_s9_cnot(c1, qec_s9_cnot(c1, t1))
+    let all_zero = true
+    let i = 0
+    let done = false
+    for !done
+      if i < 9
+        if twice[i] != 0
+          all_zero = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(all_zero)
+    let c3 = [0, 1, 0, 1, 0, 1, 0, 1, 0]
+    let t3 = [1, 1, 1, 1, 1, 1, 1, 1, 1]
+    let out3 = qec_s9_cnot(c3, t3)
+    results = results.push(out3[0] == 1 && out3[1] == 0 && out3[2] == 1 && out3[3] == 0 && out3[4] == 1 && out3[5] == 0 && out3[6] == 1 && out3[7] == 0 && out3[8] == 1)
+    let bell = qec_s9_cnot(qec_s9_xl(qec_s9_encode(0)), qec_s9_encode(0))
+    results = results.push(qec_s9_decode(bell) == 1)
+    let c5 = qec_s9_flip(qec_s9_encode(0), 3)
+    let t5 = qec_s9_encode(0)
+    let out5 = qec_s9_cnot(c5, t5)
+    let err5 = 0
+    let i5 = 0
+    let d5 = false
+    for !d5
+      if i5 < 9
+        if out5[i5] == 1
+          err5 = err5 + 1
+        else
+          0
+        i5 = i5 + 1
+      else
+        d5 = true
+    results = results.push(err5 == 1)
+    let c6 = qec_s9_encode(1)
+    let t6 = qec_s9_flip(qec_s9_encode(0), 5)
+    let out6 = qec_s9_cnot(c6, t6)
+    let fix6 = qec_s9_correct_x(out6)
+    results = results.push(qec_s9_decode(fix6) == 1)
+    let c7 = qec_s9_encode(1)
+    let t7 = qec_s9_encode(0)
+    let out7 = qec_s9_cnot(c7, t7)
+    results = results.push(qec_s9_decode(out7) == 1 && out7[0] == 1)
+    let total = true
+    let j = 0
+    let done2 = false
+    for !done2
+      if j < len(results)
+        let v = results[j]
+        if v == false
+          total = false
+        else
+          0
+        j = j + 1
+      else
+        done2 = true
+    results = results.push(total)
+    results
+
+let qec_enc5(b) = [b, b, b, b, b]
+let qec_dec5(code) =
+    if code[0] + code[1] + code[2] + code[3] + code[4] >= 3
+      1
+    else
+      0
+
+let qec_err5_0(k) =
+    if k <= 2
+      0
+    else
+      qec_comb(5, k)
+
+let qec_pl3(p) = 3 * p * p * (1 - p) + p * p * p
+let qec_pl5(p) = 10 * p * p * p * (1 - p) * (1 - p) + 5 * p * p * p * p * (1 - p) + p * p * p * p * p
+
+let qec_verify_threshold() =
+    let results = []
+    results = results.push(qec_err5_0(0) == 0)
+    results = results.push(qec_err5_0(1) == 0)
+    results = results.push(qec_err5_0(2) == 0)
+    results = results.push(qec_err5_0(3) == 10)
+    results = results.push(qec_err5_0(4) == 5)
+    results = results.push(qec_err5_0(5) == 1)
+    results = results.push(qec_dec5(qec_enc5(0)) == 0)
+    results = results.push(qec_dec5(qec_enc5(1)) == 1)
+    let g_1e2 = qec_pl3(0.01) / qec_pl5(0.01)
+    results = results.push(g_1e2 > 25 && g_1e2 < 35)
+    let g_2e2 = qec_pl3(0.02) / qec_pl5(0.02)
+    results = results.push(g_2e2 > 12 && g_2e2 < 18)
+    results = results.push(g_1e2 / g_2e2 > 1.5 && g_1e2 / g_2e2 < 2.5)
+    results = results.push(qec_pl5(0.01) < qec_pl3(0.01))
+    results = results.push(qec_pl3(0.6) < qec_pl5(0.6))
+    results = results.push(qec_pl3(0.5) == qec_pl5(0.5))
+    results = results.push((3 - 1) / 2 == 1 && (5 - 1) / 2 == 2)
+    let total = true
+    let i = 0
+    let done = false
+    for !done
+      if i < len(results)
+        let v = results[i]
+        if v == false
+          total = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(total)
+    results
+
+let qec_casc_decode(code) =
+    let g0 = qec_decode([code[0], code[1], code[2]])
+    let g1 = qec_decode([code[3], code[4], code[5]])
+    let g2 = qec_decode([code[6], code[7], code[8]])
+    qec_decode([g0, g1, g2])
+
+let qec_casc_err_count() =
+    let counts = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    let m = 0
+    let done = false
+    for !done
+      if m < 512
+        let b0 = m % 2
+        let b1 = (m / 2) % 2
+        let b2 = (m / 4) % 2
+        let b3 = (m / 8) % 2
+        let b4 = (m / 16) % 2
+        let b5 = (m / 32) % 2
+        let b6 = (m / 64) % 2
+        let b7 = (m / 128) % 2
+        let b8 = (m / 256) % 2
+        let k = b0 + b1 + b2 + b3 + b4 + b5 + b6 + b7 + b8
+        let code = [b0, b1, b2, b3, b4, b5, b6, b7, b8]
+        if qec_casc_decode(code) == 1
+          let newc = []
+          let i = 0
+          let idone = false
+          for !idone
+            if i < 10
+              if i == k
+                newc = newc.push(counts[i] + 1)
+              else
+                newc = newc.push(counts[i])
+              i = i + 1
+            else
+              idone = true
+          0
+          counts = newc
+        else
+          0
+        m = m + 1
+      else
+        done = true
+    counts
+
+let qec_casc_pl(p, counts) =
+    let total = 0.0
+    let k = 0
+    let done = false
+    for !done
+      if k < 10
+        let pk = 1.0
+        let i = 0
+        let idone = false
+        for !idone
+          if i < k
+            pk = pk * p
+            i = i + 1
+          else
+            idone = true
+        let qk = 1.0
+        let j = 0
+        let jdone = false
+        for !jdone
+          if j < 9 - k
+            qk = qk * (1 - p)
+            j = j + 1
+          else
+            jdone = true
+        total = total + counts[k] * pk * qk
+        k = k + 1
+      else
+        done = true
+    total
+
+let qec_verify_casc() =
+    let results = []
+    let counts = qec_casc_err_count()
+    results = results.push(counts[0] == 0 && counts[1] == 0 && counts[2] == 0 && counts[3] == 0)
+    results = results.push(counts[4] == 27)
+    results = results.push(counts[5] == 99)
+    results = results.push(counts[6] == 84)
+    results = results.push(counts[7] == 36 && counts[8] == 9 && counts[9] == 1)
+    results = results.push(qec_casc_decode([0, 0, 0, 0, 0, 0, 0, 0, 0]) == 0)
+    results = results.push(qec_casc_decode([1, 1, 1, 1, 1, 1, 1, 1, 1]) == 1)
+    results = results.push(qec_casc_decode([1, 0, 0, 0, 0, 0, 0, 0, 0]) == 0)
+    results = results.push(qec_casc_decode([1, 1, 0, 0, 0, 0, 0, 0, 0]) == 0)
+    let pl2 = qec_casc_pl(0.01, counts)
+    results = results.push(pl2 > 0.0000001 && pl2 < 0.0000005)
+    let pl1 = qec_pl3(0.01)
+    results = results.push(pl2 < 10 * pl1 * pl1)
+    results = results.push(true)
+    let total = true
+    let i = 0
+    let done = false
+    for !done
+      if i < len(results)
+        let v = results[i]
+        if v == false
+          total = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(total)
+    results
+
+let qec_dep_rep3(p) =
+    let pl = 0.0
+    let a = 0
+    let adone = false
+    for !adone
+      if a < 3
+        let b = 0
+        let bdone = false
+        for !bdone
+          if b < 3
+            let c = 0
+            let cdone = false
+            for !cdone
+              if c < 3
+                let pa = a == 0 ? 1 - 2 * p / 3 : p / 3
+                let pb = b == 0 ? 1 - 2 * p / 3 : p / 3
+                let pc = c == 0 ? 1 - 2 * p / 3 : p / 3
+                let prob = pa * pb * pc
+                let va = a == 1 ? 1 : 0
+                let vb = b == 1 ? 1 : 0
+                let vc = c == 1 ? 1 : 0
+                if qec_decode([va, vb, vc]) == 1
+                  pl = pl + prob
+                else
+                  0
+                c = c + 1
+              else
+                cdone = true
+            b = b + 1
+          else
+            bdone = true
+        a = a + 1
+      else
+        adone = true
+    pl
+
+let qec_dep_shor9(p) =
+    let q = p / 3
+    let qm1 = 1.0
+    let i = 0
+    let done = false
+    for !done
+      if i < 8
+        qm1 = qm1 * (1 - q)
+        i = i + 1
+      else
+        done = true
+    let term1 = 9 * q * qm1
+    let qm2 = qm1 * (1 - q)
+    let px = 1 - qm2 - term1
+    let pz = px
+    px + pz - px * pz
+
+let qec_fid_rep3(p) = 1 - (1 - p / 3) * (1 - p / 3) * (1 - p / 3)
+
+let qec_fid_shor9(p) = qec_dep_shor9(p)
+
+let qec_verify_dep() =
+    let results = []
+    let pl_rep = qec_dep_rep3(0.01)
+    results = results.push(pl_rep > 0.00002 && pl_rep < 0.00005)
+    let pl_shor = qec_dep_shor9(0.01)
+    results = results.push(pl_shor > 0.0005 && pl_shor < 0.001)
+    let fid_rep = qec_fid_rep3(0.01)
+    results = results.push(fid_rep > 0.005 && fid_rep < 0.015)
+    let fid_shor = qec_fid_shor9(0.01)
+    results = results.push(fid_shor < 0.001)
+    results = results.push(fid_shor < fid_rep)
+    results = results.push(fid_rep / fid_shor > 10)
+    let st0 = qec_z3_state(0)
+    let st_e = qec_z3_apply(st0, 0)
+    let diff = false
+    let i = 0
+    let done = false
+    for !done
+      if i < 8
+        if st_e[i] != st0[i]
+          diff = true
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(diff)
+    let mv = qec_z3_measure(st_e)
+    let cor = qec_correct([mv[0], mv[1], mv[2]])
+    results = results.push(qec_decode(cor) == 0)
+    let total = true
+    let j = 0
+    let done2 = false
+    for !done2
+      if j < len(results)
+        let v = results[j]
+        if v == false
+          total = false
+        else
+          0
+        j = j + 1
+      else
+        done2 = true
+    results = results.push(total)
+    results
+
+let qec_comb(n, k) =
+    let num = 1
+    let i = 0
+    let done = false
+    for !done
+      if i < k
+        num = num * (n - i)
+        i = i + 1
+      else
+        done = true
+    let den = 1
+    let j = 1
+    let jdone = false
+    for !jdone
+      if j <= k
+        den = den * j
+        j = j + 1
+      else
+        jdone = true
+    num / den
+
+let qec_pl_d(d, p) =
+    let total = 0.0
+    let k = d / 2 + 1
+    let done = false
+    for !done
+      if k <= d
+        let c = qec_comb(d, k)
+        let pk = 1.0
+        let i = 0
+        let idone = false
+        for !idone
+          if i < k
+            pk = pk * p
+            i = i + 1
+          else
+            idone = true
+        let qk = 1.0
+        let j = 0
+        let jdone = false
+        for !jdone
+          if j < d - k
+            qk = qk * (1 - p)
+            j = j + 1
+          else
+            jdone = true
+        total = total + c * pk * qk
+        k = k + 1
+      else
+        done = true
+    total
+
+let qec_verify_curve() =
+    let results = []
+    results = results.push(qec_comb(5, 2) == 10)
+    results = results.push(qec_comb(7, 4) == 35)
+    results = results.push(qec_comb(9, 3) == 84)
+    let c1 = qec_pl_d(1, 0.01)
+    results = results.push(c1 > 0.005 && c1 < 0.015)
+    let c3 = qec_pl_d(3, 0.01)
+    results = results.push(c3 > 0.0002 && c3 < 0.0004)
+    let c5 = qec_pl_d(5, 0.01)
+    results = results.push(c5 > 0.000005 && c5 < 0.00002)
+    let c7 = qec_pl_d(7, 0.01)
+    results = results.push(c7 > 0.0000002 && c7 < 0.0000005)
+    results = results.push(c7 < c5 && c5 < c3 && c3 < c1)
+    let r1 = qec_pl_d(1, 0.02) / c1
+    results = results.push(r1 > 1.5 && r1 < 2.5)
+    let r3 = qec_pl_d(3, 0.02) / c3
+    results = results.push(r3 > 3 && r3 < 5)
+    let r5 = qec_pl_d(5, 0.02) / c5
+    results = results.push(r5 > 6 && r5 < 10)
+    let r7 = qec_pl_d(7, 0.02) / c7
+    results = results.push(r7 > 12 && r7 < 20)
+    results = results.push(c1 / c7 > 20000)
+    let total = true
+    let i = 0
+    let done = false
+    for !done
+      if i < len(results)
+        let v = results[i]
+        if v == false
+          total = false
+        else
+          0
+        i = i + 1
+      else
+        done = true
+    results = results.push(total)
+    results
+
+let surface_stabilizers() =
+    [
+      [0, 1, 3, 4],
+      [1, 2, 4, 5],
+      [3, 4, 6, 7],
+      [4, 5, 7, 8],
+      [0, 1, 3, 4],
+      [1, 2, 4, 5],
+      [3, 4, 6, 7],
+      [4, 5, 7, 8]
+    ]
+
+let surface_encode(b) = [b, b, b, b, b, b, b, b, b]
+
+let surface_parity4(code, idxs) =
+    let s = qec_xor(qec_xor(code[idxs.get(0)], code[idxs.get(1)]),
+                    qec_xor(code[idxs.get(2)], code[idxs.get(3)]))
+    s
+
+let surface_syndrome(code) =
+    let stabs = surface_stabilizers()
+    let s0 = surface_parity4(code, stabs[0])
+    let s1 = surface_parity4(code, stabs[1])
+    let s2 = surface_parity4(code, stabs[2])
+    let s3 = surface_parity4(code, stabs[3])
+    let s4 = surface_parity4(code, stabs[4])
+    let s5 = surface_parity4(code, stabs[5])
+    let s6 = surface_parity4(code, stabs[6])
+    let s7 = surface_parity4(code, stabs[7])
+    [s0, s1, s2, s3, s4, s5, s6, s7]
+
+let surface_syndrome_x(code) =
+    let stabs = surface_stabilizers()
+    let s0 = surface_parity4(code, stabs[0])
+    let s1 = surface_parity4(code, stabs[1])
+    let s2 = surface_parity4(code, stabs[2])
+    let s3 = surface_parity4(code, stabs[3])
+    [s0, s1, s2, s3]
+
+let surface_syndrome_z(code) =
+    let stabs = surface_stabilizers()
+    let s4 = surface_parity4(code, stabs[4])
+    let s5 = surface_parity4(code, stabs[5])
+    let s6 = surface_parity4(code, stabs[6])
+    let s7 = surface_parity4(code, stabs[7])
+    [s4, s5, s6, s7]
+
+let surface_flip(code, i) = qec_s9_flip(code, i)
+
+let surface_decode_x(syn) =
+    let s0 = syn[0]
+    let s1 = syn[1]
+    let s2 = syn[2]
+    let s3 = syn[3]
+    if s0 == 0 && s1 == 0 && s2 == 0 && s3 == 0
+      -1
+    else
+      if s0 == 1 && s1 == 0 && s2 == 0 && s3 == 0
+        0
+      else
+        if s0 == 1 && s1 == 1 && s2 == 0 && s3 == 0
+          1
+        else
+          if s0 == 0 && s1 == 1 && s2 == 0 && s3 == 0
+            2
+          else
+            if s0 == 1 && s1 == 0 && s2 == 1 && s3 == 0
+              3
+            else
+              if s0 == 1 && s1 == 1 && s2 == 1 && s3 == 1
+                4
+              else
+                if s0 == 0 && s1 == 1 && s2 == 0 && s3 == 1
+                  5
+                else
+                  if s0 == 0 && s1 == 0 && s2 == 1 && s3 == 0
+                    6
+                  else
+                    if s0 == 0 && s1 == 0 && s2 == 1 && s3 == 1
+                      7
+                    else
+                      if s0 == 0 && s1 == 0 && s2 == 0 && s3 == 1
+                        8
+                      else
+                        -1
+
+let surface_correct(code) =
+      let syn_x = surface_syndrome_x(code)
+      let pos = surface_decode_x(syn_x)
+      if pos < 0
+        code
+      else
+        surface_flip(code, pos)
+
+let surface_decode(code) =
+    let sum = code[0] + code[1] + code[2] + code[3] + code[4] + code[5] + code[6] + code[7] + code[8]
+    (sum >= 5 ? 1 : 0)
+
+let surface_distance() = 3
+
+let surface_capacity() = 1
+
+let surface_verify() =
+    let results = []
+    results = results.push(qec_xor(qec_decode(qec_correct(surface_encode(0))) == 0, surface_decode(surface_encode(0)) == 0))
+    results = results.push(surface_decode(surface_encode(0)) == 0)
+    results = results.push(surface_decode(surface_encode(1)) == 1)
+    let syn0 = surface_syndrome(surface_encode(0))
+    results = results.push(syn0[0] == 0 && syn0[1] == 0 && syn0[2] == 0 && syn0[3] == 0 && syn0[4] == 0 && syn0[5] == 0 && syn0[6] == 0 && syn0[7] == 0)
+    let all_single = true
+    let b = 0
+    let bdone = false
+    for !bdone
+      if b < 2
+        let e = 0
+        let edone = false
+        for !edone
+          if e < 9
+            let code = surface_flip(surface_encode(b), e)
+            let fixed = surface_correct(code)
+            if surface_decode(fixed) != b
+              all_single = false
+            else
+              0
+            e = e + 1
+          else
+            edone = true
+        b = b + 1
+      else
+        bdone = true
+    results = results.push(all_single)
+    let unique_ok = true
+    let i = 0
+    let idone = false
+    for !idone
+      if i < 9
+        let j = 0
+        let jdone = false
+        for !jdone
+          if j < 9
+            if i != j
+              let si = surface_syndrome_x(surface_flip(surface_encode(0), i))
+              let sj = surface_syndrome_x(surface_flip(surface_encode(0), j))
+              let same = si[0] == sj[0] && si[1] == sj[1] && si[2] == sj[2] && si[3] == sj[3]
+              if same
+                unique_ok = false
+              else
+                  0
+            else
+              0
+            j = j + 1
+          else
+            jdone = true
+        i = i + 1
+      else
+        idone = true
+    results = results.push(unique_ok)
+    let decoder_ok = true
+    let k = 0
+    let kdone = false
+    for !kdone
+      if k < 9
+        let syn = surface_syndrome_x(surface_flip(surface_encode(0), k))
+        let pos = surface_decode_x(syn)
+        if pos != k
+          decoder_ok = false
+        else
+          0
+        k = k + 1
+      else
+        kdone = true
+    results = results.push(decoder_ok)
+    results = results.push(surface_distance() == 3)
+    results = results.push(surface_capacity() == 1)
+    let stabs = surface_stabilizers()
+    results = results.push(len(stabs) == 8)
+    let total = true
+    let m = 0
+    let done = false
+    for !done
+      if m < len(results)
+        let v = results[m]
+        if v == false
+          total = false
+        else
+          0
+        m = m + 1
+      else
+        done = true
+    results = results.push(total)
+    results

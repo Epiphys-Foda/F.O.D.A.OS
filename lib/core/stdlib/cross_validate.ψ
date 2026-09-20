@@ -1,0 +1,57 @@
+let cross_validate() =
+    let la = la_run_all_tests()
+    let mi = mi_run_all_tests()
+    let la_pass = la[0]
+    let la_fail = la[1]
+    let mi_pass = mi[0]
+    let mi_fail = mi[1]
+    let la_results = la[2]
+    let mi_results = mi[2]
+    let cross_pass = 0
+    let cross_fail = 0
+    let cross_details = []
+    let i = 0
+    for i < len(la_results)
+      let name = la_results[i][0]
+      let la_got = la_results[i][1]
+      let want = la_results[i][2]
+      let mi_got = mi_results[i][1]
+      let la_ok = (la_got == want)
+      let mi_ok = (mi_got == want)
+      let cross_ok = (la_got == mi_got)
+      if la_ok && mi_ok && cross_ok
+        cross_pass = cross_pass + 1
+      else
+        cross_fail = cross_fail + 1
+      cross_details = cross_details.push([name, la_got, mi_got, want, la_ok, mi_ok, cross_ok])
+      i = i + 1
+    [la_pass, la_fail, mi_pass, mi_fail, cross_pass, cross_fail, cross_details]
+
+let cross_validate_all() =
+    let la = la_run_all_tests()
+    let mi = mi_run_all_tests()
+    let pp = pp_run_all_tests()
+    let sp = sp_run_all_tests()
+    let bp = bp_run_all_tests()
+    let sz = sz_run_all_tests()
+    let av = av_run_all_tests()
+    let xt = xt_run_all_tests()
+    let rv = rv_run_all_tests()
+    let pt = pt_run_all_tests()
+    let df = df_run_all_tests()
+    let backends = [["LA64", la], ["MIPS", mi], ["PPC64", pp], ["SPARC", sp], ["eBPF", bp], ["s390x", sz], ["AVR", av], ["Xtensa", xt], ["RVV", rv], ["PTX", pt], ["Dataflow", df]]
+    let total_pass = 0
+    let total_fail = 0
+    let all_details = []
+    let bi = 0
+    for bi < len(backends)
+      let name = backends[bi][0]
+      let r = backends[bi][1]
+      let p = r[0]
+      let f = r[1]
+      total_pass = total_pass + p
+      total_fail = total_fail + f
+      all_details = all_details.push([name, p, f])
+      bi = bi + 1
+    [total_pass, total_fail, all_details]
+

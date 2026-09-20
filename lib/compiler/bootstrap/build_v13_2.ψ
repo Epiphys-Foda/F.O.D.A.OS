@@ -1,0 +1,414 @@
+let qof_node_gfmul(b) =
+    { op: 1, args: [b], name: "GFMUL" }
+let qof_node_clifford(b) =
+    { op: 2, args: [b], name: "CLIFFORD" }
+let qof_node_ntt(b) =
+    { op: 3, args: [b], name: "NTT" }
+let qof_node_born(then_v) =
+    { op: 4, args: [then_v], name: "BORN" }
+let qof_node_hebbian(delta) =
+    { op: 5, args: [delta], name: "HEBBIAN" }
+
+let qof_eval_node(node, input) =
+    let op = node.op
+    let args = node.args
+    if op == 1
+      let b = args[0]
+      let prod = input * b
+      let abs_prod = (prod < 0 ? 0 - prod : prod)
+      abs_prod - (abs_prod / 65537) * 65537
+    else
+      if op == 2
+        let b = args[0]
+        bit_and(bit_xor(input, b), bit_or(input, b))
+      else
+        if op == 3
+          let b = args[0]
+          bit_or(input + b, input - b)
+        else
+          if op == 4
+            let then_v = args[0]
+            (input != 0 ? then_v : 0)
+          else
+                0
+            if op == 5
+              let delta = args[0]
+              input + delta
+            else
+              0
+
+let qof_chain_impl(seed, nodes, idx) =
+    if idx < len(nodes)
+      let node = nodes[idx]
+      let next_val = qof_eval_node(node, seed)
+      qof_chain_impl(next_val, nodes, idx + 1)
+    else
+      seed
+
+let qof_chain(seed, nodes) = qof_chain_impl(seed, nodes, 0)
+
+let qof_par_impl(seed, nodes, idx, acc) =
+    if idx < len(nodes)
+      let node = nodes[idx]
+      let out = qof_eval_node(node, seed)
+      qof_par_impl(seed, nodes, idx + 1, acc.push(out))
+    else
+      acc
+
+let qof_par(seed, nodes) = qof_par_impl(seed, nodes, 0, [])
+
+let qof_run(seed, nodes) = qof_chain(seed, nodes)
+
+let qof_to_qqbc_impl_after(nodes, idx, acc) =
+    if idx < len(nodes)
+      let node = nodes[idx]
+      let op = node.op
+      let args = node.args
+      let s1 = acc.push(16)
+      let new_acc = s1.push(args[0])
+      let new_acc2 = new_acc.push(op)
+      qof_to_qqbc_impl_after(nodes, idx + 1, new_acc2)
+    else
+      let e1 = acc.push(17)
+      e1.push(255)
+
+let qof_to_qqbc_impl(seed, nodes, idx, acc) =
+    if idx < len(nodes)
+      let node = nodes[idx]
+      let op = node.op
+      let args = node.args
+      let s1 = acc.push(16)
+      let new_acc = s1.push(seed)
+      let s2 = new_acc.push(16)
+      let new_acc2 = s2.push(args[0])
+      let new_acc3 = new_acc2.push(op)
+      qof_to_qqbc_impl_after(nodes, idx + 1, new_acc3)
+    else
+      let e1 = acc.push(17)
+      e1.push(255)
+
+let qof_to_qqbc(seed, nodes) = qof_to_qqbc_impl(seed, nodes, 0, [])
+
+let qof_op_to_micro(op) =
+    if op == 1
+        10
+    else
+      if op == 2
+          22
+      else
+        if op == 3
+            30
+        else
+          if op == 4
+              40
+          else
+            if op == 5
+                50
+            else
+                0
+
+let qof_to_micro_impl(nodes, idx, acc) =
+    if idx < len(nodes)
+      let node = nodes[idx]
+      let micro_op = qof_op_to_micro(node.op)
+      let new_acc = acc.push(micro_op)
+      qof_to_micro_impl(nodes, idx + 1, new_acc)
+    else
+      acc
+
+let qof_to_micro(nodes) = qof_to_micro_impl(nodes, 0, [])
+
+let qof_op_to_pe(op) =
+    if op == 1
+        1
+    else
+      if op == 2
+          1
+      else
+        if op == 3
+            3
+        else
+          if op == 4
+              6
+          else
+            if op == 5
+                6
+            else
+                0
+
+let qof_to_pe_impl(nodes, idx, acc) =
+    if idx < len(nodes)
+      let node = nodes[idx]
+      let pe_type = qof_op_to_pe(node.op)
+      let new_acc = acc.push(pe_type)
+      qof_to_pe_impl(nodes, idx + 1, new_acc)
+    else
+      acc
+
+let qof_to_pe(nodes) = qof_to_pe_impl(nodes, 0, [])
+
+let qof_demo() =
+    let seed = 10
+    let nodes = [
+      qof_node_gfmul(3),
+      qof_node_clifford(5),
+      qof_node_ntt(2),
+      qof_node_born(100),
+      qof_node_hebbian(7)
+    ]
+    let result = qof_run(seed, nodes)
+    { seed: seed, result: result, node_count: len(nodes) }
+
+let qof_summary(seed, nodes) =
+    let result = qof_run(seed, nodes)
+    let qqbc = qof_to_qqbc(seed, nodes)
+    let micro = qof_to_micro(nodes)
+    let pe = qof_to_pe(nodes)
+    { seed: seed, result: result, qqbc: qqbc, micro: micro, pe: pe }
+
+let algebra_gf_mul(a, b) =
+    let prod = a * b
+    let abs_prod = (prod < 0 ? 0 - prod : prod)
+    abs_prod - (abs_prod / 65537) * 65537
+
+let rule_gf_identity(node) =
+    if node.op == 1
+      let b = node.args[0]
+      if b == 1
+          { simplified: true, drop: true, replacement: null }
+      else
+          { simplified: false, drop: false, replacement: null }
+    else
+      { simplified: false, drop: false, replacement: null }
+
+let rule_gf_zero(node) =
+    if node.op == 1
+      let b = node.args[0]
+      if b == 0
+          { simplified: true, drop: false, replacement: { op: 0, args: [0], name: "ZERO" } }
+      else
+          { simplified: false, drop: false, replacement: null }
+    else
+      { simplified: false, drop: false, replacement: null }
+
+let rule_gf_associativity(nodes, idx) =
+    if idx + 1 < len(nodes)
+      let n1 = nodes[idx]
+      let n2 = nodes[idx + 1]
+      if n1.op == 1 && n2.op == 1
+        let a = n1.args[0]
+        let b = n2.args[0]
+        let combined = algebra_gf_mul(a, b)
+        { matched: true, replacement: { op: 1, args: [combined], name: "GFMUL" }, skip_next: true }
+      else
+        { matched: false, replacement: null, skip_next: false }
+    else
+      { matched: false, replacement: null, skip_next: false }
+
+let rule_clifford_self_annihilate(nodes, idx) =
+    { matched: false, replacement: null, skip_next: false }
+
+let rule_ntt_identity(node) =
+    if node.op == 3
+      let b = node.args[0]
+      if b == 0
+          { simplified: true, drop: true, replacement: null }
+      else
+          { simplified: false, drop: false, replacement: null }
+    else
+      { simplified: false, drop: false, replacement: null }
+
+let rule_born_zero_arg(node) =
+    if node.op == 4
+      let then_v = node.args[0]
+      if then_v == 0
+          { simplified: true, drop: false, replacement: { op: 0, args: [0], name: "ZERO" } }
+      else
+          { simplified: false, drop: false, replacement: null }
+    else
+      { simplified: false, drop: false, replacement: null }
+
+let rule_hebbian_identity(node) =
+    if node.op == 5
+      let delta = node.args[0]
+      if delta == 0
+          { simplified: true, drop: true, replacement: null }
+      else
+          { simplified: false, drop: false, replacement: null }
+    else
+      { simplified: false, drop: false, replacement: null }
+
+let rule_hebbian_associativity(nodes, idx) =
+    if idx + 1 < len(nodes)
+      let n1 = nodes[idx]
+      let n2 = nodes[idx + 1]
+      if n1.op == 5 && n2.op == 5
+        let d1 = n1.args[0]
+        let d2 = n2.args[0]
+        { matched: true, replacement: { op: 5, args: [d1 + d2], name: "HEBBIAN" }, skip_next: true }
+      else
+        { matched: false, replacement: null, skip_next: false }
+    else
+      { matched: false, replacement: null, skip_next: false }
+
+let apply_single_node_rules(node) =
+    let r1 = rule_gf_identity(node)
+    if r1.simplified
+      r1
+    else
+      let r2 = rule_gf_zero(node)
+      if r2.simplified
+        r2
+      else
+        let r3 = rule_ntt_identity(node)
+        if r3.simplified
+          r3
+        else
+          let r4 = rule_born_zero_arg(node)
+          if r4.simplified
+            r4
+          else
+            let r5 = rule_hebbian_identity(node)
+            if r5.simplified
+              r5
+            else
+              { simplified: false, drop: false, replacement: null }
+
+let apply_pair_rules(nodes, idx) =
+    let r1 = rule_gf_associativity(nodes, idx)
+    if r1.matched
+      r1
+    else
+      let r2 = rule_hebbian_associativity(nodes, idx)
+      if r2.matched
+        r2
+      else
+        rule_clifford_self_annihilate(nodes, idx)
+
+let pass_algebra_simplify_ext(nodes) =
+    let out = []
+    let i = 0
+    let n = len(nodes)
+    let done = false
+    for !done
+      if i < n
+        let pair_r = apply_pair_rules(nodes, i)
+        if pair_r.matched
+          out = out.push(pair_r.replacement)
+          if pair_r.skip_next
+            i = i + 2
+          else
+            i = i + 1
+        else
+          let node = nodes[i]
+          let single_r = apply_single_node_rules(node)
+          if single_r.simplified
+            if single_r.drop
+              i = i + 1
+            else
+              out = out.push(single_r.replacement)
+              i = i + 1
+          else
+            out = out.push(node)
+            i = i + 1
+      else
+        done = true
+    out
+
+let algebra_rule_count() = 7
+
+let chain_gfmul    = qof_chain(10, [qof_node_gfmul(3)])
+let chain_clifford = qof_chain(3,  [qof_node_clifford(5)])
+let chain_ntt      = qof_chain(8,  [qof_node_ntt(3)])
+let chain_born     = qof_chain(1,  [qof_node_born(7)])
+let chain_hebbian  = qof_chain(2,  [qof_node_hebbian(3)])
+
+let a1 = chain_gfmul == 30
+let a2 = chain_clifford == 6
+let a3 = chain_ntt == 15
+let a4 = chain_born == 7
+let a5 = chain_hebbian == 5
+
+let multi_gfmul = qof_chain(10, [qof_node_gfmul(3), qof_node_gfmul(2)])
+let multi_mixed = qof_chain(10, [qof_node_gfmul(3), qof_node_clifford(5), qof_node_hebbian(7)])
+let multi_born_hebb = qof_chain(5, [qof_node_born(100), qof_node_hebbian(0 - 3)])
+
+let b1 = multi_gfmul == 60
+let b2 = multi_mixed == 34
+let b3 = multi_born_hebb == 97
+
+let par_gfmul = qof_par(10, [qof_node_gfmul(3), qof_node_gfmul(2)])
+let par_mixed = qof_par(10, [qof_node_gfmul(3), qof_node_clifford(5)])
+
+let c1 = par_gfmul == [30, 20]
+let c2 = par_mixed == [30, 15]
+
+let proj_qqbc = qof_to_qqbc(10, [qof_node_gfmul(3)])
+let proj_micro = qof_to_micro([qof_node_gfmul(3)])
+let proj_pe = qof_to_pe([qof_node_gfmul(3)])
+
+let d1 = proj_qqbc == [16, 10, 16, 3, 1, 17, 255]
+let d2 = proj_micro == [10]
+let d3 = proj_pe == [1]
+
+let simp_gf_identity = pass_algebra_simplify_ext([qof_node_gfmul(1)])
+let e1 = len(simp_gf_identity) == 0
+
+let simp_gf_zero = pass_algebra_simplify_ext([qof_node_gfmul(0)])
+let e2 = len(simp_gf_zero) == 1 && simp_gf_zero[0].op == 0 && simp_gf_zero[0].args[0] == 0
+
+let simp_gf_assoc = pass_algebra_simplify_ext([qof_node_gfmul(3), qof_node_gfmul(2)])
+let e3 = len(simp_gf_assoc) == 1 && simp_gf_assoc[0].op == 1 && simp_gf_assoc[0].args[0] == 6
+
+let simp_ntt_id = pass_algebra_simplify_ext([qof_node_ntt(0)])
+let e4 = len(simp_ntt_id) == 0
+
+let simp_born_zero = pass_algebra_simplify_ext([qof_node_born(0)])
+let e5 = len(simp_born_zero) == 1 && simp_born_zero[0].op == 0 && simp_born_zero[0].args[0] == 0
+
+let simp_hebbian_zero = pass_algebra_simplify_ext([qof_node_hebbian(0)])
+let e6 = len(simp_hebbian_zero) == 0
+
+let simp_hebbian_assoc = pass_algebra_simplify_ext([qof_node_hebbian(3), qof_node_hebbian(5)])
+let e7 = len(simp_hebbian_assoc) == 1 && simp_hebbian_assoc[0].op == 5 && simp_hebbian_assoc[0].args[0] == 8
+
+let f1 = chain_gfmul == 30
+let f2 = chain_clifford == 6
+let f3 = chain_ntt == 15
+let f4 = chain_born == 7
+let f5 = chain_hebbian == 5
+
+let f6 = proj_qqbc == [16, 10, 16, 3, 1, 17, 255]
+let f7 = proj_micro == [10]
+let f8 = proj_pe == [1]
+
+let f9 = qof_chain(10, [qof_node_gfmul(3), qof_node_gfmul(2)]) == qof_chain(10, [qof_node_gfmul(6)])
+let f10 = qof_chain(5, [qof_node_gfmul(1)]) == 5
+
+let f11 = qof_run(10, [qof_node_gfmul(3)]) == qof_chain(10, [qof_node_gfmul(3)])
+
+let f12 = algebra_rule_count() == 7
+
+let f13 = qof_demo().result == 107
+
+let f14 = qof_summary(10, [qof_node_gfmul(3)]).result == 30
+
+print([a1, a2, a3, a4, a5])
+
+print([b1, b2, b3])
+
+print([c1, c2])
+
+print([d1, d2, d3])
+
+print([e1, e2, e3, e4, e5, e6, e7])
+
+print([f1, f2, f3, f4, f5])
+
+print([f6, f7, f8])
+
+print([f9, f10])
+
+print([f11, f12, f13, f14])
+
+print([1])

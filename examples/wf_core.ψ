@@ -1,0 +1,12 @@
+import "../lib/core/stdlib_lang2/bm_canon.ψ"
+import "../lib/core/stdlib_lang2/gx_045b40ecf0.ψ"
+import "../lib/physics/sh_bffc56f968.ψ"
+import "../lib/physics/wf_brain.ψ"
+import "../lib/physics/wf_seekfam.ψ"
+
+let KP_T = [1, 1, 3, 2, 3, 4, 1, 2]
+
+let KQ_T = [2, 1, 2, 1, 1, 1, 1, 1]
+
+let KS_T = [0, 0, 0, 0, 0, 0, 1, 1]
+

@@ -1,0 +1,304 @@
+import "gf65537.ψ"
+import "arr.ψ"
+
+let mat_new(rows, cols) =
+    let m = arr_new_n(rows)
+    _mat_init_rows(m, 0, rows, cols)
+let _mat_init_rows(m, i, rows, cols) =
+    if i >= rows
+        m
+    arr_set(m, i, arr_new_n(cols))
+    _mat_init_rows(m, i + 1, rows, cols)
+
+let mat_get(m, i, j) = arr_get(arr_get(m, i), j)
+
+let mat_set(m, i, j, v) =
+    let row = arr_get(m, i)
+    arr_set(row, j, v)
+    arr_set(m, i, row)
+
+let mat_rows(m) = arr_len(m)
+
+let mat_cols(m) = arr_len(arr_get(m, 0))
+
+let _mat_copy_rows(src, dst, i, rows, cols) =
+    if i >= rows
+        dst
+    let row = arr_get(src, i)
+    let new_row = arr_new_n(cols)
+    _mat_copy_cols(row, new_row, 0, cols)
+    arr_set(dst, i, new_row)
+    _mat_copy_rows(src, dst, i + 1, rows, cols)
+let _mat_copy_cols(src_row, dst_row, j, cols) =
+    if j >= cols
+        dst_row
+    arr_set(dst_row, j, arr_get(src_row, j))
+    _mat_copy_cols(src_row, dst_row, j + 1, cols)
+let mat_copy(m) =
+    let r = mat_rows(m)
+    let c = mat_cols(m)
+    let dst = mat_new(r, c)
+    _mat_copy_rows(m, dst, 0, r, c)
+
+let _mat_add_rows(A, B, C, i, rows, cols) =
+    if i >= rows
+        C
+    _mat_add_cols(A, B, C, i, 0, cols)
+    _mat_add_rows(A, B, C, i + 1, rows, cols)
+let _mat_add_cols(A, B, C, i, j, cols) =
+    if j >= cols
+        0
+    let sum = gf_add(mat_get(A, i, j), mat_get(B, i, j))
+    mat_set(C, i, j, sum)
+    _mat_add_cols(A, B, C, i, j + 1, cols)
+let mat_add(A, B) =
+    let r = mat_rows(A)
+    let c = mat_cols(A)
+    let C = mat_new(r, c)
+    _mat_add_rows(A, B, C, 0, r, c)
+
+let _mat_sub_rows(A, B, C, i, rows, cols) =
+    if i >= rows
+        C
+    _mat_sub_cols(A, B, C, i, 0, cols)
+    _mat_sub_rows(A, B, C, i + 1, rows, cols)
+let _mat_sub_cols(A, B, C, i, j, cols) =
+    if j >= cols
+        0
+    let diff = gf_sub(mat_get(A, i, j), mat_get(B, i, j))
+    mat_set(C, i, j, diff)
+    _mat_sub_cols(A, B, C, i, j + 1, cols)
+let mat_sub(A, B) =
+    let r = mat_rows(A)
+    let c = mat_cols(A)
+    let C = mat_new(r, c)
+    _mat_sub_rows(A, B, C, 0, r, c)
+
+let _mat_mul_row(A, B, C, i, n, p, j) =
+    if j >= p
+        0
+    let sum = _mat_mul_dot(A, B, i, j, 0, n)
+    mat_set(C, i, j, sum)
+    _mat_mul_row(A, B, C, i, n, p, j + 1)
+let _mat_mul_dot(A, B, i, j, k, n) =
+    if k >= n
+        0
+    let prod = gf_mul(mat_get(A, i, k), mat_get(B, k, j))
+    gf_add(_mat_mul_dot(A, B, i, j, k + 1, n), prod)
+let _mat_mul_rows(A, B, C, i, m, n, p) =
+    if i >= m
+        C
+    _mat_mul_row(A, B, C, i, n, p, 0)
+    _mat_mul_rows(A, B, C, i + 1, m, n, p)
+let mat_mul(A, B) =
+    let m = mat_rows(A)
+    let n = mat_cols(A)
+    let p = mat_cols(B)
+    let C = mat_new(m, p)
+    _mat_mul_rows(A, B, C, 0, m, n, p)
+
+let _mat_sm_rows(s, M, R, i, rows, cols) =
+    if i >= rows
+        R
+    _mat_sm_cols(s, M, R, i, 0, cols)
+    _mat_sm_rows(s, M, R, i + 1, rows, cols)
+let _mat_sm_cols(s, M, R, i, j, cols) =
+    if j >= cols
+        0
+    mat_set(R, i, j, gf_mul(s, mat_get(M, i, j)))
+    _mat_sm_cols(s, M, R, i, j + 1, cols)
+let mat_scalar_mul(s, M) =
+    let r = mat_rows(M)
+    let c = mat_cols(M)
+    let R = mat_new(r, c)
+    _mat_sm_rows(s, M, R, 0, r, c)
+
+let _mat_id_rows(I, i, n) =
+    if i >= n
+        I
+    _mat_id_cols(I, i, 0, n)
+    _mat_id_rows(I, i + 1, n)
+let _mat_id_cols(I, i, j, n) =
+    if j >= n
+        0
+    mat_set(I, i, j, ((i == j) ? (1) : (0)))
+    _mat_id_cols(I, i, j + 1, n)
+let mat_identity(n) =
+    let I = mat_new(n, n)
+    _mat_id_rows(I, 0, n)
+
+let _mat_t_rows(M, T, i, rows, cols) =
+    if i >= rows
+        T
+    _mat_t_cols(M, T, i, 0, cols)
+    _mat_t_rows(M, T, i + 1, rows, cols)
+let _mat_t_cols(M, T, i, j, cols) =
+    if j >= cols
+        0
+    mat_set(T, j, i, mat_get(M, i, j))
+    _mat_t_cols(M, T, i, j + 1, cols)
+let mat_transpose(M) =
+    let r = mat_rows(M)
+    let c = mat_cols(M)
+    let T = mat_new(c, r)
+    _mat_t_rows(M, T, 0, r, c)
+
+let _mat_det_gauss(M, n, i, det) =
+    if i >= n
+        det
+    let pivot_row = _mat_find_pivot(M, i, i, n)
+    if pivot_row < 0
+      0
+    let sign = ((pivot_row != i) ? (gf_neg(1)) : (1))
+    if pivot_row != i
+      _mat_swap_rows(M, i, pivot_row, 0, n)
+    let pivot = mat_get(M, i, i)
+    _mat_eliminate(M, i, i + 1, n, n, pivot)
+    _mat_det_gauss(M, n, i + 1, gf_mul(gf_mul(det, sign), pivot))
+
+let _mat_find_pivot(M, col, start, n) =
+    if start >= n
+        0 - 1
+    if mat_get(M, start, col) != 0
+        start
+    _mat_find_pivot(M, col, start + 1, n)
+
+let _mat_swap_rows(M, i, j, k, n) =
+    if k >= n
+        0
+    let tmp = mat_get(M, i, k)
+    mat_set(M, i, k, mat_get(M, j, k))
+    mat_set(M, j, k, tmp)
+    _mat_swap_rows(M, i, j, k + 1, n)
+
+let _mat_eliminate(M, pivot_row, start, end, n, pivot) =
+    if start >= end
+        0
+    let factor = gf_div(mat_get(M, start, pivot_row), pivot)
+    _mat_elim_row(M, pivot_row, start, factor, 0, n)
+    _mat_eliminate(M, pivot_row, start + 1, end, n, pivot)
+let _mat_elim_row(M, pivot_row, target_row, factor, k, n) =
+    if k >= n
+        0
+    let val = gf_sub(mat_get(M, target_row, k), gf_mul(factor, mat_get(M, pivot_row, k)))
+    mat_set(M, target_row, k, val)
+    _mat_elim_row(M, pivot_row, target_row, factor, k + 1, n)
+
+let mat_det(M) =
+    let n = mat_rows(M)
+    let Mc = mat_copy(M)
+    _mat_det_gauss(Mc, n, 0, 1)
+
+let _mat_minor_build(M, sub, row, col, i, j, n, si, sj) =
+      if i >= n
+          sub
+      if i == row
+        _mat_minor_build(M, sub, row, col, i + 1, 0, n, si, sj)
+      else
+        let new_j = _mat_minor_copy_row(M, sub, row, col, i, j, n, si, sj)
+        _mat_minor_build(M, sub, row, col, i + 1, 0, n, si + 1, 0)
+let _mat_minor_copy_row(M, sub, row, col, i, j, n, si, sj) =
+      if j >= n
+          sj
+      if j == col
+        _mat_minor_copy_row(M, sub, row, col, i, j + 1, n, si, sj)
+      else
+        let sub_row = arr_get(sub, si)
+        arr_set(sub_row, sj, mat_get(M, i, j))
+        arr_set(sub, si, sub_row)
+        _mat_minor_copy_row(M, sub, row, col, i, j + 1, n, si, sj + 1)
+let mat_minor(M, row, col) =
+    let n = mat_rows(M)
+    let sub = mat_new(n - 1, n - 1)
+    _mat_minor_build(M, sub, row, col, 0, 0, n, 0, 0)
+    mat_det(sub)
+
+let _mat_inv_adj(M, inv, i, n, det_inv) =
+    if i >= n
+        inv
+    _mat_inv_adj_cols(M, inv, i, 0, n, det_inv)
+    _mat_inv_adj(M, inv, i + 1, n, det_inv)
+let _mat_inv_adj_cols(M, inv, i, j, n, det_inv) =
+    if j >= n
+        0
+    let sign = ((((i + j) & 1) == 0) ? (1) : (gf_neg(1)))
+    let cofactor = gf_mul(sign, mat_minor(M, j, i))
+    mat_set(inv, i, j, gf_mul(cofactor, det_inv))
+    _mat_inv_adj_cols(M, inv, i, j + 1, n, det_inv)
+let mat_inv(M) =
+    let n = mat_rows(M)
+    let det = mat_det(M)
+    if det == 0
+        0
+    let det_inv = gf_inv(det)
+    let inv = mat_new(n, n)
+    _mat_inv_adj(M, inv, 0, n, det_inv)
+
+let _mat_rank_gauss(M, n, m, i, rank) =
+      if i >= n
+          rank
+      let pivot_row = _mat_find_pivot(M, i, i, n)
+      if pivot_row < 0
+        _mat_rank_gauss(M, n, m, i + 1, rank)
+      else
+        if pivot_row != i
+          _mat_swap_rows(M, i, pivot_row, 0, m)
+        let pivot = mat_get(M, i, i)
+        _mat_eliminate(M, i, i + 1, n, m, pivot)
+        _mat_rank_gauss(M, n, m, i + 1, rank + 1)
+
+let mat_rank(M) =
+    let n = mat_rows(M)
+    let m = mat_cols(M)
+    let Mc = mat_copy(M)
+    _mat_rank_gauss(Mc, n, m, 0, 0)
+
+let _mat_trace_acc(M, i, n, acc) =
+    if i >= n
+        acc
+    _mat_trace_acc(M, i + 1, n, gf_add(acc, mat_get(M, i, i)))
+let mat_trace(M) = _mat_trace_acc(M, 0, mat_rows(M), 0)
+
+let mat_frobenius_trace_det(M) =
+    let tr = mat_trace(M)
+    let dt = mat_det(M)
+    let pair = arr_new_n(2)
+    pair[0] = tr
+    pair[1] = dt
+    pair
+
+let _vec_dot_acc(a, b, i, n, acc) =
+    if i >= n
+        acc
+    _vec_dot_acc(a, b, i + 1, n, gf_add(acc, gf_mul(arr_get(a, i), arr_get(b, i))))
+let vec_dot(a, b) = _vec_dot_acc(a, b, 0, arr_len(a), 0)
+
+let _vec_add_acc(a, b, c, i, n) =
+    if i >= n
+        c
+    arr_set(c, i, gf_add(arr_get(a, i), arr_get(b, i)))
+    _vec_add_acc(a, b, c, i + 1, n)
+let vec_add(a, b) =
+    let c = arr_new_n(arr_len(a))
+    _vec_add_acc(a, b, c, 0, arr_len(a))
+
+let _vec_sm_acc(s, v, r, i, n) =
+    if i >= n
+        r
+    arr_set(r, i, gf_mul(s, arr_get(v, i)))
+    _vec_sm_acc(s, v, r, i + 1, n)
+let vec_scalar_mul(s, v) =
+    let r = arr_new_n(arr_len(v))
+    _vec_sm_acc(s, v, r, 0, arr_len(v))
+
+let _mvmul_row(M, v, r, i, rows, cols) =
+    if i >= rows
+        r
+    arr_set(r, i, vec_dot(arr_get(M, i), v))
+    _mvmul_row(M, v, r, i + 1, rows, cols)
+let mat_vec_mul(M, v) =
+    let r = arr_new_n(mat_rows(M))
+    _mvmul_row(M, v, r, 0, mat_rows(M), mat_cols(M))
+
+let linalg_gf_layer_id() = 80
+let linalg_gf_module_count() = 20

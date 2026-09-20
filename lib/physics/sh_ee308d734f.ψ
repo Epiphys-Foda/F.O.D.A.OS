@@ -1,0 +1,15 @@
+let bm_verify_law(C, L, s, n) =
+    let mism = 0
+    let i = L
+    for i < n
+        let pred = bm_predict(C, L, s, i)
+        let bad = 0
+        if pred != s[i]
+            bad = 1
+        mism = mism + bad
+        i = i + 1
+    let ok = 0
+    if mism == 0
+        ok = 1
+    ok
+

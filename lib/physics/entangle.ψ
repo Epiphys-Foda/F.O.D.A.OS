@@ -1,0 +1,144 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let P1 = 100
+let P2 = 200
+
+let superpose_res1(a) = a
+let superpose_res2(b) = b
+
+let entangle_res1(a, b) =
+    let ab = wfc_mul(a, b)
+    let diff = wfc_sub(P1, P2)
+    let inv_diff = wfc_inv(diff)
+    wfc_mul(ab, inv_diff)
+
+let entangle_res2(a, b) =
+    let ab = wfc_mul(a, b)
+    let diff = wfc_sub(P2, P1)
+    let inv_diff = wfc_inv(diff)
+    wfc_mul(ab, inv_diff)
+
+let verify_superpose_independent() =
+    let pass = 1
+
+    if superpose_res1(1) != 1
+        pass = 0
+    if superpose_res1(1) != 1
+        pass = 0
+
+    if superpose_res2(1) != 1
+        pass = 0
+    if superpose_res2(1) != 1
+        pass = 0
+
+    if superpose_res1(0) != 0
+        pass = 0
+    if superpose_res2(0) != 0
+        pass = 0
+
+    pass
+
+let verify_entangle_correlated() =
+    let pass = 1
+
+    let r1_11 = entangle_res1(1, 1)
+    let r1_10 = entangle_res1(1, 0)
+    if r1_11 == r1_10
+        pass = 0
+
+    let r1_01 = entangle_res1(0, 1)
+    if r1_01 != 0
+        pass = 0
+
+    let r2_11 = entangle_res2(1, 1)
+    let r2_01 = entangle_res2(0, 1)
+    if r2_11 == r2_01
+        pass = 0
+
+    pass
+
+let verify_entangle_antisymmetry() =
+    let pass = 1
+
+    let r1 = entangle_res1(1, 1)
+    let r2 = entangle_res2(1, 1)
+    let neg_r2 = wfc_sub(P, r2)
+    if r1 != neg_r2
+        pass = 0
+
+    let sum = wfc_add(r1, r2)
+    if sum != 0
+        pass = 0
+
+    pass
+
+let verify_entangle_multiplicative() =
+    let pass = 1
+
+    let r1_11 = entangle_res1(1, 1)
+    let expected = wfc_inv(wfc_sub(P1, P2))
+    if r1_11 != expected
+        pass = 0
+
+    let r1_10 = entangle_res1(1, 0)
+    if r1_10 != 0
+        pass = 0
+
+    let r1_01 = entangle_res1(0, 1)
+    if r1_01 != 0
+        pass = 0
+
+    let r1_00 = entangle_res1(0, 0)
+    if r1_00 != 0
+        pass = 0
+
+    pass
+
+let verify_correlation_strength() =
+    let pass = 1
+
+    let r_max = entangle_res1(1, 1)
+    if r_max == 0
+        pass = 0
+
+    let r_none = entangle_res1(1, 0)
+    if r_none != 0
+        pass = 0
+
+    let r_none2 = entangle_res1(0, 1)
+    if r_none2 != 0
+        pass = 0
+
+    pass
+
+let verify_superpose_no_entangle() =
+    let pass = 1
+
+    let s_r1 = superpose_res1(1)
+    if s_r1 != 1
+        pass = 0
+
+    let e_r1 = entangle_res1(1, 0)
+    if e_r1 != 0
+        pass = 0
+
+    if s_r1 == e_r1
+        pass = 0
+
+    pass
+
+let main() =
+    let result = 0
+    if verify_superpose_independent() == 1
+        result = result + 1
+    if verify_entangle_correlated() == 1
+        result = result + 1
+    if verify_entangle_antisymmetry() == 1
+        result = result + 1
+    if verify_entangle_multiplicative() == 1
+        result = result + 1
+    if verify_correlation_strength() == 1
+        result = result + 1
+    if verify_superpose_no_entangle() == 1
+        result = result + 1
+    result

@@ -1,0 +1,176 @@
+import "wasm_interp.ψ"
+let PSIBIN_MAGIC = [80, 83, 73, 49]
+let PSIBIN_VERSION = 1
+let PSIBIN_QUANTUM_BASE = 250
+let PSIBIN_U32_MOD = 4294967296
+let PSIBIN_I32_BOUNDARY = 2147483648
+
+let psibin_encode_op_id(op_id) =
+    if op_id >= 0
+      if op_id < PSIBIN_QUANTUM_BASE
+        op_id
+      else
+        255
+    else
+      if op_id >= -5
+        249 - op_id
+      else
+        255
+
+let psibin_decode_op_id(byte) =
+    if byte < PSIBIN_QUANTUM_BASE
+      byte
+    else
+      if byte <= 254
+        249 - byte
+      else
+        0
+
+let psibin_to_u32(v) =
+    (v < 0 ? v + PSIBIN_U32_MOD : v)
+
+let psibin_to_i32(u) =
+    (u >= PSIBIN_I32_BOUNDARY ? u - PSIBIN_U32_MOD : u)
+
+let psibin_u32_to_bytes_le(u) = [
+      bit_and(u, 255),
+      bit_and(bit_shr_u(u, 8), 255),
+      bit_and(bit_shr_u(u, 16), 255),
+      bit_and(bit_shr_u(u, 24), 255)
+    ]
+
+let psibin_bytes_to_u32_le(b0, b1, b2, b3) =
+    b0 + b1 * 256 + b2 * 65536 + b3 * 16777216
+
+let psibin_i32_to_bytes_le(v) = psibin_u32_to_bytes_le(psibin_to_u32(v))
+
+let psibin_bytes_le_to_i32(b0, b1, b2, b3) =
+    psibin_to_i32(psibin_bytes_to_u32_le(b0, b1, b2, b3))
+
+let psibin_serialize(nodes) =
+    let out = []
+    out = out.push(PSIBIN_MAGIC[0])
+    out = out.push(PSIBIN_MAGIC[1])
+    out = out.push(PSIBIN_MAGIC[2])
+    out = out.push(PSIBIN_MAGIC[3])
+    out = out.push(PSIBIN_VERSION)
+    let ncount = len(nodes)
+    let ncb = psibin_u32_to_bytes_le(ncount)
+    out = out.push(ncb[0]).push(ncb[1]).push(ncb[2]).push(ncb[3])
+    let i = 0
+    let done = false
+    for done == false
+      if i < ncount
+        let node = nodes[i]
+        let op_id_byte = psibin_encode_op_id(node.op_id)
+        let args = node.args
+        let acount = len(args)
+        out = out.push(op_id_byte).push(acount)
+        let j = 0
+        let adone = false
+        for adone == false
+          if j < acount
+            let ab = psibin_i32_to_bytes_le(args[j])
+            out = out.push(ab[0]).push(ab[1]).push(ab[2]).push(ab[3])
+            j = j + 1
+          else
+            adone = true
+        i = i + 1
+      else
+        done = true
+    out
+
+let psibin_deserialize(buf) =
+    let m0 = buf[0]
+    let m1 = buf[1]
+    let m2 = buf[2]
+    let m3 = buf[3]
+    let magic_ok = (m0 == PSIBIN_MAGIC[0]) && (m1 == PSIBIN_MAGIC[1]) && (m2 == PSIBIN_MAGIC[2]) && (m3 == PSIBIN_MAGIC[3])
+    let version = buf[4]
+    let ncount = psibin_bytes_to_u32_le(buf[5], buf[6], buf[7], buf[8])
+    let pos = 9
+    let nodes = []
+    let i = 0
+    let done = false
+    for done == false
+      if i < ncount
+        let op_id_byte = buf[pos]
+        let op_id = psibin_decode_op_id(op_id_byte)
+        let acount = buf[pos + 1]
+        let args = []
+        let arg_pos = pos + 2
+        let j = 0
+        let adone = false
+        for adone == false
+          if j < acount
+            let v = psibin_bytes_le_to_i32(buf[arg_pos], buf[arg_pos + 1], buf[arg_pos + 2], buf[arg_pos + 3])
+            args = args.push(v)
+            arg_pos = arg_pos + 4
+            j = j + 1
+          else
+            adone = true
+        pos = pos + 2 + acount * 4
+        nodes = nodes.push({ op_id: op_id, args: args })
+        i = i + 1
+      else
+        done = true
+    { magic_ok: magic_ok, version: version, node_count: ncount, nodes: nodes }
+
+let psibin_nodes_equal(a, b) =
+    let la = len(a)
+    let lb = len(b)
+    let ok = (la == lb)
+    let i = 0
+    let done = false
+    for done == false
+      if ok
+        if i < la
+          let na = a[i]
+          let nb = b[i]
+          if na.op_id != nb.op_id
+            ok = false
+          else
+            0
+          let aa = na.args
+          let ab = nb.args
+          let ala = len(aa)
+          let alb = len(ab)
+          if ala != alb
+            ok = false
+          else
+            0
+          let j = 0
+          let jdone = false
+          for jdone == false
+            if ok
+              if j < ala
+                if aa[j] != ab[j]
+                  ok = false
+                else
+                  0
+                j = j + 1
+              else
+                jdone = true
+            else
+              jdone = true
+          i = i + 1
+        else
+          done = true
+      else
+        done = true
+    ok
+
+let psibin_roundtrip(nodes) =
+    let buf = psibin_serialize(nodes)
+    let r = psibin_deserialize(buf)
+    let ok = psibin_nodes_equal(nodes, r.nodes)
+    [ok, len(buf), r.node_count]
+
+let psibin_dump_header(buf) =
+    let magic_ok = (buf[0] == PSIBIN_MAGIC[0]) && (buf[1] == PSIBIN_MAGIC[1]) && (buf[2] == PSIBIN_MAGIC[2]) && (buf[3] == PSIBIN_MAGIC[3])
+    let version = buf[4]
+    let ncount = psibin_bytes_to_u32_le(buf[5], buf[6], buf[7], buf[8])
+    [magic_ok, version, ncount]
+
+let psibin_summary() =
+    { magic: "PSI1", version: PSIBIN_VERSION, quantum_base: PSIBIN_QUANTUM_BASE, header_size: 9, node_header_size: 2, arg_size: 4, encoding: "little-endian i32", quantum_range: "250..254 → -1..-5", standard_range: "0..146" }

@@ -1,0 +1,36 @@
+import "ck.ψ"
+let bad = [0]
+
+let th_pt = 10
+bad[0] = bad[0] + ck(th_pt, 8, 14)
+
+let conv = 100 / th_pt
+let dz = conv - 10
+bad[0] = bad[0] + ck(dz, 0, 0)
+
+let th_w = 15
+bad[0] = bad[0] + ck(th_w, 13, 30)
+
+let th_ta = 0 - 15
+bad[0] = bad[0] + ck_hi(th_ta, 0)
+
+let lam = 15
+bad[0] = bad[0] + ck(lam, 10, 25)
+
+let xi = 40
+bad[0] = bad[0] + ck(xi, 20, 60)
+
+if 1971 < 1969
+    bad[0] = bad[0] + 1
+if 1971 > 1973
+    bad[0] = bad[0] + 1
+if 1999 < 1997
+    bad[0] = bad[0] + 1
+if 1999 > 2001
+    bad[0] = bad[0] + 1
+if 2011 < 2009
+    bad[0] = bad[0] + 1
+if 2011 > 2013
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

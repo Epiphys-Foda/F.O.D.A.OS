@@ -1,0 +1,35 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let k_cu = 400
+let k_glass = 1
+let k_air = 26
+bad[0] = bad[0] + ck(k_cu, 380, 420)
+bad[0] = bad[0] + ck(k_air, 24, 28)
+
+let q1 = small_div(20, 4)
+bad[0] = bad[0] + ck(q1, 4, 7)
+
+let q2 = small_div(k_air * 20, 10)
+bad[0] = bad[0] + ck(q2, 45, 60)
+
+let ratio = small_div(q1 * 1000, q2)
+bad[0] = bad[0] + ck_lo(ratio, 50)
+
+let d_cpu = small_div(100 * 2 * 10, k_cu)
+bad[0] = bad[0] + ck(d_cpu, 4, 7)
+
+let d_wet = small_div(500, 90)
+bad[0] = bad[0] + ck(d_wet, 4, 8)
+
+let ra = small_div(1000, k_air)
+bad[0] = bad[0] + ck(ra, 35, 42)
+
+if 1822 < 1820
+    bad[0] = bad[0] + 1
+if 1822 > 1824
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

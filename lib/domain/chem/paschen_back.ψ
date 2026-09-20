@@ -1,0 +1,31 @@
+import "ck.ψ"
+let bad = [0]
+
+let fs = 2100
+let bc = fs / 58
+bad[0] = bad[0] + ck(bc, 33, 40)
+
+let e0 = 0
+let e1 = 1
+let e2 = 2
+let eq = (e2 - e1) - (e1 - e0)
+bad[0] = bad[0] + ck(eq, 0, 0)
+
+let gs = 2
+bad[0] = bad[0] + ck_lo(gs, 2)
+
+let nw = 6
+let ns = 3
+let ratio = nw / ns
+bad[0] = bad[0] + ck_lo(ratio, 2)
+
+if 1912 < 1910
+    bad[0] = bad[0] + 1
+if 1912 > 1914
+    bad[0] = bad[0] + 1
+if 1896 < 1894
+    bad[0] = bad[0] + 1
+if 1896 > 1898
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

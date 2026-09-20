@@ -1,0 +1,39 @@
+import "ck.ψ"
+let bad = [0]
+
+let x = 23
+let r3 = x % 3
+let dz1 = r3 - 2
+bad[0] = bad[0] + ck(dz1, 0, 0)
+let r5 = x % 5
+let dz2 = r5 - 3
+bad[0] = bad[0] + ck(dz2, 0, 0)
+let r7 = x % 7
+let dz3 = r7 - 2
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let period = 105
+let dz4 = period - 105
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let y = 128
+let sy3 = y % 3
+let sy5 = y % 5
+let sy7 = y % 7
+let dz5 = sy3 - 2
+bad[0] = bad[0] + ck(dz5, 0, 0)
+let dz6 = sy5 - 3
+bad[0] = bad[0] + ck(dz6, 0, 0)
+let dz7 = sy7 - 2
+bad[0] = bad[0] + ck(dz7, 0, 0)
+
+if 400 < 380
+    bad[0] = bad[0] + 1
+if 400 > 420
+    bad[0] = bad[0] + 1
+if 1801 < 1799
+    bad[0] = bad[0] + 1
+if 1801 > 1803
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

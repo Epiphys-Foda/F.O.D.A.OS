@@ -1,0 +1,90 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let CAT_TYPE_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let CAT_TYPE_RESIDUES = [400, 800, 1000, 600, 700, 300, 500, 900]
+
+let psi_cat_type(type_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(type_idx), gf_norm(CAT_TYPE_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(CAT_TYPE_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let CAT_SUB_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let CAT_SUB_RESIDUES = [100, 300, 200, 250, 300, 220, 400, 350]
+
+let psi_cat_sub(group_idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(group_idx), gf_norm(CAT_SUB_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(CAT_SUB_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let CAT_COND_POLES = [25, 50, 75, 100, 150, 200, 300, 500]
+let CAT_COND_RESIDUES = [877, 700, 600, 500, 400, 350, 300, 250]
+
+let psi_cat_cond(T_x10) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(T_x10), gf_norm(CAT_COND_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(CAT_COND_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let CAT_DEA_BASE = 50
+let CAT_DEA_SCALE1 = 10
+let CAT_DEA_SCALE2 = 10
+
+let cat_fit_dEa(type_idx, group_idx) =
+    let t_term = gf_div(psi_cat_type(type_idx), CAT_DEA_SCALE1)
+    let s_term = gf_div(psi_cat_sub(group_idx), CAT_DEA_SCALE2)
+    gf_neg(gf_add(gf_add(CAT_DEA_BASE, t_term), s_term))
+
+let CAT_K_BASE = 0
+let CAT_K_SCALE1 = 100
+let CAT_K_SCALE2 = 100
+let CAT_K_SCALE3 = 100
+
+let cat_fit_log_k(type_idx, group_idx, T_x10) =
+    let t_term = gf_div(psi_cat_type(type_idx), CAT_K_SCALE1)
+    let s_term = gf_div(psi_cat_sub(group_idx), CAT_K_SCALE2)
+    let c_term = gf_div(psi_cat_cond(T_x10), CAT_K_SCALE3)
+    gf_add(gf_sub(gf_add(gf_add(CAT_K_BASE, t_term), s_term), c_term), c_term)
+
+let cat_log_k_simple(type_idx, group_idx) =
+    let t_term = gf_div(psi_cat_type(type_idx), CAT_K_SCALE1)
+    let s_term = gf_div(psi_cat_sub(group_idx), CAT_K_SCALE2)
+    gf_add(gf_add(CAT_K_BASE, t_term), s_term)
+
+let CAT_TOF_BASE = 100
+let CAT_TOF_SCALE1 = 100
+let CAT_TOF_SCALE2 = 100
+
+let cat_fit_log_TOF(type_idx, T_x10) =
+    let t_term = gf_div(psi_cat_type(type_idx), CAT_TOF_SCALE1)
+    let c_term = gf_div(psi_cat_cond(T_x10), CAT_TOF_SCALE2)
+    gf_add(gf_sub(CAT_TOF_BASE, c_term), t_term)
+
+let CAT_SEL_BASE = 500
+let CAT_SEL_SCALE1 = 10
+let CAT_SEL_SCALE2 = 10
+
+let cat_fit_selectivity(type_idx, group_idx) =
+    let t_term = gf_div(psi_cat_type(type_idx), CAT_SEL_SCALE1)
+    let s_term = gf_div(psi_cat_sub(group_idx), CAT_SEL_SCALE2)
+    gf_add(gf_sub(CAT_SEL_BASE, s_term), t_term)
+
+let cat_global_response(type_idx, group_idx, T_x10) =
+    let e1 = psi_cat_type(type_idx)
+    let e2 = psi_cat_sub(group_idx)
+    let e3 = psi_cat_cond(T_x10)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+

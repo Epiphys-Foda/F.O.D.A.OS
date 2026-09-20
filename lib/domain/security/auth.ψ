@@ -1,0 +1,485 @@
+import "../domain_field.ψ"
+
+let user_new(id, username) =
+    [id, username, "", "", [], "", 1]
+
+let user_id(u) = u[0]
+let user_name(u) = u[1]
+let user_pw_hash(u) = u[2]
+let user_salt(u) = u[3]
+let user_roles(u) = u[4]
+let user_mfa(u) = u[5]
+let user_active(u) = u[6]
+
+let user_set_password(u, password, salt) =
+    let h = 0
+    let s = "" + password + salt
+    let i = 0
+    let n = len(s)
+    for i < n
+        h = (h * 31 + s[i]) % 65537
+        i = i + 1
+    let round = 0
+    for round < 1000
+        h = (h * 31 + round) % 65537
+        round = round + 1
+    u[2] = h
+    u[3] = salt
+    u
+
+let user_verify_password(u, password) =
+    if user_active(u) == 0
+        0
+    else
+        let salt = user_salt(u)
+        let expected = user_pw_hash(u)
+        let h = 0
+        let s = "" + password + salt
+        let i = 0
+        let n = len(s)
+        for i < n
+            h = (h * 31 + s[i]) % 65537
+            i = i + 1
+        let round = 0
+        for round < 1000
+            h = (h * 31 + round) % 65537
+            round = round + 1
+        if h == expected
+            1
+        else
+            0
+
+let user_add_role(u, role) =
+    let rs = user_roles(u)
+    rs.push(role)
+    u[4] = rs
+    u
+
+let user_has_role(u, role) =
+    let rs = user_roles(u)
+    let i = 0
+    let n = len(rs)
+    let found = 0
+    for i < n
+        if rs[i] == role
+            found = 1
+            i = n
+        i = i + 1
+    found
+
+let user_set_mfa_secret(u, secret) =
+    u[5] = secret
+    u
+
+let user_deactivate(u) =
+    u[6] = 0
+    u
+
+let totp_generate(secret, time_window) =
+    let h = 0
+    let s = "" + secret + time_window
+    let i = 0
+    let n = len(s)
+    for i < n
+        h = (h * 31 + s[i]) % 65537
+        i = i + 1
+    h - (h / 1000000) * 1000000
+
+let totp_verify(secret, code, time_window, window_drift) =
+    let ok = 0
+    let i = 0 - window_drift
+    for i <= window_drift
+        let w = time_window + i
+        if totp_generate(secret, w) == code
+            ok = 1
+            i = window_drift + 1
+        i = i + 1
+    ok
+
+let jwt_encode(payload, secret) =
+    let header_str = "HS256"
+    let payload_str = jwt_serialize_payload(payload)
+    let signing_input = header_str + "." + payload_str
+    let sig = jwt_hmac(signing_input, secret)
+    signing_input + "." + sig
+
+let jwt_serialize_payload(payload) =
+    let s = ""
+    let keys = keys_of(payload)
+    let i = 0
+    let n = len(keys)
+    for i < n
+        s = s + keys[i] + "=" + payload[keys[i]]
+        if i < n - 1
+            s = s + ";"
+        i = i + 1
+    s
+
+let jwt_hmac(input, secret) =
+    let h = 0
+    let s = "" + input + secret
+    let i = 0
+    let n = len(s)
+    for i < n
+        h = (h * 31 + s[i]) % 65537
+        i = i + 1
+    let round = 0
+    for round < 64
+        h = (h * 31 + round) % 65537
+        round = round + 1
+    h
+
+let jwt_decode(token, secret) =
+    let parts = jwt_split(token, ".")
+    if len(parts) != 3
+        0
+    else
+        let signing_input = parts[0] + "." + parts[1]
+        let expected_sig = jwt_hmac(signing_input, secret)
+        if expected_sig != parts[2]
+            0
+        else
+            jwt_parse_payload(parts[1])
+
+let jwt_split(s, sep) =
+    let parts = []
+    let current = ""
+    let i = 0
+    let n = len(s)
+    for i < n
+        if s[i] == sep
+            parts.push(current)
+            current = ""
+        else
+            current = current + s[i]
+        i = i + 1
+    parts.push(current)
+    parts
+
+let jwt_parse_payload(payload_str) =
+    let payload = {}
+    let pairs = jwt_split(payload_str, ";")
+    let i = 0
+    let n = len(pairs)
+    for i < n
+        let kv = jwt_split(pairs[i], "=")
+        if len(kv) == 2
+            payload[kv[0]] = kv[1]
+        i = i + 1
+    payload
+
+let jwt_get_claim(token, secret, claim_name) =
+    let payload = jwt_decode(token, secret)
+    if payload == 0
+        0
+    else
+        payload[claim_name]
+
+let oauth_client_new(id, secret) =
+    [id, secret, [], [], []]
+
+let oc_id(c) = c[0]
+let oc_secret(c) = c[1]
+let oc_redirect_uris(c) = c[2]
+let oc_grants(c) = c[3]
+let oc_scopes(c) = c[4]
+
+let oc_add_redirect(c, uri) =
+    let r = oc_redirect_uris(c)
+    r.push(uri)
+    c[2] = r
+    c
+
+let oc_add_grant(c, grant) =
+    let g = oc_grants(c)
+    g.push(grant)
+    c[3] = g
+    c
+
+let oc_add_scope(c, scope) =
+    let s = oc_scopes(c)
+    s.push(scope)
+    c[4] = s
+    c
+
+let oc_validate_redirect(c, uri) =
+    let r = oc_redirect_uris(c)
+    let i = 0
+    let n = len(r)
+    let found = 0
+    for i < n
+        if r[i] == uri
+            found = 1
+            i = n
+        i = i + 1
+    found
+
+let auth_code_new(code, client_id, user_id, redirect_uri, scope, expires_at) =
+    [code, client_id, user_id, redirect_uri, scope, expires_at, 0]
+
+let ac_code(a) = a[0]
+let ac_client(a) = a[1]
+let ac_user(a) = a[2]
+let ac_redirect(a) = a[3]
+let ac_scope(a) = a[4]
+let ac_expires(a) = a[5]
+let ac_used(a) = a[6]
+
+let ac_use(a) =
+    a[6] = 1
+    a
+
+let ac_is_valid(a, current_ts) =
+    if ac_used(a) == 1
+        0
+    else
+        0
+    if current_ts > ac_expires(a)
+        0
+    else
+        1
+
+let token_new(access, refresh, expires_in, scope) =
+    [access, refresh, "Bearer", expires_in, scope]
+
+let tok_access(t) = t[0]
+let tok_refresh(t) = t[1]
+let tok_type(t) = t[2]
+let tok_expires(t) = t[3]
+let tok_scope(t) = t[4]
+
+let token_generate_access(client_id, user_id, ts) =
+    let h = 0
+    let s = "" + client_id + user_id + ts
+    let i = 0
+    let n = len(s)
+    for i < n
+        h = (h * 31 + s[i]) % 65537
+        i = i + 1
+    "" + h
+
+let token_generate_refresh(client_id, user_id, ts) =
+    let h = 0
+    let s = "" + client_id + user_id + ts + "refresh"
+    let i = 0
+    let n = len(s)
+    for i < n
+        h = (h * 31 + s[i]) % 65537
+        i = i + 1
+    "" + h
+
+let auth_server_new() =
+    [{}, {}, {}, []]
+
+let as_clients(a) = a[0]
+let as_codes(a) = a[1]
+let as_tokens(a) = a[2]
+let as_revoked(a) = a[3]
+
+let as_register_client(a, client) =
+    let cs = as_clients(a)
+    cs[oc_id(client)] = client
+    a[0] = cs
+    a
+
+let as_get_client(a, client_id) =
+    let cs = as_clients(a)
+    cs[client_id]
+
+let as_create_auth_code(a, client_id, user_id, redirect_uri, scope, current_ts) =
+    let client = as_get_client(a, client_id)
+    if client == 0
+        0
+    else
+        if oc_validate_redirect(client, redirect_uri) == 0
+            0
+        else
+            let code = "" + current_ts + user_id
+            let auth_code = auth_code_new(code, client_id, user_id, redirect_uri, scope, current_ts + 600)
+            let codes = as_codes(a)
+            codes[code] = auth_code
+            a[1] = codes
+            code
+
+let as_exchange_code(a, code, client_id, client_secret, current_ts) =
+    let codes = as_codes(a)
+    let auth_code = codes[code]
+    if auth_code == 0
+        0
+    else
+        if ac_is_valid(auth_code, current_ts) == 0
+            0
+        else
+            let client = as_get_client(a, ac_client(auth_code))
+            if client == 0
+                0
+            else
+                0
+            if oc_secret(client) != client_secret
+                0
+            else
+                auth_code = ac_use(auth_code)
+                codes[code] = auth_code
+                a[1] = codes
+                let access = token_generate_access(client_id, ac_user(auth_code), current_ts)
+                let refresh = token_generate_refresh(client_id, ac_user(auth_code), current_ts)
+                let token = token_new(access, refresh, 3600, ac_scope(auth_code))
+                let tokens = as_tokens(a)
+                tokens[access] = [ac_user(auth_code), ac_scope(auth_code), current_ts + 3600]
+                a[2] = tokens
+                token
+
+let as_refresh_token(a, refresh_token, current_ts) =
+    let access = token_generate_access("refreshed", 0, current_ts)
+    let new_token = token_new(access, refresh_token, 3600, "default")
+    new_token
+
+let as_validate_token(a, access_token, current_ts) =
+    let revoked = as_revoked(a)
+    let i = 0
+    let n = len(revoked)
+    for i < n
+        if revoked[i] == access_token
+            0
+            i = n
+        i = i + 1
+    let tokens = as_tokens(a)
+    let info = tokens[access_token]
+    if info == 0
+        0
+    else
+        let expires_at = info[2]
+        if current_ts > expires_at
+            0
+        else
+            [info[0], info[1]]
+
+let as_revoke_token(a, access_token) =
+    let revoked = as_revoked(a)
+    revoked.push(access_token)
+    a[3] = revoked
+    a
+
+let auth_verify() =
+    let ok1 = 1
+    let u = user_new(1, "alice")
+    u = user_set_password(u, "secret123", "salt_abc")
+    if user_verify_password(u, "secret123") != 1
+        ok1 = 0
+    if user_verify_password(u, "wrong") != 0
+        ok1 = 0
+    u = user_deactivate(u)
+    if user_verify_password(u, "secret123") != 0
+        ok1 = 0
+    u[6] = 1
+
+    let ok2 = 1
+    u = user_add_role(u, "admin")
+    u = user_add_role(u, "user")
+    if user_has_role(u, "admin") != 1
+        ok2 = 0
+    if user_has_role(u, "guest") != 0
+        ok2 = 0
+
+    let ok3 = 1
+    let code = totp_generate("alice_secret", 1000)
+    if totp_verify("alice_secret", code, 1000, 1) != 1
+        ok3 = 0
+    if totp_verify("wrong_secret", code, 1000, 1) != 0
+        ok3 = 0
+    let code2 = totp_generate("alice_secret", 1001)
+    if totp_verify("alice_secret", code2, 1000, 1) != 1
+        ok3 = 0
+
+    let ok4 = 1
+    let payload = {}
+    payload["user_id"] = "1"
+    payload["role"] = "admin"
+    payload["exp"] = "2000"
+    let token = jwt_encode(payload, "my_secret")
+    if token == 0
+        ok4 = 0
+    let decoded = jwt_decode(token, "my_secret")
+    if decoded == 0
+        ok4 = 0
+    if decoded["user_id"] != "1"
+        ok4 = 0
+    if decoded["role"] != "admin"
+        ok4 = 0
+    let bad_decode = jwt_decode(token, "wrong_secret")
+    if bad_decode != 0
+        ok4 = 0
+
+    let ok5 = 1
+    let client = oauth_client_new("c1", "secret1")
+    client = oc_add_redirect(client, "https://example.com/callback")
+    client = oc_add_grant(client, "authorization_code")
+    client = oc_add_scope(client, "read")
+    client = oc_add_scope(client, "write")
+    if oc_validate_redirect(client, "https://example.com/callback") != 1
+        ok5 = 0
+    if oc_validate_redirect(client, "https://other.com/callback") != 0
+        ok5 = 0
+
+    let ok6 = 1
+    let as = auth_server_new()
+    as = as_register_client(as, client)
+    let code_str = as_create_auth_code(as, "c1", 1, "https://example.com/callback", "read write", 1000)
+    if code_str == 0
+        ok6 = 0
+    let bad_code = as_create_auth_code(as, "c1", 1, "https://other.com/callback", "read", 1000)
+    if bad_code != 0
+        ok6 = 0
+
+    let ok7 = 1
+    let token2 = as_exchange_code(as, code_str, "c1", "secret1", 1100)
+    if token2 == 0
+        ok7 = 0
+    if token2 != 0
+        if tok_type(token2) != "Bearer"
+            ok7 = 0
+        if tok_expires(token2) != 3600
+            ok7 = 0
+    let reuse = as_exchange_code(as, code_str, "c1", "secret1", 1200)
+    if reuse != 0
+        ok7 = 0
+    let code3 = as_create_auth_code(as, "c1", 1, "https://example.com/callback", "read", 1300)
+    let bad_token = as_exchange_code(as, code3, "c1", "wrong_secret", 1400)
+    if bad_token != 0
+        ok7 = 0
+
+    let ok8 = 1
+    if token2 != 0
+        let access_tok = tok_access(token2)
+        let validated = as_validate_token(as, access_tok, 1500)
+        if validated == 0
+            ok8 = 0
+        if validated[0] != 1
+            ok8 = 0
+        as = as_revoke_token(as, access_tok)
+        let after_revoke = as_validate_token(as, access_tok, 1600)
+        if after_revoke != 0
+            ok8 = 0
+
+    let ok9 = 1
+    if token2 != 0
+        let access_tok = tok_access(token2)
+        let expired = as_validate_token(as, access_tok, 5000)
+        if expired != 0
+            ok9 = 0
+
+    let all_ok = ok1 * ok2 * ok3 * ok4 * ok5 * ok6 * ok7 * ok8 * ok9
+    if all_ok == 1
+        print("auth_verify: ALL 9 PASS")
+    else
+        print("auth_verify: FAIL")
+        print(ok1)
+        print(ok2)
+        print(ok3)
+        print(ok4)
+        print(ok5)
+        print(ok6)
+        print(ok7)
+        print(ok8)
+        print(ok9)
+    all_ok

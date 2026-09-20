@@ -1,0 +1,105 @@
+import "../stdlib/gf65537.ψ"
+
+let laplacian_gf(f, x) =
+    let f_plus = f(gf_add(x, 1))
+    let f_minus = f(gf_sub(x, 1))
+    let f_center = gf_mul(2, f(x))
+    gf_sub(gf_add(f_plus, f_minus), f_center)
+
+let gradient_gf(f, x) =
+    gf_sub(f(gf_add(x, 1)), f(x))
+
+let navier_stokes_step_gf(v, p, rho, nu, x) =
+    let convective = gf_mul(v, gradient_gf(v, x))
+    let pressure = gf_div(gradient_gf(p, x), rho)
+    let viscous = gf_mul(nu, laplacian_gf(v, x))
+    gf_add(gf_sub(gf_neg(convective), pressure), viscous)
+
+let continuity_step_gf(rho, v, x) =
+    let flux = gf_mul(rho, v)
+    let divergence = gradient_gf(flux, x)
+    gf_neg(divergence)
+
+let mass_conservation_check_gf(densities) =
+    let total = 0
+    for i in 0..len(densities)
+        total = gf_add(total, densities[i])
+    total
+
+let euler_step_gf(v, p, rho, x) =
+    let convective = gf_mul(v, gradient_gf(v, x))
+    let pressure = gf_div(gradient_gf(p, x), rho)
+    gf_sub(gf_neg(convective), pressure)
+
+let two_fluid_model_gf(rho_s, rho_n) =
+    gf_add(rho_s, rho_n)
+
+let superfluid_fraction_gf(rho_s, rho_total) =
+    gf_div(rho_s, rho_total)
+
+let superfluid_irrotational_gf(v_s, x) =
+    let curl = gradient_gf(v_s, x)
+    (curl == 0 ? 1 : 0)
+
+let vortex_circulation_gf(n) =
+    n
+
+let vortex_core_gf(coherence_length) =
+    coherence_length
+
+let vortex_number_gf(circulation) =
+    circulation
+
+let bkt_critical_temperature_gf(rho_s) =
+    gf_div(rho_s, 2)
+
+let bkt_transition_gf(temperature, rho_s) =
+    let t_bkt = bkt_critical_temperature_gf(rho_s)
+    (temperature < t_bkt ? 1 : 0)
+
+let kolmogorov_spectrum_gf(k, C) =
+    gf_div(C, gf_pow(k, 5))
+
+let turbulent_cascade_gf(v, L) =
+    gf_div(gf_pow(v, 3), L)
+
+let kolmogorov_scale_gf(nu, epsilon) =
+    gf_div(gf_pow(nu, 3), epsilon)
+
+let reynolds_number_gf(rho, v, L, nu) =
+    gf_div(gf_mul(gf_mul(rho, v), L), nu)
+
+let flow_regime_gf(reynolds) =
+        if reynolds < 2300
+            0
+        else
+            if reynolds > 4000
+                2
+let sound_speed_gf(dp, drho) =
+    gf_sqrt(gf_div(dp, drho))
+
+let sound_mode_gf(c_s, k) =
+    gf_mul(c_s, k)
+
+let sound_spectrum_gf(omega) =
+    gf_pow(omega, 2)
+
+let gross_pitaevskii_step_gf(psi, H, V, g_coupling) =
+    let psi_sq = gf_mul(psi, psi)
+    let interaction = gf_mul(g_coupling, psi_sq)
+    let hamiltonian = gf_add(gf_add(H, V), interaction)
+    gf_mul(hamiltonian, psi)
+
+let bogoliubov_spectrum_gf(eps_k, g_coupling, n_density) =
+    let gn = gf_mul(g_coupling, n_density)
+    let two_gn = gf_mul(2, gn)
+    let inner = gf_add(eps_k, two_gn)
+    let product = gf_mul(eps_k, inner)
+    gf_sqrt(product)
+
+let bogoliubov_sound_speed_gf(g_coupling, n_density, mass) =
+    gf_sqrt(gf_div(gf_mul(g_coupling, n_density), mass))
+
+let hydrodynamic_limit_gf(flow_field) =
+    flow_field
+

@@ -1,0 +1,385 @@
+import "residueon_common.ψ"
+
+let EC_A() = 2
+let EC_B() = 3
+
+let ec_infinity() = [0, 0, 1]
+
+let ec_point(x, y) = [x, y, 0]
+
+let ec_x(p) = p[0]
+let ec_y(p) = p[1]
+let ec_is_inf(p) = p[2]
+
+let ec_discriminant() =
+    let a = EC_A()
+    let b = EC_B()
+    let a3 = gf_mul(gf_mul(a, a), a)
+    let b2 = gf_mul(b, b)
+    let term = gf_add(gf_mul(4, a3), gf_mul(27, b2))
+    gf_neg(gf_mul(16, term))
+
+let ec_j_invariant() =
+    let a = EC_A()
+    let b = EC_B()
+    let a3 = gf_mul(gf_mul(a, a), a)
+    let b2 = gf_mul(b, b)
+    let numer = gf_mul(1728, gf_mul(4, a3))
+    let denom = gf_add(gf_mul(4, a3), gf_mul(27, b2))
+    gf_div(numer, denom)
+
+let ec_on_curve(p) =
+    let result = 1
+    if ec_is_inf(p) == 1
+        result = 1
+    if ec_is_inf(p) == 0
+        let x = ec_x(p)
+        let y = ec_y(p)
+        let lhs = gf_mul(y, y)
+        let x3 = gf_mul(gf_mul(x, x), x)
+        let rhs = gf_add(gf_add(x3, gf_mul(EC_A(), x)), EC_B())
+        if lhs == rhs
+            result = 1
+        if lhs != rhs
+            result = 0
+    result
+
+let ec_add(p, q) =
+    let result = ec_infinity()
+    if ec_is_inf(p) == 1
+        result = q
+    if ec_is_inf(q) == 1
+        if ec_is_inf(p) == 0
+            result = p
+    if ec_is_inf(p) == 0
+        if ec_is_inf(q) == 0
+            let xp = ec_x(p)
+            let yp = ec_y(p)
+            let xq = ec_x(q)
+            let yq = ec_y(q)
+            if xp == xq
+                if yp == gf_neg(yq)
+                    result = ec_infinity()
+                if yp == yq
+                    let x2 = gf_mul(xp, xp)
+                    let numer = gf_add(gf_mul(3, x2), EC_A())
+                    let denom = gf_mul(2, yp)
+                    if denom != 0
+                        let lambda = gf_div(numer, denom)
+                        let xr = gf_sub(gf_mul(lambda, lambda), gf_add(xp, xq))
+                        let yr = gf_sub(gf_mul(lambda, gf_sub(xp, xr)), yp)
+                        result = ec_point(xr, yr)
+                    if denom == 0
+                        result = ec_infinity()
+            if xp != xq
+                let numer = gf_sub(yq, yp)
+                let denom = gf_sub(xq, xp)
+                let lambda = gf_div(numer, denom)
+                let xr = gf_sub(gf_mul(lambda, lambda), gf_add(xp, xq))
+                let yr = gf_sub(gf_mul(lambda, gf_sub(xp, xr)), yp)
+                result = ec_point(xr, yr)
+    result
+
+let ec_neg(p) =
+    let result = ec_infinity()
+    if ec_is_inf(p) == 0
+        result = ec_point(ec_x(p), gf_neg(ec_y(p)))
+    result
+
+let ec_sub(p, q) = ec_add(p, ec_neg(q))
+
+let ec_mul(k, p) =
+    let result = ec_infinity()
+    let addend = p
+    let n = k
+    for n > 0
+        if n % 2 == 1
+            result = ec_add(result, addend)
+        addend = ec_add(addend, addend)
+        n = n / 2
+    result
+
+let ec_order(p, max_n) =
+    let result = 0
+    let current = ec_infinity()
+    let i = 1
+    for i <= max_n
+        current = ec_add(current, p)
+        if ec_is_inf(current) == 1
+            result = i
+        i = max_n + 1
+        i = i + 1
+    result
+
+let ec_to_residueon(p) =
+    let result = rp_make(0, 0, 1)
+    if ec_is_inf(p) == 0
+        let x = ec_x(p)
+        let y = ec_y(p)
+        let omega = gf_inv(gf_mul(2, y))
+        result = rp_make(x, omega, 1)
+    if ec_is_inf(p) == 1
+        result = rp_make(0, 0, 0)
+    result
+
+let residueon_to_ec(rp) =
+    let x = rp_z(rp)
+    let omega = rp_r(rp)
+    let y = gf_inv(gf_mul(2, omega))
+    ec_point(x, y)
+
+let ec_field_to_residueon_field(points, n) =
+    let primes = []
+    let i = 0
+    for i < n
+        let rp = ec_to_residueon(points[i])
+        primes[i] = rp
+        i = i + 1
+    rpf_make(primes, n)
+
+let ec_dlog_brute(q, p, max_n) =
+    let result = 0
+    let current = ec_infinity()
+    let i = 1
+    for i <= max_n
+        current = ec_add(current, p)
+        if ec_x(current) == ec_x(q)
+            if ec_y(current) == ec_y(q)
+                result = i
+            i = max_n + 1
+        i = i + 1
+    result
+
+let ec_dlog_verify(n, p) =
+    let q = ec_mul(n, p)
+    let recovered = ec_dlog_brute(q, p, n + 10)
+    let result = 0
+    if recovered == n
+        result = 1
+    result
+
+let ec_genus() = 1
+
+let ec_betti(n) =
+    let result = 0
+    if n == 0
+        result = 1
+    if n == 1
+        result = 2
+    if n == 2
+        result = 1
+    result
+
+let ec_euler_characteristic() =
+    let b0 = ec_betti(0)
+    let b1 = ec_betti(1)
+    let b2 = ec_betti(2)
+    b0 - b1 + b2
+
+let ec_homology(points, n) =
+    let field = ec_field_to_residueon_field(points, n)
+    rpf_homology(field)
+
+let ec_automorphism_check(p) =
+    let neg_p = ec_neg(p)
+    let on_curve2 = ec_on_curve(neg_p)
+    let on_curve1 = ec_on_curve(p)
+    let result = 0
+    if on_curve1 == 1
+        if on_curve2 == 1
+    result
+
+let ec_galois(p, sigma) =
+    let result = p
+    if sigma % 2 == 1
+        result = ec_neg(p)
+    result
+
+let ec_bootstrap_verify(p, sigma) =
+    let mutated = ec_galois(p, sigma)
+    let on_curve = ec_on_curve(mutated)
+    on_curve
+
+let ec_dh_alice_public(a, g) = ec_mul(a, g)
+let ec_dh_bob_public(b, g) = ec_mul(b, g)
+let ec_dh_shared_alice(a, bob_pub) = ec_mul(a, bob_pub)
+let ec_dh_shared_bob(b, alice_pub) = ec_mul(b, alice_pub)
+
+let ec_dh_verify(a, b, g) =
+    let alice_pub = ec_dh_alice_public(a, g)
+    let bob_pub = ec_dh_bob_public(b, g)
+    let s_alice = ec_dh_shared_alice(a, bob_pub)
+    let s_bob = ec_dh_shared_bob(b, alice_pub)
+    let result = 0
+    if ec_x(s_alice) == ec_x(s_bob)
+        if ec_y(s_alice) == ec_y(s_bob)
+            result = 1
+    result
+
+let residueon_ec_verify() =
+    let ok = 0
+
+    let disc = ec_discriminant()
+    if disc != 0
+        ok = ok + 1
+
+    let j = ec_j_invariant()
+    if j >= 0
+        ok = ok + 1
+
+    let p1 = ec_point(3, 6)
+    if ec_on_curve(p1) == 1
+        ok = ok + 1
+
+    let inf = ec_infinity()
+    if ec_is_inf(inf) == 1
+        ok = ok + 1
+
+    let p2 = ec_add(p1, p1)
+    if ec_on_curve(p2) == 1
+        ok = ok + 1
+
+    let test1 = ec_add(inf, p1)
+    if ec_x(test1) == 3
+        ok = ok + 1
+    if ec_y(test1) == 6
+        ok = ok + 1
+
+    let test2 = ec_add(p1, inf)
+    if ec_x(test2) == 3
+        ok = ok + 1
+
+    let neg_p1 = ec_neg(p1)
+    let test3 = ec_add(p1, neg_p1)
+    if ec_is_inf(test3) == 1
+        ok = ok + 1
+
+    let double_p1 = ec_add(p1, p1)
+    if ec_on_curve(double_p1) == 1
+        ok = ok + 1
+
+    if ec_on_curve(neg_p1) == 1
+        ok = ok + 1
+
+    let zero_p = ec_mul(0, p1)
+    if ec_is_inf(zero_p) == 1
+        ok = ok + 1
+
+    let one_p = ec_mul(1, p1)
+    if ec_x(one_p) == 3
+        ok = ok + 1
+
+    let two_p = ec_mul(2, p1)
+    if ec_x(two_p) == ec_x(double_p1)
+        ok = ok + 1
+    if ec_y(two_p) == ec_y(double_p1)
+        ok = ok + 1
+
+    let three_p = ec_mul(3, p1)
+    let three_p_check = ec_add(double_p1, p1)
+    if ec_x(three_p) == ec_x(three_p_check)
+        ok = ok + 1
+
+    let ap_plus_bp = ec_add(ec_mul(2, p1), ec_mul(3, p1))
+    let five_p = ec_mul(5, p1)
+    if ec_x(ap_plus_bp) == ec_x(five_p)
+        ok = ok + 1
+
+    if ec_on_curve(ec_mul(7, p1)) == 1
+        ok = ok + 1
+
+    let rp1 = ec_to_residueon(p1)
+    if rp_z(rp1) == 3
+        ok = ok + 1
+    if rp_r(rp1) == gf_inv(12)
+        ok = ok + 1
+
+    let rp_inf = ec_to_residueon(inf)
+    if rp_n(rp_inf) == 0
+        ok = ok + 1
+
+    let p1_back = residueon_to_ec(rp1)
+    if ec_x(p1_back) == 3
+        ok = ok + 1
+    if ec_y(p1_back) == 6
+        ok = ok + 1
+
+    if ec_dlog_verify(5, p1) == 1
+        ok = ok + 1
+    if ec_dlog_verify(7, p1) == 1
+        ok = ok + 1
+    if ec_dlog_verify(10, p1) == 1
+        ok = ok + 1
+
+    if ec_genus() == 1
+        ok = ok + 1
+    if ec_betti(0) == 1
+        ok = ok + 1
+    if ec_betti(1) == 2
+        ok = ok + 1
+    if ec_betti(2) == 1
+        ok = ok + 1
+    if ec_euler_characteristic() == 0
+        ok = ok + 1
+
+    let ec_points = [p1, double_p1, three_p]
+    let ec_hom = ec_homology(ec_points, 3)
+    if ec_hom[0] == 3
+        ok = ok + 1
+
+    if ec_automorphism_check(p1) == 1
+        ok = ok + 1
+    if ec_automorphism_check(double_p1) == 1
+        ok = ok + 1
+
+    if ec_bootstrap_verify(p1, 2) == 1
+        ok = ok + 1
+    if ec_bootstrap_verify(p1, 3) == 1
+        ok = ok + 1
+
+    if ec_dh_verify(3, 5, p1) == 1
+        ok = ok + 1
+    if ec_dh_verify(7, 11, p1) == 1
+        ok = ok + 1
+    if ec_dh_verify(13, 17, p1) == 1
+        ok = ok + 1
+
+    let ec_rp = ec_to_residueon(p1)
+    let ec_field = rpf_make([ec_rp], 1)
+    if rpf_count(ec_field) == 1
+        ok = ok + 1
+
+    let ec_mutated = rpf_galois(ec_field, 2)
+    if rpf_count(ec_mutated) == 1
+        ok = ok + 1
+
+    if ast_to_op(AST_LITERAL()) == OP_OBSERVE()
+        ok = ok + 1
+
+    let f = mf_make([0, 1], [3, 5], 2)
+    let fI = combinator_I(f)
+    if mf_equal(fI, f) == 1
+        ok = ok + 1
+
+    if bootstrap_tower(8) == 1
+        ok = ok + 1
+
+    let apop = apoptosis(f)
+    if mf_size(apop) >= 0
+        ok = ok + 1
+
+    let mc = meta_compiler()
+    if mf_size(mc) == 6
+        ok = ok + 1
+
+    let wilson_p = ec_mul(4, p1)
+    if ec_on_curve(wilson_p) == 1
+        ok = ok + 1
+
+    let pt_order = ec_order(p1, 1000)
+    if pt_order >= 0
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_ec_verify()

@@ -1,0 +1,79 @@
+let RS_P = 65537
+
+let reservoir_step(x, a, c) =
+    let r = a * x + c
+    r - r / RS_P * RS_P
+
+let reservoir_stream_impl(seed, a, c, n, idx, acc) =
+    if idx < n
+      let nx = reservoir_step(seed, a, c)
+      reservoir_stream_impl(nx, a, c, n, idx + 1, acc.push(nx))
+    else
+        acc
+
+let reservoir_stream(seed, a, c, n) = reservoir_stream_impl(seed, a, c, n, 0, [])
+
+let reservoir_length(states) = len(states)
+
+let reservoir_readout_impl(states, weights, idx, acc) =
+    if idx < len(states)
+      let w = (idx < len(weights) ? weights[idx] : 0)
+      let acc2 = acc + states[idx] * w
+      reservoir_readout_impl(states, weights, idx + 1, acc2 - acc2 / RS_P * RS_P)
+    else
+        acc
+
+let reservoir_readout(states, weights) = reservoir_readout_impl(states, weights, 0, 0)
+
+let reservoir_norm_impl(states, idx, acc) =
+    if idx < len(states)
+      let s = states[idx]
+      let acc2 = acc + s * s
+      reservoir_norm_impl(states, idx + 1, acc2 - acc2 / RS_P * RS_P)
+    else
+        acc
+
+let reservoir_norm(states) = reservoir_norm_impl(states, 0, 0)
+
+let gate_apply(mem, delta, alpha, beta) =
+    let r = alpha * mem + beta * delta
+    r - r / RS_P * RS_P
+
+let gate_decay_impl(mem, alpha, n) =
+    if n > 0
+      gate_decay_impl(gate_apply(mem, 0, alpha, 0), alpha, n - 1)
+    else
+        mem
+
+let gate_decay(mem, alpha, n) = gate_decay_impl(mem, alpha, n)
+
+let gate_decay_monotone_impl(mem, alpha, n) =
+    if n > 0
+      let next = gate_apply(mem, 0, alpha, 0)
+      if next < mem
+        gate_decay_monotone_impl(next, alpha, n - 1)
+      else
+          false
+    else
+        true
+
+let gate_decay_monotone(mem, alpha, n) = gate_decay_monotone_impl(mem, alpha, n)
+
+let hebbian_update(w, x, lr) =
+    let r = w + lr * x
+    r - r / RS_P * RS_P
+
+let hebbian_update_weights_impl(states, weights, lr, idx, acc) =
+    if idx < len(weights)
+      let s = (idx < len(states) ? states[idx] : 0)
+      hebbian_update_weights_impl(states, weights, lr, idx + 1, acc.push(hebbian_update(weights[idx], s, lr)))
+    else
+        acc
+
+let hebbian_update_weights(states, weights, lr, idx, acc) = hebbian_update_weights_impl(states, weights, lr, 0, [])
+
+let hebbian_learn(states, weights, lr) = reservoir_readout(states, hebbian_update_weights(states, weights, lr, 0, []))
+
+let hebbian_direction_ok(states, weights, lr) = hebbian_learn(states, weights, lr) >= reservoir_readout(states, weights)
+
+let reservoir_summary() = { theory: "physical reservoir", update: "gated mem' = a*mem + b*d", learn: "Hebbian, backprop-free", field: "GF(65537) readout" }

@@ -1,0 +1,51 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let mtdna = 16569
+bad[0] = bad[0] + ck(mtdna, 16500, 16650)
+
+let genes = 37
+bad[0] = bad[0] + ck(genes, 36, 38)
+
+let egg = 100000
+let sperm = 100
+let ratio = small_div(egg, sperm)
+bad[0] = bad[0] + ck(ratio, 500, 2000)
+
+let nmito = 5000
+bad[0] = bad[0] + ck(nmito, 4000, 6000)
+
+let vol = 35
+bad[0] = bad[0] + ck(vol, 30, 40)
+
+let motors = 15000
+bad[0] = bad[0] + ck(motors, 10000, 20000)
+
+let h1 = 4
+let h2 = 4
+let h3 = 2
+let hnad = h1 + h2 + h3
+if hnad != 10
+    bad[0] = bad[0] + 1
+
+let po = small_div(hnad * 1000, 400)
+bad[0] = bad[0] + ck(po, 24, 26)
+
+let heart = 6
+bad[0] = bad[0] + ck(heart, 5, 8)
+
+let eve = 200
+bad[0] = bad[0] + ck(eve, 150, 250)
+
+if 1967 < 1965
+    bad[0] = bad[0] + 1
+if 1967 > 1969
+    bad[0] = bad[0] + 1
+if 1981 < 1979
+    bad[0] = bad[0] + 1
+if 1981 > 1983
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

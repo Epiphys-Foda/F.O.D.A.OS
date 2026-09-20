@@ -1,0 +1,79 @@
+import "super_db.ψ"
+let rf_dbds_register(reg, id, env) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(reg)
+        out = out.push(reg[i])
+        i = i + 1
+      else
+        done = true
+    out = out.push(id)
+    out = out.push(len(env))
+    i = 0
+    done = false
+    for !done
+      if i < len(env)
+        out = out.push(env[i])
+        i = i + 1
+      else
+        done = true
+    out
+
+let rf_dbds_env(reg, id) =
+    let out = []
+    let i = 0
+    let env_start = 0
+    let env_len = 0
+    let done = false
+    for !done
+      if i < len(reg)
+        if reg[i] == id
+          env_len = reg[i + 1]
+          env_start = i + 2
+          done = true
+        else
+          i = i + 2 + reg[i + 1]
+      else
+        done = true
+    let k = 0
+    let kdone = false
+    for !kdone
+      if k < env_len
+        out = out.push(reg[env_start + k])
+        k = k + 1
+      else
+        kdone = true
+    out
+
+let rf_dbds_list(reg) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(reg)
+        out = out.push(reg[i])
+        i = i + 2 + reg[i + 1]
+      else
+        done = true
+    out
+
+let rf_dbds_collide(env1, env2, px, py) =
+    let v1 = rf_db_field(env1, px, py)
+    let v2 = rf_db_field(env2, px, py)
+    let d = v1 - v2
+    (d < 0 ? d + 65537 : d)
+
+let rf_dbds_quantum_chem() = [0, 0, 100, 2, 0, 60, 0, 2, 60]
+
+let rf_dbds_crypto() = [10, 10, 200, 0, 5, 80]
+
+let rf_dbds_test() =
+    let reg = rf_dbds_register(rf_dbds_register([], 0, rf_dbds_quantum_chem()), 1, rf_dbds_crypto())
+    let t1 = len(rf_dbds_env(reg, 0)) == 9
+    let lst = rf_dbds_list(reg)
+    let t2 = lst[0] == 0 && lst[1] == 1
+    let t3 = rf_dbds_collide(rf_dbds_quantum_chem(), rf_dbds_crypto(), 0, 0) >= 0
+    let t4 = len(rf_dbds_quantum_chem()) == 9 && len(rf_dbds_crypto()) == 6
+    t1 && t2 && t3 && t4

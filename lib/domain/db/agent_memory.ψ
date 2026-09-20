@@ -1,0 +1,271 @@
+import "../../core/stdlib/gf65537.ψ"
+import "../domain_field.ψ"
+
+let memory_new() =
+    [{}, [], [], 0]
+
+let mem_entities(m) = m[0]
+let mem_relations(m) = m[1]
+let mem_episodic(m) = m[2]
+let mem_next_id(m) = m[3]
+
+let mem_alloc_id(m) =
+    let id = m[3]
+    m[3] = id + 1
+    id
+
+let entity_new(m, entity_type, name, props) =
+    let id = mem_alloc_id(m)
+    let eid = "entity:" + id
+    let ent = [eid, entity_type, name, props, [], 0]
+    let ents = mem_entities(m)
+    ents[eid] = ent
+    ent
+
+let entity_id(e) = e[0]
+let entity_type(e) = e[1]
+let entity_name(e) = e[2]
+let entity_props(e) = e[3]
+let entity_vector(e) = e[4]
+let entity_created(e) = e[5]
+
+let entity_set_vector(e, vec) =
+    e[4] = vec
+    e
+
+let entity_get_prop(e, key) =
+    entity_props(e)[key]
+
+let extract_entities(m, text, keywords) =
+    let extracted = []
+    let i = 0
+    let n = len(keywords)
+    for i < n
+        let kw = keywords[i]
+        if contains(text, kw) == 1
+            let ent = entity_new(m, "concept", kw, {source_text: text})
+            extracted.push(ent)
+        i = i + 1
+    extracted
+
+let relation_new(m, source_eid, rel_type, target_eid, props) =
+    let id = mem_alloc_id(m)
+    let rid = "relation:" + id
+    let rel = [rid, source_eid, target_eid, rel_type, props, 0]
+    let rels = mem_relations(m)
+    rels.push(rel)
+    rel
+
+let relation_id(r) = r[0]
+let relation_source(r) = r[1]
+let relation_target(r) = r[2]
+let relation_type(r) = r[3]
+let relation_props(r) = r[4]
+let relation_created(r) = r[5]
+
+let entity_relations(m, eid) =
+    let rels = mem_relations(m)
+    let result = []
+    let i = 0
+    let n = len(rels)
+    for i < n
+        let r = rels[i]
+        if relation_source(r) == eid || relation_target(r) == eid
+            result.push(r)
+        i = i + 1
+    result
+
+let kg_traverse(m, start_eid, rel_type, depth) =
+    if depth <= 0
+        [start_eid]
+    else
+        let visited = {}
+        visited[start_eid] = 1
+        let result = [start_eid]
+        let frontier = [start_eid]
+        let d = 0
+        for d < depth
+            let next_frontier = []
+            let i = 0
+            let n = len(frontier)
+            for i < n
+                let cur = frontier[i]
+                let rels = entity_relations(m, cur)
+                let j = 0
+                let m2 = len(rels)
+                for j < m2
+                    let r = rels[j]
+                    if relation_type(r) == rel_type
+                        let next_eid = relation_target(r)
+                        if visited[next_eid] == 0
+                            visited[next_eid] = 1
+                            result.push(next_eid)
+                            next_frontier.push(next_eid)
+                    j = j + 1
+                i = i + 1
+            frontier = next_frontier
+            d = d + 1
+        result
+
+let episodic_new(m, agent_id, entity_id, fact, timestamp) =
+    let id = mem_alloc_id(m)
+    let ep_id = "episodic:" + id
+    let ep = [ep_id, agent_id, entity_id, fact, timestamp, []]
+    let eps = mem_episodic(m)
+    eps.push(ep)
+    ep
+
+let episodic_id(e) = e[0]
+let episodic_agent(e) = e[1]
+let episodic_entity(e) = e[2]
+let episodic_fact(e) = e[3]
+let episodic_time(e) = e[4]
+let episodic_vector(e) = e[5]
+
+let episodic_query_by_entity(m, eid) =
+    let eps = mem_episodic(m)
+    let result = []
+    let i = 0
+    let n = len(eps)
+    for i < n
+        if episodic_entity(eps[i]) == eid
+            result.push(eps[i])
+        i = i + 1
+    result
+
+let episodic_query_by_time(m, start, end) =
+    let eps = mem_episodic(m)
+    let result = []
+    let i = 0
+    let n = len(eps)
+    for i < n
+        let t = episodic_time(eps[i])
+        if t >= start && t <= end
+            result.push(eps[i])
+        i = i + 1
+    result
+
+let memory_vector_search(m, query_vec, k) =
+    let ents = mem_entities(m)
+    let results = []
+    let ids = keys_of(ents)
+    let n = len(ids)
+    let i = 0
+    for i < n
+        let ent = ents[ids[i]]
+        let vec = entity_vector(ent)
+        if len(vec) > 0
+            let sim = cosine_sim(query_vec, vec)
+            results.push([sim, ent])
+        i = i + 1
+    let top = []
+    let j = 0
+    for j < k && j < len(results)
+        let best_idx = j
+        let best_sim = results[j][0]
+        let l = j + 1
+        for l < len(results)
+            if results[l][0] > best_sim
+                best_sim = results[l][0]
+                best_idx = l
+            l = l + 1
+        let tmp = results[j]
+        results[j] = results[best_idx]
+        results[best_idx] = tmp
+        top.push(results[j][1])
+        j = j + 1
+    top
+
+let graphrag_search(m, query_vec, k, graph_depth) =
+    let seed_entities = memory_vector_search(m, query_vec, k)
+    let expanded = []
+    let visited = {}
+    let i = 0
+    let n = len(seed_entities)
+    for i < n
+        let eid = entity_id(seed_entities[i])
+        if visited[eid] == 0
+            visited[eid] = 1
+            expanded.push(seed_entities[i])
+            let rels = entity_relations(m, eid)
+            let j = 0
+            let m2 = len(rels)
+            for j < m2
+                let target_eid = relation_target(rels[j])
+                if visited[target_eid] == 0
+                    visited[target_eid] = 1
+                    let ents = mem_entities(m)
+                    let target_ent = ents[target_eid]
+                    if target_ent != 0
+                        expanded.push(target_ent)
+                j = j + 1
+        i = i + 1
+    expanded
+
+let memory_wal(m) =
+    let ents = mem_entities(m)
+    let rels = mem_relations(m)
+    let eps = mem_episodic(m)
+    [ents, rels, eps]
+
+let cosine_sim(a, b) =
+    let n = len(a)
+    if n != len(b)
+        0
+    else
+        let dot = 0
+        let na = 0
+        let nb = 0
+        let i = 0
+        for i < n
+            dot = dot + a[i] * b[i]
+            na = na + a[i] * a[i]
+            nb = nb + b[i] * b[i]
+            i = i + 1
+        if na == 0 || nb == 0
+            0
+        else
+            dot * gf_inv(na) * gf_inv(nb)
+
+let contains(text, keyword) =
+    let i = 0
+    let n = len(text)
+    let k = len(keyword)
+    if k > n
+        0
+    else
+        let found = 0
+        for i <= n - k
+            let j = 0
+            let match_ = 1
+            for j < k
+                if text[i + j] != keyword[j]
+                    match_ = 0
+                    j = k
+                j = j + 1
+            if match_ == 1
+                found = 1
+                i = n
+            i = i + 1
+        found
+
+let agent_memory_verify() =
+    let mem = memory_new()
+    let e1 = entity_new(mem, "person", "Alice", {age: 30})
+    let e2 = entity_new(mem, "person", "Bob", {age: 25})
+    let ok1 = entity_name(e1) == "Alice"
+    let r1 = relation_new(mem, entity_id(e1), "knows", entity_id(e2), {since: 2026})
+    let ok2 = relation_type(r1) == "knows"
+    let path = kg_traverse(mem, entity_id(e1), "knows", 1)
+    let ok3 = len(path) == 2
+    let ep = episodic_new(mem, "agent1", entity_id(e1), "Alice likes quantum", 2026)
+    let ok4 = episodic_fact(ep) == "Alice likes quantum"
+    let e3 = entity_new(mem, "concept", "Quantum", {})
+    entity_set_vector(e3, [1, 2, 3])
+    let results = memory_vector_search(mem, [1, 2, 3], 1)
+    let ok5 = len(results) == 1
+    let graph_results = graphrag_search(mem, [1, 2, 3], 1, 1)
+    let ok6 = len(graph_results) >= 1
+    ok1 + ok2 + ok3 + ok4 + ok5 + ok6
+
+let main() = agent_memory_verify()

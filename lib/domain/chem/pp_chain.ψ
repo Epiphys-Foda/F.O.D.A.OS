@@ -1,0 +1,26 @@
+import "ck.ψ"
+let bad = [0]
+
+let qTotal = 267
+bad[0] = bad[0] + ck(qTotal, 265, 270)
+
+let heat = 257
+bad[0] = bad[0] + ck(heat, 250, 260)
+
+let massDef = 267
+if massDef != qTotal
+    bad[0] = bad[0] + 1
+
+let hRate = 630
+bad[0] = bad[0] + ck(hRate, 600, 650)
+
+let L = 383
+bad[0] = bad[0] + ck(L, 380, 385)
+
+let eta = 7
+bad[0] = bad[0] + ck(eta, 6, 8)
+
+let burnTime = 1000
+bad[0] = bad[0] + ck(burnTime, 900, 1100)
+
+arr_get(arr_new_n(1), bad[0])

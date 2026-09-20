@@ -1,0 +1,360 @@
+let PX_P = 65537
+
+let PX_MSG_PREPARE  = 1
+let PX_MSG_PROMISE  = 2
+let PX_MSG_ACCEPT   = 3
+let PX_MSG_ACCEPTED = 4
+
+let PX_ROLE_PROPOSER = 1
+let PX_ROLE_ACCEPTOR = 2
+let PX_ROLE_LEARNER  = 3
+
+let px_msg_new(kind, proposal_id, node_id, value) =
+    [kind, proposal_id, node_id, value, 0, 0]
+
+let px_m_type(m)         = m[0]
+let px_m_pid(m)          = m[1]
+let px_m_node(m)         = m[2]
+let px_m_value(m)        = m[3]
+let px_m_acc_pid(m)      = m[4]
+let px_m_acc_val(m)      = m[5]
+
+let px_m_set_acc_pid(m, p) =
+    m[4] = p
+    m
+let px_m_set_acc_val(m, v) =
+    m[5] = v
+    m
+
+let px_acceptor_new(id) =
+    [id, 0, 0, 0, [], [0, 0, 0]]
+
+let px_a_id(a)            = a[0]
+let px_a_promised(a)      = a[1]
+let px_a_acc_pid(a)       = a[2]
+let px_a_acc_val(a)       = a[3]
+let px_a_log(a)           = a[4]
+let px_a_stats(a)         = a[5]
+
+let px_a_set_promised(a, p) =
+    a[1] = p
+    a
+let px_a_set_acc_pid(a, p) =
+    a[2] = p
+    a
+let px_a_set_acc_val(a, v) =
+    a[3] = v
+    a
+let px_a_set_log(a, l) =
+    a[4] = l
+    a
+let px_a_set_stats(a, s) =
+    a[5] = s
+    a
+
+let px_a_log_append(a, msg) =
+    let log = px_a_log(a)
+    log.push(msg)
+    a = px_a_set_log(a, log)
+    let st = px_a_stats(a)
+    st[0] = st[0] + 1
+    a = px_a_set_stats(a, st)
+    a
+
+let px_a_handle_prepare(a, msg) =
+    if px_m_type(msg) != PX_MSG_PREPARE
+        [a, 0]
+    else
+        a = px_a_log_append(a, msg)
+        let pid = px_m_pid(msg)
+        if pid < px_a_promised(a)
+            [a, 0]
+        else
+            a = px_a_set_promised(a, pid)
+            let promise = px_msg_new(PX_MSG_PROMISE, pid, px_a_id(a), 0)
+            promise = px_m_set_acc_pid(promise, px_a_acc_pid(a))
+            promise = px_m_set_acc_val(promise, px_a_acc_val(a))
+            a = px_a_log_append(a, promise)
+            let st = px_a_stats(a)
+            st[1] = st[1] + 1
+            a = px_a_set_stats(a, st)
+            [a, promise]
+
+let px_a_handle_accept(a, msg) =
+    if px_m_type(msg) != PX_MSG_ACCEPT
+        [a, 0]
+    else
+        a = px_a_log_append(a, msg)
+        let pid = px_m_pid(msg)
+        if pid < px_a_promised(a)
+            [a, 0]
+        else
+            a = px_a_set_promised(a, pid)
+            a = px_a_set_acc_pid(a, pid)
+            a = px_a_set_acc_val(a, px_m_value(msg))
+            let accepted = px_msg_new(PX_MSG_ACCEPTED, pid, px_a_id(a), px_m_value(msg))
+            a = px_a_log_append(a, accepted)
+            let st = px_a_stats(a)
+            st[2] = st[2] + 1
+            a = px_a_set_stats(a, st)
+            [a, accepted]
+
+let px_proposer_new(id) =
+    [id, 1, 0, 0, [], [], 0, [], [0, 0, 0]]
+
+let px_p_id(p)            = p[0]
+let px_p_next_pid(p)      = p[1]
+let px_p_curr_pid(p)      = p[2]
+let px_p_value(p)         = p[3]
+let px_p_promises(p)      = p[4]
+let px_p_accepteds(p)     = p[5]
+let px_p_state(p)         = p[6]
+let px_p_log(p)           = p[7]
+let px_p_stats(p)         = p[8]
+
+let px_p_set_next_pid(p, n) =
+    p[1] = n
+    p
+let px_p_set_curr_pid(p, c) =
+    p[2] = c
+    p
+let px_p_set_value(p, v) =
+    p[3] = v
+    p
+let px_p_set_promises(p, pr) =
+    p[4] = pr
+    p
+let px_p_set_accepteds(p, ac) =
+    p[5] = ac
+    p
+let px_p_set_state(p, s) =
+    p[6] = s
+    p
+let px_p_set_log(p, l) =
+    p[7] = l
+    p
+let px_p_set_stats(p, s) =
+    p[8] = s
+    p
+
+let px_p_log_append(p, msg) =
+    let log = px_p_log(p)
+    log.push(msg)
+    p = px_p_set_log(p, log)
+    p
+
+let px_p_start_prepare(p, value, now_ts) =
+    let pid = px_p_next_pid(p)
+    p = px_p_set_curr_pid(p, pid)
+    p = px_p_set_value(p, value)
+    p = px_p_set_state(p, 1)
+    p = px_p_set_promises(p, [])
+    p = px_p_set_next_pid(p, pid + 1)
+    let msg = px_msg_new(PX_MSG_PREPARE, pid, px_p_id(p), value)
+    p = px_p_log_append(p, msg)
+    let st = px_p_stats(p)
+    st[0] = st[0] + 1
+    p = px_p_set_stats(p, st)
+    [p, msg]
+
+let px_p_handle_promise(p, msg, quorum) =
+    if px_m_type(msg) != PX_MSG_PROMISE
+        [p, 0]
+    else
+        p = px_p_log_append(p, msg)
+        let promises = px_p_promises(p)
+        promises.push(msg)
+        p = px_p_set_promises(p, promises)
+        if len(promises) >= quorum
+            let chosen_value = px_p_value(p)
+            let highest_acc_pid = 0
+            let i = 0
+            let n = len(promises)
+            for i < n
+                let acc_pid = px_m_acc_pid(promises[i])
+                if acc_pid > highest_acc_pid
+                    highest_acc_pid = acc_pid
+                    chosen_value = px_m_acc_val(promises[i])
+                i = i + 1
+            p = px_p_set_value(p, chosen_value)
+            p = px_p_set_state(p, 2)
+            p = px_p_set_accepteds(p, [])
+            let accept_msg = px_msg_new(PX_MSG_ACCEPT, px_p_curr_pid(p), px_p_id(p), chosen_value)
+            p = px_p_log_append(p, accept_msg)
+            let st = px_p_stats(p)
+            st[1] = st[1] + 1
+            p = px_p_set_stats(p, st)
+            [p, accept_msg]
+            [p, 0]
+
+let px_p_handle_accepted(p, msg, quorum) =
+    if px_m_type(msg) != PX_MSG_ACCEPTED
+        [p, 0]
+    else
+        p = px_p_log_append(p, msg)
+        let accepteds = px_p_accepteds(p)
+        accepteds.push(msg)
+        p = px_p_set_accepteds(p, accepteds)
+        if len(accepteds) >= quorum
+            p = px_p_set_state(p, 3)
+            let st = px_p_stats(p)
+            st[2] = st[2] + 1
+            p = px_p_set_stats(p, st)
+            [p, 1]
+        else
+            [p, 0]
+
+let px_learner_new(id) =
+    [id, {}, [], [0, 0]]
+
+let px_l_id(l)             = l[0]
+let px_l_decisions(l)      = l[1]
+let px_l_log(l)            = l[2]
+let px_l_stats(l)          = l[3]
+
+let px_l_set_decisions(l, d) =
+    l[1] = d
+    l
+let px_l_set_log(l, log) =
+    l[2] = log
+    l
+let px_l_set_stats(l, s) =
+    l[3] = s
+    l
+
+let px_l_handle_accepted(l, msg, quorum) =
+    if px_m_type(msg) != PX_MSG_ACCEPTED
+        [l, 0]
+    else
+        let log = px_l_log(l)
+        log.push(msg)
+        l = px_l_set_log(l, log)
+        let decisions = px_l_decisions(l)
+        let pid = px_m_pid(msg)
+        decisions[pid] = px_m_value(msg)
+        l = px_l_set_decisions(l, decisions)
+        let st = px_l_stats(l)
+        st[0] = st[0] + 1
+        st[1] = len(keys_of(decisions))
+        l = px_l_set_stats(l, st)
+        [l, 1]
+
+let px_cluster_new(quorum) =
+    [[], [], [], quorum, [0, 0, 0, 0]]
+
+let px_c_proposers(c)     = c[0]
+let px_c_acceptors(c)     = c[1]
+let px_c_learners(c)      = c[2]
+let px_c_quorum(c)        = c[3]
+let px_c_stats(c)         = c[4]
+
+let px_c_set_proposers(c, p) =
+    c[0] = p
+    c
+let px_c_set_acceptors(c, a) =
+    c[1] = a
+    c
+let px_c_set_learners(c, l) =
+    c[2] = l
+    c
+let px_c_set_stats(c, s) =
+    c[4] = s
+    c
+
+let px_c_add_proposer(c, p) =
+    let ps = px_c_proposers(c)
+    ps.push(p)
+    c = px_c_set_proposers(c, ps)
+    c
+
+let px_c_add_acceptor(c, a) =
+    let as = px_c_acceptors(c)
+    as.push(a)
+    c = px_c_set_acceptors(c, as)
+    c
+
+let px_c_add_learner(c, l) =
+    let ls = px_c_learners(c)
+    ls.push(l)
+    c = px_c_set_learners(c, ls)
+    c
+
+let px_c_run_round(c, proposer_idx, value, now_ts) =
+    let quorum = px_c_quorum(c)
+    let proposers = px_c_proposers(c)
+    let acceptors = px_c_acceptors(c)
+    let learners = px_c_learners(c)
+    let prep_r = px_p_start_prepare(proposers[proposer_idx], value, now_ts)
+    proposers[proposer_idx] = prep_r[0]
+    let prep_msg = prep_r[1]
+    let promises = []
+    let i = 0
+    let n = len(acceptors)
+    for i < n
+        let res = px_a_handle_prepare(acceptors[i], prep_msg)
+        acceptors[i] = res[0]
+        if res[1] != 0
+            promises.push(res[1])
+        i = i + 1
+    i = 0
+    for i < len(promises)
+        let res = px_p_handle_promise(proposers[proposer_idx], promises[i], quorum)
+        proposers[proposer_idx] = res[0]
+        if res[1] != 0
+            let accept_msg = res[1]
+            let j = 0
+            for j < len(acceptors)
+                let res2 = px_a_handle_accept(acceptors[j], accept_msg)
+                acceptors[j] = res2[0]
+                if res2[1] != 0
+                    let k = 0
+                    for k < len(learners)
+                        let res3 = px_l_handle_accepted(learners[k], res2[1], quorum)
+                        learners[k] = res3[0]
+                        k = k + 1
+                j = j + 1
+        i = i + 1
+    c = px_c_set_proposers(c, proposers)
+    c = px_c_set_acceptors(c, acceptors)
+    c = px_c_set_learners(c, learners)
+    let st = px_c_stats(c)
+    st[0] = st[0] + 1
+    c = px_c_set_stats(c, st)
+    c
+
+let px_c_bragg_verify(c) =
+    let learners = px_c_learners(c)
+    let ok = 1
+    let total_decisions = 0
+    let i = 0
+    let n = len(learners)
+    for i < n
+        let st = px_l_stats(learners[i])
+        total_decisions = total_decisions + st[1]
+        i = i + 1
+    let stats = px_c_stats(c)
+    ok = total_decisions > 0
+    [ok, total_decisions]
+
+let px_default_cluster() =
+    let c = px_cluster_new(2)
+    c = px_c_add_acceptor(c, px_acceptor_new(1))
+    c = px_c_add_acceptor(c, px_acceptor_new(2))
+    c = px_c_add_acceptor(c, px_acceptor_new(3))
+    c = px_c_add_proposer(c, px_proposer_new(10))
+    c = px_c_add_learner(c, px_learner_new(20))
+    c
+
+let px_self_test() =
+    let c = px_default_cluster()
+    let ok1 = len(px_c_acceptors(c)) == 3
+    let ok2 = len(px_c_proposers(c)) == 1
+    let ok3 = px_c_quorum(c) == 2
+    c = px_c_run_round(c, 0, 42, 1000)
+    let learner = px_c_learners(c)[0]
+    let ok4 = px_l_stats(learner)[1] == 1
+    let decisions = px_l_decisions(learner)
+    let ok5 = decisions[1] == 42
+    let bv = px_c_bragg_verify(c)
+    let ok6 = bv[0] == 1
+    ["paxos", ok1, ok2, ok3, ok4, ok5, ok6]

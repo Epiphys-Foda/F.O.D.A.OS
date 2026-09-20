@@ -1,0 +1,296 @@
+import "../domain_field.ψ"
+
+let instance_new(id, service_name, host, port, tags, meta, current_ts) =
+    [id, service_name, host, port, tags, meta, 1, current_ts, current_ts]
+
+let inst_id(i) = i[0]
+let inst_name(i) = i[1]
+let inst_host(i) = i[2]
+let inst_port(i) = i[3]
+let inst_tags(i) = i[4]
+let inst_meta(i) = i[5]
+let inst_status(i) = i[6]
+let inst_reg_ts(i) = i[7]
+let inst_hb_ts(i) = i[8]
+
+let inst_set_status(i, status) =
+    i[6] = status
+    i
+
+let inst_set_hb(i, ts) =
+    i[8] = ts
+    i
+
+let inst_healthy(i) =
+    inst_status(i) == 1
+
+let inst_addr(i) =
+    inst_host(i) + ":" + inst_port(i)
+
+let inst_has_tag(i, tag) =
+    let tags = inst_tags(i)
+    let found = 0
+    let j = 0
+    let m = len(tags)
+    for j < m
+        if tags[j] == tag
+            found = 1
+            j = m
+        j = j + 1
+    found
+
+let inst_meta_get(i, key) =
+    inst_meta(i)[key]
+
+let registry_new() =
+    [{}, 0]
+
+let registry_services(r) = r[0]
+let registry_next_id(r) = r[1]
+
+let registry_alloc_id(r) =
+    let id = r[1]
+    r[1] = id + 1
+    id
+
+let registry_register(r, service_name, host, port, tags, meta, current_ts) =
+    let id = registry_alloc_id(r)
+    let inst = instance_new(id, service_name, host, port, tags, meta, current_ts)
+    let services = registry_services(r)
+    let instances = services[service_name]
+    if instances == 0
+        instances = []
+    instances.push(inst)
+    services[service_name] = instances
+    r[0] = services
+    inst
+
+let registry_deregister(r, service_name, inst_id) =
+    let services = registry_services(r)
+    let instances = services[service_name]
+    let removed = 0
+    if instances != 0
+        let new_list = []
+        let i = 0
+        let n = len(instances)
+        for i < n
+            if inst_id(instances[i]) == inst_id
+                removed = 1
+            else
+                new_list.push(instances[i])
+            i = i + 1
+        services[service_name] = new_list
+    r[0] = services
+    removed
+
+let registry_heartbeat(r, service_name, inst_id, current_ts) =
+    let services = registry_services(r)
+    let instances = services[service_name]
+    let found = 0
+    if instances != 0
+        let i = 0
+        let n = len(instances)
+        for i < n
+            if inst_id(instances[i]) == inst_id
+                instances[i] = inst_set_hb(instances[i], current_ts)
+                instances[i] = inst_set_status(instances[i], 1)
+                found = 1
+                i = n
+            i = i + 1
+        services[service_name] = instances
+    r[0] = services
+    found
+
+let registry_health_check(r, current_ts, warn_threshold, fail_threshold) =
+    let services = registry_services(r)
+    let keys = keys_of(services)
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let sname = keys[i]
+        let instances = services[sname]
+        if instances != 0
+            let j = 0
+            let m = len(instances)
+            for j < m
+                let inst = instances[j]
+                let elapsed = current_ts - inst_hb_ts(inst)
+                let new_status = inst_status(inst)
+                if elapsed > fail_threshold
+                    new_status = 3
+                else
+                    0
+                if elapsed > warn_threshold
+                    new_status = 2
+                else
+                    new_status = 1
+                instances[j] = inst_set_status(inst, new_status)
+                j = j + 1
+            services[sname] = instances
+        i = i + 1
+    r[0] = services
+    r
+
+let registry_cleanup(r, current_ts, dereg_threshold) =
+    let services = registry_services(r)
+    let keys = keys_of(services)
+    let i = 0
+    let n = len(keys)
+    for i < n
+        let sname = keys[i]
+        let instances = services[sname]
+        if instances != 0
+            let kept = []
+            let j = 0
+            let m = len(instances)
+            for j < m
+                let inst = instances[j]
+                let elapsed = current_ts - inst_hb_ts(inst)
+                if elapsed > dereg_threshold
+                else
+                    kept.push(inst)
+                j = j + 1
+            services[sname] = kept
+        i = i + 1
+    r[0] = services
+    r
+
+let registry_list_all(r, service_name) =
+    let services = registry_services(r)
+    let instances = services[service_name]
+    if instances == 0
+        []
+    else
+        instances
+
+let registry_list_healthy(r, service_name) =
+    let all = registry_list_all(r, service_name)
+    let result = []
+    let i = 0
+    let n = len(all)
+    for i < n
+        let inst = all[i]
+        if inst_healthy(inst) == 1
+            result.push(inst)
+        i = i + 1
+    result
+
+let registry_list_by_tag(r, service_name, tag) =
+    let all = registry_list_healthy(r, service_name)
+    let result = []
+    let i = 0
+    let n = len(all)
+    for i < n
+        let inst = all[i]
+        if inst_has_tag(inst, tag) == 1
+            result.push(inst)
+        i = i + 1
+    result
+
+let registry_list_by_meta(r, service_name, meta_key, meta_val) =
+    let all = registry_list_healthy(r, service_name)
+    let result = []
+    let i = 0
+    let n = len(all)
+    for i < n
+        let inst = all[i]
+        if inst_meta_get(inst, meta_key) == meta_val
+            result.push(inst)
+        i = i + 1
+    result
+
+let registry_list_services(r) =
+    let services = registry_services(r)
+    keys_of(services)
+
+let registry_dns_resolve(r, service_name) =
+    let healthy = registry_list_healthy(r, service_name)
+    let addrs = []
+    let i = 0
+    let n = len(healthy)
+    for i < n
+        addrs.push(inst_addr(healthy[i]))
+        i = i + 1
+    addrs
+
+let registry_dns_srv_resolve(r, service_name, default_priority, default_weight) =
+    let healthy = registry_list_healthy(r, service_name)
+    let result = []
+    let i = 0
+    let n = len(healthy)
+    for i < n
+        let inst = healthy[i]
+        result.push([inst_host(inst), inst_port(inst), default_priority, default_weight])
+        i = i + 1
+    result
+
+let dep_graph_new() =
+    [{}, {}]
+
+let dep_graph_providers(g) = g[0]
+let dep_graph_consumers(g) = g[1]
+
+let dep_graph_add_edge(g, consumer, provider) =
+    let pros = dep_graph_providers(g)
+    let plist = pros[consumer]
+    if plist == 0
+        plist = []
+    plist.push(provider)
+    pros[consumer] = plist
+    let cons = dep_graph_consumers(g)
+    let clist = cons[provider]
+    if clist == 0
+        clist = []
+    clist.push(consumer)
+    cons[provider] = clist
+    g[0] = pros
+    g[1] = cons
+    g
+
+let dep_graph_topo_sort(g) =
+    let pros = dep_graph_providers(g)
+    let all_services = keys_of(pros)
+    let in_degree = {}
+    let i = 0
+    let n = len(all_services)
+    for i < n
+        in_degree[all_services[i]] = 0
+        i = i + 1
+    i = 0
+    for i < n
+        let svc = all_services[i]
+        let deps = pros[svc]
+        if deps != 0
+            in_degree[svc] = len(deps)
+        i = i + 1
+    let queue = []
+    let result = []
+    let keys = keys_of(in_degree)
+    i = 0
+    let nk = len(keys)
+    for i < nk
+        if in_degree[keys[i]] == 0
+            queue.push(keys[i])
+        i = i + 1
+    for len(queue) > 0
+        let svc = queue[0]
+        result.push(svc)
+        let new_q = []
+        let q = 1
+        let ql = len(queue)
+        for q < ql
+            new_q.push(queue[q])
+            q = q + 1
+        queue = new_q
+        let cons = dep_graph_consumers(g)
+        let consumers_of_svc = cons[svc]
+        if consumers_of_svc != 0
+            let j = 0
+            let m = len(consumers_of_svc)
+            for j < m
+                let c = consumers_of_svc[j]
+                in_degree[c] = in_degree[c] - 1
+                if in_degree[c] == 0
+                    queue.push(c)
+                j = j + 1
+    result

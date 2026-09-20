@@ -1,0 +1,77 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let SOC_SOC_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let SOC_SOC_RESIDUES = [300, 370, 670, 700, 730, 870, 940, 1100]
+
+let psi_soc_society(idx) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(idx), gf_norm(SOC_SOC_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(SOC_SOC_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let SOC_ECO_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let SOC_ECO_RESIDUES = [10, 50, 100, 150, 350, 400, 50, 500]
+
+let psi_soc_economy(level) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(level), gf_norm(SOC_ECO_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(SOC_ECO_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let SOC_COOP_POLES = [1, 2, 3, 4, 5, 6, 7, 8]
+let SOC_COOP_RESIDUES = [0, 1000, 950, 900, 920, 600, 800, 500]
+
+let psi_soc_cooperation(strategy) =
+    let val = 0
+    let k = 0
+    for k < 8
+        let diff = gf_sub(gf_norm(strategy), gf_norm(SOC_COOP_POLES[k]))
+        if diff != 0
+            val = gf_add(val, gf_mul(SOC_COOP_RESIDUES[k], gf_inv(diff)))
+        k = k + 1
+    val
+
+let SOC_DEN_BASE = 100
+let SOC_DEN_SCALE = 100
+
+let soc_fit_population_density(society_idx) =
+    let s_term = gf_div(psi_soc_society(society_idx), SOC_DEN_SCALE)
+    gf_add(SOC_DEN_BASE, s_term)
+
+let SOC_GDP_BASE = 100
+let SOC_GDP_SCALE = 100
+
+let soc_fit_GDP_growth(economy_level) =
+    let e_term = gf_div(psi_soc_economy(economy_level), SOC_GDP_SCALE)
+    gf_add(SOC_GDP_BASE, e_term)
+
+let SOC_COOP_BASE = 0
+let SOC_COOP_SCALE = 1
+
+let soc_fit_cooperation_rate(strategy) =
+    let c_term = gf_div(psi_soc_cooperation(strategy), SOC_COOP_SCALE)
+    gf_add(SOC_COOP_BASE, c_term)
+
+let SOC_STAB_BASE = 1000
+let SOC_STAB_SCALE1 = 1000
+let SOC_STAB_SCALE2 = 100
+
+let soc_fit_social_stability(society_idx, strategy) =
+    let s_term = gf_div(psi_soc_society(society_idx), SOC_STAB_SCALE1)
+    let c_term = gf_div(psi_soc_cooperation(strategy), SOC_STAB_SCALE2)
+    gf_sub(gf_add(SOC_STAB_BASE, c_term), s_term)
+
+let soc_global_response(society_idx, economy_level, strategy) =
+    let e1 = psi_soc_society(society_idx)
+    let e2 = psi_soc_economy(economy_level)
+    let e3 = psi_soc_cooperation(strategy)
+    gf_add(gf_add(gf_mul(e1, e1), gf_mul(e2, e2)), gf_mul(e3, e3))
+

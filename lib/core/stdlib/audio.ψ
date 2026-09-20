@@ -1,0 +1,184 @@
+let mix(a, b, ratio) =
+    let result = []
+    let i = 0
+    for i < a.len()
+        result = arr_concat(result, [a[i] * ratio / 1000 + b[i] * (1000 - ratio) / 1000])
+        i = i + 1
+    result
+
+let gain(signal, g) =
+    let result = []
+    let i = 0
+    for i < signal.len()
+        result = arr_concat(result, [signal[i] * g / 1000])
+        i = i + 1
+    result
+
+let normalize_peak(signal, target) =
+    let peak = 0
+    let i = 0
+    for i < signal.len()
+        let v = (signal[i] < 0 ? -signal[i] : signal[i])
+        if v > peak
+            peak = v
+        i = i + 1
+    if peak == 0
+        signal
+    else
+        let g = target * 1000 / peak
+        gain(signal, g)
+
+let fade_in(signal, n_samples) =
+    let result = []
+    let i = 0
+    for i < signal.len()
+        let g = 1000
+        if i < n_samples
+            g = i * 1000 / n_samples
+        result = arr_concat(result, [signal[i] * g / 1000])
+        i = i + 1
+    result
+
+let fade_out(signal, n_samples) =
+    let n = signal.len()
+    let result = []
+    let i = 0
+    for i < n
+        let g = 1000
+        if i > n - n_samples
+            g = (n - i) * 1000 / n_samples
+        result = arr_concat(result, [signal[i] * g / 1000])
+        i = i + 1
+    result
+
+let delay(signal, n_samples, feedback) =
+    let n = signal.len()
+    let result = []
+    let i = 0
+    for i < n
+        result = arr_concat(result, [signal[i]])
+        i = i + 1
+    let i = n_samples
+    for i < n
+        result[i] = result[i] + result[i - n_samples] * feedback / 1000
+        i = i + 1
+    result
+
+let envelope_adsr(n_attack, n_decay, n_sustain_level, n_release, total_samples) =
+    let env = []
+    let i = 0
+    for i < total_samples
+        let val = 0
+        if i < n_attack
+            val = i * 1000 / n_attack
+        else
+            0
+        if i < n_attack + n_decay
+            let t = i - n_attack
+            val = 1000 - t * (1000 - n_sustain_level) / n_decay
+        else
+            0
+        if i < total_samples - n_release
+            val = n_sustain_level
+        else
+            let t = i - (total_samples - n_release)
+            val = n_sustain_level * (1 - t / n_release)
+        if val < 0
+            val = 0
+        env = arr_concat(env, [val])
+        i = i + 1
+    env
+
+let compress(signal, threshold_val, ratio) =
+    let result = []
+    let i = 0
+    for i < signal.len()
+        let v = signal[i]
+        let abs_v = (v < 0 ? -v : v)
+        if abs_v > threshold_val
+            let excess = abs_v - threshold_val
+            let compressed = threshold_val + excess / ratio
+            v = v * compressed / abs_v
+        result = arr_concat(result, [v])
+        i = i + 1
+    result
+
+let clip(signal, min_val, max_val) =
+    let result = []
+    let i = 0
+    for i < signal.len()
+        let v = signal[i]
+        if v > max_val
+            v = max_val
+        else
+            0
+        if v < min_val
+            v = min_val
+        result = arr_concat(result, [v])
+        i = i + 1
+    result
+
+let reverse(signal) =
+    let n = signal.len()
+    let result = []
+    let i = n - 1
+    for i >= 0
+        result = arr_concat(result, [signal[i]])
+        i = i - 1
+    result
+
+let concatenate(a, b) =
+    let result = []
+    let i = 0
+    for i < a.len()
+        result = arr_concat(result, [a[i]])
+        i = i + 1
+    let i = 0
+    for i < b.len()
+        result = arr_concat(result, [b[i]])
+        i = i + 1
+    result
+
+let rms(signal) =
+    let sum_sq = 0
+    let i = 0
+    for i < signal.len()
+        sum_sq = sum_sq + signal[i] * signal[i]
+        i = i + 1
+    let mean_sq = sum_sq / signal.len()
+    let s = mean_sq
+    let iter = 0
+    for iter < 10
+        if s > 0
+            s = (s + mean_sq / s) / 2
+        iter = iter + 1
+    s
+
+let db_to_linear(db) =
+    let result = 1000
+    if db > 0
+        let i = 0
+        for i < db
+            result = result * 1122 / 1000
+            i = i + 1
+    else
+        0
+    if db < 0
+        let i = 0
+        for i < -db
+            result = result * 891 / 1000
+            i = i + 1
+    result
+
+let main() =
+    let a = [100, 200, 300, 400, 500]
+    let b = [500, 400, 300, 200, 100]
+    let m = mix(a, b, 500)
+    print(m)
+    let fi = fade_in(a, 3)
+    print(fi)
+    let env = envelope_adsr(2, 2, 500, 2, 8)
+    print(env)
+    let r = rms(a)
+    print(r)
+    0

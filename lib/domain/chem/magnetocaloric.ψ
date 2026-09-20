@@ -1,0 +1,36 @@
+import "ck.ψ"
+let bad = [0]
+
+let tc = 293
+bad[0] = bad[0] + ck(tc, 290, 296)
+
+let sm = 0 - 3
+let sl = 3
+let ssum = sm + sl
+bad[0] = bad[0] + ck(ssum, 0, 0)
+
+let dtad = 25
+bad[0] = bad[0] + ck(dtad, 20, 30)
+
+let t_start = 1000
+let t_end = 100
+let ratio10 = t_start / t_end
+bad[0] = bad[0] + ck(ratio10, 10, 10)
+
+let cools = 1
+bad[0] = bad[0] + ck_lo(cools, 1)
+
+if 1926 < 1924
+    bad[0] = bad[0] + 1
+if 1926 > 1928
+    bad[0] = bad[0] + 1
+if 1933 < 1931
+    bad[0] = bad[0] + 1
+if 1933 > 1935
+    bad[0] = bad[0] + 1
+if 1997 < 1995
+    bad[0] = bad[0] + 1
+if 1997 > 1999
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

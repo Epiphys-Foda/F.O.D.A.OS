@@ -1,0 +1,45 @@
+import "ck.ψ"
+let bad = [0]
+
+let v_w = 1
+let l_mm = 10
+let nu_w = 1
+let re_pipe = v_w * l_mm * 1000 / nu_w
+let dz1 = re_pipe - 10000
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let v_a = 15
+let nu_a = 15
+let re_air = v_a * l_mm * 1000 / nu_a
+let dz2 = re_air - re_pipe
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let re_crit = 2300
+bad[0] = bad[0] + ck(re_crit, 2000, 3000)
+let dmm_cap = 1
+let re_cap = v_w * dmm_cap * 1000 / nu_w
+bad[0] = bad[0] + ck(re_cap, 500, 1500)
+bad[0] = bad[0] + ck_hi(re_cap, re_crit)
+bad[0] = bad[0] + ck_lo(re_pipe, re_crit)
+let l_whale = 10000
+let re_whale = 30 * l_whale * 1000 / nu_w
+bad[0] = bad[0] + ck(re_whale, 250000000, 350000000)
+bad[0] = bad[0] + ck_lo(re_whale, re_crit)
+
+let s_open = 5
+let s_close = 0 - 5
+let dz3 = s_open + s_close
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+if 1883 < 1881
+    bad[0] = bad[0] + 1
+if 1883 > 1885
+    bad[0] = bad[0] + 1
+if 1977 < 1975
+    bad[0] = bad[0] + 1
+if 1977 > 1979
+    bad[0] = bad[0] + 1
+if 1977 < 1883
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

@@ -1,0 +1,470 @@
+let SUB_P = 65537
+
+let SUB_STATE_PENDING  = 0
+let SUB_STATE_ACTIVE   = 1
+let SUB_STATE_PAUSED   = 2
+let SUB_STATE_CLOSED   = 3
+
+let SUB_OP_INSERT  = 1
+let SUB_OP_UPDATE  = 2
+let SUB_OP_DELETE  = 3
+let SUB_OP_ALL     = 7
+
+let SUB_PUSH_OK         = 1
+let SUB_PUSH_FILTERED   = 2
+let SUB_PUSH_BACKPRESS = 3
+let SUB_PUSH_CLOSED    = 4
+
+let SUB_HEARTBEAT_TIMEOUT  = 30000
+let SUB_HEARTBEAT_INTERVAL = 5000
+let SUB_REPLAY_WINDOW      = 1024
+let SUB_DEFAULT_MAX_SUBS   = 512
+let SUB_BACKPRESS_LIMIT   = 2048
+
+let sub_filter_new(tables, op_mask, row_predicate, columns) =
+    [tables, op_mask, row_predicate, columns]
+
+let sub_filter_tables(f)    = f[0]
+let sub_filter_op_mask(f)    = f[1]
+let sub_filter_predicate(f)  = f[2]
+let sub_filter_columns(f)    = f[3]
+
+let sub_filter_match(f, change) =
+    let op_mask = sub_filter_op_mask(f)
+    let op = change[2]
+    let op_hit = 0
+    if op == SUB_OP_INSERT
+        if (op_mask & 1) != 0
+            op_hit = 1
+        else
+            0
+    if op == SUB_OP_UPDATE
+        if (op_mask & 2) != 0
+            op_hit = 1
+        else
+            0
+    if op == SUB_OP_DELETE
+        if (op_mask & 4) != 0
+            op_hit = 1
+    if op_hit == 0
+        0
+    else
+        let tables = sub_filter_tables(f)
+        let table = change[3]
+        let table_hit = 0
+        if len(tables) == 0
+            table_hit = 1
+        else
+            let i = 0
+            let n = len(tables)
+            for i < n
+                if tables[i] == table
+                    table_hit = 1
+                    i = n
+                i = i + 1
+        table_hit
+
+let sub_new(sub_id, query_id, filter, created_ts) =
+    [sub_id, query_id, filter, SUB_STATE_PENDING, 0, created_ts, created_ts, 0, 0]
+
+let sub_id(s)         = s[0]
+let sub_query(s)      = s[1]
+let sub_filter(s)     = s[2]
+let sub_state(s)      = s[3]
+let sub_last_seq(s)   = s[4]
+let sub_created(s)    = s[5]
+let sub_last_hb(s)    = s[6]
+let sub_push_count(s) = s[7]
+let sub_drop_count(s) = s[8]
+
+let sub_set_state(s, st) =
+    s[3] = st
+    s
+let sub_set_last_seq(s, seq) =
+    s[4] = seq
+    s
+let sub_set_last_hb(s, ts) =
+    s[6] = ts
+    s
+let sub_inc_push(s) =
+    s[7] = s[7] + 1
+    s
+let sub_inc_drop(s) =
+    s[8] = s[8] + 1
+    s
+
+let rb_new(max_size) = [[], 0, 0, max_size]
+
+let rb_events(b)    = b[0]
+let rb_head(b)      = b[1]
+let rb_tail(b)      = b[2]
+let rb_max(b)       = b[3]
+
+let rb_append(b, change) =
+    let events = rb_events(b)
+    events.push(change)
+    let head = rb_head(b)
+    let new_seq = change[0]
+    if new_seq > head
+        head = new_seq
+    let max_sz = rb_max(b)
+    let tail = rb_tail(b)
+    for len(events) > max_sz
+        events = arr_drop(events, 1)
+        tail = tail + 1
+    [events, head, tail, max_sz]
+
+let rb_range(b, from_seq, to_seq) =
+    let events = rb_events(b)
+    let result = []
+    let i = 0
+    let n = len(events)
+    for i < n
+        let e = events[i]
+        let s = e[0]
+        if s > from_seq
+            if s <= to_seq
+                result.push(e)
+        i = i + 1
+    result
+
+let bp_new(capacity, refill_rate, window_size) =
+    [capacity, capacity, refill_rate, 0, window_size, 0]
+
+let bp_tokens(b)     = b[0]
+let bp_capacity(b)   = b[1]
+let bp_rate(b)       = b[2]
+let bp_last(b)       = b[3]
+let bp_window_sz(b)  = b[4]
+let bp_window_ct(b)  = b[5]
+
+let bp_refill(b, now) =
+    let last = bp_last(b)
+    let delta = now - last
+    if delta <= 0
+        b
+    else
+        let refill = delta * bp_rate(b)
+        let tokens = bp_tokens(b) + refill
+        let cap = bp_capacity(b)
+        if tokens > cap
+            tokens = cap
+        b[0] = tokens
+        b[3] = now
+        b
+
+let bp_try_acquire(b) =
+    let tokens = bp_tokens(b)
+    if tokens > 0
+        b[0] = tokens - 1
+        b[5] = b[5] + 1
+        1
+    else
+        0
+
+let bp_window_age(b, now) =
+    let last = bp_last(b)
+    let delta = now - last
+    let win_sz = bp_window_sz(b)
+    if delta > win_sz
+        b[5] = 0
+    b
+
+let sub_reg_new() =
+    [{}, {}, {}, 1, rb_new(SUB_REPLAY_WINDOW), {}, [0, 0, 0, 0, 0, 0]]
+
+let sr_subs(s)         = s[0]
+let sr_sub_q(s)        = s[1]
+let sr_q_subs(s)       = s[2]
+let sr_next_sub(s)     = s[3]
+let sr_replay(s)       = s[4]
+let sr_backpress(s)    = s[5]
+let sr_stats(s)        = s[6]
+
+let sr_set_subs(s, m)       = [m, s[1], s[2], s[3], s[4], s[5], s[6]]
+let sr_set_sub_q(s, m)      = [s[0], m, s[2], s[3], s[4], s[5], s[6]]
+let sr_set_q_subs(s, m)     = [s[0], s[1], m, s[3], s[4], s[5], s[6]]
+let sr_set_next_sub(s, n)   = [s[0], s[1], s[2], n, s[4], s[5], s[6]]
+let sr_set_replay(s, b)     = [s[0], s[1], s[2], s[3], b, s[5], s[6]]
+let sr_set_backpress(s, m)  = [s[0], s[1], s[2], s[3], s[4], m, s[6]]
+let sr_set_stats(s, st)     = [s[0], s[1], s[2], s[3], s[4], s[5], st]
+
+let sr_stats_inc_total(s) =
+    let st = sr_stats(s)
+    st[0] = st[0] + 1
+    sr_set_stats(s, st)
+let sr_stats_inc_active(s) =
+    let st = sr_stats(s)
+    st[1] = st[1] + 1
+    sr_set_stats(s, st)
+let sr_stats_inc_push(s) =
+    let st = sr_stats(s)
+    st[4] = st[4] + 1
+    sr_set_stats(s, st)
+let sr_stats_inc_drop(s) =
+    let st = sr_stats(s)
+    st[5] = st[5] + 1
+    sr_set_stats(s, st)
+
+let sr_create_sub(s, query_id, filter, created_ts) =
+    let sid = sr_next_sub(s)
+    let sub = sub_new(sid, query_id, filter, created_ts)
+    let subs = sr_subs(s)
+    subs[sid] = sub
+    let sub_q = sr_sub_q(s)
+    sub_q[sid] = query_id
+    let q_subs = sr_q_subs(s)
+    let qlist = q_subs[query_id]
+    if qlist == 0
+        qlist = []
+    if len(qlist) < SUB_DEFAULT_MAX_SUBS
+        qlist.push(sid)
+    q_subs[query_id] = qlist
+    s = sr_set_subs(s, subs)
+    s = sr_set_sub_q(s, sub_q)
+    s = sr_set_q_subs(s, q_subs)
+    s = sr_set_next_sub(s, sid + 1)
+    s = sr_stats_inc_total(s)
+    [s, sid]
+
+let sr_activate(s, sub_id, now_ts) =
+    let subs = sr_subs(s)
+    let sub = subs[sub_id]
+    if sub == 0
+        s
+    else
+        sub = sub_set_state(sub, SUB_STATE_ACTIVE)
+        sub = sub_set_last_hb(sub, now_ts)
+        subs[sub_id] = sub
+        s = sr_set_subs(s, subs)
+        s = sr_stats_inc_active(s)
+        let bp = sr_backpress(s)
+        bp[sub_id] = bp_new(SUB_BACKPRESS_LIMIT, 10, 1000)
+        s = sr_set_backpress(s, bp)
+
+let sr_pause(s, sub_id) =
+    let subs = sr_subs(s)
+    let sub = subs[sub_id]
+    if sub == 0
+        s
+    else
+        sub = sub_set_state(sub, SUB_STATE_PAUSED)
+        subs[sub_id] = sub
+        sr_set_subs(s, subs)
+
+let sr_close(s, sub_id) =
+    let subs = sr_subs(s)
+    let sub = subs[sub_id]
+    if sub == 0
+        s
+    else
+        sub = sub_set_state(sub, SUB_STATE_CLOSED)
+        subs[sub_id] = sub
+        s = sr_set_subs(s, subs)
+        let q_subs = sr_q_subs(s)
+        let qid = sub_query(sub)
+        let qlist = q_subs[qid]
+        if qlist != 0
+            let new_qlist = []
+            let i = 0
+            let n = len(qlist)
+            for i < n
+                if qlist[i] != sub_id
+                    new_qlist.push(qlist[i])
+                i = i + 1
+            q_subs[qid] = new_qlist
+            s = sr_set_q_subs(s, q_subs)
+        let bp = sr_backpress(s)
+        bp[sub_id] = 0
+        s = sr_set_backpress(s, bp)
+        let st = sr_stats(s)
+        st[3] = st[3] + 1
+        s = sr_set_stats(s, st)
+
+let sr_heartbeat(s, sub_id, now_ts) =
+    let subs = sr_subs(s)
+    let sub = subs[sub_id]
+    if sub == 0
+        [s, 0]
+    else
+        if sub_state(sub) == SUB_STATE_CLOSED
+            [s, 0]
+        else
+            sub = sub_set_last_hb(sub, now_ts)
+            if sub_state(sub) == SUB_STATE_PAUSED
+                sub = sub_set_state(sub, SUB_STATE_ACTIVE)
+            subs[sub_id] = sub
+            s = sr_set_subs(s, subs)
+            [s, 1]
+
+let sr_scan_timeouts(s, now_ts) =
+    let subs = sr_subs(s)
+    let keys = keys_of(subs)
+    let i = 0
+    let n = len(keys)
+    let closed_count = 0
+    for i < n
+        let sid = keys[i]
+        let sub = subs[sid]
+        if sub != 0
+            if sub_state(sub) == SUB_STATE_ACTIVE
+                let last_hb = sub_last_hb(sub)
+                if now_ts - last_hb > SUB_HEARTBEAT_TIMEOUT
+                    sub = sub_set_state(sub, SUB_STATE_CLOSED)
+                    subs[sid] = sub
+                    closed_count = closed_count + 1
+        i = i + 1
+    s = sr_set_subs(s, subs)
+    let st = sr_stats(s)
+    st[3] = st[3] + closed_count
+    s = sr_set_stats(s, st)
+    [s, closed_count]
+
+let sr_dispatch(s, change, now_ts) =
+    let rb = sr_replay(s)
+    rb = rb_append(rb, change)
+    s = sr_set_replay(s, rb)
+    let subs = sr_subs(s)
+    let keys = keys_of(subs)
+    let nk = len(keys)
+    let i = 0
+    let push_ct = 0
+    let drop_ct = 0
+    for i < nk
+        let sid = keys[i]
+        let sub = subs[sid]
+        if sub != 0
+            if sub_state(sub) == SUB_STATE_ACTIVE
+                let filter = sub_filter(sub)
+                if sub_filter_match(filter, change) == 1
+                    let bp_map = sr_backpress(s)
+                    let bp = bp_map[sid]
+                    if bp == 0
+                        bp = bp_new(SUB_BACKPRESS_LIMIT, 10, 1000)
+                        bp_map[sid] = bp
+                    bp = bp_refill(bp, now_ts)
+                    bp = bp_window_age(bp, now_ts)
+                    if bp_try_acquire(bp) == 1
+                        bp_map[sid] = bp
+                        s = sr_set_backpress(s, bp_map)
+                        sub = sub_set_last_seq(sub, change[0])
+                        sub = sub_inc_push(sub)
+                        subs[sid] = sub
+                        push_ct = push_ct + 1
+                        s = sr_stats_inc_push(s)
+                    else
+                        bp_map[sid] = bp
+                        s = sr_set_backpress(s, bp_map)
+                        sub = sub_inc_drop(sub)
+                        subs[sid] = sub
+                        drop_ct = drop_ct + 1
+                        s = sr_stats_inc_drop(s)
+                    sub = sub_inc_drop(sub)
+                    subs[sid] = sub
+                    drop_ct = drop_ct + 1
+                    s = sr_stats_inc_drop(s)
+        i = i + 1
+    s = sr_set_subs(s, subs)
+    [s, push_ct, drop_ct]
+
+let sr_resume_from(s, sub_id, now_ts) =
+    let subs = sr_subs(s)
+    let sub = subs[sub_id]
+    if sub == 0
+        [s, []]
+    else
+        let last_seq = sub_last_seq(sub)
+        let head_seq = rb_head(sr_replay(s))
+        if last_seq >= head_seq
+            sub = sub_set_state(sub, SUB_STATE_ACTIVE)
+            sub = sub_set_last_hb(sub, now_ts)
+            subs[sub_id] = sub
+            s = sr_set_subs(s, subs)
+            [s, []]
+        else
+            let rb = sr_replay(s)
+            let missed = rb_range(rb, last_seq, head_seq)
+            let filter = sub_filter(sub)
+            let filtered = []
+            let i = 0
+            let n = len(missed)
+            for i < n
+                if sub_filter_match(filter, missed[i]) == 1
+                    filtered.push(missed[i])
+                i = i + 1
+            if len(filtered) > 0
+                sub = sub_set_last_seq(sub, filtered[len(filtered) - 1][0])
+            sub = sub_set_state(sub, SUB_STATE_ACTIVE)
+            sub = sub_set_last_hb(sub, now_ts)
+            subs[sub_id] = sub
+            s = sr_set_subs(s, subs)
+            [s, filtered]
+
+let sr_bragg_check(s, sub_id, from_seq, to_seq, expected_pushes) =
+    let subs = sr_subs(s)
+    let sub = subs[sub_id]
+    if sub == 0
+        0
+    else
+        let filter = sub_filter(sub)
+        let rb = sr_replay(s)
+        let events = rb_range(rb, from_seq, to_seq)
+        let i = 0
+        let n = len(events)
+        let actual_pushes = 0
+        for i < n
+            if sub_filter_match(filter, events[i]) == 1
+                actual_pushes = actual_pushes + 1
+            i = i + 1
+        if actual_pushes == expected_pushes
+            1
+        else
+            0
+
+let sub_self_test() =
+    let s = sub_reg_new()
+    let filter = sub_filter_new([1], SUB_OP_ALL, 0, [])
+    let created = sr_create_sub(s, 1, filter, 1000)
+    s = created[0]
+    let sid = created[1]
+    s = sr_activate(s, sid, 1000)
+    let t1 = 0
+    if sr_stats(s)[1] == 1
+        t1 = 1
+
+    let change1 = [1, 1001, SUB_OP_INSERT, 1, 100, 0, 1000]
+    let disp1 = sr_dispatch(s, change1, 1001)
+    s = disp1[0]
+    let t2 = 0
+    if disp1[1] == 1
+        t2 = 1
+
+    let change2 = [2, 1002, SUB_OP_INSERT, 2, 200, 0, 2000]
+    let disp2 = sr_dispatch(s, change2, 1002)
+    s = disp2[0]
+    let t3 = 0
+    if disp2[1] == 0
+        t3 = 1
+
+    let hb = sr_heartbeat(s, sid, 1005)
+    s = hb[0]
+    let t4 = hb[1]
+
+    let bragg_ok = sr_bragg_check(s, sid, 0, 2, 1)
+
+    let timeout_scan = sr_scan_timeouts(s, 1000 + SUB_HEARTBEAT_TIMEOUT + 1)
+    s = timeout_scan[0]
+    let t6 = 0
+    if timeout_scan[1] == 1
+        t6 = 1
+
+    s = sr_close(s, sid)
+    let t7 = 0
+    let sub_after = sr_subs(s)[sid]
+    if sub_state(sub_after) == SUB_STATE_CLOSED
+        t7 = 1
+
+    [t1, t2, t3, t4, bragg_ok, t6, t7]
+
+let sub_default_registry() =
+    sub_reg_new()

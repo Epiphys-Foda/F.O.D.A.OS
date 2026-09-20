@@ -1,0 +1,75 @@
+let PE_DISPATCH_TABLE = [
+  { op: 1, pe: 1, backend: "simd",   all: ["simd", "scalar", "parallel"], name: "⊙ GF modular multiply" },
+  { op: 2, pe: 2, backend: "simd",   all: ["simd", "scalar"],             name: "◦ Clifford product" },
+  { op: 3, pe: 3, backend: "gpu",    all: ["gpu", "simd", "scalar"],      name: "≋ NTT butterfly" },
+  { op: 4, pe: 4, backend: "scalar", all: ["scalar", "simd"],             name: "↡ Born projection" },
+  { op: 5, pe: 5, backend: "simd",   all: ["simd", "parallel"],           name: "∆ Hebbian differencing" },
+  { op: 16, pe: 16, backend: "io",   all: ["io"],                         name: "TOKEN input" },
+  { op: 17, pe: 17, backend: "io",   all: ["io"],                         name: "EMIT output" }
+]
+
+let pe_capabilities() = PE_DISPATCH_TABLE
+
+let pe_dispatch(opcode) =
+    let found = "unknown"
+    let i = 0
+    let n = len(PE_DISPATCH_TABLE)
+    let done = false
+    for !done
+      if i < n
+        let row = PE_DISPATCH_TABLE[i]
+        if row.op == opcode
+          found = row.backend
+          done = true
+        else
+          i = i + 1
+      else
+        done = true
+    found
+
+let pe_backends_for(opcode) =
+    let result = []
+    let i = 0
+    let n = len(PE_DISPATCH_TABLE)
+    let done = false
+    for !done
+      if i < n
+        let row = PE_DISPATCH_TABLE[i]
+        if row.op == opcode
+          result = row.all
+          done = true
+        else
+          i = i + 1
+      else
+        done = true
+    result
+
+let pe_can_run(opcode, backend) =
+    let all = pe_backends_for(opcode)
+    let found = false
+    let i = 0
+    let n = len(all)
+    let done = false
+    for !done
+      if i < n
+        if all[i] == backend
+          found = true
+          done = true
+        else
+          i = i + 1
+      else
+        done = true
+    found
+
+let pe_select_batch(opcodes) =
+    let result = []
+    let i = 0
+    let n = len(opcodes)
+    let done = false
+    for !done
+      if i < n
+        result = result.push(pe_dispatch(opcodes[i]))
+        i = i + 1
+      else
+        done = true
+    result

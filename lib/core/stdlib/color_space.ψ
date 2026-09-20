@@ -1,0 +1,144 @@
+let rgb_to_hsv(r, g, b) =
+    let max_val = (r > g ? ((r > b ? r : b)) : ((g > b ? g : b)))
+    let min_val = (r < g ? ((r < b ? r : b)) : ((g < b ? g : b)))
+    let delta = max_val - min_val
+    let h = 0
+    if delta > 0
+        if max_val == r
+            h = 60 * (g - b) / delta
+        else
+            0
+        if max_val == g
+            h = 60 * (b - r) / delta + 120
+        else
+            h = 60 * (r - g) / delta + 240
+    if h < 0
+        h = h + 360
+    let s = 0
+    if max_val > 0
+        s = delta * 1000 / max_val
+    [h, s, max_val]
+
+let hsv_to_rgb(h, s, v) =
+    let c = v * s / 1000
+    let hp = h / 60
+    let x = c * (1000 - abs_mod(hp, 2) * 1000) / 1000
+    let m = v - c
+    let r = 0
+    let g = 0
+    let b = 0
+    if hp < 1
+        r = c + m
+        g = x + m
+        b = m
+    else
+        0
+    if hp < 2
+        r = x + m
+        g = c + m
+        b = m
+    else
+        0
+    if hp < 3
+        r = m
+        g = c + m
+        b = x + m
+    else
+        0
+    if hp < 4
+        r = m
+        g = x + m
+        b = c + m
+    else
+        0
+    if hp < 5
+        r = x + m
+        g = m
+        b = c + m
+    else
+        r = c + m
+        g = m
+        b = x + m
+    [r, g, b]
+
+let abs_mod(a, b) =
+    let m = a % b
+    (m < 0 ? -m : m)
+
+let rgb_to_hsl(r, g, b) =
+    let max_val = (r > g ? ((r > b ? r : b)) : ((g > b ? g : b)))
+    let min_val = (r < g ? ((r < b ? r : b)) : ((g < b ? g : b)))
+    let delta = max_val - min_val
+    let l = (max_val + min_val) / 2
+    let h = 0
+    let s = 0
+    if delta > 0
+        if l < 500
+            s = delta * 1000 / (max_val + min_val)
+        else
+            s = delta * 1000 / (2000 - max_val - min_val)
+        if max_val == r
+            h = 60 * (g - b) / delta
+        else
+            0
+        if max_val == g
+            h = 60 * (b - r) / delta + 120
+        else
+            h = 60 * (r - g) / delta + 240
+    if h < 0
+        h = h + 360
+    [h, s, l]
+
+let rgb_to_grayscale(r, g, b) =
+    (299 * r + 587 * g + 114 * b) / 1000
+
+let rgb_to_cmyk(r, g, b) =
+    let k = 1000 - ((r > g ? ((r > b ? r : b)) : ((g > b ? g : b))))
+    if k == 1000
+        [0, 0, 0, 1000]
+    else
+        let c = (1000 - r - k) * 1000 / (1000 - k)
+        let m = (1000 - g - k) * 1000 / (1000 - k)
+        let y = (1000 - b - k) * 1000 / (1000 - k)
+        [c, m, y, k]
+
+let cmyk_to_rgb(c, m, y, k) =
+    let r = 1000 - (c * (1000 - k) / 1000 + k)
+    let g = 1000 - (m * (1000 - k) / 1000 + k)
+    let b = 1000 - (y * (1000 - k) / 1000 + k)
+    [r, g, b]
+
+let rgb_to_ycbcr(r, g, b) =
+    let y = 299 * r / 1000 + 587 * g / 1000 + 114 * b / 1000
+    let cb = 500 + 564 * (b - r) / 1000
+    let cr = 500 + 713 * (r - g) / 1000
+    [y, cb, cr]
+
+let ycbcr_to_rgb(y, cb, cr) =
+    let r = y + 1402 * (cr - 500) / 1000
+    let g = y - 344 * (cb - 500) / 1000 - 714 * (cr - 500) / 1000
+    let b = y + 1772 * (cb - 500) / 1000
+    [r, g, b]
+
+let rgb_invert(r, g, b) =
+    [1000 - r, 1000 - g, 1000 - b]
+
+let rgb_mix(r1, g1, b1, r2, g2, b2, t) =
+    [
+        r1 + t * (r2 - r1) / 1000,
+        g1 + t * (g2 - g1) / 1000,
+        b1 + t * (b2 - b1) / 1000
+    ]
+
+let main() =
+    let hsv = rgb_to_hsv(1000, 0, 0)
+    print(hsv)
+    let rgb = hsv_to_rgb(0, 1000, 1000)
+    print(rgb)
+    let hsl = rgb_to_hsl(500, 500, 500)
+    print(hsl)
+    let gray = rgb_to_grayscale(300, 600, 100)
+    print(gray)
+    let cmyk = rgb_to_cmyk(1000, 0, 0)
+    print(cmyk)
+    0

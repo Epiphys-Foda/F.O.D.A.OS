@@ -1,0 +1,53 @@
+let P = 65537
+let P2 = 131071
+
+import "../core/stdlib_lang2/gf_canon_shared.ψ"
+import "sh_d39d441e28.ψ"
+import "wf_brain.ψ"
+import "../core/stdlib_lang2/bm_canon.ψ"
+import "sh_ee308d734f.ψ"
+import "sh_bffc56f968.ψ"
+import "sh_0fe08dee05.ψ"
+let hyp_fit(s, N, out4) =
+    let r0 = gf_div(s[1], s[0])
+    let r1 = gf_div(s[2], s[1])
+    let r2 = gf_div(s[3], s[2])
+    let e1 = gf_sub(r1, r0)
+    let e2 = gf_sub(r2, r0)
+    let den = gf_sub(r1, r2)
+    let i2 = gf_div(1, 2)
+    let c = gf_mul(gf_sub(gf_mul(e2, i2), e1), gf_inv(den))
+    let a = gf_add(e1, gf_mul(c, r1))
+    let bq = r0
+    let ok = 1
+    let n = 0
+    for n < N - 1
+        let lhs = gf_mul(s[n + 1], gf_add(gf_mul(c, n), 1))
+        let rhs = gf_mul(s[n], gf_add(gf_mul(a, n), bq))
+        let eq = 0
+        if lhs == rhs
+            eq = 1
+        ok = ok * eq
+        n = n + 1
+    out4[0] = a
+    out4[1] = bq
+    out4[2] = c
+    out4[3] = 1
+    ok
+
+let hyp_verify(s, N, a, bq, c) =
+    let ok = 1
+    let n = 0
+    for n < N - 1
+        let lhs = gf_mul(s[n + 1], gf_add(gf_mul(c, n), 1))
+        let rhs = gf_mul(s[n], gf_add(gf_mul(a, n), bq))
+        let eq = 0
+        if lhs == rhs
+            eq = 1
+        ok = ok * eq
+        n = n + 1
+    ok
+
+let hyp_next(s, N, a, bq, c) =
+    gf_mul(s[N - 1], gf_div(gf_add(gf_mul(a, N - 1), bq), gf_add(gf_mul(c, N - 1), 1)))
+

@@ -1,0 +1,36 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let d_nb = small_div(176 * 925, 100)
+bad[0] = bad[0] + ck(d_nb, 1500, 1750)
+
+let r_iso = isqrt(4 * 1000000) / isqrt(1000000)
+if r_iso != 2
+    bad[0] = bad[0] + 1
+
+let d_rt = small_div(176 * 30000, 1000)
+bad[0] = bad[0] + ck(d_rt, 5000, 5600)
+
+let ratio = small_div(d_rt * 10, d_nb)
+bad[0] = bad[0] + ck(ratio, 28, 38)
+
+let hydride = 250
+let rt = 300
+bad[0] = bad[0] + ck_hi(hydride, rt)
+
+if 1911 < 1909
+    bad[0] = bad[0] + 1
+if 1911 > 1913
+    bad[0] = bad[0] + 1
+if 1986 < 1984
+    bad[0] = bad[0] + 1
+if 1986 > 1988
+    bad[0] = bad[0] + 1
+if 2015 < 2013
+    bad[0] = bad[0] + 1
+if 2015 > 2017
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

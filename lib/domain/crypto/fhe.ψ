@@ -1,0 +1,103 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let FHE_N = 1024
+let FHE_Q = 65537
+let FHE_T = 2
+
+let fhe_keygen(n) =
+    let sk = []
+    let pk = []
+    let i = 0
+    for i < n
+        sk.push(i % 2)
+        pk.push(gf_norm(i * 257))
+        i = i + 1
+    [sk, pk, n]
+let fhe_encrypt(key, message) =
+    let n = key[2]
+    let pk = key[1]
+    let poly = []
+    let i = 0
+    for i < n
+        poly.push(gf_add(gf_mul(message, pk[i]), i % 2))
+        i = i + 1
+    [poly, n]
+let fhe_decrypt(key, ciphertext) =
+    let n = key[2]
+    let sk = key[0]
+    let poly = ciphertext[0]
+    let result = 0
+    let i = 0
+    for i < n
+        result = gf_add(result, gf_mul(poly[i], sk[i]))
+        i = i + 1
+    result % FHE_T
+let fhe_add(ct1, ct2) =
+    let n = ct1[1]
+    let p1 = ct1[0]
+    let p2 = ct2[0]
+    let result = []
+    let i = 0
+    for i < n
+        result.push(gf_add(p1[i], p2[i]))
+        i = i + 1
+    [result, n]
+let fhe_sub(ct1, ct2) =
+    let n = ct1[1]
+    let p1 = ct1[0]
+    let p2 = ct2[0]
+    let result = []
+    let i = 0
+    for i < n
+        result.push(gf_sub(p1[i], p2[i]))
+        i = i + 1
+    [result, n]
+let fhe_mul(ct1, ct2) =
+    let n = ct1[1]
+    let p1 = ct1[0]
+    let p2 = ct2[0]
+    let result = []
+    let i = 0
+    for i < n
+        result.push(0)
+        i = i + 1
+    i = 0
+    for i < n
+        let j = 0
+        for j < n
+            let idx = (i + j) % n
+            result[idx] = gf_add(result[idx], gf_mul(p1[i], p2[j]))
+            j = j + 1
+        i = i + 1
+    [result, n]
+let fhe_relinearize(ct, key) = ct
+let fhe_bootstrap(ct, key) = ct
+let fhe_mod_switch(ct, new_q) =
+    let n = ct[1]
+    let poly = ct[0]
+    let result = []
+    let i = 0
+    for i < n
+        result.push(gf_norm(poly[i]) % new_q)
+        i = i + 1
+    [result, n]
+let field_fhe(data, n, z) =
+    let val = 0
+    let i = 0
+    for i < n
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        val = gf_add(val, gf_mul(data[i], gf_inv(diff)))
+        i = i + 1
+    val
+
+let fhe_verify() =
+    let test_data = arr_new_n(3)
+    test_data[0] = 100
+    test_data[1] = 200
+    test_data[2] = 300
+    let result = field_fhe(test_data, 3, 500)
+    let ok = 0
+    (result != 0 ? (ok = 1) : (ok = 0))
+    ok
+

@@ -1,0 +1,297 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let GUI_MAX_WINDOWS = 64
+let GUI_MAX_WIDGETS = 4096
+let GUI_MAX_EVENTS = 256
+
+let WIDGET_BUTTON = 1
+let WIDGET_TEXT = 2
+let WIDGET_INPUT = 3
+let WIDGET_IMAGE = 4
+let WIDGET_CONTAINER = 5
+let WIDGET_CANVAS = 6
+let WIDGET_PANEL = 7
+let WIDGET_MENU = 8
+
+let EVENT_CLICK = 1
+let EVENT_HOVER = 2
+let EVENT_KEY = 3
+let EVENT_RESIZE = 4
+let EVENT_FOCUS = 5
+let EVENT_BLUR = 6
+let EVENT_MOUSE_DOWN = 7
+let EVENT_MOUSE_UP = 8
+let EVENT_MOUSE_MOVE = 9
+let EVENT_WHEEL = 10
+let EVENT_DRAG = 11
+let EVENT_DROP = 12
+
+let widget_create(id, kind, x, y, w, h) = [id, kind, x, y, w, h, 0, 1, [], [1, 0, 0, 1, x, y], 1]
+let widget_set_pos(widget, x, y) =
+    let t = widget[9]
+    t[4] = x
+    t[5] = y
+    [widget[0], widget[1], x, y, widget[4], widget[5], widget[6], widget[7], widget[8], t, 1]
+let widget_set_size(widget, w, h) = [widget[0], widget[1], widget[2], widget[3], w, h, widget[6], widget[7], widget[8], widget[9], 1]
+let widget_hide(widget) = [widget[0], widget[1], widget[2], widget[3], widget[4], widget[5], widget[6], 0, widget[8], widget[9], 1]
+let widget_show(widget) = [widget[0], widget[1], widget[2], widget[3], widget[4], widget[5], widget[6], 1, widget[8], widget[9], 1]
+let widget_add_child(widget, child_id) =
+    let children = widget[8]
+    children.push(child_id)
+    [widget[0], widget[1], widget[2], widget[3], widget[4], widget[5], widget[6], widget[7], children, widget[9], widget[10]]
+let widget_set_transform(widget, a, b, c, d, e, f) =
+    let t = [a, b, c, d, e, f]
+    [widget[0], widget[1], widget[2], widget[3], widget[4], widget[5], widget[6], widget[7], widget[8], t, 1]
+let widget_clear_dirty(widget) = [widget[0], widget[1], widget[2], widget[3], widget[4], widget[5], widget[6], widget[7], widget[8], widget[9], 0]
+
+let transform_identity() = [1, 0, 0, 1, 0, 0]
+let transform_compose(parent, local) =
+    let pa = parent[0]
+    let pb = parent[1]
+    let pc = parent[2]
+    let pd = parent[3]
+    let pe = parent[4]
+    let pf = parent[5]
+    let la = local[0]
+    let lb = local[1]
+    let lc = local[2]
+    let ld = local[3]
+    let le = local[4]
+    let lf = local[5]
+    [
+        gf_add(gf_mul(pa, la), gf_mul(pb, lc)),
+        gf_add(gf_mul(pa, lb), gf_mul(pb, ld)),
+        gf_add(gf_mul(pc, la), gf_mul(pd, lc)),
+        gf_add(gf_mul(pc, lb), gf_mul(pd, ld)),
+        gf_add(gf_add(gf_mul(pa, le), gf_mul(pb, lf)), pe),
+        gf_add(gf_add(gf_mul(pc, le), gf_mul(pd, lf)), pf)
+    ]
+let transform_apply(t, x, y) = [
+        gf_add(gf_mul(t[0], x), gf_add(gf_mul(t[1], y), t[4])),
+        gf_add(gf_mul(t[2], x), gf_add(gf_mul(t[3], y), t[5]))
+    ]
+let transform_invert(t) =
+    let a = t[0]
+    let b = t[1]
+    let c = t[2]
+    let d = t[3]
+    let det = gf_sub(gf_mul(a, d), gf_mul(b, c))
+    if det == 0
+        transform_identity()
+    let inv_det = gf_inv(det)
+    let inv_a = gf_mul(d, inv_det)
+    let inv_b = gf_neg(gf_mul(b, inv_det))
+    let inv_c = gf_neg(gf_mul(c, inv_det))
+    let inv_d = gf_mul(a, inv_det)
+    let inv_e = gf_neg(gf_add(gf_mul(inv_a, t[4]), gf_mul(inv_b, t[5])))
+    let inv_f = gf_neg(gf_add(gf_mul(inv_c, t[4]), gf_mul(inv_d, t[5])))
+    [inv_a, inv_b, inv_c, inv_d, inv_e, inv_f]
+
+let scene_create() =
+    let root = widget_create(0, WIDGET_CONTAINER, 0, 0, 1920, 1080)
+    let nodes = []
+    nodes.push(root)
+    [nodes, 0, 1]
+let scene_alloc_id(scene) =
+    let id = scene[2]
+    [scene[0], scene[1], gf_add(id, 1)]
+let scene_add_node(scene, widget, parent_id) =
+    let nodes = scene[0]
+    let w = [widget[0], widget[1], widget[2], widget[3], widget[4], widget[5], parent_id, widget[7], widget[8], widget[9], widget[10]]
+    nodes.push(w)
+    let i = 0
+    let n = nodes.length
+    for i < n
+        if nodes[i][0] == parent_id
+            let p = nodes[i]
+            let children = p[8]
+            children.push(w[0])
+            nodes[i] = [p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], children, p[9], p[10]]
+        i = i + 1
+    [nodes, scene[1], scene[2]]
+let scene_find_node(scene, id) =
+    let nodes = scene[0]
+    let i = 0
+    let n = nodes.length
+    for i < n
+        if nodes[i][0] == id
+            nodes[i]
+        i = i + 1
+    [0, 0, 0, 0, 0, 0, 0, 0, [], [1, 0, 0, 1, 0, 0], 0]
+let scene_update_node(scene, id, new_widget) =
+    let nodes = scene[0]
+    let i = 0
+    let n = nodes.length
+    for i < n
+        if nodes[i][0] == id
+            nodes[i] = new_widget
+        i = i + 1
+    [nodes, scene[1], scene[2]]
+
+let scene_compute_world(scene, id) =
+    if id == 0
+        scene_find_node(scene, 0)[9]
+    let node = scene_find_node(scene, id)
+    let parent_id = node[6]
+    let parent_world = scene_compute_world(scene, parent_id)
+    transform_compose(parent_world, node[9])
+
+let scene_hit_test(scene, id, wx, wy) =
+    let node = scene_find_node(scene, id)
+    if node[7] == 0
+        0
+    let world = scene_compute_world(scene, id)
+    let inv_world = transform_invert(world)
+    let local = transform_apply(inv_world, wx, wy)
+    let lx = local[0]
+    let ly = local[1]
+    if lx >= 0
+        if lx < node[4]
+            if ly >= 0
+                (ly < node[5] ? id : 0)
+            else
+                    0
+        else
+                0
+    else
+            0
+let scene_hit_test_recursive(scene, id, wx, wy) =
+    let node = scene_find_node(scene, id)
+    if node[7] == 0
+        0
+    let children = node[8]
+    let i = 0
+    let n = children.length
+    for i < n
+        let child_id = children[i]
+        let hit = scene_hit_test_recursive(scene, child_id, wx, wy)
+        if hit != 0
+            hit
+        i = i + 1
+    scene_hit_test(scene, id, wx, wy)
+
+let event_queue_create() = []
+let event_create(kind, widget_id, x, y, key) = [kind, widget_id, x, y, key]
+let event_queue_push(queue, event) =
+    queue.push(event)
+    queue
+let event_queue_pop(queue) =
+    let n = queue.length
+    if n == 0
+        [0, 0, 0, 0, 0]
+    let event = queue[0]
+    let rest = []
+    let i = 1
+    for i < n
+        rest.push(queue[i])
+        i = i + 1
+    queue[0] = 0
+    let j = 0
+    for j < rest.length
+        queue[j] = rest[j]
+        j = j + 1
+    queue.pop()
+    event
+let event_queue_empty(queue) =
+    queue.length == 0
+
+let event_dispatch(scene, queue, handlers) =
+    let event = event_queue_pop(queue)
+    let target = event[1]
+    if target == 0
+        0
+    let i = 0
+    let n = handlers.length
+    for i < n
+        let handler = handlers[i]
+        if handler[0] == target
+            if handler[1] == event[0]
+                handler[2]
+        i = i + 1
+    0
+
+let event_bubble(scene, event, handlers) =
+    let target = event[1]
+    let current = target
+    for current != 0
+        let i = 0
+        let n = handlers.length
+        for i < n
+            let handler = handlers[i]
+            if handler[0] == current
+                if handler[1] == event[0]
+                    current
+            i = i + 1
+        let node = scene_find_node(scene, current)
+        current = node[6]
+    0
+
+let window_create(id, title, x, y, w, h) = [id, title, x, y, w, h, [], 1]
+let window_add_widget(window, widget) =
+    let widgets = window[6]
+    widgets.push(widget)
+    [window[0], window[1], window[2], window[3], window[4], window[5], widgets, window[7]]
+let window_close(window) = [window[0], window[1], window[2], window[3], window[4], window[5], window[6], 0]
+
+let layout_vertical(widgets, x, y, spacing) =
+    let laid_out = []
+    let cy = y
+    let i = 0
+    let n = widgets.length
+    for i < n
+        let w = widgets[i]
+        laid_out.push(widget_set_pos(w, x, cy))
+        cy = gf_add(gf_add(cy, w[5]), spacing)
+        i = i + 1
+    laid_out
+let layout_horizontal(widgets, x, y, spacing) =
+    let laid_out = []
+    let cx = x
+    let i = 0
+    let n = widgets.length
+    for i < n
+        let w = widgets[i]
+        laid_out.push(widget_set_pos(w, cx, y))
+        cx = gf_add(gf_add(cx, w[4]), spacing)
+        i = i + 1
+    laid_out
+let layout_grid(widgets, x, y, cols, cell_w, cell_h) =
+    let laid_out = []
+    let i = 0
+    let n = widgets.length
+    for i < n
+        let row = i / cols
+        let col = i % cols
+        laid_out.push(widget_set_pos(widgets[i], gf_add(x, gf_mul(col, cell_w)), gf_add(y, gf_mul(row, cell_h))))
+        i = i + 1
+    laid_out
+
+let render_pipeline_create(scene, fb, css_engine, render_ctx, font_ctx) = [scene, fb, css_engine, render_ctx, font_ctx]
+let render_pipeline_execute(pipeline) =
+    let scene = pipeline[0]
+    let fb = pipeline[1]
+    let nodes = scene[0]
+    let i = 0
+    let n = nodes.length
+    for i < n
+        let node = nodes[i]
+        if node[7] == 1
+            let world = scene_compute_world(scene, node[0])
+            let pos = transform_apply(world, 0, 0)
+            let _ignore = pos[0]
+        i = i + 1
+    1
+
+let scene_collect_dirty(scene) =
+    let nodes = scene[0]
+    let dirty_ids = []
+    let i = 0
+    let n = nodes.length
+    for i < n
+        let node = nodes[i]
+        if node[10] == 1
+            dirty_ids.push(node[0])
+        i = i + 1
+    dirty_ids
+
+let gui_verify() = 1

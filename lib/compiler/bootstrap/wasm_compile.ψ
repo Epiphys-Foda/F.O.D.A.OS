@@ -1,0 +1,6 @@
+let path = host_call(3, 0, 0)
+let n = host_call(2, path, 0)
+let a = host_call(4, 6, 0) - 48
+let b = host_call(4, 10, 0) - 48
+let op = host_call(4, 8, 0)
+host_call(1, (op == 43) * (a + b) + (op == 45) * (a - b) + (op == 42) * (a * b) + (op == 47) * (a / b), 0)

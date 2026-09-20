@@ -1,0 +1,31 @@
+import "ck.ψ"
+let bad = [0]
+
+let e12 = 1020
+let eion = 1360
+let ratio = 4 * e12 - 3 * eion
+bad[0] = bad[0] + ck(ratio, 0, 0)
+
+let f = 2466
+bad[0] = bad[0] + ck(f, 2460, 2470)
+
+let delta = 2
+bad[0] = bad[0] + ck(delta, 1, 3)
+
+let cpt_brk = 0
+bad[0] = bad[0] + ck_hi(cpt_brk, 0)
+
+if 1951 < 1949
+    bad[0] = bad[0] + 1
+if 1951 > 1953
+    bad[0] = bad[0] + 1
+if 2010 < 2008
+    bad[0] = bad[0] + 1
+if 2010 > 2012
+    bad[0] = bad[0] + 1
+if 2016 < 2014
+    bad[0] = bad[0] + 1
+if 2016 > 2018
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

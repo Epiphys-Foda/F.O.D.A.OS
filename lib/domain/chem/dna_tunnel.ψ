@@ -1,0 +1,68 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let m_p = 167
+bad[0] = bad[0] + ck(m_p, 160, 172)
+
+let vb = 8
+bad[0] = bad[0] + ck(vb, 6, 12)
+
+let d2 = 2500
+bad[0] = bad[0] + ck(d2, 2000, 3200)
+
+let hbar2 = 1113025
+bad[0] = bad[0] + ck(hbar2, 1110000, 1116000)
+
+let k2 = small_div(8 * m_p * vb * d2, hbar2)
+bad[0] = bad[0] + ck(k2, 22, 26)
+
+let exp2 = isqrt(k2 * 100000)
+bad[0] = bad[0] + ck(exp2, 1450, 1650)
+
+let t_p = 185
+bad[0] = bad[0] + ck(t_p, 150, 230)
+
+let e_r = isqrt(183600)
+bad[0] = bad[0] + ck(e_r, 420, 435)
+
+let exp_e = small_div(exp2 * 100, e_r)
+bad[0] = bad[0] + ck(exp_e, 350, 375)
+
+let t_e = 696
+bad[0] = bad[0] + ck(t_e, 650, 740)
+
+if 4 * exp_e > exp2
+    bad[0] = bad[0] + 1
+
+let at_bonds = 2
+let gc_bonds = 3
+bad[0] = bad[0] + ck_lo(gc_bonds, at_bonds)
+
+let gc_human = 41
+bad[0] = bad[0] + ck(gc_human, 39, 43)
+
+let genome = 3200
+bad[0] = bad[0] + ck(genome, 3000, 3400)
+
+let de_novo = 68
+bad[0] = bad[0] + ck(de_novo, 55, 80)
+
+let enh = 30
+bad[0] = bad[0] + ck(enh, 10, 100)
+
+if 1953 < 1950
+    bad[0] = bad[0] + 1
+if 1953 > 1955
+    bad[0] = bad[0] + 1
+if 1963 < 1960
+    bad[0] = bad[0] + 1
+if 1963 > 1965
+    bad[0] = bad[0] + 1
+if 2017 < 2015
+    bad[0] = bad[0] + 1
+if 2017 > 2019
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

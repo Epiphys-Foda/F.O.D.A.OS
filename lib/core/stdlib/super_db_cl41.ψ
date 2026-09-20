@@ -1,0 +1,116 @@
+import "super_db.ψ"
+import "super_db_dynamics.ψ"
+
+let rf_db_cl41_encode(db) =
+    let mv = []
+    let c = 0
+    let cdone = false
+    for !cdone
+      if c < 32
+        mv = mv.push(0)
+        c = c + 1
+      else
+        cdone = true
+        0
+    let total = rf_db_cauchy_sum(db, 0, 0, 65537, 65537)
+    mv = rf_db_arr_set(mv, 0, total)
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(db)
+        let xk = db[i]
+        let yk = db[i + 1]
+        let rk = db[i + 2]
+        let sx = mv[1] + rf_db_mul(xk, rk)
+        mv = rf_db_arr_set(mv, 1, sx - (sx / 65537) * 65537)
+        let sy = mv[2] + rf_db_mul(yk, rk)
+        mv = rf_db_arr_set(mv, 2, sy - (sy / 65537) * 65537)
+        let sr = mv[3] + rk
+        mv = rf_db_arr_set(mv, 3, sr - (sr / 65537) * 65537)
+        let sxy = mv[4] + rf_db_mul((rf_db_mul(xk, xk) + rf_db_mul(yk, yk)) % 65537, rk)
+        mv = rf_db_arr_set(mv, 4, sxy - (sxy / 65537) * 65537)
+        mv = rf_db_arr_set(mv, 5, sr)
+        i = i + 3
+      else
+        done = true
+    mv
+
+let rf_db_cl41_grade(mv, g) =
+    let out = []
+    let lo = (g == 0 ? 0 : (g == 1 ? 1 : (g == 2 ? 6 : 16)))
+    let hi = (g == 0 ? 1 : (g == 1 ? 6 : (g == 2 ? 16 : 32)))
+    let i = lo
+    let done = false
+    for !done
+      if i < hi
+        out = out.push(mv[i])
+        i = i + 1
+      else
+        done = true
+    out
+
+let rf_db_cl41_scale(mv, s) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < len(mv)
+        if i == 5
+          let v = rf_db_mul(mv[i], s)
+          out = out.push(v - (v / 65537) * 65537)
+        else
+          out = out.push(mv[i])
+        i = i + 1
+      else
+        done = true
+    out
+
+let rf_db_cl41_dot(a, b) =
+    let acc = 0
+    let g0 = rf_db_mul(a[0], b[0])
+    acc = acc + g0 - (g0 / 65537) * 65537
+    let i = 1
+    let done = false
+    for !done
+      if i < 6
+        let t = rf_db_mul(a[i], b[i])
+        acc = acc + t - (t / 65537) * 65537
+        i = i + 1
+      else
+        done = true
+    acc
+
+let rf_db_cl41_field(mv, x, y) =
+    let acc = mv[0]
+    let t1 = rf_db_mul(mv[1], x)
+    acc = acc + t1 - (t1 / 65537) * 65537
+    let t2 = rf_db_mul(mv[2], y)
+    acc = acc + t2 - (t2 / 65537) * 65537
+    let t3 = mv[3]
+    acc = acc + t3 - (t3 / 65537) * 65537
+    acc
+
+let rf_db_cl41_merge(a, b) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < 32
+        let s = a[i] + b[i]
+        out = out.push(s - (s / 65537) * 65537)
+        i = i + 1
+      else
+        done = true
+    out
+
+let rf_db_cl41_verify() =
+    let results = []
+    let mv = rf_db_cl41_encode([0, 0, 5])
+    results = results.push(mv[0] == 5 && mv[3] == 5)
+    results = results.push(len(rf_db_cl41_grade(mv, 1)) == 5)
+    let ms = rf_db_cl41_scale(mv, 2)
+    results = results.push(ms[5] == mv[5] * 2 - (mv[5] * 2 / 65537) * 65537)
+    results = results.push(rf_db_cl41_dot(mv, mv) >= 0)
+    results = results.push(rf_db_cl41_field(mv, 0, 0) == 10)
+    results = results.push(len(rf_db_cl41_merge(mv, mv)) == 32)
+    results

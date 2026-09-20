@@ -1,0 +1,134 @@
+let GATE_H    = 0
+let GATE_X    = 1
+let GATE_Z    = 2
+let GATE_CNOT = 3
+let GATE_R    = 4
+let GATE_M    = 5
+let GATE_SWAP = 6
+
+let SQRT2_GF  = 4080
+
+let qpu_gate_H(target) =
+    { gate: GATE_H, target: target, control: -1, phase: 0 }
+
+let qpu_gate_X(target) =
+    { gate: GATE_X, target: target, control: -1, phase: 0 }
+
+let qpu_gate_Z(target) =
+    { gate: GATE_Z, target: target, control: -1, phase: 0 }
+
+let qpu_gate_CNOT(target, control) =
+    { gate: GATE_CNOT, target: target, control: control, phase: 0 }
+
+let qpu_gate_R(target, phase) =
+    { gate: GATE_R, target: target, control: -1, phase: phase }
+
+let qpu_gate_M(target) =
+    { gate: GATE_M, target: target, control: -1, phase: 0 }
+
+let qpu_gate_SWAP(a, b) =
+    { gate: GATE_SWAP, target: a, control: b, phase: 0 }
+
+let qpu_gfmul(a_qubit, b_qubit, result_qubit) =
+    let gates = arr_new()
+    gates = gates.push(qpu_gate_H(result_qubit))
+    gates = gates.push(qpu_gate_R(result_qubit, SQRT2_GF))
+    gates = gates.push(qpu_gate_CNOT(result_qubit, b_qubit))
+    gates = gates.push(qpu_gate_CNOT(result_qubit, a_qubit))
+    gates
+
+let qpu_clifford(a_qubit, b_qubit) =
+    let gates = arr_new()
+    gates = gates.push(qpu_gate_CNOT(b_qubit, a_qubit))
+    gates = gates.push(qpu_gate_H(a_qubit))
+    gates
+
+let _qpu_qft_acc(qubits, n, i, gates) =
+    if i >= n
+        gates
+    let g1 = qpu_gate_H(qubits[i])
+    let new_gates = gates.push(g1)
+    _qpu_qft_acc(qubits, n, i + 1, new_gates)
+
+let qpu_ntt(qubits, n) =
+    let gates = arr_new()
+    _qpu_qft_acc(qubits, n, 0, gates)
+
+let qpu_born(qubit) =
+    let gates = arr_new()
+    gates = gates.push(qpu_gate_M(qubit))
+    gates
+
+let _qpu_hebbian_acc(qubit, iterations, i, gates) =
+    if i >= iterations
+        gates
+    let r_gate = qpu_gate_R(qubit, SQRT2_GF)
+    let new_gates = gates.push(r_gate)
+    _qpu_hebbian_acc(qubit, iterations, i + 1, new_gates)
+
+let qpu_hebbian(qubit, iterations) =
+    let gates = arr_new()
+    _qpu_hebbian_acc(qubit, iterations, 0, gates)
+
+let qpu_circuit_new() = arr_new()
+
+let qpu_circuit_add(circuit, gate) = circuit.push(gate)
+
+let qpu_circuit_len(circuit) = len(circuit)
+
+let qpu_circuit_gate(circuit, i) = circuit[i]
+
+let _qpu_concat_acc(src, i, n, out) =
+    if i >= n
+        out
+    let g = src[i]
+    let new_out = out.push(g)
+    _qpu_concat_acc(src, i + 1, n, new_out)
+
+let qpu_circuit_concat(c1, c2) =
+    let n1 = len(c1)
+    let n2 = len(c2)
+    let step1 = _qpu_concat_acc(c1, 0, n1, arr_new())
+    _qpu_concat_acc(c2, 0, n2, step1)
+
+let _qpu_count_gate_type(circuit, gate_type, i, n, count) =
+    if i >= n
+        count
+    let g = circuit[i]
+    let is_match = g.gate == gate_type
+    _qpu_count_gate_type(circuit, gate_type, i + 1, n, count + is_match)
+
+let qpu_count_H(circuit) =
+    let n = len(circuit)
+    _qpu_count_gate_type(circuit, GATE_H, 0, n, 0)
+
+let qpu_count_CNOT(circuit) =
+    let n = len(circuit)
+    _qpu_count_gate_type(circuit, GATE_CNOT, 0, n, 0)
+
+let qpu_count_M(circuit) =
+    let n = len(circuit)
+    _qpu_count_gate_type(circuit, GATE_M, 0, n, 0)
+
+let qpu_count_R(circuit) =
+    let n = len(circuit)
+    _qpu_count_gate_type(circuit, GATE_R, 0, n, 0)
+
+let qpu_bell_state(q0, q1) =
+    let gates = arr_new()
+    gates = gates.push(qpu_gate_H(q0))
+    gates = gates.push(qpu_gate_CNOT(q1, q0))
+    gates
+
+let _qpu_adder_acc(a_qubits, b_qubits, n, i, gates) =
+    if i >= n
+        gates
+    let a = a_qubits[i]
+    let b = b_qubits[i]
+    let cnot = qpu_gate_CNOT(b, a)
+    let new_gates = gates.push(cnot)
+    _qpu_adder_acc(a_qubits, b_qubits, n, i + 1, new_gates)
+
+let qpu_adder(a_qubits, b_qubits, n) =
+    let gates = arr_new()
+    _qpu_adder_acc(a_qubits, b_qubits, n, 0, gates)

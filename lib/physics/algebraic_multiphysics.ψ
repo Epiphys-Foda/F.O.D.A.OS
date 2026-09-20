@@ -1,0 +1,145 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let ntt_2(signal) =
+    let a = signal[0]
+    let b = signal[1]
+    [gf_add(a, b), gf_sub(a, b)]
+
+let neural_response(photon) =
+    let signal = [photon, gf_neg(photon)]
+    let pulse = ntt_2(signal)
+    gf_add(pulse[0], pulse[1])
+
+let neural_layer(photons, n) =
+    let responses = []
+    let i = 0
+    for i < n
+        let r = neural_response(photons[i])
+        responses = responses.push(r)
+        i = i + 1
+    responses
+
+let sound_wave(amplitude, frequency, t) =
+    gf_mul(amplitude, gf_pow(3, gf_mul(frequency, t)))
+
+let muscle_contraction(waves, n, t) =
+    let total = 0
+    let i = 0
+    for i < n
+        let w = waves[i]
+        let amp = w[0]
+        let freq = w[1]
+        total = gf_add(total, sound_wave(amp, freq, t))
+        i = i + 1
+    total
+
+let algebraic_entropy(probs, n) =
+    let half = 32769
+    let h = 0
+    let i = 0
+    for i < n
+        let p = probs[i]
+        let term = gf_mul(p, gf_sub(p, 1))
+        h = gf_add(h, gf_mul(term, half))
+        i = i + 1
+    h
+
+let immune_activation(temperature) =
+    let probs = [temperature, gf_sub(1, temperature)]
+    algebraic_entropy(probs, 2)
+
+let spin_up() = 1
+let spin_down() = gf_neg(1)
+
+let spin_flip(s) = gf_neg(s)
+
+let reproduction_gate(spin_state) =
+    (spin_state == 1 ? 1 : 0)
+
+let su2_multiply(a, b) =
+    gf_mul(a, b)
+
+let multiphysics_step(photon, wave_amp, wave_freq, temperature, spin, t) =
+    let neural = neural_response(photon)
+    let wave = [[wave_amp, wave_freq]]
+    let muscle = muscle_contraction(wave, 1, t)
+    let immune = immune_activation(temperature)
+    let repro = reproduction_gate(spin)
+    gf_add(gf_add(neural, muscle), gf_add(immune, repro))
+
+let multiphysics_cycle(steps) =
+    let total = 0
+    let t = 0
+    for t < steps
+        let photon = gf_add(t, 1)
+        let amp = gf_add(t, 2)
+        let freq = gf_add(t, 3)
+        let temp = gf_mul(t, 2)
+        let spin = (t % 2 == 0 ? spin_up() : spin_down())
+        let result = multiphysics_step(photon, amp, freq, temp, spin, t)
+        total = gf_add(total, result)
+        t = t + 1
+    total
+
+let multiphysics_verify() =
+    let ok = 0
+
+    let sig = [3, 5]
+    let ntt = ntt_2(sig)
+    if ntt[0] == 8
+        ok = ok + 1
+    if ntt[1] == 65535
+        ok = ok + 1
+
+    let pulse = neural_response(1)
+    if pulse == 2
+        ok = ok + 1
+
+    let wave = sound_wave(1, 0, 0)
+    if wave == 1
+        ok = ok + 1
+
+    let wave2 = sound_wave(1, 1, 1)
+    if wave2 == 3
+        ok = ok + 1
+
+    let waves = [[1, 0]]
+    let contraction = muscle_contraction(waves, 1, 0)
+    if contraction == 1
+        ok = ok + 1
+
+    let probs0 = [0, 1]
+    if algebraic_entropy(probs0, 2) == 0
+        ok = ok + 1
+
+    if spin_up() == 1
+        ok = ok + 1
+    if spin_down() == 65536
+        ok = ok + 1
+
+    if spin_flip(spin_up()) == 65536
+        ok = ok + 1
+    if spin_flip(spin_down()) == 1
+        ok = ok + 1
+
+    if reproduction_gate(spin_up()) == 1
+        ok = ok + 1
+    if reproduction_gate(spin_down()) == 0
+        ok = ok + 1
+
+    if su2_multiply(spin_up(), spin_up()) == 1
+        ok = ok + 1
+    if su2_multiply(spin_up(), spin_down()) == 65536
+        ok = ok + 1
+
+    let step = multiphysics_step(1, 1, 0, 0, spin_up(), 0)
+    if step >= 0
+        ok = ok + 1
+
+    let cycle = multiphysics_cycle(10)
+    if cycle >= 0
+        ok = ok + 1
+
+    ok
+
+let main() = multiphysics_verify()

@@ -1,0 +1,77 @@
+import "../../core/stdlib/gf65537.ψ"
+import "../../core/stdlib/fft.ψ"
+
+let P = 65537
+let QFT_MAX_N = 65536
+
+let _check_loop(val, g, order, p) =
+    if val == 1
+        order == p - 1
+    else
+        0
+    if order >= p - 1
+        0
+    else
+        _check_loop(gf_mul(val, g), g, order + 1, p)
+let _check_primitive(g, p) = _check_loop(g, g, 1, p)
+let _prim_root_loop(g, p) =
+    if g >= p
+        0
+    else
+        0
+    if _check_primitive(g, p)
+        g
+    else
+        _prim_root_loop(g + 1, p)
+let primitive_root(p) =
+    if p != 65537
+        _prim_root_loop(2, p)
+    else
+        fft_root(p)
+
+let ntt(a, invert) = ntt_butterfly(a, invert)
+
+let qft(state) = ntt(state, 0)
+let qft_inverse(state) = ntt(state, 1)
+
+let ntt_convolution(a, b) =
+    let n = arr_len(a)
+    let fa = ntt(a, 0)
+    let fb = ntt(b, 0)
+    let fc = arr_new_n(n)
+    _ntt_conv_pointwise(fa, fb, fc, n, 0)
+    ntt(fc, 1)
+let _ntt_conv_pointwise(fa, fb, fc, n, i) =
+    if i >= n
+        fc
+    else
+        fc[i] = gf_mul(fa[i], fb[i])
+        _ntt_conv_pointwise(fa, fb, fc, n, i + 1)
+
+let dft_matrix_element(i, j, n) =
+    let omega = gf_pow(3, (P - 1) / n)
+    gf_pow(omega, i * j)
+
+let _qft_field_loop(amplitudes, n, z, i, acc) =
+    if i >= n
+        acc
+    else
+        let pole = 127 + i * 1000
+        let diff = (z + 65537 - pole) % 65537
+        let w = gf_pow(3, i * 65536 / n)
+        let term = gf_mul(amplitudes[i], gf_mul(w, gf_inv(diff)))
+        _qft_field_loop(amplitudes, n, z, i + 1, gf_add(acc, term))
+let qft_field_transform(amplitudes, n, z) =
+    _qft_field_loop(amplitudes, n, z, 0, 0)
+
+let qft_verify() =
+    let amps = arr_new_n(4)
+    amps[0] = 100
+    amps[1] = 200
+    amps[2] = 300
+    amps[3] = 400
+    let result = qft_field_transform(amps, 4, 500)
+    if result != 0
+        1
+    else
+        0

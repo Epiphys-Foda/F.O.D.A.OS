@@ -1,0 +1,107 @@
+import "super_db.ψ"
+import "super_db_engine.ψ"
+import "super_db_dynamics.ψ"
+let rf_dbs_emit(db, x, y, r, cx, cy, w, h) =
+    let out = []
+    if rf_db_in_rect(x, y, cx, cy, w, h)
+      out = out.push(x)
+      out = out.push(y)
+      out = out.push(r)
+    else
+      0
+    out
+
+let rf_dbs_subscribe(db, cx, cy, w, h) = rf_db_publish(db, cx, cy, w, h)
+
+let rf_dbs_deliver(sub, payload) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(sub)
+        let j = 0
+        let jdone = false
+        let hit = 0
+        for !jdone
+          if j + 2 < len(payload)
+            if sub[i] == payload[j] && sub[i + 1] == payload[j + 1]
+              hit = 1
+            else
+              0
+            j = j + 3
+          else
+            jdone = true
+        if hit == 1
+          out = out.push(sub[i])
+          out = out.push(sub[i + 1])
+          out = out.push(sub[i + 2])
+        else
+          0
+        i = i + 3
+      else
+        done = true
+    out
+
+let rf_dbs_capture(old_db, new_db) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(new_db)
+        let xk = new_db[i]
+        let yk = new_db[i + 1]
+        let rk = new_db[i + 2]
+        let probe1 = rf_db_field(old_db, xk, yk)
+        let probe2 = rf_db_field(new_db, xk, yk)
+        if probe1 != probe2
+          out = out.push(xk)
+          out = out.push(yk)
+          out = out.push(rk)
+        else
+          0
+        i = i + 3
+      else
+        done = true
+    out
+
+let rf_dbs_events(db, x, y, r, n) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i < n
+        out = out.push(x + i * 2)
+        out = out.push(y)
+        out = out.push(r)
+        i = i + 1
+      else
+        done = true
+    out
+
+let rf_dbs_consumer(events, cx, cy, w, h) =
+    let out = []
+    let i = 0
+    let done = false
+    for !done
+      if i + 2 < len(events)
+        if rf_db_in_rect(events[i], events[i + 1], cx, cy, w, h)
+          out = out.push(events[i])
+          out = out.push(events[i + 1])
+          out = out.push(events[i + 2])
+        else
+          0
+        i = i + 3
+      else
+        done = true
+    out
+
+let rf_dbs_test() =
+    let t1 = len(rf_dbs_emit([], 3, 3, 5, 0, 0, 10, 10)) == 3
+    let t2 = len(rf_dbs_emit([], 50, 50, 5, 0, 0, 10, 10)) == 0
+    let t3 = len(rf_dbs_subscribe([0, 0, 5, 100, 100, 7], 0, 0, 10, 10)) == 3
+    let t4 = len(rf_dbs_capture([0, 0, 5], [0, 0, 5, 50, 50, 7])) == 3
+    let t5 = len(rf_dbs_events([], 0, 0, 5, 3)) == 9
+    let ev = rf_dbs_events([], 0, 0, 5, 3)
+    let cons = rf_dbs_consumer(ev, 0, 0, 6, 6)
+    let t6 = len(cons) >= 3
+    t1 && t2 && t3 && t4 && t5 && t6

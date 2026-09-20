@@ -1,0 +1,26 @@
+import "ck.ψ"
+let bad = [0]
+
+let nsk = 1
+let dnsk = nsk - 1
+bad[0] = bad[0] + ck(dnsk, 0, 0)
+
+let size = 10
+bad[0] = bad[0] + ck(size, 5, 20)
+
+let dmi = 3
+bad[0] = bad[0] + ck(dmi, 2, 5)
+
+let hel = 50
+bad[0] = bad[0] + ck(hel, 40, 60)
+
+if 2009 < 2007
+    bad[0] = bad[0] + 1
+if 2009 > 2011
+    bad[0] = bad[0] + 1
+if 2013 < 2011
+    bad[0] = bad[0] + 1
+if 2013 > 2015
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

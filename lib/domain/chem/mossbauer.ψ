@@ -1,0 +1,44 @@
+import "ck.ψ"
+let bad = [0]
+
+let eg = 14400
+bad[0] = bad[0] + ck(eg, 14300, 14500)
+
+let er = eg * eg / (10646 * 1000)
+bad[0] = bad[0] + ck(er, 15, 25)
+
+let g10nev = 47
+let q12 = eg * 10000000 / (g10nev * 1000000000)
+bad[0] = bad[0] + ck(q12, 3, 3)
+
+let dneV = eg * 1000000 / (3 * 100000000)
+let nw = dneV * 10 / g10nev
+bad[0] = bad[0] + ck(nw, 9, 11)
+
+let smear = er * 1000000 / g10nev
+bad[0] = bad[0] + ck(smear, 380000, 430000)
+let fsol = 90
+bad[0] = bad[0] + ck(fsol, 80, 95)
+
+let g98 = 98
+let h22 = 225
+let dz15 = g98 * h22 * 100 / 9000
+bad[0] = bad[0] + ck(dz15, 240, 250)
+let dz_exp = 244
+let agr = dz15 * 100 / dz_exp
+bad[0] = bad[0] + ck(agr, 97, 103)
+
+if 1957 < 1955
+    bad[0] = bad[0] + 1
+if 1957 > 1959
+    bad[0] = bad[0] + 1
+if 1960 < 1958
+    bad[0] = bad[0] + 1
+if 1960 > 1962
+    bad[0] = bad[0] + 1
+if 1961 < 1959
+    bad[0] = bad[0] + 1
+if 1961 > 1963
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

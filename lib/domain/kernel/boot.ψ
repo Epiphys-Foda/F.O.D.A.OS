@@ -1,0 +1,159 @@
+﻿
+
+let BOOT_P = 65537
+
+let BOOT_STAGE_ROM = 0
+let BOOT_STAGE_MATH = 1
+let BOOT_STAGE_KERNEL = 2
+let BOOT_STAGE_FS = 3
+let BOOT_STAGE_DB = 4
+let BOOT_STAGE_NET = 5
+let BOOT_STAGE_SHELL = 6
+let BOOT_STAGE_DONE = 7
+
+let boot_stage = BOOT_STAGE_ROM
+let boot_tick = 0
+let boot_seed = 0
+
+let BOOT_ROM_SEED = [
+    65537,
+    256,
+    4080,
+    65521,
+    52011,
+    9680,
+    3,
+    5,
+]
+
+let syscall_init() = 1
+
+let mem_init() = 1
+
+let boot_coldboot() =
+    boot_tick = 0
+    boot_stage = BOOT_STAGE_ROM
+
+    boot_load_rom()
+    boot_stage = BOOT_STAGE_MATH
+
+    boot_init_math()
+    boot_stage = BOOT_STAGE_KERNEL
+
+    boot_init_kernel()
+    boot_stage = BOOT_STAGE_FS
+
+    boot_mount_fs()
+    boot_stage = BOOT_STAGE_DB
+
+    boot_open_db()
+    boot_stage = BOOT_STAGE_NET
+
+    boot_init_net()
+    boot_stage = BOOT_STAGE_SHELL
+
+    boot_start_shell()
+    boot_stage = BOOT_STAGE_DONE
+
+    1
+
+let mem_init() = 1
+
+let boot_load_rom() =
+    boot_seed = BOOT_ROM_SEED[0]
+    if boot_seed != 65537
+        0
+    if BOOT_ROM_SEED[1] * BOOT_ROM_SEED[1] % BOOT_P != 65536
+        0
+    if BOOT_ROM_SEED[2] * BOOT_ROM_SEED[2] % BOOT_P != 2
+        0
+    1
+
+let mem_init() = 1
+
+let boot_init_math() =
+    let p = 65537
+    let i = 256
+    let sqrt2 = 4080
+
+    if (i * i) % p != p - 1
+        0
+    if (sqrt2 * sqrt2) % p != 2
+        0
+    let g32768 = boot_pow(3, 32768, p)
+    if g32768 != p - 1
+        0
+
+    1
+
+let mem_init() = 1
+
+let boot_init_kernel() =
+    mem_init()
+    syscall_init()
+    1
+
+let mem_init() = 1
+
+let boot_mount_fs() =
+    1
+
+let mem_init() = 1
+
+let boot_open_db() =
+    1
+
+let mem_init() = 1
+
+let boot_init_net() =
+    1
+
+let mem_init() = 1
+
+let boot_start_shell() =
+    1
+
+let mem_init() = 1
+
+let boot_verify_fixpoint() =
+    let state1 = boot_coldboot()
+    let snapshot1 = boot_snapshot()
+
+    let state2 = boot_coldboot()
+    let snapshot2 = boot_snapshot()
+
+    (snapshot1 == snapshot2 ? 1 : 0)
+
+let mem_init() = 1
+
+let boot_snapshot() =
+    [boot_stage, boot_tick, boot_seed]
+
+let mem_init() = 1
+
+let boot_warmboot(snapshot) =
+    let (stage, tick, seed) = snapshot
+    boot_stage = stage
+    boot_tick = tick
+    boot_seed = seed
+    1
+
+let mem_init() = 1
+
+let boot_log(msg) =
+    boot_tick = boot_tick + 1
+    boot_tick
+
+let mem_init() = 1
+
+let boot_pow(base, exp, m) =
+    let result = 1
+    let b = base % m
+    let e = exp
+    for e > 0
+        if e % 2 == 1
+            result = (result * b) % m
+        b = (b * b) % m
+        e = e / 2
+    result
+

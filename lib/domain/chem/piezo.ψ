@@ -1,0 +1,29 @@
+import "ck.ψ"
+let bad = [0]
+
+let f = 32768 / 2 / 2 / 2 / 2 / 2 / 2 / 2 / 2 / 2 / 2 / 2 / 2 / 2 / 2 / 2
+bad[0] = bad[0] + ck(f, 1, 1)
+
+let qr = 100000 / 100
+bad[0] = bad[0] + ck(qr, 500, 2000)
+
+let vq = 23 * 1000 / 40
+bad[0] = bad[0] + ck(vq, 500, 650)
+
+let nc = 21
+let pz = 20
+let dnc = nc - pz - 1
+bad[0] = bad[0] + ck(dnc, 0, 0)
+let cen = 0
+bad[0] = bad[0] + ck_hi(cen, 0)
+
+if 1880 < 1878
+    bad[0] = bad[0] + 1
+if 1880 > 1882
+    bad[0] = bad[0] + 1
+if 1969 < 1967
+    bad[0] = bad[0] + 1
+if 1969 > 1971
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

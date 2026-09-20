@@ -1,0 +1,39 @@
+import "ck.ψ"
+let bad = [0]
+
+let h_sub = 107
+let h_ie = 496
+let h_diss = 121
+let h_ea = 0 - 349
+let h_latt = 0 - 787
+
+let total = h_sub + h_ie + h_diss + h_ea + h_latt
+
+let dtot = total - (0 - 412)
+let adtot =
+    if dtot < 0
+        0 - dtot
+    else
+        dtot
+bad[0] = bad[0] + adtot * adtot
+
+let dclose = total - (0 - 411)
+let aclose =
+    if dclose < 0
+        0 - dclose
+    else
+        dclose
+let tclose = aclose - 2
+let wclose =
+    if tclose < 0
+        0 - tclose
+    else
+        tclose
+bad[0] = bad[0] + ck_hi(wclose, 2)
+
+let abs_latt = 0 - h_latt
+let abs_other = h_sub + h_ie + h_diss + (0 - h_ea)
+let ddom = abs_other - abs_latt
+bad[0] = bad[0] + ck_lo(ddom, 1)
+
+arr_get(arr_new_n(1), bad[0])

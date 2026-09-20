@@ -1,0 +1,152 @@
+let convolve2d(image, kernel, width, height, ksize) =
+    let result = []
+    let half = ksize / 2
+    let y = 0
+    for y < height
+        let x = 0
+        for x < width
+            let sum = 0
+            let ky = 0
+            for ky < ksize
+                let kx = 0
+                for kx < ksize
+                    let iy = y + ky - half
+                    let ix = x + kx - half
+                    if iy >= 0 && iy < height && ix >= 0 && ix < width
+                        sum = sum + image[iy * width + ix] * kernel[ky * ksize + kx] / 1000
+                    kx = kx + 1
+                ky = ky + 1
+            result = arr_concat(result, [sum])
+            x = x + 1
+        y = y + 1
+    result
+
+let gaussian_kernel(size, sigma) =
+    let kernel = []
+    let half = size / 2
+    let sum = 0
+    let y = 0
+    for y < size
+        let x = 0
+        for x < size
+            let dx = x - half
+            let dy = y - half
+            let val = 1000 - (dx * dx + dy * dy) * 1000 / (2 * sigma * sigma)
+            if val < 0
+                val = 0
+            kernel = arr_concat(kernel, [val])
+            sum = sum + val
+            x = x + 1
+        y = y + 1
+    let result = []
+    let i = 0
+    for i < kernel.len()
+        result = arr_concat(result, [kernel[i] * 1000 / sum])
+        i = i + 1
+    result
+
+let sobel_x(image, width, height) =
+    let kernel = [-1000, 0, 1000, -2000, 0, 2000, -1000, 0, 1000]
+    convolve2d(image, kernel, width, height, 3)
+
+let sobel_y(image, width, height) =
+    let kernel = [-1000, -2000, -1000, 0, 0, 0, 1000, 2000, 1000]
+    convolve2d(image, kernel, width, height, 3)
+
+let edge_magnitude(image, width, height) =
+    let gx = sobel_x(image, width, height)
+    let gy = sobel_y(image, width, height)
+    let result = []
+    let i = 0
+    for i < gx.len()
+        let mag = gx[i] * gx[i] + gy[i] * gy[i]
+        let s = mag
+        let iter = 0
+        for iter < 5
+            if s > 0
+                s = (s + mag / s) / 2
+            iter = iter + 1
+        result = arr_concat(result, [s])
+        i = i + 1
+    result
+
+let histogram(image, bins) =
+    let hist = []
+    let i = 0
+    for i < bins
+        hist = arr_concat(hist, [0])
+        i = i + 1
+    let i = 0
+    for i < image.len()
+        let bin = image[i] * bins / 1000
+        if bin >= 0 && bin < bins
+            hist[bin] = hist[bin] + 1
+        i = i + 1
+    hist
+
+let histogram_equalization(image, bins) =
+    let hist = histogram(image, bins)
+    let cdf = []
+    let sum = 0
+    let i = 0
+    for i < bins
+        sum = sum + hist[i]
+        cdf = arr_concat(cdf, [sum])
+        i = i + 1
+    let total = sum
+    let result = []
+    let i = 0
+    for i < image.len()
+        let bin = image[i] * bins / 1000
+        if bin >= 0 && bin < bins && total > 0
+            result = arr_concat(result, [cdf[bin] * 1000 / total])
+        else
+            result = arr_concat(result, [image[i]])
+        i = i + 1
+    result
+
+let threshold(image, t) =
+    let result = []
+    let i = 0
+    for i < image.len()
+        result = arr_concat(result, [(image[i] >= t ? 1000 : 0)])
+        i = i + 1
+    result
+
+let resize_bilinear(image, src_w, src_h, dst_w, dst_h) =
+    let result = []
+    let dy = 0
+    for dy < dst_h
+        let src_y = dy * src_h / dst_h
+        let y0 = src_y
+        let y1 = y0 + 1
+        if y1 >= src_h
+            y1 = src_h - 1
+        let wy = src_y - y0
+        let dx = 0
+        for dx < dst_w
+            let src_x = dx * src_w / dst_w
+            let x0 = src_x
+            let x1 = x0 + 1
+            if x1 >= src_w
+                x1 = src_w - 1
+            let wx = src_x - x0
+            let p00 = image[y0 * src_w + x0]
+            let p01 = image[y0 * src_w + x1]
+            let p10 = image[y1 * src_w + x0]
+            let p11 = image[y1 * src_w + x1]
+            let val = p00 * (1000 - wx) * (1000 - wy) + p01 * wx * (1000 - wy) + p10 * (1000 - wx) * wy + p11 * wx * wy
+            result = arr_concat(result, [val / 1000000])
+            dx = dx + 1
+        dy = dy + 1
+    result
+
+let main() =
+    let img = [100, 200, 300, 400, 500, 600, 700, 800, 900]
+    let hist = histogram(img, 10)
+    print(hist)
+    let eq = histogram_equalization(img, 10)
+    print(eq)
+    let bin = threshold(img, 500)
+    print(bin)
+    0

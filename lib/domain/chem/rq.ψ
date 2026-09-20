@@ -1,0 +1,35 @@
+import "ck.ψ"
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let co2c = 6
+let o2c = 6
+let rq_carb = small_div(co2c * 100, o2c)
+if rq_carb != 100
+    bad[0] = bad[0] + 1
+
+let co2f = 1600
+let o2f = 23
+let rq_fat = small_div(co2f, o2f)
+bad[0] = bad[0] + ck(rq_fat, 68, 71)
+
+bad[0] = bad[0] + ck_hi(rq_fat, rq_carb)
+
+let ef = 94
+let ec = 41
+let ratio = small_div(ef * 10, ec)
+bad[0] = bad[0] + ck(ratio, 20, 25)
+
+let vo2_day = 360
+bad[0] = bad[0] + ck(vo2_day, 340, 380)
+
+let kcal = vo2_day * 5
+bad[0] = bad[0] + ck(kcal, 1600, 1950)
+
+if 1780 < 1777
+    bad[0] = bad[0] + 1
+if 1780 > 1784
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

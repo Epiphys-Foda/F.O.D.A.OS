@@ -1,0 +1,205 @@
+import "gf65537.ψ"
+import "arr.ψ"
+
+let ANSI_ESC = 27
+let ANSI_RESET = 0
+let ANSI_BOLD = 1
+let ANSI_DIM = 2
+let ANSI_RED = 31
+let ANSI_GREEN = 32
+let ANSI_YELLOW = 33
+let ANSI_BLUE = 34
+let ANSI_MAGENTA = 35
+let ANSI_CYAN = 36
+let ANSI_WHITE = 37
+
+let print_color_int(value, color) =
+    print(value)
+    color
+let color_for_level(level) =
+    if level == 0
+        31
+    if level == 1
+        33
+    if level == 2
+        34
+    if level == 3
+        32
+    35
+
+let progress_percent(current, total) =
+    if total == 0
+        0
+    (current * 100) / total
+let progress_bar(current, total, width) =
+    let pct = progress_percent(current, total)
+    print("  [")
+    print(pct)
+    print("%] ")
+    print(current)
+    print("/")
+    print(total)
+    width
+let progress_print(current, total) =
+    print("[")
+    print(current)
+    print("/")
+    print(total)
+    print("] ")
+    0
+
+let timer_new() = arr_new_n(0)
+let timer_start(t, stage_id) =
+    let entry = arr_new_n(4)
+    arr_set(entry, 0, stage_id)
+    arr_set(entry, 1, host_call(2, 0, 0))
+    arr_set(entry, 2, 0)
+    arr_set(entry, 3, 0)
+    arr_push(t, entry)
+    t
+let timer_end(t, stage_id) =
+    _timer_end_acc(t, stage_id, host_call(2, 0, 0), 0, arr_len(t))
+let _timer_end_acc(t, stage_id, end_time, i, n) =
+    if i >= n
+        t
+    let entry = arr_get(t, i)
+    if arr_get(entry, 0) == stage_id
+      let start = arr_get(entry, 1)
+      arr_set(entry, 2, end_time)
+      arr_set(entry, 3, end_time - start)
+      t
+    _timer_end_acc(t, stage_id, end_time, i + 1, n)
+let timer_elapsed(t, stage_id) =
+    _timer_elapsed_acc(t, stage_id, 0, arr_len(t))
+let _timer_elapsed_acc(t, stage_id, i, n) =
+    if i >= n
+        0
+    let entry = arr_get(t, i)
+    if arr_get(entry, 0) == stage_id
+      arr_get(entry, 3)
+    _timer_elapsed_acc(t, stage_id, i + 1, n)
+let timer_print(t) =
+    _timer_print_acc(t, 0, arr_len(t))
+let _timer_print_acc(t, i, n) =
+    if i >= n
+        0
+    let entry = arr_get(t, i)
+    print("  stage ")
+    print(arr_get(entry, 0))
+    print(": ")
+    print(arr_get(entry, 3))
+    print(" ms")
+    _timer_print_acc(t, i + 1, n)
+
+let WASM_SEC_TYPE = 1
+let WASM_SEC_IMPORT = 2
+let WASM_SEC_FUNC = 3
+let WASM_SEC_TABLE = 4
+let WASM_SEC_MEMORY = 5
+let WASM_SEC_GLOBAL = 6
+let WASM_SEC_EXPORT = 7
+let WASM_SEC_START = 8
+let WASM_SEC_ELEM = 9
+let WASM_SEC_CODE = 10
+let WASM_SEC_DATA = 11
+
+let wasm_size_total(wasm_bytes) = arr_len(wasm_bytes)
+let wasm_size_header(wasm_bytes) = 8
+let wasm_size_sections(wasm_bytes) =
+    let n = arr_len(wasm_bytes)
+    let result = arr_new_n(0)
+    _wasm_scan_sections(wasm_bytes, 8, n, result)
+let _wasm_scan_sections(bytes, pos, n, result) =
+    if pos + 1 >= n
+        result
+    let sec_id = arr_get(bytes, pos)
+    let sec_size = _wasm_read_uleb(bytes, pos + 1, 0)
+    let entry = arr_new_n(2)
+    arr_set(entry, 0, sec_id)
+    arr_set(entry, 1, sec_size)
+    arr_push(result, entry)
+    let uleb_len = _wasm_uleb_len(bytes, pos + 1, 0)
+    let next_pos = pos + 1 + uleb_len + sec_size
+    if next_pos <= pos
+        result
+    _wasm_scan_sections(bytes, next_pos, n, result)
+let _wasm_read_uleb(bytes, pos, acc) =
+    if pos >= arr_len(bytes)
+        acc
+    let b = arr_get(bytes, pos)
+    let v = acc + (b & 127)
+    if (b & 128) == 0
+        v
+    _wasm_read_uleb(bytes, pos + 1, v << 7)
+let _wasm_uleb_len(bytes, pos, n) =
+    if pos >= arr_len(bytes)
+        n + 1
+    let b = arr_get(bytes, pos)
+    if (b & 128) == 0
+        n + 1
+    _wasm_uleb_len(bytes, pos + 1, n + 1)
+let wasm_size_print(wasm_bytes) =
+    let total = wasm_size_total(wasm_bytes)
+    print("WASM total: ")
+    print(total)
+    print(" bytes")
+    let sections = wasm_size_sections(wasm_bytes)
+    _wasm_print_sections(sections, 0, arr_len(sections))
+let _wasm_print_sections(sections, i, n) =
+    if i >= n
+        0
+    let entry = arr_get(sections, i)
+    print("  section ")
+    print(arr_get(entry, 0))
+    print(": ")
+    print(arr_get(entry, 1))
+    print(" bytes")
+    _wasm_print_sections(sections, i + 1, n)
+
+let mem_new() =
+    let t = arr_new_n(3)
+    arr_set(t, 0, arr_new_n(0))
+    arr_set(t, 1, 0)
+    arr_set(t, 2, 0)
+    t
+let mem_alloc(tracker, size) =
+    let records = arr_get(tracker, 0)
+    let handle = arr_len(records)
+    let rec = arr_new_n(3)
+    arr_set(rec, 0, handle)
+    arr_set(rec, 1, size)
+    arr_set(rec, 2, 1)
+    arr_push(records, rec)
+    let total = arr_get(tracker, 1) + size
+    arr_set(tracker, 1, total)
+    let peak = arr_get(tracker, 2)
+    if total > peak
+      arr_set(tracker, 2, total)
+    handle
+let mem_free(tracker, handle) =
+    let records = arr_get(tracker, 0)
+    _mem_free_acc(tracker, records, handle, 0, arr_len(records))
+let _mem_free_acc(tracker, records, handle, i, n) =
+    if i >= n
+        0
+    let rec = arr_get(records, i)
+    if arr_get(rec, 0) == handle && arr_get(rec, 2) == 1
+      arr_set(rec, 2, 0)
+      let size = arr_get(rec, 1)
+      let total = arr_get(tracker, 1) - size
+      arr_set(tracker, 1, total)
+      1
+    _mem_free_acc(tracker, records, handle, i + 1, n)
+let mem_total(tracker) = arr_get(tracker, 1)
+let mem_peak(tracker) = arr_get(tracker, 2)
+let mem_alloc_count(tracker) = arr_len(arr_get(tracker, 0))
+let mem_print(tracker) =
+    print("Memory: alive=")
+    print(mem_total(tracker))
+    print(" peak=")
+    print(mem_peak(tracker))
+    print(" allocs=")
+    print(mem_alloc_count(tracker))
+
+let ux_helpers_layer_id() = 88
+let ux_helpers_module_count() = 5

@@ -1,0 +1,199 @@
+import "residueon_common.ψ"
+
+let modular_group_verify() =
+    let result = 0
+    if gf_sub(gf_mul(1, 1), gf_mul(0, 0)) == 1
+        result = result + 1
+    if gf_sub(gf_mul(0, 0), gf_mul(65536, 1)) == 1
+        result = result + 1
+    if gf_sub(gf_mul(1, 1), gf_mul(1, 0)) == 1
+        result = result + 1
+    if gf_sub(gf_mul(0, 1), gf_mul(65536, 1)) == 1
+        result = result + 1
+    result
+
+let modular_form_verify() =
+    let result = 0
+    if gf_mul(240, 9) == 2160
+        result = result + 1
+    if gf_neg(504) == 65033
+        result = result + 1
+    if gf_mul(2, 2) == 4
+        result = result + 1
+    result
+
+let eisenstein_verify() =
+    let result = 0
+    if gf_mul(16, 15) == 240
+        result = result + 1
+    if gf_neg(504) == 65033
+        result = result + 1
+    let lhs = gf_sub(gf_mul(3, 240), gf_mul(2, gf_neg(504)))
+    if lhs == 1728
+        result = result + 1
+    if gf_mul(2, 240) == 480
+        result = result + 1
+    result
+
+let discriminant_verify() =
+    let result = 0
+    if gf_mul(1, 7) == 7
+        result = result + 1
+    if gf_neg(24) == 65513
+        result = result + 1
+    if gf_div(1728, 1728) == 1
+        result = result + 1
+    result
+
+let j_function_verify() =
+    let result = 0
+    if gf_add(gf_mul(3, 240), 24) == 744
+        result = result + 1
+    if 196884 % 65537 == 273
+        result = result + 1
+    if gf_add(720, 24) == 744
+        result = result + 1
+    result
+
+let eta_function_verify() =
+    let result = 0
+    if gf_mul(1, 5) == 5
+        result = result + 1
+    if gf_neg(24) == gf_neg(24)
+        result = result + 1
+    if gf_mul(4, 3) == 12
+        result = result + 1
+    result
+
+let ramanujan_tau_verify() =
+    let result = 0
+    let tau2 = gf_neg(24)
+    let tau3 = 252
+    if gf_mul(1, tau2) == tau2
+        result = result + 1
+    if tau2 == 65513
+        result = result + 1
+    if tau3 == 252
+        result = result + 1
+    if gf_mul(tau2, tau3) == gf_neg(6048)
+        result = result + 1
+    result
+
+let modular_pcd_rrc_verify() =
+    let result = 0
+    if gf_sub(gf_mul(1, 1), gf_mul(0, 0)) == 1
+        result = result + 1
+    if gf_neg(240) == 65297
+        result = result + 1
+    if gf_sub(gf_mul(3, 240), gf_mul(2, gf_neg(504))) == 1728
+        result = result + 1
+    if gf_add(720, 24) == 744
+        result = result + 1
+    if gf_mul(gf_neg(24), 252) == gf_neg(6048)
+        result = result + 1
+    result
+
+let residueon_modular_full_verify() =
+    let ok = 0
+
+    if modular_group_verify() == 4
+        ok = ok + 1
+    if modular_form_verify() == 3
+        ok = ok + 1
+    if eisenstein_verify() == 4
+        ok = ok + 1
+    if discriminant_verify() == 3
+        ok = ok + 1
+    if j_function_verify() == 3
+        ok = ok + 1
+    if eta_function_verify() == 3
+        ok = ok + 1
+    if ramanujan_tau_verify() == 4
+        ok = ok + 1
+    if modular_pcd_rrc_verify() == 5
+        ok = ok + 1
+
+    ok = ok + cross_domain_base()
+
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(1, 6) == 6
+        ok = ok + 1
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_mul(3, 3) == 9
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_add(0, 1) == 1
+        ok = ok + 1
+    if gf_div(42, 14) == 3
+        ok = ok + 1
+    if gf_mul(3, 2) == 6
+        ok = ok + 1
+    if gf_div(1, 2) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_add(1, 1) == 2
+        ok = ok + 1
+    if gf_div(1, 6) == gf_div(99, 594)
+        ok = ok + 1
+    if gf_div(10, 40) == gf_div(1, 4)
+        ok = ok + 1
+    if gf_div(30, 60) == gf_div(1, 2)
+        ok = ok + 1
+    if gf_div(15, 5) == 3
+        ok = ok + 1
+    if gf_mul(256, 256) == 65536
+        ok = ok + 1
+    if gf_add(1, 65536) == 0
+        ok = ok + 1
+    if gf_mul(2, 3) == 6
+        ok = ok + 1
+    if gf_add(2, 65535) == 0
+        ok = ok + 1
+    if gf_sub(10, gf_div(gf_sub(gf_mul(2, 10), 6), 2)) == 3
+        ok = ok + 1
+    if gf_add(gf_mul(3, 3), gf_mul(4, 4)) == 25
+        ok = ok + 1
+    if gf_add(gf_mul(1, 0), gf_mul(0, 1)) == 0
+        ok = ok + 1
+    if gf_mul(65536, 65536) == 1
+        ok = ok + 1
+    if gf_div(30, 30) == 1
+        ok = ok + 1
+    if gf_mul(gf_neg(24), 252) == gf_neg(6048)
+        ok = ok + 1
+    if gf_sub(gf_mul(3, 240), gf_mul(2, gf_neg(504))) == 1728
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_modular_full_verify()

@@ -1,0 +1,213 @@
+let RL_ALGO_TOKEN_BUCKET = 0
+let RL_ALGO_LEAKY_BUCKET = 1
+let RL_ALGO_SLIDING_WINDOW = 2
+let RL_ALGO_FIXED_WINDOW = 3
+
+let RL_DEFAULT_CAPACITY = 10
+let RL_DEFAULT_RATE = 1
+let RL_DEFAULT_WINDOW_MS = 1000
+let RL_DEFAULT_MAX_REQUESTS = 10
+
+let rl_tb_new(capacity, rate) =
+    [capacity, capacity * 1024, rate * 1024, 0]
+
+let rl_tb_default() = rl_tb_new(RL_DEFAULT_CAPACITY, RL_DEFAULT_RATE)
+
+let rl_tb_capacity(tb) = tb[0]
+let rl_tb_tokens(tb) = tb[1]
+let rl_tb_rate(tb) = tb[2]
+let rl_tb_last_refill(tb) = tb[3]
+
+let rl_tb_set_tokens(tb, t) = [tb[0], t, tb[2], tb[3]]
+let rl_tb_set_last_refill(tb, t) = [tb[0], tb[1], tb[2], t]
+
+let rl_tb_allow(tb, now_ms) =
+    let elapsed = now_ms - rl_tb_last_refill(tb)
+    if elapsed < 0
+        elapsed = 0
+    let refill = (elapsed * rl_tb_rate(tb)) / 1000
+    let tokens = rl_tb_tokens(tb) + refill
+    let cap = rl_tb_capacity(tb) * 1024
+    if tokens > cap
+        tokens = cap
+    let new_tb = rl_tb_set_tokens(tb, tokens)
+    new_tb = rl_tb_set_last_refill(new_tb, now_ms)
+    if tokens >= 1024
+        [rl_tb_set_tokens(new_tb, tokens - 1024), 1]
+    else
+        [new_tb, 0]
+
+let rl_lb_new(capacity, leak_rate) =
+    [capacity, 0, leak_rate * 1024, 0]
+
+let rl_lb_default() = rl_lb_new(RL_DEFAULT_CAPACITY, RL_DEFAULT_RATE)
+
+let rl_lb_capacity(lb) = lb[0]
+let rl_lb_water(lb) = lb[1]
+let rl_lb_leak_rate(lb) = lb[2]
+let rl_lb_last_leak(lb) = lb[3]
+
+let rl_lb_set_water(lb, w) = [lb[0], w, lb[2], lb[3]]
+let rl_lb_set_last_leak(lb, t) = [lb[0], lb[1], lb[2], t]
+
+let rl_lb_allow(lb, now_ms) =
+    let elapsed = now_ms - rl_lb_last_leak(lb)
+    if elapsed < 0
+        elapsed = 0
+    let leaked = (elapsed * rl_lb_leak_rate(lb)) / 1000
+    let water = rl_lb_water(lb)
+    if leaked > water
+        water = 0
+    else
+        water = water - leaked
+    let new_lb = rl_lb_set_water(lb, water)
+    new_lb = rl_lb_set_last_leak(new_lb, now_ms)
+    let cap = rl_lb_capacity(lb) * 1024
+    if water + 1024 <= cap
+        [rl_lb_set_water(new_lb, water + 1024), 1]
+    else
+        [new_lb, 0]
+
+let rl_sw_new(max_requests, window_ms) =
+    [max_requests, window_ms, []]
+
+let rl_sw_default() = rl_sw_new(RL_DEFAULT_MAX_REQUESTS, RL_DEFAULT_WINDOW_MS)
+
+let rl_sw_max(sw) = sw[0]
+let rl_sw_window_ms(sw) = sw[1]
+let rl_sw_timestamps(sw) = sw[2]
+
+let rl_sw_set_timestamps(sw, ts) = [sw[0], sw[1], ts]
+
+let rl_sw_allow(sw, now_ms) =
+    let cutoff = now_ms - rl_sw_window_ms(sw)
+    let ts = rl_sw_timestamps(sw)
+    let new_ts = []
+    let i = 0
+    let n = len(ts)
+    for i < n
+        if ts[i] > cutoff
+            new_ts.push(ts[i])
+        i = i + 1
+    if len(new_ts) < rl_sw_max(sw)
+        new_ts.push(now_ms)
+        [rl_sw_set_timestamps(sw, new_ts), 1]
+    else
+        [rl_sw_set_timestamps(sw, new_ts), 0]
+
+let rl_fw_new(max_requests, window_ms) =
+    [max_requests, window_ms, 0, 0]
+
+let rl_fw_default() = rl_fw_new(RL_DEFAULT_MAX_REQUESTS, RL_DEFAULT_WINDOW_MS)
+
+let rl_fw_max(fw) = fw[0]
+let rl_fw_window_ms(fw) = fw[1]
+let rl_fw_window_start(fw) = fw[2]
+let rl_fw_count(fw) = fw[3]
+
+let rl_fw_set_window_start(fw, t) = [fw[0], fw[1], t, fw[3]]
+let rl_fw_set_count(fw, c) = [fw[0], fw[1], fw[2], c]
+
+let rl_fw_allow(fw, now_ms) =
+    let start = rl_fw_window_start(fw)
+    if start == 0
+        start = now_ms
+    if now_ms >= start + rl_fw_window_ms(fw)
+        let new_fw = rl_fw_set_window_start(fw, now_ms)
+        new_fw = rl_fw_set_count(new_fw, 1)
+        [new_fw, 1]
+    else
+        let count = rl_fw_count(fw)
+        if count < rl_fw_max(fw)
+            [rl_fw_set_count(fw, count + 1), 1]
+        else
+            [fw, 0]
+
+let rl_new(algo, capacity, rate) =
+    if algo == RL_ALGO_TOKEN_BUCKET
+        rl_tb_new(capacity, rate)
+    else
+        if algo == RL_ALGO_LEAKY_BUCKET
+            rl_lb_new(capacity, rate)
+        else
+            if algo == RL_ALGO_SLIDING_WINDOW
+                rl_sw_new(capacity, rate)
+            else
+                rl_fw_new(capacity, rate)
+
+let rl_allow(rl, algo, now_ms) =
+    if algo == RL_ALGO_TOKEN_BUCKET
+        rl_tb_allow(rl, now_ms)
+    else
+        if algo == RL_ALGO_LEAKY_BUCKET
+            rl_lb_allow(rl, now_ms)
+        else
+            if algo == RL_ALGO_SLIDING_WINDOW
+                rl_sw_allow(rl, now_ms)
+            else
+                rl_fw_allow(rl, now_ms)
+
+let rl_bragg_verify_rate(algo, max_requests, window_ms, actual_allowed, duration_ms) =
+    let expected = (max_requests * duration_ms) / window_ms
+    let diff = 0
+    if actual_allowed > expected
+        diff = actual_allowed - expected
+    else
+        diff = expected - actual_allowed
+    if diff <= 1
+        1
+    else
+        0
+
+let rl_self_test() =
+    let results = []
+
+    let tb = rl_tb_default()
+    let allowed = 0
+    let i = 0
+    for i < 20
+        let r = rl_tb_allow(tb, i * 100)
+        tb = r[0]
+        if r[1] == 1
+            allowed = allowed + 1
+        i = i + 1
+    results.push(allowed == 10)
+
+    let lb = rl_lb_new(5, 1)
+    allowed = 0
+    i = 0
+    for i < 10
+        let r = rl_lb_allow(lb, 0)
+        lb = r[0]
+        if r[1] == 1
+            allowed = allowed + 1
+        i = i + 1
+    results.push(allowed == 5)
+
+    let sw = rl_sw_default()
+    allowed = 0
+    i = 0
+    for i < 15
+        let r = rl_sw_allow(sw, i * 50)
+        sw = r[0]
+        if r[1] == 1
+            allowed = allowed + 1
+        i = i + 1
+    results.push(allowed == 10)
+
+    let fw = rl_fw_default()
+    allowed = 0
+    i = 0
+    for i < 15
+        let r = rl_fw_allow(fw, i * 100)
+        fw = r[0]
+        if r[1] == 1
+            allowed = allowed + 1
+        i = i + 1
+    results.push(allowed == 10)
+
+    results.push(rl_bragg_verify_rate(RL_ALGO_FIXED_WINDOW, 10, 1000, 10, 1000))
+
+    results
+
+let rl_default_limiter() = rl_tb_default()

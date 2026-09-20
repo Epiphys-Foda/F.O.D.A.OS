@@ -1,0 +1,261 @@
+let MB_P = 65537
+let MB_SCALE = 1000
+
+let MB_POLICY_EPSILON_GREEDY = 1
+let MB_POLICY_UCB1           = 2
+let MB_POLICY_THOMPSON       = 3
+
+let MB_DEFAULT_EPSILON = 100
+let MB_DEFAULT_C       = 2000
+let MB_DEFAULT_ALPHA   = 1
+let MB_DEFAULT_BETA    = 1
+
+let mb_arm_new(arm_id) =
+    [arm_id, 0, 0, 0]
+
+let mb_arm_id(a)     = a[0]
+let mb_arm_pulls(a)  = a[1]
+let mb_arm_reward(a) = a[2]
+let mb_arm_mean(a)   = a[3]
+
+let mb_default_bandit(arm_count) =
+    let arms = {}
+    let beta_buf = []
+    let i = 0
+    for i < arm_count
+        arms[i] = mb_arm_new(i)
+        beta_buf.push(MB_DEFAULT_BETA)
+        i = i + 1
+    [arms, 0, 0, MB_POLICY_EPSILON_GREEDY, MB_DEFAULT_EPSILON, MB_DEFAULT_C, MB_DEFAULT_ALPHA, beta_buf, []]
+
+let mb_bandit_arms(b)    = b[0]
+let mb_bandit_pulls(b)   = b[1]
+let mb_bandit_reward(b)  = b[2]
+let mb_bandit_policy(b)  = b[3]
+let mb_bandit_eps(b)     = b[4]
+let mb_bandit_c(b)       = b[5]
+let mb_bandit_alpha(b)   = b[6]
+let mb_bandit_beta(b)    = b[7]
+let mb_bandit_log(b)     = b[8]
+
+let mb_pull(bandit, arm_id, reward, ts) =
+    let arms = mb_bandit_arms(bandit)
+    let arm = arms[arm_id]
+    if arm == 0
+        arm = mb_arm_new(arm_id)
+        arms[arm_id] = arm
+    let pulls = mb_arm_pulls(arm) + 1
+    let total_r = mb_arm_reward(arm) + reward
+    arm[1] = pulls
+    arm[2] = total_r
+    let mean_fixed = total_r * MB_SCALE / pulls
+    arm[3] = mean_fixed
+    bandit[1] = mb_bandit_pulls(bandit) + 1
+    bandit[2] = mb_bandit_reward(bandit) + reward
+    let log = mb_bandit_log(bandit)
+    log.push("pull arm=" + arm_id + " reward=" + reward + " ts=" + ts)
+    bandit[8] = log
+    bandit
+
+let mb_dfl_hash(seed, salt) =
+    let h = seed * 31 + salt
+    if h < 0
+        h = -h
+    h % 1000
+
+let mb_log2_int(n) =
+    let r = 0
+    let v = n
+    for v > 0
+        v = v / 2
+        r = r + 1
+    r
+
+let mb_isqrt(n) =
+    if n <= 0
+        0
+    else
+        0
+    if n < 4
+        1
+    else
+        let x = n
+        let y = (x + 1) / 2
+        for y < x
+            x = y
+            y = (x + n / x) / 2
+        x
+
+let mb_compute_ucb(bandit, arm_id, ts) =
+    let arms = mb_bandit_arms(bandit)
+    let arm = arms[arm_id]
+    let pulls = mb_arm_pulls(arm)
+    let mean_fixed = mb_arm_mean(arm)
+    if pulls == 0
+        MB_SCALE * 1000
+    else
+        let t = mb_bandit_pulls(bandit)
+        if t < 1
+            t = 1
+        let log_t = mb_log2_int(t)
+        let two_log_t = 2 * log_t
+        if two_log_t == 0
+            two_log_t = 1
+        let inner = (two_log_t * 1000000) / pulls
+        let sqrt_term = mb_isqrt(inner)
+        let c_fixed = mb_bandit_c(bandit)
+        let ucb = mean_fixed + (c_fixed * sqrt_term) / 1000
+        ucb
+
+let mb_thompson_sample(bandit, arm_id, ts) =
+    let arms = mb_bandit_arms(bandit)
+    let arm = arms[arm_id]
+    let pulls = mb_arm_pulls(arm)
+    let reward = mb_arm_reward(arm)
+    let alpha = mb_bandit_alpha(bandit) + reward
+    let beta_buf = mb_bandit_beta(bandit)
+    let beta = beta_buf[arm_id] + pulls - reward
+    if alpha < 1
+        alpha = 1
+    if beta < 1
+        beta = 1
+    let denom = alpha + beta
+    let mean = alpha * MB_SCALE / denom
+    let variance = mean * (MB_SCALE - mean) / denom
+    let std_approx = mb_isqrt(variance)
+    let h = mb_dfl_hash(arm_id * 31 + ts, 17)
+    let offset = (h % 1001) * std_approx / 1000 - std_approx / 2
+    mean + offset
+
+let mb_choose_arm(bandit, ts) =
+    let arms = mb_bandit_arms(bandit)
+    let arm_keys = keys_of(arms)
+    let n = len(arm_keys)
+    if n == 0
+        -1
+    else
+        let policy = mb_bandit_policy(bandit)
+        let chosen = -1
+        if policy == MB_POLICY_EPSILON_GREEDY
+            let eps = mb_bandit_eps(bandit)
+            let total_p = mb_bandit_pulls(bandit)
+            let hash = mb_dfl_hash(total_p * 7 + ts, 23)
+            if hash < eps
+                let min_pulls = -1
+                let i = 0
+                for i < n
+                    let aid = arm_keys[i]
+                    let arm = arms[aid]
+                    let p = mb_arm_pulls(arm)
+                    if min_pulls < 0 || p < min_pulls
+                        min_pulls = p
+                        chosen = aid
+                    i = i + 1
+                let max_mean = -1
+                let i = 0
+                for i < n
+                    let aid = arm_keys[i]
+                    let arm = arms[aid]
+                    let m = mb_arm_mean(arm)
+                    if max_mean < 0 || m > max_mean
+                        max_mean = m
+                        chosen = aid
+                    i = i + 1
+        if policy == MB_POLICY_UCB1
+            let max_ucb = -1
+            let i = 0
+            for i < n
+                let aid = arm_keys[i]
+                let u = mb_compute_ucb(bandit, aid, ts)
+                if max_ucb < 0 || u > max_ucb
+                    max_ucb = u
+                    chosen = aid
+                i = i + 1
+        if policy == MB_POLICY_THOMPSON
+            let max_s = -1
+            let i = 0
+            for i < n
+                let aid = arm_keys[i]
+                let s = mb_thompson_sample(bandit, aid, ts)
+                if max_s < 0 || s > max_s
+                    max_s = s
+                    chosen = aid
+                i = i + 1
+            chosen = arm_keys[0]
+        chosen
+
+let mb_get_best_arm(bandit) =
+    let arms = mb_bandit_arms(bandit)
+    let arm_keys = keys_of(arms)
+    let n = len(arm_keys)
+    if n == 0
+        -1
+    else
+        let best_aid = arm_keys[0]
+        let best_mean = mb_arm_mean(arms[best_aid])
+        let i = 1
+        for i < n
+            let aid = arm_keys[i]
+            let m = mb_arm_mean(arms[aid])
+            if m > best_mean
+                best_mean = m
+                best_aid = aid
+            i = i + 1
+        best_aid
+
+let mb_bandit_sig(bandit) =
+    let arms = mb_bandit_arms(bandit)
+    let arm_keys = keys_of(arms)
+    let n = len(arm_keys)
+    let sig = 0
+    sig = (sig * 31 + mb_bandit_pulls(bandit)) % MB_P
+    sig = (sig * 31 + mb_bandit_reward(bandit)) % MB_P
+    let i = 0
+    for i < n
+        let aid = arm_keys[i]
+        let arm = arms[aid]
+        sig = (sig * 31 + aid + mb_arm_pulls(arm) * 7 + mb_arm_reward(arm) * 13) % MB_P
+        i = i + 1
+    sig
+
+let mb_bragg_verify(bandit, ops_seq) =
+    let arms = mb_bandit_arms(bandit)
+    let arm_count = len(keys_of(arms))
+    let b1 = mb_default_bandit(arm_count)
+    let b2 = mb_default_bandit(arm_count)
+    b1[3] = mb_bandit_policy(bandit)
+    b1[4] = mb_bandit_eps(bandit)
+    b1[5] = mb_bandit_c(bandit)
+    b1[6] = mb_bandit_alpha(bandit)
+    b2[3] = mb_bandit_policy(bandit)
+    b2[4] = mb_bandit_eps(bandit)
+    b2[5] = mb_bandit_c(bandit)
+    b2[6] = mb_bandit_alpha(bandit)
+    let n = len(ops_seq)
+    let i = 0
+    for i < n
+        let op = ops_seq[i]
+        mb_pull(b1, op[0], op[1], op[2])
+        mb_pull(b2, op[0], op[1], op[2])
+        i = i + 1
+    let sig1 = mb_bandit_sig(b1)
+    let sig2 = mb_bandit_sig(b2)
+    let ok = 0
+    if sig1 == sig2
+        ok = 1
+    ok
+
+import "../domain_field.ψ"
+
+let mb_gf_mod(x) = domain_gf_mod(x)
+let mb_gf_inv(a) = domain_gf_inv(a)
+let mb_field_encode(items, n) =
+    let records = []
+    let _i = 0
+    for _i < n
+        records.push([items[_i], items[_i]])
+        _i = _i + 1
+    domain_field_encode(records, n, 256, 1)
+
+let mb_field_eval(poles, residues, z) = domain_field_eval(poles, residues, z)
+let mb_field_bragg_verify(current, replay) = domain_bragg_verify(current[0], current[1], replay[0], replay[1])

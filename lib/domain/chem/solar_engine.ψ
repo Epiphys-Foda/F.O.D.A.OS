@@ -1,0 +1,28 @@
+import "ck.ψ"
+let bad = [0]
+let e6 = 1000000
+let e12 = 1000000 * 1000000
+let e23 = e12 * 100000000000
+
+let L = 3828 * e23
+let dL0 = L - 3828 * e23
+bad[0] = bad[0] + dL0 * dL0
+if 3819 * e23 > L
+    bad[0] = bad[0] + 1
+if L > 3837 * e23
+    bad[0] = bad[0] + 1
+
+let c2 = 299792 * 299792 * 1000000
+let mlo = 4250 * e6 * c2
+let mhi = 4270 * e6 * c2
+bad[0] = bad[0] + ck_hi(mlo, L)
+bad[0] = bad[0] + ck_hi(L, mhi)
+
+let d2int = 125664 * 1496 * 1496
+let spv = d2int * e12
+let slo = 1355 * spv
+let shi = 1365 * spv
+bad[0] = bad[0] + ck_hi(slo, L)
+bad[0] = bad[0] + ck_hi(L, shi)
+
+arr_get(arr_new_n(1), bad[0])

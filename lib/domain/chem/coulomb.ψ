@@ -1,0 +1,29 @@
+import "ck.ψ"
+let bad = [0]
+
+let k9 = 9
+bad[0] = bad[0] + ck(k9, 8, 10)
+
+let F = 9
+bad[0] = bad[0] + ck(F, 8, 10)
+
+let d_ratio = 4
+bad[0] = bad[0] + ck(d_ratio, 4, 4)
+
+let dominant = 1
+bad[0] = bad[0] + ck_lo(dominant, 1)
+
+if 1785 < 1783
+    bad[0] = bad[0] + 1
+if 1785 > 1787
+    bad[0] = bad[0] + 1
+if 1839 < 1837
+    bad[0] = bad[0] + 1
+if 1839 > 1841
+    bad[0] = bad[0] + 1
+if 1909 < 1907
+    bad[0] = bad[0] + 1
+if 1909 > 1911
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

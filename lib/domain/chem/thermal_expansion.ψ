@@ -1,0 +1,42 @@
+import "ck.ψ"
+let bad = [0]
+
+let a_steel = 12
+let l_m = 10
+let d_t = 50
+let dL_mm = 6
+let dz1 = dL_mm * 1000 - a_steel * l_m * d_t
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let dL_2t = 12
+let dz2 = dL_2t - dL_mm * 2
+bad[0] = bad[0] + ck(dz2, 0, 0)
+let dL_2l = 12
+let dz3 = dL_2l - dL_mm * 2
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let a_al = 24
+let dz4 = a_al - a_steel * 2
+bad[0] = bad[0] + ck(dz4, 0, 0)
+
+let gap = 10
+bad[0] = bad[0] + ck_lo(gap, dL_mm)
+
+let dL_tower = 144
+bad[0] = bad[0] + ck(dL_tower, 100, 200)
+
+let t_water = 4
+bad[0] = bad[0] + ck(t_water, 3, 5)
+
+if 1726 < 1724
+    bad[0] = bad[0] + 1
+if 1726 > 1728
+    bad[0] = bad[0] + 1
+if 1889 < 1887
+    bad[0] = bad[0] + 1
+if 1889 > 1891
+    bad[0] = bad[0] + 1
+if 1889 < 1726
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

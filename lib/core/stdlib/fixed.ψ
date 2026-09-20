@@ -1,0 +1,72 @@
+let q_add(a, b) = a + b
+
+let q_sub(a, b) = a - b
+
+let q_neg(a) = 0 - a
+
+let q_mul(a, b) = (a * b) / 65536
+
+let q_div(a, b) = (a * 65536) / b
+
+let q_floor(a) =
+    let q = a / 65536
+    (a < 0 && a - q * 65536 != 0 ? (q - 1) * 65536 : q * 65536)
+
+let q_frac(a) = a - q_floor(a)
+
+let q_to_int(a) = a / 65536
+
+let q_from_int(a) = a * 65536
+
+let q_lt(a, b) = a < b
+let q_le(a, b) = a <= b
+let q_gt(a, b) = a > b
+let q_ge(a, b) = a >= b
+let q_eq(a, b) = a == b
+let q_ne(a, b) = a != b
+
+let q16_from_str(s) =
+    let n = len(s)
+    let start = 0
+    if n > 0
+        if s[0] == 45
+            start = 1
+        else
+            0
+    else
+        0
+    let dot = 0
+    let has_dot = 0
+    let k = start
+    for k < n
+        if s[k] == 46
+            dot = k
+            has_dot = 1
+            k = n
+        else
+            k = k + 1
+        0
+    let int_part = 0
+    let int_end = n
+    if has_dot == 1
+        int_end = dot
+    else
+        0
+    let m = start
+    for m < int_end
+        int_part = int_part * 10 + (s[m] - 48)
+        m = m + 1
+    let frac_part = 0
+    if has_dot == 1
+        let num = 0
+        let scale = 1
+        let p = dot + 1
+        for p < n
+            num = num * 10 + (s[p] - 48)
+            scale = scale * 10
+            p = p + 1
+        frac_part = (num * 65536) / scale
+    else
+        0
+    let v = int_part * 65536 + frac_part
+    (start == 1 ? (0 - v) : v)

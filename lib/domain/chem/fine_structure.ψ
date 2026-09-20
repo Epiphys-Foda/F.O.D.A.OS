@@ -1,0 +1,33 @@
+import "ck.ψ"
+let bad = [0]
+
+let ainv = 137
+bad[0] = bad[0] + ck(ainv, 136, 138)
+let ainv2 = 137036
+bad[0] = bad[0] + ck(ainv2, 137035, 137037)
+
+let a2 = ainv * ainv
+let fs = 100000 / (a2)
+bad[0] = bad[0] + ck(fs, 4, 6)
+
+let pi13 = 314
+let aop = pi13 * 10 / ainv
+bad[0] = bad[0] + ck(aop, 20, 24)
+
+let dis12 = 0
+bad[0] = bad[0] + ck(dis12, 0, 0)
+
+if 1916 < 1914
+    bad[0] = bad[0] + 1
+if 1916 > 1918
+    bad[0] = bad[0] + 1
+if 1985 < 1983
+    bad[0] = bad[0] + 1
+if 1985 > 1987
+    bad[0] = bad[0] + 1
+if 2008 < 2006
+    bad[0] = bad[0] + 1
+if 2008 > 2010
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

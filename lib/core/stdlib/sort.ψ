@@ -1,0 +1,254 @@
+let sort_bubble(arr) =
+    let n = arr.len()
+    let result = arr_new()
+    let i = 0
+    for i < n
+        result = arr_push(result, arr[i])
+        i = i + 1
+    i = 0
+    for i < n - 1
+        let j = 0
+        for j < n - 1 - i
+            if result[j] > result[j + 1]
+                let tmp = result[j]
+                result[j] = result[j + 1]
+                result[j + 1] = tmp
+            j = j + 1
+        i = i + 1
+    result
+
+let sort_insertion(arr) =
+    let n = arr.len()
+    let result = arr_new()
+    let i = 0
+    for i < n
+        result = arr_push(result, arr[i])
+        i = i + 1
+    i = 1
+    for i < n
+        let key = result[i]
+        let j = i - 1
+        for j >= 0 && result[j] > key
+            result[j + 1] = result[j]
+            j = j - 1
+        result[j + 1] = key
+        i = i + 1
+    result
+
+let sort_selection(arr) =
+    let n = arr.len()
+    let result = arr_new()
+    let i = 0
+    for i < n
+        result = arr_push(result, arr[i])
+        i = i + 1
+    i = 0
+    for i < n - 1
+        let min_idx = i
+        let j = i + 1
+        for j < n
+            if result[j] < result[min_idx]
+                min_idx = j
+            j = j + 1
+        if min_idx != i
+            let tmp = result[i]
+            result[i] = result[min_idx]
+            result[min_idx] = tmp
+        i = i + 1
+    result
+
+let sort_merge_helper(arr, lo, hi) =
+    if lo >= hi
+        return arr
+    let mid = (lo + hi) / 2
+    arr = sort_merge_helper(arr, lo, mid)
+    arr = sort_merge_helper(arr, mid + 1, hi)
+    let left = arr_new()
+    let i = lo
+    for i <= mid
+        left = arr_push(left, arr[i])
+        i = i + 1
+    let right = arr_new()
+    i = mid + 1
+    for i <= hi
+        right = arr_push(right, arr[i])
+        i = i + 1
+    let p = 0
+    let q = 0
+    let k = lo
+    let nl = left.len()
+    let nr = right.len()
+    for p < nl && q < nr
+        if left[p] <= right[q]
+            arr[k] = left[p]
+            p = p + 1
+        else
+            arr[k] = right[q]
+            q = q + 1
+        k = k + 1
+    for p < nl
+        arr[k] = left[p]
+        p = p + 1
+        k = k + 1
+    for q < nr
+        arr[k] = right[q]
+        q = q + 1
+        k = k + 1
+    arr
+
+let sort_merge(arr) =
+    let n = arr.len()
+    if n <= 1
+        return arr
+    let result = arr_new()
+    let i = 0
+    for i < n
+        result = arr_push(result, arr[i])
+        i = i + 1
+    sort_merge_helper(result, 0, n - 1)
+
+let sort_quick_helper(arr, lo, hi) =
+    if lo >= hi
+        return arr
+    let pivot = arr[hi]
+    let i = lo - 1
+    let j = lo
+    for j < hi
+        if arr[j] < pivot
+            i = i + 1
+            let tmp = arr[i]
+            arr[i] = arr[j]
+            arr[j] = tmp
+        j = j + 1
+    i = i + 1
+    let tmp = arr[i]
+    arr[i] = arr[hi]
+    arr[hi] = tmp
+    arr = sort_quick_helper(arr, lo, i - 1)
+    arr = sort_quick_helper(arr, i + 1, hi)
+    arr
+
+let sort_quick(arr) =
+    let n = arr.len()
+    if n <= 1
+        return arr
+    let result = arr_new()
+    let i = 0
+    for i < n
+        result = arr_push(result, arr[i])
+        i = i + 1
+    sort_quick_helper(result, 0, n - 1)
+
+let sort_heap_sift_down(arr, start, end) =
+    let root = start
+    for root * 2 + 1 <= end
+        let child = root * 2 + 1
+        if child + 1 <= end && arr[child] < arr[child + 1]
+            child = child + 1
+        if arr[root] < arr[child]
+            let tmp = arr[root]
+            arr[root] = arr[child]
+            arr[child] = tmp
+            root = child
+        else
+            root = end + 1
+    arr
+
+let sort_heap(arr) =
+    let n = arr.len()
+    if n <= 1
+        return arr
+    let result = arr_new()
+    let i = 0
+    for i < n
+        result = arr_push(result, arr[i])
+        i = i + 1
+    i = n / 2 - 1
+    for i >= 0
+        result = sort_heap_sift_down(result, i, n - 1)
+        i = i - 1
+    i = n - 1
+    for i > 0
+        let tmp = result[0]
+        result[0] = result[i]
+        result[i] = tmp
+        result = sort_heap_sift_down(result, 0, i - 1)
+        i = i - 1
+    result
+
+let sort_counting(arr, max_val) =
+    let n = arr.len()
+    if n <= 1
+        return arr
+    let counts = arr_new_n(max_val + 1)
+    let i = 0
+    for i < n
+        counts[arr[i]] = counts[arr[i]] + 1
+        i = i + 1
+    let result = arr_new()
+    i = 0
+    for i <= max_val
+        let j = 0
+        for j < counts[i]
+            result = arr_push(result, i)
+            j = j + 1
+        i = i + 1
+    result
+
+let sort_binary_search(arr, target) =
+    let lo = 0
+    let hi = arr.len() - 1
+    for lo <= hi
+        let mid = (lo + hi) / 2
+        if arr[mid] == target
+            return mid
+        else
+            0
+        if arr[mid] < target
+            lo = mid + 1
+        else
+            hi = mid - 1
+    0 - 1
+
+let sort_is_sorted(arr) =
+    let n = arr.len()
+    let i = 1
+    for i < n
+        if arr[i] < arr[i - 1]
+            return 0
+        i = i + 1
+    1
+
+let sort_reverse(arr) =
+    let n = arr.len()
+    let result = arr_new()
+    let i = n - 1
+    for i >= 0
+        result = arr_push(result, arr[i])
+        i = i - 1
+    result
+
+let sort_unique(arr) =
+    let n = arr.len()
+    if n == 0
+        return arr
+    let result = arr_new()
+    result = arr_push(result, arr[0])
+    let i = 1
+    for i < n
+        if arr[i] != arr[i - 1]
+            result = arr_push(result, arr[i])
+        i = i + 1
+    result
+
+let main() =
+    let data = arr_new()
+    data = arr_push(data, 5)
+    data = arr_push(data, 2)
+    data = arr_push(data, 8)
+    data = arr_push(data, 1)
+    data = arr_push(data, 9)
+    data = arr_push(data, 3)
+    let sorted = sort_quick(data)
+    print(sort_is_sorted(sorted))
+    0

@@ -1,0 +1,82 @@
+import "../../core/stdlib_lang2/gf_base.ψ"
+
+let REPLICA_MAX = 16
+let REPLICA_TIMEOUT = 5000
+let REPLICA_CONSISTENCY_STRONG = 1
+let REPLICA_CONSISTENCY_EVENTUAL = 2
+
+let replica_create(id, addr, role) = [id, addr, role, 0, 1]
+let replica_promote(replica) = [replica[0], replica[1], 0, replica[3], replica[4]]
+let replica_demote(replica) = [replica[0], replica[1], 1, replica[3], replica[4]]
+let replica_mark_dead(replica) = [replica[0], replica[1], replica[2], replica[3], 0]
+let replica_update_lag(replica, lag) = [replica[0], replica[1], replica[2], lag, replica[4]]
+let rg_create(id, primary, consistency) = [id, primary, [], consistency]
+let rg_add_replica(group, replica) =
+    let replicas = group[2]
+    replicas.push(replica)
+    [group[0], group[1], replicas, group[3]]
+let rg_remove_replica(group, replica_id) =
+    let replicas = group[2]
+    let new_replicas = []
+    let i = 0
+    let n = len(replicas)
+    for i < n
+        let r = replicas[i]
+        if r[0] != replica_id
+            new_replicas.push(r)
+        i = i + 1
+    [group[0], group[1], new_replicas, group[3]]
+let replica_write(group, write_data) =
+    let replicas = group[2]
+    let acks = 0
+    let i = 0
+    let n = len(replicas)
+    for i < n
+        let r = replicas[i]
+        if r[4] == 1
+            acks = acks + 1
+        i = i + 1
+    if group[3] == REPLICA_CONSISTENCY_STRONG
+        (acks > n / 2 ? 1 : 0)
+    else
+            1
+let replica_failover(group) =
+    let replicas = group[2]
+    let best = 0
+    let best_lag = 999999
+    let i = 0
+    let n = len(replicas)
+    for i < n
+        let r = replicas[i]
+        if r[4] == 1 && r[3] < best_lag
+            best = r[0]
+        best_lag = r[3]
+        i = i + 1
+    best
+let replica_log_entry(seq, op, data) = [seq, op, data]
+let replica_log_compare(a, b) =
+    if a[0] < b[0]
+        0
+    else
+        (a[0] == b[0] ? 1 : 2)
+let replica_field_sync(residues, n, replica_id) =
+    let synced = arr_new_n(n)
+    let i = 0
+    for i < n
+        synced[i] = gf_add(residues[i], gf_mul(replica_id, 0))
+        i = i + 1
+    synced
+
+let replica_verify() =
+    let r1 = replica_create(1, 100, 1)
+    let r2 = replica_create(2, 200, 1)
+    let group = rg_create(1, 1, REPLICA_CONSISTENCY_STRONG)
+    let g1 = rg_add_replica(group, r1)
+    let g2 = rg_add_replica(g1, r2)
+    let log1 = replica_log_entry(1, 1, 100)
+    let log2 = replica_log_entry(2, 1, 200)
+    let cmp = replica_log_compare(log1, log2)
+    let ok = 0
+    (cmp == 0 ? (ok = 1) : (ok = 0))
+    ok
+

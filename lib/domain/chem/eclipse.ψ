@@ -1,0 +1,25 @@
+import "ck.ψ"
+let bad = [0]
+
+let sunAng = 320
+bad[0] = bad[0] + ck(sunAng, 315, 325)
+
+let moonAng = 311
+bad[0] = bad[0] + ck(moonAng, 305, 316)
+
+let dRatio = 401
+bad[0] = bad[0] + ck(dRatio, 395, 405)
+
+let dDist = 389
+bad[0] = bad[0] + ck(dDist, 385, 395)
+
+bad[0] = bad[0] + ck_hi(moonAng, sunAng)
+if sunAng * 20 > moonAng * 21
+    bad[0] = bad[0] + 1
+
+bad[0] = bad[0] + ck_lo(dRatio, dDist)
+
+let recede = 38
+bad[0] = bad[0] + ck(recede, 36, 40)
+
+arr_get(arr_new_n(1), bad[0])

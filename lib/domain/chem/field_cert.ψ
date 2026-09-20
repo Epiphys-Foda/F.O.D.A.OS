@@ -1,0 +1,216 @@
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let codon_table = [
+    14, 14, 11, 11, 16, 16, 16, 16, 19, 19, 0, 0, 5, 5, 0, 18,
+    11, 11, 11, 11, 15, 15, 15, 15, 9, 9, 6, 6, 2, 2, 2, 2,
+    10, 10, 10, 13, 17, 17, 17, 17, 3, 3, 12, 12, 16, 16, 2, 2,
+    20, 20, 20, 20, 1, 1, 1, 1, 4, 4, 7, 7, 8, 8, 8, 8,
+]
+
+let mass_table = [
+    147177, 147177, 113159, 113159, 87078, 87078, 87078, 87078, 163176, 163176, 0, 0,
+    103139, 103139, 0, 186213, 113159, 113159, 113159, 113159, 97117, 97117, 97117, 97117,
+    137141, 137141, 128130, 128130, 156188, 156188, 156188, 156188, 113159, 113159, 113159, 131192,
+    101105, 101105, 101105, 101105, 114104, 114104, 128174, 128174, 87078, 87078, 156188, 156188,
+    99133, 99133, 99133, 99133, 71079, 71079, 71079, 71079, 115088, 115088, 129116, 129116,
+    57052, 57052, 57052, 57052,
+]
+
+let z_spec = [
+    1, 1, 2, 2, 3, 3, 4, 5, 5, 6, 6, 7, 7, 8,
+    8, 8, 9, 10, 10, 10, 11, 12, 12, 12, 13, 14, 14, 14,
+    15, 16, 16, 16, 16, 17, 17, 18, 18, 18, 19, 19, 20, 20,
+    20, 20, 20, 21, 22, 22, 22, 22, 22, 23, 24, 24, 24, 24,
+    25, 26, 26, 26, 26, 27, 28, 28, 28, 28, 28, 29, 29, 30,
+    30, 30, 30, 30, 31, 31, 32, 32, 32, 32, 33, 34, 34, 34,
+    34, 34, 35, 35, 36, 36, 36, 36, 36, 36, 37, 38, 38, 38,
+    38, 39, 40, 40, 40, 40, 41, 42, 42, 42, 42, 42, 42, 44,
+    44, 44, 44, 44, 44, 44, 45, 46, 46, 46, 46, 46, 46, 47,
+    47, 48, 48, 48, 48, 48, 48, 49, 50, 50, 50, 50, 50, 50,
+    50, 50, 50, 50, 51, 51, 52, 52, 52, 52, 52, 52, 53, 54,
+    54, 54, 54, 54, 54, 54, 55, 56, 56, 56, 56, 56, 56, 57,
+    58, 58, 58, 58, 59, 60, 60, 60, 60, 60, 62, 62, 62, 62,
+    62, 63, 64, 64, 64, 64, 64, 64, 65, 66, 66, 66, 66, 66,
+    66, 66, 67, 68, 68, 68, 68, 68, 68, 69, 70, 70, 70, 70,
+    70, 70, 70, 71, 72, 72, 72, 72, 72, 73, 73, 74, 74, 74,
+    74, 75, 76, 76, 76, 76, 76, 77, 77, 78, 78, 78, 78, 78,
+    79, 80, 80, 80, 80, 80, 80, 80, 81, 81, 82, 82, 82, 82,
+]
+
+let aa_table = [
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+    11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+]
+
+let magic_table = [2, 8, 20, 28, 50, 82, 126, 184]
+
+let mol_table = [18015, 44009, 16043, 17031, 180156, 75067, 78114, 58443]
+
+let chkCodon = [0]
+let rCodon = 1
+let j = 0
+for j < 64
+    let jx = j * 1
+    let v = codon_table[jx]
+    let vm = smod(v, 65537)
+    let term = smod(vm * rCodon, 65537)
+    chkCodon[0] = smod(chkCodon[0] + term, 65537)
+    let rn = smod(rCodon * 3, 65537)
+    rCodon = rn
+    j = j + 1
+let dCodon = chkCodon[0] - 20892
+let adCodon =
+    if dCodon < 0
+        0 - dCodon
+    else
+        dCodon
+let dmCodon = smod(adCodon, 65537)
+bad[0] = bad[0] + dmCodon
+
+let chkMass = [0]
+let rMass = 1
+let j = 0
+for j < 64
+    let jx = j * 1
+    let v = mass_table[jx]
+    let vm = smod(v, 65537)
+    let term = smod(vm * rMass, 65537)
+    chkMass[0] = smod(chkMass[0] + term, 65537)
+    let rn = smod(rMass * 3, 65537)
+    rMass = rn
+    j = j + 1
+let dMass = chkMass[0] - 26176
+let adMass =
+    if dMass < 0
+        0 - dMass
+    else
+        dMass
+let dmMass = smod(adMass, 65537)
+bad[0] = bad[0] + dmMass
+
+let chkZ = [0]
+let rZ = 1
+let j = 0
+for j < 252
+    let jx = j * 1
+    let v = z_spec[jx]
+    let vm = smod(v, 65537)
+    let term = smod(vm * rZ, 65537)
+    chkZ[0] = smod(chkZ[0] + term, 65537)
+    let rn = smod(rZ * 3, 65537)
+    rZ = rn
+    j = j + 1
+let dZ = chkZ[0] - 47876
+let adZ =
+    if dZ < 0
+        0 - dZ
+    else
+        dZ
+let dmZ = smod(adZ, 65537)
+bad[0] = bad[0] + dmZ
+
+let chkAA = [0]
+let rAA = 1
+let j = 0
+for j < 20
+    let jx = j * 1
+    let v = aa_table[jx]
+    let vm = smod(v, 65537)
+    let term = smod(vm * rAA, 65537)
+    chkAA[0] = smod(chkAA[0] + term, 65537)
+    let rn = smod(rAA * 3, 65537)
+    rAA = rn
+    j = j + 1
+let dAA = chkAA[0] - 8826
+let adAA =
+    if dAA < 0
+        0 - dAA
+    else
+        dAA
+let dmAA = smod(adAA, 65537)
+bad[0] = bad[0] + dmAA
+
+let chkMagic = [0]
+let rMagic = 1
+let j = 0
+for j < 8
+    let jx = j * 1
+    let v = magic_table[jx]
+    let vm = smod(v, 65537)
+    let term = smod(vm * rMagic, 65537)
+    chkMagic[0] = smod(chkMagic[0] + term, 65537)
+    let rn = smod(rMagic * 3, 65537)
+    rMagic = rn
+    j = j + 1
+let dMagic = chkMagic[0] - 60441
+let adMagic =
+    if dMagic < 0
+        0 - dMagic
+    else
+        dMagic
+let dmMagic = smod(adMagic, 65537)
+bad[0] = bad[0] + dmMagic
+
+let chkMol = [0]
+let rMol = 1
+let j = 0
+for j < 8
+    let jx = j * 1
+    let v = mol_table[jx]
+    let vm = smod(v, 65537)
+    let term = smod(vm * rMol, 65537)
+    chkMol[0] = smod(chkMol[0] + term, 65537)
+    let rn = smod(rMol * 3, 65537)
+    rMol = rn
+    j = j + 1
+let dMol = chkMol[0] - 44383
+let adMol =
+    if dMol < 0
+        0 - dMol
+    else
+        dMol
+let dmMol = smod(adMol, 65537)
+bad[0] = bad[0] + dmMol
+
+let mainp = [0]
+let t1 = smod(chkCodon[0] * 1002, 65537)
+mainp[0] = smod(mainp[0] + t1, 65537)
+let t2 = smod(chkMass[0] * 716, 65537)
+mainp[0] = smod(mainp[0] + t2, 65537)
+let t3 = smod(chkZ[0] * 1366, 65537)
+mainp[0] = smod(mainp[0] + t3, 65537)
+let t4 = smod(chkAA[0] * 1926, 65537)
+mainp[0] = smod(mainp[0] + t4, 65537)
+let t5 = smod(chkMagic[0] * 1002, 65537)
+mainp[0] = smod(mainp[0] + t5, 65537)
+let t6 = smod(chkMol[0] * 716, 65537)
+mainp[0] = smod(mainp[0] + t6, 65537)
+let dmain = mainp[0] - 41875
+let admain = smod(dmain + 65537, 65537)
+bad[0] = bad[0] + admain
+
+let ins = 5807618
+let insm = smod(ins, 5005)
+let rtg = smod(smod(insm, 5) * 1001, 5005)
+let rte = smod(smod(insm, 7) * 715, 5005)
+let rts = smod(smod(insm, 11) * 455 * 3, 5005)
+let rtw = smod(smod(insm, 13) * 385 * 5, 5005)
+let rec = smod(rtg + rte + rts + rtw, 5005)
+let drec = rec - insm
+let adrec =
+    if drec < 0
+        0 - drec
+    else
+        drec
+bad[0] = bad[0] + adrec
+let dcert = insm - 1818
+let adcert =
+    if dcert < 0
+        0 - dcert
+    else
+        dcert
+bad[0] = bad[0] + adcert
+
+arr_get(arr_new_n(1), bad[0])

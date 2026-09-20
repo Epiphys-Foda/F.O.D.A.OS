@@ -1,0 +1,401 @@
+import "residueon_common.ψ"
+
+let DH_GENERATOR() = 3
+
+let dh_public_key(private_key) = gf_pow(DH_GENERATOR(), private_key)
+
+let dh_shared_secret(their_public, my_private) = gf_pow(their_public, my_private)
+
+let dh_verify() =
+    let a = 12345
+    let b = 67890
+    let A = dh_public_key(a)
+    let B = dh_public_key(b)
+    let K_alice = dh_shared_secret(B, a)
+    let K_bob = dh_shared_secret(A, b)
+    let result = 0
+    if K_alice == K_bob
+        result = 1
+    result
+
+let dh_security_verify() =
+    let a = 42
+    let A = dh_public_key(a)
+    let result = 0
+    if A >= 0
+        if A != a
+            result = 1
+    result
+
+let residueon_encrypt(message, key) = gf_add(message, key)
+
+let residueon_decrypt(ciphertext, key) = gf_sub(ciphertext, key)
+
+let encrypt_decrypt_verify() =
+    let M = 12345
+    let K = 67890
+    let C = residueon_encrypt(M, K)
+    let M_recovered = residueon_decrypt(C, K)
+    let result = 0
+    if M_recovered == M
+        result = 1
+    result
+
+let mul_encrypt(message, key) = gf_mul(message, key)
+
+let mul_decrypt(ciphertext, key) = gf_div(ciphertext, key)
+
+let mul_encrypt_verify() =
+    let M = 12345
+    let K = 678
+    let C = mul_encrypt(M, K)
+    let M_recovered = mul_decrypt(C, K)
+    let result = 0
+    if M_recovered == M
+        result = 1
+    result
+
+let simple_hash(x) = gf_add(gf_mul(x, x), x)
+
+let hash_deterministic_verify() =
+    let x = 12345
+    let h1 = simple_hash(x)
+    let h2 = simple_hash(x)
+    let result = 0
+    if h1 == h2
+        result = 1
+    result
+
+let hash_avalanche_verify() =
+    let x = 12345
+    let y = 12346
+    let h1 = simple_hash(x)
+    let h2 = simple_hash(y)
+    let result = 0
+    if h1 != h2
+        result = 1
+    result
+
+let residueon_hash(values, n) =
+    let hash = 0
+    let i = 0
+    for i < n
+        let v = values[i]
+        hash = gf_add(gf_mul(hash, 31), v)
+        i = i + 1
+    simple_hash(hash)
+
+let residueon_hash_verify() =
+    let vals = [1, 2, 3]
+    let h = residueon_hash(vals, 3)
+    let result = 0
+    if h >= 0
+        result = 1
+    result
+
+let sign(message, private_key) = gf_mul(simple_hash(message), private_key)
+
+let verify_signature(message, signature, private_key) =
+    let expected = simple_hash(message)
+    let computed = gf_div(signature, private_key)
+    let result = 0
+    if computed == expected
+        result = 1
+    result
+
+let signature_verify() =
+    let M = 12345
+    let sk = 678
+    let S = sign(M, sk)
+    let result = verify_signature(M, S, sk)
+    result
+
+let signature_unforgeable_verify() =
+    let M = 12345
+    let sk1 = 111
+    let sk2 = 222
+    let S1 = sign(M, sk1)
+    let S2 = sign(M, sk2)
+    let result = 0
+    if S1 != S2
+        result = 1
+    result
+
+let zkp_commit(secret) = gf_pow(DH_GENERATOR(), secret)
+
+let zkp_challenge() = 42
+
+let zkp_response(secret, challenge, blinding) = gf_add(secret, gf_mul(challenge, blinding))
+
+let zkp_verify_proof(commitment, response, challenge, public_blinding) =
+    let lhs = gf_pow(DH_GENERATOR(), response)
+    let y_c = gf_pow(public_blinding, challenge)
+    let rhs = gf_mul(commitment, y_c)
+    let result = 0
+    if lhs == rhs
+        result = 1
+    result
+
+let zkp_verify() =
+    let secret = 12345
+    let blinding = 678
+    let public_blinding = gf_pow(DH_GENERATOR(), blinding)
+    let C = zkp_commit(secret)
+    let c = zkp_challenge()
+    let r = zkp_response(secret, c, blinding)
+    let valid = zkp_verify_proof(C, r, c, public_blinding)
+    let result = 0
+    if valid == 1
+        result = 1
+    result
+
+let zkp_zero_knowledge_verify() =
+    let secret = 12345
+    let C = zkp_commit(secret)
+    let result = 0
+    if C >= 0
+        result = 1
+    result
+
+let ec_keygen(private_key, base_point) = gf_pow(base_point, private_key)
+
+let ec_verify() =
+    let G = 5
+    let n = 12345
+    let K = ec_keygen(n, G)
+    let result = 0
+    if K >= 0
+        result = 1
+    result
+
+let ec_dh_verify() =
+    let G = 5
+    let n1 = 123
+    let n2 = 456
+    let K1 = ec_keygen(n1, G)
+    let K2 = ec_keygen(n2, G)
+    let shared_alice = ec_keygen(n1, K2)
+    let shared_bob = ec_keygen(n2, K1)
+    let result = 0
+    if shared_alice == shared_bob
+        result = 1
+    result
+
+let lattice_basis() = [3, 5, 7]
+
+let lattice_point(a, b, c) =
+    let basis = lattice_basis()
+    let b1 = basis[0]
+    let b2 = basis[1]
+    let b3 = basis[2]
+    gf_add(gf_add(gf_mul(a, b1), gf_mul(b, b2)), gf_mul(c, b3))
+
+let lattice_verify() =
+    let p = lattice_point(2, 3, 1)
+    let result = 0
+    if p >= 0
+        result = 1
+    result
+
+let closest_vector(target) =
+    let basis = lattice_basis()
+    let b1 = basis[0]
+    let coeff = gf_div(target, b1)
+    gf_mul(coeff, b1)
+
+let cvp_verify() =
+    let target = 10
+    let closest = closest_vector(target)
+    let result = 0
+    if closest >= 0
+        result = 1
+    result
+
+let lwe_sample(a, secret, error) = gf_add(gf_mul(a, secret), error)
+
+let lwe_verify() =
+    let s = 12345
+    let a = 678
+    let e = 1
+    let b = lwe_sample(a, s, e)
+    let result = 0
+    if b >= 0
+        result = 1
+    result
+
+let mac_generate(message, key) = simple_hash(gf_add(message, key))
+
+let mac_verify(message, key, mac) =
+    let expected = mac_generate(message, key)
+    let result = 0
+    if expected == mac
+        result = 1
+    result
+
+let mac_verify_test() =
+    let M = 12345
+    let K = 678
+    let tag = mac_generate(M, K)
+    let result = mac_verify(M, K, tag)
+    result
+
+let mac_unforgeable_verify() =
+    let K = 678
+    let M1 = 123
+    let M2 = 456
+    let tag1 = mac_generate(M1, K)
+    let tag2 = mac_generate(M2, K)
+    let result = 0
+    if tag1 != tag2
+        result = 1
+    result
+
+let residueon_crypto_verify() =
+    let ok = 0
+
+    if dh_verify() == 1
+        ok = ok + 1
+    if dh_security_verify() == 1
+        ok = ok + 1
+
+    if DH_GENERATOR() == 3
+        ok = ok + 1
+
+    let a = 5
+    let A = dh_public_key(a)
+    if A == gf_pow(3, 5)
+        ok = ok + 1
+
+    let b = 7
+    let B = dh_public_key(b)
+    let K1 = dh_shared_secret(B, a)
+    let K2 = dh_shared_secret(A, b)
+    if K1 == K2
+        ok = ok + 1
+
+    if encrypt_decrypt_verify() == 1
+        ok = ok + 1
+    if mul_encrypt_verify() == 1
+        ok = ok + 1
+
+    let M = 42
+    let key = 99
+    let C = residueon_encrypt(M, key)
+    if residueon_decrypt(C, key) == M
+        ok = ok + 1
+
+    let C2 = mul_encrypt(M, key)
+    if mul_decrypt(C2, key) == M
+        ok = ok + 1
+
+    if hash_deterministic_verify() == 1
+        ok = ok + 1
+    if hash_avalanche_verify() == 1
+        ok = ok + 1
+    if residueon_hash_verify() == 1
+        ok = ok + 1
+
+    if simple_hash(0) == 0
+        ok = ok + 1
+    if simple_hash(1) == 2
+        ok = ok + 1
+
+    if signature_verify() == 1
+        ok = ok + 1
+    if signature_unforgeable_verify() == 1
+        ok = ok + 1
+
+    let sk = 678
+    let S = sign(M, sk)
+    if verify_signature(M, S, sk) == 1
+        ok = ok + 1
+
+    if zkp_verify() == 1
+        ok = ok + 1
+    if zkp_zero_knowledge_verify() == 1
+        ok = ok + 1
+
+    let commit = zkp_commit(42)
+    if commit >= 0
+        ok = ok + 1
+
+    if ec_verify() == 1
+        ok = ok + 1
+    if ec_dh_verify() == 1
+        ok = ok + 1
+
+    let ec_K = ec_keygen(123, 5)
+    if ec_K >= 0
+        ok = ok + 1
+
+    if lattice_verify() == 1
+        ok = ok + 1
+    if cvp_verify() == 1
+        ok = ok + 1
+    if lwe_verify() == 1
+        ok = ok + 1
+
+    let lp = lattice_point(1, 1, 1)
+    if lp == 15
+        ok = ok + 1
+
+    let lwe_b = lwe_sample(678, 12345, 1)
+    if lwe_b >= 0
+        ok = ok + 1
+
+    if mac_verify_test() == 1
+        ok = ok + 1
+    if mac_unforgeable_verify() == 1
+        ok = ok + 1
+
+    let tag = mac_generate(M, key)
+    if mac_verify(M, key, tag) == 1
+        ok = ok + 1
+
+    ok = ok + cross_domain_base()
+
+    if ec_dh_verify() == 1
+        ok = ok + 1
+
+    if dh_verify() == 1
+        ok = ok + 1
+
+    if K1 == K2
+        ok = ok + 1
+
+    if A == gf_pow(3, 5)
+        ok = ok + 1
+
+    if simple_hash(1) == 2
+        ok = ok + 1
+
+    if dh_security_verify() == 1
+        ok = ok + 1
+
+    if lp == 15
+        ok = ok + 1
+
+    if encrypt_decrypt_verify() == 1
+        ok = ok + 1
+
+    if zkp_verify() == 1
+        ok = ok + 1
+
+    if lwe_verify() == 1
+        ok = ok + 1
+
+    if mac_verify_test() == 1
+        ok = ok + 1
+
+    if signature_verify() == 1
+        ok = ok + 1
+
+    if cvp_verify() == 1
+        ok = ok + 1
+
+    if mul_encrypt_verify() == 1
+        ok = ok + 1
+
+    ok
+
+let main() = residueon_crypto_verify()

@@ -1,0 +1,67 @@
+let bad = [0]
+let dna = [
+3, 3, 2, 1, 4, 3, 3, 1, 3, 2, 1, 3, 4, 3, 2, 2, 4, 3, 4, 3, 2, 2, 1, 2, 2, 4, 2, 2, 4, 3, 2, 1, 4, 2, 4, 3, 2, 4, 3, 2, 4, 2, 4, 3, 3, 1, 2, 2, 1, 1, 2, 4, 1, 2, 4, 3, 2, 1, 1, 2, 4, 3, 2
+]
+
+let ca = [0]
+let cc = [0]
+let cg = [0]
+let ct = [0]
+let j = 0
+for j < 63
+    let jx = j * 1
+    let b = dna[jx]
+    let qa = b - 1
+    if qa < 1
+        ca[0] = ca[0] + 1
+    let qc = b - 2
+    if qc < 1
+        if qc > 0 - 1
+            cc[0] = cc[0] + 1
+    let qg = b - 3
+    if qg < 1
+        if qg > 0 - 1
+            cg[0] = cg[0] + 1
+    let qt = b - 4
+    if qt < 1
+        if qt > 0 - 1
+            ct[0] = ct[0] + 1
+    j = j + 1
+let da = ca[0] - 11
+bad[0] = bad[0] + da * da
+let dc = cc[0] - 22
+bad[0] = bad[0] + dc * dc
+let dg = cg[0] - 16
+bad[0] = bad[0] + dg * dg
+let dtt = ct[0] - 14
+bad[0] = bad[0] + dtt * dtt
+
+let gc = cc[0] + cg[0]
+let dgc = gc - 38
+bad[0] = bad[0] + dgc * dgc
+
+let maxrun = [0]
+let currentrun = [1]
+let j = 1
+for j < 63
+    let jx = j * 1
+    let prev = dna[jx - 1]
+    let curr = dna[jx]
+    let same = curr - prev
+    let asame =
+        if same < 0
+            0 - same
+        else
+            same
+    if asame < 1
+        let ncr = currentrun[0] + 1
+        currentrun[0] = ncr
+        if ncr > maxrun[0]
+            maxrun[0] = ncr
+    else
+        currentrun[0] = 1
+    j = j + 1
+let dmr = maxrun[0] - 2
+bad[0] = bad[0] + dmr * dmr
+
+arr_get(arr_new_n(1), bad[0])

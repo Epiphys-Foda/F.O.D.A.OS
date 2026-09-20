@@ -1,0 +1,168 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let feedback(x, c) = wfc_add(wfc_mul(x, x), c)
+
+let OSC_C = 65536
+
+let verify_period2() =
+    let pass = 1
+    let f0 = feedback(0, OSC_C)
+    if f0 != 65536
+        pass = 0
+    let f1 = feedback(65536, OSC_C)
+    if f1 != 0
+        pass = 0
+    let f2_0 = feedback(feedback(0, OSC_C), OSC_C)
+    if f2_0 != 0
+        pass = 0
+    let f2_1 = feedback(feedback(65536, OSC_C), OSC_C)
+    if f2_1 != 65536
+        pass = 0
+    pass
+
+let verify_square_wave() =
+    let pass = 1
+    let x = 0
+    x = feedback(x, OSC_C)
+    if x != 65536
+        pass = 0
+    x = feedback(x, OSC_C)
+    if x != 0
+        pass = 0
+    x = feedback(x, OSC_C)
+    if x != 65536
+        pass = 0
+    x = feedback(x, OSC_C)
+    if x != 0
+        pass = 0
+    x = feedback(x, OSC_C)
+    if x != 65536
+        pass = 0
+    x = feedback(x, OSC_C)
+    if x != 0
+        pass = 0
+    pass
+
+let clock_level(x) =
+    (x == 0 ? 0 : 1)
+
+let verify_clock() =
+    let pass = 1
+    let x = 0
+    if clock_level(x) != 0
+        pass = 0
+    x = feedback(x, OSC_C)
+    if clock_level(x) != 1
+        pass = 0
+    x = feedback(x, OSC_C)
+    if clock_level(x) != 0
+        pass = 0
+    x = feedback(x, OSC_C)
+    if clock_level(x) != 1
+        pass = 0
+    pass
+
+let SLIT1 = 100
+let SLIT2 = 200
+let OBSERVE = 150
+
+let clocked_gate(a, b, clock) =
+        if clock == 0
+            and_gate(a, b)
+        else
+            or_gate(a, b)
+
+let verify_clocked_gate() =
+    let pass = 1
+
+    if clocked_gate(0, 0, 0) != 0
+        pass = 0
+    if clocked_gate(0, 1, 0) != 0
+        pass = 0
+    if clocked_gate(1, 0, 0) != 0
+        pass = 0
+    if clocked_gate(1, 1, 0) != 1
+        pass = 0
+
+    if clocked_gate(0, 0, 1) != 0
+        pass = 0
+    if clocked_gate(0, 1, 1) != 1
+        pass = 0
+    if clocked_gate(1, 0, 1) != 1
+        pass = 0
+    if clocked_gate(1, 1, 1) != 1
+        pass = 0
+
+    pass
+
+let verify_sync_circuit() =
+    let pass = 1
+    let x = 0
+
+    let c0 = clock_level(x)
+    let r0 = clocked_gate(1, 1, c0)
+    if r0 != 1
+        pass = 0
+    x = feedback(x, OSC_C)
+
+    let c1 = clock_level(x)
+    let r1 = clocked_gate(1, 0, c1)
+    if r1 != 1
+        pass = 0
+    x = feedback(x, OSC_C)
+
+    let c2 = clock_level(x)
+    let r2 = clocked_gate(1, 0, c2)
+    if r2 != 0
+        pass = 0
+    x = feedback(x, OSC_C)
+
+    let c3 = clock_level(x)
+    let r3 = clocked_gate(0, 1, c3)
+    if r3 != 1
+        pass = 0
+
+    pass
+
+let verify_entrainment() =
+    let pass = 1
+
+    let x = 1
+    x = feedback(x, OSC_C)
+    if x != 0
+        pass = 0
+    x = feedback(x, OSC_C)
+    if x != 65536
+        pass = 0
+    x = feedback(x, OSC_C)
+    if x != 0
+        pass = 0
+
+    let y = 2
+    y = feedback(y, OSC_C)
+    if y != 3
+        pass = 0
+    y = feedback(y, OSC_C)
+    if y != 8
+        pass = 0
+    y = feedback(y, OSC_C)
+    if y != 63
+        pass = 0
+
+    pass
+
+let main() =
+    let result = 0
+    if verify_period2() == 1
+        result = result + 1
+    if verify_square_wave() == 1
+        result = result + 1
+    if verify_clock() == 1
+        result = result + 1
+    if verify_clocked_gate() == 1
+        result = result + 1
+    if verify_sync_circuit() == 1
+        result = result + 1
+    if verify_entrainment() == 1
+        result = result + 1
+    result

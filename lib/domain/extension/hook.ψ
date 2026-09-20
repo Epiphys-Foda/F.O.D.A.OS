@@ -1,0 +1,202 @@
+import "../domain_field.ψ"
+
+let HK_P = 65537
+
+let HK_TYPE_BEFORE    = 1
+let HK_TYPE_AFTER     = 2
+let HK_TYPE_PARALLEL  = 3
+let HK_TYPE_WATERFALL = 4
+let HK_TYPE_ASYNC     = 5
+
+let HK_STATE_REGISTERED = 1
+let HK_STATE_TRIGGERED  = 2
+let HK_STATE_COMPLETED  = 3
+let HK_STATE_ERROR      = 4
+
+let HK_MAX_HOOKS_PER_EVENT = 64
+let HK_MAX_EVENTS          = 256
+
+let hk_entry_new(hook_id, event_name, hook_type, callback_ref, priority, ts) =
+    [hook_id, event_name, hook_type, callback_ref, priority, ts]
+
+let hk_entry_id(e)        = e[0]
+let hk_entry_event(e)     = e[1]
+let hk_entry_type(e)      = e[2]
+let hk_entry_callback(e)  = e[3]
+let hk_entry_priority(e)  = e[4]
+let hk_entry_ts(e)        = e[5]
+
+let hk_registry_new() =
+    [{}, 1, []]
+
+let hk_reg_hooks(r)   = r[0]
+let hk_reg_next(r)    = r[1]
+let hk_reg_log(r)     = r[2]
+
+let hk_reg_register(r, event_name, hook_type, callback_ref, priority, ts) =
+    let hooks = hk_reg_hooks(r)
+    let hid = hk_reg_next(r)
+    let e = hk_entry_new(hid, event_name, hook_type, callback_ref, priority, ts)
+    let list = hooks[event_name]
+    if list == 0
+        list = []
+    list.push(e)
+    let n = len(list)
+    let i = n - 1
+    for i > 0
+        if hk_entry_priority(list[i]) > hk_entry_priority(list[i - 1])
+            let tmp = list[i]
+            list[i] = list[i - 1]
+            list[i - 1] = tmp
+        i = i - 1
+    hooks[event_name] = list
+    [hooks, hid + 1, hk_reg_log(r)]
+
+let hk_reg_unregister(r, hook_id) =
+    let hooks = hk_reg_hooks(r)
+    let keys = keys_of(hooks)
+    let n = len(keys)
+    let i = 0
+    for i < n
+        let ev = keys[i]
+        let list = hooks[ev]
+        let new_list = []
+        let j = 0
+        let m = len(list)
+        for j < m
+            if hk_entry_id(list[j]) != hook_id
+                new_list.push(list[j])
+            j = j + 1
+        hooks[ev] = new_list
+        i = i + 1
+    [hooks, hk_reg_next(r), hk_reg_log(r)]
+
+let hk_reg_get(r, event_name) =
+    let hooks = hk_reg_hooks(r)
+    let list = hooks[event_name]
+    if list == 0
+        []
+    else
+        list
+
+let hk_ctx_new(data, ts, source) =
+    [data, data, ts, source]
+
+let hk_ctx_data(c)    = c[0]
+let hk_ctx_acc(c)     = c[1]
+let hk_ctx_ts(c)      = c[2]
+let hk_ctx_source(c)  = c[3]
+
+let hk_ctx_set_acc(c, v) =
+    c[1] = v
+    c
+
+let hk_exec_callback(callback_ref, input) =
+    callback_ref * 17 + input
+
+let hk_exec_event(r, event_name, ctx) =
+    let hooks = hk_reg_get(r, event_name)
+    let n = len(hooks)
+    let i = 0
+    let cur_ctx = ctx
+    let log_entries = []
+    for i < n
+        let e = hooks[i]
+        let ht = hk_entry_type(e)
+        let cb = hk_entry_callback(e)
+        if ht == HK_TYPE_WATERFALL
+            let in_val = hk_ctx_acc(cur_ctx)
+            let out = hk_exec_callback(cb, in_val)
+            cur_ctx = hk_ctx_set_acc(cur_ctx, out)
+            log_entries.push([hk_entry_id(e), out])
+        else
+            if ht == HK_TYPE_PARALLEL
+                let out = hk_exec_callback(cb, hk_ctx_data(cur_ctx))
+                log_entries.push([hk_entry_id(e), out])
+            else
+                let in_val = hk_ctx_data(cur_ctx)
+                let out = hk_exec_callback(cb, in_val)
+                log_entries.push([hk_entry_id(e), out])
+        i = i + 1
+    [cur_ctx, log_entries]
+
+let hk_exec_bragg(r, event_name, ctx) =
+    let exec1 = hk_exec_event(r, event_name, ctx)
+    let ctx1 = exec1[0]
+    let log1 = exec1[1]
+    let exec2 = hk_exec_event(r, event_name, ctx1)
+    let log2 = exec2[1]
+    let pass = 1
+    let n = len(log1)
+    if n != len(log2)
+        pass = 0
+    else
+        let i = 0
+        for i < n
+            if log1[i][0] != log2[i][0]
+                pass = 0
+            i = i + 1
+    pass
+
+let hk_self_test() =
+    let r = hk_registry_new()
+    r = hk_reg_register(r, 100, HK_TYPE_BEFORE, 10, 5, 1000)
+    r = hk_reg_register(r, 100, HK_TYPE_BEFORE, 20, 10, 1001)
+    r = hk_reg_register(r, 100, HK_TYPE_BEFORE, 30, 1, 1002)
+    let hooks = hk_reg_get(r, 100)
+    let t_order = 0
+    if hk_entry_callback(hooks[0]) == 20
+        if hk_entry_callback(hooks[1]) == 10
+            if hk_entry_callback(hooks[2]) == 30
+                t_order = 1
+
+    let id_to_remove = hk_entry_id(hooks[0])
+    r = hk_reg_unregister(r, id_to_remove)
+    let hooks_after = hk_reg_get(r, 100)
+    let t_unreg = 0
+    if len(hooks_after) == 2
+        t_unreg = 1
+
+    let ctx = hk_ctx_new(100, 1000, 1)
+    let t_ctx = 0
+    if hk_ctx_data(ctx) == 100
+        if hk_ctx_acc(ctx) == 100
+            t_ctx = 1
+
+    let r2 = hk_registry_new()
+    r2 = hk_reg_register(r2, 200, HK_TYPE_WATERFALL, 10, 5, 1000)
+    r2 = hk_reg_register(r2, 200, HK_TYPE_WATERFALL, 20, 3, 1001)
+    let ctx2 = hk_ctx_new(0, 1000, 1)
+    let exec_res = hk_exec_event(r2, 200, ctx2)
+    let ctx_after = exec_res[0]
+    let log = exec_res[1]
+    let t_waterfall = 0
+    if hk_ctx_acc(ctx_after) == 510
+        t_waterfall = 1
+
+    let r3 = hk_registry_new()
+    r3 = hk_reg_register(r3, 300, HK_TYPE_PARALLEL, 10, 5, 1000)
+    r3 = hk_reg_register(r3, 300, HK_TYPE_PARALLEL, 20, 5, 1001)
+    let ctx3 = hk_ctx_new(5, 1000, 1)
+    let exec3 = hk_exec_event(r3, 300, ctx3)
+    let ctx3_after = exec3[0]
+    let t_parallel = 0
+    if hk_ctx_acc(ctx3_after) == 5
+        t_parallel = 1
+
+    let bragg = hk_exec_bragg(r2, 200, hk_ctx_new(0, 1000, 1))
+    let t_bragg = 0
+    if bragg == 1
+        t_bragg = 1
+
+    let r4 = hk_registry_new()
+    let ctx4 = hk_ctx_new(42, 1000, 1)
+    let exec4 = hk_exec_event(r4, 999, ctx4)
+    let t_empty = 0
+    if hk_ctx_acc(exec4[0]) == 42
+        t_empty = 1
+
+    [t_order, t_unreg, t_ctx, t_waterfall, t_parallel, t_bragg, t_empty]
+
+let hk_default_registry() =
+    hk_registry_new()

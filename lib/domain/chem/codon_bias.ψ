@@ -1,0 +1,45 @@
+import "../../core/stdlib/numtheor.ψ"
+
+let bad = [0]
+
+let codon_table = [
+    14, 14, 11, 11, 16, 16, 16, 16, 19, 19, 0, 0, 5, 5, 0, 18,
+    11, 11, 11, 11, 15, 15, 15, 15, 9, 9, 6, 6, 2, 2, 2, 2,
+    10, 10, 10, 13, 17, 17, 17, 17, 3, 3, 12, 12, 16, 16, 2, 2,
+    20, 20, 20, 20, 1, 1, 1, 1, 4, 4, 7, 7, 8, 8, 8, 8,
+]
+
+let pyr = [0]
+let pur = [0]
+let stp = [0]
+let j = 0
+for j < 64
+    let jx = j * 1
+    let aa = codon_table[jx]
+    let tail = smod(jx, 4)
+    let isstop = [0]
+    let q = aa - 1
+    if q < 0
+        isstop[0] = 1
+    if isstop[0] > 0
+        stp[0] = stp[0] + 1
+    if q >= 0
+        let t2 = tail - 2
+        if t2 < 0
+            pyr[0] = pyr[0] + 1
+        else
+            pur[0] = pur[0] + 1
+    j = j + 1
+let dpyr = pyr[0] - 32
+bad[0] = bad[0] + dpyr * dpyr
+let dpur = pur[0] - 29
+bad[0] = bad[0] + dpur * dpur
+let dstp = stp[0] - 3
+bad[0] = bad[0] + dstp * dstp
+let sense = pyr[0] + pur[0]
+let dsense = sense - 61
+bad[0] = bad[0] + dsense * dsense
+let dgc = 410 + 508 + 720 + 220 - 1858
+bad[0] = bad[0] + dgc * dgc
+
+arr_get(arr_new_n(1), bad[0])

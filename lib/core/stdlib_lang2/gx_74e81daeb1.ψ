@@ -1,0 +1,14 @@
+let entry_seal(w, ki, gs, n, out6) =
+    let KB = arr_new_n(4)
+    KB[0] = w + 1
+    KB[1] = ki + 1
+    KB[2] = gs
+    KB[3] = n + 1
+    out6[0] = w
+    out6[1] = ki
+    out6[2] = gs
+    out6[3] = n
+    out6[4] = rrns_chain(KB, 4, P)
+    out6[5] = rrns_chain(KB, 4, 131071)
+    0
+

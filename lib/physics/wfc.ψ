@@ -1,0 +1,102 @@
+import "../core/stdlib_lang2/gf_pre_0_302.ψ"
+
+let wfc_nand_robust(a_bit, b_bit, dz1, dz2) =
+    let z1 = wfc_add(100, dz1)
+    let z2 = wfc_add(200, dz2)
+
+    let diff = wfc_sub(z2, z1)
+
+    let ab_raw = wfc_mul(a_bit, b_bit)
+    let res = wfc_mul(ab_raw, wfc_inv(diff))
+
+    let ab = wfc_mul(res, diff)
+
+    wfc_sub(1, ab)
+
+let wfc_nand(a_bit, b_bit) = wfc_nand_robust(a_bit, b_bit, 0, 0)
+
+let wfc_verify_robust_nand() =
+    let pass = 1
+
+    if wfc_nand_robust(1, 1, 0, 0) != 0
+        pass = 0
+    if wfc_nand_robust(0, 0, 0, 0) != 1
+        pass = 0
+
+    if wfc_nand_robust(1, 1, 1, 7) != 0
+        pass = 0
+    if wfc_nand_robust(0, 0, 1, 7) != 1
+        pass = 0
+    if wfc_nand_robust(1, 0, 1, 7) != 1
+        pass = 0
+    if wfc_nand_robust(0, 1, 1, 7) != 1
+        pass = 0
+
+    if wfc_nand_robust(1, 1, 42, 99) != 0
+        pass = 0
+    if wfc_nand_robust(0, 0, 42, 99) != 1
+        pass = 0
+
+    if wfc_nand_robust(1, 1, 255, 1000) != 0
+        pass = 0
+    if wfc_nand_robust(0, 0, 255, 1000) != 1
+        pass = 0
+
+    if wfc_nand_robust(1, 1, 50000, 12345) != 0
+        pass = 0
+    if wfc_nand_robust(0, 0, 50000, 12345) != 1
+        pass = 0
+
+    pass
+
+let wfc_not_robust(a, dz1, dz2) = wfc_nand_robust(a, 1, dz1, dz2)
+let wfc_and_robust(a, b, dz1, dz2) = wfc_not_robust(wfc_nand_robust(a, b, dz1, dz2), dz1, dz2)
+let wfc_or_robust(a, b, dz1, dz2) = wfc_nand_robust(wfc_not_robust(a, dz1, dz2), wfc_not_robust(b, dz1, dz2), dz1, dz2)
+let wfc_xor_robust(a, b, dz1, dz2) =
+    let temp = wfc_nand_robust(a, b, dz1, dz2)
+    let left = wfc_nand_robust(a, temp, dz1, dz2)
+    let right = wfc_nand_robust(b, temp, dz1, dz2)
+    wfc_nand_robust(left, right, dz1, dz2)
+
+let wfc_verify_robust_all() =
+    let pass = 1
+    let dz1 = 42
+    let dz2 = 99
+
+    if wfc_nand_robust(0, 0, dz1, dz2) != 1
+        pass = 0
+    if wfc_nand_robust(0, 1, dz1, dz2) != 1
+        pass = 0
+    if wfc_nand_robust(1, 0, dz1, dz2) != 1
+        pass = 0
+    if wfc_nand_robust(1, 1, dz1, dz2) != 0
+        pass = 0
+
+    if wfc_and_robust(0, 0, dz1, dz2) != 0
+        pass = 0
+    if wfc_and_robust(1, 1, dz1, dz2) != 1
+        pass = 0
+
+    if wfc_or_robust(0, 0, dz1, dz2) != 0
+        pass = 0
+    if wfc_or_robust(1, 1, dz1, dz2) != 1
+        pass = 0
+
+    if wfc_xor_robust(0, 0, dz1, dz2) != 0
+        pass = 0
+    if wfc_xor_robust(0, 1, dz1, dz2) != 1
+        pass = 0
+    if wfc_xor_robust(1, 0, dz1, dz2) != 1
+        pass = 0
+    if wfc_xor_robust(1, 1, dz1, dz2) != 0
+        pass = 0
+
+    pass
+
+let main() =
+    let result = 0
+    if wfc_verify_robust_nand() == 1
+        result = result + 1
+    if wfc_verify_robust_all() == 1
+        result = result + 1
+    result

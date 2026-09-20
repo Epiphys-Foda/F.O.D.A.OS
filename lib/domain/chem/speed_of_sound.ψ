@@ -1,0 +1,30 @@
+import "ck.ψ"
+let bad = [0]
+
+let v0 = 331
+let dz1 = v0 - 331
+bad[0] = bad[0] + ck(dz1, 0, 0)
+
+let v20 = 343
+let dz2 = v20 - 331 - 12
+bad[0] = bad[0] + ck(dz2, 0, 0)
+
+let v100 = 391
+let dz3 = v100 - 331 - 60
+bad[0] = bad[0] + ck(dz3, 0, 0)
+
+let v_water = 1480
+let ratio_w = v_water / 343
+bad[0] = bad[0] + ck(ratio_w, 4, 5)
+
+let v_steel = 5960
+let ratio_s = v_steel / 343
+bad[0] = bad[0] + ck(ratio_s, 15, 20)
+bad[0] = bad[0] + ck_lo(v_steel, v_water)
+
+if 1708 < 1706
+    bad[0] = bad[0] + 1
+if 1708 > 1710
+    bad[0] = bad[0] + 1
+
+arr_get(arr_new_n(1), bad[0])

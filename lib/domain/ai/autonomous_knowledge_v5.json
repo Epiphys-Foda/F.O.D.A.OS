@@ -1,0 +1,412 @@
+{
+  "rounds": 30,
+  "files": 1042,
+  "total_tokens": 1864616,
+  "compiled_ok": 6,
+  "compiled_fail": 0,
+  "laws": [
+    {
+      "round": 1,
+      "n_files": 20,
+      "avg_acc2": 0.5735,
+      "avg_acc3": 0.562,
+      "avg_acc4": 0.5425,
+      "avg_best": 0.587,
+      "best_file": "lib\\domain\\consensus\\quorum.ψ",
+      "best_acc": 0.91,
+      "timestamp": "2026-09-04T09:34:18.660228"
+    },
+    {
+      "round": 2,
+      "n_files": 20,
+      "avg_acc2": 0.593,
+      "avg_acc3": 0.5635,
+      "avg_acc4": 0.532,
+      "avg_best": 0.605,
+      "best_file": "lib\\core\\stdlib\\lex_compiler.ψ",
+      "best_acc": 0.88,
+      "timestamp": "2026-09-04T09:34:19.324634"
+    },
+    {
+      "round": 3,
+      "n_files": 20,
+      "avg_acc2": 0.474,
+      "avg_acc3": 0.444,
+      "avg_acc4": 0.418,
+      "avg_best": 0.4965,
+      "best_file": "lib\\domain\\collab\\workspace.ψ",
+      "best_acc": 0.91,
+      "timestamp": "2026-09-04T09:34:19.991208"
+    },
+    {
+      "round": 4,
+      "n_files": 20,
+      "avg_acc2": 0.557,
+      "avg_acc3": 0.5235,
+      "avg_acc4": 0.494,
+      "avg_best": 0.5845,
+      "best_file": "lib\\core\\stdlib\\backends.ψ",
+      "best_acc": 0.93,
+      "timestamp": "2026-09-04T09:34:20.658471"
+    },
+    {
+      "round": 5,
+      "n_files": 19,
+      "avg_acc2": 0.6,
+      "avg_acc3": 0.5658,
+      "avg_acc4": 0.5379,
+      "avg_best": 0.6068,
+      "best_file": "lib\\domain\\dist_id\\crdt_counter.ψ",
+      "best_acc": 0.91,
+      "timestamp": "2026-09-04T09:34:21.342596",
+      "generated": {
+        "file": "auto_gen_r5.ψ",
+        "n_tokens": 165,
+        "compiled": true
+      }
+    },
+    {
+      "round": 6,
+      "n_files": 20,
+      "avg_acc2": 0.579,
+      "avg_acc3": 0.5625,
+      "avg_acc4": 0.559,
+      "avg_best": 0.612,
+      "best_file": "lib\\domain\\ai\\reasoner.ψ",
+      "best_acc": 0.91,
+      "timestamp": "2026-09-04T09:34:22.731104"
+    },
+    {
+      "round": 7,
+      "n_files": 20,
+      "avg_acc2": 0.5485,
+      "avg_acc3": 0.5055,
+      "avg_acc4": 0.4615,
+      "avg_best": 0.5565,
+      "best_file": "lib\\domain\\tooling\\debugger.ψ",
+      "best_acc": 0.9,
+      "timestamp": "2026-09-04T09:34:23.689786"
+    },
+    {
+      "round": 8,
+      "n_files": 20,
+      "avg_acc2": 0.557,
+      "avg_acc3": 0.5155,
+      "avg_acc4": 0.4845,
+      "avg_best": 0.5695,
+      "best_file": "lib\\domain\\iot\\mqtt.ψ",
+      "best_acc": 0.9,
+      "timestamp": "2026-09-04T09:34:24.558507"
+    },
+    {
+      "round": 9,
+      "n_files": 20,
+      "avg_acc2": 0.5266,
+      "avg_acc3": 0.5202,
+      "avg_acc4": 0.4789,
+      "avg_best": 0.5507,
+      "best_file": "lib\\core\\stdlib\\pe_to_wasm.ψ",
+      "best_acc": 0.9,
+      "timestamp": "2026-09-04T09:34:25.360058"
+    },
+    {
+      "round": 10,
+      "n_files": 20,
+      "avg_acc2": 0.5875,
+      "avg_acc3": 0.57,
+      "avg_acc4": 0.5385,
+      "avg_best": 0.6025,
+      "best_file": "lib\\math\\radical_eval.ψ",
+      "best_acc": 0.9,
+      "timestamp": "2026-09-04T09:34:26.078918",
+      "generated": {
+        "file": "auto_gen_r10.ψ",
+        "n_tokens": 165,
+        "compiled": true
+      }
+    },
+    {
+      "round": 11,
+      "n_files": 20,
+      "avg_acc2": 0.567,
+      "avg_acc3": 0.5425,
+      "avg_acc4": 0.506,
+      "avg_best": 0.5795,
+      "best_file": "lib\\domain\\ml_data\\dataset.ψ",
+      "best_acc": 0.91,
+      "timestamp": "2026-09-04T09:34:26.825665"
+    },
+    {
+      "round": 12,
+      "n_files": 20,
+      "avg_acc2": 0.486,
+      "avg_acc3": 0.428,
+      "avg_acc4": 0.3895,
+      "avg_best": 0.491,
+      "best_file": "lib\\domain\\ml_eval\\evaluator.ψ",
+      "best_acc": 0.82,
+      "timestamp": "2026-09-04T09:34:27.623389"
+    },
+    {
+      "round": 13,
+      "n_files": 20,
+      "avg_acc2": 0.5373,
+      "avg_acc3": 0.4987,
+      "avg_acc4": 0.4768,
+      "avg_best": 0.5492,
+      "best_file": "lib\\domain\\edge\\edge_compute.ψ",
+      "best_acc": 0.91,
+      "timestamp": "2026-09-04T09:34:28.366115"
+    },
+    {
+      "round": 14,
+      "n_files": 20,
+      "avg_acc2": 0.5705,
+      "avg_acc3": 0.552,
+      "avg_acc4": 0.5205,
+      "avg_best": 0.59,
+      "best_file": "lib\\physics\\pcd.ψ",
+      "best_acc": 0.81,
+      "timestamp": "2026-09-04T09:34:29.069517"
+    },
+    {
+      "round": 15,
+      "n_files": 20,
+      "avg_acc2": 0.532,
+      "avg_acc3": 0.4973,
+      "avg_acc4": 0.4607,
+      "avg_best": 0.5468,
+      "best_file": "lib\\compiler\\bootstrap\\verify_aot.ψ",
+      "best_acc": 0.8889,
+      "timestamp": "2026-09-04T09:34:29.815986",
+      "generated": {
+        "file": "auto_gen_r15.ψ",
+        "n_tokens": 165,
+        "compiled": true
+      }
+    },
+    {
+      "round": 16,
+      "n_files": 20,
+      "avg_acc2": 0.596,
+      "avg_acc3": 0.585,
+      "avg_acc4": 0.5745,
+      "avg_best": 0.6155,
+      "best_file": "lib\\domain\\blockchain\\ledger.ψ",
+      "best_acc": 0.88,
+      "timestamp": "2026-09-04T09:34:30.605495"
+    },
+    {
+      "round": 17,
+      "n_files": 20,
+      "avg_acc2": 0.5735,
+      "avg_acc3": 0.5145,
+      "avg_acc4": 0.489,
+      "avg_best": 0.5785,
+      "best_file": "lib\\domain\\backend\\jit_compiler.ψ",
+      "best_acc": 0.91,
+      "timestamp": "2026-09-04T09:34:31.457737"
+    },
+    {
+      "round": 18,
+      "n_files": 20,
+      "avg_acc2": 0.5763,
+      "avg_acc3": 0.5388,
+      "avg_acc4": 0.5007,
+      "avg_best": 0.5858,
+      "best_file": "lib\\core\\stdlib\\dag_scheduler.ψ",
+      "best_acc": 0.88,
+      "timestamp": "2026-09-04T09:34:32.136322"
+    },
+    {
+      "round": 19,
+      "n_files": 20,
+      "avg_acc2": 0.6155,
+      "avg_acc3": 0.579,
+      "avg_acc4": 0.5665,
+      "avg_best": 0.6185,
+      "best_file": "lib\\core\\stdlib\\gear_trace.ψ",
+      "best_acc": 0.88,
+      "timestamp": "2026-09-04T09:34:32.850044"
+    },
+    {
+      "round": 20,
+      "n_files": 20,
+      "avg_acc2": 0.4581,
+      "avg_acc3": 0.4143,
+      "avg_acc4": 0.3794,
+      "avg_best": 0.4734,
+      "best_file": "lib\\domain\\crypto\\hash.psi.ψ",
+      "best_acc": 0.75,
+      "timestamp": "2026-09-04T09:34:33.634012",
+      "generated": {
+        "file": "auto_gen_r20.ψ",
+        "n_tokens": 165,
+        "compiled": true
+      }
+    },
+    {
+      "round": 21,
+      "n_files": 20,
+      "avg_acc2": 0.5275,
+      "avg_acc3": 0.513,
+      "avg_acc4": 0.484,
+      "avg_best": 0.5485,
+      "best_file": "lib\\domain\\multi_tenant\\federation.ψ",
+      "best_acc": 0.91,
+      "timestamp": "2026-09-04T09:34:34.355830"
+    },
+    {
+      "round": 22,
+      "n_files": 20,
+      "avg_acc2": 0.5695,
+      "avg_acc3": 0.544,
+      "avg_acc4": 0.529,
+      "avg_best": 0.5845,
+      "best_file": "lib\\domain\\queue\\exactly_once.ψ",
+      "best_acc": 0.91,
+      "timestamp": "2026-09-04T09:34:35.140008"
+    },
+    {
+      "round": 23,
+      "n_files": 20,
+      "avg_acc2": 0.5519,
+      "avg_acc3": 0.5188,
+      "avg_acc4": 0.4786,
+      "avg_best": 0.5549,
+      "best_file": "lib\\domain\\iot\\device.ψ",
+      "best_acc": 0.91,
+      "timestamp": "2026-09-04T09:34:35.857062"
+    },
+    {
+      "round": 24,
+      "n_files": 20,
+      "avg_acc2": 0.4625,
+      "avg_acc3": 0.4205,
+      "avg_acc4": 0.3735,
+      "avg_best": 0.4725,
+      "best_file": "lib\\domain\\serialization\\protobuf.ψ",
+      "best_acc": 0.84,
+      "timestamp": "2026-09-04T09:34:36.686984"
+    },
+    {
+      "round": 25,
+      "n_files": 20,
+      "avg_acc2": 0.6325,
+      "avg_acc3": 0.6055,
+      "avg_acc4": 0.579,
+      "avg_best": 0.645,
+      "best_file": "lib\\domain\\queue\\dead_letter.ψ",
+      "best_acc": 0.91,
+      "timestamp": "2026-09-04T09:34:37.422974",
+      "generated": {
+        "file": "auto_gen_r25.ψ",
+        "n_tokens": 165,
+        "compiled": true
+      }
+    },
+    {
+      "round": 26,
+      "n_files": 20,
+      "avg_acc2": 0.4707,
+      "avg_acc3": 0.3958,
+      "avg_acc4": 0.3432,
+      "avg_best": 0.4717,
+      "best_file": "lib\\compiler\\bootstrap\\build_v13_4.ψ",
+      "best_acc": 0.8,
+      "timestamp": "2026-09-04T09:34:38.223933"
+    },
+    {
+      "round": 27,
+      "n_files": 20,
+      "avg_acc2": 0.601,
+      "avg_acc3": 0.581,
+      "avg_acc4": 0.5505,
+      "avg_best": 0.614,
+      "best_file": "lib\\domain\\extension\\hook.ψ",
+      "best_acc": 0.91,
+      "timestamp": "2026-09-04T09:34:38.947456"
+    },
+    {
+      "round": 28,
+      "n_files": 20,
+      "avg_acc2": 0.546,
+      "avg_acc3": 0.491,
+      "avg_acc4": 0.4745,
+      "avg_best": 0.551,
+      "best_file": "lib\\core\\domain\\quantum_complexity.ψ",
+      "best_acc": 0.78,
+      "timestamp": "2026-09-04T09:34:39.688158"
+    },
+    {
+      "round": 29,
+      "n_files": 20,
+      "avg_acc2": 0.5563,
+      "avg_acc3": 0.5228,
+      "avg_acc4": 0.4887,
+      "avg_best": 0.5633,
+      "best_file": "lib\\domain\\workflow\\saga.ψ",
+      "best_acc": 0.91,
+      "timestamp": "2026-09-04T09:34:40.634108"
+    },
+    {
+      "round": 30,
+      "n_files": 20,
+      "avg_acc2": 0.6,
+      "avg_acc3": 0.5535,
+      "avg_acc4": 0.5275,
+      "avg_best": 0.606,
+      "best_file": "lib\\domain\\queue\\broker.ψ",
+      "best_acc": 0.84,
+      "timestamp": "2026-09-04T09:34:41.429004",
+      "generated": {
+        "file": "auto_gen_r30.ψ",
+        "n_tokens": 165,
+        "compiled": true
+      }
+    }
+  ],
+  "top_curious": [
+    [
+      "lib\\domain\\infra\\super_arch.ψ",
+      2783
+    ],
+    [
+      "lib\\compiler\\bootstrap\\psi_to_wasm_trim.ψ",
+      1881
+    ],
+    [
+      "lib\\domain\\blockchain\\contract.ψ",
+      1771
+    ],
+    [
+      "lib\\domain\\chem\\periodic.ψ",
+      1754
+    ],
+    [
+      "lib\\compiler\\bootstrap\\wasm_aot_trim.ψ",
+      1719
+    ],
+    [
+      "lib\\core\\stdlib\\wasm_aot.ψ",
+      1713
+    ],
+    [
+      "lib\\domain\\event\\event_sourcing.ψ",
+      1704
+    ],
+    [
+      "lib\\physics\\unified_four_forces.ψ",
+      1697
+    ],
+    [
+      "lib\\domain\\blockchain\\ledger.ψ",
+      1645
+    ],
+    [
+      "lib\\domain\\secrets\\vault.ψ",
+      1609
+    ]
+  ],
+  "timestamp": "2026-09-04T09:34:41.450410"
+}

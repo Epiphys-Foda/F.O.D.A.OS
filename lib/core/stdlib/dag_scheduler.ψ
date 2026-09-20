@@ -1,0 +1,275 @@
+let sched_in_degree(dag) =
+    let result = []
+    let i = 0
+    let n = dag.len(nodes)
+    let done = false
+    for !done
+      if i < n
+        result = result.push(0)
+        i = i + 1
+      else
+        done = true
+    let ei = 0
+    let en = dag.len(edges)
+    let edone = false
+    for !edone
+      if ei < en
+        let e = dag.edges[ei]
+        let dst = e.dst_node
+        let nb = []
+        let bi = 0
+        let bn = len(result)
+        let bd = false
+        for !bd
+          if bi < bn
+            if bi == dst
+              nb = nb.push(result[bi] + 1)
+            else
+              nb = nb.push(result[bi])
+            bi = bi + 1
+          else
+            bd = true
+        result = nb
+        ei = ei + 1
+      else
+        edone = true
+    result
+
+let sched_ready(dag, done) =
+    let result = []
+    let i = 0
+    let n = dag.len(nodes)
+    let d = false
+    for !d
+      if i < n
+        if done[i] == 0
+          let blocked = false
+          let ei = 0
+          let en = dag.len(edges)
+          let ed = false
+          for !ed
+            if ei < en
+              let e = dag.edges[ei]
+              if e.dst_node == i && done[e.src_node] == 0
+                blocked = true
+              else
+                0
+              ei = ei + 1
+            else
+              ed = true
+          if blocked == false
+            result = result.push(i)
+          else
+              0
+        else
+          0
+        i = i + 1
+      else
+        d = true
+    result
+
+let sched_batch_size(dag, done) =
+    let ready = sched_ready(dag, done)
+    len(ready)
+
+let sched_mark_done(done, node_id) =
+    let result = []
+    let i = 0
+    let n = len(done)
+    let d = false
+    for !d
+      if i < n
+        if i == node_id
+          result = result.push(1)
+        else
+          result = result.push(done[i])
+          0
+        i = i + 1
+      else
+        d = true
+    result
+
+let sched_step(dag, eval_fn, done_flags) =
+    let nd = done_flags
+    let ord = []
+    let res = []
+    let count = 0
+    let ready = sched_ready(dag, nd)
+    if len(ready) > 0
+      count = len(ready)
+      let ri = 0
+      let rn = len(ready)
+      let rd = false
+      for !rd
+        if ri < rn
+          let node_id = ready[ri]
+          nd = sched_mark_done(nd, node_id)
+          ri = ri + 1
+        else
+          rd = true
+    else
+      0
+    [nd, count, ord, res]
+
+let append_all(arr, items) =
+    let out = arr
+    let i = 0
+    let n = len(items)
+    let d = false
+    for !d
+      if i < n
+        out = out.push(items[i])
+        i = i + 1
+      else
+        d = true
+    out
+
+let sched_depth_arr(dag) =
+    let depth = []
+    let i = 0
+    let n = dag.len(nodes)
+    let d = false
+    for !d
+      if i < n
+        depth = depth.push(1)
+        i = i + 1
+      else
+        d = true
+    let changed = true
+    for changed
+      changed = false
+      let ei = 0
+      let en = dag.len(edges)
+      let ed = false
+      for !ed
+        if ei < en
+          let e = dag.edges[ei]
+          let s2 = e.src_node
+          let t = e.dst_node
+          let cand = depth[s2] + 1
+          if cand > depth[t]
+            depth = [depth.slice(0, t).push(cand).flat(), depth.slice(t + 1, len(depth))].flat()
+            changed = true
+          else
+            0
+          ei = ei + 1
+        else
+          ed = true
+    depth
+
+let sched_layer_nodes(dag, depth, k) =
+    let result = []
+    let i = 0
+    let n = dag.len(nodes)
+    let d = false
+    for !d
+      if i < n
+        if depth[i] == k
+          result = result.push(i)
+        else
+          0
+        i = i + 1
+      else
+        d = true
+    result
+
+let sched_layer_results(dag, eval_fn, nodes) =
+    let ord = []
+    let res = []
+    let i = 0
+    let n = len(nodes)
+    let d = false
+    for !d
+      if i < n
+        let node_id = nodes[i]
+        let node = dag.nodes[node_id]
+        let r = eval_fn(node_id, node.opcode, node.pe_type)
+        ord = ord.push(node_id)
+        res = res.push(r)
+        i = i + 1
+      else
+        d = true
+    [ord, res]
+
+let run_layer(dag, depth, max_depth, eval_fn, k, num_batches, max_parallel, order, results) =
+  let nodes = sched_layer_nodes(dag, depth, k)
+  let batch = sched_layer_results(dag, eval_fn, nodes)
+  let new_nb = num_batches + 1
+  let new_mp = (len(nodes) > max_parallel ? len(nodes) : max_parallel)
+  let new_order = append_all(order, batch[0])
+  let new_results = append_all(results, batch[1])
+  if k >= max_depth
+    { num_batches: new_nb, max_parallel: new_mp, order: new_order, results: new_results, critical_path: max_depth }
+  else
+    run_layer(dag, depth, max_depth, eval_fn, k + 1, new_nb, new_mp, new_order, new_results)
+
+let sched_run(dag, eval_fn) =
+    let depth = sched_depth_arr(dag)
+    let max_depth = sched_critical_path(dag)
+    run_layer(dag, depth, max_depth, eval_fn, 1, 0, 0, [], [])
+
+let sched_critical_path(dag) =
+    let depth = []
+    let i = 0
+    let n = dag.len(nodes)
+    let d = false
+    for !d
+      if i < n
+        depth = depth.push(1)
+        i = i + 1
+      else
+        d = true
+        0
+      0
+    let changed = true
+    for changed
+      changed = false
+      let ei = 0
+      let en = dag.len(edges)
+      let ed = false
+      for !ed
+        if ei < en
+          let e = dag.edges[ei]
+          let s = e.src_node
+          let t = e.dst_node
+          let cand = depth[s] + 1
+          if cand > depth[t]
+            depth = [depth.slice(0, t).push(cand).flat(), depth.slice(t + 1, len(depth))].flat()
+            changed = true
+          else
+            0
+          ei = ei + 1
+        else
+          ed = true
+          0
+        0
+    let mx = 0
+    let mi = 0
+    let mn = len(depth)
+    let md = false
+    for !md
+      if mi < mn
+        if depth[mi] > mx
+          mx = depth[mi]
+        else
+          0
+        mi = mi + 1
+      else
+        md = true
+    mx
+
+let sched_parallelism_profile(dag) =
+    let depth = sched_depth_arr(dag)
+    let max_depth = sched_critical_path(dag)
+    let profile = []
+    let k = 1
+    let done = false
+    for !done
+      if k <= max_depth
+        let layer = sched_layer_nodes(dag, depth, k)
+        profile = profile.push(len(layer))
+        k = k + 1
+      else
+        done = true
+    profile
+

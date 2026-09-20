@@ -1,0 +1,26 @@
+let g0_apply(op) =
+    let result = 0
+    if op == OP_OBSERVE()
+        result = g0_fingerprint()
+    else
+        0
+    if op == OP_GALOIS()
+        result = gf_pow(g0_fingerprint(), 2)
+    else
+        0
+    if op == OP_HOMOLOGY()
+        result = gf_mul(G0_N(), 100)
+    else
+        0
+    if op == OP_COMPILE()
+        result = g0_fingerprint()
+    else
+        0
+    if op == OP_SELF_VERIFY()
+        result = g0_fingerprint()
+    else
+        0
+    if op == OP_META_OBSERVE()
+        result = gf_mul(g0_fingerprint(), g0_fingerprint())
+    result
+
