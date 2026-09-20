@@ -4,6 +4,8 @@
 
 ---
 
+> **作者联系**：support@epiphys.com · **代码仓库**：https://github.com/Epiphys-Foda/F.O.D.A.OS · **项目主页**：https://www.epiphys.com/
+
 **作者**: Pan JinWen [Cypher Pan]
 
 **摘要**. 当精确线性代数系统产生的有理数值通过冗余剩余数系统（RNS）传输时，单个信道的损坏提出了经典 RRNS 纠错理论未能回答的问题：有理重构是否仍返回真值？若否，失败至少可检测吗？我们用一条不等式回答。设 $M$ 为两两互素奇模数之积，$B = \lfloor\sqrt{M/2}\rfloor$，$w = n/d$ 为既约有理数且 $\gcd(d, M) = 1$，残差在通道集 $C$ 上被非零单位偏移腐蚀，$W(c) = \prod_{i\in C} m_i$。则腐蚀残差的有理重构返回 $w$ **当且仅当** $W(c) \cdot \max(|n|, d) \leq B$（**预算大定理**）。证明为格-共线性论证，唯一分析前提 $2B^2 < M$ 因 $M$ 为奇数而自动成立。

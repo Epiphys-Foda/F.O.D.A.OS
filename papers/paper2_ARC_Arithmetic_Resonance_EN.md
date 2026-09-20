@@ -4,6 +4,8 @@
 
 ---
 
+> **Contact**: support@epiphys.com · **Code**: https://github.com/Epiphys-Foda/F.O.D.A.OS · **Project**: https://www.epiphys.com/
+
 **Author**: Pan JinWen [Cypher Pan]
 
 **Abstract**: This paper proposes the Arithmetic Resonance Computer (ARC), a new computing architecture that takes integer algebra as the computational substrate and resonance semantics as the computational paradigm, positioned as an algebraic replacement for the traditional control-flow programming paradigm rather than a superimposed layer. The core of ARC consists of five native operators: GF(p) multiplication ⊙, Clifford geometric product ◦, Bragg resonance/NTT ≋, Born selection ↡, and Hebbian sculpting ∆, unifying arithmetic (how to compute) and resonance (what to compute) into a single instruction set. We prove the Turing completeness of ARC (Born selection provides conditional control + extensible GF(p) arrays provide unbounded storage + Hebbian iteration implements general loops + finite instruction set + NAND implementable), establish the algebraic resonance structure (the strongest resonance chain is the Conway λ ↔ PV numbers → Mahler/Salem triangular closed loop), prove that the Fermat prime p=65537 provides an exact integer anchor for ARC (quantum gates H/S/T, NTT, Yang-Baxter and other operations all become pure integer modular operations), establish the correspondence between ARC and the CGL master equation (arithmetic resonance = the arithmetic version of PCD, the five operators correspond to the fivefold projection), propose the Quantum Arithmetic Resonance Dual Computer QARDC, and present the engineering implementation and verification results (edge device 78μs/query, training-free, no GPU required).

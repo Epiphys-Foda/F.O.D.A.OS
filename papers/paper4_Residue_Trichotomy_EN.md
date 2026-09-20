@@ -1,5 +1,7 @@
 # FodaOS Unified Field Theory Series IV: The Residueon Trichotomy and the Residue Field — Non-Differential Generation of Nested Fractals, Reciprocity Siting, and Group-Theoretic Unified Stratification
 
+> **Contact**: support@epiphys.com · **Code**: https://github.com/Epiphys-Foda/F.O.D.A.OS · **Project**: https://www.epiphys.com/
+
 **Author**: Pan JinWen [Cypher Pan]
 
 **Terminology**. Two Chinese terms that are easily conflated in English are distinguished throughout. The **liushu** 留数 (**residue**) is the coefficient $r_k$ in the residue field $\psi(z)=\sum_k r_k/(z-z_k)^{n_k}$; the standard complex-analytic term is retained. The **liusu** 留素 (**residueon**; plural *residueons*) is the primitive of this paper: **the self-similar unit whose every pole carries an internal residue field of its own** — the "element of residues".

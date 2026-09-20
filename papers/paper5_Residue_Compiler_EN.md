@@ -4,6 +4,8 @@
 
 ---
 
+> **Contact**: support@epiphys.com · **Code**: https://github.com/Epiphys-Foda/F.O.D.A.OS · **Project**: https://www.epiphys.com/
+
 ## 1 Introduction
 
 ### 1.1 Problem Statement: The Triple Crisis of Compilers

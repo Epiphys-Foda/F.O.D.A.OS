@@ -6,6 +6,8 @@
 
 ---
 
+> **作者联系**：support@epiphys.com · **代码仓库**：https://github.com/Epiphys-Foda/F.O.D.A.OS · **项目主页**：https://www.epiphys.com/
+
 ## 1 引言
 
 ### 1.1 问题陈述：编译器的三重危机

@@ -2,6 +2,8 @@
 
 ---
 
+> **Contact**: support@epiphys.com · **Code**: https://github.com/Epiphys-Foda/F.O.D.A.OS · **Project**: https://www.epiphys.com/
+
 **Author**: Pan JinWen [Cypher Pan]
 
 **Abstract**: This paper proposes that the complex Ginzburg-Landau (CGL) equation, through a five-term extension and three topological constraints, can be unified into a mother equation, providing an effective field equation framework for dissipative wave-field systems with phase coherence divergence feedback. The PCD (Phase Coherence Divergence) term adopts a purely imaginary coefficient −iγ, producing only phase modulation (frequency pulling) and no amplitude decay. We prove that 18 principal formulas (F1–F18) can converge to the mother equation plus three constraints, establish twenty-one degeneration paths (including strict degenerations to diffusion, Turing, CGL, Fisher-KPP, Allen-Cahn, Stuart-Landau, Poisson, GL steady-state, etc., and analytic continuation / structural extension degenerations to Schrödinger, Maxwell, etc.), and construct a five-fold mapping structure among CGL/Hopf/PCD/Wilson/free energy. Key results include: (1) The Hopf antipode S and the phase conjugation operation share the involution property (Conjecture Hopf-1, requiring construction of a cross-category functor); (2) The PCD divergence and the gauge divergence of the Wilson loop share an identical algebraic structure (Conjecture Wilson-1: in the non-Abelian SU(N) case, the discrete → continuous limit is strictly equivalent); (3) The topological-HDC homomorphism mapping formally binds physical topological charge to hyperdimensional computing cyclic shift, yielding the cognitive capacity limit N/2 (Constraint ③, group-theoretic proof: π₁(S¹)=ℤ → First Isomorphism Theorem).

@@ -2,6 +2,8 @@
 
 ---
 
+> **Contact**: support@epiphys.com · **Code**: https://github.com/Epiphys-Foda/F.O.D.A.OS · **Project**: https://www.epiphys.com/
+
 **Author**: Pan JinWen [Cypher Pan]
 
 **Abstract**. When rational values produced by exact linear-algebra systems are carried in a Redundant Residue Number System (RNS), a single corrupted channel raises a question that classical RRNS error theory does not address: does rational reconstruction still return the true value, and if not, is the failure at least detectable? We answer with one inequality. Let $M$ be a product of pairwise-coprime odd moduli, $B = \lfloor\sqrt{M/2}\rfloor$, $w = n/d$ a reduced rational with $\gcd(d, M) = 1$, and let the residues be corrupted on channels $C$ by non-zero units with $W(c) = \prod_{i\in C} m_i$. Then the rational reconstruction of the corrupted residue returns $w$ **if and only if** $W(c) \cdot \max(|n|, d) \leq B$ (**Budget Theorem**). The proof is a lattice-collinearity argument whose only analytic input — $2B^2 < M$ — holds automatically because $M$ is odd.

@@ -4,6 +4,8 @@
 
 ---
 
+> **作者联系**：support@epiphys.com · **代码仓库**：https://github.com/Epiphys-Foda/F.O.D.A.OS · **项目主页**：https://www.epiphys.com/
+
 **作者**: Pan JinWen [Cypher Pan]
 
 **术语约定**. 本文区分两个在英文中易混的中文术语: **留数**（residue）指留数场 $\psi(z)=\sum_k r_k/(z-z_k)^{n_k}$ 中的系数 $r_k$, 沿用复分析的标准译名; **留素**（**residueon**, 复数字 residueons）指本文的核心原语——**其每个极点自身携带一个内部留数场的自相似单元**, 即"留数之元"。

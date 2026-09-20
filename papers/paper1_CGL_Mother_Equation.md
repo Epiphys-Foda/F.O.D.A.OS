@@ -4,6 +4,8 @@
 
 ---
 
+> **作者联系**：support@epiphys.com · **代码仓库**：https://github.com/Epiphys-Foda/F.O.D.A.OS · **项目主页**：https://www.epiphys.com/
+
 **作者**: Pan JinWen [Cypher Pan]
 
 **摘要**: 本文提出，复Ginzburg-Landau (CGL)方程通过五项扩展与三个拓扑约束，可统一为一个母方程，为含相位色散反馈的耗散波场系统提供有效场方程框架。PCD（相位色散）项采用纯虚数系数−iγ，仅产生相位调制（频率牵引），不产生振幅衰减。我们证明18个主公式（F1–F18）可收敛到母方程加三个约束，给出二十一条退化路径（含扩散、图灵、CGL、Fisher-KPP、Allen-Cahn、Stuart-Landau、Poisson、GL稳态等严格退化，及薛定谔、Maxwell等解析延拓/结构扩展退化），建立CGL/Hopf/PCD/Wilson/自由能五重映射结构。关键结果包括：(1) Hopf对极S与相位共轭操作共享对合性质（猜想Hopf-1，需构造跨范畴函子）；(2) PCD散度与Wilson圈的规范散度代数结构一致（猜想Wilson-1：非阿贝尔SU(N)情形下离散→连续极限严格等价）；(3) 拓扑-HDC同态映射将物理拓扑荷与超维计算循环移位形式化绑定，推导出认知容量极限N/2（约束③，群论证明：π₁(S¹)=ℤ → 第一同构定理）。

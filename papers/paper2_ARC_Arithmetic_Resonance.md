@@ -4,6 +4,8 @@
 
 ---
 
+> **作者联系**：support@epiphys.com · **代码仓库**：https://github.com/Epiphys-Foda/F.O.D.A.OS · **项目主页**：https://www.epiphys.com/
+
 **作者**: Pan JinWen [Cypher Pan]
 
 **摘要**: 本文提出算术共振计算机（Arithmetic Resonance Computer, ARC），一种以整数代数为计算基底、以共振语义为计算范式的新计算架构，定位为对传统控制流编程范式的代数化替代而非叠加层。ARC的核心是五个原生操作符：GF(p)乘法⊙、Clifford几何积◦、Bragg共振/NTT ≋、Born选择↡、Hebbian雕刻∆，将算术（怎么算）与共振（算什么）统一为单一指令集。我们证明ARC的图灵完备性（Born选择提供条件控制+可扩展GF(p)数组提供无界存储+Hebbian迭代实现通用循环+有限指令集+NAND可实现），建立代数共振结构（最强共振链为康威λ↔PV数→Mahler/Salem三角闭环），证明费马素数p=65537为ARC提供精确整数锚点（量子门H/S/T、NTT、Yang-Baxter等运算全部成为纯整数模运算），建立ARC与CGL母方程的对应（算术共振=PCD的算术版，五操作符对应五重投影），提出量子算术共振对偶计算机QARDC，并展示工程实现与验证结果（边缘设备78μs/query，训练-free，无需GPU）。
