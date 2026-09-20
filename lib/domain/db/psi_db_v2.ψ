@@ -147,6 +147,7 @@ let rk_putv_grown(db, key, val, ver) =
         db[7] = nk2
         db[8] = lv2
         db[9] = ds2
+        db = rk_wal_add(db, RK_OP_PUT, key, val, ver)
     db
 
 let rk_putv(db, key, val, ver) =
