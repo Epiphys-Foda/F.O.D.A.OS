@@ -5,3 +5,9 @@
 *.md text
 *.json text
 bin/qlc2.exe binary
+
+# GitHub language stats: .ψ/.psi are PsiLang (registration in github/linguist pending —
+# the linguist-language override activates once the language is known upstream)
+*.psi linguist-language=PsiLang
+*.ψ linguist-language=PsiLang
+*.wgsl linguist-detectable=false
